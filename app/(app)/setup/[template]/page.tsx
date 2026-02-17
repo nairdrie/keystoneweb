@@ -1,25 +1,32 @@
 'use client';
 
 import { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 
 interface SetupPageProps {
-  params: {
+  params: Promise<{
     template: string;
-  };
+  }>;
 }
 
-export default function SetupPage({ params }: SetupPageProps) {
+export default function SetupPage(props: SetupPageProps) {
   const [siteName, setSiteName] = useState('');
   const [domain, setDomain] = useState('');
   const [loading, setLoading] = useState(false);
+  const [template, setTemplate] = useState('');
+
+  // Handle async params in client component
+  React.useEffect(() => {
+    props.params.then(({ template: t }) => setTemplate(t));
+  }, [props.params]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     // Simulate API call to create site
-    console.log('Creating site:', { template: params.template, siteName, domain });
+    console.log('Creating site:', { template, siteName, domain });
     
     // In a real app, you'd call an API here
     setTimeout(() => {
@@ -42,7 +49,7 @@ export default function SetupPage({ params }: SetupPageProps) {
 
         <div className="bg-slate-800 border border-slate-700 rounded-lg p-8">
           <h1 className="text-2xl font-bold text-white mb-2">
-            Setup Your {params.template.charAt(0).toUpperCase() + params.template.slice(1)} Site
+            Setup Your {template.charAt(0).toUpperCase() + template.slice(1)} Site
           </h1>
           <p className="text-slate-400 mb-6">
             Fill in your site details below

@@ -1,9 +1,9 @@
 import { getSiteData, getPageContent } from '@/lib/data';
 
 interface ClientPageProps {
-  params: {
+  params: Promise<{
     domain: string;
-  };
+  }>;
 }
 
 /**
@@ -140,8 +140,9 @@ function renderSection(section: any, theme: any, index: number) {
 }
 
 export default async function ClientPage({ params }: ClientPageProps) {
-  const site = await getSiteData(params.domain);
-  const pageContent = await getPageContent(params.domain, '');
+  const { domain } = await params;
+  const site = await getSiteData(domain);
+  const pageContent = await getPageContent(domain, '');
 
   if (!site || !pageContent) {
     return (

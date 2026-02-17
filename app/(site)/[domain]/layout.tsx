@@ -3,13 +3,14 @@ import { getSiteData } from '@/lib/data';
 
 interface SiteLayoutProps {
   children: ReactNode;
-  params: {
+  params: Promise<{
     domain: string;
-  };
+  }>;
 }
 
 export async function generateMetadata({ params }: SiteLayoutProps) {
-  const site = await getSiteData(params.domain);
+  const { domain } = await params;
+  const site = await getSiteData(domain);
 
   if (!site) {
     return {
@@ -28,14 +29,15 @@ export default async function SiteLayout({
   children,
   params,
 }: SiteLayoutProps) {
-  const site = await getSiteData(params.domain);
+  const { domain } = await params;
+  const site = await getSiteData(domain);
 
   if (!site) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-100">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Site Not Found</h1>
-          <p className="text-gray-600">The site for {params.domain} does not exist.</p>
+          <p className="text-gray-600">The site for {domain} does not exist.</p>
         </div>
       </div>
     );
