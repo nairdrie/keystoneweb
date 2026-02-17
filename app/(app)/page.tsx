@@ -35,15 +35,15 @@ export default function HomePage() {
 
           <h1 className="text-7xl md:text-8xl font-black tracking-tighter mb-6 leading-tight">
             <span className="bg-gradient-to-r from-blue-400 via-blue-500 to-cyan-500 bg-clip-text text-transparent">
-              Build Beautiful
+              Your Website,
             </span>
             <br />
-            <span className="text-white">Web Experiences</span>
+            <span className="text-white">Built in Minutes</span>
           </h1>
 
           <p className="text-xl text-slate-400 mb-12 max-w-2xl mx-auto leading-relaxed">
-            Keystone gives you the power to create stunning, multi-tenant websites at scale. 
-            One codebase. Unlimited possibilities. Enterprise-grade infrastructure.
+            No technical skills needed. Launch a professional website that turns visitors into customers. 
+            Get online, look professional, grow your business—starting today.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
@@ -51,14 +51,14 @@ export default function HomePage() {
               href="/templates"
               className="px-8 py-4 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-xl hover:shadow-blue-500/50 group"
             >
-              Start Building
+              Create Your Website
               <span className="inline-block ml-2 group-hover:translate-x-1 transition-transform">→</span>
             </Link>
             <Link
               href="#features"
               className="px-8 py-4 rounded-xl bg-white/10 backdrop-blur-xl border border-white/20 text-white font-semibold hover:bg-white/20 transition-all"
             >
-              Learn More
+              See How It Works
             </Link>
           </div>
 
@@ -68,16 +68,16 @@ export default function HomePage() {
             <div className="relative bg-white/10 backdrop-blur-2xl rounded-2xl border border-white/20 p-8 shadow-2xl">
               <div className="grid grid-cols-3 gap-8 text-center">
                 <div>
-                  <div className="text-4xl font-black bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">1M+</div>
-                  <p className="text-sm text-slate-400 mt-2">Sites Possible</p>
+                  <div className="text-4xl font-black bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">5 min</div>
+                  <p className="text-sm text-slate-400 mt-2">To Launch</p>
                 </div>
                 <div>
-                  <div className="text-4xl font-black bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">99%</div>
-                  <p className="text-sm text-slate-400 mt-2">Cost Savings</p>
+                  <div className="text-4xl font-black bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">$49</div>
+                  <p className="text-sm text-slate-400 mt-2">Per Month</p>
                 </div>
                 <div>
-                  <div className="text-4xl font-black bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">0</div>
-                  <p className="text-sm text-slate-400 mt-2">Deployments</p>
+                  <div className="text-4xl font-black bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">∞</div>
+                  <p className="text-sm text-slate-400 mt-2">Possibilities</p>
                 </div>
               </div>
             </div>
@@ -88,42 +88,42 @@ export default function HomePage() {
       {/* Features Section */}
       <section id="features" className="py-20 px-4 sm:px-6 lg:px-8 border-t border-white/5">
         <div className="mx-auto max-w-6xl">
-          <h2 className="text-5xl font-black text-white mb-4 text-center">Why Keystone</h2>
+          <h2 className="text-5xl font-black text-white mb-4 text-center">Built for Your Success</h2>
           <p className="text-center text-slate-400 mb-16 max-w-2xl mx-auto">
-            Built for developers who demand more from their CMS
+            Everything you need to get online and start selling
           </p>
 
           <div className="grid md:grid-cols-3 gap-6">
             {[
               {
-                title: 'Single Codebase',
-                description: 'One Next.js app powers unlimited customer websites',
+                title: 'Lightning Fast Setup',
+                description: 'Choose a template, add your info, go live. No waiting, no confusion.',
                 icon: '⚡',
               },
               {
-                title: 'Liquid Glass UI',
-                description: 'Apple-inspired design with frosted glass effects',
+                title: 'Professional Design',
+                description: 'Beautiful, modern templates that make you look like a big brand',
                 icon: '✨',
               },
               {
-                title: 'Zero Redeployment',
-                description: 'Add new sites with just a database entry',
-                icon: '🚀',
+                title: 'Mobile Ready',
+                description: 'Your site looks perfect on phones, tablets, and computers',
+                icon: '📱',
               },
               {
-                title: 'Enterprise Scale',
-                description: 'Handle millions of sites on shared infrastructure',
-                icon: '🏗️',
+                title: 'Easy to Update',
+                description: 'Change your content without learning code',
+                icon: '✏️',
               },
               {
-                title: 'Full Control',
-                description: 'Own your data, code, and infrastructure',
-                icon: '🔐',
+                title: 'Built for Growth',
+                description: 'Scales with your business as you grow',
+                icon: '📈',
               },
               {
-                title: 'Beautiful Templates',
-                description: 'Pre-built, customizable designs for any industry',
-                icon: '🎨',
+                title: 'Affordable',
+                description: 'No hidden fees, no surprises. Transparent pricing.',
+                icon: '💰',
               },
             ].map((feature) => (
               <div
@@ -145,15 +145,15 @@ export default function HomePage() {
       {/* CTA Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-4xl text-center">
-          <h2 className="text-5xl font-black text-white mb-6">Ready to Build?</h2>
+          <h2 className="text-5xl font-black text-white mb-6">Your Website Awaits</h2>
           <p className="text-xl text-slate-400 mb-12">
-            Join developers building the next generation of multi-tenant platforms
+            Stop waiting. Get online today and start attracting customers tomorrow.
           </p>
           <Link
             href="/templates"
             className="inline-block px-10 py-5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold text-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-2xl hover:shadow-blue-500/50"
           >
-            Explore Templates
+            Start Your Free Website
           </Link>
         </div>
       </section>
