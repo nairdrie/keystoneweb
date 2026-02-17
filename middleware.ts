@@ -9,7 +9,8 @@ export function middleware(request: NextRequest) {
     hostname.includes('localhost') || 
     hostname.includes('app.') ||
     hostname.includes('vercel.app') ||
-    hostname === 'keystoneweb.com' ||
+    hostname.includes('keystoneweb.ca') ||
+    hostname.includes('keystoneweb.com') ||
     hostname.startsWith('127.0.0.1');
 
   // If it's the app/dashboard domain, serve normally
