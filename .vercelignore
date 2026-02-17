@@ -1,0 +1,13 @@
+# Vercel build cache - clear on every deployment for fresh builds
+.next/
+out/
+
+# Development
+.env.local
+.env.*.local
+
+# Testing
+coverage/
+
+# OS
+.DS_Store
