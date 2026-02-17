@@ -5,10 +5,14 @@ export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // Extract the subdomain/domain
-  const parts = hostname.split('.');
-  const isAppDomain = hostname.includes('app.') || hostname === 'localhost:3000';
+  const isAppDomain = 
+    hostname.includes('localhost') || 
+    hostname.includes('app.') ||
+    hostname.includes('vercel.app') ||
+    hostname === 'keystoneweb.com' ||
+    hostname.startsWith('127.0.0.1');
 
-  // If it's the app/dashboard domain (app.yourdomain.com or localhost), serve normally
+  // If it's the app/dashboard domain, serve normally
   if (isAppDomain) {
     return NextResponse.next();
   }
@@ -31,6 +35,6 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     // Match all routes except static files and API routes
-    '/((?!_next/static|_next/image|favicon.ico|api).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api|robots.txt).*)',
   ],
 };
