@@ -210,3 +210,8 @@ See `ARCHITECTURE.md` for:
 - Database schema
 - Scaling strategy
 - Future enhancements
+
+## Vercel Deployment
+
+This project is automatically deployed to Vercel on every push to main.
+No manual deployment steps needed!
