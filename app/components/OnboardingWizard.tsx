@@ -28,7 +28,7 @@ const BUSINESS_TYPES = [
   },
 ];
 
-const CATEGORIES: Record<BusinessType, any[]> = {
+const CATEGORIES: Record<Exclude<BusinessType, null>, any[]> = {
   services: [
     { id: 'handyman', label: 'Handyman', icon: '🔧' },
     { id: 'plumber', label: 'Plumber', icon: '🚰' },
@@ -107,9 +107,9 @@ export default function OnboardingWizard() {
     }
   };
 
-  const categories = businessType ? CATEGORIES[businessType] : [];
-  const templates = category
-    ? TEMPLATES[category as keyof typeof TEMPLATES] || TEMPLATES.default
+  const categories = businessType ? CATEGORIES[businessType as Exclude<BusinessType, null>] : [];
+  const templates = category && category in TEMPLATES
+    ? TEMPLATES[category as keyof typeof TEMPLATES]
     : TEMPLATES.default;
 
   return (
