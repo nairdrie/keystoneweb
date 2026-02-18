@@ -53,7 +53,6 @@ const CATEGORIES: Record<Exclude<BusinessType, null>, any[]> = {
     { id: 'studio', label: 'Creative Studio', icon: '🎭' },
     { id: 'retail', label: 'Retail + Services', icon: '🏪' },
   ],
-  null: [],
 };
 
 const TEMPLATES = {
