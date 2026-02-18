@@ -1,45 +1,54 @@
 export default function KeystoneLogoCanadian() {
   return (
     <div className="flex items-center gap-4">
-      {/* Keystone with Maple Leaf Negative Space */}
+      {/* Keystone Icon with Proper Maple Leaf */}
       <div className="relative w-14 h-14 flex items-center justify-center">
         <svg
           viewBox="0 0 64 64"
-          className="w-full h-full"
+          className="w-full h-full drop-shadow-md"
           xmlns="http://www.w3.org/2000/svg"
         >
-          {/* Keystone outline in red */}
+          {/* Red Keystone Background */}
+          <defs>
+            <linearGradient id="keystoneRed" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style={{ stopColor: '#dc2626', stopOpacity: 1 }} />
+              <stop offset="100%" style={{ stopColor: '#b91c1c', stopOpacity: 1 }} />
+            </linearGradient>
+          </defs>
+          
+          {/* Main Keystone Shape */}
           <path
-            d="M 32 8 L 48 20 L 44 44 L 20 44 L 16 20 Z"
-            fill="#dc2626"
-            stroke="none"
+            d="M 32 6 L 50 18 L 46 48 L 18 48 L 14 18 Z"
+            fill="url(#keystoneRed)"
+            stroke="#991b1b"
+            strokeWidth="0.5"
           />
           
-          {/* Maple Leaf as negative space (white) */}
-          <g fill="white">
-            {/* Maple leaf simplified shape in center */}
-            {/* Stem */}
-            <rect x="30" y="28" width="4" height="8" rx="2" />
+          {/* Keystone highlight for depth */}
+          <path
+            d="M 32 10 L 46 20 L 43 44 L 21 44 L 18 20 Z"
+            fill="none"
+            stroke="rgba(255,255,255,0.2)"
+            strokeWidth="1.5"
+          />
+          
+          {/* White Maple Leaf - Centered and Clean */}
+          <g transform="translate(32, 28)">
+            {/* Leaf outline with proper points */}
+            <path
+              d="M 0,-10 L 2,-5 L 6,-6 L 3,-1 L 6,3 L 2,1 L 0,6 L -2,1 L -6,3 L -3,-1 L -6,-6 L -2,-5 Z"
+              fill="white"
+              stroke="none"
+            />
             
-            {/* Center point */}
-            <circle cx="32" cy="26" r="3" />
-            
-            {/* Top point */}
-            <path d="M 32 18 L 30 22 L 34 22 Z" />
-            
-            {/* Left points */}
-            <path d="M 20 24 L 24 26 L 22 30 Z" />
-            <path d="M 16 28 L 22 28 L 20 34 Z" />
-            
-            {/* Right points */}
-            <path d="M 44 24 L 40 26 L 42 30 Z" />
-            <path d="M 48 28 L 42 28 L 44 34 Z" />
-            
-            {/* Bottom left */}
-            <path d="M 24 36 L 26 32 L 30 36 Z" />
-            
-            {/* Bottom right */}
-            <path d="M 40 36 L 38 32 L 34 36 Z" />
+            {/* Leaf details/veins */}
+            <path
+              d="M 0,-10 L 0,5"
+              stroke="rgba(255,255,255,0.6)"
+              strokeWidth="0.5"
+              fill="none"
+              opacity="0.7"
+            />
           </g>
         </svg>
       </div>
