@@ -40,7 +40,7 @@ export default function SetupPage(props: SetupPageProps) {
       <div className="mx-auto max-w-md px-4 sm:px-6">
         <div className="mb-8">
           <Link
-            href="/templates"
+            href="/onboarding"
             className="text-blue-400 hover:text-blue-300 text-sm font-semibold"
           >
             ← Back to Templates
