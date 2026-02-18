@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import KeystoneLogo from './KeystoneLogo';
+import Header from './Header';
 
 type BusinessType = 'services' | 'products' | 'both' | null;
 type Category = string | null;
@@ -30,16 +30,18 @@ const BUSINESS_TYPES = [
 
 const CATEGORIES: Record<Exclude<BusinessType, null>, any[]> = {
   services: [
-    { id: 'handyman', label: 'Handyman', icon: '🔧' },
-    { id: 'plumber', label: 'Plumber', icon: '🚰' },
-    { id: 'electrical', label: 'Electrician', icon: '⚡' },
-    { id: 'hvac', label: 'HVAC/Heating', icon: '🌡️' },
-    { id: 'cleaning', label: 'Cleaning', icon: '🧹' },
-    { id: 'landscaping', label: 'Landscaping', icon: '🌿' },
-    { id: 'consulting', label: 'Consulting', icon: '💼' },
-    { id: 'freelance', label: 'Freelancer', icon: '💻' },
-    { id: 'salon', label: 'Salon/Spa', icon: '💅' },
-    { id: 'fitness', label: 'Fitness/Coaching', icon: '💪' },
+    { id: 'handyman', label: 'Handyman', example: 'General repairs & maintenance', icon: '🔧' },
+    { id: 'plumber', label: 'Plumber', example: 'Plumbing & repairs', icon: '🚰' },
+    { id: 'electrical', label: 'Electrician', example: 'Electrical services', icon: '⚡' },
+    { id: 'hvac', label: 'HVAC/Heating', example: 'Heating & cooling systems', icon: '🌡️' },
+    { id: 'mechanic', label: 'Mechanic', example: 'Auto repair & service', icon: '🚗' },
+    { id: 'trades', label: 'Trades', example: 'Carpentry, welding, etc.', icon: '🛠️' },
+    { id: 'cleaning', label: 'Cleaning', example: 'House & office cleaning', icon: '🧹' },
+    { id: 'landscaping', label: 'Landscaping', example: 'Lawn & garden services', icon: '🌿' },
+    { id: 'consulting', label: 'Consulting', example: 'Business consulting', icon: '💼' },
+    { id: 'freelance', label: 'Freelancer', example: 'Writing, design, coding', icon: '💻' },
+    { id: 'salon', label: 'Salon/Spa', example: 'Hair, nails, massage', icon: '💅' },
+    { id: 'fitness', label: 'Fitness/Coaching', example: 'Training & coaching', icon: '💪' },
   ],
   products: [
     { id: 'ecommerce', label: 'E-Commerce Store', icon: '🛍️' },
@@ -112,21 +114,23 @@ export default function OnboardingWizard() {
     : TEMPLATES.default;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-black">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="border-b border-white/5 bg-gradient-to-b from-slate-950/80 to-slate-950/0 backdrop-blur-xl">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between mb-8">
-            <KeystoneLogo />
-            <div className="text-sm text-slate-400">
+      <Header />
+
+      {/* Progress Section */}
+      <div className="border-b border-slate-200 bg-white pt-20 pb-4">
+        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-slate-900">
               Step {step} of 3
-            </div>
+            </h2>
           </div>
 
           {/* Progress Bar */}
-          <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+          <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-blue-400 to-cyan-500 transition-all duration-500"
+              className="h-full bg-red-600 transition-all duration-500"
               style={{ width: `${(step / 3) * 100}%` }}
             />
           </div>
@@ -138,10 +142,10 @@ export default function OnboardingWizard() {
         {/* Step 1: Business Type */}
         {step === 1 && (
           <div className="animate-fade-in">
-            <h1 className="text-5xl font-black text-white mb-4 text-center">
+            <h1 className="text-5xl font-black text-slate-900 mb-4 text-center">
               What Do You Do?
             </h1>
-            <p className="text-xl text-slate-400 mb-16 text-center max-w-2xl mx-auto">
+            <p className="text-xl text-slate-600 mb-16 text-center max-w-2xl mx-auto">
               Tell us about your business so we can find the perfect template
             </p>
 
@@ -150,14 +154,13 @@ export default function OnboardingWizard() {
                 <button
                   key={type.id}
                   onClick={() => handleBusinessType(type.id as BusinessType)}
-                  className="group relative bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-8 hover:bg-white/10 hover:border-blue-500/50 transition-all duration-300 text-left"
+                  className="group relative bg-white rounded-2xl border border-slate-200 p-8 hover:border-red-300 hover:shadow-lg transition-all duration-300 text-left"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl opacity-0 group-hover:opacity-5 transition-opacity" />
                   <div className="relative">
                     <div className="text-5xl mb-4">{type.icon}</div>
-                    <h3 className="text-2xl font-bold text-white mb-2">{type.label}</h3>
-                    <p className="text-slate-400">{type.description}</p>
-                    <div className="mt-6 text-blue-400 font-semibold group-hover:translate-x-1 transition-transform">
+                    <h3 className="text-2xl font-bold text-slate-900 mb-2">{type.label}</h3>
+                    <p className="text-slate-600">{type.description}</p>
+                    <div className="mt-6 text-red-600 font-semibold group-hover:translate-x-1 transition-transform">
                       Choose →
                     </div>
                   </div>
@@ -170,10 +173,10 @@ export default function OnboardingWizard() {
         {/* Step 2: Category */}
         {step === 2 && (
           <div className="animate-fade-in">
-            <h1 className="text-5xl font-black text-white mb-4 text-center">
+            <h1 className="text-5xl font-black text-slate-900 mb-4 text-center">
               What's Your Specialty?
             </h1>
-            <p className="text-xl text-slate-400 mb-16 text-center max-w-2xl mx-auto">
+            <p className="text-xl text-slate-600 mb-16 text-center max-w-2xl mx-auto">
               Pick the one that matches your business
             </p>
 
@@ -182,13 +185,15 @@ export default function OnboardingWizard() {
                 <button
                   key={cat.id}
                   onClick={() => handleCategory(cat.id)}
-                  className="group relative bg-white/5 backdrop-blur-xl rounded-xl border border-white/10 p-6 hover:bg-white/10 hover:border-blue-500/50 transition-all duration-300 text-center"
+                  className="group relative bg-white rounded-xl border border-slate-200 p-6 hover:border-red-300 hover:shadow-lg transition-all duration-300 text-center"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-xl opacity-0 group-hover:opacity-5 transition-opacity" />
                   <div className="relative">
                     <div className="text-4xl mb-3">{cat.icon}</div>
-                    <h3 className="text-sm font-bold text-white">{cat.label}</h3>
-                    <div className="mt-3 text-blue-400 text-xs font-semibold group-hover:scale-110 transition-transform">
+                    <h3 className="text-sm font-bold text-slate-900">{cat.label}</h3>
+                    {cat.example && (
+                      <p className="text-xs text-slate-500 mt-2">{cat.example}</p>
+                    )}
+                    <div className="mt-3 text-red-600 text-xs font-semibold group-hover:scale-110 transition-transform">
                       Select
                     </div>
                   </div>
@@ -200,7 +205,7 @@ export default function OnboardingWizard() {
             <div className="flex justify-center mt-12">
               <button
                 onClick={handleBack}
-                className="px-6 py-2 text-slate-400 hover:text-white transition-colors"
+                className="px-6 py-2 text-slate-600 hover:text-slate-900 transition-colors font-medium"
               >
                 ← Back
               </button>
@@ -211,10 +216,10 @@ export default function OnboardingWizard() {
         {/* Step 3: Template Selection */}
         {step === 3 && (
           <div className="animate-fade-in">
-            <h1 className="text-5xl font-black text-white mb-4 text-center">
+            <h1 className="text-5xl font-black text-slate-900 mb-4 text-center">
               Pick Your Template
             </h1>
-            <p className="text-xl text-slate-400 mb-16 text-center max-w-2xl mx-auto">
+            <p className="text-xl text-slate-600 mb-16 text-center max-w-2xl mx-auto">
               Choose a starting point for your website
             </p>
 
@@ -222,12 +227,11 @@ export default function OnboardingWizard() {
               {templates.map((template) => (
                 <div
                   key={template.id}
-                  className="group relative bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-8 hover:bg-white/10 hover:border-blue-500/50 transition-all duration-300 overflow-hidden"
+                  className="group relative bg-white rounded-2xl border border-slate-200 p-8 hover:border-red-300 hover:shadow-lg transition-all duration-300 overflow-hidden"
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl opacity-0 group-hover:opacity-10 transition-opacity" />
                   <div className="relative">
                     {/* Template Preview */}
-                    <div className="w-full h-40 bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg mb-6 flex items-center justify-center border border-white/10 group-hover:border-blue-500/30 transition-colors">
+                    <div className="w-full h-40 bg-gradient-to-br from-slate-100 to-slate-200 rounded-lg mb-6 flex items-center justify-center border border-slate-200 group-hover:border-red-300 transition-colors">
                       <div className="text-6xl">
                         {template.id === 'modern-service' && '✨'}
                         {template.id === 'gallery-service' && '🖼️'}
@@ -243,12 +247,12 @@ export default function OnboardingWizard() {
                       </div>
                     </div>
 
-                    <h3 className="text-2xl font-bold text-white mb-2">{template.name}</h3>
-                    <p className="text-slate-400 mb-6">{template.description}</p>
+                    <h3 className="text-2xl font-bold text-slate-900 mb-2">{template.name}</h3>
+                    <p className="text-slate-600 mb-6">{template.description}</p>
 
                     <Link
                       href={`/setup/${template.id}`}
-                      className="inline-block w-full px-6 py-3 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold text-center hover:from-blue-600 hover:to-blue-700 transition-all group-hover:shadow-lg group-hover:shadow-blue-500/50"
+                      className="inline-block w-full px-6 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-center transition-all group-hover:shadow-lg group-hover:shadow-red-500/50"
                     >
                       Use This Template
                     </Link>
@@ -261,7 +265,7 @@ export default function OnboardingWizard() {
             <div className="flex justify-center">
               <button
                 onClick={handleBack}
-                className="px-6 py-2 text-slate-400 hover:text-white transition-colors"
+                className="px-6 py-2 text-slate-600 hover:text-slate-900 transition-colors font-medium"
               >
                 ← Back
               </button>
