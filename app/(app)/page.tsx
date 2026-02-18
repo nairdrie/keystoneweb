@@ -5,7 +5,7 @@ import Header from '../components/Header';
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-blue-50">
+    <main className="min-h-screen bg-white">
       {/* Header */}
       <Header />
 
@@ -15,7 +15,7 @@ export default function HomePage() {
           <h1 className="text-6xl md:text-7xl font-black tracking-tight mb-6 leading-tight text-slate-900">
             Your Website,
             <br />
-            <span className="bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">
+            <span className="text-red-600">
               Built in Minutes
             </span>
           </h1>
@@ -28,7 +28,7 @@ export default function HomePage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
             <Link
               href="/templates"
-              className="px-8 py-4 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg transition-all shadow-lg hover:shadow-xl group"
+              className="px-8 py-4 rounded-full bg-red-600 hover:bg-red-700 text-white font-bold text-lg transition-all shadow-lg hover:shadow-xl group"
             >
               Create Your Website
               <span className="inline-block ml-2 group-hover:translate-x-1 transition-transform">→</span>
@@ -43,19 +43,19 @@ export default function HomePage() {
 
           {/* Stats Card */}
           <div className="relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-600 rounded-3xl blur-xl opacity-10" />
+            <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-red-600 rounded-3xl blur-xl opacity-10" />
             <div className="relative bg-white rounded-3xl border border-slate-200 p-8 shadow-lg">
               <div className="grid grid-cols-3 gap-8 text-center">
                 <div>
-                  <div className="text-4xl font-black text-blue-600">5 min</div>
+                  <div className="text-4xl font-black text-red-600">5 min</div>
                   <p className="text-sm text-slate-600 mt-2 font-medium">To Launch</p>
                 </div>
                 <div>
-                  <div className="text-4xl font-black text-blue-600">$49</div>
+                  <div className="text-4xl font-black text-red-600">$49</div>
                   <p className="text-sm text-slate-600 mt-2 font-medium">Per Month</p>
                 </div>
                 <div>
-                  <div className="text-4xl font-black text-blue-600">∞</div>
+                  <div className="text-4xl font-black text-red-600">∞</div>
                   <p className="text-sm text-slate-600 mt-2 font-medium">Possibilities</p>
                 </div>
               </div>
@@ -107,7 +107,7 @@ export default function HomePage() {
             ].map((feature) => (
               <div
                 key={feature.title}
-                className="group relative bg-white rounded-2xl border border-slate-200 p-8 hover:border-blue-300 hover:shadow-lg transition-all duration-300"
+                className="group relative bg-white rounded-2xl border border-slate-200 p-8 hover:border-red-300 hover:shadow-lg transition-all duration-300"
               >
                 <div className="relative">
                   <div className="text-4xl mb-4">{feature.icon}</div>
@@ -121,15 +121,15 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-blue-600 to-blue-700">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-red-600">
         <div className="mx-auto max-w-4xl text-center">
           <h2 className="text-5xl font-black text-white mb-6">Your Website Awaits</h2>
-          <p className="text-xl text-blue-100 mb-12">
+          <p className="text-xl text-red-100 mb-12">
             Stop waiting. Get online today and start attracting customers tomorrow.
           </p>
           <Link
             href="/templates"
-            className="inline-block px-10 py-5 rounded-full bg-white text-blue-600 font-bold text-lg hover:bg-blue-50 transition-all shadow-xl hover:shadow-2xl"
+            className="inline-block px-10 py-5 rounded-full bg-white text-red-600 font-bold text-lg hover:bg-red-50 transition-all shadow-xl hover:shadow-2xl"
           >
             Start Your Free Website
           </Link>
@@ -137,8 +137,10 @@ export default function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 py-12 px-4 sm:px-6 lg:px-8 text-center text-slate-500 text-sm bg-white">
-        <p>© 2026 Keystone. Built with Next.js and TypeScript.</p>
+      <footer className="border-t border-slate-200 py-12 px-4 sm:px-6 lg:px-8 text-center text-slate-600 text-sm bg-white">
+        <p className="flex items-center justify-center gap-2">
+          Proudly Canadian 🍁
+        </p>
       </footer>
     </main>
   );
