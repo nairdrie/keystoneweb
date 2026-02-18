@@ -27,7 +27,7 @@ export default function HomePage() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
             <Link
-              href="/templates"
+              href="/onboarding"
               className="px-8 py-4 rounded-full bg-red-600 hover:bg-red-700 text-white font-bold text-lg transition-all shadow-lg hover:shadow-xl group"
             >
               Create Your Website
@@ -128,7 +128,7 @@ export default function HomePage() {
             Stop waiting. Get online today and start attracting customers tomorrow.
           </p>
           <Link
-            href="/templates"
+            href="/onboarding"
             className="inline-block px-10 py-5 rounded-full bg-white text-red-600 font-bold text-lg hover:bg-red-50 transition-all shadow-xl hover:shadow-2xl"
           >
             Start Your Free Website

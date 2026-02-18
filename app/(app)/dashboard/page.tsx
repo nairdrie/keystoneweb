@@ -10,7 +10,7 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-bold text-white">CMS Platform</h1>
             <div className="flex gap-4">
               <Link
-                href="/templates"
+                href="/onboarding"
                 className="text-slate-300 hover:text-white transition-colors"
               >
                 Templates
@@ -36,7 +36,7 @@ export default function DashboardPage() {
             Choose a template, customize your content, and get a custom domain.
           </p>
           <Link
-            href="/templates"
+            href="/onboarding"
             className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-colors"
           >
             Get Started
