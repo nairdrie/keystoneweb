@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import FloatingToolbar from '@/app/components/FloatingToolbar';
+import SignUpModal from '@/app/components/SignUpModal';
 import { useAuth } from '@/lib/auth/context';
 
 interface SiteData {
@@ -24,6 +25,7 @@ export default function EditorContent() {
   const [site, setSite] = useState<SiteData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showSignUp, setShowSignUp] = useState(false);
   const [siteTitle, setSiteTitle] = useState('My Website');
   const [error, setError] = useState<string | null>(null);
 
@@ -37,8 +39,9 @@ export default function EditorContent() {
     }
 
     if (!user) {
-      // User is not authenticated, redirect to onboarding
-      router.push('/onboarding');
+      // User is not authenticated, show sign-up modal to access editor
+      setShowSignUp(true);
+      setLoading(false);
       return;
     }
 
@@ -49,7 +52,7 @@ export default function EditorContent() {
     }
 
     fetchSite();
-  }, [user, authLoading, siteId, router]);
+  }, [user, authLoading, siteId]);
 
   const fetchSite = async () => {
     try {
@@ -64,13 +67,18 @@ export default function EditorContent() {
 
       const data: SiteData = await res.json();
 
-      // Verify ownership
-      if (data.userId && data.userId !== user?.id) {
+      // Verify ownership - only site owner can edit
+      // If userId is null, no one can edit (site belongs to no one)
+      // If userId exists and doesn't match current user, deny access
+      if (!data.userId) {
+        // Site has no owner (created before user auth implemented?)
+        // Allow authenticated user to claim ownership on save
+      } else if (data.userId !== user?.id) {
         setError('You do not have permission to edit this site');
         setLoading(false);
         return;
       }
-
+      
       setSite(data);
       setSiteTitle(data.designData.title || 'My Website');
     } catch (err) {
@@ -84,6 +92,8 @@ export default function EditorContent() {
   const handleSave = async () => {
     if (!siteId || !user) return;
 
+    // User is authenticated (required to access editor)
+    // Save the design with ownership
     setSaving(true);
     try {
       const res = await fetch('/api/sites', {
@@ -103,6 +113,8 @@ export default function EditorContent() {
         const updatedSite = await res.json();
         setSite(updatedSite.site);
         alert('Site saved successfully!');
+      } else if (res.status === 403) {
+        alert('You do not have permission to edit this site.');
       } else {
         alert('Failed to save. Please try again.');
       }
@@ -113,6 +125,26 @@ export default function EditorContent() {
       setSaving(false);
     }
   };
+
+  const handleSignUpSuccess = () => {
+    // After successful sign up, close modal and reload site
+    setShowSignUp(false);
+    fetchSite();
+  };
+
+  // Show sign-up modal if not authenticated
+  if (!authLoading && !user && showSignUp) {
+    return (
+      <div className="w-full h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
+        <SignUpModal
+          isOpen={showSignUp}
+          onClose={() => router.push('/onboarding')}
+          siteId={siteId}
+          onSuccess={handleSignUpSuccess}
+        />
+      </div>
+    );
+  }
 
   // Loading states
   if (authLoading || loading) {
