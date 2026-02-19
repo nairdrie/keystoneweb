@@ -126,9 +126,12 @@ export default function EditorContent() {
     }
   };
 
-  const handleSignUpSuccess = () => {
-    // After successful sign up, close modal and reload site
+  const handleSignUpSuccess = async () => {
+    // After successful sign up, reload site data and editor
     setShowSignUp(false);
+    setLoading(true);
+    // Give auth state time to update
+    await new Promise(resolve => setTimeout(resolve, 500));
     fetchSite();
   };
 

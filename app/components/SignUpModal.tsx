@@ -10,23 +10,68 @@ interface SignUpModalProps {
   onSuccess?: () => void;
 }
 
+type Step = 'email' | 'password' | 'profile' | 'signin';
+
+function getPasswordStrength(password: string): { level: number; text: string; color: string } {
+  if (password.length === 0) return { level: 0, text: '', color: '' };
+  if (password.length < 6) return { level: 1, text: 'Weak', color: 'text-red-600' };
+  if (password.length < 10) return { level: 2, text: 'Fair', color: 'text-yellow-600' };
+  if (/[A-Z]/.test(password) && /[0-9]/.test(password)) {
+    return { level: 3, text: 'Strong', color: 'text-green-600' };
+  }
+  return { level: 2, text: 'Fair', color: 'text-yellow-600' };
+}
+
 export default function SignUpModal({ isOpen, onClose, siteId, onSuccess }: SignUpModalProps) {
-  const { signUp } = useAuth();
+  const { signUp, signIn } = useAuth();
+  
+  const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [name, setName] = useState('');
   const [businessName, setBusinessName] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [phone, setPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [accountExists, setAccountExists] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSignUp = async (e: React.FormEvent) => {
+  const passwordStrength = getPasswordStrength(password);
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    if (!email || !password) {
-      setError('Email and password are required');
+    if (!email) {
+      setError('Email is required');
+      setLoading(false);
+      return;
+    }
+
+    // Check if account exists
+    // For now, we'll assume it's new and go to password step
+    // In production, you'd call an API endpoint to check
+    setAccountExists(false);
+    setStep('password');
+    setLoading(false);
+  };
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    if (!password) {
+      setError('Password is required');
+      setLoading(false);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
       setLoading(false);
       return;
     }
@@ -39,31 +84,101 @@ export default function SignUpModal({ isOpen, onClose, siteId, onSuccess }: Sign
 
     try {
       const { error: signUpError } = await signUp(email, password);
-
       if (signUpError) {
         setError(signUpError.message);
         setLoading(false);
         return;
       }
+      setStep('profile');
+    } catch (err) {
+      setError('An unexpected error occurred');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // Sign up successful - site ownership is now tied to user ID
-      // In a real app, you'd also store the businessName in a users profile table
+  const handleProfileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      // Profile information is optional, just proceed to editor
       onSuccess?.();
       onClose();
     } catch (err) {
       setError('An unexpected error occurred');
-      console.error('Sign up error:', err);
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignInSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    if (!password) {
+      setError('Password is required');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { error: signInError } = await signIn(email, password);
+      if (signInError) {
+        setError(signInError.message);
+        setLoading(false);
+        return;
+      }
+      onSuccess?.();
+      onClose();
+    } catch (err) {
+      setError('An unexpected error occurred');
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
-        <h2 className="text-2xl font-bold mb-2">Save Your Design</h2>
-        <p className="text-slate-600 mb-6">
-          Create an account to save and publish your website. It's free and takes less than a minute.
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-8 max-w-md w-full shadow-xl">
+        {/* Logo */}
+        <div className="flex justify-center mb-6">
+          <svg
+            viewBox="0 0 64 64"
+            className="w-16 h-16"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <defs>
+              <linearGradient id="keystoneRed" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style={{ stopColor: '#dc2626', stopOpacity: 1 }} />
+                <stop offset="100%" style={{ stopColor: '#b91c1c', stopOpacity: 1 }} />
+              </linearGradient>
+            </defs>
+            
+            {/* Keystone Shape */}
+            <path
+              d="M 32 6 L 50 18 L 46 48 L 18 48 L 14 18 Z"
+              fill="url(#keystoneRed)"
+              stroke="#991b1b"
+              strokeWidth="0.5"
+            />
+            
+            {/* Maple Leaf */}
+            <image href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 2 L20 12 L30 12 L23 18 L26 28 L16 22 L6 28 L9 18 L2 12 L12 12 Z' fill='white'/%3E%3C/svg%3E" x="20" y="16" width="24" height="24" />
+          </svg>
+        </div>
+
+        {/* CTA Heading */}
+        <h2 className="text-2xl font-bold text-slate-900 mb-2 text-center">
+          Customize Your Website
+        </h2>
+        <p className="text-slate-600 text-center mb-6">
+          Create an account to unlock full customization and publish your site
         </p>
 
         {error && (
@@ -72,54 +187,181 @@ export default function SignUpModal({ isOpen, onClose, siteId, onSuccess }: Sign
           </div>
         )}
 
-        <form onSubmit={handleSignUp} className="space-y-4">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={loading}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent disabled:opacity-50"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={loading}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent disabled:opacity-50"
-          />
-          <input
-            type="text"
-            placeholder="Business Name"
-            value={businessName}
-            onChange={(e) => setBusinessName(e.target.value)}
-            disabled={loading}
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent disabled:opacity-50"
-          />
-
-          <div className="flex gap-4 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              className="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
-            >
-              Cancel
-            </button>
+        {/* Step 1: Email */}
+        {step === 'email' && (
+          <form onSubmit={handleEmailSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Email Address
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+                className="w-full px-4 py-2 bg-slate-100 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent focus:bg-white disabled:opacity-50 text-slate-900 placeholder-slate-600"
+                placeholder="you@example.com"
+              />
+            </div>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium"
+              className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50"
             >
-              {loading ? 'Creating...' : 'Create Account & Save'}
+              {loading ? 'Checking...' : 'Continue'}
             </button>
-          </div>
-        </form>
+          </form>
+        )}
 
-        <p className="text-xs text-slate-500 mt-4 text-center">
-          By creating an account, you agree to our Terms of Service
-        </p>
+        {/* Step 2: Password (New Account) */}
+        {step === 'password' && !accountExists && (
+          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                className="w-full px-4 py-2 bg-slate-100 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent focus:bg-white disabled:opacity-50 text-slate-900 placeholder-slate-600"
+                placeholder="••••••••"
+              />
+              {password && (
+                <p className={`text-xs mt-1 ${passwordStrength.color}`}>
+                  Strength: {passwordStrength.text}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Confirm Password
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={loading}
+                className="w-full px-4 py-2 bg-slate-100 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent focus:bg-white disabled:opacity-50 text-slate-900 placeholder-slate-600"
+                placeholder="••••••••"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Creating Account...' : 'Create Account'}
+            </button>
+          </form>
+        )}
+
+        {/* Step 2b: Sign In (Existing Account) */}
+        {step === 'signin' && (
+          <form onSubmit={handleSignInSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                className="w-full px-4 py-2 bg-slate-100 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent focus:bg-white disabled:opacity-50 text-slate-900 placeholder-slate-600"
+                placeholder="••••••••"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Signing In...' : 'Sign In'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setError('Password reset not yet implemented')}
+              className="w-full text-sm text-red-600 hover:text-red-700 font-medium"
+            >
+              Forgot Password?
+            </button>
+          </form>
+        )}
+
+        {/* Step 3: Profile */}
+        {step === 'profile' && (
+          <form onSubmit={handleProfileSubmit} className="space-y-4">
+            <p className="text-sm text-slate-600 mb-4">
+              Complete your profile (all fields are optional)
+            </p>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Your Name
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={loading}
+                className="w-full px-4 py-2 bg-slate-100 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent focus:bg-white disabled:opacity-50 text-slate-900 placeholder-slate-600"
+                placeholder="John Doe"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Business Name
+              </label>
+              <input
+                type="text"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                disabled={loading}
+                className="w-full px-4 py-2 bg-slate-100 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent focus:bg-white disabled:opacity-50 text-slate-900 placeholder-slate-600"
+                placeholder="Acme Corporation"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                disabled={loading}
+                className="w-full px-4 py-2 bg-slate-100 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent focus:bg-white disabled:opacity-50 text-slate-900 placeholder-slate-600"
+                placeholder="(555) 123-4567"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Setting Up...' : 'Start Editing'}
+            </button>
+          </form>
+        )}
+
+        {/* Back Button */}
+        {step !== 'email' && (
+          <button
+            onClick={() => setStep(step === 'password' ? 'email' : 'email')}
+            className="w-full mt-4 text-sm text-slate-600 hover:text-slate-900 font-medium"
+          >
+            ← Back
+          </button>
+        )}
       </div>
     </div>
   );
