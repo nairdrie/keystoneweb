@@ -105,8 +105,9 @@ export default function SignUpModal({ isOpen, onClose, siteId, onSuccess }: Sign
 
     try {
       // Profile information is optional, just proceed to editor
+      // Don't call onClose() here - let handleSignUpSuccess manage modal closure
+      // to avoid redirect to onboarding
       onSuccess?.();
-      onClose();
     } catch (err) {
       setError('An unexpected error occurred');
       console.error(err);
