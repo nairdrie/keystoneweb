@@ -162,7 +162,7 @@ export default function OnboardingWizard() {
       });
       
       const { siteId } = await res.json();
-      router.push(`/design/${siteId}`);
+      router.push(`/editor?siteId=${siteId}`);
     } catch (error) {
       console.error('Failed to create site:', error);
     }
