@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import KeystoneLogoCanadian from './KeystoneLogoCanadian';
+import { useAuth } from '@/lib/auth/context';
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
+  const { user, signOut } = useAuth();
 
   return (
     <header className="fixed top-0 w-full z-50 bg-white border-b border-slate-200">
@@ -23,12 +25,24 @@ export default function Header() {
           <Link href="/onboarding" className="text-sm text-slate-600 hover:text-slate-900 transition-colors font-medium">
             Build
           </Link>
-          <Link
-            href="/onboarding"
-            className="px-6 py-2.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-colors shadow-md hover:shadow-lg"
-          >
-            Get Started
-          </Link>
+          {user ? (
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-slate-600">{user.email}</span>
+              <button
+                onClick={() => signOut()}
+                className="px-6 py-2.5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-900 text-sm font-bold transition-colors"
+              >
+                Sign Out
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/onboarding"
+              className="px-6 py-2.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-colors shadow-md hover:shadow-lg"
+            >
+              Get Started
+            </Link>
+          )}
         </div>
 
         {/* Mobile: Get Started + Hamburger */}
