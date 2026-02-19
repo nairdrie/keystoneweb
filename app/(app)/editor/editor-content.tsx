@@ -132,8 +132,24 @@ export default function EditorContent() {
     fetchSite();
   };
 
-  // Show sign-up modal if not authenticated
+  // Show sign-up modal if not authenticated (with valid siteId)
   if (!authLoading && !user && showSignUp) {
+    if (!siteId) {
+      return (
+        <div className="w-full h-screen flex items-center justify-center bg-white">
+          <div className="text-center max-w-md">
+            <p className="text-lg font-bold text-red-600 mb-4">No site ID provided</p>
+            <button
+              onClick={() => router.push('/onboarding')}
+              className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+            >
+              Back to Onboarding
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
     return (
       <div className="w-full h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
         <SignUpModal
