@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '@/lib/db/supabase';
 
 interface CreateSiteRequest {
   selectedTemplateId: string;
@@ -18,9 +19,19 @@ interface SiteData {
   updatedAt: string;
 }
 
-// Mock in-memory storage (later: Supabase)
-// In production, this would be in a database
-const sites = new Map<string, SiteData>();
+// Helper to map Supabase data to SiteData
+function mapSupabaseToSiteData(row: any): SiteData {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    selectedTemplateId: row.selected_template_id,
+    businessType: row.business_type,
+    category: row.category,
+    designData: row.design_data || {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,26 +49,35 @@ export async function POST(request: NextRequest) {
     const siteId = uuidv4();
     const now = new Date().toISOString();
 
-    const newSite: SiteData = {
-      id: siteId,
-      userId: null, // Set when user authenticates
-      selectedTemplateId,
-      businessType,
-      category,
-      designData: {}, // Empty until user customizes
-      createdAt: now,
-      updatedAt: now,
-    };
+    // Insert into Supabase
+    const { data, error } = await supabase
+      .from('sites')
+      .insert({
+        id: siteId,
+        user_id: null, // Set when user authenticates
+        selected_template_id: selectedTemplateId,
+        business_type: businessType,
+        category,
+        design_data: {}, // Empty until user customizes
+        created_at: now,
+        updated_at: now,
+      })
+      .select()
+      .single();
 
-    // Store in memory (later: Supabase)
-    sites.set(siteId, newSite);
+    if (error) {
+      console.error('Supabase error creating site:', error);
+      return NextResponse.json(
+        { error: 'Failed to create site in database' },
+        { status: 500 }
+      );
+    }
 
-    // Also store in a file for persistence during this session
-    // Later: use Supabase
+    const siteData = mapSupabaseToSiteData(data);
 
     return NextResponse.json(
       {
-        siteId,
+        siteId: siteData.id,
         message: 'Site created successfully',
       },
       { status: 201 }
@@ -83,15 +103,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const site = sites.get(siteId);
-    if (!site) {
+    // Fetch from Supabase
+    const { data, error } = await supabase
+      .from('sites')
+      .select('*')
+      .eq('id', siteId)
+      .single();
+
+    if (error || !data) {
+      console.error('Supabase error fetching site:', error);
       return NextResponse.json(
         { error: 'Site not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json(site);
+    const siteData = mapSupabaseToSiteData(data);
+    return NextResponse.json(siteData);
   } catch (error) {
     console.error('Error fetching site:', error);
     return NextResponse.json(
@@ -113,22 +141,50 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const site = sites.get(siteId);
-    if (!site) {
+    // Fetch current site to merge design data
+    const { data: currentSite, error: fetchError } = await supabase
+      .from('sites')
+      .select('*')
+      .eq('id', siteId)
+      .single();
+
+    if (fetchError || !currentSite) {
       return NextResponse.json(
         { error: 'Site not found' },
         { status: 404 }
       );
     }
 
-    // Update design data
-    site.designData = { ...site.designData, ...designData };
-    site.updatedAt = new Date().toISOString();
-    sites.set(siteId, site);
+    // Merge design data
+    const mergedDesignData = {
+      ...(currentSite.design_data || {}),
+      ...(designData || {}),
+    };
+
+    // Update in Supabase
+    const { data: updatedSite, error: updateError } = await supabase
+      .from('sites')
+      .update({
+        design_data: mergedDesignData,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', siteId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error('Supabase error updating site:', updateError);
+      return NextResponse.json(
+        { error: 'Failed to update site' },
+        { status: 500 }
+      );
+    }
+
+    const siteData = mapSupabaseToSiteData(updatedSite);
 
     return NextResponse.json({
       message: 'Site updated successfully',
-      site,
+      site: siteData,
     });
   } catch (error) {
     console.error('Error updating site:', error);
