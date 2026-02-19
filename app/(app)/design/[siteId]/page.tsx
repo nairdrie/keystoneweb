@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Header from '@/app/components/Header';
+import SignUpModal from '@/app/components/SignUpModal';
+import { useAuth } from '@/lib/auth/context';
 
 interface SiteData {
   id: string;
@@ -15,60 +17,10 @@ interface SiteData {
   updatedAt: string;
 }
 
-interface SignUpModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  siteId: string;
-}
-
-function SignUpModal({ isOpen, onClose, siteId }: SignUpModalProps) {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-8 max-w-md">
-        <h2 className="text-2xl font-bold mb-4">Save Your Design</h2>
-        <p className="text-slate-600 mb-6">
-          Create an account to save and publish your website. It's free and takes less than a minute.
-        </p>
-
-        <div className="space-y-4">
-          <input
-            type="email"
-            placeholder="Email"
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent"
-          />
-          <input
-            type="text"
-            placeholder="Business Name"
-            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent"
-          />
-
-          <div className="flex gap-4 pt-4">
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors">
-              Create Account & Save
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function DesignPage() {
   const router = useRouter();
   const params = useParams();
+  const { user } = useAuth();
   const siteId = params.siteId as string;
 
   const [site, setSite] = useState<SiteData | null>(null);
@@ -102,6 +54,13 @@ export default function DesignPage() {
   };
 
   const handleSaveDesign = async () => {
+    // If user is not authenticated, show sign up modal
+    if (!user) {
+      setShowSignUp(true);
+      return;
+    }
+
+    // User is authenticated, save the design
     setSaving(true);
     try {
       const designData = {
@@ -116,20 +75,32 @@ export default function DesignPage() {
         body: JSON.stringify({
           siteId,
           designData,
+          userId: user.id,
         }),
       });
 
       if (res.ok) {
-        // Check if user is authenticated
-        // If not, show signup modal
-        // For now, always show signup (later: check auth context)
-        setShowSignUp(true);
+        // Design saved successfully
+        const updatedSite = await res.json();
+        setSite(updatedSite.site);
+        
+        // Show success message
+        alert('Design saved successfully!');
+      } else {
+        alert('Failed to save design. Please try again.');
       }
     } catch (error) {
       console.error('Failed to save design:', error);
+      alert('An error occurred while saving. Please try again.');
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSignUpSuccess = () => {
+    // After successful sign up, save the design
+    setShowSignUp(false);
+    handleSaveDesign();
   };
 
   if (loading) {
@@ -196,6 +167,14 @@ export default function DesignPage() {
               <div className="bg-white rounded-lg shadow-lg p-6 sticky top-32">
                 <h2 className="text-2xl font-bold mb-6">Customize</h2>
 
+                {user && (
+                  <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-sm text-green-700">
+                      ✓ Signed in as <span className="font-semibold">{user.email}</span>
+                    </p>
+                  </div>
+                )}
+
                 <div className="space-y-4">
                   {/* Site Title */}
                   <div>
@@ -243,7 +222,7 @@ export default function DesignPage() {
 
                   {/* Info */}
                   <p className="text-xs text-slate-600 text-center">
-                    You'll be asked to create an account or log in when you save.
+                    {user ? 'Your changes are automatically associated with your account.' : 'You\'ll be asked to create an account when you save.'}
                   </p>
                 </div>
               </div>
@@ -253,7 +232,12 @@ export default function DesignPage() {
       </div>
 
       {/* Sign Up Modal */}
-      <SignUpModal isOpen={showSignUp} onClose={() => setShowSignUp(false)} siteId={siteId} />
+      <SignUpModal 
+        isOpen={showSignUp} 
+        onClose={() => setShowSignUp(false)} 
+        siteId={siteId}
+        onSuccess={handleSignUpSuccess}
+      />
     </div>
   );
 }
