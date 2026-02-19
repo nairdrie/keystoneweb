@@ -13,9 +13,12 @@ export function middleware(request: NextRequest) {
     hostname.includes('keystoneweb.com') ||
     hostname.startsWith('127.0.0.1');
 
-  // If it's the app/dashboard domain, serve normally
+  // If it's the app/dashboard domain, serve normally (but add domain header)
   if (isAppDomain) {
-    return NextResponse.next();
+    const response = NextResponse.next();
+    response.headers.set('x-domain', 'app');
+    response.headers.set('x-hostname', hostname);
+    return response;
   }
 
   // If it's a client site (e.g., cool-barber.com), rewrite to /site/[domain]/[path]
@@ -30,7 +33,10 @@ export function middleware(request: NextRequest) {
   
   console.log(`[Middleware] Rewrote ${hostname}${pathname} → ${url.pathname}`);
   
-  return NextResponse.rewrite(url);
+  const response = NextResponse.rewrite(url);
+  response.headers.set('x-domain', domain);
+  response.headers.set('x-hostname', hostname);
+  return response;
 }
 
 export const config = {
