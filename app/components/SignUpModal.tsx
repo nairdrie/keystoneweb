@@ -196,7 +196,11 @@ export default function SignUpModal({ isOpen, onClose, siteId, onSuccess }: Sign
           Customize Your Website
         </h2>
         <p className="text-slate-600 text-center mb-6">
-          Create an account to unlock full customization and publish your site
+          {step === 'signin' ? (
+            'Log in to your account to unlock full customization and publish your site'
+          ) : (
+            'Create an account to unlock full customization and publish your site'
+          )}
         </p>
 
         {error && (
