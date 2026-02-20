@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/lib/auth/context';
 import Header from './Header';
 
 type BusinessType = 'services' | 'products' | 'both' | null;
@@ -76,6 +77,7 @@ const CATEGORIES: Record<Exclude<BusinessType, null>, any[]> = {
 export default function OnboardingWizard() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   
   const [step, setStep] = useState(1);
   const [businessType, setBusinessType] = useState<BusinessType>(null);
@@ -216,6 +218,26 @@ export default function OnboardingWizard() {
               style={{ width: `${(step / 3) * 100}%` }}
             />
           </div>
+        </div>
+      </div>
+
+      {/* Continue Editing (for all users) */}
+      <div className="bg-blue-50 border-b border-blue-200">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+          <p className="text-sm text-blue-900">
+            {user ? 'Welcome back! You have unsaved designs waiting.' : 'Already working on a design? Continue editing.'}
+          </p>
+          <button
+            onClick={() => {
+              const siteId = prompt('Enter your site ID to continue editing:');
+              if (siteId) {
+                router.push(`/editor?siteId=${siteId}`);
+              }
+            }}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg transition-colors"
+          >
+            Continue Editing
+          </button>
         </div>
       </div>
 
