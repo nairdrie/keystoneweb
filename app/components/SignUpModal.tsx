@@ -156,8 +156,9 @@ export default function SignUpModal({ isOpen, onClose, siteId, onSuccess }: Sign
         setLoading(false);
         return;
       }
+      // Don't call onClose() - let handleSignUpSuccess manage modal closure
+      // to avoid redirect to onboarding
       onSuccess?.();
-      onClose();
     } catch (err) {
       setError('An unexpected error occurred');
       console.error(err);
