@@ -1,47 +1,912 @@
-[
-  {
-    "id": "plumber-classic-pro",
-    "name": "Classic Professional",
-    "businessType": "services",
-    "category": "plumber",
-    "tags": ["professional", "modern", "blue", "services"],
-    "description": "Clean professional design with emphasis on service listings",
-    "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
-    "colors": {
-      "primary": "#0066cc",
-      "secondary": "#003399",
-      "accent": "#ff6600"
-    },
-    "imageUrl": "/templates/services/plumber/classic-pro-preview.png"
+{
+  "version": "1.0",
+  "generatedAt": "2025-02-20T09:02:00Z",
+  "totalTemplates": 60,
+  "categories": {
+    "services": 12,
+    "products": 5,
+    "both": 3
   },
-  {
-    "id": "plumber-modern-bold",
-    "name": "Modern Bold",
-    "businessType": "services",
-    "category": "plumber",
-    "tags": ["modern", "bold", "red", "services"],
-    "description": "Contemporary design with high visual impact",
-    "sections": ["header", "hero", "services", "portfolio", "testimonials", "cta", "footer"],
-    "colors": {
-      "primary": "#e74c3c",
-      "secondary": "#c0392b",
-      "accent": "#3498db"
+  "templates": [
+    {
+      "id": "svc_handyman_classic",
+      "name": "Handyman Classic Pro",
+      "businessType": "services",
+      "category": "handyman",
+      "style": "classic",
+      "tags": ["handyman", "repairs", "maintenance", "professional", "trustworthy"],
+      "description": "Professional handyman service template with traditional design, emphasis on reliability and expertise",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#dc2626",
+        "accent": "#f3f4f6"
+      }
     },
-    "imageUrl": "/templates/services/plumber/modern-bold-preview.png"
-  },
-  {
-    "id": "plumber-minimal-clean",
-    "name": "Minimal Clean",
-    "businessType": "services",
-    "category": "plumber",
-    "tags": ["minimal", "clean", "gray", "services"],
-    "description": "Simplistic whitespace-focused elegant design",
-    "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
-    "colors": {
-      "primary": "#2c3e50",
-      "secondary": "#34495e",
-      "accent": "#16a085"
+    {
+      "id": "svc_handyman_modern",
+      "name": "Handyman Modern Blue",
+      "businessType": "services",
+      "category": "handyman",
+      "style": "modern",
+      "tags": ["handyman", "repairs", "modern", "dynamic", "bold"],
+      "description": "Contemporary handyman template with vibrant blues, dynamic layout, and modern aesthetics",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#0369a1",
+        "secondary": "#06b6d4",
+        "accent": "#f0f9ff"
+      }
     },
-    "imageUrl": "/templates/services/plumber/minimal-clean-preview.png"
-  }
-]
+    {
+      "id": "svc_handyman_minimal",
+      "name": "Handyman Minimal White",
+      "businessType": "services",
+      "category": "handyman",
+      "style": "minimal",
+      "tags": ["handyman", "minimal", "clean", "simple", "whitespace"],
+      "description": "Minimalist handyman template with clean design, maximum whitespace, focus on content",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#374151",
+        "secondary": "#10b981",
+        "accent": "#ffffff"
+      }
+    },
+    {
+      "id": "svc_plumber_classic",
+      "name": "Plumber Classic Pro",
+      "businessType": "services",
+      "category": "plumber",
+      "style": "classic",
+      "tags": ["plumber", "plumbing", "repairs", "professional", "trustworthy"],
+      "description": "Professional plumbing service template with classic design and strong credibility markers",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#3b82f6",
+        "accent": "#f3f4f6"
+      }
+    },
+    {
+      "id": "svc_plumber_modern",
+      "name": "Plumber Modern Teal",
+      "businessType": "services",
+      "category": "plumber",
+      "style": "modern",
+      "tags": ["plumber", "modern", "teal", "dynamic", "contemporary"],
+      "description": "Modern plumbing template with teal accents, bold typography, and contemporary layout",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#0d9488",
+        "secondary": "#14b8a6",
+        "accent": "#f0fdfa"
+      }
+    },
+    {
+      "id": "svc_plumber_minimal",
+      "name": "Plumber Minimal Clean",
+      "businessType": "services",
+      "category": "plumber",
+      "style": "minimal",
+      "tags": ["plumber", "minimal", "clean", "simple", "elegant"],
+      "description": "Clean minimalist plumbing template emphasizing clarity and professionalism",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#4b5563",
+        "secondary": "#06b6d4",
+        "accent": "#ffffff"
+      }
+    },
+    {
+      "id": "svc_electrical_classic",
+      "name": "Electrical Classic Pro",
+      "businessType": "services",
+      "category": "electrical",
+      "style": "classic",
+      "tags": ["electrical", "electrician", "professional", "trustworthy", "expertise"],
+      "description": "Professional electrical service template with classic design, strong trust indicators",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#f59e0b",
+        "accent": "#f3f4f6"
+      }
+    },
+    {
+      "id": "svc_electrical_modern",
+      "name": "Electrical Modern Amber",
+      "businessType": "services",
+      "category": "electrical",
+      "style": "modern",
+      "tags": ["electrical", "modern", "amber", "bold", "dynamic"],
+      "description": "Modern electrical template with amber accents, electric energy, and bold design",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#d97706",
+        "secondary": "#f59e0b",
+        "accent": "#fffbeb"
+      }
+    },
+    {
+      "id": "svc_electrical_minimal",
+      "name": "Electrical Minimal Clean",
+      "businessType": "services",
+      "category": "electrical",
+      "style": "minimal",
+      "tags": ["electrical", "minimal", "clean", "simple", "professional"],
+      "description": "Minimalist electrical service template with clean typography and focused content",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#374151",
+        "secondary": "#f59e0b",
+        "accent": "#ffffff"
+      }
+    },
+    {
+      "id": "svc_hvac_classic",
+      "name": "HVAC Classic Pro",
+      "businessType": "services",
+      "category": "hvac",
+      "style": "classic",
+      "tags": ["hvac", "heating", "cooling", "professional", "reliable"],
+      "description": "Professional HVAC service template with classic design and strong credibility",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#3b82f6",
+        "accent": "#f3f4f6"
+      }
+    },
+    {
+      "id": "svc_hvac_modern",
+      "name": "HVAC Modern Cool",
+      "businessType": "services",
+      "category": "hvac",
+      "style": "modern",
+      "tags": ["hvac", "modern", "cool", "dynamic", "contemporary"],
+      "description": "Modern HVAC template with cool blue tones, contemporary design, dynamic layout",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#0369a1",
+        "secondary": "#0ea5e9",
+        "accent": "#f0f9ff"
+      }
+    },
+    {
+      "id": "svc_hvac_minimal",
+      "name": "HVAC Minimal White",
+      "businessType": "services",
+      "category": "hvac",
+      "style": "minimal",
+      "tags": ["hvac", "minimal", "clean", "simple", "elegant"],
+      "description": "Clean minimalist HVAC template focusing on clarity and professionalism",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#4b5563",
+        "secondary": "#0ea5e9",
+        "accent": "#ffffff"
+      }
+    },
+    {
+      "id": "svc_mechanic_classic",
+      "name": "Mechanic Classic Pro",
+      "businessType": "services",
+      "category": "mechanic",
+      "style": "classic",
+      "tags": ["mechanic", "auto repair", "professional", "trustworthy", "expertise"],
+      "description": "Professional auto mechanic template with classic design, strong expertise indicators",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#dc2626",
+        "accent": "#f3f4f6"
+      }
+    },
+    {
+      "id": "svc_mechanic_modern",
+      "name": "Mechanic Modern Steel",
+      "businessType": "services",
+      "category": "mechanic",
+      "style": "modern",
+      "tags": ["mechanic", "modern", "steel", "bold", "dynamic"],
+      "description": "Modern mechanic template with steel and chrome aesthetics, bold modern design",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#334155",
+        "secondary": "#ef4444",
+        "accent": "#f1f5f9"
+      }
+    },
+    {
+      "id": "svc_mechanic_minimal",
+      "name": "Mechanic Minimal Clean",
+      "businessType": "services",
+      "category": "mechanic",
+      "style": "minimal",
+      "tags": ["mechanic", "minimal", "clean", "simple", "focused"],
+      "description": "Minimalist mechanic template with clean design and focused content",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#374151",
+        "secondary": "#ef4444",
+        "accent": "#ffffff"
+      }
+    },
+    {
+      "id": "svc_trades_classic",
+      "name": "Trades Classic Pro",
+      "businessType": "services",
+      "category": "trades",
+      "style": "classic",
+      "tags": ["trades", "carpentry", "professional", "skilled", "experienced"],
+      "description": "Professional trades/carpentry template with classic design and strong expertise signals",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#92400e",
+        "accent": "#f3f4f6"
+      }
+    },
+    {
+      "id": "svc_trades_modern",
+      "name": "Trades Modern Wood",
+      "businessType": "services",
+      "category": "trades",
+      "style": "modern",
+      "tags": ["trades", "modern", "wood", "craftsmanship", "bold"],
+      "description": "Modern trades template with warm wood tones, contemporary design, craftsmanship focus",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#92400e",
+        "secondary": "#d97706",
+        "accent": "#fffbeb"
+      }
+    },
+    {
+      "id": "svc_trades_minimal",
+      "name": "Trades Minimal Clean",
+      "businessType": "services",
+      "category": "trades",
+      "style": "minimal",
+      "tags": ["trades", "minimal", "clean", "simple", "elegant"],
+      "description": "Minimalist trades template emphasizing quality and craftsmanship",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#4b5563",
+        "secondary": "#92400e",
+        "accent": "#ffffff"
+      }
+    },
+    {
+      "id": "svc_cleaning_classic",
+      "name": "Cleaning Classic Pro",
+      "businessType": "services",
+      "category": "cleaning",
+      "style": "classic",
+      "tags": ["cleaning", "professional", "reliable", "trustworthy", "fresh"],
+      "description": "Professional cleaning service template with classic design, trust and cleanliness emphasis",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#10b981",
+        "accent": "#f3f4f6"
+      }
+    },
+    {
+      "id": "svc_cleaning_modern",
+      "name": "Cleaning Modern Fresh",
+      "businessType": "services",
+      "category": "cleaning",
+      "style": "modern",
+      "tags": ["cleaning", "modern", "fresh", "dynamic", "bold"],
+      "description": "Modern cleaning template with fresh green tones, contemporary design, dynamic layout",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#059669",
+        "secondary": "#10b981",
+        "accent": "#f0fdf4"
+      }
+    },
+    {
+      "id": "svc_cleaning_minimal",
+      "name": "Cleaning Minimal White",
+      "businessType": "services",
+      "category": "cleaning",
+      "style": "minimal",
+      "tags": ["cleaning", "minimal", "clean", "simple", "white"],
+      "description": "Minimalist cleaning service template with pure white design emphasizing cleanliness",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#374151",
+        "secondary": "#10b981",
+        "accent": "#ffffff"
+      }
+    },
+    {
+      "id": "svc_landscaping_classic",
+      "name": "Landscaping Classic Pro",
+      "businessType": "services",
+      "category": "landscaping",
+      "style": "classic",
+      "tags": ["landscaping", "gardening", "professional", "nature", "expertise"],
+      "description": "Professional landscaping template with classic design and natural aesthetics",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#22c55e",
+        "accent": "#f3f4f6"
+      }
+    },
+    {
+      "id": "svc_landscaping_modern",
+      "name": "Landscaping Modern Green",
+      "businessType": "services",
+      "category": "landscaping",
+      "style": "modern",
+      "tags": ["landscaping", "modern", "green", "nature", "bold"],
+      "description": "Modern landscaping template with vibrant greens, contemporary design, nature focus",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#16a34a",
+        "secondary": "#22c55e",
+        "accent": "#f0fdf4"
+      }
+    },
+    {
+      "id": "svc_landscaping_minimal",
+      "name": "Landscaping Minimal Clean",
+      "businessType": "services",
+      "category": "landscaping",
+      "style": "minimal",
+      "tags": ["landscaping", "minimal", "clean", "nature", "simple"],
+      "description": "Minimalist landscaping template with clean design and natural focus",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#4b5563",
+        "secondary": "#22c55e",
+        "accent": "#ffffff"
+      }
+    },
+    {
+      "id": "svc_consulting_classic",
+      "name": "Consulting Classic Pro",
+      "businessType": "services",
+      "category": "consulting",
+      "style": "classic",
+      "tags": ["consulting", "business", "professional", "expertise", "serious"],
+      "description": "Professional consulting template with classic corporate design and authority",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#6366f1",
+        "accent": "#f3f4f6"
+      }
+    },
+    {
+      "id": "svc_consulting_modern",
+      "name": "Consulting Modern Indigo",
+      "businessType": "services",
+      "category": "consulting",
+      "style": "modern",
+      "tags": ["consulting", "modern", "indigo", "bold", "contemporary"],
+      "description": "Modern consulting template with indigo tones, contemporary design, dynamic layout",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#4f46e5",
+        "secondary": "#6366f1",
+        "accent": "#f0f4ff"
+      }
+    },
+    {
+      "id": "svc_consulting_minimal",
+      "name": "Consulting Minimal White",
+      "businessType": "services",
+      "category": "consulting",
+      "style": "minimal",
+      "tags": ["consulting", "minimal", "clean", "professional", "elegant"],
+      "description": "Minimalist consulting template with clean design and focused content",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#374151",
+        "secondary": "#6366f1",
+        "accent": "#ffffff"
+      }
+    },
+    {
+      "id": "svc_freelance_classic",
+      "name": "Freelance Classic Pro",
+      "businessType": "services",
+      "category": "freelance",
+      "style": "classic",
+      "tags": ["freelance", "portfolio", "professional", "services", "expertise"],
+      "description": "Professional freelancer portfolio template with classic design and portfolio showcase",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#ec4899",
+        "accent": "#f3f4f6"
+      }
+    },
+    {
+      "id": "svc_freelance_modern",
+      "name": "Freelance Modern Pink",
+      "businessType": "services",
+      "category": "freelance",
+      "style": "modern",
+      "tags": ["freelance", "modern", "pink", "bold", "contemporary"],
+      "description": "Modern freelancer template with pink accents, contemporary design, creative focus",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#be185d",
+        "secondary": "#ec4899",
+        "accent": "#fce7f3"
+      }
+    },
+    {
+      "id": "svc_freelance_minimal",
+      "name": "Freelance Minimal Clean",
+      "businessType": "services",
+      "category": "freelance",
+      "style": "minimal",
+      "tags": ["freelance", "minimal", "clean", "portfolio", "focused"],
+      "description": "Minimalist freelancer template with clean design and portfolio focus",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#4b5563",
+        "secondary": "#ec4899",
+        "accent": "#ffffff"
+      }
+    },
+    {
+      "id": "svc_salon_classic",
+      "name": "Salon Classic Pro",
+      "businessType": "services",
+      "category": "salon",
+      "style": "classic",
+      "tags": ["salon", "beauty", "professional", "elegant", "luxury"],
+      "description": "Professional salon template with classic elegant design and luxury feel",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#8b5cf6",
+        "accent": "#f3f4f6"
+      }
+    },
+    {
+      "id": "svc_salon_modern",
+      "name": "Salon Modern Purple",
+      "businessType": "services",
+      "category": "salon",
+      "style": "modern",
+      "tags": ["salon", "modern", "purple", "bold", "luxurious"],
+      "description": "Modern salon template with vibrant purples, contemporary design, beauty focus",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#7c3aed",
+        "secondary": "#8b5cf6",
+        "accent": "#faf5ff"
+      }
+    },
+    {
+      "id": "svc_salon_minimal",
+      "name": "Salon Minimal Clean",
+      "businessType": "services",
+      "category": "salon",
+      "style": "minimal",
+      "tags": ["salon", "minimal", "clean", "elegant", "simple"],
+      "description": "Minimalist salon template with clean design and elegant simplicity",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#4b5563",
+        "secondary": "#8b5cf6",
+        "accent": "#ffffff"
+      }
+    },
+    {
+      "id": "svc_fitness_classic",
+      "name": "Fitness Classic Pro",
+      "businessType": "services",
+      "category": "fitness",
+      "style": "classic",
+      "tags": ["fitness", "gym", "professional", "health", "strength"],
+      "description": "Professional fitness/gym template with classic design and authority",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#ff6b6b",
+        "accent": "#f3f4f6"
+      }
+    },
+    {
+      "id": "svc_fitness_modern",
+      "name": "Fitness Modern Red",
+      "businessType": "services",
+      "category": "fitness",
+      "style": "modern",
+      "tags": ["fitness", "modern", "red", "bold", "energetic"],
+      "description": "Modern fitness template with vibrant reds, contemporary design, energy focus",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#dc2626",
+        "secondary": "#ef4444",
+        "accent": "#fef2f2"
+      }
+    },
+    {
+      "id": "svc_fitness_minimal",
+      "name": "Fitness Minimal Clean",
+      "businessType": "services",
+      "category": "fitness",
+      "style": "minimal",
+      "tags": ["fitness", "minimal", "clean", "focused", "health"],
+      "description": "Minimalist fitness template with clean design and health focus",
+      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#374151",
+        "secondary": "#ef4444",
+        "accent": "#ffffff"
+      }
+    },
+    {
+      "id": "prd_ecommerce_classic",
+      "name": "Ecommerce Classic Pro",
+      "businessType": "products",
+      "category": "ecommerce",
+      "style": "classic",
+      "tags": ["ecommerce", "shop", "professional", "trustworthy", "sales"],
+      "description": "Professional ecommerce template with classic design and conversion optimization",
+      "sections": ["header", "hero", "products", "features", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#f59e0b",
+        "accent": "#f3f4f6"
+      }
+    },
+    {
+      "id": "prd_ecommerce_modern",
+      "name": "Ecommerce Modern Gold",
+      "businessType": "products",
+      "category": "ecommerce",
+      "style": "modern",
+      "tags": ["ecommerce", "modern", "gold", "bold", "luxury"],
+      "description": "Modern ecommerce template with gold accents, contemporary design, premium feel",
+      "sections": ["header", "hero", "products", "features", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#d97706",
+        "secondary": "#fbbf24",
+        "accent": "#fffbeb"
+      }
+    },
+    {
+      "id": "prd_ecommerce_minimal",
+      "name": "Ecommerce Minimal Clean",
+      "businessType": "products",
+      "category": "ecommerce",
+      "style": "minimal",
+      "tags": ["ecommerce", "minimal", "clean", "simple", "focused"],
+      "description": "Minimalist ecommerce template with clean design and product focus",
+      "sections": ["header", "hero", "products", "features", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#374151",
+        "secondary": "#f59e0b",
+        "accent": "#ffffff"
+      }
+    },
+    {
+      "id": "prd_handmade_classic",
+      "name": "Handmade Classic Pro",
+      "businessType": "products",
+      "category": "handmade",
+      "style": "classic",
+      "tags": ["handmade", "artisan", "crafts", "professional", "artistry"],
+      "description": "Professional handmade/artisan template with classic design and craftsmanship focus",
+      "sections": ["header", "hero", "products", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#d946ef",
+        "accent": "#f3f4f6"
+      }
+    },
+    {
+      "id": "prd_handmade_modern",
+      "name": "Handmade Modern Magenta",
+      "businessType": "products",
+      "category": "handmade",
+      "style": "modern",
+      "tags": ["handmade", "modern", "magenta", "bold", "creative"],
+      "description": "Modern handmade template with vibrant magentas, contemporary design, artistic feel",
+      "sections": ["header", "hero", "products", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#a855f7",
+        "secondary": "#d946ef",
+        "accent": "#faf5ff"
+      }
+    },
+    {
+      "id": "prd_handmade_minimal",
+      "name": "Handmade Minimal Clean",
+      "businessType": "products",
+      "category": "handmade",
+      "style": "minimal",
+      "tags": ["handmade", "minimal", "clean", "artisan", "elegant"],
+      "description": "Minimalist handmade template with clean design and product showcase",
+      "sections": ["header", "hero", "products", "about", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#4b5563",
+        "secondary": "#d946ef",
+        "accent": "#ffffff"
+      }
+    },
+    {
+      "id": "prd_digital_classic",
+      "name": "Digital Classic Pro",
+      "businessType": "products",
+      "category": "digital",
+      "style": "classic",
+      "tags": ["digital", "software", "ebooks", "professional", "tech"],
+      "description": "Professional digital products template with classic design and tech focus",
+      "sections": ["header", "hero", "products", "features", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#0ea5e9",
+        "accent": "#f3f4f6"
+      }
+    },
+    {
+      "id": "prd_digital_modern",
+      "name": "Digital Modern Cyan",
+      "businessType": "products",
+      "category": "digital",
+      "style": "modern",
+      "tags": ["digital", "modern", "cyan", "bold", "tech"],
+      "description": "Modern digital products template with cyan tones, contemporary tech design",
+      "sections": ["header", "hero", "products", "features", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#0891b2",
+        "secondary": "#06b6d4",
+        "accent": "#ecf9ff"
+      }
+    },
+    {
+      "id": "prd_digital_minimal",
+      "name": "Digital Minimal Clean",
+      "businessType": "products",
+      "category": "digital",
+      "style": "minimal",
+      "tags": ["digital", "minimal", "clean", "tech", "focused"],
+      "description": "Minimalist digital products template with clean design and tech focus",
+      "sections": ["header", "hero", "products", "features", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#374151",
+        "secondary": "#0ea5e9",
+        "accent": "#ffffff"
+      }
+    },
+    {
+      "id": "prd_dropship_classic",
+      "name": "Dropship Classic Pro",
+      "businessType": "products",
+      "category": "dropship",
+      "style": "classic",
+      "tags": ["dropship", "shop", "professional", "products", "sales"],
+      "description": "Professional dropship store template with classic design and sales focus",
+      "sections": ["header", "hero", "products", "features", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#10b981",
+        "accent": "#f3f4f6"
+      }
+    },
+    {
+      "id": "prd_dropship_modern",
+      "name": "Dropship Modern Emerald",
+      "businessType": "products",
+      "category": "dropship",
+      "style": "modern",
+      "tags": ["dropship", "modern", "emerald", "bold", "dynamic"],
+      "description": "Modern dropship template with emerald tones, contemporary design, sales optimized",
+      "sections": ["header", "hero", "products", "features", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#059669",
+        "secondary": "#10b981",
+        "accent": "#f0fdf4"
+      }
+    },
+    {
+      "id": "prd_dropship_minimal",
+      "name": "Dropship Minimal Clean",
+      "businessType": "products",
+      "category": "dropship",
+      "style": "minimal",
+      "tags": ["dropship", "minimal", "clean", "products", "simple"],
+      "description": "Minimalist dropship template with clean design and product focus",
+      "sections": ["header", "hero", "products", "features", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#374151",
+        "secondary": "#10b981",
+        "accent": "#ffffff"
+      }
+    },
+    {
+      "id": "prd_subscription_classic",
+      "name": "Subscription Classic Pro",
+      "businessType": "products",
+      "category": "subscription",
+      "style": "classic",
+      "tags": ["subscription", "saas", "professional", "recurring", "service"],
+      "description": "Professional subscription/SaaS template with classic design and pricing focus",
+      "sections": ["header", "hero", "pricing", "features", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#8b5cf6",
+        "accent": "#f3f4f6"
+      }
+    },
+    {
+      "id": "prd_subscription_modern",
+      "name": "Subscription Modern Violet",
+      "businessType": "products",
+      "category": "subscription",
+      "style": "modern",
+      "tags": ["subscription", "modern", "violet", "bold", "saas"],
+      "description": "Modern subscription template with violet tones, contemporary design, pricing optimized",
+      "sections": ["header", "hero", "pricing", "features", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#7c3aed",
+        "secondary": "#a855f7",
+        "accent": "#faf5ff"
+      }
+    },
+    {
+      "id": "prd_subscription_minimal",
+      "name": "Subscription Minimal Clean",
+      "businessType": "products",
+      "category": "subscription",
+      "style": "minimal",
+      "tags": ["subscription", "minimal", "clean", "saas", "pricing"],
+      "description": "Minimalist subscription template with clean design and pricing clarity",
+      "sections": ["header", "hero", "pricing", "features", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#374151",
+        "secondary": "#8b5cf6",
+        "accent": "#ffffff"
+      }
+    },
+    {
+      "id": "both_agency_classic",
+      "name": "Agency Classic Pro",
+      "businessType": "both",
+      "category": "agency",
+      "style": "classic",
+      "tags": ["agency", "professional", "corporate", "trustworthy", "services"],
+      "description": "Professional agency template with classic design, strong credibility markers",
+      "sections": ["header", "hero", "services", "portfolio", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#3b82f6",
+        "accent": "#f3f4f6"
+      }
+    },
+    {
+      "id": "both_agency_modern",
+      "name": "Agency Modern Blue",
+      "businessType": "both",
+      "category": "agency",
+      "style": "modern",
+      "tags": ["agency", "modern", "blue", "bold", "contemporary"],
+      "description": "Modern agency template with bold blues, contemporary design, dynamic layout",
+      "sections": ["header", "hero", "services", "portfolio", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1e40af",
+        "secondary": "#3b82f6",
+        "accent": "#eff6ff"
+      }
+    },
+    {
+      "id": "both_agency_minimal",
+      "name": "Agency Minimal Clean",
+      "businessType": "both",
+      "category": "agency",
+      "style": "minimal",
+      "tags": ["agency", "minimal", "clean", "professional", "focused"],
+      "description": "Minimalist agency template with clean design and focused content",
+      "sections": ["header", "hero", "services", "portfolio", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#374151",
+        "secondary": "#3b82f6",
+        "accent": "#ffffff"
+      }
+    },
+    {
+      "id": "both_studio_classic",
+      "name": "Studio Classic Pro",
+      "businessType": "both",
+      "category": "studio",
+      "style": "classic",
+      "tags": ["studio", "creative", "professional", "portfolio", "services"],
+      "description": "Professional creative studio template with classic design and portfolio showcase",
+      "sections": ["header", "hero", "services", "portfolio", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#f97316",
+        "accent": "#f3f4f6"
+      }
+    },
+    {
+      "id": "both_studio_modern",
+      "name": "Studio Modern Orange",
+      "businessType": "both",
+      "category": "studio",
+      "style": "modern",
+      "tags": ["studio", "modern", "orange", "bold", "creative"],
+      "description": "Modern creative studio template with vibrant oranges, contemporary design, creative focus",
+      "sections": ["header", "hero", "services", "portfolio", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#ea580c",
+        "secondary": "#f97316",
+        "accent": "#fff7ed"
+      }
+    },
+    {
+      "id": "both_studio_minimal",
+      "name": "Studio Minimal Clean",
+      "businessType": "both",
+      "category": "studio",
+      "style": "minimal",
+      "tags": ["studio", "minimal", "clean", "creative", "portfolio"],
+      "description": "Minimalist creative studio template with clean design and portfolio focus",
+      "sections": ["header", "hero", "services", "portfolio", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#4b5563",
+        "secondary": "#f97316",
+        "accent": "#ffffff"
+      }
+    },
+    {
+      "id": "both_retail_classic",
+      "name": "Retail Classic Pro",
+      "businessType": "both",
+      "category": "retail",
+      "style": "classic",
+      "tags": ["retail", "shop", "professional", "sales", "products"],
+      "description": "Professional retail template with classic design and sales optimization",
+      "sections": ["header", "hero", "products", "services", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#1f2937",
+        "secondary": "#dc2626",
+        "accent": "#f3f4f6"
+      }
+    },
+    {
+      "id": "both_retail_modern",
+      "name": "Retail Modern Red",
+      "businessType": "both",
+      "category": "retail",
+      "style": "modern",
+      "tags": ["retail", "modern", "red", "bold", "sales"],
+      "description": "Modern retail template with vibrant reds, contemporary design, sales focused",
+      "sections": ["header", "hero", "products", "services", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#b91c1c",
+        "secondary": "#ef4444",
+        "accent": "#fef2f2"
+      }
+    },
+    {
+      "id": "both_retail_minimal",
+      "name": "Retail Minimal Clean",
+      "businessType": "both",
+      "category": "retail",
+      "style": "minimal",
+      "tags": ["retail", "minimal", "clean", "products", "focused"],
+      "description": "Minimalist retail template with clean design and product showcase",
+      "sections": ["header", "hero", "products", "services", "testimonials", "cta", "footer"],
+      "colors": {
+        "primary": "#374151",
+        "secondary": "#dc2626",
+        "accent": "#ffffff"
+      }
+    }
+  ]
+}
