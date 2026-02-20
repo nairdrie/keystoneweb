@@ -222,24 +222,38 @@ export default function OnboardingWizard() {
       </div>
 
       {/* Continue Editing (for all users) */}
-      <div className="bg-blue-50 border-b border-blue-200">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-          <p className="text-sm text-blue-900">
-            {user ? 'Welcome back! You have unsaved designs waiting.' : 'Already working on a design? Continue editing.'}
-          </p>
-          <button
-            onClick={() => {
-              const siteId = prompt('Enter your site ID to continue editing:');
-              if (siteId) {
-                router.push(`/editor?siteId=${siteId}`);
-              }
-            }}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg transition-colors"
-          >
-            Continue Editing
-          </button>
+      {user && (
+        <div className="bg-blue-50 border-b border-blue-200">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+            <p className="text-sm text-blue-900">
+              Welcome back! You have unsaved designs waiting.
+            </p>
+            <button
+              onClick={() => router.push('/editor')}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg transition-colors"
+            >
+              Continue Editing
+            </button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Returning User (Not Logged In) - Sign In Prompt */}
+      {!user && (
+        <div className="bg-blue-50 border-b border-blue-200">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+            <p className="text-sm text-blue-900">
+              Already have an account? Sign in to continue your work.
+            </p>
+            <button
+              onClick={() => router.push('/editor?signin=true')}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg transition-colors"
+            >
+              Sign In
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-20">
