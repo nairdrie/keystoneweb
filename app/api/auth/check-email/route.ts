@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/db/supabase';
+import { createClient } from '@/lib/db/supabase-server';
 
 export async function POST(req: Request) {
   try {
@@ -7,6 +7,9 @@ export async function POST(req: Request) {
     if (!email) {
       return Response.json({ error: 'Email required' }, { status: 400 });
     }
+
+    // Create server-side Supabase client
+    const supabase = await createClient();
 
     // Check if user exists in our users table (synced from auth.users via trigger)
     const { data, error } = await supabase
