@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import FloatingToolbar from '@/app/components/FloatingToolbar';
+import SiteSwitcher from '@/app/components/SiteSwitcher';
 import SignUpModal from '@/app/components/SignUpModal';
 import { useAuth } from '@/lib/auth/context';
 
@@ -39,25 +40,54 @@ export default function EditorContent() {
     }
 
     if (!user) {
-      // User is not authenticated, show sign-up modal to access editor
+      // User is not authenticated, show signin modal
       setShowSignUp(true);
       setLoading(false);
       return;
     }
 
-    if (!siteId) {
-      setError('No site ID provided');
-      setLoading(false);
-      return;
+    // User is authenticated
+    if (siteId) {
+      // Load specific site
+      fetchSite(siteId);
+    } else {
+      // Load user's latest site
+      fetchLatestSite();
     }
-
-    fetchSite();
   }, [user, authLoading, siteId]);
 
-  const fetchSite = async () => {
+  const fetchLatestSite = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/sites?id=${siteId}`);
+      const res = await fetch('/api/user/latest-site');
+
+      if (!res.ok) {
+        if (res.status === 404) {
+          // User has no sites yet
+          setError('You have no sites yet. Create one to get started!');
+          setLoading(false);
+          return;
+        }
+        setError('Failed to load your latest site');
+        setLoading(false);
+        return;
+      }
+
+      const { site: data } = await res.json();
+      setSite(data);
+      setSiteTitle(data.designData.title || 'My Website');
+    } catch (err) {
+      console.error('Failed to fetch latest site:', err);
+      setError('Failed to load site');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSite = async (id: string) => {
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/sites?id=${id}`);
 
       if (!res.ok) {
         setError('Site not found');
@@ -68,12 +98,7 @@ export default function EditorContent() {
       const data: SiteData = await res.json();
 
       // Verify ownership - only site owner can edit
-      // If userId is null, no one can edit (site belongs to no one)
-      // If userId exists and doesn't match current user, deny access
-      if (!data.userId) {
-        // Site has no owner (created before user auth implemented?)
-        // Allow authenticated user to claim ownership on save
-      } else if (data.userId !== user?.id) {
+      if (data.userId && data.userId !== user?.id) {
         setError('You do not have permission to edit this site');
         setLoading(false);
         return;
@@ -90,7 +115,7 @@ export default function EditorContent() {
   };
 
   const handleSave = async () => {
-    if (!siteId || !user) return;
+    if (!site?.id || !user) return;
 
     // User is authenticated (required to access editor)
     // Save the design with ownership
@@ -100,7 +125,7 @@ export default function EditorContent() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          siteId,
+          siteId: site.id,
           designData: {
             ...site?.designData,
             title: siteTitle,
@@ -127,39 +152,28 @@ export default function EditorContent() {
   };
 
   const handleSignUpSuccess = async () => {
-    // After successful sign up, reload site data and editor
+    // After successful sign in, reload with latest site
     setShowSignUp(false);
     setLoading(true);
     // Give auth state time to update
     await new Promise(resolve => setTimeout(resolve, 500));
-    fetchSite();
+    if (siteId) {
+      fetchSite(siteId);
+    } else {
+      fetchLatestSite();
+    }
   };
 
-  // Show sign-up modal if not authenticated (with valid siteId)
+  // Show signin modal if not authenticated
   if (!authLoading && !user && showSignUp) {
-    if (!siteId) {
-      return (
-        <div className="w-full h-screen flex items-center justify-center bg-white">
-          <div className="text-center max-w-md">
-            <p className="text-lg font-bold text-red-600 mb-4">No site ID provided</p>
-            <button
-              onClick={() => router.push('/onboarding')}
-              className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
-            >
-              Back to Onboarding
-            </button>
-          </div>
-        </div>
-      );
-    }
-    
     return (
       <div className="w-full h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
         <SignUpModal
           isOpen={showSignUp}
           onClose={() => router.push('/onboarding')}
-          siteId={siteId}
+          siteId={siteId || ''}
           onSuccess={handleSignUpSuccess}
+          defaultToSignin={true}
         />
       </div>
     );
@@ -201,6 +215,10 @@ export default function EditorContent() {
   // Full-screen editor with template preview
   return (
     <div className="w-full h-screen overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
+      {/* Top Toolbar */}
+      <div className="absolute top-4 left-4 z-20">
+        {site && <SiteSwitcher currentSiteId={site.id} currentSiteTitle={siteTitle} />}
+      </div>
       {/* Template Preview */}
       <div className="w-full h-full flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-full overflow-auto">

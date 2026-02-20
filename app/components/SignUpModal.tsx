@@ -8,6 +8,7 @@ interface SignUpModalProps {
   onClose: () => void;
   siteId: string;
   onSuccess?: () => void;
+  defaultToSignin?: boolean;
 }
 
 type Step = 'email' | 'password' | 'profile' | 'signin';
@@ -22,10 +23,11 @@ function getPasswordStrength(password: string): { level: number; text: string; c
   return { level: 2, text: 'Fair', color: 'text-yellow-600' };
 }
 
-export default function SignUpModal({ isOpen, onClose, siteId, onSuccess }: SignUpModalProps) {
+export default function SignUpModal({ isOpen, onClose, siteId, onSuccess, defaultToSignin }: SignUpModalProps) {
   const { signUp, signIn } = useAuth();
   
-  const [step, setStep] = useState<Step>('email');
+  // Start in signin mode if user is returning from continue editing
+  const [step, setStep] = useState<Step>(defaultToSignin ? 'email' : 'email');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
