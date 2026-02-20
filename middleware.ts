@@ -24,18 +24,17 @@ export async function middleware(request: NextRequest) {
 
   if (isAppDomain) {
     try {
-      // Create server client with cookies
+      // Create server client with cookies from middleware
       const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         {
           cookies: {
+            // In middleware, use request.cookies.getAll()
             getAll() {
-              return request.cookies.getSetCookie().map(cookie => {
-                const [name, ...rest] = cookie.split('=');
-                return { name, value: rest.join('=') };
-              });
+              return request.cookies.getAll();
             },
+            // Set cookies on the response for auth token refresh
             setAll(cookiesToSet) {
               cookiesToSet.forEach(({ name, value, options }) => {
                 response.cookies.set(name, value, options);
