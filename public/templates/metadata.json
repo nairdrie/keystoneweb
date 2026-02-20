@@ -1,0 +1,47 @@
+[
+  {
+    "id": "plumber-classic-pro",
+    "name": "Classic Professional",
+    "businessType": "services",
+    "category": "plumber",
+    "tags": ["professional", "modern", "blue", "services"],
+    "description": "Clean professional design with emphasis on service listings",
+    "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+    "colors": {
+      "primary": "#0066cc",
+      "secondary": "#003399",
+      "accent": "#ff6600"
+    },
+    "imageUrl": "/templates/services/plumber/classic-pro-preview.png"
+  },
+  {
+    "id": "plumber-modern-bold",
+    "name": "Modern Bold",
+    "businessType": "services",
+    "category": "plumber",
+    "tags": ["modern", "bold", "red", "services"],
+    "description": "Contemporary design with high visual impact",
+    "sections": ["header", "hero", "services", "portfolio", "testimonials", "cta", "footer"],
+    "colors": {
+      "primary": "#e74c3c",
+      "secondary": "#c0392b",
+      "accent": "#3498db"
+    },
+    "imageUrl": "/templates/services/plumber/modern-bold-preview.png"
+  },
+  {
+    "id": "plumber-minimal-clean",
+    "name": "Minimal Clean",
+    "businessType": "services",
+    "category": "plumber",
+    "tags": ["minimal", "clean", "gray", "services"],
+    "description": "Simplistic whitespace-focused elegant design",
+    "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+    "colors": {
+      "primary": "#2c3e50",
+      "secondary": "#34495e",
+      "accent": "#16a085"
+    },
+    "imageUrl": "/templates/services/plumber/minimal-clean-preview.png"
+  }
+]

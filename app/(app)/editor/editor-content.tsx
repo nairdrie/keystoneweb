@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import FloatingToolbar from '@/app/components/FloatingToolbar';
 import SiteSwitcher from '@/app/components/SiteSwitcher';
 import SignUpModal from '@/app/components/SignUpModal';
+import TemplateRenderer from '@/app/components/TemplateRenderer';
 import { useAuth } from '@/lib/auth/context';
 
 interface SiteData {
@@ -214,83 +215,26 @@ export default function EditorContent() {
 
   // Full-screen editor with template preview
   return (
-    <div className="w-full h-screen overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
-      {/* Top Toolbar */}
-      <div className="absolute top-4 left-4 z-20">
-        {site && <SiteSwitcher currentSiteId={site.id} currentSiteTitle={siteTitle} />}
-      </div>
-      {/* Template Preview */}
-      <div className="w-full h-full flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-full overflow-auto">
-          {/* Hero Section Preview */}
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-12 sm:p-16 text-white text-center">
-            <h1 className="text-4xl sm:text-5xl font-black mb-4">{siteTitle}</h1>
-            <p className="text-lg sm:text-xl opacity-90">
-              {site.designData.description || 'Your professional website starts here'}
+    <div className="w-full h-screen overflow-hidden flex flex-col bg-white">
+      {/* Header with Site Info and Toolbar */}
+      <div className="absolute top-0 left-0 right-0 z-30 bg-white border-b border-slate-200 p-4 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          {site && <SiteSwitcher currentSiteId={site.id} currentSiteTitle={siteTitle} />}
+          <div>
+            <h2 className="font-semibold text-slate-900">{siteTitle}</h2>
+            <p className="text-xs text-slate-500">
+              {site.businessType} • {site.category}
             </p>
-            <button className="mt-6 px-8 py-3 bg-white text-blue-600 font-bold rounded-lg hover:bg-slate-100 transition-colors">
-              Get Started
-            </button>
-          </div>
-
-          {/* Content Section */}
-          <div className="p-8 sm:p-12">
-            {/* Meta Info */}
-            <div className="mb-8 pb-8 border-b border-slate-200">
-              <h2 className="text-sm font-semibold text-slate-600 mb-4">Site Information</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <p className="text-xs text-slate-500">Business Type</p>
-                  <p className="text-sm font-semibold text-slate-900 capitalize">
-                    {site.businessType}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">Category</p>
-                  <p className="text-sm font-semibold text-slate-900 capitalize">
-                    {site.category}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500">Template</p>
-                  <p className="text-sm font-semibold text-slate-900">
-                    {site.selectedTemplateId}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Features Preview */}
-            <div className="mb-8">
-              <h2 className="text-2xl font-bold text-slate-900 mb-6">Features Coming Soon</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 bg-slate-100 rounded-lg">
-                  <p className="text-sm font-semibold text-slate-900">Color Customization</p>
-                  <p className="text-xs text-slate-600 mt-1">Open settings to choose your palette</p>
-                </div>
-                <div className="p-4 bg-slate-100 rounded-lg">
-                  <p className="text-sm font-semibold text-slate-900">Font Selection</p>
-                  <p className="text-xs text-slate-600 mt-1">Coming in next update</p>
-                </div>
-                <div className="p-4 bg-slate-100 rounded-lg">
-                  <p className="text-sm font-semibold text-slate-900">Section Editor</p>
-                  <p className="text-xs text-slate-600 mt-1">Drag & drop sections</p>
-                </div>
-                <div className="p-4 bg-slate-100 rounded-lg">
-                  <p className="text-sm font-semibold text-slate-900">Image Gallery</p>
-                  <p className="text-xs text-slate-600 mt-1">Add your own images</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="text-center pt-8 border-t border-slate-200">
-              <p className="text-sm text-slate-600">
-                Open the settings panel (bottom right) to customize your site
-              </p>
-            </div>
           </div>
         </div>
+      </div>
+
+      {/* Template Renderer - Full Screen */}
+      <div className="flex-1 overflow-auto pt-16">
+        <TemplateRenderer
+          templateId={site.selectedTemplateId}
+          colors={site.designData.colors}
+        />
       </div>
 
       {/* Floating Toolbar */}
