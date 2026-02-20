@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChevronUp } from 'lucide-react';
+import { useAuth } from '@/lib/auth/context';
 
 interface FloatingToolbarProps {
   siteTitle: string;
@@ -44,7 +46,14 @@ export default function FloatingToolbar({
   onSave,
   saving = false,
 }: FloatingToolbarProps) {
+  const router = useRouter();
+  const { signOut } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await signOut();
+    router.push('/');
+  };
 
   return (
     <>
@@ -155,6 +164,17 @@ export default function FloatingToolbar({
               className="w-full py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-bold rounded-lg transition-colors"
             >
               {saving ? 'Saving...' : 'Save Site'}
+            </button>
+
+            {/* Divider */}
+            <div className="my-6 h-px bg-slate-200" />
+
+            {/* Logout Button */}
+            <button
+              onClick={handleLogout}
+              className="w-full py-3 bg-slate-200 hover:bg-slate-300 text-slate-900 font-bold rounded-lg transition-colors"
+            >
+              Log Out
             </button>
 
             {/* Footer Info */}
