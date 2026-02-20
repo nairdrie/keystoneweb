@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { supabase } from '@/lib/db/supabase';
+import { createClient } from '@/lib/db/supabase-server';
 
 interface CreateSiteRequest {
   selectedTemplateId: string;
@@ -49,12 +49,17 @@ export async function POST(request: NextRequest) {
     const siteId = uuidv4();
     const now = new Date().toISOString();
 
+    // Create server-side Supabase client (handles auth via cookies)
+    const supabase = await createClient();
+
     // Insert into Supabase
+    // Note: POST is public - unauthenticated users can create unowned sites
+    // Ownership is set when user clicks Save (PATCH with auth)
     const { data, error } = await supabase
       .from('sites')
       .insert({
         id: siteId,
-        user_id: null, // Set when user authenticates
+        user_id: null, // Set when user authenticates & saves
         selected_template_id: selectedTemplateId,
         business_type: businessType,
         category,
@@ -103,6 +108,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Create server-side Supabase client
+    const supabase = await createClient();
+
     // Fetch from Supabase
     const { data, error } = await supabase
       .from('sites')
@@ -131,13 +139,37 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    // Create server-side Supabase client
+    const supabase = await createClient();
+
+    // ✅ Security: Always use getUser() for authorization checks
+    // This cryptographically verifies the JWT token with Supabase backend
+    // NEVER use getSession() which only reads local cookies unvalidated
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.log('Auth error in PATCH /api/sites:', authError?.message);
+      return NextResponse.json(
+        { error: 'Unauthorized: User authentication required' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
-    const { siteId, designData } = body;
+    const { siteId, designData, userId } = body;
 
     if (!siteId) {
       return NextResponse.json(
         { error: 'Site ID is required' },
         { status: 400 }
+      );
+    }
+
+    // ✅ Security: Verify ownership - userId from JWT must match site.user_id
+    if (userId && userId !== user.id) {
+      return NextResponse.json(
+        { error: 'Forbidden: You can only edit your own sites' },
+        { status: 403 }
       );
     }
 
@@ -155,16 +187,25 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // ✅ Security: If site already has an owner, verify it matches current user
+    if (currentSite.user_id && currentSite.user_id !== user.id) {
+      return NextResponse.json(
+        { error: 'Forbidden: This site is owned by another user' },
+        { status: 403 }
+      );
+    }
+
     // Merge design data
     const mergedDesignData = {
       ...(currentSite.design_data || {}),
       ...(designData || {}),
     };
 
-    // Update in Supabase
+    // Update in Supabase - set userId if this is the first save
     const { data: updatedSite, error: updateError } = await supabase
       .from('sites')
       .update({
+        user_id: user.id, // Claim ownership on first save
         design_data: mergedDesignData,
         updated_at: new Date().toISOString(),
       })
