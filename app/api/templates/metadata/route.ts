@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 
 /**
  * GET /api/templates/metadata
@@ -33,7 +33,7 @@ interface TemplateMetadata {
   imageUrl: string;
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const businessType = searchParams.get('businessType');
   const category = searchParams.get('category');

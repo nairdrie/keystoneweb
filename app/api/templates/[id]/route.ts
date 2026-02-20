@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
@@ -32,10 +32,10 @@ interface TemplateData {
 }
 
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const templateId = params.id;
+  const { id: templateId } = await params;
 
   try {
     // Template file structure: /public/templates/{businessType}/{category}/{id}.json
