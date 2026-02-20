@@ -51,12 +51,29 @@ export default function SignUpModal({ isOpen, onClose, siteId, onSuccess }: Sign
       return;
     }
 
-    // Check if account exists
-    // For now, we'll assume it's new and go to password step
-    // In production, you'd call an API endpoint to check
-    setAccountExists(false);
-    setStep('password');
-    setLoading(false);
+    try {
+      // Check if account exists in database
+      const res = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!res.ok) {
+        setError('Failed to check email');
+        setLoading(false);
+        return;
+      }
+
+      const { exists } = await res.json();
+      setAccountExists(exists);
+      setStep(exists ? 'signin' : 'password');
+    } catch (err) {
+      console.error('Email check error:', err);
+      setError('Failed to check email. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
