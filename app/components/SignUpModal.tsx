@@ -102,7 +102,11 @@ export default function SignUpModal({ isOpen, onClose, siteId, onSuccess }: Sign
     try {
       const { error: signUpError } = await signUp(email, password);
       if (signUpError) {
-        setError(signUpError.message);
+        // User-friendly error for signup failures
+        const message = signUpError.message?.toLowerCase().includes('already') 
+          ? 'Incorrect email or password' 
+          : signUpError.message;
+        setError(message);
         setLoading(false);
         return;
       }
@@ -147,18 +151,29 @@ export default function SignUpModal({ isOpen, onClose, siteId, onSuccess }: Sign
     try {
       const { error: signInError } = await signIn(email, password);
       if (signInError) {
-        setError(signInError.message);
+        // User-friendly error message for incorrect credentials
+        setError('Incorrect email or password');
         setLoading(false);
         return;
       }
+      // Don't call onClose() - let handleSignUpSuccess manage modal closure
+      // to avoid redirect to onboarding
       onSuccess?.();
-      onClose();
     } catch (err) {
       setError('An unexpected error occurred');
       console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Toggle between signup and signin (when on password screen)
+  const handleToggleMode = () => {
+    setPassword('');
+    setConfirmPassword('');
+    setError(null);
+    // Flip the accountExists flag to show the other password form
+    setAccountExists(!accountExists);
   };
 
   return (
@@ -196,7 +211,11 @@ export default function SignUpModal({ isOpen, onClose, siteId, onSuccess }: Sign
           Customize Your Website
         </h2>
         <p className="text-slate-600 text-center mb-6">
-          Create an account to unlock full customization and publish your site
+          {step === 'signin' ? (
+            'Log in to your account to unlock full customization and publish your site'
+          ) : (
+            'Create an account to unlock full customization and publish your site'
+          )}
         </p>
 
         {error && (
@@ -234,6 +253,19 @@ export default function SignUpModal({ isOpen, onClose, siteId, onSuccess }: Sign
         {/* Step 2: Password (New Account) */}
         {step === 'password' && !accountExists && (
           <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            {/* Email (pre-filled, read-only) */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Email Address
+              </label>
+              <input
+                type="email"
+                value={email}
+                disabled
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-600 opacity-60"
+              />
+            </div>
+
             <div>
               <label className="block text-sm font-semibold text-slate-900 mb-2">
                 Password
@@ -274,12 +306,34 @@ export default function SignUpModal({ isOpen, onClose, siteId, onSuccess }: Sign
             >
               {loading ? 'Creating Account...' : 'Create Account'}
             </button>
+
+            {/* Already have account? */}
+            <button
+              type="button"
+              onClick={handleToggleMode}
+              className="w-full text-sm text-red-600 hover:text-red-700 font-medium"
+            >
+              Already have an account? Log in
+            </button>
           </form>
         )}
 
         {/* Step 2b: Sign In (Existing Account) */}
         {step === 'signin' && (
           <form onSubmit={handleSignInSubmit} className="space-y-4">
+            {/* Email (pre-filled, read-only) */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Email Address
+              </label>
+              <input
+                type="email"
+                value={email}
+                disabled
+                className="w-full px-4 py-2 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-600 opacity-60"
+              />
+            </div>
+
             <div>
               <label className="block text-sm font-semibold text-slate-900 mb-2">
                 Password
@@ -289,6 +343,7 @@ export default function SignUpModal({ isOpen, onClose, siteId, onSuccess }: Sign
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={loading}
+                autoFocus
                 className="w-full px-4 py-2 bg-slate-100 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent focus:bg-white disabled:opacity-50 text-slate-900 placeholder-slate-600"
                 placeholder="••••••••"
               />
@@ -308,6 +363,15 @@ export default function SignUpModal({ isOpen, onClose, siteId, onSuccess }: Sign
               className="w-full text-sm text-red-600 hover:text-red-700 font-medium"
             >
               Forgot Password?
+            </button>
+
+            {/* Don't have account? Create one */}
+            <button
+              type="button"
+              onClick={handleToggleMode}
+              className="w-full text-sm text-red-600 hover:text-red-700 font-medium"
+            >
+              Don't have an account? Create one
             </button>
           </form>
         )}
@@ -372,12 +436,17 @@ export default function SignUpModal({ isOpen, onClose, siteId, onSuccess }: Sign
         )}
 
         {/* Back Button */}
-        {step !== 'email' && (
+        {(step === 'password' || step === 'signin') && (
           <button
-            onClick={() => setStep(step === 'password' ? 'email' : 'email')}
+            onClick={() => {
+              setStep('email');
+              setPassword('');
+              setConfirmPassword('');
+              setError(null);
+            }}
             className="w-full mt-4 text-sm text-slate-600 hover:text-slate-900 font-medium"
           >
-            ← Back
+            ← Back to Email
           </button>
         )}
       </div>
