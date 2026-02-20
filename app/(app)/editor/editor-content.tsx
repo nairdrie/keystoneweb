@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import FloatingToolbar from '@/app/components/FloatingToolbar';
+import SiteSwitcher from '@/app/components/SiteSwitcher';
 import SignUpModal from '@/app/components/SignUpModal';
 import { useAuth } from '@/lib/auth/context';
 
@@ -214,6 +215,10 @@ export default function EditorContent() {
   // Full-screen editor with template preview
   return (
     <div className="w-full h-screen overflow-hidden bg-gradient-to-br from-slate-900 to-slate-800">
+      {/* Top Toolbar */}
+      <div className="absolute top-4 left-4 z-20">
+        {site && <SiteSwitcher currentSiteId={site.id} currentSiteTitle={siteTitle} />}
+      </div>
       {/* Template Preview */}
       <div className="w-full h-full flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-full overflow-auto">
