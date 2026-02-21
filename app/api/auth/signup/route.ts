@@ -1,7 +1,32 @@
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
+  const cookieStore = cookies();
+
+  // Create server-side Supabase client
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          } catch {
+            // Handle errors silently
+          }
+        },
+      },
+    }
+  );
+
   try {
     const { email, password, name } = await request.json();
 
@@ -11,12 +36,6 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-
-    // Use Supabase client with anon key (for auth endpoint)
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-    );
 
     // Sign up with Supabase Auth
     const { data, error } = await supabase.auth.signUp({
@@ -36,7 +55,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Return user data
     return NextResponse.json({
       success: true,
       user: data.user,
