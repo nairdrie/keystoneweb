@@ -22,7 +22,7 @@ export default function TemplateRenderer({ templateId, colors }: TemplateRendere
   const [html, setHtml] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [baseHtml, setBaseHtml] = useState<string>(''); // Store original HTML
+  const [baseHtml, setBaseHtml] = useState<string>('');
 
   // Fetch template once on mount
   useEffect(() => {
@@ -56,77 +56,89 @@ export default function TemplateRenderer({ templateId, colors }: TemplateRendere
     const activeColors = colors || DEFAULT_COLORS;
     const { primary, secondary, accent } = activeColors;
 
-    // Create CSS that overrides Tailwind colors
-    // This maps common color classes to our palette colors
+    // Create CSS that overrides Tailwind colors with high specificity
     const colorOverrideStyles = `
       <style id="color-overrides">
-        :root {
-          --color-primary: ${primary};
-          --color-secondary: ${secondary};
-          --color-accent: ${accent};
+        /* Force CSS variable definitions */
+        :root, html, body, * {
+          --color-primary: ${primary} !important;
+          --color-secondary: ${secondary} !important;
+          --color-accent: ${accent} !important;
         }
         
-        /* Override red-600 (usually secondary) */
-        .bg-red-600, .text-red-600, .border-red-600 { 
-          --tw-bg-opacity: 1; 
+        /* Override red-600 (secondary color) */
+        [class*="bg-red-600"] { 
           background-color: ${secondary} !important;
+        }
+        [class*="text-red-600"] { 
           color: ${secondary} !important;
+        }
+        [class*="border-red-600"] { 
           border-color: ${secondary} !important;
         }
-        .hover\\:bg-red-700:hover { 
-          background-color: ${secondary} !important; 
-          filter: brightness(0.9);
-        }
-        .hover\\:text-red-600:hover { 
-          color: ${secondary} !important; 
+        [class*="hover:bg-red-700"]:hover { 
+          background-color: ${secondary} !important;
+          opacity: 0.9;
         }
         
-        /* Override gray-900/gray-800 (usually primary) */
-        .bg-gray-900, .bg-gray-800 { 
-          background-color: ${primary} !important; 
+        /* Override gray-900 (primary color) */
+        [class*="bg-gray-900"] { 
+          background-color: ${primary} !important;
         }
-        .text-gray-900 { 
-          color: ${primary} !important; 
+        [class*="text-gray-900"] { 
+          color: ${primary} !important;
         }
-        .border-gray-900 { 
-          border-color: ${primary} !important; 
-        }
-        
-        /* Override gray-100 (usually accent/light) */
-        .bg-gray-100 { 
-          background-color: ${accent} !important; 
+        [class*="border-gray-900"] { 
+          border-color: ${primary} !important;
         }
         
-        /* Button colors */
-        button { 
-          --tw-bg-opacity: 1; 
+        /* Override gray-800 (dark primary) */
+        [class*="bg-gray-800"] { 
+          background-color: ${primary} !important;
         }
         
-        /* Ensure CSS variables work */
-        * {
-          --tw-bg-opacity: 1;
+        /* Override gray-100 (light accent) */
+        [class*="bg-gray-100"] { 
+          background-color: ${accent} !important;
+        }
+        
+        /* Ensure buttons get colored */
+        button[class*="bg-red"],
+        button[class*="bg-gray-9"],
+        a[class*="bg-red"],
+        a[class*="bg-gray-9"] {
+          background-color: ${secondary} !important;
+          color: white !important;
+        }
+        
+        /* Gradient overrides */
+        [class*="from-gray-900"] {
+          background: linear-gradient(to right, ${primary}, ${primary}) !important;
+        }
+        [class*="from-gray-800"] {
+          background: linear-gradient(to bottom, ${primary}, ${primary}) !important;
         }
       </style>
     `;
 
-    // Inject the color override styles into the HTML
     let finalHtml = baseHtml;
     
     // Remove old color overrides if they exist
     finalHtml = finalHtml.replace(/<style id="color-overrides">[\s\S]*?<\/style>/g, '');
     
-    // Insert new color overrides right after opening body tag or at the start
+    // Insert new color overrides at the start of head or body
     if (finalHtml.includes('</head>')) {
       finalHtml = finalHtml.replace('</head>', colorOverrideStyles + '</head>');
     } else if (finalHtml.includes('<body')) {
-      const bodyEndTag = finalHtml.indexOf('>') + 1;
+      const bodyStart = finalHtml.indexOf('<body');
+      const bodyEndTag = finalHtml.indexOf('>', bodyStart) + 1;
       finalHtml = finalHtml.slice(0, bodyEndTag) + colorOverrideStyles + finalHtml.slice(bodyEndTag);
     } else {
       finalHtml = colorOverrideStyles + finalHtml;
     }
 
     setHtml(finalHtml);
-  }, [baseHtml, colors]); // Re-apply colors whenever colors change
+  }, [baseHtml, colors]);
 
   if (loading) {
     return (
