@@ -52,7 +52,7 @@ export default function FloatingToolbar({
 
   return (
     <>
-      {/* Floating Button - Always on top with z-50 */}
+      {/* Floating Button - Always Keystone Red (z-50) */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
@@ -83,24 +83,22 @@ export default function FloatingToolbar({
         />
       )}
 
-      {/* Drawer - z-50 to be above overlay */}
+      {/* Drawer - z-50 to be above overlay, Keystone Red header */}
       {isOpen && (
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl max-h-[80vh] overflow-y-auto">
-          {/* Handle */}
-          <div className="flex justify-center pt-3 pb-2">
+          {/* Red Header */}
+          <div className="sticky top-0 bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-4 flex items-center justify-between rounded-t-2xl">
+            <h2 className="text-xl font-bold">Site Editor</h2>
             <button
               onClick={() => setIsOpen(false)}
-              className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+              className="p-2 hover:bg-red-700 rounded-full transition-colors"
             >
-              <ChevronUp className="w-6 h-6 text-slate-400" />
+              <ChevronUp className="w-6 h-6" />
             </button>
           </div>
 
           {/* Content */}
-          <div className="px-6 pb-8">
-            {/* Title */}
-            <h2 className="text-2xl font-bold mb-6">Site Editor</h2>
-
+          <div className="px-6 pb-8 pt-6">
             {/* Site Info Section */}
             <div className="bg-slate-50 rounded-lg p-4 mb-6">
               <div className="space-y-2 text-sm">
@@ -138,7 +136,7 @@ export default function FloatingToolbar({
             </div>
 
             {/* Color Palette Selector */}
-            {templatePalettes.length > 0 && (
+            {templatePalettes && templatePalettes.length > 0 && (
               <div className="mb-8">
                 <label className="block text-sm font-semibold text-slate-900 mb-4">
                   Color Palette
@@ -190,7 +188,7 @@ export default function FloatingToolbar({
               </div>
             )}
 
-            {/* Save Button */}
+            {/* Save Button - Keystone Red */}
             <button
               onClick={handleSave}
               disabled={saving}
