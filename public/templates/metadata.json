@@ -14,14 +14,48 @@
       "businessType": "services",
       "category": "handyman",
       "style": "classic",
-      "tags": ["handyman", "repairs", "maintenance", "professional", "trustworthy"],
+      "tags": [
+        "handyman",
+        "repairs",
+        "maintenance",
+        "professional",
+        "trustworthy"
+      ],
       "description": "Professional handyman service template with traditional design, emphasis on reliability and expertise",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#dc2626",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Professional",
+          "primary": "#1f2937",
+          "secondary": "#dc2626",
+          "accent": "#f3f4f6"
+        },
+        {
+          "name": "Modern Blue",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Forest",
+          "primary": "#15803d",
+          "secondary": "#84cc16",
+          "accent": "#f7fee7"
+        }
+      ]
     },
     {
       "id": "svc_handyman_modern",
@@ -29,14 +63,48 @@
       "businessType": "services",
       "category": "handyman",
       "style": "modern",
-      "tags": ["handyman", "repairs", "modern", "dynamic", "bold"],
+      "tags": [
+        "handyman",
+        "repairs",
+        "modern",
+        "dynamic",
+        "bold"
+      ],
       "description": "Contemporary handyman template with vibrant blues, dynamic layout, and modern aesthetics",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#0369a1",
         "secondary": "#06b6d4",
         "accent": "#f0f9ff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Professional",
+          "primary": "#1f2937",
+          "secondary": "#dc2626",
+          "accent": "#f3f4f6"
+        },
+        {
+          "name": "Modern Blue",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Forest",
+          "primary": "#15803d",
+          "secondary": "#84cc16",
+          "accent": "#f7fee7"
+        }
+      ]
     },
     {
       "id": "svc_handyman_minimal",
@@ -44,14 +112,48 @@
       "businessType": "services",
       "category": "handyman",
       "style": "minimal",
-      "tags": ["handyman", "minimal", "clean", "simple", "whitespace"],
+      "tags": [
+        "handyman",
+        "minimal",
+        "clean",
+        "simple",
+        "whitespace"
+      ],
       "description": "Minimalist handyman template with clean design, maximum whitespace, focus on content",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#374151",
         "secondary": "#10b981",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Professional",
+          "primary": "#1f2937",
+          "secondary": "#dc2626",
+          "accent": "#f3f4f6"
+        },
+        {
+          "name": "Modern Blue",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Forest",
+          "primary": "#15803d",
+          "secondary": "#84cc16",
+          "accent": "#f7fee7"
+        }
+      ]
     },
     {
       "id": "svc_plumber_classic",
@@ -59,14 +161,48 @@
       "businessType": "services",
       "category": "plumber",
       "style": "classic",
-      "tags": ["plumber", "plumbing", "repairs", "professional", "trustworthy"],
+      "tags": [
+        "plumber",
+        "plumbing",
+        "repairs",
+        "professional",
+        "trustworthy"
+      ],
       "description": "Professional plumbing service template with classic design and strong credibility markers",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#3b82f6",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Navy Pro",
+          "primary": "#1e3a8a",
+          "secondary": "#3b82f6",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Ocean Fresh",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#ecfdf5"
+        },
+        {
+          "name": "Slate",
+          "primary": "#475569",
+          "secondary": "#64748b",
+          "accent": "#f8fafc"
+        }
+      ]
     },
     {
       "id": "svc_plumber_modern",
@@ -74,14 +210,48 @@
       "businessType": "services",
       "category": "plumber",
       "style": "modern",
-      "tags": ["plumber", "modern", "teal", "dynamic", "contemporary"],
+      "tags": [
+        "plumber",
+        "modern",
+        "teal",
+        "dynamic",
+        "contemporary"
+      ],
       "description": "Modern plumbing template with teal accents, bold typography, and contemporary layout",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#0d9488",
         "secondary": "#14b8a6",
         "accent": "#f0fdfa"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Navy Pro",
+          "primary": "#1e3a8a",
+          "secondary": "#3b82f6",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Ocean Fresh",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#ecfdf5"
+        },
+        {
+          "name": "Slate",
+          "primary": "#475569",
+          "secondary": "#64748b",
+          "accent": "#f8fafc"
+        }
+      ]
     },
     {
       "id": "svc_plumber_minimal",
@@ -89,14 +259,48 @@
       "businessType": "services",
       "category": "plumber",
       "style": "minimal",
-      "tags": ["plumber", "minimal", "clean", "simple", "elegant"],
+      "tags": [
+        "plumber",
+        "minimal",
+        "clean",
+        "simple",
+        "elegant"
+      ],
       "description": "Clean minimalist plumbing template emphasizing clarity and professionalism",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#4b5563",
         "secondary": "#06b6d4",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Navy Pro",
+          "primary": "#1e3a8a",
+          "secondary": "#3b82f6",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Ocean Fresh",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#ecfdf5"
+        },
+        {
+          "name": "Slate",
+          "primary": "#475569",
+          "secondary": "#64748b",
+          "accent": "#f8fafc"
+        }
+      ]
     },
     {
       "id": "svc_electrical_classic",
@@ -104,14 +308,48 @@
       "businessType": "services",
       "category": "electrical",
       "style": "classic",
-      "tags": ["electrical", "electrician", "professional", "trustworthy", "expertise"],
+      "tags": [
+        "electrical",
+        "electrician",
+        "professional",
+        "trustworthy",
+        "expertise"
+      ],
       "description": "Professional electrical service template with classic design, strong trust indicators",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#f59e0b",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Electric",
+          "primary": "#7c3aed",
+          "secondary": "#fbbf24",
+          "accent": "#fef3c7"
+        },
+        {
+          "name": "Industrial",
+          "primary": "#1f2937",
+          "secondary": "#f59e0b",
+          "accent": "#fffbeb"
+        },
+        {
+          "name": "Tech Blue",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        }
+      ]
     },
     {
       "id": "svc_electrical_modern",
@@ -119,14 +357,48 @@
       "businessType": "services",
       "category": "electrical",
       "style": "modern",
-      "tags": ["electrical", "modern", "amber", "bold", "dynamic"],
+      "tags": [
+        "electrical",
+        "modern",
+        "amber",
+        "bold",
+        "dynamic"
+      ],
       "description": "Modern electrical template with amber accents, electric energy, and bold design",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#d97706",
         "secondary": "#f59e0b",
         "accent": "#fffbeb"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Electric",
+          "primary": "#7c3aed",
+          "secondary": "#fbbf24",
+          "accent": "#fef3c7"
+        },
+        {
+          "name": "Industrial",
+          "primary": "#1f2937",
+          "secondary": "#f59e0b",
+          "accent": "#fffbeb"
+        },
+        {
+          "name": "Tech Blue",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        }
+      ]
     },
     {
       "id": "svc_electrical_minimal",
@@ -134,14 +406,48 @@
       "businessType": "services",
       "category": "electrical",
       "style": "minimal",
-      "tags": ["electrical", "minimal", "clean", "simple", "professional"],
+      "tags": [
+        "electrical",
+        "minimal",
+        "clean",
+        "simple",
+        "professional"
+      ],
       "description": "Minimalist electrical service template with clean typography and focused content",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#374151",
         "secondary": "#f59e0b",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Electric",
+          "primary": "#7c3aed",
+          "secondary": "#fbbf24",
+          "accent": "#fef3c7"
+        },
+        {
+          "name": "Industrial",
+          "primary": "#1f2937",
+          "secondary": "#f59e0b",
+          "accent": "#fffbeb"
+        },
+        {
+          "name": "Tech Blue",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        }
+      ]
     },
     {
       "id": "svc_hvac_classic",
@@ -149,14 +455,48 @@
       "businessType": "services",
       "category": "hvac",
       "style": "classic",
-      "tags": ["hvac", "heating", "cooling", "professional", "reliable"],
+      "tags": [
+        "hvac",
+        "heating",
+        "cooling",
+        "professional",
+        "reliable"
+      ],
       "description": "Professional HVAC service template with classic design and strong credibility",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#3b82f6",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Cool Blue",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#ecf0f1"
+        },
+        {
+          "name": "Professional",
+          "primary": "#1f2937",
+          "secondary": "#60a5fa",
+          "accent": "#f3f4f6"
+        },
+        {
+          "name": "Energy",
+          "primary": "#059669",
+          "secondary": "#10b981",
+          "accent": "#ecfdf5"
+        }
+      ]
     },
     {
       "id": "svc_hvac_modern",
@@ -164,14 +504,48 @@
       "businessType": "services",
       "category": "hvac",
       "style": "modern",
-      "tags": ["hvac", "modern", "cool", "dynamic", "contemporary"],
+      "tags": [
+        "hvac",
+        "modern",
+        "cool",
+        "dynamic",
+        "contemporary"
+      ],
       "description": "Modern HVAC template with cool blue tones, contemporary design, dynamic layout",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#0369a1",
         "secondary": "#0ea5e9",
         "accent": "#f0f9ff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Cool Blue",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#ecf0f1"
+        },
+        {
+          "name": "Professional",
+          "primary": "#1f2937",
+          "secondary": "#60a5fa",
+          "accent": "#f3f4f6"
+        },
+        {
+          "name": "Energy",
+          "primary": "#059669",
+          "secondary": "#10b981",
+          "accent": "#ecfdf5"
+        }
+      ]
     },
     {
       "id": "svc_hvac_minimal",
@@ -179,14 +553,48 @@
       "businessType": "services",
       "category": "hvac",
       "style": "minimal",
-      "tags": ["hvac", "minimal", "clean", "simple", "elegant"],
+      "tags": [
+        "hvac",
+        "minimal",
+        "clean",
+        "simple",
+        "elegant"
+      ],
       "description": "Clean minimalist HVAC template focusing on clarity and professionalism",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#4b5563",
         "secondary": "#0ea5e9",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Cool Blue",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#ecf0f1"
+        },
+        {
+          "name": "Professional",
+          "primary": "#1f2937",
+          "secondary": "#60a5fa",
+          "accent": "#f3f4f6"
+        },
+        {
+          "name": "Energy",
+          "primary": "#059669",
+          "secondary": "#10b981",
+          "accent": "#ecfdf5"
+        }
+      ]
     },
     {
       "id": "svc_mechanic_classic",
@@ -194,14 +602,48 @@
       "businessType": "services",
       "category": "mechanic",
       "style": "classic",
-      "tags": ["mechanic", "auto repair", "professional", "trustworthy", "expertise"],
+      "tags": [
+        "mechanic",
+        "auto repair",
+        "professional",
+        "trustworthy",
+        "expertise"
+      ],
       "description": "Professional auto mechanic template with classic design, strong expertise indicators",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#dc2626",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Steel",
+          "primary": "#1f2937",
+          "secondary": "#6366f1",
+          "accent": "#f3f4f6"
+        },
+        {
+          "name": "Speed",
+          "primary": "#dc2626",
+          "secondary": "#f97316",
+          "accent": "#fff7ed"
+        },
+        {
+          "name": "Dark Tech",
+          "primary": "#111827",
+          "secondary": "#3b82f6",
+          "accent": "#f0f9ff"
+        }
+      ]
     },
     {
       "id": "svc_mechanic_modern",
@@ -209,14 +651,48 @@
       "businessType": "services",
       "category": "mechanic",
       "style": "modern",
-      "tags": ["mechanic", "modern", "steel", "bold", "dynamic"],
+      "tags": [
+        "mechanic",
+        "modern",
+        "steel",
+        "bold",
+        "dynamic"
+      ],
       "description": "Modern mechanic template with steel and chrome aesthetics, bold modern design",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#334155",
         "secondary": "#ef4444",
         "accent": "#f1f5f9"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Steel",
+          "primary": "#1f2937",
+          "secondary": "#6366f1",
+          "accent": "#f3f4f6"
+        },
+        {
+          "name": "Speed",
+          "primary": "#dc2626",
+          "secondary": "#f97316",
+          "accent": "#fff7ed"
+        },
+        {
+          "name": "Dark Tech",
+          "primary": "#111827",
+          "secondary": "#3b82f6",
+          "accent": "#f0f9ff"
+        }
+      ]
     },
     {
       "id": "svc_mechanic_minimal",
@@ -224,14 +700,48 @@
       "businessType": "services",
       "category": "mechanic",
       "style": "minimal",
-      "tags": ["mechanic", "minimal", "clean", "simple", "focused"],
+      "tags": [
+        "mechanic",
+        "minimal",
+        "clean",
+        "simple",
+        "focused"
+      ],
       "description": "Minimalist mechanic template with clean design and focused content",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#374151",
         "secondary": "#ef4444",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Steel",
+          "primary": "#1f2937",
+          "secondary": "#6366f1",
+          "accent": "#f3f4f6"
+        },
+        {
+          "name": "Speed",
+          "primary": "#dc2626",
+          "secondary": "#f97316",
+          "accent": "#fff7ed"
+        },
+        {
+          "name": "Dark Tech",
+          "primary": "#111827",
+          "secondary": "#3b82f6",
+          "accent": "#f0f9ff"
+        }
+      ]
     },
     {
       "id": "svc_trades_classic",
@@ -239,14 +749,48 @@
       "businessType": "services",
       "category": "trades",
       "style": "classic",
-      "tags": ["trades", "carpentry", "professional", "skilled", "experienced"],
+      "tags": [
+        "trades",
+        "carpentry",
+        "professional",
+        "skilled",
+        "experienced"
+      ],
       "description": "Professional trades/carpentry template with classic design and strong expertise signals",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#92400e",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Rustic",
+          "primary": "#92400e",
+          "secondary": "#d97706",
+          "accent": "#fef3c7"
+        },
+        {
+          "name": "Professional",
+          "primary": "#1f2937",
+          "secondary": "#059669",
+          "accent": "#f0fdf4"
+        },
+        {
+          "name": "Modern",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        }
+      ]
     },
     {
       "id": "svc_trades_modern",
@@ -254,14 +798,48 @@
       "businessType": "services",
       "category": "trades",
       "style": "modern",
-      "tags": ["trades", "modern", "wood", "craftsmanship", "bold"],
+      "tags": [
+        "trades",
+        "modern",
+        "wood",
+        "craftsmanship",
+        "bold"
+      ],
       "description": "Modern trades template with warm wood tones, contemporary design, craftsmanship focus",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#92400e",
         "secondary": "#d97706",
         "accent": "#fffbeb"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Rustic",
+          "primary": "#92400e",
+          "secondary": "#d97706",
+          "accent": "#fef3c7"
+        },
+        {
+          "name": "Professional",
+          "primary": "#1f2937",
+          "secondary": "#059669",
+          "accent": "#f0fdf4"
+        },
+        {
+          "name": "Modern",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        }
+      ]
     },
     {
       "id": "svc_trades_minimal",
@@ -269,14 +847,48 @@
       "businessType": "services",
       "category": "trades",
       "style": "minimal",
-      "tags": ["trades", "minimal", "clean", "simple", "elegant"],
+      "tags": [
+        "trades",
+        "minimal",
+        "clean",
+        "simple",
+        "elegant"
+      ],
       "description": "Minimalist trades template emphasizing quality and craftsmanship",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#4b5563",
         "secondary": "#92400e",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Rustic",
+          "primary": "#92400e",
+          "secondary": "#d97706",
+          "accent": "#fef3c7"
+        },
+        {
+          "name": "Professional",
+          "primary": "#1f2937",
+          "secondary": "#059669",
+          "accent": "#f0fdf4"
+        },
+        {
+          "name": "Modern",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        }
+      ]
     },
     {
       "id": "svc_cleaning_classic",
@@ -284,14 +896,48 @@
       "businessType": "services",
       "category": "cleaning",
       "style": "classic",
-      "tags": ["cleaning", "professional", "reliable", "trustworthy", "fresh"],
+      "tags": [
+        "cleaning",
+        "professional",
+        "reliable",
+        "trustworthy",
+        "fresh"
+      ],
       "description": "Professional cleaning service template with classic design, trust and cleanliness emphasis",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#10b981",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Fresh",
+          "primary": "#0891b2",
+          "secondary": "#06b6d4",
+          "accent": "#ecf0f1"
+        },
+        {
+          "name": "Sparkle",
+          "primary": "#7c3aed",
+          "secondary": "#ec4899",
+          "accent": "#fce7f3"
+        },
+        {
+          "name": "Clean",
+          "primary": "#1f2937",
+          "secondary": "#14b8a6",
+          "accent": "#f0fdfa"
+        }
+      ]
     },
     {
       "id": "svc_cleaning_modern",
@@ -299,14 +945,48 @@
       "businessType": "services",
       "category": "cleaning",
       "style": "modern",
-      "tags": ["cleaning", "modern", "fresh", "dynamic", "bold"],
+      "tags": [
+        "cleaning",
+        "modern",
+        "fresh",
+        "dynamic",
+        "bold"
+      ],
       "description": "Modern cleaning template with fresh green tones, contemporary design, dynamic layout",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#059669",
         "secondary": "#10b981",
         "accent": "#f0fdf4"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Fresh",
+          "primary": "#0891b2",
+          "secondary": "#06b6d4",
+          "accent": "#ecf0f1"
+        },
+        {
+          "name": "Sparkle",
+          "primary": "#7c3aed",
+          "secondary": "#ec4899",
+          "accent": "#fce7f3"
+        },
+        {
+          "name": "Clean",
+          "primary": "#1f2937",
+          "secondary": "#14b8a6",
+          "accent": "#f0fdfa"
+        }
+      ]
     },
     {
       "id": "svc_cleaning_minimal",
@@ -314,14 +994,48 @@
       "businessType": "services",
       "category": "cleaning",
       "style": "minimal",
-      "tags": ["cleaning", "minimal", "clean", "simple", "white"],
+      "tags": [
+        "cleaning",
+        "minimal",
+        "clean",
+        "simple",
+        "white"
+      ],
       "description": "Minimalist cleaning service template with pure white design emphasizing cleanliness",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#374151",
         "secondary": "#10b981",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Fresh",
+          "primary": "#0891b2",
+          "secondary": "#06b6d4",
+          "accent": "#ecf0f1"
+        },
+        {
+          "name": "Sparkle",
+          "primary": "#7c3aed",
+          "secondary": "#ec4899",
+          "accent": "#fce7f3"
+        },
+        {
+          "name": "Clean",
+          "primary": "#1f2937",
+          "secondary": "#14b8a6",
+          "accent": "#f0fdfa"
+        }
+      ]
     },
     {
       "id": "svc_landscaping_classic",
@@ -329,14 +1043,48 @@
       "businessType": "services",
       "category": "landscaping",
       "style": "classic",
-      "tags": ["landscaping", "gardening", "professional", "nature", "expertise"],
+      "tags": [
+        "landscaping",
+        "gardening",
+        "professional",
+        "nature",
+        "expertise"
+      ],
       "description": "Professional landscaping template with classic design and natural aesthetics",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#22c55e",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Nature",
+          "primary": "#15803d",
+          "secondary": "#84cc16",
+          "accent": "#f7fee7"
+        },
+        {
+          "name": "Garden",
+          "primary": "#059669",
+          "secondary": "#10b981",
+          "accent": "#ecfdf5"
+        },
+        {
+          "name": "Earth",
+          "primary": "#92400e",
+          "secondary": "#d97706",
+          "accent": "#fef3c7"
+        }
+      ]
     },
     {
       "id": "svc_landscaping_modern",
@@ -344,14 +1092,48 @@
       "businessType": "services",
       "category": "landscaping",
       "style": "modern",
-      "tags": ["landscaping", "modern", "green", "nature", "bold"],
+      "tags": [
+        "landscaping",
+        "modern",
+        "green",
+        "nature",
+        "bold"
+      ],
       "description": "Modern landscaping template with vibrant greens, contemporary design, nature focus",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#16a34a",
         "secondary": "#22c55e",
         "accent": "#f0fdf4"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Nature",
+          "primary": "#15803d",
+          "secondary": "#84cc16",
+          "accent": "#f7fee7"
+        },
+        {
+          "name": "Garden",
+          "primary": "#059669",
+          "secondary": "#10b981",
+          "accent": "#ecfdf5"
+        },
+        {
+          "name": "Earth",
+          "primary": "#92400e",
+          "secondary": "#d97706",
+          "accent": "#fef3c7"
+        }
+      ]
     },
     {
       "id": "svc_landscaping_minimal",
@@ -359,14 +1141,48 @@
       "businessType": "services",
       "category": "landscaping",
       "style": "minimal",
-      "tags": ["landscaping", "minimal", "clean", "nature", "simple"],
+      "tags": [
+        "landscaping",
+        "minimal",
+        "clean",
+        "nature",
+        "simple"
+      ],
       "description": "Minimalist landscaping template with clean design and natural focus",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#4b5563",
         "secondary": "#22c55e",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Nature",
+          "primary": "#15803d",
+          "secondary": "#84cc16",
+          "accent": "#f7fee7"
+        },
+        {
+          "name": "Garden",
+          "primary": "#059669",
+          "secondary": "#10b981",
+          "accent": "#ecfdf5"
+        },
+        {
+          "name": "Earth",
+          "primary": "#92400e",
+          "secondary": "#d97706",
+          "accent": "#fef3c7"
+        }
+      ]
     },
     {
       "id": "svc_consulting_classic",
@@ -374,14 +1190,48 @@
       "businessType": "services",
       "category": "consulting",
       "style": "classic",
-      "tags": ["consulting", "business", "professional", "expertise", "serious"],
+      "tags": [
+        "consulting",
+        "business",
+        "professional",
+        "expertise",
+        "serious"
+      ],
       "description": "Professional consulting template with classic corporate design and authority",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#6366f1",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Executive",
+          "primary": "#1f2937",
+          "secondary": "#3b82f6",
+          "accent": "#f3f4f6"
+        },
+        {
+          "name": "Corporate",
+          "primary": "#1e3a8a",
+          "secondary": "#60a5fa",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Modern",
+          "primary": "#7c3aed",
+          "secondary": "#a78bfa",
+          "accent": "#f3e8ff"
+        }
+      ]
     },
     {
       "id": "svc_consulting_modern",
@@ -389,14 +1239,48 @@
       "businessType": "services",
       "category": "consulting",
       "style": "modern",
-      "tags": ["consulting", "modern", "indigo", "bold", "contemporary"],
+      "tags": [
+        "consulting",
+        "modern",
+        "indigo",
+        "bold",
+        "contemporary"
+      ],
       "description": "Modern consulting template with indigo tones, contemporary design, dynamic layout",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#4f46e5",
         "secondary": "#6366f1",
         "accent": "#f0f4ff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Executive",
+          "primary": "#1f2937",
+          "secondary": "#3b82f6",
+          "accent": "#f3f4f6"
+        },
+        {
+          "name": "Corporate",
+          "primary": "#1e3a8a",
+          "secondary": "#60a5fa",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Modern",
+          "primary": "#7c3aed",
+          "secondary": "#a78bfa",
+          "accent": "#f3e8ff"
+        }
+      ]
     },
     {
       "id": "svc_consulting_minimal",
@@ -404,14 +1288,48 @@
       "businessType": "services",
       "category": "consulting",
       "style": "minimal",
-      "tags": ["consulting", "minimal", "clean", "professional", "elegant"],
+      "tags": [
+        "consulting",
+        "minimal",
+        "clean",
+        "professional",
+        "elegant"
+      ],
       "description": "Minimalist consulting template with clean design and focused content",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#374151",
         "secondary": "#6366f1",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Executive",
+          "primary": "#1f2937",
+          "secondary": "#3b82f6",
+          "accent": "#f3f4f6"
+        },
+        {
+          "name": "Corporate",
+          "primary": "#1e3a8a",
+          "secondary": "#60a5fa",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Modern",
+          "primary": "#7c3aed",
+          "secondary": "#a78bfa",
+          "accent": "#f3e8ff"
+        }
+      ]
     },
     {
       "id": "svc_freelance_classic",
@@ -419,14 +1337,48 @@
       "businessType": "services",
       "category": "freelance",
       "style": "classic",
-      "tags": ["freelance", "portfolio", "professional", "services", "expertise"],
+      "tags": [
+        "freelance",
+        "portfolio",
+        "professional",
+        "services",
+        "expertise"
+      ],
       "description": "Professional freelancer portfolio template with classic design and portfolio showcase",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#ec4899",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Creative",
+          "primary": "#7c3aed",
+          "secondary": "#ec4899",
+          "accent": "#fce7f3"
+        },
+        {
+          "name": "Modern",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Bold",
+          "primary": "#dc2626",
+          "secondary": "#f97316",
+          "accent": "#fff7ed"
+        }
+      ]
     },
     {
       "id": "svc_freelance_modern",
@@ -434,14 +1386,48 @@
       "businessType": "services",
       "category": "freelance",
       "style": "modern",
-      "tags": ["freelance", "modern", "pink", "bold", "contemporary"],
+      "tags": [
+        "freelance",
+        "modern",
+        "pink",
+        "bold",
+        "contemporary"
+      ],
       "description": "Modern freelancer template with pink accents, contemporary design, creative focus",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#be185d",
         "secondary": "#ec4899",
         "accent": "#fce7f3"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Creative",
+          "primary": "#7c3aed",
+          "secondary": "#ec4899",
+          "accent": "#fce7f3"
+        },
+        {
+          "name": "Modern",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Bold",
+          "primary": "#dc2626",
+          "secondary": "#f97316",
+          "accent": "#fff7ed"
+        }
+      ]
     },
     {
       "id": "svc_freelance_minimal",
@@ -449,14 +1435,48 @@
       "businessType": "services",
       "category": "freelance",
       "style": "minimal",
-      "tags": ["freelance", "minimal", "clean", "portfolio", "focused"],
+      "tags": [
+        "freelance",
+        "minimal",
+        "clean",
+        "portfolio",
+        "focused"
+      ],
       "description": "Minimalist freelancer template with clean design and portfolio focus",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#4b5563",
         "secondary": "#ec4899",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Creative",
+          "primary": "#7c3aed",
+          "secondary": "#ec4899",
+          "accent": "#fce7f3"
+        },
+        {
+          "name": "Modern",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Bold",
+          "primary": "#dc2626",
+          "secondary": "#f97316",
+          "accent": "#fff7ed"
+        }
+      ]
     },
     {
       "id": "svc_salon_classic",
@@ -464,14 +1484,48 @@
       "businessType": "services",
       "category": "salon",
       "style": "classic",
-      "tags": ["salon", "beauty", "professional", "elegant", "luxury"],
+      "tags": [
+        "salon",
+        "beauty",
+        "professional",
+        "elegant",
+        "luxury"
+      ],
       "description": "Professional salon template with classic elegant design and luxury feel",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#8b5cf6",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Elegance",
+          "primary": "#6b21a8",
+          "secondary": "#ec4899",
+          "accent": "#fce7f3"
+        },
+        {
+          "name": "Luxury",
+          "primary": "#1f2937",
+          "secondary": "#d946ef",
+          "accent": "#fdf2f8"
+        },
+        {
+          "name": "Chic",
+          "primary": "#7c3aed",
+          "secondary": "#a78bfa",
+          "accent": "#f3e8ff"
+        }
+      ]
     },
     {
       "id": "svc_salon_modern",
@@ -479,14 +1533,48 @@
       "businessType": "services",
       "category": "salon",
       "style": "modern",
-      "tags": ["salon", "modern", "purple", "bold", "luxurious"],
+      "tags": [
+        "salon",
+        "modern",
+        "purple",
+        "bold",
+        "luxurious"
+      ],
       "description": "Modern salon template with vibrant purples, contemporary design, beauty focus",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#7c3aed",
         "secondary": "#8b5cf6",
         "accent": "#faf5ff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Elegance",
+          "primary": "#6b21a8",
+          "secondary": "#ec4899",
+          "accent": "#fce7f3"
+        },
+        {
+          "name": "Luxury",
+          "primary": "#1f2937",
+          "secondary": "#d946ef",
+          "accent": "#fdf2f8"
+        },
+        {
+          "name": "Chic",
+          "primary": "#7c3aed",
+          "secondary": "#a78bfa",
+          "accent": "#f3e8ff"
+        }
+      ]
     },
     {
       "id": "svc_salon_minimal",
@@ -494,14 +1582,48 @@
       "businessType": "services",
       "category": "salon",
       "style": "minimal",
-      "tags": ["salon", "minimal", "clean", "elegant", "simple"],
+      "tags": [
+        "salon",
+        "minimal",
+        "clean",
+        "elegant",
+        "simple"
+      ],
       "description": "Minimalist salon template with clean design and elegant simplicity",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#4b5563",
         "secondary": "#8b5cf6",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Elegance",
+          "primary": "#6b21a8",
+          "secondary": "#ec4899",
+          "accent": "#fce7f3"
+        },
+        {
+          "name": "Luxury",
+          "primary": "#1f2937",
+          "secondary": "#d946ef",
+          "accent": "#fdf2f8"
+        },
+        {
+          "name": "Chic",
+          "primary": "#7c3aed",
+          "secondary": "#a78bfa",
+          "accent": "#f3e8ff"
+        }
+      ]
     },
     {
       "id": "svc_fitness_classic",
@@ -509,14 +1631,48 @@
       "businessType": "services",
       "category": "fitness",
       "style": "classic",
-      "tags": ["fitness", "gym", "professional", "health", "strength"],
+      "tags": [
+        "fitness",
+        "gym",
+        "professional",
+        "health",
+        "strength"
+      ],
       "description": "Professional fitness/gym template with classic design and authority",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#ff6b6b",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Energy",
+          "primary": "#dc2626",
+          "secondary": "#f97316",
+          "accent": "#fff7ed"
+        },
+        {
+          "name": "Power",
+          "primary": "#1f2937",
+          "secondary": "#ef4444",
+          "accent": "#fee2e2"
+        },
+        {
+          "name": "Fit",
+          "primary": "#059669",
+          "secondary": "#10b981",
+          "accent": "#ecfdf5"
+        }
+      ]
     },
     {
       "id": "svc_fitness_modern",
@@ -524,14 +1680,48 @@
       "businessType": "services",
       "category": "fitness",
       "style": "modern",
-      "tags": ["fitness", "modern", "red", "bold", "energetic"],
+      "tags": [
+        "fitness",
+        "modern",
+        "red",
+        "bold",
+        "energetic"
+      ],
       "description": "Modern fitness template with vibrant reds, contemporary design, energy focus",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#dc2626",
         "secondary": "#ef4444",
         "accent": "#fef2f2"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Energy",
+          "primary": "#dc2626",
+          "secondary": "#f97316",
+          "accent": "#fff7ed"
+        },
+        {
+          "name": "Power",
+          "primary": "#1f2937",
+          "secondary": "#ef4444",
+          "accent": "#fee2e2"
+        },
+        {
+          "name": "Fit",
+          "primary": "#059669",
+          "secondary": "#10b981",
+          "accent": "#ecfdf5"
+        }
+      ]
     },
     {
       "id": "svc_fitness_minimal",
@@ -539,14 +1729,48 @@
       "businessType": "services",
       "category": "fitness",
       "style": "minimal",
-      "tags": ["fitness", "minimal", "clean", "focused", "health"],
+      "tags": [
+        "fitness",
+        "minimal",
+        "clean",
+        "focused",
+        "health"
+      ],
       "description": "Minimalist fitness template with clean design and health focus",
-      "sections": ["header", "hero", "services", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#374151",
         "secondary": "#ef4444",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Energy",
+          "primary": "#dc2626",
+          "secondary": "#f97316",
+          "accent": "#fff7ed"
+        },
+        {
+          "name": "Power",
+          "primary": "#1f2937",
+          "secondary": "#ef4444",
+          "accent": "#fee2e2"
+        },
+        {
+          "name": "Fit",
+          "primary": "#059669",
+          "secondary": "#10b981",
+          "accent": "#ecfdf5"
+        }
+      ]
     },
     {
       "id": "prd_ecommerce_classic",
@@ -554,14 +1778,48 @@
       "businessType": "products",
       "category": "ecommerce",
       "style": "classic",
-      "tags": ["ecommerce", "shop", "professional", "trustworthy", "sales"],
+      "tags": [
+        "ecommerce",
+        "shop",
+        "professional",
+        "trustworthy",
+        "sales"
+      ],
       "description": "Professional ecommerce template with classic design and conversion optimization",
-      "sections": ["header", "hero", "products", "features", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "products",
+        "features",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#f59e0b",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Retail",
+          "primary": "#1f2937",
+          "secondary": "#ec4899",
+          "accent": "#fce7f3"
+        },
+        {
+          "name": "Modern",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Bold",
+          "primary": "#dc2626",
+          "secondary": "#fbbf24",
+          "accent": "#fef3c7"
+        }
+      ]
     },
     {
       "id": "prd_ecommerce_modern",
@@ -569,14 +1827,48 @@
       "businessType": "products",
       "category": "ecommerce",
       "style": "modern",
-      "tags": ["ecommerce", "modern", "gold", "bold", "luxury"],
+      "tags": [
+        "ecommerce",
+        "modern",
+        "gold",
+        "bold",
+        "luxury"
+      ],
       "description": "Modern ecommerce template with gold accents, contemporary design, premium feel",
-      "sections": ["header", "hero", "products", "features", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "products",
+        "features",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#d97706",
         "secondary": "#fbbf24",
         "accent": "#fffbeb"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Retail",
+          "primary": "#1f2937",
+          "secondary": "#ec4899",
+          "accent": "#fce7f3"
+        },
+        {
+          "name": "Modern",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Bold",
+          "primary": "#dc2626",
+          "secondary": "#fbbf24",
+          "accent": "#fef3c7"
+        }
+      ]
     },
     {
       "id": "prd_ecommerce_minimal",
@@ -584,14 +1876,48 @@
       "businessType": "products",
       "category": "ecommerce",
       "style": "minimal",
-      "tags": ["ecommerce", "minimal", "clean", "simple", "focused"],
+      "tags": [
+        "ecommerce",
+        "minimal",
+        "clean",
+        "simple",
+        "focused"
+      ],
       "description": "Minimalist ecommerce template with clean design and product focus",
-      "sections": ["header", "hero", "products", "features", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "products",
+        "features",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#374151",
         "secondary": "#f59e0b",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Retail",
+          "primary": "#1f2937",
+          "secondary": "#ec4899",
+          "accent": "#fce7f3"
+        },
+        {
+          "name": "Modern",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Bold",
+          "primary": "#dc2626",
+          "secondary": "#fbbf24",
+          "accent": "#fef3c7"
+        }
+      ]
     },
     {
       "id": "prd_handmade_classic",
@@ -599,14 +1925,48 @@
       "businessType": "products",
       "category": "handmade",
       "style": "classic",
-      "tags": ["handmade", "artisan", "crafts", "professional", "artistry"],
+      "tags": [
+        "handmade",
+        "artisan",
+        "crafts",
+        "professional",
+        "artistry"
+      ],
       "description": "Professional handmade/artisan template with classic design and craftsmanship focus",
-      "sections": ["header", "hero", "products", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "products",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#d946ef",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Artisan",
+          "primary": "#92400e",
+          "secondary": "#d97706",
+          "accent": "#fef3c7"
+        },
+        {
+          "name": "Creative",
+          "primary": "#7c3aed",
+          "secondary": "#a78bfa",
+          "accent": "#f3e8ff"
+        },
+        {
+          "name": "Warm",
+          "primary": "#dc2626",
+          "secondary": "#f97316",
+          "accent": "#fff7ed"
+        }
+      ]
     },
     {
       "id": "prd_handmade_modern",
@@ -614,14 +1974,48 @@
       "businessType": "products",
       "category": "handmade",
       "style": "modern",
-      "tags": ["handmade", "modern", "magenta", "bold", "creative"],
+      "tags": [
+        "handmade",
+        "modern",
+        "magenta",
+        "bold",
+        "creative"
+      ],
       "description": "Modern handmade template with vibrant magentas, contemporary design, artistic feel",
-      "sections": ["header", "hero", "products", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "products",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#a855f7",
         "secondary": "#d946ef",
         "accent": "#faf5ff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Artisan",
+          "primary": "#92400e",
+          "secondary": "#d97706",
+          "accent": "#fef3c7"
+        },
+        {
+          "name": "Creative",
+          "primary": "#7c3aed",
+          "secondary": "#a78bfa",
+          "accent": "#f3e8ff"
+        },
+        {
+          "name": "Warm",
+          "primary": "#dc2626",
+          "secondary": "#f97316",
+          "accent": "#fff7ed"
+        }
+      ]
     },
     {
       "id": "prd_handmade_minimal",
@@ -629,14 +2023,48 @@
       "businessType": "products",
       "category": "handmade",
       "style": "minimal",
-      "tags": ["handmade", "minimal", "clean", "artisan", "elegant"],
+      "tags": [
+        "handmade",
+        "minimal",
+        "clean",
+        "artisan",
+        "elegant"
+      ],
       "description": "Minimalist handmade template with clean design and product showcase",
-      "sections": ["header", "hero", "products", "about", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "products",
+        "about",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#4b5563",
         "secondary": "#d946ef",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Artisan",
+          "primary": "#92400e",
+          "secondary": "#d97706",
+          "accent": "#fef3c7"
+        },
+        {
+          "name": "Creative",
+          "primary": "#7c3aed",
+          "secondary": "#a78bfa",
+          "accent": "#f3e8ff"
+        },
+        {
+          "name": "Warm",
+          "primary": "#dc2626",
+          "secondary": "#f97316",
+          "accent": "#fff7ed"
+        }
+      ]
     },
     {
       "id": "prd_digital_classic",
@@ -644,14 +2072,48 @@
       "businessType": "products",
       "category": "digital",
       "style": "classic",
-      "tags": ["digital", "software", "ebooks", "professional", "tech"],
+      "tags": [
+        "digital",
+        "software",
+        "ebooks",
+        "professional",
+        "tech"
+      ],
       "description": "Professional digital products template with classic design and tech focus",
-      "sections": ["header", "hero", "products", "features", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "products",
+        "features",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#0ea5e9",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Tech",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Modern",
+          "primary": "#7c3aed",
+          "secondary": "#a78bfa",
+          "accent": "#f3e8ff"
+        },
+        {
+          "name": "Future",
+          "primary": "#1f2937",
+          "secondary": "#3b82f6",
+          "accent": "#f0f9ff"
+        }
+      ]
     },
     {
       "id": "prd_digital_modern",
@@ -659,14 +2121,48 @@
       "businessType": "products",
       "category": "digital",
       "style": "modern",
-      "tags": ["digital", "modern", "cyan", "bold", "tech"],
+      "tags": [
+        "digital",
+        "modern",
+        "cyan",
+        "bold",
+        "tech"
+      ],
       "description": "Modern digital products template with cyan tones, contemporary tech design",
-      "sections": ["header", "hero", "products", "features", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "products",
+        "features",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#0891b2",
         "secondary": "#06b6d4",
         "accent": "#ecf9ff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Tech",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Modern",
+          "primary": "#7c3aed",
+          "secondary": "#a78bfa",
+          "accent": "#f3e8ff"
+        },
+        {
+          "name": "Future",
+          "primary": "#1f2937",
+          "secondary": "#3b82f6",
+          "accent": "#f0f9ff"
+        }
+      ]
     },
     {
       "id": "prd_digital_minimal",
@@ -674,14 +2170,48 @@
       "businessType": "products",
       "category": "digital",
       "style": "minimal",
-      "tags": ["digital", "minimal", "clean", "tech", "focused"],
+      "tags": [
+        "digital",
+        "minimal",
+        "clean",
+        "tech",
+        "focused"
+      ],
       "description": "Minimalist digital products template with clean design and tech focus",
-      "sections": ["header", "hero", "products", "features", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "products",
+        "features",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#374151",
         "secondary": "#0ea5e9",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Tech",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Modern",
+          "primary": "#7c3aed",
+          "secondary": "#a78bfa",
+          "accent": "#f3e8ff"
+        },
+        {
+          "name": "Future",
+          "primary": "#1f2937",
+          "secondary": "#3b82f6",
+          "accent": "#f0f9ff"
+        }
+      ]
     },
     {
       "id": "prd_dropship_classic",
@@ -689,14 +2219,48 @@
       "businessType": "products",
       "category": "dropship",
       "style": "classic",
-      "tags": ["dropship", "shop", "professional", "products", "sales"],
+      "tags": [
+        "dropship",
+        "shop",
+        "professional",
+        "products",
+        "sales"
+      ],
       "description": "Professional dropship store template with classic design and sales focus",
-      "sections": ["header", "hero", "products", "features", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "products",
+        "features",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#10b981",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Dynamic",
+          "primary": "#dc2626",
+          "secondary": "#f97316",
+          "accent": "#fff7ed"
+        },
+        {
+          "name": "Professional",
+          "primary": "#1f2937",
+          "secondary": "#3b82f6",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Global",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#ecf0f1"
+        }
+      ]
     },
     {
       "id": "prd_dropship_modern",
@@ -704,14 +2268,48 @@
       "businessType": "products",
       "category": "dropship",
       "style": "modern",
-      "tags": ["dropship", "modern", "emerald", "bold", "dynamic"],
+      "tags": [
+        "dropship",
+        "modern",
+        "emerald",
+        "bold",
+        "dynamic"
+      ],
       "description": "Modern dropship template with emerald tones, contemporary design, sales optimized",
-      "sections": ["header", "hero", "products", "features", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "products",
+        "features",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#059669",
         "secondary": "#10b981",
         "accent": "#f0fdf4"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Dynamic",
+          "primary": "#dc2626",
+          "secondary": "#f97316",
+          "accent": "#fff7ed"
+        },
+        {
+          "name": "Professional",
+          "primary": "#1f2937",
+          "secondary": "#3b82f6",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Global",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#ecf0f1"
+        }
+      ]
     },
     {
       "id": "prd_dropship_minimal",
@@ -719,14 +2317,48 @@
       "businessType": "products",
       "category": "dropship",
       "style": "minimal",
-      "tags": ["dropship", "minimal", "clean", "products", "simple"],
+      "tags": [
+        "dropship",
+        "minimal",
+        "clean",
+        "products",
+        "simple"
+      ],
       "description": "Minimalist dropship template with clean design and product focus",
-      "sections": ["header", "hero", "products", "features", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "products",
+        "features",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#374151",
         "secondary": "#10b981",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Dynamic",
+          "primary": "#dc2626",
+          "secondary": "#f97316",
+          "accent": "#fff7ed"
+        },
+        {
+          "name": "Professional",
+          "primary": "#1f2937",
+          "secondary": "#3b82f6",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Global",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#ecf0f1"
+        }
+      ]
     },
     {
       "id": "prd_subscription_classic",
@@ -734,14 +2366,48 @@
       "businessType": "products",
       "category": "subscription",
       "style": "classic",
-      "tags": ["subscription", "saas", "professional", "recurring", "service"],
+      "tags": [
+        "subscription",
+        "saas",
+        "professional",
+        "recurring",
+        "service"
+      ],
       "description": "Professional subscription/SaaS template with classic design and pricing focus",
-      "sections": ["header", "hero", "pricing", "features", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "pricing",
+        "features",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#8b5cf6",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Premium",
+          "primary": "#7c3aed",
+          "secondary": "#a78bfa",
+          "accent": "#f3e8ff"
+        },
+        {
+          "name": "Modern",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Bold",
+          "primary": "#dc2626",
+          "secondary": "#ef4444",
+          "accent": "#fee2e2"
+        }
+      ]
     },
     {
       "id": "prd_subscription_modern",
@@ -749,14 +2415,48 @@
       "businessType": "products",
       "category": "subscription",
       "style": "modern",
-      "tags": ["subscription", "modern", "violet", "bold", "saas"],
+      "tags": [
+        "subscription",
+        "modern",
+        "violet",
+        "bold",
+        "saas"
+      ],
       "description": "Modern subscription template with violet tones, contemporary design, pricing optimized",
-      "sections": ["header", "hero", "pricing", "features", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "pricing",
+        "features",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#7c3aed",
         "secondary": "#a855f7",
         "accent": "#faf5ff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Premium",
+          "primary": "#7c3aed",
+          "secondary": "#a78bfa",
+          "accent": "#f3e8ff"
+        },
+        {
+          "name": "Modern",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Bold",
+          "primary": "#dc2626",
+          "secondary": "#ef4444",
+          "accent": "#fee2e2"
+        }
+      ]
     },
     {
       "id": "prd_subscription_minimal",
@@ -764,14 +2464,48 @@
       "businessType": "products",
       "category": "subscription",
       "style": "minimal",
-      "tags": ["subscription", "minimal", "clean", "saas", "pricing"],
+      "tags": [
+        "subscription",
+        "minimal",
+        "clean",
+        "saas",
+        "pricing"
+      ],
       "description": "Minimalist subscription template with clean design and pricing clarity",
-      "sections": ["header", "hero", "pricing", "features", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "pricing",
+        "features",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#374151",
         "secondary": "#8b5cf6",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Premium",
+          "primary": "#7c3aed",
+          "secondary": "#a78bfa",
+          "accent": "#f3e8ff"
+        },
+        {
+          "name": "Modern",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Bold",
+          "primary": "#dc2626",
+          "secondary": "#ef4444",
+          "accent": "#fee2e2"
+        }
+      ]
     },
     {
       "id": "both_agency_classic",
@@ -779,14 +2513,48 @@
       "businessType": "both",
       "category": "agency",
       "style": "classic",
-      "tags": ["agency", "professional", "corporate", "trustworthy", "services"],
+      "tags": [
+        "agency",
+        "professional",
+        "corporate",
+        "trustworthy",
+        "services"
+      ],
       "description": "Professional agency template with classic design, strong credibility markers",
-      "sections": ["header", "hero", "services", "portfolio", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "portfolio",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#3b82f6",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Professional",
+          "primary": "#1f2937",
+          "secondary": "#3b82f6",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Modern",
+          "primary": "#7c3aed",
+          "secondary": "#a78bfa",
+          "accent": "#f3e8ff"
+        },
+        {
+          "name": "Bold",
+          "primary": "#dc2626",
+          "secondary": "#f97316",
+          "accent": "#fff7ed"
+        }
+      ]
     },
     {
       "id": "both_agency_modern",
@@ -794,14 +2562,48 @@
       "businessType": "both",
       "category": "agency",
       "style": "modern",
-      "tags": ["agency", "modern", "blue", "bold", "contemporary"],
+      "tags": [
+        "agency",
+        "modern",
+        "blue",
+        "bold",
+        "contemporary"
+      ],
       "description": "Modern agency template with bold blues, contemporary design, dynamic layout",
-      "sections": ["header", "hero", "services", "portfolio", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "portfolio",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1e40af",
         "secondary": "#3b82f6",
         "accent": "#eff6ff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Professional",
+          "primary": "#1f2937",
+          "secondary": "#3b82f6",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Modern",
+          "primary": "#7c3aed",
+          "secondary": "#a78bfa",
+          "accent": "#f3e8ff"
+        },
+        {
+          "name": "Bold",
+          "primary": "#dc2626",
+          "secondary": "#f97316",
+          "accent": "#fff7ed"
+        }
+      ]
     },
     {
       "id": "both_agency_minimal",
@@ -809,14 +2611,48 @@
       "businessType": "both",
       "category": "agency",
       "style": "minimal",
-      "tags": ["agency", "minimal", "clean", "professional", "focused"],
+      "tags": [
+        "agency",
+        "minimal",
+        "clean",
+        "professional",
+        "focused"
+      ],
       "description": "Minimalist agency template with clean design and focused content",
-      "sections": ["header", "hero", "services", "portfolio", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "portfolio",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#374151",
         "secondary": "#3b82f6",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Professional",
+          "primary": "#1f2937",
+          "secondary": "#3b82f6",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Modern",
+          "primary": "#7c3aed",
+          "secondary": "#a78bfa",
+          "accent": "#f3e8ff"
+        },
+        {
+          "name": "Bold",
+          "primary": "#dc2626",
+          "secondary": "#f97316",
+          "accent": "#fff7ed"
+        }
+      ]
     },
     {
       "id": "both_studio_classic",
@@ -824,14 +2660,48 @@
       "businessType": "both",
       "category": "studio",
       "style": "classic",
-      "tags": ["studio", "creative", "professional", "portfolio", "services"],
+      "tags": [
+        "studio",
+        "creative",
+        "professional",
+        "portfolio",
+        "services"
+      ],
       "description": "Professional creative studio template with classic design and portfolio showcase",
-      "sections": ["header", "hero", "services", "portfolio", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "portfolio",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#f97316",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Creative",
+          "primary": "#7c3aed",
+          "secondary": "#ec4899",
+          "accent": "#fce7f3"
+        },
+        {
+          "name": "Artistic",
+          "primary": "#92400e",
+          "secondary": "#d97706",
+          "accent": "#fef3c7"
+        },
+        {
+          "name": "Modern",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        }
+      ]
     },
     {
       "id": "both_studio_modern",
@@ -839,14 +2709,48 @@
       "businessType": "both",
       "category": "studio",
       "style": "modern",
-      "tags": ["studio", "modern", "orange", "bold", "creative"],
+      "tags": [
+        "studio",
+        "modern",
+        "orange",
+        "bold",
+        "creative"
+      ],
       "description": "Modern creative studio template with vibrant oranges, contemporary design, creative focus",
-      "sections": ["header", "hero", "services", "portfolio", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "portfolio",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#ea580c",
         "secondary": "#f97316",
         "accent": "#fff7ed"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Creative",
+          "primary": "#7c3aed",
+          "secondary": "#ec4899",
+          "accent": "#fce7f3"
+        },
+        {
+          "name": "Artistic",
+          "primary": "#92400e",
+          "secondary": "#d97706",
+          "accent": "#fef3c7"
+        },
+        {
+          "name": "Modern",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        }
+      ]
     },
     {
       "id": "both_studio_minimal",
@@ -854,14 +2758,48 @@
       "businessType": "both",
       "category": "studio",
       "style": "minimal",
-      "tags": ["studio", "minimal", "clean", "creative", "portfolio"],
+      "tags": [
+        "studio",
+        "minimal",
+        "clean",
+        "creative",
+        "portfolio"
+      ],
       "description": "Minimalist creative studio template with clean design and portfolio focus",
-      "sections": ["header", "hero", "services", "portfolio", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "services",
+        "portfolio",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#4b5563",
         "secondary": "#f97316",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Creative",
+          "primary": "#7c3aed",
+          "secondary": "#ec4899",
+          "accent": "#fce7f3"
+        },
+        {
+          "name": "Artistic",
+          "primary": "#92400e",
+          "secondary": "#d97706",
+          "accent": "#fef3c7"
+        },
+        {
+          "name": "Modern",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        }
+      ]
     },
     {
       "id": "both_retail_classic",
@@ -869,14 +2807,48 @@
       "businessType": "both",
       "category": "retail",
       "style": "classic",
-      "tags": ["retail", "shop", "professional", "sales", "products"],
+      "tags": [
+        "retail",
+        "shop",
+        "professional",
+        "sales",
+        "products"
+      ],
       "description": "Professional retail template with classic design and sales optimization",
-      "sections": ["header", "hero", "products", "services", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "products",
+        "services",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#1f2937",
         "secondary": "#dc2626",
         "accent": "#f3f4f6"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Retail",
+          "primary": "#1f2937",
+          "secondary": "#ec4899",
+          "accent": "#fce7f3"
+        },
+        {
+          "name": "Modern",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Bold",
+          "primary": "#dc2626",
+          "secondary": "#fbbf24",
+          "accent": "#fef3c7"
+        }
+      ]
     },
     {
       "id": "both_retail_modern",
@@ -884,14 +2856,48 @@
       "businessType": "both",
       "category": "retail",
       "style": "modern",
-      "tags": ["retail", "modern", "red", "bold", "sales"],
+      "tags": [
+        "retail",
+        "modern",
+        "red",
+        "bold",
+        "sales"
+      ],
       "description": "Modern retail template with vibrant reds, contemporary design, sales focused",
-      "sections": ["header", "hero", "products", "services", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "products",
+        "services",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#b91c1c",
         "secondary": "#ef4444",
         "accent": "#fef2f2"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Retail",
+          "primary": "#1f2937",
+          "secondary": "#ec4899",
+          "accent": "#fce7f3"
+        },
+        {
+          "name": "Modern",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Bold",
+          "primary": "#dc2626",
+          "secondary": "#fbbf24",
+          "accent": "#fef3c7"
+        }
+      ]
     },
     {
       "id": "both_retail_minimal",
@@ -899,14 +2905,48 @@
       "businessType": "both",
       "category": "retail",
       "style": "minimal",
-      "tags": ["retail", "minimal", "clean", "products", "focused"],
+      "tags": [
+        "retail",
+        "minimal",
+        "clean",
+        "products",
+        "focused"
+      ],
       "description": "Minimalist retail template with clean design and product showcase",
-      "sections": ["header", "hero", "products", "services", "testimonials", "cta", "footer"],
+      "sections": [
+        "header",
+        "hero",
+        "products",
+        "services",
+        "testimonials",
+        "cta",
+        "footer"
+      ],
       "colors": {
         "primary": "#374151",
         "secondary": "#dc2626",
         "accent": "#ffffff"
-      }
+      },
+      "palettes": [
+        {
+          "name": "Retail",
+          "primary": "#1f2937",
+          "secondary": "#ec4899",
+          "accent": "#fce7f3"
+        },
+        {
+          "name": "Modern",
+          "primary": "#0369a1",
+          "secondary": "#06b6d4",
+          "accent": "#f0f9ff"
+        },
+        {
+          "name": "Bold",
+          "primary": "#dc2626",
+          "secondary": "#fbbf24",
+          "accent": "#fef3c7"
+        }
+      ]
     }
   ]
 }
