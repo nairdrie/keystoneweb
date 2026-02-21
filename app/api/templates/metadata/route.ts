@@ -43,7 +43,8 @@ export async function GET(request: NextRequest) {
   try {
     // Filter templates by business type and category
     // metadata.json has structure: { version, generatedAt, totalTemplates, categories, templates: [...] }
-    const templateList = (templates as any).templates || (templates as TemplateMetadata[]);
+    const meta = templates as any;
+    const templateList: TemplateMetadata[] = meta.templates || [];
     let filtered = templateList.filter((t: TemplateMetadata) => {
       let match = true;
       if (businessType) match = match && t.businessType === businessType;
