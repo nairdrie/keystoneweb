@@ -55,6 +55,15 @@
           "secondary": "#84cc16",
           "accent": "#f7fee7"
         }
+      ],
+      "editableKeys": [
+        "heroTitle",
+        "heroSubtitle",
+        "servicesTitle",
+        "aboutTitle",
+        "testimonialsTitle",
+        "ctaTitle",
+        "ctaSubtitle"
       ]
     },
     {
@@ -104,6 +113,15 @@
           "secondary": "#84cc16",
           "accent": "#f7fee7"
         }
+      ],
+      "editableKeys": [
+        "heroTitle",
+        "heroSubtitle",
+        "servicesTitle",
+        "aboutTitle",
+        "testimonialsTitle",
+        "ctaTitle",
+        "ctaSubtitle"
       ]
     },
     {
@@ -153,6 +171,15 @@
           "secondary": "#84cc16",
           "accent": "#f7fee7"
         }
+      ],
+      "editableKeys": [
+        "heroTitle",
+        "heroSubtitle",
+        "servicesTitle",
+        "aboutTitle",
+        "testimonialsTitle",
+        "ctaTitle",
+        "ctaSubtitle"
       ]
     },
     {
@@ -202,7 +229,8 @@
           "secondary": "#64748b",
           "accent": "#f8fafc"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_plumber_modern",
@@ -251,7 +279,8 @@
           "secondary": "#64748b",
           "accent": "#f8fafc"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_plumber_minimal",
@@ -300,7 +329,8 @@
           "secondary": "#64748b",
           "accent": "#f8fafc"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_electrical_classic",
@@ -349,7 +379,8 @@
           "secondary": "#06b6d4",
           "accent": "#f0f9ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_electrical_modern",
@@ -398,7 +429,8 @@
           "secondary": "#06b6d4",
           "accent": "#f0f9ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_electrical_minimal",
@@ -447,7 +479,8 @@
           "secondary": "#06b6d4",
           "accent": "#f0f9ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_hvac_classic",
@@ -496,7 +529,8 @@
           "secondary": "#10b981",
           "accent": "#ecfdf5"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_hvac_modern",
@@ -545,7 +579,8 @@
           "secondary": "#10b981",
           "accent": "#ecfdf5"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_hvac_minimal",
@@ -594,7 +629,8 @@
           "secondary": "#10b981",
           "accent": "#ecfdf5"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_mechanic_classic",
@@ -643,7 +679,8 @@
           "secondary": "#3b82f6",
           "accent": "#f0f9ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_mechanic_modern",
@@ -692,7 +729,8 @@
           "secondary": "#3b82f6",
           "accent": "#f0f9ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_mechanic_minimal",
@@ -741,7 +779,8 @@
           "secondary": "#3b82f6",
           "accent": "#f0f9ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_trades_classic",
@@ -790,7 +829,8 @@
           "secondary": "#06b6d4",
           "accent": "#f0f9ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_trades_modern",
@@ -839,7 +879,8 @@
           "secondary": "#06b6d4",
           "accent": "#f0f9ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_trades_minimal",
@@ -888,7 +929,8 @@
           "secondary": "#06b6d4",
           "accent": "#f0f9ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_cleaning_classic",
@@ -937,7 +979,8 @@
           "secondary": "#14b8a6",
           "accent": "#f0fdfa"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_cleaning_modern",
@@ -986,7 +1029,8 @@
           "secondary": "#14b8a6",
           "accent": "#f0fdfa"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_cleaning_minimal",
@@ -1035,7 +1079,8 @@
           "secondary": "#14b8a6",
           "accent": "#f0fdfa"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_landscaping_classic",
@@ -1084,7 +1129,8 @@
           "secondary": "#d97706",
           "accent": "#fef3c7"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_landscaping_modern",
@@ -1133,7 +1179,8 @@
           "secondary": "#d97706",
           "accent": "#fef3c7"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_landscaping_minimal",
@@ -1182,7 +1229,8 @@
           "secondary": "#d97706",
           "accent": "#fef3c7"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_consulting_classic",
@@ -1231,7 +1279,8 @@
           "secondary": "#a78bfa",
           "accent": "#f3e8ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_consulting_modern",
@@ -1280,7 +1329,8 @@
           "secondary": "#a78bfa",
           "accent": "#f3e8ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_consulting_minimal",
@@ -1329,7 +1379,8 @@
           "secondary": "#a78bfa",
           "accent": "#f3e8ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_freelance_classic",
@@ -1378,7 +1429,8 @@
           "secondary": "#f97316",
           "accent": "#fff7ed"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_freelance_modern",
@@ -1427,7 +1479,8 @@
           "secondary": "#f97316",
           "accent": "#fff7ed"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_freelance_minimal",
@@ -1476,7 +1529,8 @@
           "secondary": "#f97316",
           "accent": "#fff7ed"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_salon_classic",
@@ -1525,7 +1579,8 @@
           "secondary": "#a78bfa",
           "accent": "#f3e8ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_salon_modern",
@@ -1574,7 +1629,8 @@
           "secondary": "#a78bfa",
           "accent": "#f3e8ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_salon_minimal",
@@ -1623,7 +1679,8 @@
           "secondary": "#a78bfa",
           "accent": "#f3e8ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_fitness_classic",
@@ -1672,7 +1729,8 @@
           "secondary": "#10b981",
           "accent": "#ecfdf5"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_fitness_modern",
@@ -1721,7 +1779,8 @@
           "secondary": "#10b981",
           "accent": "#ecfdf5"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "svc_fitness_minimal",
@@ -1770,7 +1829,8 @@
           "secondary": "#10b981",
           "accent": "#ecfdf5"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "prd_ecommerce_classic",
@@ -1819,7 +1879,8 @@
           "secondary": "#fbbf24",
           "accent": "#fef3c7"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "prd_ecommerce_modern",
@@ -1868,7 +1929,8 @@
           "secondary": "#fbbf24",
           "accent": "#fef3c7"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "prd_ecommerce_minimal",
@@ -1917,7 +1979,8 @@
           "secondary": "#fbbf24",
           "accent": "#fef3c7"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "prd_handmade_classic",
@@ -1966,7 +2029,8 @@
           "secondary": "#f97316",
           "accent": "#fff7ed"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "prd_handmade_modern",
@@ -2015,7 +2079,8 @@
           "secondary": "#f97316",
           "accent": "#fff7ed"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "prd_handmade_minimal",
@@ -2064,7 +2129,8 @@
           "secondary": "#f97316",
           "accent": "#fff7ed"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "prd_digital_classic",
@@ -2113,7 +2179,8 @@
           "secondary": "#3b82f6",
           "accent": "#f0f9ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "prd_digital_modern",
@@ -2162,7 +2229,8 @@
           "secondary": "#3b82f6",
           "accent": "#f0f9ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "prd_digital_minimal",
@@ -2211,7 +2279,8 @@
           "secondary": "#3b82f6",
           "accent": "#f0f9ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "prd_dropship_classic",
@@ -2260,7 +2329,8 @@
           "secondary": "#06b6d4",
           "accent": "#ecf0f1"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "prd_dropship_modern",
@@ -2309,7 +2379,8 @@
           "secondary": "#06b6d4",
           "accent": "#ecf0f1"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "prd_dropship_minimal",
@@ -2358,7 +2429,8 @@
           "secondary": "#06b6d4",
           "accent": "#ecf0f1"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "prd_subscription_classic",
@@ -2407,7 +2479,8 @@
           "secondary": "#ef4444",
           "accent": "#fee2e2"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "prd_subscription_modern",
@@ -2456,7 +2529,8 @@
           "secondary": "#ef4444",
           "accent": "#fee2e2"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "prd_subscription_minimal",
@@ -2505,7 +2579,8 @@
           "secondary": "#ef4444",
           "accent": "#fee2e2"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "both_agency_classic",
@@ -2554,7 +2629,8 @@
           "secondary": "#f97316",
           "accent": "#fff7ed"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "both_agency_modern",
@@ -2603,7 +2679,8 @@
           "secondary": "#f97316",
           "accent": "#fff7ed"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "both_agency_minimal",
@@ -2652,7 +2729,8 @@
           "secondary": "#f97316",
           "accent": "#fff7ed"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "both_studio_classic",
@@ -2701,7 +2779,8 @@
           "secondary": "#06b6d4",
           "accent": "#f0f9ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "both_studio_modern",
@@ -2750,7 +2829,8 @@
           "secondary": "#06b6d4",
           "accent": "#f0f9ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "both_studio_minimal",
@@ -2799,7 +2879,8 @@
           "secondary": "#06b6d4",
           "accent": "#f0f9ff"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "both_retail_classic",
@@ -2848,7 +2929,8 @@
           "secondary": "#fbbf24",
           "accent": "#fef3c7"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "both_retail_modern",
@@ -2897,7 +2979,8 @@
           "secondary": "#fbbf24",
           "accent": "#fef3c7"
         }
-      ]
+      ],
+      "editableKeys": []
     },
     {
       "id": "both_retail_minimal",
@@ -2946,7 +3029,8 @@
           "secondary": "#fbbf24",
           "accent": "#fef3c7"
         }
-      ]
+      ],
+      "editableKeys": []
     }
   ]
 }

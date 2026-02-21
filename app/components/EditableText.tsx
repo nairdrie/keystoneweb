@@ -10,6 +10,7 @@ interface EditableTextProps {
   onSave: (key: string, value: string) => void;
   className?: string;
   defaultText?: string;
+  as?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'span' | 'div';
 }
 
 export default function EditableText({
@@ -19,6 +20,7 @@ export default function EditableText({
   onSave,
   className = '',
   defaultText = '',
+  as: Component = 'span',
 }: EditableTextProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [tempValue, setTempValue] = useState(content || defaultText);
@@ -33,7 +35,7 @@ export default function EditableText({
   }, [isEditing]);
 
   const handleSave = () => {
-    if (tempValue !== content) {
+    if (tempValue.trim() && tempValue !== content) {
       onSave(contentKey, tempValue);
     }
     setIsEditing(false);
@@ -48,19 +50,19 @@ export default function EditableText({
 
   // Preview mode: just show the text
   if (!isEditMode) {
-    return <span className={className}>{displayText}</span>;
+    return <Component className={className}>{displayText}</Component>;
   }
 
-  // Edit mode
+  // Edit mode - show inline element with pencil on hover
   if (isEditing) {
     return (
-      <div className="inline-flex items-center gap-2 bg-blue-50 border border-blue-300 rounded px-2 py-1">
+      <div className="inline-flex items-center gap-2 bg-blue-50 border-2 border-blue-400 rounded px-2 py-1">
         <input
           ref={inputRef}
           type="text"
           value={tempValue}
           onChange={(e) => setTempValue(e.target.value)}
-          className="text-sm px-1 py-0 border border-blue-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-400 flex-grow max-w-xs"
+          className="px-2 py-1 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 flex-grow"
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleSave();
             if (e.key === 'Escape') handleCancel();
@@ -68,15 +70,15 @@ export default function EditableText({
         />
         <button
           onClick={handleSave}
-          className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors"
-          title="Save"
+          className="p-1 text-green-600 hover:bg-green-100 rounded transition-colors"
+          title="Save (Enter)"
         >
           <Check className="w-4 h-4" />
         </button>
         <button
           onClick={handleCancel}
-          className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
-          title="Cancel"
+          className="p-1 text-red-600 hover:bg-red-100 rounded transition-colors"
+          title="Cancel (Esc)"
         >
           <X className="w-4 h-4" />
         </button>
@@ -84,27 +86,33 @@ export default function EditableText({
     );
   }
 
-  // Edit mode, not editing: show text with pencil icon on hover
+  // Edit mode, not currently editing: show text with pencil icon on hover
   return (
-    <span
-      className={`${className} relative inline-block group cursor-text`}
+    <div
+      className="inline-block relative group"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={() => setIsEditing(true)}
     >
-      <span className="inline-block">{displayText}</span>
+      <Component 
+        className={`${className} ${
+          isHovered ? 'bg-blue-100 outline outline-2 outline-blue-400 outline-offset-1' : ''
+        } transition-colors cursor-text py-1 px-1 inline-block`}
+        onClick={() => setIsEditing(true)}
+      >
+        {displayText}
+      </Component>
       {isHovered && (
         <button
           onClick={(e) => {
             e.preventDefault();
             setIsEditing(true);
           }}
-          className="ml-1 inline-block p-1 bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
+          className="ml-1 inline-flex items-center justify-center p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors shadow-md align-middle"
           title={`Edit: ${contentKey}`}
         >
-          <Edit2 className="w-3 h-3" />
+          <Edit2 className="w-4 h-4" />
         </button>
       )}
-    </span>
+    </div>
   );
 }

@@ -14,25 +14,10 @@ interface TemplateRendererProps {
   onEditableContentChange?: (key: string, value: string) => void;
 }
 
-// Default colors for palette (from metadata)
 const DEFAULT_COLORS = {
   primary: '#1f2937',
   secondary: '#dc2626',
   accent: '#f3f4f6',
-};
-
-// Define editable content keys per template
-const EDITABLE_KEYS_MAP: Record<string, string[]> = {
-  'svc_handyman_classic': [
-    'heroTitle',
-    'heroSubtitle',
-    'servicesTitle',
-    'aboutTitle',
-    'aboutText',
-    'testimonialsTitle',
-    'ctaText',
-  ],
-  // Add more templates as needed - they'll default to empty array
 };
 
 export default function TemplateRenderer({
@@ -46,16 +31,14 @@ export default function TemplateRenderer({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [baseHtml, setBaseHtml] = useState<string>('');
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState('');
 
-  // Fetch template once on mount
   useEffect(() => {
     const fetchTemplate = async () => {
       try {
         const res = await fetch(`/api/templates/${templateId}`);
-        
-        if (!res.ok) {
-          throw new Error('Failed to fetch template');
-        }
+        if (!res.ok) throw new Error('Failed to fetch template');
         
         const { html: templateHtml } = await res.json();
         setBaseHtml(templateHtml);
@@ -67,19 +50,16 @@ export default function TemplateRenderer({
       }
     };
 
-    if (templateId) {
-      fetchTemplate();
-    }
+    if (templateId) fetchTemplate();
   }, [templateId]);
 
-  // Apply colors and editable content to the template
+  // Apply colors and process editable content
   useEffect(() => {
     if (!baseHtml) return;
 
     const activeColors = colors || DEFAULT_COLORS;
     const { primary, secondary, accent } = activeColors;
 
-    // Create CSS that overrides Tailwind colors with high specificity
     const colorOverrideStyles = `
       <style id="color-overrides">
         :root, html, body, * {
@@ -87,103 +67,58 @@ export default function TemplateRenderer({
           --color-secondary: ${secondary} !important;
           --color-accent: ${accent} !important;
         }
-        
-        [class*="bg-red-600"] { 
-          background-color: ${secondary} !important;
+        [class*="bg-red-600"] { background-color: ${secondary} !important; }
+        [class*="text-red-600"] { color: ${secondary} !important; }
+        [class*="border-red-600"] { border-color: ${secondary} !important; }
+        [class*="hover:bg-red-700"]:hover { background-color: ${secondary} !important; opacity: 0.9; }
+        [class*="bg-gray-900"] { background-color: ${primary} !important; }
+        [class*="text-gray-900"] { color: ${primary} !important; }
+        [class*="border-gray-900"] { border-color: ${primary} !important; }
+        [class*="bg-gray-800"] { background-color: ${primary} !important; }
+        [class*="bg-gray-100"] { background-color: ${accent} !important; }
+        button[class*="bg-red"], button[class*="bg-gray-9"], a[class*="bg-red"], a[class*="bg-gray-9"] {
+          background-color: ${secondary} !important; color: white !important;
         }
-        [class*="text-red-600"] { 
-          color: ${secondary} !important;
-        }
-        [class*="border-red-600"] { 
-          border-color: ${secondary} !important;
-        }
-        [class*="hover:bg-red-700"]:hover { 
-          background-color: ${secondary} !important;
-          opacity: 0.9;
-        }
-        
-        [class*="bg-gray-900"] { 
-          background-color: ${primary} !important;
-        }
-        [class*="text-gray-900"] { 
-          color: ${primary} !important;
-        }
-        [class*="border-gray-900"] { 
-          border-color: ${primary} !important;
-        }
-        
-        [class*="bg-gray-800"] { 
-          background-color: ${primary} !important;
-        }
-        
-        [class*="bg-gray-100"] { 
-          background-color: ${accent} !important;
-        }
-        
-        button[class*="bg-red"],
-        button[class*="bg-gray-9"],
-        a[class*="bg-red"],
-        a[class*="bg-gray-9"] {
-          background-color: ${secondary} !important;
-          color: white !important;
-        }
-        
-        [class*="from-gray-900"] {
-          background: linear-gradient(to right, ${primary}, ${primary}) !important;
-        }
-        [class*="from-gray-800"] {
-          background: linear-gradient(to bottom, ${primary}, ${primary}) !important;
-        }
+        [class*="from-gray-900"] { background: linear-gradient(to right, ${primary}, ${primary}) !important; }
+        [class*="from-gray-800"] { background: linear-gradient(to bottom, ${primary}, ${primary}) !important; }
 
         ${editMode ? `
-          /* Edit mode styles */
-          [data-editable] {
+          /* Edit mode - show hints on editable elements */
+          [data-editable-key] {
             position: relative;
-            outline: 2px dashed rgba(59, 130, 246, 0.3);
-            outline-offset: 2px;
-            transition: outline-color 0.2s;
+            cursor: text;
+            transition: all 0.2s;
           }
-          [data-editable]:hover {
-            outline-color: rgba(59, 130, 246, 0.8);
-            background-color: rgba(59, 130, 246, 0.05);
+          [data-editable-key]:hover {
+            background-color: rgba(59, 130, 246, 0.1);
+            outline: 2px dashed rgba(59, 130, 246, 0.6);
+            outline-offset: 2px;
+          }
+          [data-editable-key]:hover::after {
+            content: "✏️";
+            position: absolute;
+            right: -25px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 16px;
           }
         ` : ''}
       </style>
     `;
 
-    let finalHtml = baseHtml;
+    let finalHtml = baseHtml.replace(/<style id="color-overrides">[\s\S]*?<\/style>/g, '');
     
-    // Remove old color overrides
-    finalHtml = finalHtml.replace(/<style id="color-overrides">[\s\S]*?<\/style>/g, '');
+    // Mark editable elements with data attribute
+    finalHtml = finalHtml.replace(/{{(\w+)}}/g, '<span data-editable-key="$1" class="inline-block">{{$1}}</span>');
     
-    // Apply editable content by simple text replacement
-    // This is a simplified approach - matches common placeholder patterns
+    // Replace placeholders with actual content
     if (editableContent && Object.keys(editableContent).length > 0) {
-      // Replace patterns like "Professional Handyman Services You Can Trust"
-      // with edited content based on editable keys
-      
-      // For now, just mark editable sections with data attribute
-      // In a more sophisticated version, we'd use template syntax like {{heroTitle}}
-      
-      // Example: if we find "Professional Handyman Services" and it's the heroTitle key,
-      // replace it with editableContent.heroTitle
-      
-      // For simplicity in this MVP, we'll use a basic find/replace for h1 and h2 tags
-      let editCounter = 0;
-      const editableKeys = EDITABLE_KEYS_MAP[templateId] || [];
-      
-      finalHtml = finalHtml.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/g, (match) => {
-        if (editCounter < editableKeys.length && editableContent[editableKeys[editCounter]]) {
-          const key = editableKeys[editCounter];
-          editCounter++;
-          return `<h1 data-editable="${key}">${editableContent[key]}</h1>`;
-        }
-        editCounter++;
-        return match;
+      Object.entries(editableContent).forEach(([key, value]) => {
+        const regex = new RegExp(`{{${key}}}`, 'g');
+        finalHtml = finalHtml.replace(regex, value || `(${key})`);
       });
     }
     
-    // Insert color overrides
     if (finalHtml.includes('</head>')) {
       finalHtml = finalHtml.replace('</head>', colorOverrideStyles + '</head>');
     } else if (finalHtml.includes('<body')) {
@@ -195,7 +130,24 @@ export default function TemplateRenderer({
     }
 
     setHtml(finalHtml);
-  }, [baseHtml, colors, editMode, editableContent, templateId]);
+  }, [baseHtml, colors, editMode, editableContent]);
+
+  const handleEditClick = (key: string) => {
+    setEditingKey(key);
+    setEditingValue(editableContent[key] || '');
+  };
+
+  const handleEditSave = () => {
+    if (editingKey && editingValue.trim()) {
+      onEditableContentChange?.(editingKey, editingValue);
+    }
+    setEditingKey(null);
+  };
+
+  const handleEditCancel = () => {
+    setEditingKey(null);
+    setEditingValue('');
+  };
 
   if (loading) {
     return (
@@ -220,48 +172,71 @@ export default function TemplateRenderer({
   }
 
   return (
-    <div className="w-full overflow-auto flex">
-      {/* Template */}
-      <div 
-        className={`flex-1 ${editMode ? 'mr-96' : ''}`}
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
-
-      {/* Edit Panel - Only show in edit mode */}
+    <div className="w-full overflow-auto">
       {editMode && (
-        <div className="fixed right-0 top-0 bottom-0 w-96 bg-white border-l border-slate-200 overflow-y-auto z-40 shadow-xl">
-          <div className="p-6">
-            <h2 className="text-xl font-bold text-slate-900 mb-6">Edit Content</h2>
-            
-            {EDITABLE_KEYS_MAP[templateId]?.length ? (
-              <div className="space-y-6">
-                {EDITABLE_KEYS_MAP[templateId]?.map(key => (
-                  <div key={key}>
-                    <label className="block text-sm font-semibold text-slate-700 mb-2">
-                      {key.replace(/([A-Z])/g, ' $1').trim()}
-                    </label>
-                    <textarea
-                      value={editableContent[key] || ''}
-                      onChange={(e) => onEditableContentChange?.(key, e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent resize-none"
-                      rows={3}
-                      placeholder={`Edit ${key}`}
-                    />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-slate-600 text-sm">
-                No editable content defined for this template yet.
-              </p>
-            )}
+        <div className="fixed top-0 left-0 right-0 bg-blue-100 border-b-2 border-blue-400 p-3 z-40 shadow">
+          <p className="text-sm text-blue-900 max-w-7xl mx-auto">
+            ✏️ <strong>Edit Mode:</strong> Click any highlighted text to edit it directly
+          </p>
+        </div>
+      )}
+      
+      <div className={editMode ? 'mt-16 pr-96' : ''}>
+        <div 
+          className="relative"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      </div>
 
-            <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-900">
-                💡 Changes are saved in real-time. Click elements on the template to edit them.
-              </p>
+      {/* Edit Panel - Right side in edit mode */}
+      {editMode && (
+        <div className="fixed right-0 bottom-32 w-96 bg-white border-l border-slate-200 shadow-lg rounded-tl-lg p-6 z-40 max-h-[70vh] overflow-y-auto">
+          <h3 className="font-bold text-slate-900 mb-4 text-sm">Edit Content</h3>
+          
+          {editingKey ? (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-2">
+                  {editingKey}
+                </label>
+                <textarea
+                  value={editingValue}
+                  onChange={(e) => setEditingValue(e.target.value)}
+                  className="w-full px-3 py-2 border-2 border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={4}
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleEditSave}
+                  className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={handleEditCancel}
+                  className="flex-1 px-4 py-2 bg-slate-300 hover:bg-slate-400 text-slate-900 rounded-lg font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-2 text-xs">
+              {Object.entries(editableContent).map(([key, value]) => (
+                <button
+                  key={key}
+                  onClick={() => handleEditClick(key)}
+                  className="w-full text-left p-3 bg-slate-50 hover:bg-blue-50 rounded-lg border border-slate-200 hover:border-blue-400 transition-all group"
+                >
+                  <p className="font-semibold text-slate-600 group-hover:text-blue-600">{key}</p>
+                  <p className="text-slate-700 truncate mt-1">{value || '(empty)'}</p>
+                  <p className="text-blue-600 text-xs mt-2">Click to edit →</p>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
