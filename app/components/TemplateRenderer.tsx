@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState, ReactNode } from 'react';
-import EditableText from './EditableText';
+import { useEffect, useState } from 'react';
 
 interface TemplateRendererProps {
   templateId: string;
@@ -32,6 +31,8 @@ export default function TemplateRenderer({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [baseHtml, setBaseHtml] = useState<string>('');
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState('');
 
   useEffect(() => {
     const fetchTemplate = async () => {
@@ -82,23 +83,39 @@ export default function TemplateRenderer({
         [class*="from-gray-800"] { background: linear-gradient(to bottom, ${primary}, ${primary}) !important; }
 
         ${editMode ? `
-          /* Edit mode hints */
-          [data-editable-key]:hover { outline: 2px dashed rgba(59, 130, 246, 0.5); outline-offset: 2px; }
+          /* Edit mode - show hints on editable elements */
+          [data-editable-key] {
+            position: relative;
+            cursor: text;
+            transition: all 0.2s;
+          }
+          [data-editable-key]:hover {
+            background-color: rgba(59, 130, 246, 0.1);
+            outline: 2px dashed rgba(59, 130, 246, 0.6);
+            outline-offset: 2px;
+          }
+          [data-editable-key]:hover::after {
+            content: "✏️";
+            position: absolute;
+            right: -25px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 16px;
+          }
         ` : ''}
       </style>
     `;
 
     let finalHtml = baseHtml.replace(/<style id="color-overrides">[\s\S]*?<\/style>/g, '');
     
-    // Mark editable elements with data attribute so we can style them in edit mode
-    // Replace {{key}} with data-editable-key="key" wrapper
-    finalHtml = finalHtml.replace(/{{(\w+)}}/g, '<span data-editable-key="$1" contenteditable="false">{{$1}}</span>');
+    // Mark editable elements with data attribute
+    finalHtml = finalHtml.replace(/{{(\w+)}}/g, '<span data-editable-key="$1" class="inline-block">{{$1}}</span>');
     
-    // If we have edited content, replace the placeholders with the actual content
+    // Replace placeholders with actual content
     if (editableContent && Object.keys(editableContent).length > 0) {
       Object.entries(editableContent).forEach(([key, value]) => {
         const regex = new RegExp(`{{${key}}}`, 'g');
-        finalHtml = finalHtml.replace(regex, value);
+        finalHtml = finalHtml.replace(regex, value || `(${key})`);
       });
     }
     
@@ -114,6 +131,23 @@ export default function TemplateRenderer({
 
     setHtml(finalHtml);
   }, [baseHtml, colors, editMode, editableContent]);
+
+  const handleEditClick = (key: string) => {
+    setEditingKey(key);
+    setEditingValue(editableContent[key] || '');
+  };
+
+  const handleEditSave = () => {
+    if (editingKey && editingValue.trim()) {
+      onEditableContentChange?.(editingKey, editingValue);
+    }
+    setEditingKey(null);
+  };
+
+  const handleEditCancel = () => {
+    setEditingKey(null);
+    setEditingValue('');
+  };
 
   if (loading) {
     return (
@@ -142,30 +176,67 @@ export default function TemplateRenderer({
       {editMode && (
         <div className="fixed top-0 left-0 right-0 bg-blue-100 border-b-2 border-blue-400 p-3 z-40 shadow">
           <p className="text-sm text-blue-900 max-w-7xl mx-auto">
-            ✏️ <strong>Edit Mode:</strong> Click any highlighted text to edit it directly • Pencil icon appears on hover
+            ✏️ <strong>Edit Mode:</strong> Click any highlighted text to edit it directly
           </p>
         </div>
       )}
       
-      <div className={editMode ? 'mt-16' : ''}>
+      <div className={editMode ? 'mt-16 pr-96' : ''}>
         <div 
           className="relative"
           dangerouslySetInnerHTML={{ __html: html }}
         />
       </div>
 
-      {/* Enhanced Edit Mode UI - Show editable keys on right side */}
-      {editMode && Object.keys(editableContent).length > 0 && (
-        <div className="fixed right-0 bottom-32 w-80 bg-white border-l border-slate-200 shadow-lg rounded-tl-lg p-4 z-40 max-h-96 overflow-y-auto">
-          <h3 className="font-bold text-slate-900 mb-3 text-sm">Editable Content</h3>
-          <div className="space-y-2 text-xs">
-            {Object.entries(editableContent).map(([key, value]) => (
-              <div key={key} className="p-2 bg-slate-50 rounded border border-slate-200">
-                <p className="font-semibold text-slate-600">{key}</p>
-                <p className="text-slate-700 truncate">{value || '(empty)'}</p>
+      {/* Edit Panel - Right side in edit mode */}
+      {editMode && (
+        <div className="fixed right-0 bottom-32 w-96 bg-white border-l border-slate-200 shadow-lg rounded-tl-lg p-6 z-40 max-h-[70vh] overflow-y-auto">
+          <h3 className="font-bold text-slate-900 mb-4 text-sm">Edit Content</h3>
+          
+          {editingKey ? (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-semibold text-slate-600 mb-2">
+                  {editingKey}
+                </label>
+                <textarea
+                  value={editingValue}
+                  onChange={(e) => setEditingValue(e.target.value)}
+                  className="w-full px-3 py-2 border-2 border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={4}
+                  autoFocus
+                />
               </div>
-            ))}
-          </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleEditSave}
+                  className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={handleEditCancel}
+                  className="flex-1 px-4 py-2 bg-slate-300 hover:bg-slate-400 text-slate-900 rounded-lg font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2 text-xs">
+              {Object.entries(editableContent).map(([key, value]) => (
+                <button
+                  key={key}
+                  onClick={() => handleEditClick(key)}
+                  className="w-full text-left p-3 bg-slate-50 hover:bg-blue-50 rounded-lg border border-slate-200 hover:border-blue-400 transition-all group"
+                >
+                  <p className="font-semibold text-slate-600 group-hover:text-blue-600">{key}</p>
+                  <p className="text-slate-700 truncate mt-1">{value || '(empty)'}</p>
+                  <p className="text-blue-600 text-xs mt-2">Click to edit →</p>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
