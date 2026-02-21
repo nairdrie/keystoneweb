@@ -164,6 +164,11 @@ export default function OnboardingWizard() {
       });
       
       const { siteId } = await res.json();
+      
+      // Store siteId in localStorage so user can return to it even if they close browser
+      // (auto-claimed when they sign in)
+      localStorage.setItem('pendingSiteId', siteId);
+      
       router.push(`/editor?siteId=${siteId}`);
     } catch (error) {
       console.error('Failed to create site:', error);
