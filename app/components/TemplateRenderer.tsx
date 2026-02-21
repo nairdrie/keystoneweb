@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, ReactNode } from 'react';
 import EditableText from './EditableText';
 
 interface TemplateRendererProps {
@@ -21,18 +21,6 @@ const DEFAULT_COLORS = {
   accent: '#f3f4f6',
 };
 
-// Map content keys to their locations in specific templates
-// This is a temporary mapping - ideally templates would have markup like {{heroTitle}}
-const EDITABLE_KEYS_MAP: Record<string, string[]> = {
-  'svc_handyman_classic': [
-    'heroTitle',
-    'heroSubtitle',
-    'servicesTitle',
-    'aboutTitle',
-    'ctaText',
-  ],
-};
-
 export default function TemplateRenderer({
   templateId,
   colors,
@@ -44,7 +32,6 @@ export default function TemplateRenderer({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [baseHtml, setBaseHtml] = useState<string>('');
-  const [dom, setDom] = useState<Document | null>(null);
 
   useEffect(() => {
     const fetchTemplate = async () => {
@@ -54,14 +41,6 @@ export default function TemplateRenderer({
         
         const { html: templateHtml } = await res.json();
         setBaseHtml(templateHtml);
-        
-        // Parse HTML to DOM for manipulation
-        if (typeof window !== 'undefined') {
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(templateHtml, 'text/html');
-          setDom(doc);
-        }
-        
         setLoading(false);
       } catch (err) {
         console.error('Error loading template:', err);
@@ -73,7 +52,7 @@ export default function TemplateRenderer({
     if (templateId) fetchTemplate();
   }, [templateId]);
 
-  // Apply colors to the template
+  // Apply colors and process editable content
   useEffect(() => {
     if (!baseHtml) return;
 
@@ -103,13 +82,25 @@ export default function TemplateRenderer({
         [class*="from-gray-800"] { background: linear-gradient(to bottom, ${primary}, ${primary}) !important; }
 
         ${editMode ? `
-          /* Edit mode - show hint on edit-enabled elements */
-          [data-editable]:hover { background-color: rgba(59, 130, 246, 0.1); }
+          /* Edit mode hints */
+          [data-editable-key]:hover { outline: 2px dashed rgba(59, 130, 246, 0.5); outline-offset: 2px; }
         ` : ''}
       </style>
     `;
 
     let finalHtml = baseHtml.replace(/<style id="color-overrides">[\s\S]*?<\/style>/g, '');
+    
+    // Mark editable elements with data attribute so we can style them in edit mode
+    // Replace {{key}} with data-editable-key="key" wrapper
+    finalHtml = finalHtml.replace(/{{(\w+)}}/g, '<span data-editable-key="$1" contenteditable="false">{{$1}}</span>');
+    
+    // If we have edited content, replace the placeholders with the actual content
+    if (editableContent && Object.keys(editableContent).length > 0) {
+      Object.entries(editableContent).forEach(([key, value]) => {
+        const regex = new RegExp(`{{${key}}}`, 'g');
+        finalHtml = finalHtml.replace(regex, value);
+      });
+    }
     
     if (finalHtml.includes('</head>')) {
       finalHtml = finalHtml.replace('</head>', colorOverrideStyles + '</head>');
@@ -122,7 +113,7 @@ export default function TemplateRenderer({
     }
 
     setHtml(finalHtml);
-  }, [baseHtml, colors, editMode]);
+  }, [baseHtml, colors, editMode, editableContent]);
 
   if (loading) {
     return (
@@ -146,25 +137,37 @@ export default function TemplateRenderer({
     );
   }
 
-  // In edit mode, wrap template with EditableText overlay
-  // For now, just show the template with base HTML
-  // The EditableText wrapper would be added when we have proper template syntax
-  
   return (
     <div className="w-full overflow-auto">
       {editMode && (
-        <div className="fixed top-0 left-0 right-0 bg-blue-100 border-b-2 border-blue-400 p-3 z-40">
-          <p className="text-sm text-blue-900">
-            ✏️ <strong>Edit Mode:</strong> Hover over text and click the pencil icon to edit
+        <div className="fixed top-0 left-0 right-0 bg-blue-100 border-b-2 border-blue-400 p-3 z-40 shadow">
+          <p className="text-sm text-blue-900 max-w-7xl mx-auto">
+            ✏️ <strong>Edit Mode:</strong> Click any highlighted text to edit it directly • Pencil icon appears on hover
           </p>
         </div>
       )}
       
       <div className={editMode ? 'mt-16' : ''}>
         <div 
+          className="relative"
           dangerouslySetInnerHTML={{ __html: html }}
         />
       </div>
+
+      {/* Enhanced Edit Mode UI - Show editable keys on right side */}
+      {editMode && Object.keys(editableContent).length > 0 && (
+        <div className="fixed right-0 bottom-32 w-80 bg-white border-l border-slate-200 shadow-lg rounded-tl-lg p-4 z-40 max-h-96 overflow-y-auto">
+          <h3 className="font-bold text-slate-900 mb-3 text-sm">Editable Content</h3>
+          <div className="space-y-2 text-xs">
+            {Object.entries(editableContent).map(([key, value]) => (
+              <div key={key} className="p-2 bg-slate-50 rounded border border-slate-200">
+                <p className="font-semibold text-slate-600">{key}</p>
+                <p className="text-slate-700 truncate">{value || '(empty)'}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
