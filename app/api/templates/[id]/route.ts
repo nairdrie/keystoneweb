@@ -16,11 +16,12 @@ import path from 'path';
  * }
  */
 
-interface TemplateData {
+interface TemplateMetadata {
   id: string;
   name: string;
   businessType: string;
   category: string;
+  style: string;
   tags: string[];
   description: string;
   sections: string[];
@@ -38,44 +39,54 @@ export async function GET(
   const { id: templateId } = await params;
 
   try {
-    // Template file structure: /public/templates/{businessType}/{category}/{id}.json
-    // HTML file: /public/templates/{businessType}/{category}/{id}.html
-
-    // First, search for the template metadata in all subdirectories
     const templatesDir = path.join(process.cwd(), 'public', 'templates');
-    
-    let templateData: TemplateData | null = null;
-    let htmlPath: string | null = null;
+    const metadataPath = path.join(templatesDir, 'metadata.json');
 
-    // Recursively search for template files
-    function searchTemplates(dir: string): boolean {
-      const entries = fs.readdirSync(dir, { withFileTypes: true });
-      
-      for (const entry of entries) {
-        const fullPath = path.join(dir, entry.name);
-        
-        if (entry.isDirectory()) {
-          if (searchTemplates(fullPath)) return true;
-        } else if (entry.name === `${templateId}.json`) {
-          templateData = JSON.parse(fs.readFileSync(fullPath, 'utf-8'));
-          htmlPath = fullPath.replace('.json', '.html');
-          return true;
-        }
-      }
-      return false;
+    // Read metadata.json to find template info
+    if (!fs.existsSync(metadataPath)) {
+      return NextResponse.json(
+        { error: 'Templates metadata not found' },
+        { status: 500 }
+      );
     }
 
-    if (!searchTemplates(templatesDir)) {
+    const metadataContent = fs.readFileSync(metadataPath, 'utf-8');
+    const metadataWrapper = JSON.parse(metadataContent);
+    const allTemplates: TemplateMetadata[] = metadataWrapper.templates || [];
+
+    // Find template by ID
+    const templateMetadata = allTemplates.find(t => t.id === templateId);
+
+    if (!templateMetadata) {
       return NextResponse.json(
-        { error: 'Template not found' },
+        { error: `Template '${templateId}' not found in metadata` },
         { status: 404 }
       );
     }
 
-    // Read HTML content
-    if (!htmlPath || !fs.existsSync(htmlPath)) {
+    // Map metadata to HTML file path
+    // Template naming: {category}-{style}.html or similar
+    // For example: svc_handyman_classic -> classic-pro.html (based on style)
+    const styleMap: Record<string, string> = {
+      'classic': 'classic-pro',
+      'modern': 'modern-blue',
+      'minimal': 'minimal-white',
+    };
+
+    const styleName = styleMap[templateMetadata.style] || templateMetadata.style;
+    const htmlFileName = `${styleName}.html`;
+    const htmlPath = path.join(
+      templatesDir,
+      templateMetadata.businessType,
+      templateMetadata.category,
+      htmlFileName
+    );
+
+    // Check if HTML file exists
+    if (!fs.existsSync(htmlPath)) {
+      console.error(`HTML file not found at: ${htmlPath}`);
       return NextResponse.json(
-        { error: 'Template HTML not found' },
+        { error: `Template HTML file not found: ${htmlFileName}` },
         { status: 404 }
       );
     }
@@ -84,7 +95,7 @@ export async function GET(
 
     return NextResponse.json({
       id: templateId,
-      metadata: templateData,
+      metadata: templateMetadata,
       html,
     });
   } catch (error) {
