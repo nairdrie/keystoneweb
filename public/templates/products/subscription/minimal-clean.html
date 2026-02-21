@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Pricing | Clean Subscription</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-white">
+    <!-- Navigation -->
+    <nav class="bg-white text-gray-800 border-b border-gray-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="text-2xl font-bold">Sub</div>
+            <div class="hidden md:flex space-x-8">
+                <a href="#pricing" class="hover:text-gray-600 transition">Plans</a>
+                <a href="#features" class="hover:text-gray-600 transition">Features</a>
+                <a href="#testimonials" class="hover:text-gray-600 transition">Reviews</a>
+                <a href="#contact" class="hover:text-gray-600 transition">Contact</a>
+            </div>
+            <button class="md:hidden text-gray-400">☰</button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="bg-white text-gray-800 py-24">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="grid md:grid-cols-2 gap-12 items-center">
+                <div>
+                    <h1 class="text-5xl font-light mb-6">Simple Plans</h1>
+                    <p class="text-lg text-gray-600 mb-8 leading-relaxed">Straightforward pricing. No surprises. Pay for what you use.</p>
+                    <button class="bg-gray-800 hover:bg-gray-700 text-white px-8 py-3 rounded">Get Started</button>
+                </div>
+                <div class="bg-gray-100 h-80 rounded flex items-center justify-center">
+                    <span class="text-gray-400">Image</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="py-24 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4">
+            <h2 class="text-4xl font-light text-center mb-16">Pricing</h2>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="bg-white rounded border border-gray-200 p-8">
+                    <h3 class="text-2xl font-light mb-3">Starter</h3>
+                    <div class="mb-6">
+                        <span class="text-4xl font-light">$9</span>
+                        <span class="text-gray-600">/mo</span>
+                    </div>
+                    <ul class="space-y-3 mb-8 text-gray-600 text-sm">
+                        <li>✓ 5 projects</li>
+                        <li>✓ Email support</li>
+                        <li>✓ Basic features</li>
+                        <li class="text-gray-400">✗ API access</li>
+                    </ul>
+                    <button class="w-full bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded">Start</button>
+                </div>
+                <div class="bg-white rounded border-2 border-gray-800 p-8">
+                    <div class="text-sm font-light text-gray-600 mb-3">Most Popular</div>
+                    <h3 class="text-2xl font-light mb-3">Pro</h3>
+                    <div class="mb-6">
+                        <span class="text-4xl font-light">$49</span>
+                        <span class="text-gray-600">/mo</span>
+                    </div>
+                    <ul class="space-y-3 mb-8 text-gray-600 text-sm">
+                        <li>✓ Unlimited projects</li>
+                        <li>✓ Priority support</li>
+                        <li>✓ All features</li>
+                        <li>✓ API access</li>
+                    </ul>
+                    <button class="w-full bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded">Get Started</button>
+                </div>
+                <div class="bg-white rounded border border-gray-200 p-8">
+                    <h3 class="text-2xl font-light mb-3">Enterprise</h3>
+                    <div class="mb-6">
+                        <span class="text-4xl font-light">Custom</span>
+                    </div>
+                    <ul class="space-y-3 mb-8 text-gray-600 text-sm">
+                        <li>✓ Everything in Pro</li>
+                        <li>✓ Dedicated support</li>
+                        <li>✓ Custom features</li>
+                        <li>✓ SLA guarantee</li>
+                    </ul>
+                    <button class="w-full border border-gray-800 text-gray-800 hover:bg-gray-100 px-4 py-2 rounded">Contact</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-24 bg-white">
+        <div class="max-w-7xl mx-auto px-4">
+            <h2 class="text-4xl font-light text-center mb-16">What's Included</h2>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="border-l-2 border-gray-400 pl-6">
+                    <h3 class="text-xl font-light mb-2">No Setup</h3>
+                    <p class="text-gray-600">Start immediately</p>
+                </div>
+                <div class="border-l-2 border-gray-400 pl-6">
+                    <h3 class="text-xl font-light mb-2">Cancel Anytime</h3>
+                    <p class="text-gray-600">No long contracts</p>
+                </div>
+                <div class="border-l-2 border-gray-400 pl-6">
+                    <h3 class="text-xl font-light mb-2">Free Support</h3>
+                    <p class="text-gray-600">Expert help always</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section id="testimonials" class="py-24 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4">
+            <h2 class="text-4xl font-light text-center mb-16">Reviews</h2>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="bg-white p-8 rounded">
+                    <p class="text-gray-700 mb-6">"Simple, honest pricing. No hidden fees."</p>
+                    <p class="text-gray-600 font-light">- Alex K.</p>
+                </div>
+                <div class="bg-white p-8 rounded">
+                    <p class="text-gray-700 mb-6">"Easy to upgrade or downgrade anytime."</p>
+                    <p class="text-gray-600 font-light">- Morgan J.</p>
+                </div>
+                <div class="bg-white p-8 rounded">
+                    <p class="text-gray-700 mb-6">"Great value for the price. Recommended."</p>
+                    <p class="text-gray-600 font-light">- Riley S.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section id="contact" class="py-24 bg-gray-800 text-white">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <h2 class="text-4xl font-light mb-6">Get Started</h2>
+            <p class="text-lg text-gray-300 mb-8">Choose your plan and start today.</p>
+            <button class="border border-white text-white px-8 py-3 rounded hover:bg-white hover:text-gray-800 transition">
+                View Plans
+            </button>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 py-12">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="grid md:grid-cols-4 gap-8 mb-8">
+                <div>
+                    <h3 class="font-light text-lg mb-4">Sub</h3>
+                    <p class="text-gray-600 text-sm">Simple subscriptions.</p>
+                </div>
+                <div>
+                    <h4 class="font-light mb-4">Product</h4>
+                    <ul class="space-y-2 text-sm text-gray-600">
+                        <li><a href="#" class="hover:text-gray-900">Pricing</a></li>
+                        <li><a href="#" class="hover:text-gray-900">Features</a></li>
+                        <li><a href="#" class="hover:text-gray-900">Docs</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-light mb-4">Company</h4>
+                    <ul class="space-y-2 text-sm text-gray-600">
+                        <li><a href="#" class="hover:text-gray-900">About</a></li>
+                        <li><a href="#" class="hover:text-gray-900">Blog</a></li>
+                        <li><a href="#" class="hover:text-gray-900">Contact</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-light mb-4">Support</h4>
+                    <p class="text-sm text-gray-600">hello@sub.com</p>
+                    <p class="text-sm text-gray-600">(555) 123-4567</p>
+                </div>
+            </div>
+            <div class="border-t border-gray-200 pt-8 text-center text-sm text-gray-600">
+                <p>&copy; 2025 Sub. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
