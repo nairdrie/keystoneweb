@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import FloatingToolbar from '@/app/components/FloatingToolbar';
+import EditModeToggle from '@/app/components/EditModeToggle';
 import TemplateRenderer from '@/app/components/TemplateRenderer';
 import { useAuth } from '@/lib/auth/context';
 
@@ -38,6 +39,8 @@ export default function EditorContent() {
   const [site, setSite] = useState<SiteData | null>(null);
   const [templateMetadata, setTemplateMetadata] = useState<TemplateMetadata | null>(null);
   const [selectedPalette, setSelectedPalette] = useState<Palette | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editableContent, setEditableContent] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [siteTitle, setSiteTitle] = useState('My Website');
@@ -118,6 +121,10 @@ export default function EditorContent() {
       setSite(data);
       setSiteTitle(data.designData.title || 'My Website');
 
+      // Load editable content from site data
+      const savedContent = data.designData.editableContent || {};
+      setEditableContent(savedContent);
+
       // Get saved palette before fetching metadata
       const savedPalette = data.designData.selectedPalette;
       if (savedPalette) {
@@ -157,6 +164,13 @@ export default function EditorContent() {
     // Palette changes are applied in real-time to TemplateRenderer
   };
 
+  const handleEditableContentChange = (key: string, value: string) => {
+    setEditableContent(prev => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
   const handleSave = async () => {
     if (!site?.id || !user) return;
 
@@ -173,6 +187,7 @@ export default function EditorContent() {
             ...site?.designData,
             title: siteTitle,
             selectedPalette: selectedPalette,
+            editableContent: editableContent,
           },
           userId: user.id,
         }),
@@ -231,6 +246,9 @@ export default function EditorContent() {
   // Full-screen editor with template preview
   return (
     <div className="w-full h-screen overflow-hidden flex flex-col bg-white">
+      {/* Edit Mode Toggle */}
+      <EditModeToggle isEditMode={editMode} onChange={setEditMode} />
+
       {/* Template Renderer - Full Screen, no top bar */}
       <div className="flex-1 overflow-auto">
         <TemplateRenderer
@@ -240,6 +258,9 @@ export default function EditorContent() {
             secondary: selectedPalette.secondary,
             accent: selectedPalette.accent,
           } : undefined}
+          editMode={editMode}
+          editableContent={editableContent}
+          onEditableContentChange={handleEditableContentChange}
         />
       </div>
 
@@ -249,7 +270,7 @@ export default function EditorContent() {
         onSiteTitle={setSiteTitle}
         templateName={templateMetadata?.name}
         templatePalettes={templateMetadata?.palettes}
-        selectedPalette={selectedPalette || undefined}
+        selectedPalette={selectedPalette}
         onSelectPalette={handlePaletteSelect}
         onSave={handleSave}
         saving={saving}
