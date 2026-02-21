@@ -63,7 +63,12 @@ export default function SignUpContent() {
     setLoading(true);
 
     try {
-      await signUp(email, password, { name });
+      const { error } = await signUp(email, password);
+
+      if (error) {
+        setError(error.message || 'Failed to create account');
+        return;
+      }
 
       // Success - redirect to editor
       if (siteId) {
