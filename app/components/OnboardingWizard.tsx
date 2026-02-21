@@ -246,7 +246,7 @@ export default function OnboardingWizard() {
               Already have an account? Sign in to continue your work.
             </p>
             <button
-              onClick={() => router.push('/editor?signin=true')}
+              onClick={() => router.push('/signin')}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg transition-colors"
             >
               Sign In

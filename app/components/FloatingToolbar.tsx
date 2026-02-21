@@ -47,12 +47,20 @@ export default function FloatingToolbar({
   saving = false,
 }: FloatingToolbarProps) {
   const router = useRouter();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
   const handleLogout = async () => {
     await signOut();
     router.push('/');
+  };
+
+  const handleSave = () => {
+    if (!user) {
+      router.push('/signup');
+      return;
+    }
+    onSave();
   };
 
   return (
@@ -159,11 +167,11 @@ export default function FloatingToolbar({
 
             {/* Save Button */}
             <button
-              onClick={onSave}
+              onClick={handleSave}
               disabled={saving}
               className="w-full py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-bold rounded-lg transition-colors"
             >
-              {saving ? 'Saving...' : 'Save Site'}
+              {saving ? 'Saving...' : user ? 'Save Site' : 'Sign Up to Save'}
             </button>
 
             {/* Divider */}
