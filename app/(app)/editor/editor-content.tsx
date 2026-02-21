@@ -118,14 +118,14 @@ export default function EditorContent() {
       setSite(data);
       setSiteTitle(data.designData.title || 'My Website');
 
-      // Fetch template metadata to get palettes
-      fetchTemplateMetadata(data.selectedTemplateId);
-
-      // Set selected palette from site data, or use first palette as default
+      // Get saved palette before fetching metadata
       const savedPalette = data.designData.selectedPalette;
       if (savedPalette) {
         setSelectedPalette(savedPalette);
       }
+
+      // Fetch template metadata to get palettes (pass savedPalette so it doesn't override)
+      fetchTemplateMetadata(data.selectedTemplateId, savedPalette || null);
     } catch (err) {
       console.error('Failed to fetch site:', err);
       setError('Failed to load site');
@@ -134,7 +134,7 @@ export default function EditorContent() {
     }
   };
 
-  const fetchTemplateMetadata = async (templateId: string) => {
+  const fetchTemplateMetadata = async (templateId: string, savedPalette: Palette | null) => {
     try {
       // Fetch template metadata via API
       const res = await fetch(`/api/templates/${templateId}`);
@@ -142,8 +142,8 @@ export default function EditorContent() {
         const data = await res.json();
         setTemplateMetadata(data.metadata);
 
-        // If no palette selected yet, use the first one
-        if (!selectedPalette && data.metadata?.palettes?.length > 0) {
+        // Only set to first palette if no saved palette exists
+        if (!savedPalette && data.metadata?.palettes?.length > 0) {
           setSelectedPalette(data.metadata.palettes[0]);
         }
       }
