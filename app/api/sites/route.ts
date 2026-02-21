@@ -6,6 +6,7 @@ interface CreateSiteRequest {
   selectedTemplateId: string;
   businessType: string;
   category: string;
+  userId?: string | null; // Optional - set if user is authenticated
 }
 
 interface SiteData {
@@ -36,7 +37,7 @@ function mapSupabaseToSiteData(row: any): SiteData {
 export async function POST(request: NextRequest) {
   try {
     const body: CreateSiteRequest = await request.json();
-    const { selectedTemplateId, businessType, category } = body;
+    const { selectedTemplateId, businessType, category, userId } = body;
 
     if (!selectedTemplateId || !businessType || !category) {
       return NextResponse.json(
@@ -53,13 +54,13 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
 
     // Insert into Supabase
-    // Note: POST is public - unauthenticated users can create unowned sites
-    // Ownership is set when user clicks Save (PATCH with auth)
+    // userId is set immediately if user is authenticated (from onboarding)
+    // or null if creating as guest (claimed on first save)
     const { data, error } = await supabase
       .from('sites')
       .insert({
         id: siteId,
-        user_id: null, // Set when user authenticates & saves
+        user_id: userId || null,
         selected_template_id: selectedTemplateId,
         business_type: businessType,
         category,

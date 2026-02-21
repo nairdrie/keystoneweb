@@ -153,6 +153,8 @@ export default function OnboardingWizard() {
   const handleSelectTemplate = async (templateId: string) => {
     try {
       // Create a new site with selected template
+      // If user is authenticated, site is immediately owned by them
+      // If not authenticated, userId is null and can be claimed later on first save
       const res = await fetch('/api/sites', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -160,6 +162,7 @@ export default function OnboardingWizard() {
           selectedTemplateId: templateId,
           businessType,
           category,
+          userId: user?.id || null, // Include userId if authenticated
         }),
       });
       

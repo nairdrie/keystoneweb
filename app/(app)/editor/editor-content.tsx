@@ -49,12 +49,12 @@ export default function EditorContent() {
       // Load specific site
       fetchSite(siteId);
     } else {
-      // Load user's latest site
-      fetchLatestSite();
+      // Redirect to latest site (fetch and redirect with ?siteId param)
+      redirectToLatestSite();
     }
   }, [user, authLoading, siteId, router]);
 
-  const fetchLatestSite = async () => {
+  const redirectToLatestSite = async () => {
     try {
       setLoading(true);
       const res = await fetch('/api/user/latest-site');
@@ -66,21 +66,21 @@ export default function EditorContent() {
           setLoading(false);
           return;
         }
-        setError('Failed to load your latest site');
+        setError('Failed to load your sites');
         setLoading(false);
         return;
       }
 
       const { site: data } = await res.json();
-      setSite(data);
-      setSiteTitle(data.designData.title || 'My Website');
+      // Redirect to editor with siteId so it loads that specific site
+      router.push(`/editor?siteId=${data.id}`);
     } catch (err) {
       console.error('Failed to fetch latest site:', err);
       setError('Failed to load site');
-    } finally {
       setLoading(false);
     }
   };
+
 
   const fetchSite = async (id: string) => {
     try {
