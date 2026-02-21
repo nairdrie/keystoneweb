@@ -46,42 +46,13 @@ export default function EditorContent() {
 
     // User is authenticated
     if (siteId) {
-      // Check if this site belongs to the user, if not, claim it
-      claimSiteIfNeeded(siteId);
       // Load specific site
       fetchSite(siteId);
     } else {
-      // Check localStorage for abandoned siteId (from onboarding without signup)
-      const storedSiteId = localStorage.getItem('pendingSiteId');
-      if (storedSiteId) {
-        // Claim and load the stored site
-        claimSiteIfNeeded(storedSiteId);
-        localStorage.removeItem('pendingSiteId');
-        fetchSite(storedSiteId);
-      } else {
-        // Load user's latest site
-        fetchLatestSite();
-      }
+      // Load user's latest site
+      fetchLatestSite();
     }
   }, [user, authLoading, siteId, router]);
-
-  const claimSiteIfNeeded = async (id: string) => {
-    try {
-      // Attempt to claim the site (set userId) if it doesn't already belong to this user
-      await fetch('/api/sites', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          siteId: id,
-          userId: user?.id,
-          designData: {}, // Empty - just claiming ownership
-        }),
-      });
-    } catch (err) {
-      console.error('Failed to claim site:', err);
-      // Continue anyway - user can still view/edit
-    }
-  };
 
   const fetchLatestSite = async () => {
     try {
