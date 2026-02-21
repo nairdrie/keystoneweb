@@ -5,44 +5,31 @@ import { useRouter } from 'next/navigation';
 import { ChevronUp } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 
+interface Palette {
+  name: string;
+  primary: string;
+  secondary: string;
+  accent: string;
+}
+
 interface FloatingToolbarProps {
   siteTitle: string;
   onSiteTitle: (title: string) => void;
+  templateName?: string;
+  templatePalettes?: Palette[];
+  selectedPalette?: Palette;
+  onSelectPalette?: (palette: Palette) => void;
   onSave: () => void;
   saving?: boolean;
 }
 
-const COLOR_PALETTES = [
-  {
-    name: 'Ocean Blue',
-    primary: '#0369a1',
-    secondary: '#06b6d4',
-  },
-  {
-    name: 'Forest Green',
-    primary: '#15803d',
-    secondary: '#4ade80',
-  },
-  {
-    name: 'Sunset Orange',
-    primary: '#ea580c',
-    secondary: '#fb923c',
-  },
-  {
-    name: 'Royal Purple',
-    primary: '#7c3aed',
-    secondary: '#c084fc',
-  },
-  {
-    name: 'Keystone Red',
-    primary: '#dc2626',
-    secondary: '#f87171',
-  },
-];
-
 export default function FloatingToolbar({
   siteTitle,
   onSiteTitle,
+  templateName,
+  templatePalettes = [],
+  selectedPalette,
+  onSelectPalette,
   onSave,
   saving = false,
 }: FloatingToolbarProps) {
@@ -65,11 +52,11 @@ export default function FloatingToolbar({
 
   return (
     <>
-      {/* Floating Button */}
+      {/* Floating Button - Always on top with z-50 */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-lg flex items-center justify-center transition-all hover:scale-110"
+          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-lg flex items-center justify-center transition-all hover:scale-110"
           title="Open editor settings"
         >
           <svg
@@ -91,14 +78,14 @@ export default function FloatingToolbar({
       {/* Drawer Overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-30 z-30"
+          className="fixed inset-0 bg-black bg-opacity-30 z-40"
           onClick={() => setIsOpen(false)}
         />
       )}
 
-      {/* Drawer */}
+      {/* Drawer - z-50 to be above overlay */}
       {isOpen && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white rounded-t-2xl shadow-2xl max-h-[80vh] overflow-y-auto">
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl max-h-[80vh] overflow-y-auto">
           {/* Handle */}
           <div className="flex justify-center pt-3 pb-2">
             <button
@@ -112,12 +99,34 @@ export default function FloatingToolbar({
           {/* Content */}
           <div className="px-6 pb-8">
             {/* Title */}
-            <h2 className="text-2xl font-bold mb-6">Site Settings</h2>
+            <h2 className="text-2xl font-bold mb-6">Site Editor</h2>
 
-            {/* Site Title */}
+            {/* Site Info Section */}
+            <div className="bg-slate-50 rounded-lg p-4 mb-6">
+              <div className="space-y-2 text-sm">
+                <div>
+                  <span className="font-semibold text-slate-600">Site Name: </span>
+                  <span className="text-slate-900">{siteTitle}</span>
+                </div>
+                {templateName && (
+                  <div>
+                    <span className="font-semibold text-slate-600">Template: </span>
+                    <span className="text-slate-900">{templateName}</span>
+                  </div>
+                )}
+                {selectedPalette && (
+                  <div>
+                    <span className="font-semibold text-slate-600">Color Palette: </span>
+                    <span className="text-slate-900">{selectedPalette.name}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Site Title Edit */}
             <div className="mb-8">
               <label className="block text-sm font-semibold text-slate-900 mb-2">
-                Site Name
+                Edit Site Name
               </label>
               <input
                 type="text"
@@ -128,42 +137,58 @@ export default function FloatingToolbar({
               />
             </div>
 
-            {/* Color Palette */}
-            <div className="mb-8">
-              <label className="block text-sm font-semibold text-slate-900 mb-4">
-                Color Palette
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {COLOR_PALETTES.map((palette) => (
-                  <button
-                    key={palette.name}
-                    className="group relative overflow-hidden rounded-lg border-2 border-slate-200 hover:border-slate-400 transition-all hover:shadow-md"
-                    title={palette.name}
-                  >
-                    {/* Two color preview */}
-                    <div className="h-16 flex">
-                      <div
-                        className="flex-1"
-                        style={{ backgroundColor: palette.primary }}
-                      />
-                      <div
-                        className="flex-1"
-                        style={{ backgroundColor: palette.secondary }}
-                      />
-                    </div>
-                    {/* Palette name on hover */}
-                    <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span className="text-white text-xs font-semibold text-center px-2">
-                        {palette.name}
-                      </span>
-                    </div>
-                  </button>
-                ))}
+            {/* Color Palette Selector */}
+            {templatePalettes.length > 0 && (
+              <div className="mb-8">
+                <label className="block text-sm font-semibold text-slate-900 mb-4">
+                  Color Palette
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {templatePalettes.map((palette) => (
+                    <button
+                      key={palette.name}
+                      onClick={() => onSelectPalette?.(palette)}
+                      className={`group relative overflow-hidden rounded-lg border-2 transition-all hover:shadow-md ${
+                        selectedPalette?.name === palette.name
+                          ? 'border-red-600 shadow-lg'
+                          : 'border-slate-200 hover:border-slate-400'
+                      }`}
+                      title={palette.name}
+                    >
+                      {/* Three color preview */}
+                      <div className="h-16 flex">
+                        <div
+                          className="flex-1"
+                          style={{ backgroundColor: palette.primary }}
+                        />
+                        <div
+                          className="flex-1"
+                          style={{ backgroundColor: palette.secondary }}
+                        />
+                        <div
+                          className="flex-1"
+                          style={{ backgroundColor: palette.accent }}
+                        />
+                      </div>
+                      {/* Palette name on hover */}
+                      <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="text-white text-xs font-semibold text-center px-2">
+                          {palette.name}
+                        </span>
+                      </div>
+                      {/* Selected checkmark */}
+                      {selectedPalette?.name === palette.name && (
+                        <div className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <p className="text-xs text-slate-500 mt-3">
-                Color selection coming soon — these are previews for now
-              </p>
-            </div>
+            )}
 
             {/* Save Button */}
             <button
@@ -178,16 +203,18 @@ export default function FloatingToolbar({
             <div className="my-6 h-px bg-slate-200" />
 
             {/* Logout Button */}
-            <button
-              onClick={handleLogout}
-              className="w-full py-3 bg-slate-200 hover:bg-slate-300 text-slate-900 font-bold rounded-lg transition-colors"
-            >
-              Log Out
-            </button>
+            {user && (
+              <button
+                onClick={handleLogout}
+                className="w-full py-3 bg-slate-200 hover:bg-slate-300 text-slate-900 font-bold rounded-lg transition-colors"
+              >
+                Log Out
+              </button>
+            )}
 
             {/* Footer Info */}
             <p className="text-xs text-slate-600 text-center mt-4">
-              More customization options coming soon
+              Changes apply in real-time
             </p>
           </div>
         </div>

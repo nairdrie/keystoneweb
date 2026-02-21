@@ -3,9 +3,21 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import FloatingToolbar from '@/app/components/FloatingToolbar';
-import SiteSwitcher from '@/app/components/SiteSwitcher';
 import TemplateRenderer from '@/app/components/TemplateRenderer';
 import { useAuth } from '@/lib/auth/context';
+
+interface Palette {
+  name: string;
+  primary: string;
+  secondary: string;
+  accent: string;
+}
+
+interface TemplateMetadata {
+  id: string;
+  name: string;
+  palettes?: Palette[];
+}
 
 interface SiteData {
   id: string;
@@ -24,6 +36,8 @@ export default function EditorContent() {
   const { user, loading: authLoading } = useAuth();
 
   const [site, setSite] = useState<SiteData | null>(null);
+  const [templateMetadata, setTemplateMetadata] = useState<TemplateMetadata | null>(null);
+  const [selectedPalette, setSelectedPalette] = useState<Palette | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [siteTitle, setSiteTitle] = useState('My Website');
@@ -81,7 +95,6 @@ export default function EditorContent() {
     }
   };
 
-
   const fetchSite = async (id: string) => {
     try {
       setLoading(true);
@@ -104,12 +117,44 @@ export default function EditorContent() {
       
       setSite(data);
       setSiteTitle(data.designData.title || 'My Website');
+
+      // Fetch template metadata to get palettes
+      fetchTemplateMetadata(data.selectedTemplateId);
+
+      // Set selected palette from site data, or use first palette as default
+      const savedPalette = data.designData.selectedPalette;
+      if (savedPalette) {
+        setSelectedPalette(savedPalette);
+      }
     } catch (err) {
       console.error('Failed to fetch site:', err);
       setError('Failed to load site');
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchTemplateMetadata = async (templateId: string) => {
+    try {
+      // Fetch template metadata via API
+      const res = await fetch(`/api/templates/${templateId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTemplateMetadata(data.metadata);
+
+        // If no palette selected yet, use the first one
+        if (!selectedPalette && data.metadata?.palettes?.length > 0) {
+          setSelectedPalette(data.metadata.palettes[0]);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch template metadata:', err);
+    }
+  };
+
+  const handlePaletteSelect = (palette: Palette) => {
+    setSelectedPalette(palette);
+    // Palette changes are applied in real-time to TemplateRenderer
   };
 
   const handleSave = async () => {
@@ -127,6 +172,7 @@ export default function EditorContent() {
           designData: {
             ...site?.designData,
             title: siteTitle,
+            selectedPalette: selectedPalette,
           },
           userId: user.id,
         }),
@@ -185,31 +231,26 @@ export default function EditorContent() {
   // Full-screen editor with template preview
   return (
     <div className="w-full h-screen overflow-hidden flex flex-col bg-white">
-      {/* Header with Site Info and Toolbar */}
-      <div className="absolute top-0 left-0 right-0 z-30 bg-white border-b border-slate-200 p-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          {site && <SiteSwitcher currentSiteId={site.id} currentSiteTitle={siteTitle} />}
-          <div>
-            <h2 className="font-semibold text-slate-900">{siteTitle}</h2>
-            <p className="text-xs text-slate-500">
-              {site.businessType} • {site.category}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Template Renderer - Full Screen */}
-      <div className="flex-1 overflow-auto pt-16">
+      {/* Template Renderer - Full Screen, no top bar */}
+      <div className="flex-1 overflow-auto">
         <TemplateRenderer
           templateId={site.selectedTemplateId}
-          colors={site.designData.colors}
+          colors={selectedPalette ? {
+            primary: selectedPalette.primary,
+            secondary: selectedPalette.secondary,
+            accent: selectedPalette.accent,
+          } : undefined}
         />
       </div>
 
-      {/* Floating Toolbar */}
+      {/* Floating Toolbar with All Controls */}
       <FloatingToolbar
         siteTitle={siteTitle}
         onSiteTitle={setSiteTitle}
+        templateName={templateMetadata?.name}
+        templatePalettes={templateMetadata?.palettes}
+        selectedPalette={selectedPalette || undefined}
+        onSelectPalette={handlePaletteSelect}
         onSave={handleSave}
         saving={saving}
       />
