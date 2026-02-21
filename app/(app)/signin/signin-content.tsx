@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/lib/auth/context';
 
 export default function SignInContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { signIn } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,17 +31,7 @@ export default function SignInContent() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/signin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || 'Incorrect email or password');
-        return;
-      }
+      await signIn(email, password);
 
       // Success - redirect to editor
       if (siteId) {
@@ -47,8 +39,8 @@ export default function SignInContent() {
       } else {
         router.push('/editor');
       }
-    } catch (err) {
-      setError('An error occurred. Please try again.');
+    } catch (err: any) {
+      setError(err.message || 'Incorrect email or password');
     } finally {
       setLoading(false);
     }

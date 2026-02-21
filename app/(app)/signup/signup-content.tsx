@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/lib/auth/context';
 
 export default function SignUpContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { signUp } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -61,17 +63,7 @@ export default function SignUpContent() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, name }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || 'Failed to create account');
-        return;
-      }
+      await signUp(email, password, { name });
 
       // Success - redirect to editor
       if (siteId) {
@@ -79,8 +71,8 @@ export default function SignUpContent() {
       } else {
         router.push('/editor');
       }
-    } catch (err) {
-      setError('An error occurred. Please try again.');
+    } catch (err: any) {
+      setError(err.message || 'Failed to create account');
     } finally {
       setLoading(false);
     }
