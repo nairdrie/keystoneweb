@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 interface TemplateRendererProps {
   templateId: string;
@@ -33,6 +33,7 @@ export default function TemplateRenderer({
   const [baseHtml, setBaseHtml] = useState<string>('');
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
+  const templateRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchTemplate = async () => {
@@ -87,6 +88,7 @@ export default function TemplateRenderer({
           [data-editable-key] {
             position: relative;
             display: inline-block;
+            cursor: text;
           }
           [data-editable-key]::after {
             content: "✏️";
@@ -97,16 +99,18 @@ export default function TemplateRenderer({
             font-size: 16px;
             cursor: pointer;
             padding: 4px 8px;
-            background: rgba(59, 130, 246, 0.9);
+            background: rgba(59, 130, 246, 0.85);
             border-radius: 6px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             transition: all 0.2s;
+            pointer-events: auto;
           }
           [data-editable-key]:hover::after {
             background: rgba(59, 130, 246, 1);
-            transform: translateY(-50%) scale(1.1);
+            transform: translateY(-50%) scale(1.15);
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
           }
         ` : ''}
       </style>
@@ -138,29 +142,27 @@ export default function TemplateRenderer({
     setHtml(finalHtml);
   }, [baseHtml, colors, editMode, editableContent]);
 
-  // Handle click on pencil icon (after element)
+  // Handle click on editable elements
   useEffect(() => {
-    if (!editMode) return;
+    if (!editMode || !templateRef.current) return;
 
-    const handleEditableClick = (e: MouseEvent) => {
+    const handleTemplateClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       
-      // Check if clicked on an editable element or its pencil icon
+      // Find the closest editable element
       const editableElement = target.closest('[data-editable-key]') as HTMLElement;
       if (!editableElement) return;
 
       const key = editableElement.getAttribute('data-content-key');
       if (!key) return;
 
+      // Open editing modal
       setEditingKey(key);
       setEditingValue(editableContent[key] || '');
     };
 
-    const templateDiv = document.querySelector('[dangerouslySetInnerHTML]') as HTMLElement;
-    if (templateDiv) {
-      templateDiv.addEventListener('click', handleEditableClick);
-      return () => templateDiv.removeEventListener('click', handleEditableClick);
-    }
+    templateRef.current.addEventListener('click', handleTemplateClick);
+    return () => templateRef.current?.removeEventListener('click', handleTemplateClick);
   }, [editMode, editableContent]);
 
   const handleEditSave = () => {
@@ -198,23 +200,23 @@ export default function TemplateRenderer({
   }
 
   return (
-    <div className="w-full overflow-auto relative">
+    <div className="w-full overflow-auto">
       {editMode && (
         <div className="fixed top-0 left-0 right-0 bg-blue-100 border-b-2 border-blue-400 p-3 z-40 shadow">
           <p className="text-sm text-blue-900 max-w-7xl mx-auto">
-            ✏️ <strong>Edit Mode:</strong> Click the pencil icons to edit text
+            ✏️ <strong>Edit Mode:</strong> Click any pencil icon to edit text
           </p>
         </div>
       )}
       
-      <div className={editMode ? 'mt-16' : ''}>
+      <div ref={templateRef} className={editMode ? 'mt-16' : ''}>
         <div 
           className="relative"
           dangerouslySetInnerHTML={{ __html: html }}
         />
       </div>
 
-      {/* Edit Modal - Overlay for editing */}
+      {/* Edit Modal */}
       {editingKey && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-2xl max-w-md w-full p-6">
@@ -224,7 +226,7 @@ export default function TemplateRenderer({
             <textarea
               value={editingValue}
               onChange={(e) => setEditingValue(e.target.value)}
-              className="w-full px-4 py-3 border-2 border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-sm"
+              className="w-full px-4 py-3 border-2 border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-sm"
               rows={4}
               autoFocus
               onKeyDown={(e) => {
@@ -237,15 +239,18 @@ export default function TemplateRenderer({
                 onClick={handleEditSave}
                 className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
               >
-                Save (Ctrl+Enter)
+                Save
               </button>
               <button
                 onClick={handleEditCancel}
                 className="flex-1 px-4 py-2 bg-slate-300 hover:bg-slate-400 text-slate-900 rounded-lg font-medium transition-colors"
               >
-                Cancel (Esc)
+                Cancel
               </button>
             </div>
+            <p className="text-xs text-slate-500 mt-3 text-center">
+              Tip: Ctrl+Enter to save, Esc to cancel
+            </p>
           </div>
         </div>
       )}
