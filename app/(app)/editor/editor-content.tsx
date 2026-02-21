@@ -270,7 +270,7 @@ export default function EditorContent() {
         onSiteTitle={setSiteTitle}
         templateName={templateMetadata?.name}
         templatePalettes={templateMetadata?.palettes}
-        selectedPalette={selectedPalette}
+        selectedPalette={selectedPalette || undefined}
         onSelectPalette={handlePaletteSelect}
         onSave={handleSave}
         saving={saving}
