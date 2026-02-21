@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import FloatingToolbar from '@/app/components/FloatingToolbar';
 import SiteSwitcher from '@/app/components/SiteSwitcher';
-import SignUpModal from '@/app/components/SignUpModal';
 import TemplateRenderer from '@/app/components/TemplateRenderer';
 import { useAuth } from '@/lib/auth/context';
 
@@ -27,7 +26,6 @@ export default function EditorContent() {
   const [site, setSite] = useState<SiteData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showSignUp, setShowSignUp] = useState(false);
   const [siteTitle, setSiteTitle] = useState('My Website');
   const [error, setError] = useState<string | null>(null);
 
@@ -41,9 +39,8 @@ export default function EditorContent() {
     }
 
     if (!user) {
-      // User is not authenticated, show signin modal
-      setShowSignUp(true);
-      setLoading(false);
+      // User is not authenticated, redirect to signup
+      router.push(`/signup${siteId ? `?siteId=${siteId}` : ''}`);
       return;
     }
 
@@ -55,7 +52,7 @@ export default function EditorContent() {
       // Load user's latest site
       fetchLatestSite();
     }
-  }, [user, authLoading, siteId]);
+  }, [user, authLoading, siteId, router]);
 
   const fetchLatestSite = async () => {
     try {
@@ -151,34 +148,6 @@ export default function EditorContent() {
       setSaving(false);
     }
   };
-
-  const handleSignUpSuccess = async () => {
-    // After successful sign in, reload with latest site
-    setShowSignUp(false);
-    setLoading(true);
-    // Give auth state time to update
-    await new Promise(resolve => setTimeout(resolve, 500));
-    if (siteId) {
-      fetchSite(siteId);
-    } else {
-      fetchLatestSite();
-    }
-  };
-
-  // Show signin modal if not authenticated
-  if (!authLoading && !user && showSignUp) {
-    return (
-      <div className="w-full h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800">
-        <SignUpModal
-          isOpen={showSignUp}
-          onClose={() => router.push('/onboarding')}
-          siteId={siteId || ''}
-          onSuccess={handleSignUpSuccess}
-          defaultToSignin={true}
-        />
-      </div>
-    );
-  }
 
   // Loading states
   if (authLoading || loading) {
