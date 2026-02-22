@@ -89,19 +89,22 @@ export function ModernBluePlumber({
             className="text-xl md:text-2xl mb-8 opacity-95"
           />
 
-          <EditableText
-            as="button"
-            contentKey="heroCTA"
-            content={content.heroCTA}
-            defaultValue={defaults.heroCTA}
-            isEditMode={actualEditMode}
-            onSave={(key, value) => updateContent(key, value)}
+          <button
             className="px-8 py-4 rounded-lg font-bold text-lg transition-all hover:scale-105"
             style={{
               backgroundColor: palette.accent,
               color: palette.text,
             }}
-          />
+          >
+            <EditableText
+              contentKey="heroCTA"
+              content={content.heroCTA}
+              defaultValue={defaults.heroCTA}
+              isEditMode={actualEditMode}
+              onSave={(key, value) => updateContent(key, value)}
+              className="inline"
+            />
+          </button>
         </div>
       </section>
 
@@ -205,19 +208,22 @@ export function ModernBluePlumber({
             className="text-4xl font-bold mb-8"
           />
 
-          <EditableText
-            as="button"
-            contentKey="contactCTA"
-            content={content.contactCTA}
-            defaultValue={defaults.contactCTA}
-            isEditMode={actualEditMode}
-            onSave={(key, value) => updateContent(key, value)}
+          <button
             className="px-10 py-4 rounded-lg font-bold text-lg transition-all hover:scale-105"
             style={{
               backgroundColor: palette.accent,
               color: palette.text,
             }}
-          />
+          >
+            <EditableText
+              contentKey="contactCTA"
+              content={content.contactCTA}
+              defaultValue={defaults.contactCTA}
+              isEditMode={actualEditMode}
+              onSave={(key, value) => updateContent(key, value)}
+              className="inline"
+            />
+          </button>
         </div>
       </section>
 

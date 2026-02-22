@@ -89,16 +89,19 @@ export function ClassicProPlumber({
             className="text-xl text-white/90 mb-8"
           />
 
-          <EditableText
-            as="button"
-            contentKey="heroCTA"
-            content={content.heroCTA}
-            defaultValue={defaults.heroCTA}
-            isEditMode={actualEditMode}
-            onSave={(key, value) => updateContent(key, value)}
+          <button
             className="px-8 py-3 rounded-lg font-bold text-white transition-transform hover:scale-105"
             style={{ backgroundColor: palette.secondary }}
-          />
+          >
+            <EditableText
+              contentKey="heroCTA"
+              content={content.heroCTA}
+              defaultValue={defaults.heroCTA}
+              isEditMode={actualEditMode}
+              onSave={(key, value) => updateContent(key, value)}
+              className="inline"
+            />
+          </button>
         </div>
       </section>
 
