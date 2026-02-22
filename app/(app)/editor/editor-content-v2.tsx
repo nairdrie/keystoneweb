@@ -245,7 +245,7 @@ export default function EditorContent() {
       {/* Edit Mode Toggle */}
       <EditModeToggle
         isEditMode={editMode}
-        onToggle={setEditMode}
+        onChange={setEditMode}
       />
 
       {/* Template Render */}
