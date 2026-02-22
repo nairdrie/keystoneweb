@@ -36,7 +36,7 @@ export default function KeystoneLogo({
   const logo = (
     <div className="flex items-center gap-2">
       <Image
-        src="/logos/keystone-logo.jpg"
+        src="/logos/keystone-logo.png"
         alt="Keystone"
         width={logoSize.width}
         height={logoSize.height}
