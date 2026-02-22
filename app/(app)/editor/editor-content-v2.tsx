@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, createElement } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import FloatingToolbar from '@/app/components/FloatingToolbar';
@@ -260,10 +260,12 @@ export default function EditorContent() {
         }}
       >
         <div className="w-full">
-          {templateComponent({
-            palette: paletteData,
-            isEditMode: editMode,
-          })}
+          {templateComponent
+            ? createElement(templateComponent, {
+                palette: paletteData,
+                isEditMode: editMode,
+              })
+            : null}
         </div>
       </EditorProvider>
     </div>
