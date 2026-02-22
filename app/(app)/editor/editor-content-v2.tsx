@@ -28,8 +28,8 @@ export default function EditorContent() {
 
   const [site, setSite] = useState<SiteData | null>(null);
   const [templateComponent, setTemplateComponent] = useState<React.ComponentType<any> | null>(null);
-  const [selectedPalette, setSelectedPalette] = useState<string>('default');
-  const [availablePalettes, setAvailablePalettes] = useState<string[]>([]);
+  const [selectedPaletteKey, setSelectedPaletteKey] = useState<string>('default');
+  const [availablePalettes, setAvailablePalettes] = useState<Record<string, Record<string, string>>>({});
   const [paletteData, setPaletteData] = useState<Record<string, string>>({});
   const [editMode, setEditMode] = useState(false);
   const [editableContent, setEditableContent] = useState<Record<string, string>>({});
@@ -124,10 +124,12 @@ export default function EditorContent() {
       // Get template metadata (palettes, customizables)
       const metadata = await getTemplateMetadata(templateId);
       if (metadata) {
-        const paletteKeys = Object.keys(metadata.palettes || {});
-        setAvailablePalettes(paletteKeys);
-        setSelectedPalette(paletteKeys[0] || 'default');
-        setPaletteData(metadata.palettes[paletteKeys[0]] || {});
+        const palettesObj = metadata.palettes || {};
+        const paletteKeys = Object.keys(palettesObj);
+        setAvailablePalettes(palettesObj);
+        const firstKey = paletteKeys[0] || 'default';
+        setSelectedPaletteKey(firstKey);
+        setPaletteData(palettesObj[firstKey] || {});
       }
     } catch (err) {
       console.error('Error loading template:', err);
@@ -151,7 +153,7 @@ export default function EditorContent() {
       // Include palette selection in design data
       const designData = {
         ...editableContent,
-        __selectedPalette: selectedPalette,
+        __selectedPalette: selectedPaletteKey,
       };
 
       const res = await fetch('/api/sites', {
@@ -183,14 +185,11 @@ export default function EditorContent() {
     }
   };
 
-  const handlePaletteChange = async (paletteKey: string) => {
-    setSelectedPalette(paletteKey);
-
-    if (site?.selectedTemplateId) {
-      const metadata = await getTemplateMetadata(site.selectedTemplateId);
-      if (metadata?.palettes[paletteKey]) {
-        setPaletteData(metadata.palettes[paletteKey]);
-      }
+  const handlePaletteChange = (paletteKey: string) => {
+    setSelectedPaletteKey(paletteKey);
+    const palette = availablePalettes[paletteKey];
+    if (palette) {
+      setPaletteData(palette);
     }
   };
 
@@ -218,6 +217,14 @@ export default function EditorContent() {
     );
   }
 
+  // Convert availablePalettes object to array format for FloatingToolbar
+  const paletteArray = Object.entries(availablePalettes).map(([key, colors]) => ({
+    name: key,
+    ...colors,
+  }));
+
+  const currentPalette = paletteArray.find(p => p.name === selectedPaletteKey);
+
   return (
     <div className="relative min-h-screen">
       {/* Floating Toolbar */}
@@ -225,10 +232,10 @@ export default function EditorContent() {
         siteTitle={siteTitle}
         onSiteTitle={setSiteTitle}
         onSave={handleSaveDesign}
-        isSaving={saving}
-        availablePalettes={availablePalettes}
-        selectedPalette={selectedPalette}
-        onPaletteChange={handlePaletteChange}
+        saving={saving}
+        templatePalettes={paletteArray}
+        selectedPalette={currentPalette}
+        onSelectPalette={(palette) => handlePaletteChange(palette.name)}
       />
 
       {/* Edit Mode Toggle */}
@@ -244,7 +251,7 @@ export default function EditorContent() {
           isEditMode: editMode,
           updateContent: handleUpdateContent,
           palette: paletteData,
-          availablePalettes,
+          availablePalettes: Object.keys(availablePalettes),
           setPalette: handlePaletteChange,
         }}
       >
