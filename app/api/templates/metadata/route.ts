@@ -1,73 +1,76 @@
-import { NextResponse, NextRequest } from 'next/server';
+import {
+  getAllTemplateMetadata,
+  getTemplateMetadata,
+} from '@/lib/db/template-queries';
 
 /**
  * GET /api/templates/metadata
  * 
- * Returns paginated template metadata based on business type and category.
- * This is the primary endpoint for fetching templates in the onboarding wizard.
+ * Returns metadata for all templates or filtered results
  * 
  * Query params:
- * - businessType: 'services' | 'products' | 'both'
- * - category: category ID (e.g., 'plumber', 'ecommerce')
- * - page: page number (default 1)
- * - limit: results per page (default 12)
+ * - category: Filter by category (e.g., 'plumber', 'fitness')
+ * - business_type: Filter by business type (e.g., 'services')
  */
-
-// Import all template metadata
-// (This will be auto-populated from templates.json)
-import templates from '@/public/templates/metadata.json';
-
-interface TemplateMetadata {
-  id: string;
-  name: string;
-  businessType: string;
-  category: string;
-  tags: string[];
-  description: string;
-  sections: string[];
-  colors: {
-    primary: string;
-    secondary: string;
-    accent: string;
-  };
-  imageUrl: string;
-}
-
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const businessType = searchParams.get('businessType');
-  const category = searchParams.get('category');
-  const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
-  const limit = Math.min(50, parseInt(searchParams.get('limit') || '12'));
-
+export async function GET(request: Request) {
   try {
-    // Filter templates by business type and category
-    // metadata.json has structure: { version, generatedAt, totalTemplates, categories, templates: [...] }
-    const meta = templates as any;
-    const templateList: TemplateMetadata[] = meta.templates || [];
-    let filtered = templateList.filter((t: TemplateMetadata) => {
-      let match = true;
-      if (businessType) match = match && t.businessType === businessType;
-      if (category) match = match && t.category === category;
-      return match;
+    const { searchParams } = new URL(request.url);
+
+    const category = searchParams.get('category') || undefined;
+    const businessType = searchParams.get('business_type') || undefined;
+
+    const templates = await getAllTemplateMetadata({
+      category: category as string | undefined,
+      business_type: businessType as string | undefined,
     });
 
-    const total = filtered.length;
-    const start = (page - 1) * limit;
-    const end = start + limit;
-    const paginated = filtered.slice(start, end);
-
-    return NextResponse.json({
-      templates: paginated,
-      total,
-      page,
-      limit,
-      hasMore: end < total,
+    return Response.json({
+      success: true,
+      data: templates,
+      count: templates.length,
     });
   } catch (error) {
-    console.error('Error fetching templates:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch templates' },
+    console.error('Error fetching template metadata:', error);
+    return Response.json(
+      {
+        success: false,
+        error: 'Failed to fetch template metadata',
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * GET /api/templates/metadata/[templateId]
+ * 
+ * Returns metadata for a specific template
+ */
+export async function getTemplateMetadataRoute(templateId: string) {
+  try {
+    const template = await getTemplateMetadata(templateId);
+
+    if (!template) {
+      return Response.json(
+        {
+          success: false,
+          error: 'Template not found',
+        },
+        { status: 404 }
+      );
+    }
+
+    return Response.json({
+      success: true,
+      data: template,
+    });
+  } catch (error) {
+    console.error(`Error fetching metadata for template ${templateId}:`, error);
+    return Response.json(
+      {
+        success: false,
+        error: 'Failed to fetch template metadata',
+      },
       { status: 500 }
     );
   }
