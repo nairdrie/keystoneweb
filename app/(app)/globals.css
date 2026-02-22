@@ -15,6 +15,18 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  
+  /* Brand Red Colors - Override Tailwind defaults */
+  --color-red-50: #fff5f5;
+  --color-red-100: #ffe6e6;
+  --color-red-200: #ffcccc;
+  --color-red-300: #ffb3b3;
+  --color-red-400: #ff9999;
+  --color-red-500: #ff7f7f;
+  --color-red-600: var(--brand-primary);
+  --color-red-700: var(--brand-primary-hover);
+  --color-red-800: var(--brand-primary-dark);
+  --color-red-900: #cc2525;
 }
 
 @media (prefers-color-scheme: dark) {
