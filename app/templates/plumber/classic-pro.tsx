@@ -73,7 +73,7 @@ export function ClassicProPlumber({
             as="h1"
             contentKey="heroTitle"
             content={content.heroTitle}
-            defaultText={defaults.heroTitle}
+            defaultValue={defaults.heroTitle}
             isEditMode={actualEditMode}
             onSave={(key, value) => updateContent(key, value)}
             className="text-4xl md:text-5xl font-bold mb-4 text-white"
@@ -83,7 +83,7 @@ export function ClassicProPlumber({
             as="p"
             contentKey="heroSubtitle"
             content={content.heroSubtitle}
-            defaultText={defaults.heroSubtitle}
+            defaultValue={defaults.heroSubtitle}
             isEditMode={actualEditMode}
             onSave={(key, value) => updateContent(key, value)}
             className="text-xl text-white/90 mb-8"
@@ -93,7 +93,7 @@ export function ClassicProPlumber({
             as="button"
             contentKey="heroCTA"
             content={content.heroCTA}
-            defaultText={defaults.heroCTA}
+            defaultValue={defaults.heroCTA}
             isEditMode={actualEditMode}
             onSave={(key, value) => updateContent(key, value)}
             className="px-8 py-3 rounded-lg font-bold text-white transition-transform hover:scale-105"
@@ -114,7 +114,7 @@ export function ClassicProPlumber({
                 as="h3"
                 contentKey="service1Title"
                 content={content.service1Title}
-                defaultText={defaults.service1Title}
+                defaultValue={defaults.service1Title}
                 isEditMode={actualEditMode}
                 onSave={(key, value) => updateContent(key, value)}
                 className="text-xl font-bold mb-3"
@@ -123,7 +123,7 @@ export function ClassicProPlumber({
                 as="p"
                 contentKey="service1Desc"
                 content={content.service1Desc}
-                defaultText={defaults.service1Desc}
+                defaultValue={defaults.service1Desc}
                 isEditMode={actualEditMode}
                 onSave={(key, value) => updateContent(key, value)}
               />
@@ -135,7 +135,7 @@ export function ClassicProPlumber({
                 as="h3"
                 contentKey="service2Title"
                 content={content.service2Title}
-                defaultText={defaults.service2Title}
+                defaultValue={defaults.service2Title}
                 isEditMode={actualEditMode}
                 onSave={(key, value) => updateContent(key, value)}
                 className="text-xl font-bold mb-3"
@@ -144,7 +144,7 @@ export function ClassicProPlumber({
                 as="p"
                 contentKey="service2Desc"
                 content={content.service2Desc}
-                defaultText={defaults.service2Desc}
+                defaultValue={defaults.service2Desc}
                 isEditMode={actualEditMode}
                 onSave={(key, value) => updateContent(key, value)}
               />
@@ -156,7 +156,7 @@ export function ClassicProPlumber({
                 as="h3"
                 contentKey="service3Title"
                 content={content.service3Title}
-                defaultText={defaults.service3Title}
+                defaultValue={defaults.service3Title}
                 isEditMode={actualEditMode}
                 onSave={(key, value) => updateContent(key, value)}
                 className="text-xl font-bold mb-3"
@@ -165,7 +165,7 @@ export function ClassicProPlumber({
                 as="p"
                 contentKey="service3Desc"
                 content={content.service3Desc}
-                defaultText={defaults.service3Desc}
+                defaultValue={defaults.service3Desc}
                 isEditMode={actualEditMode}
                 onSave={(key, value) => updateContent(key, value)}
               />
@@ -181,7 +181,7 @@ export function ClassicProPlumber({
             as="h2"
             contentKey="aboutTitle"
             content={content.aboutTitle}
-            defaultText={defaults.aboutTitle}
+            defaultValue={defaults.aboutTitle}
             isEditMode={actualEditMode}
             onSave={(key, value) => updateContent(key, value)}
             className="text-3xl font-bold mb-6"
@@ -191,7 +191,7 @@ export function ClassicProPlumber({
             as="p"
             contentKey="aboutDesc"
             content={content.aboutDesc}
-            defaultText={defaults.aboutDesc}
+            defaultValue={defaults.aboutDesc}
             isEditMode={actualEditMode}
             onSave={(key, value) => updateContent(key, value)}
             className="text-lg"

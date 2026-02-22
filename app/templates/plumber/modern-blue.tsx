@@ -73,7 +73,7 @@ export function ModernBluePlumber({
             as="h1"
             contentKey="heroTitle"
             content={content.heroTitle}
-            defaultText={defaults.heroTitle}
+            defaultValue={defaults.heroTitle}
             isEditMode={actualEditMode}
             onSave={(key, value) => updateContent(key, value)}
             className="text-5xl md:text-6xl font-bold mb-6 leading-tight"
@@ -83,7 +83,7 @@ export function ModernBluePlumber({
             as="p"
             contentKey="heroSubtitle"
             content={content.heroSubtitle}
-            defaultText={defaults.heroSubtitle}
+            defaultValue={defaults.heroSubtitle}
             isEditMode={actualEditMode}
             onSave={(key, value) => updateContent(key, value)}
             className="text-xl md:text-2xl mb-8 opacity-95"
@@ -93,7 +93,7 @@ export function ModernBluePlumber({
             as="button"
             contentKey="heroCTA"
             content={content.heroCTA}
-            defaultText={defaults.heroCTA}
+            defaultValue={defaults.heroCTA}
             isEditMode={actualEditMode}
             onSave={(key, value) => updateContent(key, value)}
             className="px-8 py-4 rounded-lg font-bold text-lg transition-all hover:scale-105"
@@ -120,7 +120,7 @@ export function ModernBluePlumber({
                 as="h3"
                 contentKey="feature1Title"
                 content={content.feature1Title}
-                defaultText={defaults.feature1Title}
+                defaultValue={defaults.feature1Title}
                 isEditMode={actualEditMode}
                 onSave={(key, value) => updateContent(key, value)}
                 className="text-2xl font-bold mb-3"
@@ -129,7 +129,7 @@ export function ModernBluePlumber({
                 as="p"
                 contentKey="feature1Desc"
                 content={content.feature1Desc}
-                defaultText={defaults.feature1Desc}
+                defaultValue={defaults.feature1Desc}
                 isEditMode={actualEditMode}
                 onSave={(key, value) => updateContent(key, value)}
                 className="text-gray-600"
@@ -145,7 +145,7 @@ export function ModernBluePlumber({
                 as="h3"
                 contentKey="feature2Title"
                 content={content.feature2Title}
-                defaultText={defaults.feature2Title}
+                defaultValue={defaults.feature2Title}
                 isEditMode={actualEditMode}
                 onSave={(key, value) => updateContent(key, value)}
                 className="text-2xl font-bold mb-3"
@@ -154,7 +154,7 @@ export function ModernBluePlumber({
                 as="p"
                 contentKey="feature2Desc"
                 content={content.feature2Desc}
-                defaultText={defaults.feature2Desc}
+                defaultValue={defaults.feature2Desc}
                 isEditMode={actualEditMode}
                 onSave={(key, value) => updateContent(key, value)}
                 className="text-gray-600"
@@ -170,7 +170,7 @@ export function ModernBluePlumber({
                 as="h3"
                 contentKey="feature3Title"
                 content={content.feature3Title}
-                defaultText={defaults.feature3Title}
+                defaultValue={defaults.feature3Title}
                 isEditMode={actualEditMode}
                 onSave={(key, value) => updateContent(key, value)}
                 className="text-2xl font-bold mb-3"
@@ -179,7 +179,7 @@ export function ModernBluePlumber({
                 as="p"
                 contentKey="feature3Desc"
                 content={content.feature3Desc}
-                defaultText={defaults.feature3Desc}
+                defaultValue={defaults.feature3Desc}
                 isEditMode={actualEditMode}
                 onSave={(key, value) => updateContent(key, value)}
                 className="text-gray-600"
@@ -199,7 +199,7 @@ export function ModernBluePlumber({
             as="h2"
             contentKey="contactTitle"
             content={content.contactTitle}
-            defaultText={defaults.contactTitle}
+            defaultValue={defaults.contactTitle}
             isEditMode={actualEditMode}
             onSave={(key, value) => updateContent(key, value)}
             className="text-4xl font-bold mb-8"
@@ -209,7 +209,7 @@ export function ModernBluePlumber({
             as="button"
             contentKey="contactCTA"
             content={content.contactCTA}
-            defaultText={defaults.contactCTA}
+            defaultValue={defaults.contactCTA}
             isEditMode={actualEditMode}
             onSave={(key, value) => updateContent(key, value)}
             className="px-10 py-4 rounded-lg font-bold text-lg transition-all hover:scale-105"

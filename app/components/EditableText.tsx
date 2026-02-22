@@ -3,13 +3,39 @@
 import { useState, useRef, useEffect } from 'react';
 import { Edit2, Check, X } from 'lucide-react';
 
+/**
+ * EditableText Component
+ * 
+ * Renders text that can be edited inline with pencil icon.
+ * 
+ * Props:
+ * - contentKey: unique identifier (e.g., 'heroTitle')
+ * - content: actual value from database/user edit (if set, displays this)
+ * - defaultValue: industry-specific fallback (displays if no content set)
+ * - isEditMode: enables pencil icons and click-to-edit
+ * - onSave: callback when user saves (called with key, value)
+ * 
+ * Display priority:
+ * 1. User's saved content (from database) if it exists
+ * 2. Industry default (defaultValue) if no content set
+ * 
+ * Example:
+ * <EditableText
+ *   contentKey="heroTitle"
+ *   content={userSavedTitle}  // undefined on first load
+ *   defaultValue="Expert Plumbing Services"  // shows this initially
+ *   isEditMode={editMode}
+ *   onSave={updateContent}
+ * />
+ */
+
 interface EditableTextProps {
   contentKey: string;
-  content: string;
+  content?: string;
   isEditMode: boolean;
   onSave: (key: string, value: string) => void;
   className?: string;
-  defaultText?: string;
+  defaultValue?: string;
   as?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'span' | 'div';
 }
 
@@ -19,11 +45,11 @@ export default function EditableText({
   isEditMode,
   onSave,
   className = '',
-  defaultText = '',
+  defaultValue = '',
   as: Component = 'span',
 }: EditableTextProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [tempValue, setTempValue] = useState(content || defaultText);
+  const [tempValue, setTempValue] = useState(content || defaultValue);
   const [isHovered, setIsHovered] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -42,11 +68,11 @@ export default function EditableText({
   };
 
   const handleCancel = () => {
-    setTempValue(content || defaultText);
+    setTempValue(content || defaultValue);
     setIsEditing(false);
   };
 
-  const displayText = content || defaultText;
+  const displayText = content || defaultValue;
 
   // Preview mode: just show the text
   if (!isEditMode) {
