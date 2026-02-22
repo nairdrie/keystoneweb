@@ -11,8 +11,8 @@ export default function KeystoneLogoCanadian() {
           {/* Red Keystone Background */}
           <defs>
             <linearGradient id="keystoneRed" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style={{ stopColor: '#dc2626', stopOpacity: 1 }} />
-              <stop offset="100%" style={{ stopColor: '#b91c1c', stopOpacity: 1 }} />
+              <stop offset="0%" style={{ stopColor: 'var(--brand-primary)', stopOpacity: 1 }} />
+              <stop offset="100%" style={{ stopColor: 'var(--brand-primary-dark)', stopOpacity: 1 }} />
             </linearGradient>
           </defs>
           
@@ -20,7 +20,7 @@ export default function KeystoneLogoCanadian() {
           <path
             d="M 32 6 L 50 18 L 46 48 L 18 48 L 14 18 Z"
             fill="url(#keystoneRed)"
-            stroke="#991b1b"
+            stroke="var(--brand-primary-dark)"
             strokeWidth="0.5"
           />
           

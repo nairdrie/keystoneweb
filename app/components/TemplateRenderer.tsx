@@ -16,7 +16,7 @@ interface TemplateRendererProps {
 
 const DEFAULT_COLORS = {
   primary: '#1f2937',
-  secondary: '#dc2626',
+  secondary: 'var(--brand-primary)',
   accent: '#f3f4f6',
 };
 
