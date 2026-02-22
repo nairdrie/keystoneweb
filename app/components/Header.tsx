@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import KeystoneLogoCanadian from './KeystoneLogoCanadian';
+import KeystoneLogo from './KeystoneLogo';
 import { useAuth } from '@/lib/auth/context';
 
 export default function Header() {
@@ -13,21 +13,19 @@ export default function Header() {
     <header className="fixed top-0 w-full z-50 bg-white border-b border-slate-200">
       <nav className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex-shrink-0">
-          <KeystoneLogoCanadian />
-        </Link>
+        <KeystoneLogo href="/" size="md" showText={true} />
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-8">
-          <Link href="/#features" className="text-sm text-slate-600 hover:text-slate-900 transition-colors font-medium">
+          <Link href="/#features" className="text-sm text-slate-700 hover:text-slate-900 transition-colors font-medium">
             Features
           </Link>
-          <Link href="/onboarding" className="text-sm text-slate-600 hover:text-slate-900 transition-colors font-medium">
+          <Link href="/onboarding" className="text-sm text-slate-700 hover:text-slate-900 transition-colors font-medium">
             Build
           </Link>
           {user ? (
             <div className="flex items-center gap-4">
-              <span className="text-sm text-slate-600">{user.email}</span>
+              <span className="text-sm text-slate-700">{user.email}</span>
               <button
                 onClick={() => signOut()}
                 className="px-6 py-2.5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-900 text-sm font-bold transition-colors"
@@ -74,14 +72,14 @@ export default function Header() {
           <div className="px-4 py-4 space-y-3">
             <Link
               href="/#features"
-              className="block text-sm text-slate-600 hover:text-slate-900 font-medium py-2"
+              className="block text-sm text-slate-700 hover:text-slate-900 font-medium py-2"
               onClick={() => setIsOpen(false)}
             >
               Features
             </Link>
             <Link
               href="/onboarding"
-              className="block text-sm text-slate-600 hover:text-slate-900 font-medium py-2"
+              className="block text-sm text-slate-700 hover:text-slate-900 font-medium py-2"
               onClick={() => setIsOpen(false)}
             >
               Build

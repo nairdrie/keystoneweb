@@ -20,7 +20,7 @@ export default function HomePage() {
             </span>
           </h1>
 
-          <p className="text-lg md:text-xl text-slate-600 mb-12 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-lg md:text-xl text-slate-700 mb-12 max-w-2xl mx-auto leading-relaxed">
             No technical skills needed. Launch a professional website that turns visitors into customers. 
             Get online, look professional, grow your business—starting today.
           </p>
@@ -48,15 +48,15 @@ export default function HomePage() {
               <div className="grid grid-cols-3 gap-8 text-center">
                 <div>
                   <div className="text-4xl font-black text-red-600">5 min</div>
-                  <p className="text-sm text-slate-600 mt-2 font-medium">To Launch</p>
+                  <p className="text-sm text-slate-700 mt-2 font-medium">To Launch</p>
                 </div>
                 <div>
                   <div className="text-4xl font-black text-red-600">$49</div>
-                  <p className="text-sm text-slate-600 mt-2 font-medium">Per Month</p>
+                  <p className="text-sm text-slate-700 mt-2 font-medium">Per Month</p>
                 </div>
                 <div>
                   <div className="text-4xl font-black text-red-600">∞</div>
-                  <p className="text-sm text-slate-600 mt-2 font-medium">Possibilities</p>
+                  <p className="text-sm text-slate-700 mt-2 font-medium">Possibilities</p>
                 </div>
               </div>
             </div>
@@ -68,7 +68,7 @@ export default function HomePage() {
       <section id="features" className="py-20 px-4 sm:px-6 lg:px-8 border-t border-slate-200">
         <div className="mx-auto max-w-6xl">
           <h2 className="text-5xl font-black text-slate-900 mb-4 text-center">Built for Your Success</h2>
-          <p className="text-center text-slate-600 mb-16 max-w-2xl mx-auto text-lg">
+          <p className="text-center text-slate-700 mb-16 max-w-2xl mx-auto text-lg">
             Everything you need to get online and start selling
           </p>
 
@@ -112,7 +112,7 @@ export default function HomePage() {
                 <div className="relative">
                   <div className="text-4xl mb-4">{feature.icon}</div>
                   <h3 className="text-xl font-bold text-slate-900 mb-2">{feature.title}</h3>
-                  <p className="text-slate-600">{feature.description}</p>
+                  <p className="text-slate-700">{feature.description}</p>
                 </div>
               </div>
             ))}
@@ -137,7 +137,7 @@ export default function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 py-12 px-4 sm:px-6 lg:px-8 text-center text-slate-600 text-sm bg-white">
+      <footer className="border-t border-slate-200 py-12 px-4 sm:px-6 lg:px-8 text-center text-slate-700 text-sm bg-white">
         <p className="flex items-center justify-center gap-2">
           Proudly Canadian 🍁
         </p>
