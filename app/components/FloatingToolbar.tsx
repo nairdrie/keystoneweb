@@ -114,7 +114,7 @@ export default function FloatingToolbar({
             className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between rounded-t-3xl cursor-grab active:cursor-grabbing group"
             onMouseDown={handleDragStart}
           >
-            <KeystoneLogo href="/" size="sm" showText={false} />
+            <KeystoneLogo href="/" size="lg" showText={false} />
             <button
               onClick={() => setIsOpen(false)}
               className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-900"
