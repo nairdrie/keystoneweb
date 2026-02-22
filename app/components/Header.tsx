@@ -13,7 +13,7 @@ export default function Header() {
     <header className="fixed top-0 w-full z-50 bg-white border-b border-slate-200">
       <nav className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
         {/* Logo */}
-        <KeystoneLogo href="/" size="md" showText={true} />
+        <KeystoneLogo href="/" size="md" showText={false} />
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-8">
