@@ -234,6 +234,7 @@ export default function EditorContent() {
     <div className="relative min-h-screen">
       {/* Floating Toolbar */}
       <FloatingToolbar
+        currentSiteId={site?.id}
         siteTitle={siteTitle}
         onSiteTitle={setSiteTitle}
         onSave={handleSaveDesign}

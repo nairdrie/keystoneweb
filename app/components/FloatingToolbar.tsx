@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronUp, Home } from 'lucide-react';
+import { ChevronUp, Home, Plus } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 
@@ -13,9 +13,20 @@ interface Palette {
   accent: string;
 }
 
+interface Site {
+  id: string;
+  title?: string;
+  selectedTemplateId: string;
+  businessType: string;
+  category: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface FloatingToolbarProps {
   siteTitle: string;
   onSiteTitle: (title: string) => void;
+  currentSiteId?: string;
   templateName?: string;
   templatePalettes?: Palette[];
   selectedPalette?: Palette;
@@ -27,6 +38,7 @@ interface FloatingToolbarProps {
 export default function FloatingToolbar({
   siteTitle,
   onSiteTitle,
+  currentSiteId,
   templateName,
   templatePalettes = [],
   selectedPalette,
@@ -37,6 +49,29 @@ export default function FloatingToolbar({
   const router = useRouter();
   const { signOut, user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [userSites, setUserSites] = useState<Site[]>([]);
+  const [loadingSites, setLoadingSites] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !user) return;
+
+    const fetchSites = async () => {
+      try {
+        setLoadingSites(true);
+        const res = await fetch('/api/user/sites', { credentials: 'include' });
+        if (res.ok) {
+          const { sites } = await res.json();
+          setUserSites(sites);
+        }
+      } catch (error) {
+        console.error('Failed to fetch user sites:', error);
+      } finally {
+        setLoadingSites(false);
+      }
+    };
+
+    fetchSites();
+  }, [isOpen, user]);
 
   const handleLogout = async () => {
     await signOut();
@@ -131,6 +166,58 @@ export default function FloatingToolbar({
                 )}
               </div>
             </div>
+
+            {/* Site Switcher - Only for authenticated users */}
+            {user && (
+              <div className="mb-8">
+                <div className="flex items-center justify-between mb-4">
+                  <label className="block text-sm font-semibold text-slate-900">
+                    Your Sites
+                  </label>
+                  <button
+                    onClick={() => {
+                      setIsOpen(false);
+                      router.push('/onboarding');
+                    }}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 hover:text-red-700 transition-colors"
+                    title="Create a new site"
+                  >
+                    <Plus className="w-4 h-4" />
+                    New
+                  </button>
+                </div>
+
+                {loadingSites ? (
+                  <p className="text-sm text-slate-600">Loading sites...</p>
+                ) : userSites.length === 0 ? (
+                  <p className="text-sm text-slate-600">No sites yet. Create one to get started.</p>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {userSites.map((site) => (
+                      <button
+                        key={site.id}
+                        onClick={() => {
+                          setIsOpen(false);
+                          router.push(`/editor?siteId=${site.id}`);
+                        }}
+                        className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-all ${
+                          currentSiteId === site.id
+                            ? 'border-red-600 bg-red-50'
+                            : 'border-slate-200 hover:border-slate-400 bg-white'
+                        }`}
+                      >
+                        <div className="font-medium text-slate-900">
+                          {site.title || `Site ${site.id.slice(0, 8)}`}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1">
+                          {site.businessType} • {site.category}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Site Title Edit */}
             <div className="mb-8">
