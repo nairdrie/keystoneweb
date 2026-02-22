@@ -22,11 +22,11 @@ const TEMPLATE_REGISTRY: Record<
   'modern-blue-plumber': () =>
     import('./plumber/modern-blue').then((m) => ({ default: m.ModernBluePlumber })),
 
-  // Services > Fitness
-  'minimal-clean-fitness': () =>
-    import('./fitness/minimal-clean').then((m) => ({ default: m.MinimalCleanFitness })),
-
   // Add more templates as they're converted:
+  // Services > Fitness
+  // 'minimal-clean-fitness': () =>
+  //   import('./fitness/minimal-clean').then((m) => ({ default: m.MinimalCleanFitness })),
+  //
   // 'template-id': () => import('./category/component-name').then(m => ({default: m.ComponentName}))
 };
 
