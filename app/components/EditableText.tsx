@@ -112,33 +112,32 @@ export default function EditableText({
     );
   }
 
-  // Edit mode, not currently editing: show text with pencil icon on hover
+  // Edit mode, not currently editing: show text with pencil icon always visible
   return (
     <div
-      className="inline-block relative group"
+      className="relative inline-block"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <Component 
         className={`${className} ${
           isHovered ? 'bg-blue-100 outline outline-2 outline-blue-400 outline-offset-1' : ''
-        } transition-colors cursor-text py-1 px-1 inline-block`}
+        } transition-colors cursor-text py-1 px-1 inline-block pointer-events-auto`}
         onClick={() => setIsEditing(true)}
       >
         {displayText}
       </Component>
-      {isHovered && (
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            setIsEditing(true);
-          }}
-          className="ml-1 inline-flex items-center justify-center p-2 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors shadow-md align-middle"
-          title={`Edit: ${contentKey}`}
-        >
-          <Edit2 className="w-4 h-4" />
-        </button>
-      )}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsEditing(true);
+        }}
+        className="absolute -right-8 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-6 h-6 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors shadow-md z-50"
+        title={`Edit: ${contentKey}`}
+        onMouseDown={(e) => e.preventDefault()}
+      >
+        <Edit2 className="w-4 h-4" />
+      </button>
     </div>
   );
 }

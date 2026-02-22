@@ -70,6 +70,7 @@ export default function DesignPage() {
       };
 
       const res = await fetch('/api/sites', {
+        credentials: 'include',
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
