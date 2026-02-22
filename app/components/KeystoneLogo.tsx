@@ -17,7 +17,7 @@ interface KeystoneLogoProps {
  * 
  * Props:
  * - href: URL to link to (defaults to '/', omit for no link)
- * - size: Logo size - 'sm' (40px), 'md' (60px), 'lg' (80px)
+ * - size: Logo size - 'sm' (40px), 'md' (60px), 'lg' (144px)
  * - showText: Show "KEYSTONE WEB DESIGN" text alongside logo
  */
 export default function KeystoneLogo({
@@ -28,7 +28,7 @@ export default function KeystoneLogo({
   const sizeMap = {
     sm: { width: 40, height: 40 },
     md: { width: 60, height: 60 },
-    lg: { width: 80, height: 80 },
+    lg: { width: 144, height: 144 },
   };
 
   const logoSize = sizeMap[size];
