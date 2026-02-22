@@ -218,12 +218,16 @@ export default function EditorContent() {
   }
 
   // Convert availablePalettes object to array format for FloatingToolbar
-  const paletteArray = Object.entries(availablePalettes).map(([key, colors]) => ({
-    name: key,
-    ...colors,
-  }));
+  const paletteArray: Array<{name: string; primary: string; secondary: string; accent: string}> = Object.entries(availablePalettes).map(
+    ([key, colors]) => ({
+      name: key,
+      primary: colors.primary || '',
+      secondary: colors.secondary || '',
+      accent: colors.accent || '',
+    })
+  );
 
-  const currentPalette = paletteArray.find(p => p.name === selectedPaletteKey);
+  const currentPalette = paletteArray.find(p => p.name === selectedPaletteKey) as any;
 
   return (
     <div className="relative min-h-screen">
