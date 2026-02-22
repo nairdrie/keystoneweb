@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronUp } from 'lucide-react';
+import { ChevronUp, Home } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
+import KeystoneLogo from './KeystoneLogo';
 
 interface Palette {
   name: string;
@@ -86,15 +87,25 @@ export default function FloatingToolbar({
       {/* Drawer - z-50 to be above overlay, Keystone Red header */}
       {isOpen && (
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl max-h-[80vh] overflow-y-auto">
-          {/* Red Header */}
+          {/* Red Header with Logo */}
           <div className="sticky top-0 bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-4 flex items-center justify-between rounded-t-2xl">
-            <h2 className="text-xl font-bold">Site Editor</h2>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="p-2 hover:bg-red-700 rounded-full transition-colors"
-            >
-              <ChevronUp className="w-6 h-6" />
-            </button>
+            <KeystoneLogo href="/" size="sm" showText={false} />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => router.push('/')}
+                className="p-2 hover:bg-red-700 rounded-full transition-colors"
+                title="Back to home"
+              >
+                <Home className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="p-2 hover:bg-red-700 rounded-full transition-colors"
+                title="Close editor"
+              >
+                <ChevronUp className="w-6 h-6" />
+              </button>
+            </div>
           </div>
 
           {/* Content */}
