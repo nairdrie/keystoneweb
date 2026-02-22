@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronUp, Home } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 
@@ -37,6 +37,9 @@ export default function FloatingToolbar({
   const router = useRouter();
   const { signOut, user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const dragStartY = useRef<number>(0);
+  const dragStartHeight = useRef<number>(0);
 
   const handleLogout = async () => {
     await signOut();
@@ -49,6 +52,21 @@ export default function FloatingToolbar({
       return;
     }
     onSave();
+  };
+
+  const handleDragStart = (e: React.MouseEvent) => {
+    dragStartY.current = e.clientY;
+    dragStartHeight.current = drawerRef.current?.offsetHeight || 0;
+  };
+
+  const handleDragMove = (e: React.MouseEvent) => {
+    if (!isOpen || !drawerRef.current) return;
+    const deltaY = e.clientY - dragStartY.current;
+    
+    // If dragged down significantly, close the drawer
+    if (deltaY > 50) {
+      setIsOpen(false);
+    }
   };
 
   return (
@@ -84,28 +102,26 @@ export default function FloatingToolbar({
         />
       )}
 
-      {/* Drawer - z-50 to be above overlay, Keystone Red header */}
+      {/* Drawer - Slide animation */}
       {isOpen && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl max-h-[80vh] overflow-y-auto">
-          {/* Red Header with Logo */}
-          <div className="sticky top-0 bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-4 flex items-center justify-between rounded-t-2xl">
+        <div 
+          ref={drawerRef}
+          className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl max-h-[80vh] overflow-y-auto transition-all duration-300 ease-out animate-in slide-in-from-bottom-10"
+          onMouseMove={handleDragMove}
+        >
+          {/* White Header with Logo - Draggable */}
+          <div 
+            className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between rounded-t-3xl cursor-grab active:cursor-grabbing group"
+            onMouseDown={handleDragStart}
+          >
             <KeystoneLogo href="/" size="sm" showText={false} />
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => router.push('/')}
-                className="p-2 hover:bg-red-700 rounded-full transition-colors"
-                title="Back to home"
-              >
-                <Home className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="p-2 hover:bg-red-700 rounded-full transition-colors"
-                title="Close editor"
-              >
-                <ChevronUp className="w-6 h-6" />
-              </button>
-            </div>
+            <button
+              onClick={() => setIsOpen(false)}
+              className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-900"
+              title="Close (drag down to close)"
+            >
+              <ChevronDown className="w-6 h-6" />
+            </button>
           </div>
 
           {/* Content */}
@@ -199,11 +215,11 @@ export default function FloatingToolbar({
               </div>
             )}
 
-            {/* Save Button - Keystone Red */}
+            {/* Save Button - Brand Primary Color */}
             <button
               onClick={handleSave}
               disabled={saving}
-              className="w-full py-3 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-bold rounded-lg transition-colors"
+              className="w-full py-3 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-bold rounded-lg transition-colors"
             >
               {saving ? 'Saving...' : user ? 'Save Site' : 'Sign Up to Save'}
             </button>
