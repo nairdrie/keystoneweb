@@ -33,7 +33,7 @@ export default function SiteSwitcher({ currentSiteId, currentSiteTitle }: SiteSw
   const fetchSites = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/user/sites');
+      const res = await fetch('/api/user/sites', { credentials: 'include' });
       if (res.ok) {
         const { sites: userSites } = await res.json();
         setSites(userSites);

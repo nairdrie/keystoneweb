@@ -74,7 +74,7 @@ export default function EditorContent() {
   const redirectToLatestSite = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/user/latest-site');
+      const res = await fetch('/api/user/latest-site', { credentials: 'include' });
 
       if (!res.ok) {
         if (res.status === 404) {
@@ -179,6 +179,7 @@ export default function EditorContent() {
     setSaving(true);
     try {
       const res = await fetch('/api/sites', {
+        credentials: 'include',
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
