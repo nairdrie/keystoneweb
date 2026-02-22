@@ -265,6 +265,7 @@ export default function EditorContent() {
 
       {/* Floating Toolbar with All Controls */}
       <FloatingToolbar
+        currentSiteId={site?.id}
         siteTitle={siteTitle}
         onSiteTitle={setSiteTitle}
         templateName={templateMetadata?.name}
