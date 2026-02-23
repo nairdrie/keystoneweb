@@ -1,5 +1,6 @@
 'use client';
 
+import { useChangeTracking } from '@/lib/hooks/useChangeTracking';
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import FloatingToolbar from '@/app/components/FloatingToolbar';
@@ -47,6 +48,7 @@ export default function EditorContent() {
 
   // Get siteId from query params
   const siteId = searchParams.get('siteId');
+  // Change tracking for unsaved changes  const {    changes,    addChange,    undo,    redo,    canUndo,    canRedo,    hasChanges,    clearChanges,  } = useChangeTracking();
 
   // Check auth and load site
   useEffect(() => {
@@ -158,6 +160,31 @@ export default function EditorContent() {
     }
   };
 
+  // Wrapper functions to track changes
+  const handleTitleChange = (newTitle: string) => {
+    if (siteTitle !== newTitle) {
+      addChange('siteTitle', 'Site Title', siteTitle, newTitle);
+    }
+    setSiteTitle(newTitle);
+  };
+
+  const handlePaletteSelectWithTracking = (palette: Palette) => {
+    if (selectedPalette?.name !== palette.name) {
+      addChange('palette', 'Color Palette', selectedPalette?.name || '', palette.name);
+    }
+    setSelectedPalette(palette);
+  };
+
+  const handleEditableContentChangeWithTracking = (key: string, value: string) => {
+    const oldValue = editableContent[key] || '';
+    if (oldValue !== value) {
+      addChange(key, `${key}`, oldValue, value);
+    }
+    setEditableContent(prev => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
   const handlePaletteSelect = (palette: Palette) => {
     setSelectedPalette(palette);
     // Palette changes are applied in real-time to TemplateRenderer
@@ -197,6 +224,7 @@ export default function EditorContent() {
         const updatedSite = await res.json();
         setSite(updatedSite.site);
         alert('Site saved successfully!');
+        clearChanges();
       } else if (res.status === 403) {
         alert('You do not have permission to edit this site.');
       } else {
@@ -259,20 +287,25 @@ export default function EditorContent() {
           editMode={editMode}
           onEditModeChange={setEditMode}
           editableContent={editableContent}
-          onEditableContentChange={handleEditableContentChange}
+          onEditableContentChange={handleEditableContentChangeWithTracking}
         />
       </div>
 
       {/* Floating Toolbar with All Controls */}
       <FloatingToolbar
         siteTitle={siteTitle}
-        onSiteTitle={setSiteTitle}
+        onSiteTitle={handleTitleChange}
         templateName={templateMetadata?.name}
         templatePalettes={templateMetadata?.palettes}
         selectedPalette={selectedPalette || undefined}
-        onSelectPalette={handlePaletteSelect}
+        onSelectPalette={handlePaletteSelectWithTracking}
         onSave={handleSave}
         saving={saving}
+        changes={changes}
+        onUndo={undo}
+        onRedo={redo}
+        canUndo={canUndo}
+        canRedo={canRedo}
       />
     </div>
   );
