@@ -133,7 +133,7 @@ export default function EditableText({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <span className={`relative inline-block ${isHovered ? 'bg-blue-100/50 outline outline-2 outline-blue-400 outline-offset-2 rounded-sm' : 'bg-blue-100/20 md:bg-transparent outline outline-1 outline-blue-300 md:outline-none outline-offset-2 rounded-sm'}`}>
+      <span className={`relative inline-block ${isHovered ? 'bg-blue-100/50 outline outline-2 outline-blue-500 outline-offset-2 rounded-sm' : 'bg-blue-100/20 md:bg-transparent outline outline-1 outline-blue-400 md:outline-none outline-offset-2 rounded-sm'}`}>
         {displayText}
 
         {/* Desktop: Show pencil on hover. Mobile: Always show pencil */}

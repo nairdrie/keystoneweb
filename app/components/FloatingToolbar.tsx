@@ -187,18 +187,18 @@ export default function FloatingToolbar({
             <div className="bg-slate-50 rounded-lg p-4 mb-6">
               <div className="space-y-2 text-sm">
                 <div>
-                  <span className="font-semibold text-slate-600">Site Name: </span>
+                  <span className="font-semibold text-slate-700">Site Name: </span>
                   <span className="text-slate-900">{siteTitle}</span>
                 </div>
                 {templateName && (
                   <div>
-                    <span className="font-semibold text-slate-600">Template: </span>
+                    <span className="font-semibold text-slate-700">Template: </span>
                     <span className="text-slate-900">{templateName}</span>
                   </div>
                 )}
                 {selectedPalette && (
                   <div>
-                    <span className="font-semibold text-slate-600">Color Palette: </span>
+                    <span className="font-semibold text-slate-700">Color Palette: </span>
                     <span className="text-slate-900">{selectedPalette.name}</span>
                   </div>
                 )}
@@ -226,9 +226,9 @@ export default function FloatingToolbar({
                 </div>
 
                 {loadingSites ? (
-                  <p className="text-sm text-slate-600">Loading sites...</p>
+                  <p className="text-sm text-slate-700">Loading sites...</p>
                 ) : userSites.length === 0 ? (
-                  <p className="text-sm text-slate-600">No sites yet. Create one to get started.</p>
+                  <p className="text-sm text-slate-700">No sites yet. Create one to get started.</p>
                 ) : (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {userSites.map((site) => (
@@ -247,7 +247,7 @@ export default function FloatingToolbar({
                         <div className="font-medium text-slate-900">
                           {site.title || `Site ${site.id.slice(0, 8)}`}
                         </div>
-                        <div className="text-xs text-slate-500 mt-1">
+                        <div className="text-xs text-slate-600 mt-1">
                           {site.businessType} • {site.category}
                         </div>
                       </button>
@@ -266,7 +266,7 @@ export default function FloatingToolbar({
                 type="text"
                 value={siteTitle}
                 onChange={(e) => onSiteTitle(e.target.value)}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent"
+                className="w-full px-4 py-2 border-2 border-slate-400 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 text-slate-900 placeholder-slate-500 bg-white"
                 placeholder="My Awesome Website"
               />
             </div>
@@ -358,12 +358,12 @@ export default function FloatingToolbar({
                         <div className="font-medium text-slate-900">
                           {change.label}
                         </div>
-                        <div className="text-slate-600 mt-1">
+                        <div className="text-slate-700 mt-1">
                           <span className="line-through text-red-600">
                             {change.from || '(empty)'}
                           </span>
-                          <span className="mx-2 text-slate-400">→</span>
-                          <span className="text-green-600">
+                          <span className="mx-2 text-slate-500 font-semibold">→</span>
+                          <span className="text-green-700 font-medium">
                             {change.to || '(empty)'}
                           </span>
                         </div>
@@ -428,7 +428,7 @@ export default function FloatingToolbar({
             )}
 
             {/* Footer Info */}
-            <p className="text-xs text-slate-600 text-center mt-4">
+            <p className="text-xs text-slate-700 text-center mt-4">
               Changes apply in real-time
             </p>
           </div>
