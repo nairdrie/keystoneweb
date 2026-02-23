@@ -2,9 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, Plus } from 'lucide-react';
+import { ChevronDown, Plus, RotateCcw, RotateCw } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
+import { Change } from '@/lib/hooks/useChangeTracking';
 
 interface Palette {
   name: string;
@@ -33,6 +34,11 @@ interface FloatingToolbarProps {
   onSelectPalette?: (palette: Palette) => void;
   onSave: () => void;
   saving?: boolean;
+  changes?: Change[];
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }
 
 export default function FloatingToolbar({
@@ -45,12 +51,18 @@ export default function FloatingToolbar({
   onSelectPalette,
   onSave,
   saving = false,
+  changes = [],
+  onUndo,
+  onRedo,
+  canUndo = false,
+  canRedo = false,
 }: FloatingToolbarProps) {
   const router = useRouter();
   const { signOut, user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [userSites, setUserSites] = useState<Site[]>([]);
   const [loadingSites, setLoadingSites] = useState(false);
+  const [showChanges, setShowChanges] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef<number>(0);
   const dragStartHeight = useRef<number>(0);
@@ -312,12 +324,92 @@ export default function FloatingToolbar({
               </div>
             )}
 
-            {/* Save Button - Brand Primary Color */}
+            {/* Unsaved Changes Section */}
+            {changes && changes.length > 0 && (
+              <div className="mb-6">
+                {/* Unsaved Changes Header - Clickable to expand */}
+                <button
+                  onClick={() => setShowChanges(!showChanges)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full bg-amber-400 text-white flex items-center justify-center text-xs font-bold">
+                      {changes.length}
+                    </div>
+                    <span className="text-sm font-semibold text-amber-900">
+                      {changes.length} unsaved change{changes.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div
+                    className={`transition-transform ${showChanges ? 'rotate-180' : ''}`}
+                  >
+                    <ChevronDown className="w-4 h-4 text-amber-700" />
+                  </div>
+                </button>
+
+                {/* Accordion Content */}
+                {showChanges && (
+                  <div className="mt-2 p-4 bg-white border border-slate-200 rounded-lg space-y-2 max-h-48 overflow-y-auto">
+                    {changes.map((change) => (
+                      <div
+                        key={change.id}
+                        className="text-xs text-slate-700 pb-2 border-b border-slate-100 last:border-b-0"
+                      >
+                        <div className="font-medium text-slate-900">
+                          {change.label}
+                        </div>
+                        <div className="text-slate-600 mt-1">
+                          <span className="line-through text-red-600">
+                            {change.from || '(empty)'}
+                          </span>
+                          <span className="mx-2 text-slate-400">→</span>
+                          <span className="text-green-600">
+                            {change.to || '(empty)'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Undo/Redo Buttons */}
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={onUndo}
+                    disabled={!canUndo}
+                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-slate-200 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 font-semibold text-sm rounded transition-colors"
+                    title="Undo"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    Undo
+                  </button>
+                  <button
+                    onClick={onRedo}
+                    disabled={!canRedo}
+                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-slate-200 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 font-semibold text-sm rounded transition-colors"
+                    title="Redo"
+                  >
+                    <RotateCw className="w-4 h-4" />
+                    Redo
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Save Button - Brand Primary Color, greyed if no changes */}
             <button
               onClick={handleSave}
-              disabled={saving}
-              className="w-full py-3 disabled:opacity-60 text-white font-bold rounded-lg transition-colors hover:brightness-110"
-              style={{ backgroundColor: 'var(--brand-primary)' }}
+              disabled={saving || (changes && changes.length === 0)}
+              className={`w-full py-3 text-white font-bold rounded-lg transition-colors ${
+                changes && changes.length === 0
+                  ? 'bg-slate-300 cursor-not-allowed'
+                  : 'hover:brightness-110'
+              }`}
+              style={
+                changes && changes.length === 0
+                  ? { backgroundColor: '#d1d5db' }
+                  : { backgroundColor: 'var(--brand-primary)' }
+              }
             >
               {saving ? 'Saving...' : user ? 'Save Site' : 'Sign Up to Save'}
             </button>
