@@ -136,13 +136,14 @@ export default function EditableText({
       <span className={`relative inline-block ${isHovered ? 'bg-blue-100/50 outline outline-2 outline-blue-400 outline-offset-2 rounded-sm' : 'bg-blue-100/20 md:bg-transparent outline outline-1 outline-blue-300 md:outline-none outline-offset-2 rounded-sm'}`}>
         {displayText}
 
-        {/* Desktop: Show pencil on hover. Mobile: Always show pencil */}
+        {/* Desktop: Show pencil on hover only. Mobile: Don't show pencil at all */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             setIsEditing(true);
           }}
-          className={`absolute -right-8 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-6 h-6 bg-red-600 hover:bg-red-700 text-white rounded-full transition-all shadow-md z-50 ${isHovered ? 'opacity-100 scale-100' : 'opacity-100 scale-100 md:opacity-0 md:scale-90'
+          className={`absolute -right-8 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-6 h-6 bg-red-600 hover:bg-red-700 text-white rounded-full transition-all shadow-md z-50 hidden md:inline-flex ${
+            isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
             }`}
           title={`Edit: ${contentKey}`}
           onMouseDown={(e) => e.preventDefault()}
