@@ -77,7 +77,7 @@ const CATEGORIES: Record<Exclude<BusinessType, null>, any[]> = {
 export default function OnboardingWizard() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   
   const [step, setStep] = useState(1);
   const [businessType, setBusinessType] = useState<BusinessType>(null);
@@ -87,6 +87,37 @@ export default function OnboardingWizard() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [totalTemplates, setTotalTemplates] = useState(0);
+  const [userSites, setUserSites] = useState<any[]>([]);
+  const [checkingSites, setCheckingSites] = useState(true);
+  const [showWelcomeBack, setShowWelcomeBack] = useState(false);
+
+  // Check for existing sites if user is authenticated
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (user) {
+      checkUserSites();
+    } else {
+      setCheckingSites(false);
+    }
+  }, [user, authLoading]);
+
+  const checkUserSites = async () => {
+    try {
+      const res = await fetch('/api/user/sites', { credentials: 'include' });
+      if (res.ok) {
+        const { sites } = await res.json();
+        setUserSites(sites);
+        if (sites.length > 0) {
+          setShowWelcomeBack(true);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check user sites:', error);
+    } finally {
+      setCheckingSites(false);
+    }
+  };
 
   // Load from URL on mount
   useEffect(() => {
@@ -224,12 +255,66 @@ export default function OnboardingWizard() {
         </div>
       </div>
 
+      {/* Welcome Back Screen - Show if authenticated with existing sites */}
+      {!checkingSites && showWelcomeBack && user && userSites.length > 0 && (
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+            <div className="mb-6">
+              <p className="text-4xl mb-2">👋</p>
+              <h1 className="text-3xl font-bold text-slate-900">Welcome Back!</h1>
+            </div>
+
+            <p className="text-slate-600 mb-2">
+              You have <strong>{userSites.length}</strong> site{userSites.length !== 1 ? 's' : ''} in progress.
+            </p>
+
+            <div className="space-y-3 mt-8">
+              <button
+                onClick={() => router.push('/editor')}
+                className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors"
+              >
+                Continue Editing
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowWelcomeBack(false);
+                  setStep(1);
+                  setBusinessType(null);
+                  setCategory(null);
+                  router.push('/onboarding');
+                }}
+                className="w-full px-6 py-3 bg-slate-200 hover:bg-slate-300 text-slate-900 font-bold rounded-lg transition-colors"
+              >
+                Create New Site
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 mt-6">
+              Or manage your sites in the editor
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Loading state while checking for sites */}
+      {checkingSites && (
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center">
+          <div className="text-white text-center">
+            <p className="mb-4">Loading...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Regular Onboarding - only show if not showing welcome back screen */}
+      {!checkingSites && !showWelcomeBack && (
+        <>
       {/* Continue Editing (for all users) */}
-      {user && (
+      {user && userSites.length > 0 && (
         <div className="bg-blue-50 border-b border-blue-200">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
             <p className="text-sm text-blue-900">
-              Welcome back! You have unsaved designs waiting.
+              Welcome back! You have {userSites.length} site{userSites.length !== 1 ? 's' : ''} in progress.
             </p>
             <button
               onClick={() => router.push('/editor')}
@@ -417,6 +502,8 @@ export default function OnboardingWizard() {
           </div>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }
