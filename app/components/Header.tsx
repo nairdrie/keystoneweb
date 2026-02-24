@@ -20,37 +20,57 @@ export default function Header() {
           <Link href="/#features" className="text-sm text-slate-700 hover:text-slate-900 transition-colors font-medium">
             Features
           </Link>
-          <Link href="/onboarding" className="text-sm text-slate-700 hover:text-slate-900 transition-colors font-medium">
-            Build
-          </Link>
           {user ? (
             <div className="flex items-center gap-4">
-              <span className="text-sm text-slate-700">{user.email}</span>
-              <button
-                onClick={() => signOut()}
-                className="px-6 py-2.5 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-900 text-sm font-bold transition-colors"
+              <div className="flex flex-col items-end mr-2">
+                <span className="text-xs text-slate-500 font-medium">Signed in as</span>
+                <span className="text-sm text-slate-900 font-bold leading-tight">{user.email}</span>
+                <button
+                  onClick={() => signOut()}
+                  className="text-xs text-red-600 hover:text-red-700 font-semibold mt-0.5 transition-colors"
+                >
+                  Log out
+                </button>
+              </div>
+              <Link
+                href="/editor"
+                className="px-6 py-2.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-colors shadow-md hover:shadow-lg"
               >
-                Sign Out
-              </button>
+                Continue Building
+              </Link>
             </div>
+          ) : (
+            <>
+              <Link href="/onboarding" className="text-sm text-slate-700 hover:text-slate-900 transition-colors font-medium">
+                Build
+              </Link>
+              <Link
+                href="/onboarding"
+                className="px-6 py-2.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-colors shadow-md hover:shadow-lg"
+              >
+                Get Started
+              </Link>
+            </>
+          )}
+        </div>
+
+        {/* Mobile: Get Started/Continue Building + Hamburger */}
+        <div className="md:hidden flex items-center gap-3">
+          {user ? (
+            <Link
+              href="/editor"
+              className="px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shadow-md"
+            >
+              Continue Building
+            </Link>
           ) : (
             <Link
               href="/onboarding"
-              className="px-6 py-2.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-colors shadow-md hover:shadow-lg"
+              className="px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shadow-md"
             >
               Get Started
             </Link>
           )}
-        </div>
-
-        {/* Mobile: Get Started + Hamburger */}
-        <div className="md:hidden flex items-center gap-3">
-          <Link
-            href="/onboarding"
-            className="px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shadow-md"
-          >
-            Get Started
-          </Link>
           <button
             onClick={() => setIsOpen(!isOpen)}
             className="p-2 text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
@@ -77,13 +97,31 @@ export default function Header() {
             >
               Features
             </Link>
-            <Link
-              href="/onboarding"
-              className="block text-sm text-slate-700 hover:text-slate-900 font-medium py-2"
-              onClick={() => setIsOpen(false)}
-            >
-              Build
-            </Link>
+            {!user && (
+              <Link
+                href="/onboarding"
+                className="block text-sm text-slate-700 hover:text-slate-900 font-medium py-2"
+                onClick={() => setIsOpen(false)}
+              >
+                Build
+              </Link>
+            )}
+
+            {user && (
+              <div className="border-t border-slate-100 pt-3 mt-1">
+                <div className="text-xs text-slate-500 font-medium mb-1">Signed in as</div>
+                <div className="text-sm text-slate-900 font-bold mb-3">{user.email}</div>
+                <button
+                  onClick={() => {
+                    signOut();
+                    setIsOpen(false);
+                  }}
+                  className="text-sm text-red-600 hover:text-red-700 font-semibold transition-colors"
+                >
+                  Log out
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

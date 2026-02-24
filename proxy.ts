@@ -6,7 +6,7 @@ import { createServerClient } from '@supabase/ssr';
  * 1. Supabase Auth token validation and refresh (via cookies)
  * 2. Domain-based routing (app dashboard vs customer sites)
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // ============================================================
   // STEP 1: Validate & refresh auth tokens (if present)
   // ============================================================
@@ -14,8 +14,8 @@ export async function middleware(request: NextRequest) {
 
   // Only process auth for app domain routes (avoid unnecessary auth checks for public sites)
   const hostname = request.headers.get('host') || '';
-  const isAppDomain = 
-    hostname.includes('localhost') || 
+  const isAppDomain =
+    hostname.includes('localhost') ||
     hostname.includes('app.') ||
     hostname.includes('vercel.app') ||
     hostname.includes('keystoneweb.ca') ||
