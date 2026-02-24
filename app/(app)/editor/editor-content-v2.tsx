@@ -10,6 +10,7 @@ import { getTemplateMetadata } from '@/lib/db/template-queries';
 import { useAuth } from '@/lib/auth/context';
 import { useImageUpload } from '@/lib/hooks/useImageUpload';
 import { useChangeTracking } from '@/lib/hooks/useChangeTracking';
+import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 
 interface SiteData {
   id: string;
@@ -235,11 +236,7 @@ export default function EditorContent() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p>Loading editor...</p>
-      </div>
-    );
+    return <EditorLoadingScreen />;
   }
 
   if (error) {
@@ -251,11 +248,7 @@ export default function EditorContent() {
   }
 
   if (!site || !templateComponent) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p>Loading template...</p>
-      </div>
-    );
+    return <EditorLoadingScreen />;
   }
 
   // Convert availablePalettes object to array format for FloatingToolbar
