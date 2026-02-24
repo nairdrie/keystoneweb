@@ -2,11 +2,13 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { ChevronDown } from 'lucide-react';
 import KeystoneLogo from './KeystoneLogo';
 import { useAuth } from '@/lib/auth/context';
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const { user, signOut } = useAuth();
 
   return (
@@ -17,9 +19,36 @@ export default function Header() {
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-8">
-          <Link href="/#features" className="text-sm text-slate-700 hover:text-slate-900 transition-colors font-medium">
-            Features
+          <Link href="/templates" className="text-sm text-slate-700 hover:text-slate-900 transition-colors font-medium">
+            Templates
           </Link>
+
+          {/* Industries Dropdown */}
+          <div
+            className="relative group"
+            onMouseEnter={() => setIsDropdownOpen(true)}
+            onMouseLeave={() => setIsDropdownOpen(false)}
+          >
+            <button className="flex items-center gap-1 text-sm text-slate-700 hover:text-slate-900 transition-colors font-medium py-2">
+              Industries <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            <div className={`absolute top-full left-1/2 -translate-x-1/2 pt-2 transition-all duration-200 ${isDropdownOpen ? 'opacity-100 translate-y-0 visible' : 'opacity-0 translate-y-2 invisible'}`}>
+              <div className="bg-white border border-slate-200 rounded-xl shadow-xl w-48 overflow-hidden">
+                <Link href="/industries/ecommerce" className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 hover:text-red-600 font-medium transition-colors border-b border-slate-100">
+                  E-Commerce
+                </Link>
+                <Link href="/industries/trades" className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 hover:text-red-600 font-medium transition-colors">
+                  Trades & Home Services
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          <Link href="/pricing" className="text-sm text-slate-700 hover:text-slate-900 transition-colors font-medium">
+            Pricing
+          </Link>
+
           {user ? (
             <div className="flex items-center gap-4">
               <div className="flex flex-col items-end mr-2">
@@ -88,14 +117,42 @@ export default function Header() {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-white">
+        <div className="md:hidden border-t border-slate-200 bg-white shadow-xl absolute w-full left-0">
           <div className="px-4 py-4 space-y-3">
             <Link
-              href="/#features"
+              href="/templates"
               className="block text-sm text-slate-700 hover:text-slate-900 font-medium py-2"
               onClick={() => setIsOpen(false)}
             >
-              Features
+              Templates
+            </Link>
+
+            <div className="py-2">
+              <div className="text-sm text-slate-900 font-bold mb-2">Industries</div>
+              <div className="pl-4 space-y-2 border-l-2 border-slate-100">
+                <Link
+                  href="/industries/ecommerce"
+                  className="block text-sm text-slate-600 hover:text-slate-900 py-1"
+                  onClick={() => setIsOpen(false)}
+                >
+                  E-Commerce
+                </Link>
+                <Link
+                  href="/industries/trades"
+                  className="block text-sm text-slate-600 hover:text-slate-900 py-1"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Trades & Services
+                </Link>
+              </div>
+            </div>
+
+            <Link
+              href="/pricing"
+              className="block text-sm text-slate-700 hover:text-slate-900 font-medium py-2"
+              onClick={() => setIsOpen(false)}
+            >
+              Pricing
             </Link>
             {!user && (
               <Link
