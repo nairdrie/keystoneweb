@@ -12,6 +12,7 @@ interface CreateSiteRequest {
 interface SiteData {
   id: string;
   userId: string | null; // null until authenticated
+  siteSlug?: string; // Display name (saved from editor 'title')
   selectedTemplateId: string;
   businessType: string;
   category: string;
@@ -25,6 +26,7 @@ function mapSupabaseToSiteData(row: any): SiteData {
   return {
     id: row.id,
     userId: row.user_id,
+    siteSlug: row.site_slug,
     selectedTemplateId: row.selected_template_id,
     businessType: row.business_type,
     category: row.category,
