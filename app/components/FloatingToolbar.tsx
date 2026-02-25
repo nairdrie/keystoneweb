@@ -16,7 +16,7 @@ interface Palette {
 
 interface Site {
   id: string;
-  title?: string;
+  siteSlug?: string;
   selectedTemplateId: string;
   businessType: string;
   category: string;
@@ -225,7 +225,7 @@ export default function FloatingToolbar({
                           : 'bg-white text-slate-700 hover:bg-slate-100'
                       }`}
                     >
-                      {site.title || `Site ${site.id.slice(0, 8)}`}
+                      {site.siteSlug || `Site ${site.id.slice(0, 8)}`}
                     </button>
                   ))}
                 </div>

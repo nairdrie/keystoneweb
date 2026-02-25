@@ -110,7 +110,7 @@ export default function EditorContent() {
 
       const data = await res.json();
       setSite(data);
-      const title = data.title || 'My Website';
+      const title = data.siteSlug || 'My Website';
       const content = data.designData || {};
       const selectedPalette = content.__selectedPalette || 'default';
 
