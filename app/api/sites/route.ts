@@ -157,7 +157,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { siteId, designData, userId } = body;
+    const { siteId, designData, userId, title } = body;
 
     if (!siteId) {
       return NextResponse.json(
@@ -203,13 +203,20 @@ export async function PATCH(request: NextRequest) {
     };
 
     // Update in Supabase - set userId if this is the first save
+    const updatePayload: any = {
+      user_id: user.id, // Claim ownership on first save
+      design_data: mergedDesignData,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Add title if provided
+    if (title) {
+      updatePayload.title = title;
+    }
+
     const { data: updatedSite, error: updateError } = await supabase
       .from('sites')
-      .update({
-        user_id: user.id, // Claim ownership on first save
-        design_data: mergedDesignData,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('id', siteId)
       .select()
       .single();
