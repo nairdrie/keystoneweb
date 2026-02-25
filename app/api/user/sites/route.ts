@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 interface UserSite {
   id: string;
-  title: string;
+  siteSlug?: string;
   updatedAt: string;
   businessType: string;
   category: string;
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     // Fetch all sites owned by this user, ordered by updated_at DESC
     const { data: sites, error } = await supabase
       .from('sites')
-      .select('id, design_data, business_type, category, updated_at, created_at')
+      .select('id, site_slug, business_type, category, updated_at, created_at')
       .eq('user_id', user.id)
       .order('updated_at', { ascending: false });
 
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     // Map to response format
     const userSites: UserSite[] = sites.map(site => ({
       id: site.id,
-      title: site.design_data?.title || 'Untitled Site',
+      siteSlug: site.site_slug || undefined,
       updatedAt: site.updated_at,
       businessType: site.business_type,
       category: site.category,
