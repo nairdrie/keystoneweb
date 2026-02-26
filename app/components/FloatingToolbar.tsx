@@ -34,7 +34,9 @@ interface FloatingToolbarProps {
   onSelectPalette?: (palette: Palette) => void;
   onCustomColorChange?: (type: 'primary' | 'secondary' | 'accent', value: string) => void;
   onSave: () => void;
+  onPublish?: () => void;
   saving?: boolean;
+  publishing?: boolean;
   changes?: Change[];
   onUndo?: () => void;
   onRedo?: () => void;
@@ -52,7 +54,9 @@ export default function FloatingToolbar({
   onSelectPalette,
   onCustomColorChange,
   onSave,
+  onPublish,
   saving = false,
+  publishing = false,
   changes = [],
   onUndo,
   onRedo,
@@ -65,6 +69,7 @@ export default function FloatingToolbar({
   const [userSites, setUserSites] = useState<Site[]>([]);
   const [loadingSites, setLoadingSites] = useState(false);
   const [showChanges, setShowChanges] = useState(false);
+  const [showPublishModal, setShowPublishModal] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef<number>(0);
   const dragStartHeight = useRef<number>(0);
@@ -103,6 +108,26 @@ export default function FloatingToolbar({
       return;
     }
     onSave();
+  };
+
+  const handlePublish = () => {
+    // If there are unsaved changes, show modal to save first
+    if (changes.length > 0) {
+      setShowPublishModal(true);
+    } else {
+      // No unsaved changes, go straight to pricing
+      router.push('/pricing?action=publish&siteId=' + currentSiteId);
+    }
+  };
+
+  const handlePublishAndSave = async () => {
+    // Save first, then redirect to pricing
+    onSave();
+    // Wait a moment for save to complete, then redirect
+    setTimeout(() => {
+      setShowPublishModal(false);
+      router.push('/pricing?action=publish&siteId=' + currentSiteId);
+    }, 500);
   };
 
   const handleDragStart = (e: React.MouseEvent) => {
@@ -425,16 +450,29 @@ export default function FloatingToolbar({
               </div>
             )}
 
-            {/* Save Button - Brand Primary Color - Disabled when no changes */}
-            <button
-              onClick={handleSave}
-              disabled={saving || changes.length === 0}
-              className="w-full py-3 text-white font-bold rounded-lg transition-colors hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
-              style={{ backgroundColor: 'var(--brand-primary)' }}
-              title={changes.length === 0 ? 'No changes to save' : 'Save your changes'}
-            >
-              {saving ? 'Saving...' : user ? 'Save Site' : 'Sign Up to Save'}
-            </button>
+            {/* Save Draft & Publish Buttons */}
+            <div className="flex gap-3">
+              {/* Save Draft Button */}
+              <button
+                onClick={handleSave}
+                disabled={saving || changes.length === 0}
+                className="flex-1 py-3 text-white font-bold rounded-lg transition-colors hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed bg-slate-600 hover:bg-slate-700"
+                title={changes.length === 0 ? 'No changes to save' : 'Save your draft'}
+              >
+                {saving ? 'Saving...' : user ? 'Save Draft' : 'Sign Up to Save'}
+              </button>
+
+              {/* Publish Button */}
+              <button
+                onClick={handlePublish}
+                disabled={publishing || !user}
+                className="flex-1 py-3 text-white font-bold rounded-lg transition-colors hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{ backgroundColor: 'var(--brand-primary)' }}
+                title={!user ? 'Sign in to publish' : 'Publish your site'}
+              >
+                {publishing ? 'Publishing...' : 'Publish'}
+              </button>
+            </div>
 
             {/* Divider */}
             <div className="my-6 h-px bg-slate-200" />
@@ -453,6 +491,54 @@ export default function FloatingToolbar({
             <p className="text-xs text-slate-600 text-center mt-4">
               Changes apply in real-time
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Publish Modal - Show when user tries to publish with unsaved changes */}
+      {showPublishModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+            <h2 className="text-2xl font-bold text-slate-900 mb-4">Publish Your Site?</h2>
+
+            <p className="text-slate-600 mb-6">
+              You have <strong>{changes.length} unsaved change{changes.length !== 1 ? 's' : ''}</strong> that need to be saved before publishing.
+            </p>
+
+            {/* Show changes summary */}
+            {changes.length > 0 && (
+              <div className="bg-slate-50 rounded-lg p-4 mb-6 max-h-32 overflow-y-auto">
+                <p className="text-xs font-semibold text-slate-700 mb-2">Unsaved changes:</p>
+                <div className="space-y-1">
+                  {changes.map((change) => (
+                    <div key={change.id} className="text-xs text-slate-600">
+                      <span className="font-medium">{change.label}:</span> {change.from} → {change.to}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <p className="text-sm text-slate-700 mb-6">
+              Publishing requires a subscription. After saving, you'll choose a plan and complete checkout with Stripe.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowPublishModal(false)}
+                className="flex-1 py-2 px-4 bg-slate-200 hover:bg-slate-300 text-slate-900 font-bold rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePublishAndSave}
+                disabled={saving}
+                className="flex-1 py-2 px-4 text-white font-bold rounded-lg transition-colors hover:brightness-110 disabled:opacity-60"
+                style={{ backgroundColor: 'var(--brand-primary)' }}
+              >
+                {saving ? 'Saving...' : 'Save & Continue'}
+              </button>
+            </div>
           </div>
         </div>
       )}

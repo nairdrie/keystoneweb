@@ -353,6 +353,7 @@ export default function EditorContent() {
         onSiteTitle={handleSiteTitleChange}
         onSave={handleSaveDesign}
         saving={saving}
+        publishing={false}
         templatePalettes={paletteArray}
         selectedPalette={currentPalette}
         onSelectPalette={(palette) => handlePaletteChange(palette.name)}
