@@ -64,12 +64,7 @@ function PricingContent() {
       const { sessionId } = await res.json();
 
       // Redirect to Stripe Checkout
-      const stripe = (window as any).Stripe;
-      if (!stripe) {
-        window.location.href = `https://checkout.stripe.com/pay/${sessionId}`;
-      } else {
-        stripe.redirectToCheckout({ sessionId });
-      }
+      window.location.href = `https://checkout.stripe.com/pay/${sessionId}`;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to redirect to checkout');
       console.error('Checkout error:', err);
@@ -202,8 +197,6 @@ function PricingContent() {
           </button>
         </motion.div>
       </div>
-
-      <script async src="https://js.stripe.com/v3/"></script>
     </section>
   );
 }
