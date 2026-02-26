@@ -20,6 +20,8 @@ interface SiteData {
   businessType: string;
   category: string;
   designData: Record<string, any>;
+  isPublished: boolean;
+  publishedDomain?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -364,6 +366,8 @@ export default function EditorContent() {
         canUndo={changesHook.canUndo}
         canRedo={changesHook.canRedo}
         currentSiteId={siteId || undefined}
+        isPublished={site?.isPublished || false}
+        publishedDomain={site?.publishedDomain}
       />
 
       {/* Top Banner (Sticky so it naturally pushes content down as it wraps on mobile) */}

@@ -11,9 +11,9 @@ const getStripeClient = () => {
 };
 
 interface CheckoutRequest {
-  siteId: string;
+  siteId?: string;
   priceId: string; // Stripe Price ID for the selected plan
-  planName: string; // e.g., 'Starter', 'Pro', 'Business'
+  planName: string; // e.g., 'Basic', 'Pro'
 }
 
 /**
@@ -38,32 +38,37 @@ export async function POST(request: NextRequest) {
     const body: CheckoutRequest = await request.json();
     const { siteId, priceId, planName } = body;
 
-    if (!siteId || !priceId || !planName) {
+    if (!priceId || !planName) {
       return NextResponse.json(
-        { error: 'Missing required fields: siteId, priceId, planName' },
+        { error: 'Missing required fields: priceId, planName' },
         { status: 400 }
       );
     }
 
-    // Verify user owns this site
-    const { data: site, error: siteError } = await supabase
-      .from('sites')
-      .select('id, user_id, site_slug')
-      .eq('id', siteId)
-      .single();
+    let siteName = 'My Website';
 
-    if (siteError || !site) {
-      return NextResponse.json(
-        { error: 'Site not found' },
-        { status: 404 }
-      );
-    }
+    // Verify user owns this site if it was provided
+    if (siteId) {
+      const { data: site, error: siteError } = await supabase
+        .from('sites')
+        .select('id, user_id, site_slug')
+        .eq('id', siteId)
+        .single();
 
-    if (site.user_id !== user.id) {
-      return NextResponse.json(
-        { error: 'Forbidden: You do not own this site' },
-        { status: 403 }
-      );
+      if (siteError || !site) {
+        return NextResponse.json(
+          { error: 'Site not found' },
+          { status: 404 }
+        );
+      }
+
+      if (site.user_id !== user.id) {
+        return NextResponse.json(
+          { error: 'Forbidden: You do not own this site' },
+          { status: 403 }
+        );
+      }
+      siteName = site.site_slug || 'My Website';
     }
 
     // Create Stripe checkout session
@@ -77,20 +82,26 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: 'subscription',
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/publish/domain-select?session_id={CHECKOUT_SESSION_ID}&siteId=${siteId}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing?action=publish&siteId=${siteId}&canceled=true`,
+      allow_promotion_codes: true,
+      success_url: siteId
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/publish/domain-select?session_id={CHECKOUT_SESSION_ID}&siteId=${siteId}`
+        : `${process.env.NEXT_PUBLIC_APP_URL}/onboarding?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: siteId
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/pricing?action=publish&siteId=${siteId}&canceled=true`
+        : `${process.env.NEXT_PUBLIC_APP_URL}/pricing?canceled=true`,
       customer_email: user.email,
       metadata: {
-        siteId,
+        ...(siteId ? { siteId } : {}),
         userId: user.id,
         planName,
-        siteName: site.site_slug || 'Untitled Site',
+        siteName,
       },
     });
 
     return NextResponse.json({
       sessionId: session.id,
       clientSecret: session.client_secret,
+      url: session.url,
     });
   } catch (error) {
     console.error('Error creating Stripe checkout session:', error);

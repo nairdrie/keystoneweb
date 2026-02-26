@@ -42,6 +42,8 @@ interface FloatingToolbarProps {
   onRedo?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
+  isPublished?: boolean;
+  publishedDomain?: string;
 }
 
 export default function FloatingToolbar({
@@ -62,6 +64,8 @@ export default function FloatingToolbar({
   onRedo,
   canUndo = false,
   canRedo = false,
+  isPublished = false,
+  publishedDomain,
 }: FloatingToolbarProps) {
   const router = useRouter();
   const { signOut, user } = useAuth();
@@ -110,23 +114,51 @@ export default function FloatingToolbar({
     onSave();
   };
 
-  const handlePublish = () => {
+  const executePublishRoute = async () => {
+    try {
+      // Check user subscription status
+      const res = await fetch('/api/user/subscription', { credentials: 'include' });
+      if (res.ok) {
+        const { subscription } = await res.json();
+
+        if (subscription && subscription.subscription_status === 'active') {
+          // User already has an active subscription!
+          if (isPublished && publishedDomain) {
+            // Already published and paid - show confirmation
+            alert(`Your site is live at https://${publishedDomain}`);
+            return;
+          } else {
+            // Paid, but domain not set yet
+            router.push(`/publish/domain-select?session_id=existing&siteId=${currentSiteId}`);
+            return;
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to check subscription before publish:', err);
+    }
+
+    // No active subscription or error checking, proceed to pricing
+    router.push('/pricing?action=publish&siteId=' + currentSiteId);
+  };
+
+  const handlePublish = async () => {
     // If there are unsaved changes, show modal to save first
     if (changes.length > 0) {
       setShowPublishModal(true);
-    } else {
-      // No unsaved changes, go straight to pricing
-      router.push('/pricing?action=publish&siteId=' + currentSiteId);
+      return;
     }
+
+    await executePublishRoute();
   };
 
   const handlePublishAndSave = async () => {
-    // Save first, then redirect to pricing
+    // Save first, then redirect to publishing path
     onSave();
-    // Wait a moment for save to complete, then redirect
-    setTimeout(() => {
+    // Wait a moment for save to complete, then execute the publish route
+    setTimeout(async () => {
       setShowPublishModal(false);
-      router.push('/pricing?action=publish&siteId=' + currentSiteId);
+      await executePublishRoute();
     }, 500);
   };
 

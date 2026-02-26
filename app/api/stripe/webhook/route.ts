@@ -44,36 +44,38 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
-        const siteId = session.metadata?.siteId;
         const userId = session.metadata?.userId;
         const planName = session.metadata?.planName;
+        // Optionally capture customer email/id for future referencing
+        const customerId = typeof session.customer === 'string' ? session.customer : '';
 
-        if (!siteId || !userId) {
-          console.error('Missing metadata in checkout session');
+        if (!userId) {
+          console.error('Missing userId in checkout session metadata');
           return NextResponse.json({ error: 'Invalid session metadata' }, { status: 400 });
         }
 
-        // Store subscription info in DB
+        // Upsert subscription info in user_subscriptions DB
         const { error } = await supabase
-          .from('sites')
-          .update({
+          .from('user_subscriptions')
+          .upsert({
+            user_id: userId,
+            stripe_customer_id: customerId,
             subscription_status: 'active',
             subscription_plan: planName,
             stripe_subscription_id: session.subscription as string,
             subscription_started_at: new Date().toISOString(),
-          })
-          .eq('id', siteId)
-          .eq('user_id', userId);
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' }); // If a user manages to buy again, update their existing row
 
         if (error) {
-          console.error('Failed to update site subscription:', error);
+          console.error('Failed to update user subscription:', error);
           return NextResponse.json(
             { error: 'Failed to update subscription' },
             { status: 500 }
           );
         }
 
-        console.log(`✅ Subscription activated for site ${siteId}, plan: ${planName}`);
+        console.log(`✅ Subscription activated for user ${userId}, plan: ${planName}`);
         break;
       }
 

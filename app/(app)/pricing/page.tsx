@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Check, Loader2 } from 'lucide-react';
@@ -22,13 +22,25 @@ interface CheckoutData {
 function PricingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const isPublishFlow = searchParams.get('action') === 'publish';
   const siteId = searchParams.get('siteId');
   const isCanceled = searchParams.get('canceled') === 'true';
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activePlan, setActivePlan] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/user/subscription', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.subscription?.subscription_status === 'active') {
+          setActivePlan(data.subscription.subscription_plan);
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   const handleCheckout = async (planName: 'Basic' | 'Pro', priceId: string) => {
     setLoading(true);
@@ -61,10 +73,14 @@ function PricingContent() {
         throw new Error(errorData.error || 'Failed to create checkout session');
       }
 
-      const { sessionId } = await res.json();
+      const { url } = await res.json();
 
-      // Redirect to Stripe Checkout
-      window.location.href = `https://checkout.stripe.com/pay/${sessionId}`;
+      if (!url) {
+        throw new Error('No checkout URL returned from server');
+      }
+
+      // Redirect to specific Stripe Checkout URL provided by API
+      window.location.href = url;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to redirect to checkout');
       console.error('Checkout error:', err);
@@ -142,11 +158,19 @@ function PricingContent() {
 
           <button
             onClick={() => handleCheckout('Basic', STRIPE_PRICES.basic)}
-            disabled={loading}
+            disabled={loading || activePlan === 'Basic'}
             className="block w-full py-4 px-6 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-900 font-bold text-center transition-colors flex items-center justify-center gap-2"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {loading ? 'Redirecting...' : isPublishFlow ? 'Publish with Basic' : 'Choose Basic'}
+            {activePlan === 'Basic'
+              ? 'Current Plan'
+              : activePlan === 'Pro'
+                ? 'Downgrade to Basic'
+                : loading
+                  ? 'Redirecting...'
+                  : isPublishFlow
+                    ? 'Publish with Basic'
+                    : 'Choose Basic'}
           </button>
         </motion.div>
 
@@ -189,11 +213,19 @@ function PricingContent() {
 
           <button
             onClick={() => handleCheckout('Pro', STRIPE_PRICES.pro)}
-            disabled={loading}
+            disabled={loading || activePlan === 'Pro'}
             className="block w-full py-4 px-6 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-bold text-center transition-colors shadow-lg hover:shadow-red-600/25 flex items-center justify-center gap-2"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {loading ? 'Redirecting...' : isPublishFlow ? 'Publish with Pro' : 'Choose Pro'}
+            {activePlan === 'Pro'
+              ? 'Current Plan'
+              : activePlan === 'Basic'
+                ? 'Upgrade to Pro'
+                : loading
+                  ? 'Redirecting...'
+                  : isPublishFlow
+                    ? 'Publish with Pro'
+                    : 'Choose Pro'}
           </button>
         </motion.div>
       </div>
