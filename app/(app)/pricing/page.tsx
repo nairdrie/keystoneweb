@@ -1,123 +1,224 @@
 'use client';
 
+import { useState, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import Link from 'next/link';
-import { Check } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import Header from '../../components/Header';
 import AnimatedGridPattern from '../../components/AnimatedGridPattern';
 
+// Stripe Price IDs - Replace with your actual Stripe Price IDs from Stripe dashboard
+const STRIPE_PRICES = {
+  starter: 'price_', // TODO: Set to actual Stripe Price ID
+  pro: 'price_', // TODO: Set to actual Stripe Price ID
+};
+
+interface CheckoutData {
+  siteId?: string;
+  priceId: string;
+  planName: string;
+}
+
+function PricingContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  const isPublishFlow = searchParams.get('action') === 'publish';
+  const siteId = searchParams.get('siteId');
+  const isCanceled = searchParams.get('canceled') === 'true';
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleCheckout = async (planName: 'Starter' | 'Pro', priceId: string) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (!priceId || priceId === 'price_') {
+        throw new Error('Stripe Price IDs not configured. Ask admin to set STRIPE_PRICES.');
+      }
+
+      if (!siteId && isPublishFlow) {
+        throw new Error('Site ID is required to publish');
+      }
+
+      const checkoutData: CheckoutData = {
+        priceId,
+        planName,
+        ...(isPublishFlow && siteId && { siteId }),
+      };
+
+      const res = await fetch('/api/stripe/checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(checkoutData),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to create checkout session');
+      }
+
+      const { sessionId } = await res.json();
+
+      // Redirect to Stripe Checkout
+      const stripe = (window as any).Stripe;
+      if (!stripe) {
+        window.location.href = `https://checkout.stripe.com/pay/${sessionId}`;
+      } else {
+        stripe.redirectToCheckout({ sessionId });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to redirect to checkout');
+      console.error('Checkout error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <section className="pt-40 pb-20 px-4 sm:px-6 lg:px-8 relative z-10">
+      <div className="mx-auto max-w-4xl text-center mb-16">
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="text-5xl md:text-6xl font-black text-slate-900 mb-6 tracking-tight"
+        >
+          Simple, Transparent <span className="text-red-600">Pricing</span>.
+        </motion.h1>
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="text-xl text-slate-600 max-w-2xl mx-auto"
+        >
+          {isPublishFlow
+            ? 'Choose a plan to publish your site to the web.'
+            : 'Start building your dream website today. Upgrade only when you need dedicated expert support.'}
+        </motion.p>
+      </div>
+
+      {error && (
+        <div className="mb-8 max-w-5xl mx-auto bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-sm text-red-700">{error}</p>
+        </div>
+      )}
+
+      {isCanceled && (
+        <div className="mb-8 max-w-5xl mx-auto bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <p className="text-sm text-yellow-700">
+            Checkout was canceled. Please select a plan below to continue.
+          </p>
+        </div>
+      )}
+
+      <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-8 items-center">
+        {/* Starter Plan */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl relative"
+        >
+          <h3 className="text-2xl font-bold text-slate-900 mb-2">Starter</h3>
+          <p className="text-slate-500 mb-6">Perfect for small businesses getting started.</p>
+          <div className="mb-8">
+            <span className="text-5xl font-black text-slate-900">$29</span>
+            <span className="text-slate-500 font-medium">/month</span>
+          </div>
+
+          <ul className="space-y-4 mb-8">
+            {[
+              'Unlimited Site Pages',
+              'Access to all Premium Templates',
+              'Drag-and-Drop Visual Editor',
+              'Custom Domain Hosting',
+              'Standard Email Support',
+            ].map((feature) => (
+              <li key={feature} className="flex items-center gap-3 text-slate-700">
+                <Check className="w-5 h-5 text-red-500 shrink-0" />
+                {feature}
+              </li>
+            ))}
+          </ul>
+
+          <button
+            onClick={() => handleCheckout('Starter', STRIPE_PRICES.starter)}
+            disabled={loading}
+            className="block w-full py-4 px-6 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-900 font-bold text-center transition-colors flex items-center justify-center gap-2"
+          >
+            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+            {loading ? 'Redirecting...' : isPublishFlow ? 'Publish with Starter' : 'Start Free Trial'}
+          </button>
+        </motion.div>
+
+        {/* Pro Plan */}
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="bg-slate-900 rounded-3xl p-8 border border-slate-800 shadow-2xl relative"
+        >
+          <div className="absolute top-0 right-8 -translate-y-1/2 bg-red-600 outline outline-4 outline-white text-white px-4 py-1 rounded-full text-sm font-bold shadow-sm">
+            Most Popular
+          </div>
+
+          <h3 className="text-2xl font-bold text-white mb-2">Pro</h3>
+          <p className="text-slate-400 mb-6">
+            {isPublishFlow
+              ? 'For serious business owners who need priority support.'
+              : 'For growing brands that need round-the-clock priority backing.'}
+          </p>
+          <div className="mb-8">
+            <span className="text-5xl font-black text-white">$99</span>
+            <span className="text-slate-400 font-medium">/month</span>
+          </div>
+
+          <ul className="space-y-4 mb-8">
+            {[
+              'Everything in Starter',
+              '24/7 Priority Phone & Email Support',
+              'Dedicated Account Manager',
+              'Advanced SEO Tools',
+              'Custom CSS Injection',
+            ].map((feature) => (
+              <li key={feature} className="flex items-center gap-3 text-slate-300">
+                <Check className="w-5 h-5 text-red-500 shrink-0" />
+                {feature}
+              </li>
+            ))}
+          </ul>
+
+          <button
+            onClick={() => handleCheckout('Pro', STRIPE_PRICES.pro)}
+            disabled={loading}
+            className="block w-full py-4 px-6 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-bold text-center transition-colors shadow-lg hover:shadow-red-600/25 flex items-center justify-center gap-2"
+          >
+            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+            {loading ? 'Redirecting...' : isPublishFlow ? 'Publish with Pro' : 'Get Pro'}
+          </button>
+        </motion.div>
+      </div>
+
+      <script async src="https://js.stripe.com/v3/"></script>
+    </section>
+  );
+}
+
 export default function PricingPage() {
-    return (
-        <main className="min-h-screen bg-white relative overflow-hidden">
-            <Header />
-            <AnimatedGridPattern />
+  return (
+    <main className="min-h-screen bg-white relative overflow-hidden">
+      <Header />
+      <AnimatedGridPattern />
 
-            {/* Decorative Blur */}
-            <div className="absolute top-40 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-red-100 rounded-full blur-[100px] opacity-50 -z-10" />
+      <div className="absolute top-40 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-red-100 rounded-full blur-[100px] opacity-50 -z-10" />
 
-            <section className="pt-40 pb-20 px-4 sm:px-6 lg:px-8 relative z-10">
-                <div className="mx-auto max-w-4xl text-center mb-16">
-                    <motion.h1
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6 }}
-                        className="text-5xl md:text-6xl font-black text-slate-900 mb-6 tracking-tight"
-                    >
-                        Simple, Transparent <span className="text-red-600">Pricing</span>.
-                    </motion.h1>
-                    <motion.p
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, delay: 0.1 }}
-                        className="text-xl text-slate-600 max-w-2xl mx-auto"
-                    >
-                        Start building your dream website today. Upgrade only when you need dedicated expert support.
-                    </motion.p>
-                </div>
-
-                <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-8 items-center">
-
-                    {/* Basic Plan */}
-                    <motion.div
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.5, delay: 0.2 }}
-                        className="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl relative"
-                    >
-                        <h3 className="text-2xl font-bold text-slate-900 mb-2">Basic Plan</h3>
-                        <p className="text-slate-500 mb-6">Perfect for small businesses getting started.</p>
-                        <div className="mb-8">
-                            <span className="text-5xl font-black text-slate-900">$29</span>
-                            <span className="text-slate-500 font-medium">/month</span>
-                        </div>
-
-                        <ul className="space-y-4 mb-8">
-                            {[
-                                'Unlimited Site Pages',
-                                'Access to all Premium Templates',
-                                'Drag-and-Drop Visual Editor',
-                                'Custom Domain Hosting',
-                                'Standard Email Support',
-                            ].map((feature) => (
-                                <li key={feature} className="flex items-center gap-3 text-slate-700">
-                                    <Check className="w-5 h-5 text-red-500 shrink-0" />
-                                    {feature}
-                                </li>
-                            ))}
-                        </ul>
-
-                        <Link
-                            href="/onboarding"
-                            className="block w-full py-4 px-6 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold text-center transition-colors"
-                        >
-                            Start Free Trial
-                        </Link>
-                    </motion.div>
-
-                    {/* Pro Plan */}
-                    <motion.div
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.5, delay: 0.3 }}
-                        className="bg-slate-900 rounded-3xl p-8 border border-slate-800 shadow-2xl relative"
-                    >
-                        {/* Badge */}
-                        <div className="absolute top-0 right-8 -translate-y-1/2 bg-red-600 outline outline-4 outline-white text-white px-4 py-1 rounded-full text-sm font-bold shadow-sm">
-                            Most Popular
-                        </div>
-
-                        <h3 className="text-2xl font-bold text-white mb-2">Pro Plan</h3>
-                        <p className="text-slate-400 mb-6">For growing brands that need round-the-clock priority backing.</p>
-                        <div className="mb-8">
-                            <span className="text-5xl font-black text-white">$99</span>
-                            <span className="text-slate-400 font-medium">/month</span>
-                        </div>
-
-                        <ul className="space-y-4 mb-8">
-                            {[
-                                'Everything in Basic',
-                                '24/7 Priority Phone & Email Support',
-                                'Dedicated Account Manager',
-                                'Advanced SEO Tools',
-                                'Custom CSS Injection',
-                            ].map((feature) => (
-                                <li key={feature} className="flex items-center gap-3 text-slate-300">
-                                    <Check className="w-5 h-5 text-red-500 shrink-0" />
-                                    {feature}
-                                </li>
-                            ))}
-                        </ul>
-
-                        <Link
-                            href="/onboarding"
-                            className="block w-full py-4 px-6 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-center transition-colors shadow-lg hover:shadow-red-600/25"
-                        >
-                            Get Pro
-                        </Link>
-                    </motion.div>
-
-                </div>
-            </section>
-        </main>
-    );
+      <Suspense fallback={<div className="pt-40 text-center">Loading...</div>}>
+        <PricingContent />
+      </Suspense>
+    </main>
+  );
 }
