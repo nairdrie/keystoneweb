@@ -9,8 +9,8 @@ import AnimatedGridPattern from '../../components/AnimatedGridPattern';
 
 // Stripe Price IDs - Replace with your actual Stripe Price IDs from Stripe dashboard
 const STRIPE_PRICES = {
-  basic: 'price_', // TODO: Set to actual Stripe Price ID ($15/month)
-  pro: 'price_', // TODO: Set to actual Stripe Price ID ($30/month)
+  basic: 'price_1T50Wv9e8C5naDN43dBXbWwJ', // Basic Plan ($15/month)
+  pro: 'price_1T50Xn9e8C5naDN4yEASWwsV', // Pro Plan ($30/month)
 };
 
 interface CheckoutData {
