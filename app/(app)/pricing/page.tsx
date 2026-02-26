@@ -9,8 +9,8 @@ import AnimatedGridPattern from '../../components/AnimatedGridPattern';
 
 // Stripe Price IDs - Replace with your actual Stripe Price IDs from Stripe dashboard
 const STRIPE_PRICES = {
-  starter: 'price_', // TODO: Set to actual Stripe Price ID
-  pro: 'price_', // TODO: Set to actual Stripe Price ID
+  basic: 'price_', // TODO: Set to actual Stripe Price ID ($15/month)
+  pro: 'price_', // TODO: Set to actual Stripe Price ID ($30/month)
 };
 
 interface CheckoutData {
@@ -30,7 +30,7 @@ function PricingContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleCheckout = async (planName: 'Starter' | 'Pro', priceId: string) => {
+  const handleCheckout = async (planName: 'Basic' | 'Pro', priceId: string) => {
     setLoading(true);
     setError(null);
 
@@ -97,7 +97,7 @@ function PricingContent() {
         >
           {isPublishFlow
             ? 'Choose a plan to publish your site to the web.'
-            : 'Start building your dream website today. Upgrade only when you need dedicated expert support.'}
+            : 'Simple pricing. No hidden fees. Pick the plan that fits your business.'}
         </motion.p>
       </div>
 
@@ -116,17 +116,17 @@ function PricingContent() {
       )}
 
       <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-8 items-center">
-        {/* Starter Plan */}
+        {/* Basic Plan */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
           className="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl relative"
         >
-          <h3 className="text-2xl font-bold text-slate-900 mb-2">Starter</h3>
+          <h3 className="text-2xl font-bold text-slate-900 mb-2">Basic</h3>
           <p className="text-slate-500 mb-6">Perfect for small businesses getting started.</p>
           <div className="mb-8">
-            <span className="text-5xl font-black text-slate-900">$29</span>
+            <span className="text-5xl font-black text-slate-900">$15</span>
             <span className="text-slate-500 font-medium">/month</span>
           </div>
 
@@ -135,8 +135,8 @@ function PricingContent() {
               'Unlimited Site Pages',
               'Access to all Premium Templates',
               'Drag-and-Drop Visual Editor',
-              'Custom Domain Hosting',
-              'Standard Email Support',
+              'Email Support',
+              'Basic SEO Tools',
             ].map((feature) => (
               <li key={feature} className="flex items-center gap-3 text-slate-700">
                 <Check className="w-5 h-5 text-red-500 shrink-0" />
@@ -146,12 +146,12 @@ function PricingContent() {
           </ul>
 
           <button
-            onClick={() => handleCheckout('Starter', STRIPE_PRICES.starter)}
+            onClick={() => handleCheckout('Basic', STRIPE_PRICES.basic)}
             disabled={loading}
             className="block w-full py-4 px-6 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-900 font-bold text-center transition-colors flex items-center justify-center gap-2"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {loading ? 'Redirecting...' : isPublishFlow ? 'Publish with Starter' : 'Start Free Trial'}
+            {loading ? 'Redirecting...' : isPublishFlow ? 'Publish with Basic' : 'Choose Basic'}
           </button>
         </motion.div>
 
@@ -169,19 +169,19 @@ function PricingContent() {
           <h3 className="text-2xl font-bold text-white mb-2">Pro</h3>
           <p className="text-slate-400 mb-6">
             {isPublishFlow
-              ? 'For serious business owners who need priority support.'
-              : 'For growing brands that need round-the-clock priority backing.'}
+              ? 'Everything you need to grow your business online.'
+              : 'For serious business owners who want to scale.'}
           </p>
           <div className="mb-8">
-            <span className="text-5xl font-black text-white">$99</span>
+            <span className="text-5xl font-black text-white">$30</span>
             <span className="text-slate-400 font-medium">/month</span>
           </div>
 
           <ul className="space-y-4 mb-8">
             {[
-              'Everything in Starter',
-              '24/7 Priority Phone & Email Support',
-              'Dedicated Account Manager',
+              'Everything in Basic',
+              'Free Custom Domain Included',
+              '24/7 Priority Email Support',
               'Advanced SEO Tools',
               'Custom CSS Injection',
             ].map((feature) => (
@@ -198,7 +198,7 @@ function PricingContent() {
             className="block w-full py-4 px-6 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-bold text-center transition-colors shadow-lg hover:shadow-red-600/25 flex items-center justify-center gap-2"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {loading ? 'Redirecting...' : isPublishFlow ? 'Publish with Pro' : 'Get Pro'}
+            {loading ? 'Redirecting...' : isPublishFlow ? 'Publish with Pro' : 'Choose Pro'}
           </button>
         </motion.div>
       </div>
