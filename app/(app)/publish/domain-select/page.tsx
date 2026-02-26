@@ -54,7 +54,8 @@ function DomainSelectContent() {
     setError(null);
 
     try {
-      const res = await fetch(`/api/domains/check-availability?subdomain=${subdomain}`, {
+      const baseDomain = process.env.NEXT_PUBLIC_PUBLISHED_DOMAIN_BASE || 'kswd.ca';
+      const res = await fetch(`/api/domains/check-availability?subdomain=${subdomain}&baseDomain=${baseDomain}`, {
         credentials: 'include',
       });
 
@@ -140,7 +141,7 @@ function DomainSelectContent() {
           <div className="bg-slate-100 rounded-lg p-4 mb-6">
             <p className="text-xs text-slate-600 mb-2">Your live URL:</p>
             <p className="text-lg font-mono font-bold text-slate-900 break-all">
-              {publishedUrl}
+              {publishedUrl || `https://[subdomain].${process.env.NEXT_PUBLIC_PUBLISHED_DOMAIN_BASE || 'kswd.ca'}`}
             </p>
           </div>
 
@@ -197,7 +198,7 @@ function DomainSelectContent() {
                 placeholder="e.g., myawesome-site"
                 className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent"
               />
-              <span className="text-slate-600 font-semibold">.keystoneweb.ca</span>
+              <span className="text-slate-600 font-semibold">.{process.env.NEXT_PUBLIC_PUBLISHED_DOMAIN_BASE || 'kswd.ca'}</span>
             </div>
             <p className="text-xs text-slate-500 mt-1">3-63 characters, alphanumeric & hyphens</p>
           </div>

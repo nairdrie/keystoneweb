@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 
 /**
- * GET /api/domains/check-availability?subdomain=something-unique
- * Check if a subdomain is available at keystoneweb.ca
+ * GET /api/domains/check-availability?subdomain=something-unique&baseDomain=kswd.ca
+ * Check if a subdomain is available at the specified base domain
  * 
  * Returns:
  * {
  *   available: boolean,
  *   subdomain: string,
- *   fullDomain: string, // e.g., something-unique.keystoneweb.ca
+ *   fullDomain: string, // e.g., something-unique.kswd.ca
  *   message: string
  * }
  */
@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const subdomain = searchParams.get('subdomain');
+    const baseDomain = searchParams.get('baseDomain') || 'kswd.ca';
 
     if (!subdomain) {
       return NextResponse.json(
@@ -32,18 +33,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         available: false,
         subdomain,
-        fullDomain: `${subdomain}.keystoneweb.ca`,
+        fullDomain: `${subdomain}.${baseDomain}`,
         message: 'Invalid subdomain. Use alphanumeric characters and hyphens only (3-63 chars).',
       });
     }
 
     const supabase = await createClient();
+    const fullDomain = `${subdomain}.${baseDomain}`;
 
     // Check if subdomain is already taken
     const { data: existing, error } = await supabase
       .from('sites')
       .select('id')
-      .eq('published_domain', `${subdomain}.keystoneweb.ca`)
+      .eq('published_domain', fullDomain)
       .single();
 
     // If no error and data exists, subdomain is taken
@@ -51,7 +53,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         available: false,
         subdomain,
-        fullDomain: `${subdomain}.keystoneweb.ca`,
+        fullDomain,
         message: 'This subdomain is already taken. Choose another.',
       });
     }
@@ -60,7 +62,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       available: true,
       subdomain,
-      fullDomain: `${subdomain}.keystoneweb.ca`,
+      fullDomain,
       message: 'Great! This subdomain is available.',
     });
   } catch (error) {
