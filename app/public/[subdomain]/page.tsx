@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/db/supabase-server';
 import EditorContent from '@/app/(app)/editor/editor-content-v2';
+import { getTemplateComponent } from '@/app/templates/registry';
+import { getTemplateMetadata } from '@/lib/db/template-queries';
 
 export const dynamic = 'force-dynamic'; // Always fetch fresh data
 
@@ -34,6 +36,17 @@ export default async function PublicSitePage({
       );
     }
 
+    // Preload template component and metadata for SSR
+    const TemplateComp = await getTemplateComponent(site.selected_template_id);
+    const metadata = await getTemplateMetadata(site.selected_template_id);
+
+    let paletteData = {};
+    if (metadata) {
+      const palettesObj = metadata.palettes || {};
+      const requestedPalette = site.design_data?.__selectedPalette || 'default';
+      paletteData = palettesObj[requestedPalette] || palettesObj['default'] || {};
+    }
+
     // Render the published site via unified EditorContent (read-only mode)
     return (
       <EditorContent
@@ -49,7 +62,10 @@ export default async function PublicSitePage({
           createdAt: '',
           updatedAt: ''
         }}
-      />
+        precomputedPalette={paletteData}
+      >
+        {TemplateComp && <TemplateComp palette={paletteData} isEditMode={false} />}
+      </EditorContent>
     );
   } catch (error) {
     console.error('Error rendering published site:', error);
