@@ -26,19 +26,25 @@ interface PublishRequest {
  */
 export async function POST(request: NextRequest) {
   try {
+    console.log('[Publish API] ===== PUBLISH REQUEST START =====');
     const supabase = await createClient();
 
     // Verify authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
+      console.error('[Publish API] Auth error:', authError);
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
+    console.log(`[Publish API] User authenticated: ${user.id}`);
+
     const body: PublishRequest = await request.json();
     const { siteId, publishedDomain } = body;
+
+    console.log(`[Publish API] Request: siteId=${siteId}, publishedDomain=${publishedDomain}`);
 
     if (!siteId || !publishedDomain) {
       return NextResponse.json(
@@ -55,53 +61,82 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (siteError || !site) {
-      console.error('Supabase fetch error for site:', siteError, 'Site object:', site);
+      console.error(`[Publish API] Site fetch error: ${siteError?.code} - ${siteError?.message}`);
       return NextResponse.json(
         { error: 'Site not found', details: siteError },
         { status: 404 }
       );
     }
 
+    console.log(`[Publish API] Site found: ${site.id}, owned by ${site.user_id}`);
+
     // Verify user owns the site
     if (site.user_id !== user.id) {
+      console.error(`[Publish API] Ownership mismatch: ${site.user_id} !== ${user.id}`);
       return NextResponse.json(
         { error: 'Forbidden: You do not own this site' },
         { status: 403 }
       );
     }
 
-    // Verify subscription is active
-    const { data: subscription } = await supabase
+    // Verify subscription is active (check both user_subscriptions and sites table)
+    console.log(`[Publish API] Checking subscription for user ${user.id}`);
+    
+    const { data: subscription, error: subError } = await supabase
       .from('user_subscriptions')
       .select('subscription_status')
       .eq('user_id', user.id)
       .single();
 
-    if (!subscription || subscription.subscription_status !== 'active') {
+    if (subError) {
+      console.log(`[Publish API] user_subscriptions query error: ${subError.code} - ${subError.message}`);
+      // Fall back to checking sites table
+      const { data: siteWithSub } = await supabase
+        .from('sites')
+        .select('subscription_status')
+        .eq('user_id', user.id)
+        .eq('subscription_status', 'active')
+        .limit(1);
+      
+      if (!siteWithSub || siteWithSub.length === 0) {
+        console.log(`[Publish API] No active subscription found for user ${user.id}`);
+        return NextResponse.json(
+          { error: 'Subscription required to publish' },
+          { status: 402 }
+        );
+      }
+      console.log(`[Publish API] Active subscription found in sites table`);
+    } else if (!subscription || subscription.subscription_status !== 'active') {
+      console.log(`[Publish API] Subscription not active: ${subscription?.subscription_status}`);
       return NextResponse.json(
         { error: 'Subscription required to publish' },
-        { status: 402 } // Payment Required
+        { status: 402 }
       );
+    } else {
+      console.log(`[Publish API] ✅ Subscription is active`);
     }
 
     // Check if domain is already taken (by another site)
     if (site.published_domain !== publishedDomain) {
+      console.log(`[Publish API] Checking domain availability: ${publishedDomain}`);
       const { data: existingDomain, error: domainError } = await supabase
         .from('sites')
         .select('id')
         .eq('published_domain', publishedDomain)
-        .neq('id', siteId)
-        .single();
+        .neq('id', siteId);
 
-      if (!domainError && existingDomain) {
+      if (existingDomain && existingDomain.length > 0) {
+        console.error(`[Publish API] Domain already taken: ${publishedDomain}`);
         return NextResponse.json(
           { error: 'Domain is already taken' },
           { status: 409 }
         );
       }
+      console.log(`[Publish API] ✅ Domain available: ${publishedDomain}`);
     }
 
     // Update site with published domain and status
+    console.log(`[Publish API] Updating site ${siteId} with domain ${publishedDomain}...`);
     const { data: updatedSite, error: updateError } = await supabase
       .from('sites')
       .update({
@@ -114,14 +149,15 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (updateError) {
-      console.error('Failed to publish site:', updateError);
+      console.error(`[Publish API] Update failed: ${updateError.code} - ${updateError.message}`);
       return NextResponse.json(
-        { error: 'Failed to publish site' },
+        { error: 'Failed to publish site', details: updateError },
         { status: 500 }
       );
     }
 
-    console.log(`✅ Site published: ${siteId} → ${publishedDomain}`);
+    console.log(`[Publish API] ✅ Site published: ${siteId} → ${publishedDomain}`);
+    console.log('[Publish API] ===== PUBLISH REQUEST END =====');
 
     return NextResponse.json({
       success: true,
@@ -131,9 +167,10 @@ export async function POST(request: NextRequest) {
       message: `Your site is now live at https://${updatedSite.published_domain}`,
     });
   } catch (error) {
-    console.error('Error publishing site:', error);
+    console.error('[Publish API] Catch error:', error);
+    const msg = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: 'Failed to publish site' },
+      { error: 'Failed to publish site', details: msg },
       { status: 500 }
     );
   }

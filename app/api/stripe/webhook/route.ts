@@ -43,18 +43,23 @@ export async function POST(request: NextRequest) {
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
+        console.log('[Webhook] checkout.session.completed event received');
         const session = event.data.object as Stripe.Checkout.Session;
         const userId = session.metadata?.userId;
+        const siteId = session.metadata?.siteId;
         const planName = session.metadata?.planName;
         // Optionally capture customer email/id for future referencing
         const customerId = typeof session.customer === 'string' ? session.customer : '';
 
+        console.log(`[Webhook] Session details: userId=${userId}, siteId=${siteId}, planName=${planName}`);
+
         if (!userId) {
-          console.error('Missing userId in checkout session metadata');
+          console.error('[Webhook] Missing userId in checkout session metadata');
           return NextResponse.json({ error: 'Invalid session metadata' }, { status: 400 });
         }
 
         // Upsert subscription info in user_subscriptions DB
+        console.log(`[Webhook] Updating user_subscriptions for user ${userId}...`);
         const { error } = await supabase
           .from('user_subscriptions')
           .upsert({
@@ -68,14 +73,14 @@ export async function POST(request: NextRequest) {
           }, { onConflict: 'user_id' }); // If a user manages to buy again, update their existing row
 
         if (error) {
-          console.error('Failed to update user subscription:', error);
+          console.error(`[Webhook] Failed to update user subscription: ${error.code} - ${error.message}`);
           return NextResponse.json(
             { error: 'Failed to update subscription' },
             { status: 500 }
           );
         }
 
-        console.log(`✅ Subscription activated for user ${userId}, plan: ${planName}`);
+        console.log(`[Webhook] ✅ Subscription activated for user ${userId}, plan: ${planName}`);
         break;
       }
 
