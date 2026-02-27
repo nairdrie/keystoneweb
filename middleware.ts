@@ -10,6 +10,8 @@ export async function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
   const pathname = request.nextUrl.pathname;
 
+  console.log(`[Middleware] Incoming: ${hostname}${pathname}`);
+
   // ============================================================
   // STEP 1: Detect published site subdomains (.kswd.ca)
   // ============================================================
@@ -19,13 +21,17 @@ export async function middleware(request: NextRequest) {
     // Extract subdomain: akdesigns.kswd.ca → akdesigns
     const subdomain = domain.split('.kswd.ca')[0];
     
-    console.log(`[Middleware] Detected published subdomain: ${subdomain}`);
+    console.log(`[Middleware] ✅ Detected published subdomain: '${subdomain}'`);
+    console.log(`[Middleware] Domain: '${domain}' → Subdomain: '${subdomain}'`);
 
     // Rewrite internally to the public route
     // The pathname will be preserved, so / stays /
     const rewriteUrl = new URL(`/public/${subdomain}${pathname}`, request.url);
+    console.log(`[Middleware] Rewriting to: /public/${subdomain}${pathname}`);
     return NextResponse.rewrite(rewriteUrl);
   }
+
+  console.log(`[Middleware] Not a published subdomain: ${domain}`);
 
   // ============================================================
   // STEP 2: For app domain, validate auth and refresh tokens
