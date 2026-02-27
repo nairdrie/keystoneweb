@@ -2,6 +2,8 @@
 
 import { useState, useEffect, createElement } from 'react';
 import { getTemplateComponent } from '@/app/templates/registry';
+import { getTemplateMetadata } from '@/lib/db/template-queries';
+import { EditorProvider } from '@/lib/editor-context';
 
 interface PublicSiteRendererProps {
   siteId: string;
@@ -15,6 +17,7 @@ export default function PublicSiteRenderer({
   designData,
 }: PublicSiteRendererProps) {
   const [templateComponent, setTemplateComponent] = useState<React.ComponentType<any> | null>(null);
+  const [paletteData, setPaletteData] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,10 +25,22 @@ export default function PublicSiteRenderer({
     const loadTemplate = async () => {
       try {
         setLoading(true);
-        const component = await getTemplateComponent(templateId);
+        const [component, metadata] = await Promise.all([
+          getTemplateComponent(templateId),
+          getTemplateMetadata(templateId)
+        ]);
+
         if (!component) {
           throw new Error(`Template not found: ${templateId}`);
         }
+
+        // Process requested palette from designData
+        if (metadata) {
+          const palettesObj = metadata.palettes || {};
+          const requestedPalette = designData.__selectedPalette || 'default';
+          setPaletteData(palettesObj[requestedPalette] || palettesObj['default'] || {});
+        }
+
         setTemplateComponent(() => component);
         setError(null);
       } catch (err) {
@@ -67,11 +82,24 @@ export default function PublicSiteRenderer({
     ...designData,
   };
 
-  // Render template with design data (read-only)
-  // editMode is always false for published sites
-  return createElement(templateComponent, {
-    designData: safeDesignData,
-    editMode: false,
-    siteId,
-  });
+  // Render template through EditorProvider so context hooks resolve (even in read-only)
+  return (
+    <EditorProvider
+      value={{
+        content: safeDesignData,
+        isEditMode: false,
+        updateContent: () => { }, // No-ops for public viewer
+        palette: paletteData,
+        availablePalettes: [],
+        siteId: siteId,
+        uploadImage: async () => { return ''; },
+        setPalette: () => { },
+      }}
+    >
+      {createElement(templateComponent, {
+        palette: paletteData,
+        isEditMode: false,
+      })}
+    </EditorProvider>
+  );
 }
