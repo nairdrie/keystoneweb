@@ -77,9 +77,27 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  // Customer site domain (e.g., user.keystoneweb.ca, custom-domain.com)
+  // Published site domain (e.g., akdesigns.kswd.ca)
+  // Extract subdomain and rewrite to /public/[subdomain]
+  const domain = hostname.split(':')[0]; // Remove port if present
+  
+  // Check if it's a kswd.ca subdomain
+  if (domain.endsWith('.kswd.ca')) {
+    const subdomain = domain.split('.')[0]; // e.g., 'akdesigns' from 'akdesigns.kswd.ca'
+    const url = request.nextUrl.clone();
+    url.pathname = `/public/${subdomain}${pathname}`;
+
+    console.log(`[Middleware] Rewrote ${hostname}${pathname} → ${url.pathname}`);
+
+    const siteResponse = NextResponse.rewrite(url);
+    siteResponse.headers.set('x-domain', 'published');
+    siteResponse.headers.set('x-subdomain', subdomain);
+    siteResponse.headers.set('x-hostname', hostname);
+    return siteResponse;
+  }
+
+  // Custom domain (future feature)
   // Rewrite to /site/[domain]/[path] internally
-  const domain = hostname.split(':')[0];
   const url = request.nextUrl.clone();
   url.pathname = `/site/${domain}${pathname}`;
 
