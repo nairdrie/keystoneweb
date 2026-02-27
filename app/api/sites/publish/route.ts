@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: PublishRequest = await request.json();
-    const { siteId, publishedDomain } = body;
+    let { siteId, publishedDomain } = body;
 
     if (!siteId || !publishedDomain) {
       return NextResponse.json(
@@ -46,6 +46,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Extract just the subdomain from the full domain
+    // e.g., "akdesigns.kswd.ca" → "akdesigns"
+    const subdomain = publishedDomain.split('.')[0];
+    console.log(`[Publish API] Extracting subdomain: '${publishedDomain}' → '${subdomain}'`);
 
     // Fetch site and verify ownership
     const { data: site, error: siteError } = await supabase
@@ -85,11 +90,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if domain is already taken (by another site)
-    if (site.published_domain !== publishedDomain) {
+    if (site.published_domain !== subdomain) {
       const { data: existingDomain, error: domainError } = await supabase
         .from('sites')
         .select('id')
-        .eq('published_domain', publishedDomain)
+        .eq('published_domain', subdomain)
         .neq('id', siteId)
         .single();
 
@@ -101,11 +106,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update site with published domain and status
+    // Update site with published domain (just subdomain) and status
     const { data: updatedSite, error: updateError } = await supabase
       .from('sites')
       .update({
-        published_domain: publishedDomain,
+        published_domain: subdomain,
         is_published: true,
         published_at: new Date().toISOString(),
       })
@@ -121,14 +126,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`✅ Site published: ${siteId} → ${publishedDomain}`);
+    const fullPublishedDomain = `${updatedSite.published_domain}.kswd.ca`;
+    console.log(`✅ Site published: ${siteId} → ${fullPublishedDomain}`);
 
     return NextResponse.json({
       success: true,
       siteId: updatedSite.id,
       publishedDomain: updatedSite.published_domain,
-      publicUrl: `https://${updatedSite.published_domain}`,
-      message: `Your site is now live at https://${updatedSite.published_domain}`,
+      publicUrl: `https://${fullPublishedDomain}`,
+      message: `Your site is now live at https://${fullPublishedDomain}`,
     });
   } catch (error) {
     console.error('Error publishing site:', error);
