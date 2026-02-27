@@ -17,18 +17,27 @@ export default async function PublicSitePage({
     const supabase = await createClient();
 
     // Debug: Fetch all published sites to see what's in the database
-    const { data: allSites } = await supabase
+    const { data: allSites, error: allSitesError } = await supabase
       .from('sites')
       .select('id, published_domain, is_published, subscription_status')
       .eq('is_published', true)
       .limit(20);
 
+    console.log('All published sites query:', { count: allSites?.length, error: allSitesError?.message });
     console.log('All published sites in DB:', allSites?.map(s => ({
       id: s.id,
       published_domain: s.published_domain,
       is_published: s.is_published,
       subscription_status: s.subscription_status,
     })));
+
+    // Debug: Try fetching ANY sites without filters (to check if RLS is blocking)
+    const { data: anySites, error: anyError } = await supabase
+      .from('sites')
+      .select('id, published_domain')
+      .limit(5);
+    
+    console.log('Query any sites (no filters):', { count: anySites?.length, error: anyError?.message });
 
     // Fetch the published site by subdomain
     console.log(`Querying for published_domain = '${subdomain}'`);
@@ -81,9 +90,13 @@ export default async function PublicSitePage({
 {JSON.stringify({
   subdomain,
   searchedFor: subdomain,
+  publishedSitesInDB: allSites?.length ?? 0,
+  anySitesInDB: anySites?.length ?? 0,
   errorCode: error?.code,
   errorMessage: error?.message,
-  publishedSitesInDB: allSites?.length ?? 0,
+  allSitesError: allSitesError?.message,
+  anyError: anyError?.message,
+  note: anySites?.length === 0 ? 'RLS likely blocking access' : 'Data exists, subdomain mismatch',
 }, null, 2)}
               </pre>
             </details>
