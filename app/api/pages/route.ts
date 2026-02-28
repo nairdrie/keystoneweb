@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
+import { DEFAULT_TEMPLATE_BLOCKS } from '@/lib/default-blocks';
 
 interface CreatePageRequest {
   siteId: string;
@@ -102,10 +103,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify user owns the site
+    // Verify user owns the site AND get the selected template
     const { data: site } = await supabase
       .from('sites')
-      .select('user_id')
+      .select('user_id, selected_template_id')
       .eq('id', siteId)
       .single();
 
@@ -123,6 +124,19 @@ export async function POST(request: NextRequest) {
 
     const nextNavOrder = (pages?.[0]?.nav_order ?? -1) + 1;
 
+    // Determine default blocks if this is the very first page created (nextNavOrder === 0)
+    let initialDesignData = {};
+    if (nextNavOrder === 0 && site.selected_template_id) {
+      let templateSuffix = '';
+      if (site.selected_template_id.endsWith('_classic')) templateSuffix = '_classic';
+      else if (site.selected_template_id.endsWith('_minimal')) templateSuffix = '_minimal';
+      else if (site.selected_template_id.endsWith('_modern')) templateSuffix = '_modern';
+
+      if (templateSuffix && DEFAULT_TEMPLATE_BLOCKS[templateSuffix]) {
+        initialDesignData = { blocks: DEFAULT_TEMPLATE_BLOCKS[templateSuffix] };
+      }
+    }
+
     // Create page
     const { data: newPage, error } = await supabase
       .from('pages')
@@ -132,6 +146,7 @@ export async function POST(request: NextRequest) {
         title,
         display_name: displayName || title,
         nav_order: nextNavOrder,
+        design_data: initialDesignData
       })
       .select()
       .single();

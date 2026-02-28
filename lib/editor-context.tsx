@@ -2,9 +2,24 @@
 
 import { createContext, useContext, ReactNode } from 'react';
 
+export interface BlockData {
+  id: string;
+  type: string;
+  data: Record<string, any>;
+}
+
 export interface EditorContextType {
   /** Current content object (templateId -> { key: value }) */
   content: Record<string, any>;
+
+  /** Ordered array of modular blocks for the page **/
+  blocks?: BlockData[];
+
+  /** Block CRUD methods **/
+  addBlock?: (type: string, index?: number) => void;
+  removeBlock?: (id: string) => void;
+  moveBlock?: (id: string, direction: 'up' | 'down') => void;
+  updateBlockData?: (id: string, key: string, value: any) => void;
 
   /** Whether we're in edit mode */
   isEditMode: boolean;

@@ -78,7 +78,7 @@ export default function OnboardingWizard() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
-  
+
   const [step, setStep] = useState(1);
   const [businessType, setBusinessType] = useState<BusinessType>(null);
   const [category, setCategory] = useState<Category>(null);
@@ -150,13 +150,13 @@ export default function OnboardingWizard() {
         `/api/templates?businessType=${businessType}&category=${category}&page=${page}&limit=12`
       );
       const data: TemplatesResponse = await res.json();
-      
+
       if (page === 1) {
         setTemplates(data.templates);
       } else {
         setTemplates(prev => [...prev, ...data.templates]);
       }
-      
+
       setHasMore(data.hasMore);
       setTotalTemplates(data.total);
     } catch (error) {
@@ -191,12 +191,12 @@ export default function OnboardingWizard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           selectedTemplateId: templateId,
-          businessType,
+          businessType: (businessType as any) === 'service' ? 'services' : (businessType as any) === 'product' ? 'products' : businessType,
           category,
           userId: user?.id || null, // Include userId if authenticated
         }),
       });
-      
+
       const { siteId } = await res.json();
       router.push(`/editor?siteId=${siteId}`);
     } catch (error) {
@@ -309,199 +309,199 @@ export default function OnboardingWizard() {
       {/* Regular Onboarding - only show if not showing welcome back screen */}
       {!checkingSites && !showWelcomeBack && (
         <>
-      {/* Continue Editing (for all users) */}
-      {user && userSites.length > 0 && (
-        <div className="bg-blue-50 border-b border-blue-200">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-            <p className="text-sm text-blue-900">
-              Welcome back! You have {userSites.length} site{userSites.length !== 1 ? 's' : ''} in progress.
-            </p>
-            <button
-              onClick={() => router.push('/editor')}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg transition-colors"
-            >
-              Continue Editing
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Returning User (Not Logged In) - Sign In Prompt */}
-      {!user && (
-        <div className="bg-blue-50 border-b border-blue-200">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-            <p className="text-sm text-blue-900">
-              Already have an account? Sign in to continue your work.
-            </p>
-            <button
-              onClick={() => router.push('/signin')}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg transition-colors"
-            >
-              Sign In
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content */}
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-20">
-        {/* Step 1: Business Type */}
-        {step === 1 && (
-          <div className="animate-fade-in">
-            <h1 className="text-5xl font-black text-slate-900 mb-4 text-center">
-              What Do You Do?
-            </h1>
-            <p className="text-xl text-slate-600 mb-16 text-center max-w-2xl mx-auto">
-              Tell us about your business so we can find the perfect template
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {BUSINESS_TYPES.map(type => (
+          {/* Continue Editing (for all users) */}
+          {user && userSites.length > 0 && (
+            <div className="bg-blue-50 border-b border-blue-200">
+              <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+                <p className="text-sm text-blue-900">
+                  Welcome back! You have {userSites.length} site{userSites.length !== 1 ? 's' : ''} in progress.
+                </p>
                 <button
-                  key={type.id}
-                  onClick={() => handleBusinessType(type.id as BusinessType)}
-                  className="p-8 border-2 border-slate-200 rounded-lg hover:border-red-600 hover:shadow-lg transition-all text-left group"
+                  onClick={() => router.push('/editor')}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg transition-colors"
                 >
-                  <div className="text-5xl mb-3 group-hover:scale-110 transition-transform">
-                    {type.icon}
-                  </div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">{type.label}</h3>
-                  <p className="text-sm text-slate-600">{type.description}</p>
+                  Continue Editing
                 </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Step 2: Category */}
-        {step === 2 && (
-          <div className="animate-fade-in">
-            <h1 className="text-5xl font-black text-slate-900 mb-4 text-center">
-              Tell Us More
-            </h1>
-            <p className="text-xl text-slate-600 mb-16 text-center max-w-2xl mx-auto">
-              What type of {businessType} business are you?
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {categories.map(cat => (
-                <button
-                  key={cat.id}
-                  onClick={() => handleCategory(cat.id)}
-                  className="p-6 border-2 border-slate-200 rounded-lg hover:border-red-600 hover:shadow-lg transition-all text-left group"
-                >
-                  <div className="text-3xl mb-3 group-hover:scale-110 transition-transform">
-                    {cat.icon}
-                  </div>
-                  <h3 className="text-base font-bold text-slate-900 mb-1">{cat.label}</h3>
-                  <p className="text-xs text-slate-600">{cat.example}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: Templates */}
-        {step === 3 && (
-          <div className="animate-fade-in">
-            {/* Auth Required for Template Selection */}
-            {!user ? (
-              <div className="max-w-md mx-auto text-center py-12">
-                <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-8 mb-6">
-                  <h2 className="text-2xl font-bold text-slate-900 mb-3">Sign In Required</h2>
-                  <p className="text-slate-600 mb-6">
-                    Sign in to your account to select a template and create your site.
-                  </p>
-                  <div className="flex gap-3">
-                    <Link
-                      href="/signin"
-                      className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors"
-                    >
-                      Sign In
-                    </Link>
-                    <Link
-                      href="/signup"
-                      className="flex-1 py-3 border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-bold rounded-lg transition-colors"
-                    >
-                      Sign Up
-                    </Link>
-                  </div>
-                </div>
               </div>
-            ) : (
-              <>
+            </div>
+          )}
+
+          {/* Returning User (Not Logged In) - Sign In Prompt */}
+          {!user && (
+            <div className="bg-blue-50 border-b border-blue-200">
+              <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+                <p className="text-sm text-blue-900">
+                  Already have an account? Sign in to continue your work.
+                </p>
+                <button
+                  onClick={() => router.push('/signin')}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg transition-colors"
+                >
+                  Sign In
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Main Content */}
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-20">
+            {/* Step 1: Business Type */}
+            {step === 1 && (
+              <div className="animate-fade-in">
                 <h1 className="text-5xl font-black text-slate-900 mb-4 text-center">
-                  Pick Your Template
+                  What Do You Do?
                 </h1>
-                <p className="text-xl text-slate-600 mb-4 text-center max-w-2xl mx-auto">
-                  {totalTemplates} templates available for {category}
+                <p className="text-xl text-slate-600 mb-16 text-center max-w-2xl mx-auto">
+                  Tell us about your business so we can find the perfect template
                 </p>
 
-                {loading && templates.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
-                    <p className="mt-4 text-slate-600">Loading templates...</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {BUSINESS_TYPES.map(type => (
+                    <button
+                      key={type.id}
+                      onClick={() => handleBusinessType(type.id as BusinessType)}
+                      className="p-8 border-2 border-slate-200 rounded-lg hover:border-red-600 hover:shadow-lg transition-all text-left group"
+                    >
+                      <div className="text-5xl mb-3 group-hover:scale-110 transition-transform">
+                        {type.icon}
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-900 mb-2">{type.label}</h3>
+                      <p className="text-sm text-slate-600">{type.description}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Category */}
+            {step === 2 && (
+              <div className="animate-fade-in">
+                <h1 className="text-5xl font-black text-slate-900 mb-4 text-center">
+                  Tell Us More
+                </h1>
+                <p className="text-xl text-slate-600 mb-16 text-center max-w-2xl mx-auto">
+                  What type of {businessType} business are you?
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {categories.map(cat => (
+                    <button
+                      key={cat.id}
+                      onClick={() => handleCategory(cat.id)}
+                      className="p-6 border-2 border-slate-200 rounded-lg hover:border-red-600 hover:shadow-lg transition-all text-left group"
+                    >
+                      <div className="text-3xl mb-3 group-hover:scale-110 transition-transform">
+                        {cat.icon}
+                      </div>
+                      <h3 className="text-base font-bold text-slate-900 mb-1">{cat.label}</h3>
+                      <p className="text-xs text-slate-600">{cat.example}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Templates */}
+            {step === 3 && (
+              <div className="animate-fade-in">
+                {/* Auth Required for Template Selection */}
+                {!user ? (
+                  <div className="max-w-md mx-auto text-center py-12">
+                    <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-8 mb-6">
+                      <h2 className="text-2xl font-bold text-slate-900 mb-3">Sign In Required</h2>
+                      <p className="text-slate-600 mb-6">
+                        Sign in to your account to select a template and create your site.
+                      </p>
+                      <div className="flex gap-3">
+                        <Link
+                          href="/signin"
+                          className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors"
+                        >
+                          Sign In
+                        </Link>
+                        <Link
+                          href="/signup"
+                          className="flex-1 py-3 border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-bold rounded-lg transition-colors"
+                        >
+                          Sign Up
+                        </Link>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                      {templates.map(template => (
-                        <div
-                          key={template.id}
-                          className="border-2 border-slate-200 rounded-lg overflow-hidden hover:border-red-600 transition-all group cursor-pointer"
-                        >
-                          {/* Template Preview Image */}
-                          <div className="relative w-full h-48 bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden">
-                            <img
-                              src={template.imageUrl}
-                              alt={template.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                            />
-                          </div>
+                    <h1 className="text-5xl font-black text-slate-900 mb-4 text-center">
+                      Pick Your Template
+                    </h1>
+                    <p className="text-xl text-slate-600 mb-4 text-center max-w-2xl mx-auto">
+                      {totalTemplates} templates available for {category}
+                    </p>
 
-                          {/* Template Info */}
-                          <div className="p-4">
-                            <h3 className="text-lg font-bold text-slate-900 mb-2">{template.name}</h3>
-                            <div className="flex flex-wrap gap-1 mb-4">
-                              {template.tags.map(tag => (
-                                <span
-                                  key={tag}
-                                  className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                            <button
-                              onClick={() => handleSelectTemplate(template.id)}
-                              className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded transition-colors"
+                    {loading && templates.length === 0 ? (
+                      <div className="text-center py-12">
+                        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+                        <p className="mt-4 text-slate-600">Loading templates...</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                          {templates.map(template => (
+                            <div
+                              key={template.id}
+                              className="border-2 border-slate-200 rounded-lg overflow-hidden hover:border-red-600 transition-all group cursor-pointer"
                             >
-                              Use This Template
+                              {/* Template Preview Image */}
+                              <div className="relative w-full h-48 bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden">
+                                <img
+                                  src={template.imageUrl}
+                                  alt={template.name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                />
+                              </div>
+
+                              {/* Template Info */}
+                              <div className="p-4">
+                                <h3 className="text-lg font-bold text-slate-900 mb-2">{template.name}</h3>
+                                <div className="flex flex-wrap gap-1 mb-4">
+                                  {template.tags.map(tag => (
+                                    <span
+                                      key={tag}
+                                      className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                                <button
+                                  onClick={() => handleSelectTemplate(template.id)}
+                                  className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded transition-colors"
+                                >
+                                  Use This Template
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Load More */}
+                        {hasMore && (
+                          <div className="text-center">
+                            <button
+                              onClick={handleLoadMore}
+                              disabled={loading}
+                              className="px-8 py-3 border-2 border-red-600 text-red-600 hover:bg-red-50 font-bold rounded-lg disabled:opacity-50 transition-colors"
+                            >
+                              {loading ? 'Loading...' : 'Load More Templates'}
                             </button>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Load More */}
-                    {hasMore && (
-                      <div className="text-center">
-                        <button
-                          onClick={handleLoadMore}
-                          disabled={loading}
-                          className="px-8 py-3 border-2 border-red-600 text-red-600 hover:bg-red-50 font-bold rounded-lg disabled:opacity-50 transition-colors"
-                        >
-                          {loading ? 'Loading...' : 'Load More Templates'}
-                        </button>
-                      </div>
+                        )}
+                      </>
                     )}
                   </>
                 )}
-              </>
+              </div>
             )}
           </div>
-        )}
-      </div>
         </>
       )}
     </div>

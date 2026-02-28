@@ -59,23 +59,23 @@ export async function POST(request: NextRequest) {
     // Create server-side Supabase client (handles auth via cookies)
     const supabase = await createClient();
 
+    // Get the definitive user from the session rather than trusting the client payload
+    const { data: { user } } = await supabase.auth.getUser();
+
     // Insert into Supabase
-    // userId is set immediately if user is authenticated (from onboarding)
-    // or null if creating as guest (claimed on first save)
+    // user.id is set if authenticated, otherwise null for guests
     const { data, error } = await supabase
       .from('sites')
       .insert({
         id: siteId,
-        user_id: userId || null,
+        user_id: user?.id || null,
         selected_template_id: selectedTemplateId,
         business_type: businessType,
         category,
         design_data: {}, // Empty until user customizes
         created_at: now,
         updated_at: now,
-      })
-      .select()
-      .single();
+      });
 
     if (error) {
       console.error('Supabase error creating site:', error);
@@ -85,11 +85,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const siteData = mapSupabaseToSiteData(data);
-
     return NextResponse.json(
       {
-        siteId: siteData.id,
+        siteId,
         message: 'Site created successfully',
       },
       { status: 201 }

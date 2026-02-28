@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { } from 'lucide-react';
 import FloatingToolbar from '@/app/components/FloatingToolbar';
-import { EditorProvider } from '@/lib/editor-context';
+import { EditorProvider, BlockData } from '@/lib/editor-context';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import { useAuth } from '@/lib/auth/context';
@@ -72,7 +72,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   const [availablePalettes, setAvailablePalettes] = useState<Record<string, Record<string, string>>>({});
   const [paletteData, setPaletteData] = useState<Record<string, string>>({});
   const [editMode, setEditMode] = useState(false);
-  const [editableContent, setEditableContent] = useState<Record<string, string>>({});
+  const [editableContent, setEditableContent] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [siteTitle, setSiteTitle] = useState('My Website');
@@ -87,7 +87,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
 
   const initialTitleRef = useRef<string>('My Website');
   const initialPaletteRef = useRef<string>('default');
-  const initialContentRef = useRef<Record<string, string>>({});
+  const initialContentRef = useRef<Record<string, any>>({});
 
   const siteId = searchParams.get('siteId');
   const { uploadImage } = useImageUpload(siteId || '');
@@ -250,6 +250,76 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     });
   };
 
+  const addBlock = (type: string, index?: number) => {
+    setEditableContent((prev) => {
+      const currentBlocks: BlockData[] = Array.isArray(prev.blocks) ? prev.blocks : [];
+      const newBlock: BlockData = {
+        id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        type,
+        data: {}
+      };
+
+      const newBlocks = [...currentBlocks];
+      if (index !== undefined && index >= 0 && index <= newBlocks.length) {
+        newBlocks.splice(index, 0, newBlock);
+      } else {
+        newBlocks.push(newBlock);
+      }
+
+      addChange('blocks', 'Added Content Block', JSON.stringify(currentBlocks), JSON.stringify(newBlocks));
+      return { ...prev, blocks: newBlocks };
+    });
+  };
+
+  const removeBlock = (id: string) => {
+    setEditableContent((prev) => {
+      const currentBlocks: BlockData[] = Array.isArray(prev.blocks) ? prev.blocks : [];
+      const newBlocks = currentBlocks.filter(b => b.id !== id);
+      addChange('blocks', 'Removed Content Block', JSON.stringify(currentBlocks), JSON.stringify(newBlocks));
+      return { ...prev, blocks: newBlocks };
+    });
+  };
+
+  const moveBlock = (id: string, direction: 'up' | 'down') => {
+    setEditableContent((prev) => {
+      const currentBlocks: BlockData[] = Array.isArray(prev.blocks) ? prev.blocks : [];
+      const index = currentBlocks.findIndex(b => b.id === id);
+      if (index < 0) return prev;
+      if (direction === 'up' && index === 0) return prev;
+      if (direction === 'down' && index === currentBlocks.length - 1) return prev;
+
+      const newBlocks = [...currentBlocks];
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+
+      // Swap
+      [newBlocks[index], newBlocks[targetIndex]] = [newBlocks[targetIndex], newBlocks[index]];
+
+      addChange('blocks', 'Moved Content Block', JSON.stringify(currentBlocks), JSON.stringify(newBlocks));
+      return { ...prev, blocks: newBlocks };
+    });
+  };
+
+  const updateBlockData = (id: string, key: string, value: any) => {
+    setEditableContent((prev) => {
+      const currentBlocks: BlockData[] = Array.isArray(prev.blocks) ? prev.blocks : [];
+      const index = currentBlocks.findIndex(b => b.id === id);
+      if (index < 0) return prev;
+
+      const oldBlock = currentBlocks[index];
+      const newBlock = { ...oldBlock, data: { ...oldBlock.data, [key]: value } };
+
+      const newBlocks = [...currentBlocks];
+      newBlocks[index] = newBlock;
+
+      const oldValue = oldBlock.data[key] || '';
+      if (oldValue !== value) {
+        addChange('blocks', 'Updated Block Content', JSON.stringify(currentBlocks), JSON.stringify(newBlocks));
+      }
+
+      return { ...prev, blocks: newBlocks };
+    });
+  };
+
   // Reconstruct state when History Undo/Redo is triggered
   useEffect(() => {
     const action = changesHook.lastAction;
@@ -270,6 +340,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
         // change.label looks like "Content: heroTitle", we just need the key
         const key = change.label.replace('Content: ', '');
         restoredContent[key] = change.to;
+      } else if (change.field === 'blocks') {
+        restoredContent.blocks = JSON.parse(change.to);
       }
     }
 
@@ -485,6 +557,11 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
             siteId: siteId || undefined,
             uploadImage: uploadImage,
             setPalette: handlePaletteChange,
+            blocks: editableContent.blocks || [],
+            addBlock,
+            removeBlock,
+            moveBlock,
+            updateBlockData,
           }}
         >
           <div className="w-full">
