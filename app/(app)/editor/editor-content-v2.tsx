@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense, createElement, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Eye, Pencil } from 'lucide-react';
+import { } from 'lucide-react';
 import FloatingToolbar from '@/app/components/FloatingToolbar';
 import { EditorProvider } from '@/lib/editor-context';
 import { getTemplateComponent } from '@/app/templates/registry';
@@ -13,7 +13,9 @@ import { useImageUpload } from '@/lib/hooks/useImageUpload';
 import { useChangeTracking } from '@/lib/hooks/useChangeTracking';
 import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 import PageSelector from '@/app/components/PageSelector';
+import EmbeddedToggle from '@/app/components/EmbeddedToggle';
 import { usePages } from '@/lib/hooks/usePages';
+import Link from 'next/link';
 
 export interface SiteData {
   id: string;
@@ -423,36 +425,39 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
         publishedDomain={site?.publishedDomain}
       />
 
-      {/* Page Selector (Multi-page support) */}
-      {pages.length > 0 && (
-        <div className="flex-none border-b p-2 bg-slate-50 flex items-center gap-4 px-4">
-          <PageSelector
-            siteId={siteId || ''}
-            currentPageId={currentPageId || undefined}
-            onPageChange={(page) => setCurrentPageId(page.id)}
+      {/* Editor Banner - Redesigned */}
+      <div
+        className="flex-none h-12 px-4 z-[1000] shadow flex items-center justify-between gap-6 border-b"
+        style={{ backgroundColor: 'var(--brand-primary)' }}
+      >
+        {/* Left: Logo + Page Selector */}
+        <div className="flex items-center gap-4">
+          {/* Keystone Logo (clickable link to home) */}
+          <Link href="/" className="flex-shrink-0 hover:opacity-80 transition-opacity">
+            <div className="w-7 h-7 bg-white rounded-sm flex items-center justify-center text-xs font-black" style={{ color: 'var(--brand-primary)' }}>
+              K
+            </div>
+          </Link>
+
+          {/* Page Selector */}
+          {pages.length > 0 && (
+            <PageSelector
+              siteId={siteId || ''}
+              currentPageId={currentPageId || undefined}
+              onPageChange={(page) => setCurrentPageId(page.id)}
+            />
+          )}
+        </div>
+
+        {/* Right: Edit/Preview Toggle */}
+        <div className="flex-shrink-0">
+          <EmbeddedToggle
+            isActive={editMode}
+            onToggle={setEditMode}
+            activeLabel="Edit"
+            inactiveLabel="View"
           />
         </div>
-      )}
-
-      {/* Top Banner (Flex-none so it stays at very top of screen while template scrolls below) */}
-      <div
-        className="flex-none border-b p-3 z-[1000] shadow flex justify-center items-center gap-4 flex-wrap"
-        style={{ backgroundColor: 'var(--brand-primary)', borderColor: 'var(--brand-primary-dark)' }}
-      >
-        <p className="text-sm text-white max-w-7xl text-center">
-          {editMode ? (
-            <><Pencil className="inline-block w-4 h-4"></Pencil> <strong>Edit Mode:</strong> Click any element to edit text</>
-          ) : (
-            <><Eye className="inline-block w-4 h-4"></Eye> <strong>Preview Mode:</strong> Viewing how your site will look to visitors</>
-          )}
-        </p>
-        <button
-          onClick={() => setEditMode(!editMode)}
-          className="px-3 py-1 bg-white text-xs font-bold rounded-[4px] hover:bg-slate-100 transition-colors shadow-sm cursor-pointer whitespace-nowrap"
-          style={{ color: 'var(--brand-primary)' }}
-        >
-          Switch to {editMode ? 'Preview' : 'Edit'} Mode
-        </button>
       </div>
 
       {/* Template Render Wrapper (This section alone scrolls, so sticky headers inside templates stick to the top of THIS container, right below our Editor banner) */}
