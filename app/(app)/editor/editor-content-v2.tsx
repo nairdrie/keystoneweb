@@ -12,6 +12,8 @@ import { useAuth } from '@/lib/auth/context';
 import { useImageUpload } from '@/lib/hooks/useImageUpload';
 import { useChangeTracking } from '@/lib/hooks/useChangeTracking';
 import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
+import PageSelector from '@/app/components/PageSelector';
+import { usePages } from '@/lib/hooks/usePages';
 
 export interface SiteData {
   id: string;
@@ -75,6 +77,9 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   const [error, setError] = useState<string | null>(null);
 
   // Change tracking
+  // Multi-page support
+  const pagesHook = usePages(site?.id || "");
+  const { pages, currentPageId, setCurrentPageId, fetchPages, currentPage } = pagesHook;
   const changesHook = useChangeTracking();
   const { addChange, clearChanges } = changesHook;
 
@@ -107,7 +112,24 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
 
     loadTemplateComponent(site.selectedTemplateId, site.designData?.__selectedPalette);
   }, [site?.selectedTemplateId]);
+  // Fetch pages when site loads
+  useEffect(() => {
+    if (!site?.id) return;
+    fetchPages();
+  }, [site?.id, fetchPages]);
 
+  // Load page-specific content when page changes
+  useEffect(() => {
+    if (!currentPage) return;
+    
+    const content = currentPage.design_data || {};
+    const selectedPalette = content.__selectedPalette || "default";
+    
+    setEditableContent(content);
+    setSelectedPaletteKey(selectedPalette);
+    initialContentRef.current = { ...content };
+    clearChanges();
+  }, [currentPage, clearChanges]);
   const redirectToLatestSite = async () => {
     try {
       setLoading(true);
@@ -400,6 +422,17 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
         isPublished={site?.isPublished || false}
         publishedDomain={site?.publishedDomain}
       />
+
+      {/* Page Selector (Multi-page support) */}
+      {pages.length > 0 && (
+        <div className="flex-none border-b p-2 bg-slate-50 flex items-center gap-4 px-4">
+          <PageSelector
+            siteId={siteId || ''}
+            currentPageId={currentPageId || undefined}
+            onPageChange={(page) => setCurrentPageId(page.id)}
+          />
+        </div>
+      )}
 
       {/* Top Banner (Flex-none so it stays at very top of screen while template scrolls below) */}
       <div
