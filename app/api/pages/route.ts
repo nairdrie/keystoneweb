@@ -13,9 +13,13 @@ interface UpdatePageRequest {
   siteId: string;
   title?: string;
   displayName?: string;
+  display_name?: string;
   isVisibleInNav?: boolean;
+  is_visible_in_nav?: boolean;
   navOrder?: number;
+  nav_order?: number;
   designData?: Record<string, any>;
+  design_data?: Record<string, any>;
 }
 
 /**
@@ -196,13 +200,17 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Page not found' }, { status: 404 });
     }
 
-    // Prepare update data
+    // Prepare update data (Support both camelCase and snake_case from usePages hook)
     const updateData: Record<string, any> = {};
-    if (title !== undefined) updateData.title = title;
-    if (displayName !== undefined) updateData.display_name = displayName;
-    if (isVisibleInNav !== undefined) updateData.is_visible_in_nav = isVisibleInNav;
-    if (navOrder !== undefined) updateData.nav_order = navOrder;
-    if (designData !== undefined) updateData.design_data = designData;
+    if (body.title !== undefined) updateData.title = body.title;
+    if (body.displayName !== undefined || body.display_name !== undefined)
+      updateData.display_name = body.displayName ?? body.display_name;
+    if (body.isVisibleInNav !== undefined || body.is_visible_in_nav !== undefined)
+      updateData.is_visible_in_nav = body.isVisibleInNav ?? body.is_visible_in_nav;
+    if (body.navOrder !== undefined || body.nav_order !== undefined)
+      updateData.nav_order = body.navOrder ?? body.nav_order;
+    if (body.designData !== undefined || body.design_data !== undefined)
+      updateData.design_data = body.designData ?? body.design_data;
 
     // Update page
     const { data: updatedPage, error } = await supabase

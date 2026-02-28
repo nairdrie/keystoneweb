@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     // Fetch site and verify ownership
     const { data: site, error: siteError } = await supabase
       .from('sites')
-      .select('id, user_id, published_domain')
+      .select('id, user_id, published_domain, design_data')
       .eq('id', siteId)
       .single();
 
@@ -112,6 +112,7 @@ export async function POST(request: NextRequest) {
         published_domain: subdomain,
         is_published: true,
         published_at: new Date().toISOString(),
+        published_data: site.design_data || {},
       })
       .eq('id', siteId)
       .select()
@@ -123,6 +124,21 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to publish site' },
         { status: 500 }
       );
+    }
+
+    // Publish all pages by copying their design_data to published_data
+    const { data: pages } = await supabase
+      .from('pages')
+      .select('id, design_data')
+      .eq('site_id', siteId);
+
+    if (pages && pages.length > 0) {
+      for (const page of pages) {
+        await supabase
+          .from('pages')
+          .update({ published_data: page.design_data || {} })
+          .eq('id', page.id);
+      }
     }
 
     const fullPublishedDomain = `${updatedSite.published_domain}.kswd.ca`;

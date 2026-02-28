@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rounded Trapezoid Test</title>
+    <style>
+        body {
+            background-color: #ef4444;
+            /* Standard red background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        svg {
+            /* Add a subtle drop shadow to make it pop against the red */
+            filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 
+      viewBox="0 0 100 150" sets a 2:3 aspect ratio (taller than it is wide).
+      points calculated from center (x=50):
+      Top width = 70 (x from 15 to 85)
+      Bottom width = 35 (x from 32.5 to 67.5) -> Top is exactly 2x bottom.
+      Using stroke-linejoin="round" is a clean SVG trick to get perfectly rounded corners on a polygon.
+    -->
+    <svg width="200" height="220" viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="20,15 80,15 65,95 35,95" fill="white" stroke="white" stroke-width="24"
+            stroke-linejoin="round" />
+        <text x="50" y="70" font-family="sans-serif" font-weight="900" font-size="72" fill="#ef4444"
+            text-anchor="middle" dominant-baseline="central">K</text>
+    </svg>
+</body>
+
+</html>

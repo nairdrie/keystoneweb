@@ -81,7 +81,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   // Change tracking
   // Multi-page support
   const pagesHook = usePages(site?.id || "");
-  const { pages, currentPageId, setCurrentPageId, fetchPages, currentPage } = pagesHook;
+  const { pages, currentPageId, setCurrentPageId, fetchPages, currentPage, updatePage } = pagesHook;
   const changesHook = useChangeTracking();
   const { addChange, clearChanges } = changesHook;
 
@@ -123,15 +123,21 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   // Load page-specific content when page changes
   useEffect(() => {
     if (!currentPage) return;
-    
-    const content = currentPage.design_data || {};
+
+    let content = currentPage.design_data || {};
+    // Backward compatibility & seamless migration: 
+    // If the page has no design data yet, fall back to the global site design data
+    if (Object.keys(content).length === 0 && site?.designData) {
+      content = site.designData;
+    }
+
     const selectedPalette = content.__selectedPalette || "default";
-    
+
     setEditableContent(content);
     setSelectedPaletteKey(selectedPalette);
     initialContentRef.current = { ...content };
     clearChanges();
-  }, [currentPage, clearChanges]);
+  }, [currentPage, clearChanges, site?.designData]);
   const redirectToLatestSite = async () => {
     try {
       setLoading(true);
@@ -325,7 +331,13 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
 
       // Success!
       const updated = await res.json();
-      setSite(updated);
+      setSite(updated.site || updated);
+
+      // IMPORTANT: Save the page-level design data!
+      if (currentPageId) {
+        await updatePage(currentPageId, { design_data: designData });
+      }
+
       setError(null);
       clearChanges();
       alert('Design saved successfully!');
@@ -433,10 +445,11 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
         {/* Left: Logo + Page Selector */}
         <div className="flex items-center gap-4">
           {/* Keystone Logo (clickable link to home) */}
-          <Link href="/" className="flex-shrink-0 hover:opacity-80 transition-opacity">
-            <div className="w-7 h-7 bg-white rounded-sm flex items-center justify-center text-xs font-black" style={{ color: 'var(--brand-primary)' }}>
-              K
-            </div>
+          <Link href="/" className="flex-shrink-0 flex items-center gap-2 hover:opacity-80 transition-opacity mr-4">
+            <svg width="24" height="26" viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg">
+              <polygon points="20,15 80,15 65,95 35,95" fill="white" stroke="white" strokeWidth="24" strokeLinejoin="round" />
+              <text x="50" y="52" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="900" fontSize="54" fill="#ef4444" textAnchor="middle" dominantBaseline="central">K</text>
+            </svg>
           </Link>
 
           {/* Page Selector */}

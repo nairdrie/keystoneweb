@@ -18,7 +18,7 @@ export default async function PublicSitePage({
     // Fetch the published site by subdomain
     const { data: site, error } = await supabase
       .from('sites')
-      .select('id, selected_template_id, design_data')
+      .select('id, selected_template_id, published_data')
       .eq('published_domain', subdomain)
       .eq('is_published', true)
       .single();
@@ -43,7 +43,7 @@ export default async function PublicSitePage({
     let paletteData = {};
     if (metadata) {
       const palettesObj = metadata.palettes || {};
-      const requestedPalette = site.design_data?.__selectedPalette || 'default';
+      const requestedPalette = site.published_data?.__selectedPalette || 'default';
       paletteData = palettesObj[requestedPalette] || palettesObj['default'] || {};
     }
 
@@ -57,7 +57,7 @@ export default async function PublicSitePage({
           selectedTemplateId: site.selected_template_id,
           businessType: '',
           category: '',
-          designData: site.design_data || {},
+          designData: site.published_data || {},
           isPublished: true,
           createdAt: '',
           updatedAt: ''

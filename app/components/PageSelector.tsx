@@ -83,7 +83,7 @@ export default function PageSelector({
       setPages([...pages, newPage]);
       setNewPageTitle('');
       setIsCreating(false);
-      
+
       // Switch to new page
       onPageChange(newPage);
       onPageCreate?.(newPage);
@@ -129,7 +129,7 @@ export default function PageSelector({
       {/* Page selector dropdown */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-slate-200 hover:border-slate-300 text-sm font-medium text-slate-900"
+        className="flex items-center gap-2 px-3 h-8 rounded-full bg-white border border-slate-200 hover:border-slate-300 text-sm font-medium text-slate-900"
       >
         <span className="truncate max-w-[150px]">
           {currentPage?.title || 'Select Page'}
@@ -145,9 +145,8 @@ export default function PageSelector({
             {pages.map(page => (
               <div
                 key={page.id}
-                className={`flex items-center justify-between px-3 py-2 hover:bg-slate-50 cursor-pointer group ${
-                  page.id === currentPageId ? 'bg-blue-50 border-l-2 border-blue-500' : ''
-                }`}
+                className={`flex items-center justify-between px-3 py-2 hover:bg-slate-50 cursor-pointer group ${page.id === currentPageId ? 'bg-blue-50 border-l-2 border-blue-500' : ''
+                  }`}
                 onClick={() => {
                   onPageChange(page);
                   setIsOpen(false);
@@ -192,7 +191,7 @@ export default function PageSelector({
                   }
                 }}
                 placeholder="Page title..."
-                className="w-full px-2 py-1 text-sm border border-slate-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-2 py-1 text-sm text-slate-900 border border-slate-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                 autoFocus
               />
               <div className="flex gap-2">
