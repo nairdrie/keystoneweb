@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ChevronDown, Plus, Trash2 } from 'lucide-react';
+import AlertModal from './ui/AlertModal';
 
 interface Page {
   id: string;
@@ -31,6 +32,7 @@ export default function PageSelector({
   const [newPageTitle, setNewPageTitle] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
 
   // Fetch pages
   useEffect(() => {
@@ -89,7 +91,7 @@ export default function PageSelector({
       onPageCreate?.(newPage);
     } catch (err) {
       console.error('Error creating page:', err);
-      alert('Failed to create page');
+      setAlertConfig({ isOpen: true, title: 'Error', message: 'Failed to create page', type: 'error' });
     }
   };
 
@@ -112,7 +114,7 @@ export default function PageSelector({
       }
     } catch (err) {
       console.error('Error deleting page:', err);
-      alert('Failed to delete page');
+      setAlertConfig({ isOpen: true, title: 'Error', message: 'Failed to delete page', type: 'error' });
     }
   };
 
@@ -216,6 +218,14 @@ export default function PageSelector({
           )}
         </div>
       )}
+
+      <AlertModal
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={() => setAlertConfig({ ...alertConfig, isOpen: false })}
+      />
     </div>
   );
 }

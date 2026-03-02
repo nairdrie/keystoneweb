@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense, createElement, useRef } from 'react';
+import { useState, useEffect, Suspense, createElement, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { } from 'lucide-react';
@@ -11,6 +11,7 @@ import { getTemplateMetadata } from '@/lib/db/template-queries';
 import { useAuth } from '@/lib/auth/context';
 import { useImageUpload } from '@/lib/hooks/useImageUpload';
 import { useChangeTracking } from '@/lib/hooks/useChangeTracking';
+import AlertModal from '@/app/components/ui/AlertModal';
 import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 import PageSelector from '@/app/components/PageSelector';
 import EmbeddedToggle from '@/app/components/EmbeddedToggle';
@@ -24,6 +25,7 @@ export interface SiteData {
   businessType: string;
   category: string;
   designData: Record<string, any>;
+  publishedData?: Record<string, any>;
   isPublished: boolean;
   publishedDomain?: string;
   siteSlug?: string;
@@ -72,6 +74,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   const [selectedPaletteKey, setSelectedPaletteKey] = useState<string>('default');
   const [availablePalettes, setAvailablePalettes] = useState<Record<string, Record<string, string>>>({});
   const [paletteData, setPaletteData] = useState<Record<string, string>>({});
+  const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
   const [editMode, setEditMode] = useState(false);
   const [editableContent, setEditableContent] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
@@ -92,6 +95,36 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
 
   const siteId = searchParams.get('siteId');
   const { uploadImage } = useImageUpload(siteId || '');
+
+  // Compute if all draft content matches the published content
+  const isSynced = useMemo(() => {
+    if (!site?.isPublished) return false;
+    if (changesHook.changes.length > 0) return false;
+
+    // Helper for deep equality immune to key sorting issues
+    const isDeepEqual = (a: any, b: any): boolean => {
+      if (a === b) return true;
+      if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+      if (Array.isArray(a) !== Array.isArray(b)) return false;
+
+      const keysA = Object.keys(a);
+      const keysB = Object.keys(b);
+      if (keysA.length !== keysB.length) return false;
+
+      for (const key of keysA) {
+        if (!keysB.includes(key) || !isDeepEqual(a[key], b[key])) return false;
+      }
+      return true;
+    };
+
+    if (!isDeepEqual(site.designData || {}, site.publishedData || {})) return false;
+
+    for (const page of pages) {
+      if (!isDeepEqual(page.design_data || {}, page.published_data || {})) return false;
+    }
+
+    return true;
+  }, [site, pages, changesHook.changes]);
 
   // Auth check and site loading (ONLY for editor mode)
   useEffect(() => {
@@ -350,7 +383,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
         const key = change.label.replace('Content: ', '');
         restoredContent[key] = change.to;
       } else if (change.field === 'blocks') {
-        restoredContent.blocks = JSON.parse(change.to);
+        restoredContent.blocks = JSON.parse(change.rawTo || change.to);
       }
     }
 
@@ -421,7 +454,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
 
       setError(null);
       clearChanges();
-      alert('Design saved successfully!');
+      setAlertConfig({ isOpen: true, title: 'Success', message: 'Design saved successfully!', type: 'success' });
     } catch (err) {
       console.error('Error saving design:', err);
       setError('Failed to save design');
@@ -516,6 +549,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
         currentSiteId={siteId || undefined}
         isPublished={site?.isPublished || false}
         publishedDomain={site?.publishedDomain}
+        isSynced={isSynced}
       />
 
       {/* Editor Banner - Redesigned */}
@@ -583,6 +617,14 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
           </div>
         </EditorProvider>
       </div>
+
+      <AlertModal
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={() => setAlertConfig({ ...alertConfig, isOpen: false })}
+      />
     </div>
   );
 }

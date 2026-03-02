@@ -188,12 +188,6 @@ function DomainSelectContent() {
           Select a unique web address for your live site.
         </p>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <p className="text-sm text-red-700">{error}</p>
-          </div>
-        )}
-
         <div className="space-y-4">
           {/* Website Address Input */}
           <div>
@@ -223,8 +217,8 @@ function DomainSelectContent() {
           {domainCheck && (
             <div
               className={`p-4 rounded-lg border-2 flex items-start gap-3 ${domainCheck.available
-                  ? 'bg-green-50 border-green-200'
-                  : 'bg-red-50 border-red-200'
+                ? 'bg-green-50 border-green-200'
+                : 'bg-red-50 border-red-200'
                 }`}
             >
               {domainCheck.available ? (

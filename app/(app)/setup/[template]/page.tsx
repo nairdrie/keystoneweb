@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import React from 'react';
 import Link from 'next/link';
+import AlertModal from '@/app/components/ui/AlertModal';
 
 interface SetupPageProps {
   params: Promise<{
@@ -15,6 +16,7 @@ export default function SetupPage(props: SetupPageProps) {
   const [domain, setDomain] = useState('');
   const [loading, setLoading] = useState(false);
   const [template, setTemplate] = useState('');
+  const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
 
   // Handle async params in client component
   React.useEffect(() => {
@@ -27,11 +29,11 @@ export default function SetupPage(props: SetupPageProps) {
 
     // Simulate API call to create site
     console.log('Creating site:', { template, siteName, domain });
-    
+
     // In a real app, you'd call an API here
     setTimeout(() => {
       setLoading(false);
-      alert(`Site created! Visit: http://${domain}.local:3000`);
+      setAlertConfig({ isOpen: true, title: 'Success', message: `Site created! Visit: http://${domain}.local:3000`, type: 'success' });
     }, 1000);
   };
 
@@ -104,6 +106,14 @@ export default function SetupPage(props: SetupPageProps) {
           </form>
         </div>
       </div>
+
+      <AlertModal
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={() => setAlertConfig({ ...alertConfig, isOpen: false })}
+      />
     </main>
   );
 }

@@ -6,6 +6,8 @@ export interface Change {
   label: string;
   from: string;
   to: string;
+  rawFrom?: string; // Stored for full undo/redo state restoration
+  rawTo?: string;
   timestamp: number;
 }
 
@@ -13,6 +15,57 @@ export interface ChangeTrackingState {
   changes: Change[];
   history: Change[][];
   historyIndex: number;
+}
+
+// Helper to diff blocks array and create a human-readable change
+function diffBlocks(oldBlocksRaw: string, newBlocksRaw: string): Partial<Change> | null {
+  try {
+    const oldBlocks = JSON.parse(oldBlocksRaw || '[]');
+    const newBlocks = JSON.parse(newBlocksRaw || '[]');
+
+    if (oldBlocks.length !== newBlocks.length) {
+      return {
+        label: 'Layout Blocks',
+        from: `${oldBlocks.length} blocks`,
+        to: `${newBlocks.length} blocks`,
+      };
+    }
+
+    // Find which exact block changed
+    for (let i = 0; i < oldBlocks.length; i++) {
+      const oldB = oldBlocks[i];
+      const newB = newBlocks[i];
+
+      if (JSON.stringify(oldB.data) !== JSON.stringify(newB.data)) {
+        // Find which exact data field changed
+        const allKeys = new Set([...Object.keys(oldB.data || {}), ...Object.keys(newB.data || {})]);
+
+        for (const key of allKeys) {
+          const oldVal = oldB.data?.[key];
+          const newVal = newB.data?.[key];
+
+          if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+            // Capitalize block type and field key for readability
+            const blockTypeDisplay = newB.type.charAt(0).toUpperCase() + newB.type.slice(1);
+            const keyDisplay = key.charAt(0).toUpperCase() + key.slice(1);
+
+            // Handle complex types like arrays (e.g. servicesGrid items)
+            const fromDisplay = typeof oldVal === 'object' ? JSON.stringify(oldVal).substring(0, 30) + (JSON.stringify(oldVal).length > 30 ? '...' : '') : String(oldVal || '(empty)');
+            const toDisplay = typeof newVal === 'object' ? JSON.stringify(newVal).substring(0, 30) + (JSON.stringify(newVal).length > 30 ? '...' : '') : String(newVal || '(empty)');
+
+            return {
+              label: `${blockTypeDisplay} Block (${keyDisplay})`,
+              from: fromDisplay,
+              to: toDisplay,
+            };
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Failed to diff blocks', e);
+  }
+  return null;
 }
 
 /**
@@ -41,13 +94,31 @@ export function useChangeTracking() {
       // Remove any redo history if we're making a new change
       const newHistory = prev.history.slice(0, prev.historyIndex + 1);
 
+      // Default change payload
+      let finalLabel = label;
+      let finalFrom = from;
+      let finalTo = to;
+      let rawFrom = from;
+      let rawTo = to;
+
+      if (field === 'blocks') {
+        const diff = diffBlocks(from, to);
+        if (diff) {
+          finalLabel = diff.label || label;
+          finalFrom = diff.from || from;
+          finalTo = diff.to || to;
+        }
+      }
+
       // Create new change
       const newChange: Change = {
         id: `${field}-${Date.now()}`,
         field,
-        label,
-        from,
-        to,
+        label: finalLabel,
+        from: finalFrom,
+        to: finalTo,
+        rawFrom,
+        rawTo,
         timestamp: Date.now(),
       };
 
@@ -58,10 +129,10 @@ export function useChangeTracking() {
 
       let updatedChanges: Change[];
       if (existingChangeIndex !== -1) {
-        // Update existing change
+        // Update existing change, preserving the ORIGINAL starting point (both clean and raw)
         updatedChanges = prev.changes.map((c, i) =>
           i === existingChangeIndex
-            ? { ...newChange, from: c.from } // Keep original 'from'
+            ? { ...newChange, from: c.from, rawFrom: c.rawFrom || c.from }
             : c
         );
       } else {

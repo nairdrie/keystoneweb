@@ -17,6 +17,7 @@ interface SiteData {
   businessType: string;
   category: string;
   designData: Record<string, any>;
+  publishedData?: Record<string, any>;
   isPublished: boolean;
   publishedDomain?: string;
   createdAt: string;
@@ -33,6 +34,7 @@ function mapSupabaseToSiteData(row: any): SiteData {
     businessType: row.business_type,
     category: row.category,
     designData: row.design_data || {},
+    publishedData: row.published_data || {},
     isPublished: row.is_published || false,
     publishedDomain: row.published_domain,
     createdAt: row.created_at,

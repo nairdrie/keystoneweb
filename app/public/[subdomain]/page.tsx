@@ -29,7 +29,7 @@ export default async function PublicSitePage({
           <div className="text-center">
             <h1 className="text-4xl font-bold text-slate-900 mb-4">Site Not Found</h1>
             <p className="text-slate-600">
-              The site at <code className="bg-slate-100 px-2 py-1 rounded">{subdomain}.kswd.ca</code> does not exist or is not published.
+              The site at <code className="bg-slate-100 px-2 py-1 rounded">{subdomain}.kswd.ca</code> is not public or does not exist.
             </p>
           </div>
         </div>

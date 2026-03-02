@@ -8,6 +8,7 @@ export interface Page {
   is_visible_in_nav: boolean;
   nav_order: number;
   design_data?: Record<string, any>;
+  published_data?: Record<string, any>;
 }
 
 export function usePages(siteId: string) {
@@ -23,7 +24,7 @@ export function usePages(siteId: string) {
     try {
       setLoading(true);
       setError(null);
-      
+
       const res = await fetch(`/api/pages?siteId=${siteId}`, {
         credentials: 'include',
       });

@@ -2,10 +2,11 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, Plus, RotateCcw, RotateCw } from 'lucide-react';
+import { ChevronDown, Plus, RotateCcw, RotateCw, Settings } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
+import AlertModal from './ui/AlertModal';
 
 interface Palette {
   name: string;
@@ -44,6 +45,7 @@ interface FloatingToolbarProps {
   canRedo?: boolean;
   isPublished?: boolean;
   publishedDomain?: string;
+  isSynced?: boolean;
 }
 
 export default function FloatingToolbar({
@@ -66,6 +68,7 @@ export default function FloatingToolbar({
   canRedo = false,
   isPublished = false,
   publishedDomain,
+  isSynced = false,
 }: FloatingToolbarProps) {
   const router = useRouter();
   const { signOut, user } = useAuth();
@@ -79,6 +82,7 @@ export default function FloatingToolbar({
   const dragStartHeight = useRef<number>(0);
   const isDragging = useRef<boolean>(false);
   const [showSiteSwitcher, setShowSiteSwitcher] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
 
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -125,7 +129,7 @@ export default function FloatingToolbar({
           // User already has an active subscription!
           if (isPublished && publishedDomain) {
             // Already published and paid - show confirmation
-            alert(`Your site is live at https://${publishedDomain}`);
+            setAlertConfig({ isOpen: true, title: 'Already Published', message: `Your site is live at https://${publishedDomain}`, type: 'info' });
             return;
           } else {
             // Paid, but domain not set yet
@@ -193,19 +197,8 @@ export default function FloatingToolbar({
           style={{ backgroundColor: 'var(--brand-primary)' }}
           title="Open editor settings"
         >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5A2.25 2.25 0 008.25 22.5h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25h-2.25m-4.5 0v3m0-3h3m-3 3h3"
-            />
-          </svg>
+          {/*lucide settings cog*/}
+          <Settings className="w-6 h-6" />
         </button>
       )}
 
@@ -228,7 +221,7 @@ export default function FloatingToolbar({
         >
           {/* White Header with Logo - Draggable */}
           <div
-            className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between rounded-t-3xl cursor-grab active:cursor-grabbing group"
+            className="z-[100] sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between rounded-t-3xl cursor-grab active:cursor-grabbing group"
             onMouseDown={handleDragStart}
           >
             <KeystoneLogo href="/" size="lg" showText={false} />
@@ -444,12 +437,12 @@ export default function FloatingToolbar({
                         <div className="font-medium text-slate-900">
                           {change.label}
                         </div>
-                        <div className="text-slate-600 mt-1">
-                          <span className="line-through text-red-600">
+                        <div className="text-slate-600 mt-1 flex items-start gap-2">
+                          <span className="line-through text-red-600 break-all flex-1">
                             {change.from || '(empty)'}
                           </span>
-                          <span className="mx-2 text-slate-400">→</span>
-                          <span className="text-green-600">
+                          <span className="text-slate-400 shrink-0">→</span>
+                          <span className="text-green-600 break-all flex-1">
                             {change.to || '(empty)'}
                           </span>
                         </div>
@@ -497,12 +490,12 @@ export default function FloatingToolbar({
               {/* Publish Button */}
               <button
                 onClick={handlePublish}
-                disabled={publishing || !user}
+                disabled={publishing || !user || isSynced}
                 className="flex-1 py-3 text-white font-bold rounded-lg transition-colors hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{ backgroundColor: 'var(--brand-primary)' }}
-                title={!user ? 'Sign in to publish' : 'Publish your site'}
+                style={{ backgroundColor: isSynced ? '#94a3b8' : 'var(--brand-primary)' }}
+                title={!user ? 'Sign in to publish' : isSynced ? 'All changes are live' : 'Publish your site'}
               >
-                {publishing ? 'Publishing...' : 'Publish'}
+                {publishing ? 'Publishing...' : isSynced ? 'Published' : 'Publish'}
               </button>
             </div>
 
@@ -574,6 +567,15 @@ export default function FloatingToolbar({
           </div>
         </div>
       )}
+
+      {/* Alert Modal */}
+      <AlertModal
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={() => setAlertConfig({ ...alertConfig, isOpen: false })}
+      />
     </>
   );
 }

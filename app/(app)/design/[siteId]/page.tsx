@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Header from '@/app/components/Header';
 import SignUpModal from '@/app/components/SignUpModal';
 import { useAuth } from '@/lib/auth/context';
+import AlertModal from '@/app/components/ui/AlertModal';
 
 interface SiteData {
   id: string;
@@ -29,6 +30,7 @@ export default function DesignPage() {
   const [showSignUp, setShowSignUp] = useState(false);
   const [siteTitle, setSiteTitle] = useState('My Website');
   const [siteDescription, setSiteDescription] = useState('');
+  const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
 
   useEffect(() => {
     fetchSite();
@@ -84,15 +86,15 @@ export default function DesignPage() {
         // Design saved successfully
         const updatedSite = await res.json();
         setSite(updatedSite.site);
-        
+
         // Show success message
-        alert('Design saved successfully!');
+        setAlertConfig({ isOpen: true, title: 'Success', message: 'Design saved successfully!', type: 'success' });
       } else {
-        alert('Failed to save design. Please try again.');
+        setAlertConfig({ isOpen: true, title: 'Error', message: 'Failed to save design. Please try again.', type: 'error' });
       }
     } catch (error) {
       console.error('Failed to save design:', error);
-      alert('An error occurred while saving. Please try again.');
+      setAlertConfig({ isOpen: true, title: 'Error', message: 'An error occurred while saving. Please try again.', type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -233,11 +235,19 @@ export default function DesignPage() {
       </div>
 
       {/* Sign Up Modal */}
-      <SignUpModal 
-        isOpen={showSignUp} 
-        onClose={() => setShowSignUp(false)} 
+      <SignUpModal
+        isOpen={showSignUp}
+        onClose={() => setShowSignUp(false)}
         siteId={siteId}
         onSuccess={handleSignUpSuccess}
+      />
+
+      <AlertModal
+        isOpen={alertConfig.isOpen}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={() => setAlertConfig({ ...alertConfig, isOpen: false })}
       />
     </div>
   );
