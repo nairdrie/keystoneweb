@@ -1,177 +1,88 @@
--- ============================================================
--- KEYSTONE WEB - DATABASE SCHEMA
--- Multi-tenant CMS database schema for Supabase (PostgreSQL)
--- ============================================================
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
 
--- Users table (leverages Supabase auth, but we extend with profile data)
-CREATE TABLE IF NOT EXISTS users (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  email VARCHAR(255) UNIQUE NOT NULL,
-  business_name VARCHAR(255),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  deleted_at TIMESTAMP WITH TIME ZONE
+CREATE TABLE public.dns_records (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  site_id uuid NOT NULL,
+  record_type character varying NOT NULL CHECK (record_type::text = ANY (ARRAY['A'::character varying, 'AAAA'::character varying, 'CNAME'::character varying, 'MX'::character varying, 'TXT'::character varying]::text[])),
+  name character varying NOT NULL,
+  value text NOT NULL,
+  ttl integer DEFAULT 3600,
+  verified_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT dns_records_pkey PRIMARY KEY (id),
+  CONSTRAINT dns_records_site_id_fkey FOREIGN KEY (site_id) REFERENCES public.sites(id)
 );
-
--- Sites table (each site is a website instance in the multi-tenant system)
-CREATE TABLE IF NOT EXISTS sites (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  
-  -- Template & Classification
-  selected_template_id VARCHAR(255) NOT NULL,
-  business_type VARCHAR(50) NOT NULL CHECK (business_type IN ('services', 'products', 'both')),
-  category VARCHAR(100) NOT NULL,
-  
-  -- URLs & Domain
-  site_slug VARCHAR(255) UNIQUE, -- auto-generated, e.g., "my-plumbing-123"
-  custom_domain VARCHAR(255) UNIQUE, -- optional custom domain
-  
-  -- Design data (JSONB for flexibility)
-  design_data JSONB DEFAULT '{}',
-  
-  -- Metadata
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  published_at TIMESTAMP WITH TIME ZONE,
-  deleted_at TIMESTAMP WITH TIME ZONE,
-  
-  -- Indexes for fast lookups
-  CONSTRAINT valid_user_or_unowned CHECK (user_id IS NULL OR user_id IS NOT NULL)
+CREATE TABLE public.pages (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  site_id uuid NOT NULL,
+  slug text NOT NULL,
+  title text NOT NULL,
+  display_name text NOT NULL DEFAULT 'Untitled'::text,
+  is_visible_in_nav boolean DEFAULT true,
+  nav_order integer DEFAULT 0,
+  design_data jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  published_data jsonb DEFAULT '{}'::jsonb,
+  CONSTRAINT pages_pkey PRIMARY KEY (id),
+  CONSTRAINT pages_site_id_fkey FOREIGN KEY (site_id) REFERENCES public.sites(id)
 );
-
-CREATE INDEX idx_sites_user_id ON sites(user_id);
-CREATE INDEX idx_sites_slug ON sites(site_slug);
-CREATE INDEX idx_sites_domain ON sites(custom_domain);
-CREATE INDEX idx_sites_created ON sites(created_at);
-
--- Templates table (available templates for selection)
-CREATE TABLE IF NOT EXISTS templates (
-  id VARCHAR(255) PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  category VARCHAR(100) NOT NULL,
-  description TEXT,
-  image_url VARCHAR(500),
-  tags TEXT[] DEFAULT '{}',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE public.sites (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid CHECK (user_id IS NULL OR user_id IS NOT NULL),
+  selected_template_id character varying NOT NULL,
+  business_type character varying NOT NULL CHECK (business_type::text = ANY (ARRAY['services'::character varying, 'products'::character varying, 'both'::character varying]::text[])),
+  category character varying NOT NULL,
+  site_slug character varying UNIQUE,
+  custom_domain character varying UNIQUE,
+  design_data jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  published_at timestamp with time zone,
+  deleted_at timestamp with time zone,
+  published_domain text,
+  is_published boolean DEFAULT false,
+  published_data jsonb DEFAULT '{}'::jsonb,
+  CONSTRAINT sites_pkey PRIMARY KEY (id),
+  CONSTRAINT sites_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
-
-CREATE INDEX idx_templates_category ON templates(category);
-
--- Payment Methods table (securely store card info - encrypted at rest)
-CREATE TABLE IF NOT EXISTS payment_methods (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  
-  -- Encrypted card data (stored encrypted via Supabase encryption)
-  encrypted_number TEXT NOT NULL, -- last 4 digits could be plaintext for reference
-  encrypted_cvc TEXT NOT NULL,
-  expiry_month INTEGER NOT NULL CHECK (expiry_month >= 1 AND expiry_month <= 12),
-  expiry_year INTEGER NOT NULL,
-  cardholder_name VARCHAR(255),
-  
-  -- Type
-  card_type VARCHAR(20) NOT NULL, -- visa, mastercard, amex, etc.
-  last_four VARCHAR(4),
-  
-  -- Metadata
-  is_default BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  deleted_at TIMESTAMP WITH TIME ZONE
+CREATE TABLE public.template_metadata (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  template_id character varying NOT NULL UNIQUE,
+  name character varying NOT NULL,
+  description text,
+  category character varying,
+  business_type character varying,
+  palettes jsonb DEFAULT '{"default": {"bg": "#ffffff", "text": "#1f2937", "accent": "#06b6d4", "primary": "#dc2626", "secondary": "#1e40af"}}'::jsonb,
+  customizables jsonb DEFAULT '{"cta": ["title", "button_text"], "hero": ["title", "subtitle", "cta"], "features": ["title", "description"]}'::jsonb,
+  thumbnail_url character varying,
+  multi_page boolean DEFAULT false,
+  has_blog boolean DEFAULT false,
+  has_gallery boolean DEFAULT false,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT template_metadata_pkey PRIMARY KEY (id)
 );
-
-CREATE INDEX idx_payment_methods_user_id ON payment_methods(user_id);
-
--- Site Access Logs (audit trail)
-CREATE TABLE IF NOT EXISTS site_access_logs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-  
-  action VARCHAR(50) NOT NULL, -- created, updated, published, deleted, viewed
-  ip_address INET,
-  user_agent TEXT,
-  
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE public.user_subscriptions (
+  user_id uuid NOT NULL,
+  stripe_customer_id text UNIQUE,
+  subscription_status text DEFAULT 'inactive'::text,
+  subscription_plan text,
+  stripe_subscription_id text UNIQUE,
+  subscription_started_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT user_subscriptions_pkey PRIMARY KEY (user_id),
+  CONSTRAINT user_subscriptions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
-
-CREATE INDEX idx_site_access_logs_site_id ON site_access_logs(site_id);
-CREATE INDEX idx_site_access_logs_user_id ON site_access_logs(user_id);
-
--- DNS Records (for custom domains)
-CREATE TABLE IF NOT EXISTS dns_records (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
-  
-  record_type VARCHAR(10) NOT NULL CHECK (record_type IN ('A', 'AAAA', 'CNAME', 'MX', 'TXT')),
-  name VARCHAR(255) NOT NULL,
-  value TEXT NOT NULL,
-  ttl INTEGER DEFAULT 3600,
-  
-  verified_at TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  
-  UNIQUE(site_id, record_type, name)
+CREATE TABLE public.users (
+  id uuid NOT NULL,
+  email character varying NOT NULL UNIQUE,
+  business_name character varying,
+  created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  deleted_at timestamp with time zone,
+  CONSTRAINT users_pkey PRIMARY KEY (id),
+  CONSTRAINT users_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
-
-CREATE INDEX idx_dns_records_site_id ON dns_records(site_id);
-CREATE INDEX idx_dns_records_verified ON dns_records(verified_at);
-
--- Subscriptions & Billing (future)
-CREATE TABLE IF NOT EXISTS subscriptions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  
-  plan VARCHAR(50) NOT NULL DEFAULT 'free', -- free, starter, pro, enterprise
-  status VARCHAR(50) NOT NULL DEFAULT 'active', -- active, cancelled, suspended
-  
-  sites_limit INTEGER, -- NULL = unlimited
-  storage_limit_gb INTEGER,
-  custom_domain_allowed BOOLEAN DEFAULT FALSE,
-  
-  renewal_date DATE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  cancelled_at TIMESTAMP WITH TIME ZONE
-);
-
-CREATE INDEX idx_subscriptions_user_id ON subscriptions(user_id);
-
--- ============================================================
--- SECURITY POLICIES (RLS - Row Level Security)
--- ============================================================
-
-ALTER TABLE sites ENABLE ROW LEVEL SECURITY;
-
--- Users can only see their own sites
-CREATE POLICY "Users can view own sites" ON sites
-  FOR SELECT USING (auth.uid() = user_id OR user_id IS NULL);
-
-CREATE POLICY "Users can create sites" ON sites
-  FOR INSERT WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
-
-CREATE POLICY "Users can update own sites" ON sites
-  FOR UPDATE USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own sites" ON sites
-  FOR DELETE USING (auth.uid() = user_id);
-
-ALTER TABLE payment_methods ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can manage own payment methods" ON payment_methods
-  FOR ALL USING (auth.uid() = user_id);
-
--- ============================================================
--- NOTES FOR IMPLEMENTATION
--- ============================================================
-/*
-1. design_data is JSONB for flexibility - schema can evolve without migrations
-2. All timestamps use TIMESTAMP WITH TIME ZONE for proper timezone handling
-3. deleted_at allows soft deletes (don't physically remove data)
-4. Card encryption: Use pgcrypto extension or application-level encryption via Supabase Vault
-5. RLS policies ensure users can only access their own data
-6. Indexes on frequently-queried columns for performance
-7. Future: Add `site_analytics` table for pageviews, traffic, etc.
-8. Future: Add `site_collaborators` table for team access (multiple users per site)
-*/
