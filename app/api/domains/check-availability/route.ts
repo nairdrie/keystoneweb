@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     const { data: existing, error } = await supabase
       .from('sites')
       .select('id')
-      .eq('published_domain', fullDomain)
+      .eq('published_domain', subdomain) // <-- THIS SHOULD BE subdomain, not fullDomain!
       .single();
 
     // If no error and data exists, subdomain is taken

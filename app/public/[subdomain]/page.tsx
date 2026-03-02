@@ -36,6 +36,19 @@ export default async function PublicSitePage({
       );
     }
 
+    // Fetch the home page's published data which contains the actual blocks
+    const { data: homePage } = await supabase
+      .from('pages')
+      .select('published_data')
+      .eq('site_id', site.id)
+      .eq('slug', 'home')
+      .single();
+
+    // The page's published_data holds the blocks. If not yet published at the page level, fall back to site.published_data
+    const pagePublishData = homePage?.published_data || {};
+    const sitePublishData = site.published_data || {};
+    const mergedPublishData = { ...sitePublishData, ...pagePublishData };
+
     // Preload template component and metadata for SSR
     const TemplateComp = await getTemplateComponent(site.selected_template_id);
     const metadata = await getTemplateMetadata(site.selected_template_id);
@@ -43,7 +56,7 @@ export default async function PublicSitePage({
     let paletteData = {};
     if (metadata) {
       const palettesObj = metadata.palettes || {};
-      const requestedPalette = site.published_data?.__selectedPalette || 'default';
+      const requestedPalette = mergedPublishData.__selectedPalette || 'default';
       paletteData = palettesObj[requestedPalette] || palettesObj['default'] || {};
     }
 
@@ -57,7 +70,7 @@ export default async function PublicSitePage({
           selectedTemplateId: site.selected_template_id,
           businessType: '',
           category: '',
-          designData: site.published_data || {},
+          designData: mergedPublishData,
           isPublished: true,
           createdAt: '',
           updatedAt: ''

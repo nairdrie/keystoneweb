@@ -53,6 +53,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
           siteId: publicSiteData?.id,
           uploadImage: async () => { return ''; },
           setPalette: () => { },
+          blocks: publicSiteData?.designData?.blocks || [],
         }}
       >
         <div className="w-full min-h-screen">
@@ -81,7 +82,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   // Change tracking
   // Multi-page support
   const pagesHook = usePages(site?.id || "");
-  const { pages, currentPageId, setCurrentPageId, fetchPages, currentPage, updatePage } = pagesHook;
+  const { pages, currentPageId, setCurrentPageId, fetchPages, currentPage, updatePage, loading: pagesLoading } = pagesHook;
   const changesHook = useChangeTracking();
   const { addChange, clearChanges } = changesHook;
 
@@ -131,13 +132,21 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
       content = site.designData;
     }
 
-    const selectedPalette = content.__selectedPalette || "default";
-
     setEditableContent(content);
-    setSelectedPaletteKey(selectedPalette);
+    if (content.__selectedPalette) {
+      setSelectedPaletteKey(content.__selectedPalette);
+    }
     initialContentRef.current = { ...content };
     clearChanges();
   }, [currentPage, clearChanges, site?.designData]);
+  // Ensure selectedPaletteKey is valid once palettes are loaded
+  useEffect(() => {
+    const keys = Object.keys(availablePalettes);
+    if (keys.length > 0 && selectedPaletteKey !== 'custom' && !keys.includes(selectedPaletteKey)) {
+      setSelectedPaletteKey(keys[0]);
+    }
+  }, [availablePalettes, selectedPaletteKey]);
+
   const redirectToLatestSite = async () => {
     try {
       setLoading(true);
@@ -145,8 +154,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
 
       if (!res.ok) {
         if (res.status === 404) {
-          setError('You have no sites yet. Create one to get started!');
-          setLoading(false);
+          router.push('/onboarding');
           return;
         }
         setError('Failed to load your sites');
@@ -222,6 +230,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
           : (paletteKeys[0] || 'default');
 
         setSelectedPaletteKey(activeKey);
+        initialPaletteRef.current = activeKey;
         setPaletteData(palettesObj[activeKey] || {});
       }
 
@@ -449,7 +458,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     setPaletteData(prev => ({ ...prev, [colorType]: value }));
   };
 
-  if (loading) {
+  if (loading || pagesLoading) {
     return <EditorLoadingScreen />;
   }
 
@@ -461,7 +470,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     );
   }
 
-  if (!site || !templateComponent) {
+  if (!site || !templateComponent || (siteId && !currentPage)) {
     return <EditorLoadingScreen />;
   }
 
