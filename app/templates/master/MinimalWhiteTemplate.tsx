@@ -1,6 +1,7 @@
 'use client';
 
 import EditableText from '@/app/components/EditableText';
+import EditableButton from '@/app/components/EditableButton';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import NavMenu from '@/app/components/NavMenu';
@@ -53,19 +54,16 @@ export function MinimalWhiteTemplate({ palette, isEditMode }: MasterTemplateProp
                                 className="flex items-center gap-7"
                                 itemClassName="text-sm text-slate-500 hover:text-slate-900 transition-colors font-medium"
                             />
-                            <div
+                            <EditableButton
+                                contentKey="navButtonText"
+                                label={siteContent.navButtonText}
+                                linkData={siteContent.navButtonTextLink}
+                                defaultLabel="Contact"
+                                isEditMode={isEditMode}
+                                onSave={updateSiteContent}
                                 className="px-5 py-2 rounded-lg text-white text-sm font-semibold transition-all hover:opacity-90 cursor-pointer inline-flex items-center justify-center"
                                 style={{ backgroundColor: pPrimary }}
-                            >
-                                <EditableText
-                                    contentKey="navButtonText"
-                                    content={siteContent.navButtonText}
-                                    defaultValue="Contact"
-                                    isEditMode={isEditMode}
-                                    onSave={updateSiteContent}
-                                    className="inline"
-                                />
-                            </div>
+                            />
                         </div>
 
                         {/* Mobile toggle */}

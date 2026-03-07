@@ -1,6 +1,7 @@
 'use client';
 
 import EditableText from '@/app/components/EditableText';
+import EditableButton from '@/app/components/EditableButton';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import NavMenu from '@/app/components/NavMenu';
@@ -55,19 +56,16 @@ export function BoldTemplate({ palette, isEditMode }: MasterTemplateProps) {
                                 className="flex items-center gap-6"
                                 itemClassName="text-sm font-semibold text-white/80 hover:text-white transition-colors tracking-wide uppercase"
                             />
-                            <div
+                            <EditableButton
+                                contentKey="navButtonText"
+                                label={siteContent.navButtonText}
+                                linkData={siteContent.navButtonTextLink}
+                                defaultLabel="Get Quote"
+                                isEditMode={isEditMode}
+                                onSave={updateSiteContent}
                                 className="px-5 py-2 rounded-md font-bold text-sm transition-all hover:scale-105 text-white cursor-pointer inline-flex items-center justify-center"
                                 style={{ backgroundColor: pSecondary }}
-                            >
-                                <EditableText
-                                    contentKey="navButtonText"
-                                    content={siteContent.navButtonText}
-                                    defaultValue="Get Quote"
-                                    isEditMode={isEditMode}
-                                    onSave={updateSiteContent}
-                                    className="inline"
-                                />
-                            </div>
+                            />
                         </div>
 
                         {/* Mobile toggle */}

@@ -1,6 +1,7 @@
 'use client';
 
 import EditableText from '@/app/components/EditableText';
+import EditableButton from '@/app/components/EditableButton';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import NavMenu from '@/app/components/NavMenu';
@@ -61,19 +62,16 @@ export function ModernBlueTemplate({ palette, isEditMode }: MasterTemplateProps)
                                 className="flex items-center gap-7"
                                 itemClassName="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
                             />
-                            <div
+                            <EditableButton
+                                contentKey="navButtonText"
+                                label={siteContent.navButtonText}
+                                linkData={siteContent.navButtonTextLink}
+                                defaultLabel="Book Now"
+                                isEditMode={isEditMode}
+                                onSave={updateSiteContent}
                                 className="px-6 py-2.5 rounded-full text-white font-bold text-sm shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5 cursor-pointer inline-flex items-center justify-center"
                                 style={{ background: `linear-gradient(135deg, ${pPrimary}, ${pSecondary})` }}
-                            >
-                                <EditableText
-                                    contentKey="navButtonText"
-                                    content={siteContent.navButtonText}
-                                    defaultValue="Book Now"
-                                    isEditMode={isEditMode}
-                                    onSave={updateSiteContent}
-                                    className="inline"
-                                />
-                            </div>
+                            />
                         </div>
 
                         {/* Mobile toggle */}

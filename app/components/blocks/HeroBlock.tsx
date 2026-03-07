@@ -3,12 +3,13 @@
 import { BlockData, useEditorContext } from '@/lib/editor-context';
 import EditableText from '@/app/components/EditableText';
 import EditableImage from '@/app/components/EditableImage';
+import EditableButton from '@/app/components/EditableButton';
 
 export default function HeroBlock({ block, palette }: { block: BlockData, palette: Record<string, string> }) {
     const context = useEditorContext();
     const isEditMode = context?.isEditMode || false;
 
-    const updateData = (key: string, value: string) => {
+    const updateData = (key: string, value: any) => {
         context?.updateBlockData?.(block.id, key, value);
     };
 
@@ -51,19 +52,16 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                         onSave={(key, val) => updateData(key, val)}
                         className="text-xl md:text-2xl text-white/85 mb-10 max-w-2xl mx-auto"
                     />
-                    <button
-                        className="px-10 py-4 text-lg font-bold rounded-full shadow-xl hover:scale-105 transition-transform"
+                    <EditableButton
+                        contentKey="buttonText"
+                        label={buttonText}
+                        linkData={block.data.buttonTextLink}
+                        defaultLabel="Get a Free Quote"
+                        isEditMode={isEditMode}
+                        onSave={(key, val) => updateData(key, val)}
+                        className="px-10 py-4 text-lg font-bold rounded-full shadow-xl hover:scale-105 transition-transform inline-block"
                         style={{ backgroundColor: '#ffffff', color: pPrimary }}
-                    >
-                        <EditableText
-                            contentKey="buttonText"
-                            content={buttonText}
-                            defaultValue="Get a Free Quote"
-                            isEditMode={isEditMode}
-                            onSave={(key, val) => updateData(key, val)}
-                            className="inline"
-                        />
-                    </button>
+                    />
                 </div>
             </section>
         );
@@ -111,19 +109,16 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                         onSave={(key, val) => updateData(key, val)}
                         className="text-xl md:text-2xl text-white/80 mb-10 max-w-2xl mx-auto"
                     />
-                    <button
-                        className="px-10 py-4 text-lg font-bold rounded-full shadow-xl hover:scale-105 transition-transform text-white"
+                    <EditableButton
+                        contentKey="buttonText"
+                        label={buttonText}
+                        linkData={block.data.buttonTextLink}
+                        defaultLabel="Get a Free Quote"
+                        isEditMode={isEditMode}
+                        onSave={(key, val) => updateData(key, val)}
+                        className="px-10 py-4 text-lg font-bold rounded-full shadow-xl hover:scale-105 transition-transform text-white inline-block"
                         style={{ backgroundColor: pSecondary }}
-                    >
-                        <EditableText
-                            contentKey="buttonText"
-                            content={buttonText}
-                            defaultValue="Get a Free Quote"
-                            isEditMode={isEditMode}
-                            onSave={(key, val) => updateData(key, val)}
-                            className="inline"
-                        />
-                    </button>
+                    />
                 </div>
             </section>
         );
@@ -152,19 +147,16 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                         onSave={(key, val) => updateData(key, val)}
                         className="text-xl text-gray-600 mb-8"
                     />
-                    <button
-                        className="px-8 py-4 text-white font-bold rounded-lg shadow-lg hover:opacity-90 transition-opacity"
+                    <EditableButton
+                        contentKey="buttonText"
+                        label={buttonText}
+                        linkData={block.data.buttonTextLink}
+                        defaultLabel="Get a Free Quote"
+                        isEditMode={isEditMode}
+                        onSave={(key, val) => updateData(key, val)}
+                        className="px-8 py-4 text-white font-bold rounded-lg shadow-lg hover:opacity-90 transition-opacity inline-block"
                         style={{ backgroundColor: pSecondary }}
-                    >
-                        <EditableText
-                            contentKey="buttonText"
-                            content={buttonText}
-                            defaultValue="Get a Free Quote"
-                            isEditMode={isEditMode}
-                            onSave={(key, val) => updateData(key, val)}
-                            className="inline"
-                        />
-                    </button>
+                    />
                 </div>
                 <EditableImage
                     contentKey="image"

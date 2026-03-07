@@ -1,5 +1,6 @@
 import React from 'react';
 import EditableText from '../EditableText';
+import EditableButton from '../EditableButton';
 
 interface CtaBlockProps {
     id: string;
@@ -47,19 +48,16 @@ export default function CtaBlock({ id, data, isEditMode, palette, updateContent 
                     onSave={(key, value) => updateContent(key, value)}
                     className="text-xl md:text-2xl mb-10 opacity-90 max-w-2xl mx-auto"
                 />
-                <button
-                    className="px-10 py-5 font-bold rounded-full shadow-lg hover:scale-105 transition-transform text-lg"
+                <EditableButton
+                    contentKey="buttonText"
+                    label={data.buttonText}
+                    linkData={data.buttonTextLink}
+                    defaultLabel="Call Us Now"
+                    isEditMode={isEditMode}
+                    onSave={(key, value) => updateContent(key, value)}
+                    className="px-10 py-5 font-bold rounded-full shadow-lg hover:scale-105 transition-transform text-lg inline-block"
                     style={{ backgroundColor: buttonBgColor, color: buttonTextColor }}
-                >
-                    <EditableText
-                        contentKey="buttonText"
-                        content={data.buttonText}
-                        defaultValue="Call Us Now"
-                        isEditMode={isEditMode}
-                        onSave={(key, value) => updateContent(key, value)}
-                        className="inline"
-                    />
-                </button>
+                />
             </div>
         </section>
     );
