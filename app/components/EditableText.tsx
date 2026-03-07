@@ -3,32 +3,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Edit2, Check, X } from 'lucide-react';
 
-/**
- * EditableText Component
- * 
- * Renders text that can be edited inline with pencil icon.
- * 
- * Props:
- * - contentKey: unique identifier (e.g., 'heroTitle')
- * - content: actual value from database/user edit (if set, displays this)
- * - defaultValue: industry-specific fallback (displays if no content set)
- * - isEditMode: enables pencil icons and click-to-edit
- * - onSave: callback when user saves (called with key, value)
- * 
- * Display priority:
- * 1. User's saved content (from database) if it exists
- * 2. Industry default (defaultValue) if no content set
- * 
- * Example:
- * <EditableText
- *   contentKey="heroTitle"
- *   content={userSavedTitle}  // undefined on first load
- *   defaultValue="Expert Plumbing Services"  // shows this initially
- *   isEditMode={editMode}
- *   onSave={updateContent}
- * />
- */
-
 interface EditableTextProps {
   contentKey: string;
   content?: string;
@@ -50,10 +24,19 @@ export default function EditableText({
   as: Component = 'span',
   style = {},
 }: EditableTextProps) {
+  const displayText = content !== undefined && content !== '' ? content : defaultValue;
   const [isEditing, setIsEditing] = useState(false);
-  const [tempValue, setTempValue] = useState(content || defaultValue);
+  const [tempValue, setTempValue] = useState(displayText);
   const [isHovered, setIsHovered] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Sync tempValue when content/defaultValue changes externally (undo/redo, page switch)
+  useEffect(() => {
+    if (!isEditing) {
+      const newDisplay = content !== undefined && content !== '' ? content : defaultValue;
+      setTempValue(newDisplay);
+    }
+  }, [content, defaultValue, isEditing]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -63,18 +46,17 @@ export default function EditableText({
   }, [isEditing]);
 
   const handleSave = () => {
-    if (tempValue.trim() && tempValue !== content) {
+    // Always save if value differs from what was displayed — allow empty strings
+    if (tempValue !== displayText) {
       onSave(contentKey, tempValue);
     }
     setIsEditing(false);
   };
 
   const handleCancel = () => {
-    setTempValue(content || defaultValue);
+    setTempValue(displayText);
     setIsEditing(false);
   };
-
-  const displayText = content || defaultValue;
 
   // Preview mode: just show the text
   if (!isEditMode) {

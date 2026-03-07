@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 
 interface EditableImageProps {
@@ -26,6 +26,11 @@ export default function EditableImage({
   const [previewUrl, setPreviewUrl] = useState<string | undefined>(imageUrl);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync previewUrl when imageUrl prop changes externally (undo/redo, page switch)
+  useEffect(() => {
+    setPreviewUrl(imageUrl);
+  }, [imageUrl]);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

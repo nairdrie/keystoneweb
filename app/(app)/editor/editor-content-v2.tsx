@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense, createElement, useRef, useMemo } from 'react';
+import { useState, useEffect, Suspense, createElement, useRef, useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { } from 'lucide-react';
@@ -76,6 +76,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   const [paletteData, setPaletteData] = useState<Record<string, string>>({});
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
   const [editMode, setEditMode] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const handleSidebarOpenChange = useCallback((open: boolean) => setSidebarOpen(open), []);
   const [editableContent, setEditableContent] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -88,6 +90,18 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   const { pages, currentPageId, setCurrentPageId, fetchPages, currentPage, updatePage, loading: pagesLoading } = pagesHook;
   const changesHook = useChangeTracking();
   const { addChange, clearChanges } = changesHook;
+
+  // Warn user before leaving with unsaved changes
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (changesHook.changes.length > 0) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [changesHook.changes.length]);
 
   const initialTitleRef = useRef<string>('My Website');
   const initialPaletteRef = useRef<string>('default');
@@ -529,8 +543,11 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   const currentPalette = paletteArray.find(p => p.name === selectedPaletteKey) || customPalette;
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden relative">
-      {/* Floating Toolbar */}
+    <div
+      className="h-screen flex flex-col overflow-hidden relative transition-[margin] duration-300 ease-out"
+      style={{ marginLeft: sidebarOpen ? '20rem' : '0' }}
+    >
+      {/* Floating Toolbar / Sidebar */}
       <FloatingToolbar
         siteTitle={siteTitle}
         onSiteTitle={handleSiteTitleChange}
@@ -550,6 +567,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
         isPublished={site?.isPublished || false}
         publishedDomain={site?.publishedDomain}
         isSynced={isSynced}
+        onSidebarOpenChange={handleSidebarOpenChange}
       />
 
       {/* Editor Banner - Redesigned */}

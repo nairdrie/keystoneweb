@@ -41,7 +41,14 @@ export function ModernBlueTemplate({ palette, isEditMode }: MasterTemplateProps)
                         className="px-6 py-2.5 rounded-full text-white font-bold text-sm shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5"
                         style={{ backgroundColor: pPrimary }}
                     >
-                        Book Now
+                        <EditableText
+                            contentKey="navButtonText"
+                            content={content.navButtonText}
+                            defaultValue="Book Now"
+                            isEditMode={isEditMode}
+                            onSave={updateContent}
+                            className="inline"
+                        />
                     </button>
                 </div>
             </nav>

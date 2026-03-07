@@ -51,7 +51,14 @@ export default function CtaBlock({ id, data, isEditMode, palette, updateContent 
                     className="px-10 py-5 font-bold rounded-full shadow-lg hover:scale-105 transition-transform text-lg"
                     style={{ backgroundColor: buttonBgColor, color: buttonTextColor }}
                 >
-                    {data.buttonText || "Call Us Now"}
+                    <EditableText
+                        contentKey="buttonText"
+                        content={data.buttonText}
+                        defaultValue="Call Us Now"
+                        isEditMode={isEditMode}
+                        onSave={(key, value) => updateContent(key, value)}
+                        className="inline"
+                    />
                 </button>
             </div>
         </section>

@@ -63,7 +63,14 @@ export function MinimalWhiteTemplate({ palette, isEditMode }: MasterTemplateProp
                         className="text-white px-12 py-4 tracking-widest text-sm uppercase font-medium hover:opacity-90 transition-opacity"
                         style={{ backgroundColor: pPrimary }}
                     >
-                        Contact
+                        <EditableText
+                            contentKey="ctaButtonText"
+                            content={content.ctaButtonText}
+                            defaultValue="Contact"
+                            isEditMode={isEditMode}
+                            onSave={updateContent}
+                            className="inline"
+                        />
                     </button>
                 </div>
             </footer>

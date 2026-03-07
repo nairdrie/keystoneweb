@@ -46,7 +46,14 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                         className="px-8 py-4 text-white font-bold rounded shadow-lg hover:opacity-90 transition-opacity"
                         style={{ backgroundColor: pSecondary }}
                     >
-                        {buttonText}
+                        <EditableText
+                            contentKey="buttonText"
+                            content={buttonText}
+                            defaultValue="Get a Free Quote"
+                            isEditMode={isEditMode}
+                            onSave={(key, val) => updateData(key, val)}
+                            className="inline"
+                        />
                     </button>
                 </div>
                 <EditableImage

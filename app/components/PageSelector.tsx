@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, Plus, Trash2, AlertTriangle } from 'lucide-react';
 import AlertModal from './ui/AlertModal';
 
 interface Page {
@@ -33,6 +33,10 @@ export default function PageSelector({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
+
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<Page | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   // Fetch pages
   useEffect(() => {
@@ -95,8 +99,9 @@ export default function PageSelector({
     }
   };
 
-  const handleDeletePage = async (pageId: string) => {
-    if (!confirm('Delete this page? This cannot be undone.')) return;
+  const handleDeletePage = async () => {
+    if (!deleteTarget) return;
+    const pageId = deleteTarget.id;
 
     try {
       const res = await fetch(`/api/pages?id=${pageId}&siteId=${siteId}`, {
@@ -112,6 +117,8 @@ export default function PageSelector({
         const remaining = pages.filter(p => p.id !== pageId);
         onPageChange(remaining[0]);
       }
+      setDeleteTarget(null);
+      setDeleteConfirmText('');
     } catch (err) {
       console.error('Error deleting page:', err);
       setAlertConfig({ isOpen: true, title: 'Error', message: 'Failed to delete page', type: 'error' });
@@ -160,7 +167,8 @@ export default function PageSelector({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDeletePage(page.id);
+                    setDeleteTarget(page);
+                    setDeleteConfirmText('');
                   }}
                   className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 rounded"
                 >
@@ -216,6 +224,56 @@ export default function PageSelector({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000] p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Delete Page</h3>
+                <p className="text-sm text-slate-500">This action cannot be undone</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-700 mb-4">
+              To confirm, type <strong className="text-red-600">{deleteTarget.title}</strong> below:
+            </p>
+
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && deleteConfirmText === deleteTarget.title) handleDeletePage();
+                if (e.key === 'Escape') { setDeleteTarget(null); setDeleteConfirmText(''); }
+              }}
+              placeholder={deleteTarget.title}
+              className="w-full px-3 py-2 text-sm text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 mb-4"
+              autoFocus
+            />
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setDeleteTarget(null); setDeleteConfirmText(''); }}
+                className="flex-1 py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold rounded-lg transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeletePage}
+                disabled={deleteConfirmText !== deleteTarget.title}
+                className="flex-1 py-2 px-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-sm"
+              >
+                Delete Forever
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

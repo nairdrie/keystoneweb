@@ -39,8 +39,16 @@ export function usePages(siteId: string) {
       // If no pages exist, create default "Home" page
       if (fetchedPages.length === 0) {
         await createPage('home', 'Home', 'Home');
-        // Re-fetch after creating
-        await fetchPages();
+        // Re-fetch inline (not recursive!) after creating the default page
+        const res2 = await fetch(`/api/pages?siteId=${siteId}`, { credentials: 'include' });
+        if (res2.ok) {
+          const data2 = await res2.json();
+          const createdPages = data2.pages || [];
+          setPages(createdPages);
+          if (createdPages.length > 0) {
+            setCurrentPageId(createdPages[0].id);
+          }
+        }
       } else {
         setPages(fetchedPages);
         // Set current page to first visible or first page
