@@ -61,8 +61,8 @@ export function ModernBlueTemplate({ palette, isEditMode }: MasterTemplateProps)
                                 className="flex items-center gap-7"
                                 itemClassName="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
                             />
-                            <button
-                                className="px-6 py-2.5 rounded-full text-white font-bold text-sm shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5"
+                            <div
+                                className="px-6 py-2.5 rounded-full text-white font-bold text-sm shadow-md hover:shadow-lg transition-all hover:-translate-y-0.5 cursor-pointer inline-flex items-center justify-center"
                                 style={{ background: `linear-gradient(135deg, ${pPrimary}, ${pSecondary})` }}
                             >
                                 <EditableText
@@ -73,7 +73,7 @@ export function ModernBlueTemplate({ palette, isEditMode }: MasterTemplateProps)
                                     onSave={updateSiteContent}
                                     className="inline"
                                 />
-                            </button>
+                            </div>
                         </div>
 
                         {/* Mobile toggle */}

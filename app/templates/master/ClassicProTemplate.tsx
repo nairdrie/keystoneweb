@@ -55,8 +55,8 @@ export function BoldTemplate({ palette, isEditMode }: MasterTemplateProps) {
                                 className="flex items-center gap-6"
                                 itemClassName="text-sm font-semibold text-white/80 hover:text-white transition-colors tracking-wide uppercase"
                             />
-                            <button
-                                className="px-5 py-2 rounded-md font-bold text-sm transition-all hover:scale-105 text-white"
+                            <div
+                                className="px-5 py-2 rounded-md font-bold text-sm transition-all hover:scale-105 text-white cursor-pointer inline-flex items-center justify-center"
                                 style={{ backgroundColor: pSecondary }}
                             >
                                 <EditableText
@@ -67,7 +67,7 @@ export function BoldTemplate({ palette, isEditMode }: MasterTemplateProps) {
                                     onSave={updateSiteContent}
                                     className="inline"
                                 />
-                            </button>
+                            </div>
                         </div>
 
                         {/* Mobile toggle */}

@@ -53,8 +53,8 @@ export function MinimalWhiteTemplate({ palette, isEditMode }: MasterTemplateProp
                                 className="flex items-center gap-7"
                                 itemClassName="text-sm text-slate-500 hover:text-slate-900 transition-colors font-medium"
                             />
-                            <button
-                                className="px-5 py-2 rounded-lg text-white text-sm font-semibold transition-all hover:opacity-90"
+                            <div
+                                className="px-5 py-2 rounded-lg text-white text-sm font-semibold transition-all hover:opacity-90 cursor-pointer inline-flex items-center justify-center"
                                 style={{ backgroundColor: pPrimary }}
                             >
                                 <EditableText
@@ -65,7 +65,7 @@ export function MinimalWhiteTemplate({ palette, isEditMode }: MasterTemplateProp
                                     onSave={updateSiteContent}
                                     className="inline"
                                 />
-                            </button>
+                            </div>
                         </div>
 
                         {/* Mobile toggle */}
