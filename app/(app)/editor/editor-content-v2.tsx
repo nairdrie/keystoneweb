@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { } from 'lucide-react';
 import FloatingToolbar from '@/app/components/FloatingToolbar';
-import { EditorProvider, BlockData } from '@/lib/editor-context';
+import { EditorProvider, BlockData, NavItem } from '@/lib/editor-context';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import { useAuth } from '@/lib/auth/context';
@@ -16,7 +16,7 @@ import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 import PageSelector from '@/app/components/PageSelector';
 import EmbeddedToggle from '@/app/components/EmbeddedToggle';
 import { usePages } from '@/lib/hooks/usePages';
-import Link from 'next/link';
+
 
 export interface SiteData {
   id: string;
@@ -44,10 +44,15 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   // If in pure public viewer mode, render the pre-fetched template directly without hooks
   // This allows full SSR and instant load times, bypassing all Editor UI and loading screens
   if (isPublicView) {
+    const pubDesign = publicSiteData?.designData || {};
     return (
       <EditorProvider
         value={{
-          content: publicSiteData?.designData || {},
+          content: pubDesign,
+          siteContent: pubDesign,
+          updateSiteContent: () => { },
+          navItems: pubDesign.__navItems || [],
+          updateNavItems: () => { },
           isEditMode: false,
           updateContent: () => { },
           palette: precomputedPalette || {},
@@ -55,7 +60,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
           siteId: publicSiteData?.id,
           uploadImage: async () => { return ''; },
           setPalette: () => { },
-          blocks: publicSiteData?.designData?.blocks || [],
+          blocks: pubDesign.blocks || [],
         }}
       >
         <div className="w-full min-h-screen">
@@ -77,18 +82,22 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
   const [editMode, setEditMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const handleSidebarOpenChange = useCallback((open: boolean) => setSidebarOpen(open), []);
   const [editableContent, setEditableContent] = useState<Record<string, any>>({});
+  const [siteContent, setSiteContent] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [siteTitle, setSiteTitle] = useState('My Website');
   const [error, setError] = useState<string | null>(null);
+  const initialSiteContentRef = useRef<Record<string, any>>({});
 
   // Change tracking
   // Multi-page support
   const pagesHook = usePages(site?.id || "");
-  const { pages, currentPageId, setCurrentPageId, fetchPages, currentPage, updatePage, loading: pagesLoading } = pagesHook;
+  const { pages, currentPageId, setCurrentPageId, fetchPages, currentPage, updatePage, createPage, deletePage, loading: pagesLoading } = pagesHook;
   const changesHook = useChangeTracking();
+  const pageIdFromUrl = searchParams.get('pageId');
   const { addChange, clearChanges } = changesHook;
 
   // Warn user before leaving with unsaved changes
@@ -168,14 +177,37 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     fetchPages();
   }, [site?.id, fetchPages]);
 
+  // Set initial page from URL pageId param once pages are loaded (ONE-TIME only)
+  const initialPageAppliedRef = useRef(false);
+  useEffect(() => {
+    if (initialPageAppliedRef.current || pages.length === 0) return;
+    if (pageIdFromUrl) {
+      const targetPage = pages.find(p => p.id === pageIdFromUrl);
+      if (targetPage) {
+        setCurrentPageId(pageIdFromUrl);
+      }
+    }
+    initialPageAppliedRef.current = true;
+  }, [pages, pageIdFromUrl, setCurrentPageId]);
+
+  // Update URL when currentPageId changes (write-only, no feedback loop)
+  useEffect(() => {
+    if (!currentPageId || !siteId) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('pageId') !== currentPageId) {
+      url.searchParams.set('pageId', currentPageId);
+      router.replace(url.pathname + url.search, { scroll: false });
+    }
+  }, [currentPageId, siteId, router]);
+
   // Load page-specific content when page changes
   useEffect(() => {
     if (!currentPage) return;
 
     let content = currentPage.design_data || {};
-    // Backward compatibility & seamless migration: 
-    // If the page has no design data yet, fall back to the global site design data
-    if (Object.keys(content).length === 0 && site?.designData) {
+    // Backward compatibility & seamless migration (home page only):
+    // If the home page has no design data yet, fall back to the global site design data
+    if (Object.keys(content).length === 0 && currentPage.slug === 'home' && site?.designData) {
       content = site.designData;
     }
 
@@ -232,16 +264,19 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
       const data = await res.json();
       setSite(data);
       const title = data.siteSlug || 'My Website';
-      const content = data.designData || {};
-      const selectedPalette = content.__selectedPalette || 'default';
+      const siteDesign = data.designData || {};
+      const selectedPalette = siteDesign.__selectedPalette || 'default';
 
       // Store initial values for change detection
       initialTitleRef.current = title;
       initialPaletteRef.current = selectedPalette;
-      initialContentRef.current = { ...content };
+      initialContentRef.current = {};
+
+      // Initialize site-level content (header fields)
+      setSiteContent(siteDesign);
+      initialSiteContentRef.current = { ...siteDesign };
 
       setSiteTitle(title);
-      setEditableContent(content);
       setSelectedPaletteKey(selectedPalette);
     } catch (err) {
       console.error('Error fetching site:', err);
@@ -305,6 +340,50 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
       return updated;
     });
   };
+
+  // Site-level content updates (header title, CTA text, etc.)
+  const handleUpdateSiteContent = useCallback((key: string, value: any) => {
+    setSiteContent((prev) => {
+      const oldValue = prev[key] || '';
+      if (oldValue !== value) {
+        addChange('siteContent', `Header: ${key}`, String(oldValue), String(value));
+      }
+      return { ...prev, [key]: value };
+    });
+  }, [addChange]);
+
+  // Nav items update (site-level)
+  const handleUpdateNavItems = useCallback((items: NavItem[]) => {
+    setSiteContent((prev) => {
+      const oldItems: NavItem[] = prev.__navItems || [];
+      // Build human-readable summary of changes
+      const oldLabels = new Map(oldItems.map((i: NavItem) => [i.id, i.label]));
+      const newLabels = new Map(items.map((i: NavItem) => [i.id, i.label]));
+      const changes: string[] = [];
+      // Added items
+      for (const item of items) {
+        if (!oldLabels.has(item.id)) changes.push(`Added "${item.label}"`);
+      }
+      // Removed items
+      for (const item of oldItems) {
+        if (!newLabels.has(item.id)) changes.push(`Removed "${item.label}"`);
+      }
+      // Changed items
+      for (const item of items) {
+        const oldLabel = oldLabels.get(item.id);
+        if (oldLabel && oldLabel !== item.label) changes.push(`Renamed "${oldLabel}" → "${item.label}"`);
+        if (oldLabel && oldLabel === item.label) {
+          const oldItem = oldItems.find((o: NavItem) => o.id === item.id);
+          if (oldItem && oldItem.href !== item.href) changes.push(`Updated link for "${item.label}"`);
+        }
+      }
+      const summary = changes.length > 0 ? changes.join(', ') : 'Reordered menu';
+      addChange('siteContent', 'Navigation Menu', '', summary);
+      return { ...prev, __navItems: items };
+    });
+  }, [addChange]);
+
+  const navItems: NavItem[] = siteContent.__navItems || [];
 
   const addBlock = (type: string, index?: number) => {
     setEditableContent((prev) => {
@@ -434,8 +513,14 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     try {
       setSaving(true);
 
-      // Include palette selection in design data
-      const designData = {
+      // Site-level design data (header, palette, nav items — shared across all pages)
+      const siteDesignData = {
+        ...siteContent,
+        __selectedPalette: selectedPaletteKey,
+      };
+
+      // Page-level design data (blocks and page-specific content)
+      const pageDesignData = {
         ...editableContent,
         __selectedPalette: selectedPaletteKey,
       };
@@ -447,7 +532,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
         body: JSON.stringify({
           siteId: site.id,
           title: siteTitle,
-          designData,
+          designData: siteDesignData,
         }),
       });
 
@@ -457,13 +542,14 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
         return;
       }
 
-      // Success!
+      // Update local site state
       const updated = await res.json();
       setSite(updated.site || updated);
+      initialSiteContentRef.current = { ...siteDesignData };
 
-      // IMPORTANT: Save the page-level design data!
+      // Save page-level design data
       if (currentPageId) {
-        await updatePage(currentPageId, { design_data: designData });
+        await updatePage(currentPageId, { design_data: pageDesignData });
       }
 
       setError(null);
@@ -578,19 +664,77 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
         {/* Left: Logo + Page Selector */}
         <div className="flex items-center gap-4">
           {/* Keystone Logo (clickable link to home) */}
-          <Link href="/" className="flex-shrink-0 flex items-center gap-2 hover:opacity-80 transition-opacity mr-4">
+          <button
+            onClick={(e) => {
+              if (changesHook.changes.length > 0) {
+                e.preventDefault();
+                setLeaveConfirmOpen(true);
+              } else {
+                router.push('/');
+              }
+            }}
+            className="flex-shrink-0 flex items-center gap-2 hover:opacity-80 transition-opacity mr-4"
+          >
             <svg width="24" height="26" viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg">
               <polygon points="20,15 80,15 65,95 35,95" fill="white" stroke="white" strokeWidth="24" strokeLinejoin="round" />
               <text x="50" y="52" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="900" fontSize="54" fill="#ef4444" textAnchor="middle" dominantBaseline="central">K</text>
             </svg>
-          </Link>
+          </button>
 
           {/* Page Selector */}
           {pages.length > 0 && (
             <PageSelector
               siteId={siteId || ''}
+              pages={pages}
               currentPageId={currentPageId || undefined}
               onPageChange={(page) => setCurrentPageId(page.id)}
+              onCreatePage={async (slug, title, displayName) => {
+                const newPage = await createPage(slug, title, displayName);
+                // Auto-add a nav item for the new page
+                const newNavItem: NavItem = {
+                  id: `nav-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+                  label: title,
+                  linkType: 'page' as const,
+                  href: `/${slug}`,
+                  pageId: newPage.id,
+                };
+                const updatedNavItems = [...navItems, newNavItem];
+                // Update state without tracking as unsaved change
+                setSiteContent((prev) => ({ ...prev, __navItems: updatedNavItems }));
+                // Auto-save site content with new nav item
+                if (site?.id) {
+                  const updatedSiteContent = { ...siteContent, __navItems: updatedNavItems, __selectedPalette: selectedPaletteKey };
+                  fetch('/api/sites', {
+                    credentials: 'include',
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ siteId: site.id, designData: updatedSiteContent }),
+                  }).then(() => {
+                    initialSiteContentRef.current = { ...updatedSiteContent };
+                  }).catch(err => console.error('Auto-save nav failed:', err));
+                }
+                return newPage;
+              }}
+              onDeletePage={async (pageId) => {
+                await deletePage(pageId);
+                // Auto-remove nav items that link to this page
+                const filtered = navItems.filter(item => item.pageId !== pageId);
+                if (filtered.length !== navItems.length) {
+                  setSiteContent((prev) => ({ ...prev, __navItems: filtered }));
+                  // Auto-save
+                  if (site?.id) {
+                    const updatedSiteContent = { ...siteContent, __navItems: filtered, __selectedPalette: selectedPaletteKey };
+                    fetch('/api/sites', {
+                      credentials: 'include',
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ siteId: site.id, designData: updatedSiteContent }),
+                    }).then(() => {
+                      initialSiteContentRef.current = { ...updatedSiteContent };
+                    }).catch(err => console.error('Auto-save nav failed:', err));
+                  }
+                }
+              }}
             />
           )}
         </div>
@@ -611,6 +755,11 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
         <EditorProvider
           value={{
             content: editableContent,
+            siteContent,
+            updateSiteContent: handleUpdateSiteContent,
+            navItems,
+            updateNavItems: handleUpdateNavItems,
+            pages: pages.map(p => ({ id: p.id, slug: p.slug, title: p.title })),
             isEditMode: editMode,
             updateContent: handleUpdateContent,
             palette: paletteData,
@@ -642,6 +791,20 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
         message={alertConfig.message}
         type={alertConfig.type}
         onClose={() => setAlertConfig({ ...alertConfig, isOpen: false })}
+      />
+
+      <AlertModal
+        isOpen={leaveConfirmOpen}
+        title="Unsaved Changes"
+        message="You have unsaved changes that will be lost if you leave. Are you sure?"
+        type="warning"
+        onClose={() => setLeaveConfirmOpen(false)}
+        onConfirm={() => {
+          setLeaveConfirmOpen(false);
+          router.push('/');
+        }}
+        confirmLabel="Leave"
+        cancelLabel="Stay"
       />
     </div>
   );

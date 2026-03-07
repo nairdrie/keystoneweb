@@ -69,17 +69,12 @@ export default function Header() {
               </Link>
             </div>
           ) : (
-            <>
-              <Link href="/onboarding" className="text-sm text-slate-700 hover:text-slate-900 transition-colors font-medium">
-                Build
-              </Link>
-              <Link
-                href="/onboarding"
-                className="px-6 py-2.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-colors shadow-md hover:shadow-lg"
-              >
-                Get Started
-              </Link>
-            </>
+            <Link
+              href="/onboarding"
+              className="px-6 py-2.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-colors shadow-md hover:shadow-lg"
+            >
+              Get Started
+            </Link>
           )}
         </div>
 
@@ -154,15 +149,7 @@ export default function Header() {
             >
               Pricing
             </Link>
-            {!user && (
-              <Link
-                href="/onboarding"
-                className="block text-sm text-slate-700 hover:text-slate-900 font-medium py-2"
-                onClick={() => setIsOpen(false)}
-              >
-                Build
-              </Link>
-            )}
+
 
             {user && (
               <div className="border-t border-slate-100 pt-3 mt-1">

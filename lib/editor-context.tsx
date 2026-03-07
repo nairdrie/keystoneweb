@@ -8,9 +8,33 @@ export interface BlockData {
   data: Record<string, any>;
 }
 
+export interface NavItem {
+  id: string;
+  label: string;
+  linkType: 'page' | 'section' | 'custom';
+  href: string;
+  pageId?: string;
+  blockId?: string;
+}
+
 export interface EditorContextType {
-  /** Current content object (templateId -> { key: value }) */
+  /** Current page-level content */
   content: Record<string, any>;
+
+  /** Site-level content (header title, CTA, etc.) — shared across all pages */
+  siteContent: Record<string, any>;
+
+  /** Update a site-level content value (header fields) */
+  updateSiteContent: (key: string, value: any) => void;
+
+  /** Dynamic nav menu items (site-level) */
+  navItems: NavItem[];
+
+  /** Replace the entire navItems array */
+  updateNavItems: (items: NavItem[]) => void;
+
+  /** Available pages for linking */
+  pages?: Array<{ id: string; slug: string; title: string }>;
 
   /** Ordered array of modular blocks for the page **/
   blocks?: BlockData[];
@@ -24,7 +48,7 @@ export interface EditorContextType {
   /** Whether we're in edit mode */
   isEditMode: boolean;
 
-  /** Callback to update a content value */
+  /** Callback to update a page-level content value */
   updateContent: (key: string, value: string) => void;
 
   /** Current palette being used */
@@ -69,3 +93,4 @@ export function EditorProvider({ children, value }: EditorProviderProps) {
 export function useEditorContext(): EditorContextType | undefined {
   return useContext(EditorContext);
 }
+

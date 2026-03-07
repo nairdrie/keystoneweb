@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ChevronDown, Plus, Trash2, AlertTriangle } from 'lucide-react';
 import AlertModal from './ui/AlertModal';
 
@@ -15,51 +15,29 @@ interface Page {
 
 interface PageSelectorProps {
   siteId: string;
+  pages: Page[];
   currentPageId?: string;
   onPageChange: (page: Page) => void;
-  onPageCreate?: (page: Page) => void;
+  onCreatePage: (slug: string, title: string, displayName: string) => Promise<Page>;
+  onDeletePage: (pageId: string) => Promise<void>;
 }
 
 export default function PageSelector({
   siteId,
+  pages,
   currentPageId,
   onPageChange,
-  onPageCreate,
+  onCreatePage,
+  onDeletePage,
 }: PageSelectorProps) {
-  const [pages, setPages] = useState<Page[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newPageTitle, setNewPageTitle] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
 
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState<Page | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-
-  // Fetch pages
-  useEffect(() => {
-    const fetchPages = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch(`/api/pages?siteId=${siteId}`, {
-          credentials: 'include',
-        });
-
-        if (!res.ok) throw new Error('Failed to fetch pages');
-        const data = await res.json();
-        setPages(data.pages || []);
-      } catch (err) {
-        console.error('Error fetching pages:', err);
-        setError('Failed to load pages');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPages();
-  }, [siteId]);
 
   const currentPage = pages.find(p => p.id === currentPageId);
 
@@ -70,29 +48,10 @@ export default function PageSelector({
       // Convert title to slug (lowercase, replace spaces with hyphens)
       const slug = newPageTitle.toLowerCase().replace(/\s+/g, '-');
 
-      const res = await fetch('/api/pages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          siteId,
-          slug,
-          title: newPageTitle,
-          displayName: newPageTitle,
-        }),
-      });
-
-      if (!res.ok) throw new Error('Failed to create page');
-      const data = await res.json();
-      const newPage = data.page;
-
-      setPages([...pages, newPage]);
+      await onCreatePage(slug, newPageTitle, newPageTitle);
       setNewPageTitle('');
       setIsCreating(false);
-
-      // Switch to new page
-      onPageChange(newPage);
-      onPageCreate?.(newPage);
+      setIsOpen(false);
     } catch (err) {
       console.error('Error creating page:', err);
       setAlertConfig({ isOpen: true, title: 'Error', message: 'Failed to create page', type: 'error' });
@@ -104,14 +63,8 @@ export default function PageSelector({
     const pageId = deleteTarget.id;
 
     try {
-      const res = await fetch(`/api/pages?id=${pageId}&siteId=${siteId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
+      await onDeletePage(pageId);
 
-      if (!res.ok) throw new Error('Failed to delete page');
-
-      setPages(pages.filter(p => p.id !== pageId));
       if (currentPageId === pageId && pages.length > 1) {
         // Switch to first remaining page
         const remaining = pages.filter(p => p.id !== pageId);
@@ -124,14 +77,6 @@ export default function PageSelector({
       setAlertConfig({ isOpen: true, title: 'Error', message: 'Failed to delete page', type: 'error' });
     }
   };
-
-  if (loading) {
-    return (
-      <div className="px-3 py-2 bg-slate-50 text-sm text-slate-500">
-        Loading pages...
-      </div>
-    );
-  }
 
   return (
     <div className="relative">
@@ -287,3 +232,4 @@ export default function PageSelector({
     </div>
   );
 }
+

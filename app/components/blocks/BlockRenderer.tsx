@@ -13,6 +13,11 @@ import ServicesGridBlock from './ServicesGridBlock';
 import FeaturesListBlock from './FeaturesListBlock';
 import AboutImageTextBlock from './AboutImageTextBlock';
 import CtaBlock from './CtaBlock';
+import TestimonialsBlock from './TestimonialsBlock';
+import StatsBlock from './StatsBlock';
+import GalleryBlock from './GalleryBlock';
+import ContactBlock from './ContactBlock';
+import FAQBlock from './FAQBlock';
 
 // We loosen the component type to accommodate both the simpler original blocks and the advanced blocks
 const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
@@ -25,17 +30,27 @@ const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     featuresList: FeaturesListBlock,
     aboutImageText: AboutImageTextBlock,
     cta: CtaBlock,
+    testimonials: TestimonialsBlock,
+    stats: StatsBlock,
+    gallery: GalleryBlock,
+    contact: ContactBlock,
+    faq: FAQBlock,
 };
 
 const AVAILABLE_BLOCKS = [
     { type: 'hero', label: 'Hero Section' },
     { type: 'text', label: 'Rich Text Paragraph' },
     { type: 'image', label: 'Image Section' },
-    { type: 'map', label: 'Google Map' },
     { type: 'servicesGrid', label: 'Services Grid' },
-    { type: 'featuresList', label: 'Features List' },
-    { type: 'aboutImageText', label: 'About Split (Image/Text)' },
+    { type: 'featuresList', label: 'Features / Why Us' },
+    { type: 'aboutImageText', label: 'About (Image + Text)' },
+    { type: 'testimonials', label: 'Testimonials' },
+    { type: 'stats', label: 'Stats / Numbers' },
+    { type: 'gallery', label: 'Image Gallery' },
+    { type: 'contact', label: 'Contact Info' },
+    { type: 'faq', label: 'FAQ Accordion' },
     { type: 'cta', label: 'Call to Action' },
+    { type: 'map', label: 'Google Map' },
     { type: 'custom_html', label: 'Custom HTML / Embed' },
 ];
 

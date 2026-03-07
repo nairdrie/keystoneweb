@@ -54,52 +54,112 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate new site ID
     const siteId = uuidv4();
+    const homePageId = uuidv4();
     const now = new Date().toISOString();
 
-    // Create server-side Supabase client (handles auth via cookies)
     const supabase = await createClient();
-
-    // Get the definitive user from the session rather than trusting the client payload
     const { data: { user } } = await supabase.auth.getUser();
 
-    // Insert into Supabase
-    // user.id is set if authenticated, otherwise null for guests
-    const { data, error } = await supabase
-      .from('sites')
-      .insert({
-        id: siteId,
-        user_id: user?.id || null,
-        selected_template_id: selectedTemplateId,
-        business_type: businessType,
-        category,
-        design_data: {}, // Empty until user customizes
-        created_at: now,
-        updated_at: now,
-      });
+    // Fetch default_content and palettes from template_metadata
+    const { data: templateMeta } = await supabase
+      .from('template_metadata')
+      .select('default_content, palettes')
+      .eq('template_id', selectedTemplateId)
+      .single();
 
-    if (error) {
-      console.error('Supabase error creating site:', error);
-      return NextResponse.json(
-        { error: 'Failed to create site in database' },
-        { status: 500 }
-      );
+    const defaultContent = templateMeta?.default_content || {};
+    const palettes = templateMeta?.palettes || {};
+
+    // Extract site-level fields from default_content
+    const { blocks, ...siteHeaderFields } = defaultContent as any;
+
+    // Pick the first palette as default
+    const paletteNames = Object.keys(palettes);
+    const defaultPaletteName = paletteNames[0] || 'default';
+    const defaultPalette = palettes[defaultPaletteName] || {};
+
+    // Build site design_data (header content + palette selection)
+    const siteDesignData: Record<string, any> = {
+      ...siteHeaderFields,
+      __selectedPalette: defaultPaletteName,
+    };
+
+    // Build home page design_data with default blocks
+    const homePageDesignData: Record<string, any> = {};
+    if (blocks && Array.isArray(blocks)) {
+      homePageDesignData.blocks = blocks.map((block: any) => ({
+        id: `block-${uuidv4().slice(0, 8)}`,
+        type: block.type,
+        data: block.data || {},
+      }));
     }
 
-    return NextResponse.json(
-      {
-        siteId,
-        message: 'Site created successfully',
-      },
-      { status: 201 }
-    );
+    // Generate a site_slug from the template's siteTitle (e.g. "Iron Fitness")
+    const baseName = siteHeaderFields.siteTitle || 'My Website';
+    let siteSlug = baseName;
+
+    if (user?.id) {
+      // Check for existing sites with the same base name to avoid duplicates
+      const { data: existingSites } = await supabase
+        .from('sites')
+        .select('site_slug')
+        .eq('user_id', user.id)
+        .ilike('site_slug', `${baseName}%`);
+
+      if (existingSites && existingSites.length > 0) {
+        const existingSlugs = new Set(existingSites.map((s: any) => s.site_slug));
+        if (existingSlugs.has(baseName)) {
+          let counter = 2;
+          while (existingSlugs.has(`${baseName} ${counter}`)) {
+            counter++;
+          }
+          siteSlug = `${baseName} ${counter}`;
+        }
+      }
+    }
+
+    // Insert site
+    const { error: siteError } = await supabase.from('sites').insert({
+      id: siteId,
+      user_id: user?.id || null,
+      site_slug: siteSlug,
+      selected_template_id: selectedTemplateId,
+      business_type: businessType,
+      category,
+      design_data: siteDesignData,
+      created_at: now,
+      updated_at: now,
+    });
+
+    if (siteError) {
+      console.error('Supabase error creating site:', siteError);
+      return NextResponse.json({ error: 'Failed to create site' }, { status: 500 });
+    }
+
+    // Insert home page with default blocks
+    const { error: pageError } = await supabase.from('pages').insert({
+      id: homePageId,
+      site_id: siteId,
+      slug: 'home',
+      title: 'Home',
+      display_name: 'Home',
+      is_visible_in_nav: true,
+      nav_order: 0,
+      design_data: homePageDesignData,
+      created_at: now,
+      updated_at: now,
+    });
+
+    if (pageError) {
+      console.error('Supabase error creating home page:', pageError);
+      // Site was created, page failed — still return siteId
+    }
+
+    return NextResponse.json({ siteId, message: 'Site created successfully' }, { status: 201 });
   } catch (error) {
     console.error('Error creating site:', error);
-    return NextResponse.json(
-      { error: 'Failed to create site' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to create site' }, { status: 500 });
   }
 }
 

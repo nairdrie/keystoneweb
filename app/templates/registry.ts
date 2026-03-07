@@ -1,32 +1,29 @@
 /**
  * Template Registry
  * 
- * Maps templateId → dynamic import path
- * This maps all 60 physical database templates to 3 Universal Master Components
+ * Maps templateId → master template component.
+ * New format: bold_*, elegant_*, starter_*
+ * Also handles legacy formats (_classic, _modern, _minimal, and dash-separated)
  */
-
-const TEMPLATE_REGISTRY: Record<
-  string,
-  () => Promise<{ default: React.ComponentType<any> }>
-> = {};
-
-// We map the incoming database IDs to our 3 master templates
-// Database standard layout: {type}_{category}_{style} (e.g. svc_plumber_classic)
 
 export async function getTemplateComponent(
   templateId: string
 ): Promise<React.ComponentType<any> | null> {
   try {
-    // Determine which master component to load based on the template ID suffix
-    if (templateId.endsWith('_classic')) {
+    const n = templateId.toLowerCase().replace(/-/g, '_');
+
+    // Bold template (was ClassicPro) — trades, mechanics, HVAC
+    if (n.includes('bold') || n.includes('classic') || n.includes('pro')) {
       const module = await import('./master/ClassicProTemplate');
-      return module.ClassicProTemplate;
+      return module.BoldTemplate;
     }
-    else if (templateId.endsWith('_modern')) {
+    // Elegant template (was ModernBlue) — salons, consulting, agencies
+    else if (n.includes('elegant') || n.includes('modern') || n.includes('blue')) {
       const module = await import('./master/ModernBlueTemplate');
       return module.ModernBlueTemplate;
     }
-    else if (templateId.endsWith('_minimal')) {
+    // Starter template (was MinimalWhite) — freelancers, cleaning, landscaping
+    else if (n.includes('starter') || n.includes('minimal') || n.includes('white') || n.includes('clean')) {
       const module = await import('./master/MinimalWhiteTemplate');
       return module.MinimalWhiteTemplate;
     }
@@ -40,12 +37,12 @@ export async function getTemplateComponent(
 }
 
 export function isTemplateRegistered(templateId: string): boolean {
-  return templateId.endsWith('_classic') ||
-    templateId.endsWith('_modern') ||
-    templateId.endsWith('_minimal');
+  const n = templateId.toLowerCase().replace(/-/g, '_');
+  return n.includes('bold') || n.includes('classic') || n.includes('pro') ||
+    n.includes('elegant') || n.includes('modern') || n.includes('blue') ||
+    n.includes('starter') || n.includes('minimal') || n.includes('white') || n.includes('clean');
 }
 
 export function getRegisteredTemplates(): string[] {
-  // Not strictly needed for rendering, as DB handles listings
-  return [];
+  return ['bold', 'elegant', 'starter'];
 }

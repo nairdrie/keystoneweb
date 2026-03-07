@@ -85,7 +85,13 @@ export function usePages(siteId: string) {
         }
 
         const data = await res.json();
-        return data.page;
+        const newPage = data.page;
+
+        // Immediately update local state so the editor doesn't get stuck loading
+        setPages(prev => [...prev, newPage]);
+        setCurrentPageId(newPage.id);
+
+        return newPage;
       } catch (err) {
         console.error('Error creating page:', err);
         throw err;

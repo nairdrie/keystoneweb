@@ -124,18 +124,9 @@ export async function POST(request: NextRequest) {
 
     const nextNavOrder = (pages?.[0]?.nav_order ?? -1) + 1;
 
-    // Determine default blocks if this is the very first page created (nextNavOrder === 0)
-    let initialDesignData = {};
-    if (nextNavOrder === 0 && site.selected_template_id) {
-      let templateSuffix = '';
-      if (site.selected_template_id.endsWith('_classic')) templateSuffix = '_classic';
-      else if (site.selected_template_id.endsWith('_minimal')) templateSuffix = '_minimal';
-      else if (site.selected_template_id.endsWith('_modern')) templateSuffix = '_modern';
-
-      if (templateSuffix && DEFAULT_TEMPLATE_BLOCKS[templateSuffix]) {
-        initialDesignData = { blocks: DEFAULT_TEMPLATE_BLOCKS[templateSuffix] };
-      }
-    }
+    // Home page design_data is pre-populated by the site creation API.
+    // Additional pages are created with empty design_data.
+    const initialDesignData = {};
 
     // Create page
     const { data: newPage, error } = await supabase
