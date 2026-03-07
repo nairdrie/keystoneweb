@@ -63,6 +63,9 @@ export interface EditorContextType {
   /** Site ID for image uploads */
   siteId?: string;
 
+  /** Site category for contextual suggestions (e.g. Unsplash default search) */
+  siteCategory?: string;
+
   /** Function to upload image to Supabase Storage */
   uploadImage?: (file: File, contentKey: string) => Promise<string>;
 }

@@ -791,6 +791,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
             palette: paletteData,
             availablePalettes: Object.keys(availablePalettes),
             siteId: siteId || undefined,
+            siteCategory: site?.category || undefined,
             uploadImage: uploadImage,
             setPalette: handlePaletteChange,
             blocks: editableContent.blocks || [],

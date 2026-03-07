@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Image as ImageIcon, Pencil } from 'lucide-react';
+import { useEditorContext } from '@/lib/editor-context';
+import ImageEditorModal, { ImageSettings, UnsplashAttribution } from './ImageEditorModal';
 
 interface EditableImageProps {
   contentKey: string;
   imageUrl?: string;
   isEditMode: boolean;
-  onSave: (key: string, imageUrl: string) => void;
+  onSave: (key: string, value: any) => void;
   onUpload?: (file: File, contentKey: string) => Promise<string>;
   className?: string;
   placeholder?: string;
@@ -20,67 +22,43 @@ export default function EditableImage({
   onSave,
   onUpload,
   className = '',
-  placeholder = 'Click to upload image',
+  placeholder = 'Click to add image',
 }: EditableImageProps) {
-  const [isUploading, setIsUploading] = useState(false);
+  const context = useEditorContext();
   const [previewUrl, setPreviewUrl] = useState<string | undefined>(imageUrl);
-  const [error, setError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [imageSettings, setImageSettings] = useState<ImageSettings>({ objectFit: 'cover', borderRadius: 0 });
+  const [attribution, setAttribution] = useState<UnsplashAttribution | undefined>();
 
   // Sync previewUrl when imageUrl prop changes externally (undo/redo, page switch)
   useEffect(() => {
     setPreviewUrl(imageUrl);
   }, [imageUrl]);
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const handleSave = (newUrl: string, settings: ImageSettings, attr?: UnsplashAttribution) => {
+    setPreviewUrl(newUrl || undefined);
+    setImageSettings(settings);
+    setAttribution(attr);
 
-    // Validate file is an image
-    if (!file.type.startsWith('image/')) {
-      setError('Please select an image file');
-      return;
+    // Save the image URL
+    onSave(contentKey, newUrl);
+
+    // Save image settings alongside
+    if (settings.objectFit !== 'cover' || (settings.borderRadius && settings.borderRadius > 0)) {
+      onSave(`${contentKey}__settings`, settings);
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Image must be less than 5MB');
-      return;
-    }
-
-    try {
-      setIsUploading(true);
-      setError(null);
-
-      // Create local preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        setPreviewUrl(result);
-      };
-      reader.readAsDataURL(file);
-
-      // If onUpload provided, upload to Supabase
-      if (onUpload) {
-        const uploadedUrl = await onUpload(file, contentKey);
-        setPreviewUrl(uploadedUrl);
-        onSave(contentKey, uploadedUrl);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed');
-      setPreviewUrl(imageUrl);
-    } finally {
-      setIsUploading(false);
-      // Reset input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+    // Save attribution if from Unsplash
+    if (attr) {
+      onSave(`${contentKey}__attribution`, attr);
+    } else {
+      onSave(`${contentKey}__attribution`, null);
     }
   };
 
-  const handleRemove = () => {
-    setPreviewUrl(undefined);
-    onSave(contentKey, '');
+  const imgStyle: React.CSSProperties = {
+    objectFit: imageSettings.objectFit || 'cover',
+    borderRadius: imageSettings.borderRadius ? `${imageSettings.borderRadius}px` : undefined,
   };
 
   // Preview mode: just show the image
@@ -96,78 +74,96 @@ export default function EditableImage({
     }
 
     return (
-      <img
-        src={previewUrl}
-        alt={contentKey}
-        className={`rounded object-cover ${className}`}
-      />
+      <div className="relative">
+        <img
+          src={previewUrl}
+          alt={contentKey}
+          className={`rounded ${className}`}
+          style={imgStyle}
+        />
+        {/* Unsplash attribution */}
+        {attribution && (
+          <div className="absolute bottom-0 left-0 right-0 px-2 py-1 bg-black/40 text-white text-[10px] rounded-b">
+            Photo by{' '}
+            <a href={attribution.photographerUrl} target="_blank" rel="noopener noreferrer" className="underline">
+              {attribution.photographerName}
+            </a>
+            {' on '}
+            <a href={attribution.unsplashUrl} target="_blank" rel="noopener noreferrer" className="underline">
+              Unsplash
+            </a>
+          </div>
+        )}
+      </div>
     );
   }
 
   // Edit mode
   return (
-    <div className="space-y-3">
+    <>
       {previewUrl ? (
-        <div className="relative group">
+        <div className="relative group cursor-pointer" onClick={() => setModalOpen(true)}>
           <img
             src={previewUrl}
             alt={contentKey}
-            className={`rounded object-cover ${className}`}
+            className={`rounded ${className}`}
+            style={imgStyle}
           />
-          <div className="absolute inset-0 rounded bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-semibold transition-colors"
-              disabled={isUploading}
-              title="Replace image"
-            >
-              {isUploading ? 'Uploading...' : 'Replace'}
-            </button>
-            <button
-              onClick={handleRemove}
-              className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-semibold transition-colors"
-              disabled={isUploading}
-              title="Remove image"
-            >
-              <X className="w-4 h-4" />
-            </button>
+          <div className="absolute inset-0 rounded bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+            <span className="px-4 py-2 bg-white/90 text-slate-900 rounded-lg text-sm font-semibold shadow-lg flex items-center gap-2">
+              <Pencil className="w-4 h-4" />
+              Edit Image
+            </span>
           </div>
+          {/* Unsplash attribution */}
+          {attribution && (
+            <div className="absolute bottom-0 left-0 right-0 px-2 py-1 bg-black/40 text-white text-[10px] rounded-b">
+              Photo by{' '}
+              <a
+                href={attribution.photographerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {attribution.photographerName}
+              </a>
+              {' on '}
+              <a
+                href={attribution.unsplashUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Unsplash
+              </a>
+            </div>
+          )}
         </div>
       ) : (
         <div
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => setModalOpen(true)}
           className="border-2 border-dashed border-slate-300 hover:border-slate-400 rounded-lg p-8 text-center cursor-pointer transition-colors group"
         >
-          <Upload className="w-8 h-8 mx-auto text-slate-400 group-hover:text-slate-600 mb-2" />
+          <ImageIcon className="w-8 h-8 mx-auto text-slate-400 group-hover:text-slate-600 mb-2" />
           <p className="text-sm font-medium text-slate-700">{placeholder}</p>
-          <p className="text-xs text-slate-500 mt-1">PNG, JPG, GIF up to 5MB</p>
+          <p className="text-xs text-slate-500 mt-1">Upload or search Unsplash</p>
         </div>
       )}
 
-      {/* Error message */}
-      {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      {/* Hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleFileSelect}
-        disabled={isUploading}
-        className="hidden"
+      {/* Image Editor Modal */}
+      <ImageEditorModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        currentImageUrl={previewUrl}
+        siteCategory={context?.siteCategory}
+        siteId={context?.siteId || ''}
+        onSave={handleSave}
+        onUpload={onUpload || (async () => '')}
+        contentKey={contentKey}
+        currentSettings={imageSettings}
       />
-
-      {/* Loading indicator */}
-      {isUploading && (
-        <div className="flex items-center gap-2 text-sm text-slate-600">
-          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          Uploading...
-        </div>
-      )}
-    </div>
+    </>
   );
 }

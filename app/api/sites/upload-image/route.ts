@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
+import sharp from 'sharp';
 
 /**
  * POST /api/sites/upload-image
@@ -26,12 +27,13 @@ export async function POST(request: NextRequest) {
 
     // Parse FormData
     const formData = await request.formData();
-    const file = formData.get('file') as File;
+    const file = formData.get('file') as File | null;
     const siteId = formData.get('siteId') as string;
+    const imageUrl = formData.get('imageUrl') as string | null;
 
-    if (!file || !siteId) {
+    if ((!file && !imageUrl) || !siteId) {
       return NextResponse.json(
-        { error: 'Missing file or siteId' },
+        { error: 'Missing file/imageUrl or siteId' },
         { status: 400 }
       );
     }
@@ -50,21 +52,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let buffer: Buffer;
+    let contentType: string;
+    let originalName: string;
+
+    if (imageUrl) {
+      // URL-based upload (e.g. from Unsplash)
+      const imgRes = await fetch(imageUrl);
+      if (!imgRes.ok) {
+        return NextResponse.json(
+          { error: 'Failed to fetch image from URL' },
+          { status: 400 }
+        );
+      }
+
+      const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
+
+      // Resize to max 1080px wide, preserving aspect ratio
+      buffer = await sharp(imgBuffer)
+        .resize({ width: 1080, withoutEnlargement: true })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+
+      contentType = 'image/jpeg';
+      originalName = 'unsplash.jpg';
+    } else if (file) {
+      // File-based upload (original flow)
+      const arrayBuffer = await file.arrayBuffer();
+      buffer = Buffer.from(arrayBuffer);
+      contentType = file.type;
+      originalName = file.name.toLowerCase().replace(/[^a-z0-9.]/g, '-');
+    } else {
+      return NextResponse.json(
+        { error: 'No image provided' },
+        { status: 400 }
+      );
+    }
+
     // Generate unique filename
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(7);
-    const originalName = file.name.toLowerCase().replace(/[^a-z0-9.]/g, '-');
     const filename = `${siteId}/${timestamp}-${randomStr}-${originalName}`;
-
-    // Convert File to Buffer
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
 
     // Upload to Supabase Storage
     const { data, error: uploadError } = await supabase.storage
       .from('site-assets')
       .upload(filename, buffer, {
-        contentType: file.type,
+        contentType,
         cacheControl: '31536000', // 1 year
         upsert: false,
       });
