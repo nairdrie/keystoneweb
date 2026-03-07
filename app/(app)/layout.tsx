@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Keystone Web - Build Your Website in Minutes",
+  title: "Keystone Web Design",
   description: "Create a beautiful, professional website with Keystone Web's smart builder.",
 };
 

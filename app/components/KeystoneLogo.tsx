@@ -28,7 +28,7 @@ export default function KeystoneLogo({
 }: KeystoneLogoProps) {
   const sizeMap = {
     sm: { width: 40, height: 40 },
-    md: { width: 60, height: 60 },
+    md: { width: 90, height: 60 },
     lg: { width: 144, height: 144 },
   };
 

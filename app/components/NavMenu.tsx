@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import Link from 'next/link';
+import { Plus, X, Pencil } from 'lucide-react';
 import { useEditorContext, NavItem } from '@/lib/editor-context';
 import NavItemEditModal from './NavItemEditModal';
 
@@ -60,25 +61,46 @@ export default function NavMenu({ className = '', itemClassName = '' }: NavMenuP
             <nav className={className}>
                 {navItems.map((item) => (
                     <span key={item.id} className="relative group/navitem inline-flex items-center">
-                        <a
-                            href={isEditMode ? undefined : item.href}
-                            onClick={(e) => handleItemClick(e, item)}
-                            className={`${itemClassName} ${isEditMode ? 'cursor-pointer ring-1 ring-transparent hover:ring-blue-400 rounded px-1 -mx-1 transition-all' : ''
-                                }`}
+                        <Link
+                            href={
+                                context
+                                    ? item.linkType === 'page'
+                                        ? `?siteId=${context?.siteId}&pageId=${item.pageId}`
+                                        : item.linkType === 'section'
+                                            ? `#${item.blockId}`
+                                            : item.href
+                                    : item.href
+                            }
+                            target={item.linkType === 'custom' && item.href.startsWith('http') ? '_blank' : undefined}
+                            className={`${itemClassName} ${isEditMode ? 'hover:text-blue-500 transition-colors' : ''}`}
                         >
                             {item.label}
-                        </a>
+                        </Link>
                         {isEditMode && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteItem(item.id);
-                                }}
-                                className="ml-0.5 opacity-0 group-hover/navitem:opacity-100 transition-opacity p-0.5 hover:bg-red-100 rounded-full"
-                                title="Remove"
-                            >
-                                <X className="w-3 h-3 text-red-500" />
-                            </button>
+                            <div className="ml-1 flex items-center gap-0.5 opacity-0 group-hover/navitem:opacity-100 transition-opacity">
+                                <button
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setEditingItem(item);
+                                    }}
+                                    className="p-0.5 hover:bg-blue-100 rounded-full"
+                                    title="Edit"
+                                >
+                                    <Pencil className="w-3 h-3 text-blue-500" />
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleDeleteItem(item.id);
+                                    }}
+                                    className="p-0.5 hover:bg-red-100 rounded-full"
+                                    title="Remove"
+                                >
+                                    <X className="w-3 h-3 text-red-500" />
+                                </button>
+                            </div>
                         )}
                     </span>
                 ))}

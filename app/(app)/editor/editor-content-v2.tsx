@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense, createElement, useRef, useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { } from 'lucide-react';
+import { Settings, Save, Smartphone, Monitor, Play, Loader2, Undo, Redo, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 import FloatingToolbar from '@/app/components/FloatingToolbar';
 import { EditorProvider, BlockData, NavItem } from '@/lib/editor-context';
 import { getTemplateComponent } from '@/app/templates/registry';
@@ -83,7 +83,17 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   const [editMode, setEditMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
-  const handleSidebarOpenChange = useCallback((open: boolean) => setSidebarOpen(open), []);
+
+  // Auto-expand sidebar on large screens when editor loads
+  const hasInitSidebarRef = useRef(false);
+  useEffect(() => {
+    if (!hasInitSidebarRef.current) {
+      if (window.innerWidth >= 1024) {
+        setSidebarOpen(true);
+      }
+      hasInitSidebarRef.current = true;
+    }
+  }, []);
   const [editableContent, setEditableContent] = useState<Record<string, any>>({});
   const [siteContent, setSiteContent] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
@@ -177,18 +187,19 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     fetchPages();
   }, [site?.id, fetchPages]);
 
-  // Set initial page from URL pageId param once pages are loaded (ONE-TIME only)
-  const initialPageAppliedRef = useRef(false);
+  // Sync current page with URL `pageId` param
+  // This handles both initial load and internal navigation (e.g. clicking NavMenu links)
   useEffect(() => {
-    if (initialPageAppliedRef.current || pages.length === 0) return;
-    if (pageIdFromUrl) {
+    if (pages.length === 0 || !pageIdFromUrl) return;
+
+    // Only update if the URL pageId differs from our current state
+    if (pageIdFromUrl !== currentPageId) {
       const targetPage = pages.find(p => p.id === pageIdFromUrl);
       if (targetPage) {
         setCurrentPageId(pageIdFromUrl);
       }
     }
-    initialPageAppliedRef.current = true;
-  }, [pages, pageIdFromUrl, setCurrentPageId]);
+  }, [pages, pageIdFromUrl, currentPageId, setCurrentPageId]);
 
   // Update URL when currentPageId changes (write-only, no feedback loop)
   useEffect(() => {
@@ -630,8 +641,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
 
   return (
     <div
-      className="h-screen flex flex-col overflow-hidden relative transition-[margin] duration-300 ease-out"
-      style={{ marginLeft: sidebarOpen ? '20rem' : '0' }}
+      className={`h-screen flex flex-col overflow-hidden relative transition-[margin] duration-300 ease-out ${sidebarOpen ? 'lg:ml-[20rem]' : ''}`}
     >
       {/* Floating Toolbar / Sidebar */}
       <FloatingToolbar
@@ -653,7 +663,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
         isPublished={site?.isPublished || false}
         publishedDomain={site?.publishedDomain}
         isSynced={isSynced}
-        onSidebarOpenChange={handleSidebarOpenChange}
+        isOpen={sidebarOpen}
+        onOpenChange={setSidebarOpen}
       />
 
       {/* Editor Banner - Redesigned */}
@@ -663,22 +674,37 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
       >
         {/* Left: Logo + Page Selector */}
         <div className="flex items-center gap-4">
-          {/* Keystone Logo (clickable link to home) */}
+          {/* Keystone Logo (Click to toggle sidebar on desktop, leave editor on mobile) */}
           <button
             onClick={(e) => {
-              if (changesHook.changes.length > 0) {
+              if (window.innerWidth >= 1024) {
+                // Desktop: Toggle sidebar
                 e.preventDefault();
-                setLeaveConfirmOpen(true);
+                setSidebarOpen(!sidebarOpen);
               } else {
-                router.push('/');
+                // Mobile: Try to leave editor (warn if unsaved)
+                if (changesHook.changes.length > 0) {
+                  e.preventDefault();
+                  setLeaveConfirmOpen(true);
+                } else {
+                  router.push('/');
+                }
               }
             }}
             className="flex-shrink-0 flex items-center gap-2 hover:opacity-80 transition-opacity mr-4"
+            title={sidebarOpen ? "Close settings" : "Open settings"}
           >
-            <svg width="24" height="26" viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg">
-              <polygon points="20,15 80,15 65,95 35,95" fill="white" stroke="white" strokeWidth="24" strokeLinejoin="round" />
-              <text x="50" y="52" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="900" fontSize="54" fill="#ef4444" textAnchor="middle" dominantBaseline="central">K</text>
-            </svg>
+            {/* Desktop: Sidebar Toggle Icon */}
+            <div className="hidden lg:block text-white">
+              {sidebarOpen ? <PanelLeftClose className="w-6 h-6" /> : <PanelLeftOpen className="w-6 h-6" />}
+            </div>
+            {/* Mobile: Keystone Logo */}
+            <div className="block lg:hidden">
+              <svg width="24" height="26" viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg">
+                <polygon points="20,15 80,15 65,95 35,95" fill="white" stroke="white" strokeWidth="24" strokeLinejoin="round" />
+                <text x="50" y="52" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="900" fontSize="54" fill="#ef4444" textAnchor="middle" dominantBaseline="central">K</text>
+              </svg>
+            </div>
           </button>
 
           {/* Page Selector */}

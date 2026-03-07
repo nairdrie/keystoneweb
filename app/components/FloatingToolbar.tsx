@@ -46,7 +46,8 @@ interface FloatingToolbarProps {
   isPublished?: boolean;
   publishedDomain?: string;
   isSynced?: boolean;
-  onSidebarOpenChange?: (open: boolean) => void;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 const LG_BREAKPOINT = 1024;
@@ -87,14 +88,13 @@ export default function FloatingToolbar({
   isPublished = false,
   publishedDomain,
   isSynced = false,
-  onSidebarOpenChange,
+  isOpen,
+  onOpenChange,
 }: FloatingToolbarProps) {
   const router = useRouter();
   const { signOut, user } = useAuth();
   const isLargeScreen = useIsLargeScreen();
 
-  // On large screens, default open (sidebar). On small screens, default closed (drawer).
-  const [isOpen, setIsOpen] = useState(false);
   const [userSites, setUserSites] = useState<Site[]>([]);
   const [loadingSites, setLoadingSites] = useState(false);
   const [showChanges, setShowChanges] = useState(false);
@@ -104,23 +104,7 @@ export default function FloatingToolbar({
   const dragStartHeight = useRef<number>(0);
   const isDragging = useRef<boolean>(false);
   const [showSiteSwitcher, setShowSiteSwitcher] = useState(false);
-  const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
-
-  // Track if we've initialized the large-screen default
-  const hasInitRef = useRef(false);
-
-  // On large screens, auto-expand the sidebar by default on first mount
-  useEffect(() => {
-    if (isLargeScreen && !hasInitRef.current) {
-      setIsOpen(true);
-      hasInitRef.current = true;
-    }
-  }, [isLargeScreen]);
-
-  // Notify parent of sidebar open/close for layout adjustments
-  useEffect(() => {
-    onSidebarOpenChange?.(isLargeScreen && isOpen);
-  }, [isLargeScreen, isOpen, onSidebarOpenChange]);
+  const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' | 'warning', onConfirm?: () => void, confirmLabel?: string, cancelLabel?: string }>({ isOpen: false, message: '' });
 
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -216,7 +200,7 @@ export default function FloatingToolbar({
 
     // If dragged down significantly, close the drawer
     if (deltaY > 50) {
-      setIsOpen(false);
+      onOpenChange(false);
       isDragging.current = false;
     }
   };
@@ -266,7 +250,7 @@ export default function FloatingToolbar({
                       <button
                         key={site.id}
                         onClick={() => {
-                          setIsOpen(false);
+                          onOpenChange(false);
                           setShowSiteSwitcher(false);
                           router.push(`/editor?siteId=${site.id}`);
                         }}
@@ -290,7 +274,7 @@ export default function FloatingToolbar({
                 {/* Create New Option */}
                 <button
                   onClick={() => {
-                    setIsOpen(false);
+                    onOpenChange(false);
                     setShowSiteSwitcher(false);
                     router.push('/onboarding');
                   }}
@@ -505,10 +489,6 @@ export default function FloatingToolbar({
         </button>
       )}
 
-      {/* Footer Info */}
-      <p className="text-xs text-slate-600 text-center mt-4">
-        Changes apply in real-time
-      </p>
     </div>
   );
 
@@ -528,31 +508,57 @@ export default function FloatingToolbar({
             style={{ width: '20rem' }}
           >
             {/* Sidebar Header */}
-            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
-              <KeystoneLogo href="/" size="lg" showText={false} />
-              <button
-                onClick={() => setIsOpen(false)}
-                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-900"
-                title="Collapse sidebar"
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-4 h-12 flex items-center justify-between z-10 shrink-0">
+              <div
+                onClick={(e) => {
+                  if (changes.length > 0) {
+                    e.preventDefault();
+                    setAlertConfig({
+                      isOpen: true,
+                      title: 'Unsaved Changes',
+                      message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
+                      type: 'warning',
+                      onConfirm: () => router.push('/'),
+                      confirmLabel: 'Leave',
+                      cancelLabel: 'Stay'
+                    });
+                  } else {
+                    router.push('/');
+                  }
+                }}
+                className="cursor-pointer"
               >
-                <PanelLeftClose className="w-5 h-5" />
-              </button>
+                <KeystoneLogo href="/" size="md" showText={false} />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => {
+                    if (changes.length > 0) {
+                      e.preventDefault();
+                      setAlertConfig({
+                        isOpen: true,
+                        title: 'Unsaved Changes',
+                        message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
+                        type: 'warning',
+                        onConfirm: () => router.push('/'),
+                        confirmLabel: 'Leave',
+                        cancelLabel: 'Stay'
+                      });
+                    } else {
+                      router.push('/');
+                    }
+                  }}
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
+                >
+                  Dashboard
+                </button>
+              </div>
             </div>
 
             {/* Sidebar Body */}
             {panelContent}
           </div>
-
-          {/* Expand button when sidebar is collapsed - below the editor banner (h-12 = 3rem) */}
-          {!isOpen && (
-            <button
-              onClick={() => setIsOpen(true)}
-              className="fixed top-16 left-3 z-[9999] w-10 h-10 rounded-lg bg-white shadow-lg border border-slate-200 flex items-center justify-center transition-all hover:bg-slate-50 hover:shadow-xl text-slate-700"
-              title="Expand sidebar"
-            >
-              <PanelLeftOpen className="w-5 h-5" />
-            </button>
-          )}
         </>
       )}
 
@@ -564,7 +570,7 @@ export default function FloatingToolbar({
           {/* Floating Button */}
           {!isOpen && (
             <button
-              onClick={() => setIsOpen(true)}
+              onClick={() => onOpenChange(true)}
               className="fixed bottom-6 right-6 z-[9999] w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center transition-all hover:scale-110 hover:brightness-110"
               style={{ backgroundColor: 'var(--brand-primary)' }}
               title="Open editor settings"
@@ -576,8 +582,8 @@ export default function FloatingToolbar({
           {/* Drawer Overlay */}
           {isOpen && (
             <div
-              className="fixed inset-0 bg-black bg-opacity-30 z-[9998] overscroll-none touch-none"
-              onClick={() => setIsOpen(false)}
+              className="fixed inset-0 bg-black bg-opacity-5 z-[9998] overscroll-none touch-none"
+              onClick={() => onOpenChange(false)}
             />
           )}
 
@@ -596,13 +602,36 @@ export default function FloatingToolbar({
                 onMouseDown={handleDragStart}
               >
                 <KeystoneLogo href="/" size="lg" showText={false} />
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-900"
-                  title="Close (drag down to close)"
-                >
-                  <ChevronDown className="w-6 h-6" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => {
+                      if (changes.length > 0) {
+                        e.preventDefault();
+                        setAlertConfig({
+                          isOpen: true,
+                          title: 'Unsaved Changes',
+                          message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
+                          type: 'warning',
+                          onConfirm: () => router.push('/'),
+                          confirmLabel: 'Leave',
+                          cancelLabel: 'Stay'
+                        });
+                      } else {
+                        router.push('/');
+                      }
+                    }}
+                    className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
+                  >
+                    Dashboard
+                  </button>
+                  <button
+                    onClick={() => onOpenChange(false)}
+                    className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-900"
+                    title="Close (drag down to close)"
+                  >
+                    <ChevronDown className="w-6 h-6" />
+                  </button>
+                </div>
               </div>
 
               {/* Content */}
@@ -671,6 +700,9 @@ export default function FloatingToolbar({
         message={alertConfig.message}
         type={alertConfig.type}
         onClose={() => setAlertConfig({ ...alertConfig, isOpen: false })}
+        onConfirm={alertConfig.onConfirm}
+        confirmLabel={alertConfig.confirmLabel}
+        cancelLabel={alertConfig.cancelLabel}
       />
     </>
   );
