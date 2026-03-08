@@ -1,9 +1,11 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Zap, Layout, Smartphone, PenTool, TrendingUp, CircleDollarSign } from 'lucide-react';
+import { Zap, Layout, Smartphone, PenTool, TrendingUp, CircleDollarSign, Infinity } from 'lucide-react';
 import Header from '../components/Header';
+import mapleLeaf from '../../assets/maple-leaf.png';
 import AnimatedGridPattern from '../components/AnimatedGridPattern';
 
 export default function HomePage() {
@@ -76,11 +78,11 @@ export default function HomePage() {
                   <p className="text-sm text-slate-900 mt-2 font-bold">To Launch</p>
                 </div>
                 <div>
-                  <div className="text-4xl font-black text-red-600">$49</div>
+                  <div className="text-4xl font-black text-red-600">$15</div>
                   <p className="text-sm text-slate-900 mt-2 font-bold">Per Month</p>
                 </div>
                 <div>
-                  <div className="text-4xl font-black text-red-600">∞</div>
+                  <div className="text-4xl font-black text-red-600 flex justify-center"><Infinity className="w-10 h-10" /></div>
                   <p className="text-sm text-slate-900 mt-2 font-bold">Possibilities</p>
                 </div>
               </div>
@@ -186,7 +188,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="border-t border-slate-200 py-12 px-4 sm:px-6 lg:px-8 text-center text-slate-700 text-sm bg-white">
         <p className="flex items-center justify-center gap-2">
-          Proudly Canadian 🍁
+          Proudly Canadian <Image src={mapleLeaf} alt="Maple Leaf" className="w-5 h-5 object-contain" />
         </p>
       </footer>
     </main>
