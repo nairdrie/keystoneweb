@@ -2,29 +2,28 @@ import { createClient } from '@/lib/db/supabase-server';
 import EditorContent from '@/app/(app)/editor/editor-content-v2';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
-import ProductPageClient from '@/app/components/ecommerce/ProductPageWrapper';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ProductDetailPage({
+export default async function PublicSiteDynamicPage({
     params,
 }: {
-    params: Promise<{ subdomain: string; productId: string }>;
+    params: Promise<{ subdomain: string; slug: string }>;
 }) {
-    const { subdomain, productId } = await params;
+    const { subdomain, slug } = await params;
 
     try {
         const supabase = await createClient();
 
         // Fetch the published site by subdomain
-        const { data: site, error: siteError } = await supabase
+        const { data: site, error } = await supabase
             .from('sites')
             .select('id, selected_template_id, published_data')
             .eq('published_domain', subdomain)
             .eq('is_published', true)
             .single();
 
-        if (siteError || !site) {
+        if (error || !site) {
             return (
                 <div className="flex items-center justify-center min-h-screen bg-slate-50">
                     <div className="text-center">
@@ -34,44 +33,24 @@ export default async function ProductDetailPage({
             );
         }
 
-        // Fetch the product
-        const { data: product, error: prodError } = await supabase
-            .from('products')
-            .select('*')
-            .eq('id', productId)
+        // Fetch the specific page
+        const { data: routePage, error: pageError } = await supabase
+            .from('pages')
+            .select('published_data')
             .eq('site_id', site.id)
-            .eq('is_active', true)
+            .eq('slug', slug)
             .single();
 
-        if (prodError || !product) {
+        if (pageError || !routePage) {
             return (
                 <div className="flex items-center justify-center min-h-screen bg-slate-50">
                     <div className="text-center">
-                        <h1 className="text-4xl font-bold text-slate-900 mb-4">Product Not Found</h1>
-                        <a href="/" className="text-blue-600 hover:underline">← Back to store</a>
+                        <h1 className="text-4xl font-bold text-slate-900 mb-4">Page Not Found</h1>
+                        <a href="/" className="text-blue-600 hover:underline">← Back to home</a>
                     </div>
                 </div>
             );
         }
-
-        // Fetch all products for "related products"
-        const { data: allProducts } = await supabase
-            .from('products')
-            .select('*')
-            .eq('site_id', site.id)
-            .eq('is_active', true)
-            .order('sort_order');
-
-        // Get template + palette
-        const { data: homePage } = await supabase
-            .from('pages')
-            .select('published_data')
-            .eq('site_id', site.id)
-            .eq('slug', 'home')
-            .single();
-
-        const pagePublishData = homePage?.published_data || {};
-        const sitePublishData = site.published_data || {};
 
         // Fetch all pages for navigation links
         const { data: allPages } = await supabase
@@ -79,6 +58,8 @@ export default async function ProductDetailPage({
             .select('id, slug, title')
             .eq('site_id', site.id);
 
+        const pagePublishData = routePage.published_data || {};
+        const sitePublishData = site.published_data || {};
         const mergedPublishData = {
             ...sitePublishData,
             ...pagePublishData,
@@ -88,7 +69,7 @@ export default async function ProductDetailPage({
         const TemplateComp = await getTemplateComponent(site.selected_template_id);
         const metadata = await getTemplateMetadata(site.selected_template_id);
 
-        let paletteData: Record<string, string> = {};
+        let paletteData = {};
         if (metadata) {
             const palettesObj = metadata.palettes || {};
             const requestedPalette = mergedPublishData.__selectedPalette || 'default';
@@ -111,37 +92,15 @@ export default async function ProductDetailPage({
                 }}
                 precomputedPalette={paletteData}
             >
-                {TemplateComp ? (
-                    <TemplateComp palette={paletteData} isEditMode={false}>
-                        <ProductPageClient
-                            product={product}
-                            siteId={site.id}
-                            palette={paletteData}
-                            siteName={mergedPublishData.siteTitle || ''}
-                            allProducts={allProducts || []}
-                            navContent={mergedPublishData}
-                            templateId={site.selected_template_id}
-                        />
-                    </TemplateComp>
-                ) : (
-                    <ProductPageClient
-                        product={product}
-                        siteId={site.id}
-                        palette={paletteData}
-                        siteName={mergedPublishData.siteTitle || ''}
-                        allProducts={allProducts || []}
-                        navContent={mergedPublishData}
-                        templateId={site.selected_template_id}
-                    />
-                )}
+                {TemplateComp && <TemplateComp palette={paletteData} isEditMode={false} />}
             </EditorContent>
         );
     } catch (error) {
-        console.error('Error rendering product page:', error);
+        console.error('Error rendering dynamic page:', error);
         return (
             <div className="flex items-center justify-center min-h-screen bg-slate-50">
                 <div className="text-center">
-                    <h1 className="text-4xl font-bold text-slate-900 mb-4">Error Loading Product</h1>
+                    <h1 className="text-4xl font-bold text-slate-900 mb-4">Error Loading Page</h1>
                 </div>
             </div>
         );

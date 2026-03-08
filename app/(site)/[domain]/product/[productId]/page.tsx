@@ -6,21 +6,21 @@ import ProductPageClient from '@/app/components/ecommerce/ProductPageWrapper';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ProductDetailPage({
+export default async function CustomDomainProductDetailPage({
     params,
 }: {
-    params: Promise<{ subdomain: string; productId: string }>;
+    params: Promise<{ domain: string; productId: string }>;
 }) {
-    const { subdomain, productId } = await params;
+    const { domain, productId } = await params;
 
     try {
         const supabase = await createClient();
 
-        // Fetch the published site by subdomain
+        // Fetch the published site by custom domain
         const { data: site, error: siteError } = await supabase
             .from('sites')
             .select('id, selected_template_id, published_data')
-            .eq('published_domain', subdomain)
+            .eq('custom_domain', domain)
             .eq('is_published', true)
             .single();
 
@@ -62,7 +62,7 @@ export default async function ProductDetailPage({
             .eq('is_active', true)
             .order('sort_order');
 
-        // Get template + palette
+        // Get template + palette from homepage
         const { data: homePage } = await supabase
             .from('pages')
             .select('published_data')

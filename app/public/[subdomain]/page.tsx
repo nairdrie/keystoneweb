@@ -47,7 +47,18 @@ export default async function PublicSitePage({
     // The page's published_data holds the blocks. If not yet published at the page level, fall back to site.published_data
     const pagePublishData = homePage?.published_data || {};
     const sitePublishData = site.published_data || {};
-    const mergedPublishData = { ...sitePublishData, ...pagePublishData };
+
+    // Fetch all pages for navigation links
+    const { data: allPages } = await supabase
+      .from('pages')
+      .select('id, slug, title')
+      .eq('site_id', site.id);
+
+    const mergedPublishData = {
+      ...sitePublishData,
+      ...pagePublishData,
+      __pages: allPages || []
+    };
 
     // Preload template component and metadata for SSR
     const TemplateComp = await getTemplateComponent(site.selected_template_id);

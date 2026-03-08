@@ -1,165 +1,108 @@
-import { getSiteData, getPageContent } from '@/lib/data';
+import { createClient } from '@/lib/db/supabase-server';
+import EditorContent from '@/app/(app)/editor/editor-content-v2';
+import { getTemplateComponent } from '@/app/templates/registry';
+import { getTemplateMetadata } from '@/lib/db/template-queries';
 
-interface ClientPageProps {
-  params: Promise<{
-    domain: string;
-  }>;
-}
+export const dynamic = 'force-dynamic';
 
-/**
- * Render section based on type
- */
-function renderSection(section: any, theme: any, index: number) {
-  const sectionKey = `section-${index}`;
-
-  switch (section.type) {
-    case 'hero':
-      return (
-        <section
-          key={sectionKey}
-          className="py-20 px-4"
-          style={{ backgroundColor: theme.backgroundColor }}
-        >
-          <div className="mx-auto max-w-4xl text-center">
-            <h2
-              className="text-5xl font-bold mb-4"
-              style={{ color: theme.primaryColor }}
-            >
-              {section.title}
-            </h2>
-            <p
-              className="text-xl"
-              style={{ color: theme.accentColor }}
-            >
-              {section.content}
-            </p>
-          </div>
-        </section>
-      );
-
-    case 'features':
-      return (
-        <section
-          key={sectionKey}
-          className="py-16 px-4"
-          style={{
-            backgroundColor: theme.backgroundColor,
-            borderTop: `1px solid ${theme.accentColor}`,
-          }}
-        >
-          <div className="mx-auto max-w-6xl">
-            <h2
-              className="text-3xl font-bold mb-12 text-center"
-              style={{ color: theme.primaryColor }}
-            >
-              {section.title}
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {section.items?.map((item: any, idx: number) => (
-                <div
-                  key={`feature-${idx}`}
-                  className="p-6 rounded-lg border"
-                  style={{
-                    backgroundColor: `${theme.accentColor}15`,
-                    borderColor: theme.accentColor,
-                  }}
-                >
-                  <h3
-                    className="text-lg font-semibold mb-2"
-                    style={{ color: theme.primaryColor }}
-                  >
-                    {item.title}
-                  </h3>
-                  <p style={{ color: theme.accentColor }}>
-                    {item.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      );
-
-    case 'contact':
-      return (
-        <section
-          key={sectionKey}
-          className="py-16 px-4"
-          style={{
-            backgroundColor: theme.backgroundColor,
-            borderTop: `1px solid ${theme.accentColor}`,
-          }}
-        >
-          <div className="mx-auto max-w-4xl text-center">
-            <h2
-              className="text-3xl font-bold mb-6"
-              style={{ color: theme.primaryColor }}
-            >
-              {section.title}
-            </h2>
-            <p
-              className="text-lg"
-              style={{ color: theme.accentColor }}
-            >
-              {section.content}
-            </p>
-          </div>
-        </section>
-      );
-
-    case 'about':
-      return (
-        <section
-          key={sectionKey}
-          className="py-16 px-4"
-          style={{
-            backgroundColor: theme.backgroundColor,
-            borderTop: `1px solid ${theme.accentColor}`,
-          }}
-        >
-          <div className="mx-auto max-w-4xl">
-            <h2
-              className="text-3xl font-bold mb-6"
-              style={{ color: theme.primaryColor }}
-            >
-              {section.title}
-            </h2>
-            <p
-              className="text-lg leading-relaxed"
-              style={{ color: theme.accentColor }}
-            >
-              {section.content}
-            </p>
-          </div>
-        </section>
-      );
-
-    default:
-      return null;
-  }
-}
-
-export default async function ClientPage({ params }: ClientPageProps) {
+export default async function CustomDomainPage({
+  params,
+}: {
+  params: Promise<{ domain: string }>;
+}) {
   const { domain } = await params;
-  const site = await getSiteData(domain);
-  const pageContent = await getPageContent(domain, '');
 
-  if (!site || !pageContent) {
-    return (
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">Page Not Found</h1>
-          <p>Sorry, we couldn't find the content you're looking for.</p>
+  try {
+    const supabase = await createClient();
+
+    // Fetch the published site by custom domain
+    // We assume there's a custom_domain column in the sites table
+    const { data: site, error } = await supabase
+      .from('sites')
+      .select('id, selected_template_id, published_data')
+      .eq('custom_domain', domain)
+      .eq('is_published', true)
+      .single();
+
+    if (error || !site) {
+      return (
+        <div className="flex items-center justify-center min-h-screen bg-slate-50">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-slate-900 mb-4">Site Not Found</h1>
+            <p className="text-slate-600">
+              The site at <code className="bg-slate-100 px-2 py-1 rounded">{domain}</code> is not public or does not exist.
+            </p>
+          </div>
         </div>
-      </main>
+      );
+    }
+
+    // Fetch the home page's published data which contains the actual blocks
+    const { data: homePage } = await supabase
+      .from('pages')
+      .select('published_data')
+      .eq('site_id', site.id)
+      .eq('slug', 'home')
+      .single();
+
+    // The page's published_data holds the blocks. If not yet published at the page level, fall back to site.published_data
+    const pagePublishData = homePage?.published_data || {};
+    const sitePublishData = site.published_data || {};
+
+    // Fetch all pages for navigation links
+    const { data: allPages } = await supabase
+      .from('pages')
+      .select('id, slug, title')
+      .eq('site_id', site.id);
+
+    const mergedPublishData = {
+      ...sitePublishData,
+      ...pagePublishData,
+      __pages: allPages || []
+    };
+
+    // Preload template component and metadata for SSR
+    const TemplateComp = await getTemplateComponent(site.selected_template_id);
+    const metadata = await getTemplateMetadata(site.selected_template_id);
+
+    let paletteData = {};
+    if (metadata) {
+      const palettesObj = metadata.palettes || {};
+      const requestedPalette = mergedPublishData.__selectedPalette || 'default';
+      paletteData = palettesObj[requestedPalette] || palettesObj['default'] || {};
+    }
+
+    // Render the published site via unified EditorContent (read-only mode)
+    return (
+      <EditorContent
+        isPublicView={true}
+        publicSiteData={{
+          id: site.id,
+          userId: null,
+          selectedTemplateId: site.selected_template_id,
+          businessType: '',
+          category: '',
+          designData: mergedPublishData,
+          isPublished: true,
+          createdAt: '',
+          updatedAt: ''
+        }}
+        precomputedPalette={paletteData}
+      >
+        {TemplateComp && <TemplateComp palette={paletteData} isEditMode={false} />}
+      </EditorContent>
+    );
+  } catch (error) {
+    console.error('Error rendering custom domain site:', error);
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-slate-900 mb-4">Error Loading Site</h1>
+          <p className="text-slate-600">
+            Something went wrong while loading your site.
+          </p>
+        </div>
+      </div>
     );
   }
-
-  return (
-    <main>
-      {pageContent.sections.map((section, index) =>
-        renderSection(section, site.theme, index)
-      )}
-    </main>
-  );
 }

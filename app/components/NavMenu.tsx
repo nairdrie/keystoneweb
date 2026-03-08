@@ -62,15 +62,20 @@ export default function NavMenu({ className = '', itemClassName = '' }: NavMenuP
                 {navItems.map((item) => (
                     <span key={item.id} className="relative group/navitem inline-flex items-center">
                         <Link
-                            href={
-                                context
-                                    ? item.linkType === 'page'
-                                        ? `?siteId=${context?.siteId}&pageId=${item.pageId}`
-                                        : item.linkType === 'section'
-                                            ? `#${item.blockId}`
-                                            : item.href
-                                    : item.href
-                            }
+                            href={(() => {
+                                if (item.linkType === 'page') {
+                                    if (isEditMode) {
+                                        return `?siteId=${context?.siteId}&pageId=${item.pageId}`;
+                                    } else {
+                                        const targetPage = pages.find(p => p.id === item.pageId);
+                                        const slug = targetPage ? targetPage.slug : '';
+                                        return slug === 'home' ? '/' : `/${slug}`;
+                                    }
+                                } else if (item.linkType === 'section') {
+                                    return `#${item.blockId}`;
+                                }
+                                return item.href;
+                            })()}
                             target={item.linkType === 'custom' && item.href.startsWith('http') ? '_blank' : undefined}
                             className={`${itemClassName} ${isEditMode ? 'hover:text-blue-500 transition-colors' : ''}`}
                         >
