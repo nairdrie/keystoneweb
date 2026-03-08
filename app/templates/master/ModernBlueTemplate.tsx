@@ -5,12 +5,14 @@ import EditableButton from '@/app/components/EditableButton';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import NavMenu from '@/app/components/NavMenu';
+import HeaderCartIcon from '@/app/components/ecommerce/HeaderCartIcon';
 import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
     isEditMode: boolean;
+    children?: React.ReactNode;
 }
 
 /**
@@ -18,7 +20,7 @@ interface MasterTemplateProps {
  * Frosted glass navbar, smooth gradients, modern feel.
  * Perfect for salons, consulting, agencies.
  */
-export function ModernBlueTemplate({ palette, isEditMode }: MasterTemplateProps) {
+export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemplateProps) {
     const context = useEditorContext();
     const siteContent = context?.siteContent || {};
     const updateSiteContent = context?.updateSiteContent || (() => { });
@@ -62,6 +64,7 @@ export function ModernBlueTemplate({ palette, isEditMode }: MasterTemplateProps)
                                 className="flex items-center gap-7"
                                 itemClassName="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
                             />
+                            <HeaderCartIcon color={pPrimary} />
                             <EditableButton
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
@@ -74,13 +77,15 @@ export function ModernBlueTemplate({ palette, isEditMode }: MasterTemplateProps)
                             />
                         </div>
 
-                        {/* Mobile toggle */}
-                        <button
-                            className="md:hidden p-2 text-slate-600"
-                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                        >
-                            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-                        </button>
+                        <div className="flex md:hidden items-center gap-2">
+                            <HeaderCartIcon color={pPrimary} />
+                            <button
+                                className="p-2 text-slate-600"
+                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            >
+                                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                            </button>
+                        </div>
                     </div>
 
                     {/* Mobile Menu */}
@@ -103,7 +108,7 @@ export function ModernBlueTemplate({ palette, isEditMode }: MasterTemplateProps)
 
             {/* Page Content */}
             <main className="flex-1 w-full min-h-[50vh]">
-                <BlockRenderer palette={palette} />
+                {children || <BlockRenderer palette={palette} />}
             </main>
 
             {/* Footer */}

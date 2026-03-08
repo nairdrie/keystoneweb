@@ -16,6 +16,10 @@ import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 import PageSelector from '@/app/components/PageSelector';
 import EmbeddedToggle from '@/app/components/EmbeddedToggle';
 import { usePages } from '@/lib/hooks/usePages';
+import { CartProvider } from '@/app/components/ecommerce/CartProvider';
+import CartDrawer from '@/app/components/ecommerce/CartDrawer';
+import CartButton from '@/app/components/ecommerce/CartButton';
+import PreviewProductPage from '@/app/components/ecommerce/PreviewProductPage';
 
 
 export interface SiteData {
@@ -46,32 +50,37 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   if (isPublicView) {
     const pubDesign = publicSiteData?.designData || {};
     return (
-      <EditorProvider
-        value={{
-          content: pubDesign,
-          siteContent: pubDesign,
-          updateSiteContent: () => { },
-          navItems: pubDesign.__navItems || [],
-          updateNavItems: () => { },
-          isEditMode: false,
-          updateContent: () => { },
-          palette: precomputedPalette || {},
-          availablePalettes: [],
-          siteId: publicSiteData?.id,
-          uploadImage: async () => { return ''; },
-          setPalette: () => { },
-          blocks: pubDesign.blocks || [],
-        }}
-      >
-        <div className="w-full min-h-screen">
-          {children}
-        </div>
-      </EditorProvider>
+      <CartProvider siteId={publicSiteData?.id || ''}>
+        <EditorProvider
+          value={{
+            content: pubDesign,
+            siteContent: pubDesign,
+            updateSiteContent: () => { },
+            navItems: pubDesign.__navItems || [],
+            updateNavItems: () => { },
+            isEditMode: false,
+            updateContent: () => { },
+            palette: precomputedPalette || {},
+            availablePalettes: [],
+            siteId: publicSiteData?.id,
+            uploadImage: async () => { return ''; },
+            setPalette: () => { },
+            blocks: pubDesign.blocks || [],
+          }}
+        >
+          <div className="w-full min-h-screen">
+            {children}
+          </div>
+        </EditorProvider>
+        <CartDrawer siteId={publicSiteData?.id || ''} palette={precomputedPalette || {}} />
+        <CartButton accentColor={(precomputedPalette as any)?.secondary} />
+      </CartProvider>
     );
   }
 
   const router = useRouter();
   const searchParams = useSearchParams();
+  const previewProductId = searchParams.get('productId');
   const { user, loading: authLoading } = useAuth();
 
   const [site, setSite] = useState<SiteData | null>(null);
@@ -640,116 +649,104 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   const currentPalette = paletteArray.find(p => p.name === selectedPaletteKey) || customPalette;
 
   return (
-    <div
-      className={`h-screen flex flex-col overflow-hidden relative transition-[margin] duration-300 ease-out ${sidebarOpen ? 'lg:ml-[20rem]' : ''}`}
-    >
-      {/* Floating Toolbar / Sidebar */}
-      <FloatingToolbar
-        siteTitle={siteTitle}
-        onSiteTitle={handleSiteTitleChange}
-        onSave={handleSaveDesign}
-        saving={saving}
-        publishing={false}
-        templatePalettes={paletteArray}
-        selectedPalette={currentPalette}
-        onSelectPalette={(palette) => handlePaletteChange(palette.name)}
-        onCustomColorChange={handleCustomColorChange}
-        changes={changesHook.changes}
-        onUndo={changesHook.undo}
-        onRedo={changesHook.redo}
-        canUndo={changesHook.canUndo}
-        canRedo={changesHook.canRedo}
-        currentSiteId={siteId || undefined}
-        isPublished={site?.isPublished || false}
-        publishedDomain={site?.publishedDomain}
-        isSynced={isSynced}
-        isOpen={sidebarOpen}
-        onOpenChange={setSidebarOpen}
-      />
-
-      {/* Editor Banner - Redesigned */}
+    <CartProvider siteId={siteId || ''}>
       <div
-        className="flex-none h-12 px-4 z-[1000] shadow flex items-center justify-between gap-6 border-b"
-        style={{ backgroundColor: 'var(--brand-primary)' }}
+        className={`h-screen flex flex-col overflow-hidden relative transition-[margin] duration-300 ease-out ${sidebarOpen ? 'lg:ml-[20rem]' : ''}`}
       >
-        {/* Left: Logo + Page Selector */}
-        <div className="flex items-center gap-4">
-          {/* Keystone Logo (Click to toggle sidebar on desktop, leave editor on mobile) */}
-          <button
-            onClick={(e) => {
-              if (window.innerWidth >= 1024) {
-                // Desktop: Toggle sidebar
-                e.preventDefault();
-                setSidebarOpen(!sidebarOpen);
-              } else {
-                // Mobile: Try to leave editor (warn if unsaved)
-                if (changesHook.changes.length > 0) {
-                  e.preventDefault();
-                  setLeaveConfirmOpen(true);
-                } else {
-                  router.push('/');
-                }
-              }
-            }}
-            className="flex-shrink-0 flex items-center gap-2 hover:opacity-80 transition-opacity mr-4"
-            title={sidebarOpen ? "Close settings" : "Open settings"}
-          >
-            {/* Desktop: Sidebar Toggle Icon */}
-            <div className="hidden lg:block text-white">
-              {sidebarOpen ? <PanelLeftClose className="w-6 h-6" /> : <PanelLeftOpen className="w-6 h-6" />}
-            </div>
-            {/* Mobile: Keystone Logo */}
-            <div className="block lg:hidden">
-              <svg width="24" height="26" viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg">
-                <polygon points="20,15 80,15 65,95 35,95" fill="white" stroke="white" strokeWidth="24" strokeLinejoin="round" />
-                <text x="50" y="52" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="900" fontSize="54" fill="#ef4444" textAnchor="middle" dominantBaseline="central">K</text>
-              </svg>
-            </div>
-          </button>
+        {/* Floating Toolbar / Sidebar */}
+        <FloatingToolbar
+          siteTitle={siteTitle}
+          onSiteTitle={handleSiteTitleChange}
+          onSave={handleSaveDesign}
+          saving={saving}
+          publishing={false}
+          templatePalettes={paletteArray}
+          selectedPalette={currentPalette}
+          onSelectPalette={(palette) => handlePaletteChange(palette.name)}
+          onCustomColorChange={handleCustomColorChange}
+          changes={changesHook.changes}
+          onUndo={changesHook.undo}
+          onRedo={changesHook.redo}
+          canUndo={changesHook.canUndo}
+          canRedo={changesHook.canRedo}
+          currentSiteId={siteId || undefined}
+          isPublished={site?.isPublished || false}
+          publishedDomain={site?.publishedDomain}
+          isSynced={isSynced}
+          isOpen={sidebarOpen}
+          onOpenChange={setSidebarOpen}
+        />
 
-          {/* Page Selector */}
-          {pages.length > 0 && (
-            <PageSelector
-              siteId={siteId || ''}
-              pages={pages}
-              currentPageId={currentPageId || undefined}
-              onPageChange={(page) => setCurrentPageId(page.id)}
-              onCreatePage={async (slug, title, displayName) => {
-                const newPage = await createPage(slug, title, displayName);
-                // Auto-add a nav item for the new page
-                const newNavItem: NavItem = {
-                  id: `nav-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-                  label: title,
-                  linkType: 'page' as const,
-                  href: `/${slug}`,
-                  pageId: newPage.id,
-                };
-                const updatedNavItems = [...navItems, newNavItem];
-                // Update state without tracking as unsaved change
-                setSiteContent((prev) => ({ ...prev, __navItems: updatedNavItems }));
-                // Auto-save site content with new nav item
-                if (site?.id) {
-                  const updatedSiteContent = { ...siteContent, __navItems: updatedNavItems, __selectedPalette: selectedPaletteKey };
-                  fetch('/api/sites', {
-                    credentials: 'include',
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ siteId: site.id, designData: updatedSiteContent }),
-                  }).then(() => {
-                    initialSiteContentRef.current = { ...updatedSiteContent };
-                  }).catch(err => console.error('Auto-save nav failed:', err));
+        {/* Editor Banner - Redesigned */}
+        <div
+          className="flex-none h-12 px-4 z-[1000] shadow flex items-center justify-between gap-6 border-b"
+          style={{ backgroundColor: 'var(--brand-primary)' }}
+        >
+          {/* Left: Logo + Page Selector */}
+          <div className="flex items-center gap-4">
+            {/* Keystone Logo (Click to toggle sidebar on desktop, leave editor on mobile) */}
+            <button
+              onClick={(e) => {
+                if (window.innerWidth >= 1024) {
+                  // Desktop: Toggle sidebar
+                  e.preventDefault();
+                  setSidebarOpen(!sidebarOpen);
+                } else {
+                  // Mobile: Try to leave editor (warn if unsaved)
+                  if (changesHook.changes.length > 0) {
+                    e.preventDefault();
+                    setLeaveConfirmOpen(true);
+                  } else {
+                    router.push('/');
+                  }
                 }
-                return newPage;
               }}
-              onDeletePage={async (pageId) => {
-                await deletePage(pageId);
-                // Auto-remove nav items that link to this page
-                const filtered = navItems.filter(item => item.pageId !== pageId);
-                if (filtered.length !== navItems.length) {
-                  setSiteContent((prev) => ({ ...prev, __navItems: filtered }));
-                  // Auto-save
+              className="flex-shrink-0 flex items-center gap-2 hover:opacity-80 transition-opacity mr-4"
+              title={sidebarOpen ? "Close settings" : "Open settings"}
+            >
+              {/* Desktop: Sidebar Toggle Icon */}
+              <div className="hidden lg:block text-white">
+                {sidebarOpen ? <PanelLeftClose className="w-6 h-6" /> : <PanelLeftOpen className="w-6 h-6" />}
+              </div>
+              {/* Mobile: Keystone Logo */}
+              <div className="block lg:hidden">
+                <svg width="24" height="26" viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg">
+                  <polygon points="20,15 80,15 65,95 35,95" fill="white" stroke="white" strokeWidth="24" strokeLinejoin="round" />
+                  <text x="50" y="52" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="900" fontSize="54" fill="#ef4444" textAnchor="middle" dominantBaseline="central">K</text>
+                </svg>
+              </div>
+            </button>
+
+            {/* Page Selector */}
+            {pages.length > 0 && (
+              <PageSelector
+                siteId={siteId || ''}
+                pages={pages}
+                currentPageId={currentPageId || undefined}
+                onPageChange={(page) => {
+                  setCurrentPageId(page.id);
+                  if (previewProductId) {
+                    const params = new URLSearchParams(searchParams.toString());
+                    params.delete('productId');
+                    router.push(`${window.location.pathname}?${params.toString()}`);
+                  }
+                }}
+                onCreatePage={async (slug, title, displayName) => {
+                  const newPage = await createPage(slug, title, displayName);
+                  // Auto-add a nav item for the new page
+                  const newNavItem: NavItem = {
+                    id: `nav-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+                    label: title,
+                    linkType: 'page' as const,
+                    href: `/${slug}`,
+                    pageId: newPage.id,
+                  };
+                  const updatedNavItems = [...navItems, newNavItem];
+                  // Update state without tracking as unsaved change
+                  setSiteContent((prev) => ({ ...prev, __navItems: updatedNavItems }));
+                  // Auto-save site content with new nav item
                   if (site?.id) {
-                    const updatedSiteContent = { ...siteContent, __navItems: filtered, __selectedPalette: selectedPaletteKey };
+                    const updatedSiteContent = { ...siteContent, __navItems: updatedNavItems, __selectedPalette: selectedPaletteKey };
                     fetch('/api/sites', {
                       credentials: 'include',
                       method: 'PATCH',
@@ -759,80 +756,110 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
                       initialSiteContentRef.current = { ...updatedSiteContent };
                     }).catch(err => console.error('Auto-save nav failed:', err));
                   }
-                }
-              }}
-            />
-          )}
-        </div>
-
-        {/* Right: Edit/Preview Toggle */}
-        <div className="flex-shrink-0">
-          <EmbeddedToggle
-            isActive={editMode}
-            onToggle={setEditMode}
-            activeLabel="Edit"
-            inactiveLabel="View"
-          />
-        </div>
-      </div>
-
-      {/* Template Render Wrapper (This section alone scrolls, so sticky headers inside templates stick to the top of THIS container, right below our Editor banner) */}
-      <div className="flex-1 overflow-y-auto w-full relative">
-        <EditorProvider
-          value={{
-            content: editableContent,
-            siteContent,
-            updateSiteContent: handleUpdateSiteContent,
-            navItems,
-            updateNavItems: handleUpdateNavItems,
-            pages: pages.map(p => ({ id: p.id, slug: p.slug, title: p.title })),
-            isEditMode: editMode,
-            updateContent: handleUpdateContent,
-            palette: paletteData,
-            availablePalettes: Object.keys(availablePalettes),
-            siteId: siteId || undefined,
-            siteCategory: site?.category || undefined,
-            uploadImage: uploadImage,
-            setPalette: handlePaletteChange,
-            blocks: editableContent.blocks || [],
-            addBlock,
-            removeBlock,
-            moveBlock,
-            updateBlockData,
-          }}
-        >
-          <div className="w-full">
-            {templateComponent
-              ? createElement(templateComponent, {
-                palette: paletteData,
-                isEditMode: editMode,
-              })
-              : null}
+                  return newPage;
+                }}
+                onDeletePage={async (pageId) => {
+                  await deletePage(pageId);
+                  // Auto-remove nav items that link to this page
+                  const filtered = navItems.filter(item => item.pageId !== pageId);
+                  if (filtered.length !== navItems.length) {
+                    setSiteContent((prev) => ({ ...prev, __navItems: filtered }));
+                    // Auto-save
+                    if (site?.id) {
+                      const updatedSiteContent = { ...siteContent, __navItems: filtered, __selectedPalette: selectedPaletteKey };
+                      fetch('/api/sites', {
+                        credentials: 'include',
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ siteId: site.id, designData: updatedSiteContent }),
+                      }).then(() => {
+                        initialSiteContentRef.current = { ...updatedSiteContent };
+                      }).catch(err => console.error('Auto-save nav failed:', err));
+                    }
+                  }
+                }}
+              />
+            )}
           </div>
-        </EditorProvider>
+
+          {/* Right: Edit/Preview Toggle */}
+          <div className="flex-shrink-0">
+            <EmbeddedToggle
+              isActive={editMode}
+              onToggle={setEditMode}
+              activeLabel="Edit"
+              inactiveLabel="View"
+            />
+          </div>
+        </div>
+
+        {/* Template Render Wrapper (This section alone scrolls, so sticky headers inside templates stick to the top of THIS container, right below our Editor banner) */}
+        <div className="flex-1 overflow-y-auto w-full relative">
+          <EditorProvider
+            value={{
+              content: editableContent,
+              siteContent,
+              updateSiteContent: handleUpdateSiteContent,
+              navItems,
+              updateNavItems: handleUpdateNavItems,
+              pages: pages.map(p => ({ id: p.id, slug: p.slug, title: p.title })),
+              isEditMode: editMode,
+              updateContent: handleUpdateContent,
+              palette: paletteData,
+              availablePalettes: Object.keys(availablePalettes),
+              siteId: siteId || undefined,
+              siteCategory: site?.category || undefined,
+              uploadImage: uploadImage,
+              setPalette: handlePaletteChange,
+              blocks: editableContent.blocks || [],
+              addBlock,
+              removeBlock,
+              moveBlock,
+              updateBlockData,
+            }}
+          >
+            <div className="w-full">
+              {previewProductId ? (
+                <PreviewProductPage
+                  productId={previewProductId}
+                  siteId={siteId!}
+                  palette={paletteData}
+                  siteName={siteTitle}
+                />
+              ) : templateComponent ? (
+                createElement(templateComponent, {
+                  palette: paletteData,
+                  isEditMode: editMode,
+                })
+              ) : null}
+            </div>
+          </EditorProvider>
+        </div>
+
+        <AlertModal
+          isOpen={alertConfig.isOpen}
+          title={alertConfig.title}
+          message={alertConfig.message}
+          type={alertConfig.type}
+          onClose={() => setAlertConfig({ ...alertConfig, isOpen: false })}
+        />
+
+        <AlertModal
+          isOpen={leaveConfirmOpen}
+          title="Unsaved Changes"
+          message="You have unsaved changes that will be lost if you leave. Are you sure?"
+          type="warning"
+          onClose={() => setLeaveConfirmOpen(false)}
+          onConfirm={() => {
+            setLeaveConfirmOpen(false);
+            router.push('/');
+          }}
+          confirmLabel="Leave"
+          cancelLabel="Stay"
+        />
+        <CartDrawer siteId={siteId || ''} palette={paletteData} />
+        <CartButton accentColor={paletteData?.secondary} />
       </div>
-
-      <AlertModal
-        isOpen={alertConfig.isOpen}
-        title={alertConfig.title}
-        message={alertConfig.message}
-        type={alertConfig.type}
-        onClose={() => setAlertConfig({ ...alertConfig, isOpen: false })}
-      />
-
-      <AlertModal
-        isOpen={leaveConfirmOpen}
-        title="Unsaved Changes"
-        message="You have unsaved changes that will be lost if you leave. Are you sure?"
-        type="warning"
-        onClose={() => setLeaveConfirmOpen(false)}
-        onConfirm={() => {
-          setLeaveConfirmOpen(false);
-          router.push('/');
-        }}
-        confirmLabel="Leave"
-        cancelLabel="Stay"
-      />
-    </div>
+    </CartProvider>
   );
 }

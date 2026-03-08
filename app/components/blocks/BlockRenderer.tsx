@@ -19,6 +19,7 @@ import GalleryBlock from './GalleryBlock';
 import ContactBlock from './ContactBlock';
 import FAQBlock from './FAQBlock';
 import BookingBlock from './BookingBlock';
+import ProductGridBlock from './ProductGridBlock';
 
 // We loosen the component type to accommodate both the simpler original blocks and the advanced blocks
 const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
@@ -37,6 +38,7 @@ const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     contact: ContactBlock,
     faq: FAQBlock,
     booking: BookingBlock,
+    productGrid: ProductGridBlock,
 };
 
 const AVAILABLE_BLOCKS = [
@@ -53,6 +55,7 @@ const AVAILABLE_BLOCKS = [
     { type: 'faq', label: 'FAQ Accordion' },
     { type: 'cta', label: 'Call to Action' },
     { type: 'booking', label: '📅 Booking / Appointments' },
+    { type: 'productGrid', label: '🛍️ Product Catalog' },
     { type: 'map', label: 'Google Map' },
     { type: 'custom_html', label: 'Custom HTML / Embed' },
 ];

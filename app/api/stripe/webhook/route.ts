@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
+import { sendOrderConfirmation, sendOrderNotification } from '@/lib/email';
 import Stripe from 'stripe';
 
 // Initialize Stripe only when API key is available
@@ -44,6 +45,63 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
+        if (session.metadata?.type === 'ecommerce_order') {
+          const orderId = session.metadata.orderId;
+          const siteId = session.metadata.siteId;
+
+          if (!orderId) {
+            console.error('Missing orderId in checkout session metadata');
+            return NextResponse.json({ error: 'Invalid session metadata' }, { status: 400 });
+          }
+
+          // Update order status to paid
+          const { data: order, error } = await supabase
+            .from('orders')
+            .update({
+              status: 'confirmed',
+              payment_status: 'paid',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', orderId)
+            .select()
+            .single();
+
+          if (error || !order) {
+            console.error('Failed to update order status:', error);
+            return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });
+          }
+
+          // Fetch booking settings for notification email
+          const { data: bookingSettings } = await supabase
+            .from('booking_settings')
+            .select('notification_email')
+            .eq('site_id', siteId)
+            .single();
+
+          // Send emails
+          const emailData = {
+            orderId: order.id,
+            items: order.items,
+            subtotalCents: order.subtotal_cents,
+            currency: order.items[0]?.currency || 'CAD',
+            customerName: order.customer_name,
+            customerEmail: order.customer_email,
+            customerPhone: order.customer_phone,
+            shippingAddress: order.shipping_address,
+            paymentMethod: 'stripe',
+          };
+
+          sendOrderConfirmation(emailData).catch(err => console.error('Stripe webhook customer email failed:', err));
+
+          if (bookingSettings?.notification_email) {
+            sendOrderNotification(emailData, bookingSettings.notification_email)
+              .catch(err => console.error('Stripe webhook owner email failed:', err));
+          }
+
+          console.log(`✅ Order ${orderId} marked as paid via Stripe.`);
+          break;
+        }
+
         const userId = session.metadata?.userId;
         const planName = session.metadata?.planName;
         // Optionally capture customer email/id for future referencing

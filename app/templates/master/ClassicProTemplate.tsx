@@ -5,12 +5,14 @@ import EditableButton from '@/app/components/EditableButton';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import NavMenu from '@/app/components/NavMenu';
+import HeaderCartIcon from '@/app/components/ecommerce/HeaderCartIcon';
 import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
     isEditMode: boolean;
+    children?: React.ReactNode;
 }
 
 /**
@@ -18,7 +20,7 @@ interface MasterTemplateProps {
  * Dark sticky header, bold fonts, high contrast.
  * Perfect for trades, mechanics, HVAC, plumbing.
  */
-export function BoldTemplate({ palette, isEditMode }: MasterTemplateProps) {
+export function BoldTemplate({ palette, isEditMode, children }: MasterTemplateProps) {
     const context = useEditorContext();
     const siteContent = context?.siteContent || {};
     const updateSiteContent = context?.updateSiteContent || (() => { });
@@ -56,6 +58,7 @@ export function BoldTemplate({ palette, isEditMode }: MasterTemplateProps) {
                                 className="flex items-center gap-6"
                                 itemClassName="text-sm font-semibold text-white/80 hover:text-white transition-colors tracking-wide uppercase"
                             />
+                            <HeaderCartIcon color="#ffffff" />
                             <EditableButton
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
@@ -68,13 +71,15 @@ export function BoldTemplate({ palette, isEditMode }: MasterTemplateProps) {
                             />
                         </div>
 
-                        {/* Mobile toggle */}
-                        <button
-                            className="md:hidden text-white p-2"
-                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                        >
-                            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-                        </button>
+                        <div className="flex md:hidden items-center gap-2">
+                            <HeaderCartIcon color="#ffffff" />
+                            <button
+                                className="text-white p-2"
+                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            >
+                                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                            </button>
+                        </div>
                     </div>
 
                     {/* Mobile Menu */}

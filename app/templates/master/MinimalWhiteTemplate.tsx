@@ -5,12 +5,14 @@ import EditableButton from '@/app/components/EditableButton';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import NavMenu from '@/app/components/NavMenu';
+import HeaderCartIcon from '@/app/components/ecommerce/HeaderCartIcon';
 import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
     isEditMode: boolean;
+    children?: React.ReactNode;
 }
 
 /**
@@ -18,7 +20,7 @@ interface MasterTemplateProps {
  * Lots of whitespace, serif accents, minimal borders.
  * Perfect for freelancers, landscaping, cleaning, portfolios.
  */
-export function MinimalWhiteTemplate({ palette, isEditMode }: MasterTemplateProps) {
+export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTemplateProps) {
     const context = useEditorContext();
     const content = context?.content || {};
     const siteContent = context?.siteContent || {};
@@ -54,6 +56,7 @@ export function MinimalWhiteTemplate({ palette, isEditMode }: MasterTemplateProp
                                 className="flex items-center gap-7"
                                 itemClassName="text-sm text-slate-500 hover:text-slate-900 transition-colors font-medium"
                             />
+                            <HeaderCartIcon color={pPrimary} />
                             <EditableButton
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
@@ -66,13 +69,15 @@ export function MinimalWhiteTemplate({ palette, isEditMode }: MasterTemplateProp
                             />
                         </div>
 
-                        {/* Mobile toggle */}
-                        <button
-                            className="md:hidden p-2 text-slate-500"
-                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                        >
-                            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                        </button>
+                        <div className="flex md:hidden items-center gap-2">
+                            <HeaderCartIcon color={pPrimary} />
+                            <button
+                                className="p-2 text-slate-500"
+                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            >
+                                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                            </button>
+                        </div>
                     </div>
 
                     {/* Mobile Menu */}
@@ -95,7 +100,7 @@ export function MinimalWhiteTemplate({ palette, isEditMode }: MasterTemplateProp
 
             {/* Page Content */}
             <main className="flex-1 w-full min-h-[50vh]">
-                <BlockRenderer palette={palette} />
+                {children || <BlockRenderer palette={palette} />}
             </main>
 
             {/* Footer — clean & minimal */}
