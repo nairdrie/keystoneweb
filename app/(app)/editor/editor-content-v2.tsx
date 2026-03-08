@@ -66,6 +66,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
             uploadImage: async () => { return ''; },
             setPalette: () => { },
             blocks: pubDesign.blocks || [],
+            pages: pubDesign.__pages || [],
           }}
         >
           <div className="w-full min-h-screen">
