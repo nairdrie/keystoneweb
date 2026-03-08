@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useEditorContext, BlockData } from '@/lib/editor-context';
 import BlockWrapper from './BlockWrapper';
 import { Plus } from 'lucide-react';
@@ -20,6 +20,7 @@ import ContactBlock from './ContactBlock';
 import FAQBlock from './FAQBlock';
 import BookingBlock from './BookingBlock';
 import ProductGridBlock from './ProductGridBlock';
+import ContactFormBlock from './ContactFormBlock';
 
 // We loosen the component type to accommodate both the simpler original blocks and the advanced blocks
 const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
@@ -39,6 +40,7 @@ const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     faq: FAQBlock,
     booking: BookingBlock,
     productGrid: ProductGridBlock,
+    contact_form: ContactFormBlock,
 };
 
 const AVAILABLE_BLOCKS = [
@@ -56,6 +58,7 @@ const AVAILABLE_BLOCKS = [
     { type: 'cta', label: 'Call to Action' },
     { type: 'booking', label: '📅 Booking / Appointments' },
     { type: 'productGrid', label: '🛍️ Product Catalog' },
+    { type: 'contact_form', label: 'Contact Form' },
     { type: 'map', label: 'Google Map' },
     { type: 'custom_html', label: 'Custom HTML / Embed' },
 ];
@@ -67,8 +70,22 @@ export default function BlockRenderer({ palette }: { palette: Record<string, str
 
     const AddBlockMenu = ({ index }: { index: number }) => {
         const [isOpen, setIsOpen] = useState(false);
+        const [searchQuery, setSearchQuery] = useState('');
+        const menuRef = React.useRef<HTMLDivElement>(null);
+
+        // Auto-focus search input when menu opens
+        const inputRef = React.useRef<HTMLInputElement>(null);
+        useEffect(() => {
+            if (isOpen && inputRef.current) {
+                inputRef.current.focus();
+            }
+        }, [isOpen]);
 
         if (!isEditMode) return null;
+
+        const filteredBlocks = AVAILABLE_BLOCKS.filter(b =>
+            b.label.toLowerCase().includes(searchQuery.toLowerCase())
+        );
 
         return (
             <div className="relative w-full flex justify-center my-2 group">
@@ -76,27 +93,57 @@ export default function BlockRenderer({ palette }: { palette: Record<string, str
                     <div className="w-full border-t border-transparent group-hover:border-slate-200 transition-colors" />
                 </div>
                 <button
-                    onClick={() => setIsOpen(!isOpen)}
+                    onClick={(e) => {
+                        const nextState = !isOpen;
+                        setIsOpen(nextState);
+                        setSearchQuery('');
+
+                        // Scroll menu into view if opening
+                        if (nextState) {
+                            setTimeout(() => {
+                                if (menuRef.current) {
+                                    menuRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                                }
+                            }, 50);
+                        }
+                    }}
                     className="relative rounded-full p-1.5 bg-white border border-transparent z-10 text-slate-400 group-hover:text-slate-600 group-hover:border-slate-300 hover:bg-slate-50 hover:scale-110 transition-all shadow-sm group-hover:shadow"
                 >
                     <Plus className="w-4 h-4" />
                 </button>
 
                 {isOpen && (
-                    <div className="absolute top-8 z-50 bg-white shadow-xl border border-slate-200 rounded-lg p-2 w-56 animate-in fade-in zoom-in duration-200">
-                        <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">Add Block</h4>
-                        {AVAILABLE_BLOCKS.map(b => (
-                            <button
-                                key={b.type}
-                                className="w-full text-left px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-md transition-colors"
-                                onClick={() => {
-                                    context?.addBlock?.(b.type, index);
-                                    setIsOpen(false);
-                                }}
-                            >
-                                {b.label}
-                            </button>
-                        ))}
+                    <div ref={menuRef} className="absolute top-8 z-50 bg-white shadow-xl border border-slate-200 rounded-lg p-2 w-56 animate-in fade-in zoom-in duration-200 max-h-[300px] flex flex-col">
+                        <h4 className="flex-shrink-0 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">Add Block</h4>
+                        <div className="flex-shrink-0 px-2 mb-2">
+                            <input
+                                ref={inputRef}
+                                type="search"
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                placeholder="Search blocks..."
+                                className="w-full bg-slate-50 border border-slate-200 text-sm px-2 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                        </div>
+                        <div className="overflow-y-auto flex-1 space-y-0.5 px-0.5">
+                            {filteredBlocks.length > 0 ? (
+                                filteredBlocks.map(b => (
+                                    <button
+                                        key={b.type}
+                                        className="w-full text-left px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-md transition-colors"
+                                        onClick={() => {
+                                            context?.addBlock?.(b.type, index);
+                                            setIsOpen(false);
+                                            setSearchQuery('');
+                                        }}
+                                    >
+                                        {b.label}
+                                    </button>
+                                ))
+                            ) : (
+                                <p className="text-xs text-slate-500 text-center py-4">No blocks found.</p>
+                            )}
+                        </div>
                     </div>
                 )}
             </div>

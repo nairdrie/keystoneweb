@@ -19,8 +19,9 @@ function DomainSelectContent() {
 
   const siteId = searchParams.get('siteId');
   const sessionId = searchParams.get('session_id');
+  const currentDomain = searchParams.get('currentDomain');
 
-  const [subdomain, setSubdomain] = useState('');
+  const [subdomain, setSubdomain] = useState(currentDomain || '');
   const [domainCheck, setDomainCheck] = useState<DomainCheckResult | null>(null);
   const [checking, setChecking] = useState(false);
   const [publishing, setPublishing] = useState(false);

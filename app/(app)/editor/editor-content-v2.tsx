@@ -661,6 +661,12 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
           onSave={handleSaveDesign}
           saving={saving}
           publishing={false}
+          onPublishSuccess={() => {
+            if (siteId) {
+              fetchSite(siteId);
+            }
+            fetchPages();
+          }}
           templatePalettes={paletteArray}
           selectedPalette={currentPalette}
           onSelectPalette={(palette) => handlePaletteChange(palette.name)}

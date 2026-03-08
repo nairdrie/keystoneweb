@@ -249,3 +249,57 @@ export async function sendOrderNotification(data: OrderEmailData, ownerEmail: st
         return { success: false, error };
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Contact Form Emails
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface ContactEmailData {
+    siteName: string;
+    customerName: string;
+    customerEmail: string;
+    customerPhone?: string;
+    message: string;
+}
+
+/**
+ * Send new contact form notification email to the business owner
+ */
+export async function sendContactFormNotification(data: ContactEmailData, ownerEmail: string) {
+    try {
+        await resend.emails.send({
+            from: 'Keystone Web <contact@keystoneweb.ca>',
+            to: ownerEmail,
+            subject: `New Message — ${data.siteName}`,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto;">
+                    <div style="text-align: center; padding: 24px 0;">
+                         <div style="width: 48px; height: 48px; background: #e0e7ff; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 24px;">💬</div>
+                        <h1 style="margin: 12px 0 4px; font-size: 22px; color: #111827;">New Message</h1>
+                        <p style="margin: 0; color: #6b7280; font-size: 14px;">Someone reached out from your website</p>
+                    </div>
+                    
+                    <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                        <p style="margin: 0; font-size: 15px; color: #111827; white-space: pre-wrap; line-height: 1.5;">${data.message}</p>
+                    </div>
+                    
+                    <div style="background: #f0f9ff; border-radius: 8px; padding: 16px;">
+                        <h3 style="margin: 0 0 8px; font-size: 14px; color: #0c4a6e;">Contact Details</h3>
+                        <p style="margin: 2px 0; font-size: 14px; color: #111827;"><strong>${data.customerName}</strong></p>
+                        <p style="margin: 2px 0; font-size: 14px; color: #111827;">📧 <a href="mailto:${data.customerEmail}" style="color: #0284c7;">${data.customerEmail}</a></p>
+                        ${data.customerPhone ? `<p style="margin: 2px 0; font-size: 14px; color: #111827;">📱 <a href="tel:${data.customerPhone}" style="color: #0284c7;">${data.customerPhone}</a></p>` : ''}
+                    </div>
+                    
+                    <p style="margin-top: 24px; font-size: 12px; color: #9ca3af; text-align: center;">
+                        Powered by Keystone Web Design
+                    </p>
+                </div>
+            `,
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send contact notification email:', error);
+        return { success: false, error };
+    }
+}

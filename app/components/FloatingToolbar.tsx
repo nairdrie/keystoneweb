@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Settings, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Settings, PanelLeftClose, PanelLeftOpen, Pencil } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
@@ -36,6 +36,7 @@ interface FloatingToolbarProps {
   onCustomColorChange?: (type: 'primary' | 'secondary' | 'accent', value: string) => void;
   onSave: () => void;
   onPublish?: () => void;
+  onPublishSuccess?: () => void;
   saving?: boolean;
   publishing?: boolean;
   changes?: Change[];
@@ -78,6 +79,7 @@ export default function FloatingToolbar({
   onCustomColorChange,
   onSave,
   onPublish,
+  onPublishSuccess,
   saving = false,
   publishing = false,
   changes = [],
@@ -105,6 +107,8 @@ export default function FloatingToolbar({
   const isDragging = useRef<boolean>(false);
   const [showSiteSwitcher, setShowSiteSwitcher] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' | 'warning', onConfirm?: () => void, confirmLabel?: string, cancelLabel?: string }>({ isOpen: false, message: '' });
+  const [isPublishingUpdates, setIsPublishingUpdates] = useState(false);
+  const isFullyDeployed = isSynced && changes.length === 0;
 
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -142,6 +146,7 @@ export default function FloatingToolbar({
 
   const executePublishRoute = async () => {
     try {
+      setIsPublishingUpdates(true);
       // Check user subscription status
       const res = await fetch('/api/user/subscription', { credentials: 'include' });
       if (res.ok) {
@@ -150,11 +155,30 @@ export default function FloatingToolbar({
         if (subscription && subscription.subscription_status === 'active') {
           // User already has an active subscription!
           if (isPublished && publishedDomain) {
-            // Already published and paid - show confirmation
-            setAlertConfig({ isOpen: true, title: 'Already Published', message: `Your site is live at https://${publishedDomain}`, type: 'info' });
+            // Already published and paid - push updates directly
+            const publishRes = await fetch('/api/sites/publish', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                siteId: currentSiteId,
+                publishedDomain: publishedDomain,
+              }),
+            });
+            if (publishRes.ok) {
+              onPublishSuccess?.();
+              setAlertConfig({ isOpen: true, title: 'Site Updated', message: 'Your latest changes are now live!', type: 'success' });
+              setTimeout(() => {
+                router.refresh();
+              }, 500);
+            } else {
+              setAlertConfig({ isOpen: true, title: 'Publish Failed', message: 'There was an error updating your live site.', type: 'error' });
+            }
+            setIsPublishingUpdates(false);
             return;
           } else {
             // Paid, but domain not set yet
+            setIsPublishingUpdates(false);
             router.push(`/publish/domain-select?session_id=existing&siteId=${currentSiteId}`);
             return;
           }
@@ -164,6 +188,7 @@ export default function FloatingToolbar({
       console.error('Failed to check subscription before publish:', err);
     }
 
+    setIsPublishingUpdates(false);
     // No active subscription or error checking, proceed to pricing
     router.push('/pricing?action=publish&siteId=' + currentSiteId);
   };
@@ -452,28 +477,97 @@ export default function FloatingToolbar({
         </div>
       )}
 
-      {/* Save Draft & Publish Buttons */}
-      <div className="flex gap-3">
-        {/* Save Draft Button */}
-        <button
-          onClick={handleSave}
-          disabled={saving || changes.length === 0}
-          className="flex-1 py-3 text-white font-bold rounded-lg transition-colors hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed bg-slate-600 hover:bg-slate-700"
-          title={changes.length === 0 ? 'No changes to save' : 'Save your draft'}
-        >
-          {saving ? 'Saving...' : user ? 'Save Draft' : 'Sign Up to Save'}
-        </button>
+      {/* Save Draft & Publish / Live Site Actions */}
+      <div className="flex flex-col gap-3">
+        {isPublished && publishedDomain ? (
+          /* Live Site Status (When published) */
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-3 w-3">
+                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isFullyDeployed ? 'bg-green-400' : 'bg-amber-400'}`}></span>
+                  <span className={`relative inline-flex rounded-full h-3 w-3 ${isFullyDeployed ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+                </span>
+                <span className={`text-xs font-bold uppercase tracking-wide ${isFullyDeployed ? 'text-slate-700' : 'text-amber-700'}`}>
+                  {isFullyDeployed ? 'Live' : 'Unpublished Changes'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <a
+                  href={`https://${publishedDomain}.kswd.ca`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-slate-500 hover:text-slate-900 border-b border-slate-300 hover:border-slate-900 transition-colors truncate max-w-[150px]"
+                  title={`Visit https://${publishedDomain}.kswd.ca`}
+                >
+                  {publishedDomain}.kswd.ca
+                </a>
+                <button
+                  onClick={() => router.push(`/publish/domain-select?session_id=existing&siteId=${currentSiteId}&currentDomain=${publishedDomain}`)}
+                  className="p-1 hover:bg-slate-200 rounded text-slate-500 hover:text-slate-900 transition-colors"
+                  title="Change URL"
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
 
-        {/* Publish Button */}
-        <button
-          onClick={handlePublish}
-          disabled={publishing || !user || isSynced}
-          className="flex-1 py-3 text-white font-bold rounded-lg transition-colors hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
-          style={{ backgroundColor: isSynced ? '#94a3b8' : 'var(--brand-primary)' }}
-          title={!user ? 'Sign in to publish' : isSynced ? 'All changes are live' : 'Publish your site'}
-        >
-          {publishing ? 'Publishing...' : isSynced ? 'Published' : 'Publish'}
-        </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleSave}
+                disabled={saving || changes.length === 0}
+                className="flex-[0.8] py-2 bg-slate-200 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 font-semibold text-sm rounded-md transition-colors whitespace-nowrap"
+              >
+                Save Draft
+              </button>
+
+              {!isFullyDeployed ? (
+                <button
+                  onClick={handlePublish}
+                  disabled={publishing || isPublishingUpdates}
+                  className="flex-[1.2] flex items-center justify-center py-2 text-white font-semibold text-sm rounded-md transition-colors hover:brightness-110 whitespace-nowrap"
+                  style={{ backgroundColor: 'var(--brand-primary)' }}
+                >
+                  {(publishing || isPublishingUpdates) ? 'Publishing...' : 'Publish'}
+                </button>
+              ) : (
+                <a
+                  href={`https://${publishedDomain}.kswd.ca`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-[1.2] flex items-center justify-center py-2 text-white font-semibold text-sm rounded-md transition-colors hover:brightness-110 whitespace-nowrap"
+                  style={{ backgroundColor: 'var(--brand-primary)' }}
+                >
+                  View Live Site
+                </a>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Edit Mode Actions (Save Draft & Publish) */
+          <div className="flex gap-3">
+            {/* Save Draft Button */}
+            <button
+              onClick={handleSave}
+              disabled={saving || changes.length === 0}
+              className="flex-1 py-3 text-white font-bold rounded-lg transition-colors hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed bg-slate-600 hover:bg-slate-700"
+              title={changes.length === 0 ? 'No changes to save' : 'Save your draft'}
+            >
+              {saving ? 'Saving...' : user ? 'Save Draft' : 'Sign Up to Save'}
+            </button>
+
+            {/* Publish Button */}
+            <button
+              onClick={handlePublish}
+              disabled={publishing || !user || isSynced}
+              className="flex-1 py-3 text-white font-bold rounded-lg transition-colors hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
+              style={{ backgroundColor: isSynced ? '#94a3b8' : 'var(--brand-primary)' }}
+              title={!user ? 'Sign in to publish' : isSynced ? 'All changes are live' : 'Publish your site'}
+            >
+              {publishing ? 'Publishing...' : isSynced ? 'Published' : 'Publish'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Divider */}
@@ -668,10 +762,6 @@ export default function FloatingToolbar({
                 </div>
               </div>
             )}
-
-            <p className="text-sm text-slate-700 mb-6">
-              Publishing requires a subscription. After saving, you'll choose a plan and complete checkout with Stripe.
-            </p>
 
             <div className="flex gap-3">
               <button
