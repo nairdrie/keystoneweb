@@ -2,12 +2,15 @@
 
 import EditableText from '@/app/components/EditableText';
 import EditableButton from '@/app/components/EditableButton';
+import EditableImage from '@/app/components/EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
+import Link from 'next/link';
 import NavMenu from '@/app/components/NavMenu';
 import HeaderCartIcon from '@/app/components/ecommerce/HeaderCartIcon';
 import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -25,6 +28,8 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
     const siteContent = context?.siteContent || {};
     const updateSiteContent = context?.updateSiteContent || (() => { });
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const pathname = usePathname();
+    const isEditor = pathname?.startsWith('/editor');
 
     const pPrimary = palette.primary || '#0f172a';
     const pSecondary = palette.secondary || '#ef4444';
@@ -38,18 +43,33 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
                     <div className="flex items-center justify-between h-16">
                         {/* Logo/Title */}
                         <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-md flex items-center justify-center font-black text-sm text-white" style={{ backgroundColor: pSecondary }}>
-                                {(siteContent.siteTitle || 'B')[0]?.toUpperCase()}
-                            </div>
-                            <EditableText
-                                as="div"
-                                contentKey="siteTitle"
-                                content={siteContent.siteTitle}
-                                defaultValue="YOUR BUSINESS"
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="text-lg font-black tracking-tight text-white"
-                            />
+                            <Link
+                                href={isEditor ? `/editor?siteId=${context?.siteId}&pageId=${context?.pages?.find(p => p.slug === 'home')?.id || ''}` : '/'}
+                                aria-label="Home"
+                                className="flex items-center gap-3 transition-opacity hover:opacity-90"
+                            >
+                                <EditableImage
+                                    contentKey="siteLogo"
+                                    imageUrl={siteContent.siteLogo}
+                                    isEditMode={isEditMode}
+                                    onSave={updateSiteContent}
+                                    className="w-8 h-8 object-contain rounded-md"
+                                    fallback={
+                                        <div className="w-8 h-8 rounded-md flex items-center justify-center font-black text-sm text-white" style={{ backgroundColor: pSecondary }}>
+                                            {(siteContent.siteTitle || 'B')[0]?.toUpperCase()}
+                                        </div>
+                                    }
+                                />
+                                <EditableText
+                                    as="div"
+                                    contentKey="siteTitle"
+                                    content={siteContent.siteTitle}
+                                    defaultValue="YOUR BUSINESS"
+                                    isEditMode={isEditMode}
+                                    onSave={updateSiteContent}
+                                    className="text-lg font-black tracking-tight text-white"
+                                />
+                            </Link>
                         </div>
 
                         {/* Desktop Nav */}

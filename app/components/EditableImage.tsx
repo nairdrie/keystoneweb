@@ -13,6 +13,7 @@ interface EditableImageProps {
   onUpload?: (file: File, contentKey: string) => Promise<string>;
   className?: string;
   placeholder?: string;
+  fallback?: React.ReactNode;
 }
 
 export default function EditableImage({
@@ -23,6 +24,7 @@ export default function EditableImage({
   onUpload,
   className = '',
   placeholder = 'Click to add image',
+  fallback,
 }: EditableImageProps) {
   const context = useEditorContext();
   const [previewUrl, setPreviewUrl] = useState<string | undefined>(imageUrl);
@@ -64,6 +66,8 @@ export default function EditableImage({
   // Preview mode: just show the image
   if (!isEditMode) {
     if (!previewUrl) {
+      if (fallback) return <>{fallback}</>;
+
       return (
         <div className={`bg-slate-100 rounded ${className}`}>
           <div className="flex items-center justify-center h-48 text-slate-400">
@@ -144,11 +148,25 @@ export default function EditableImage({
       ) : (
         <div
           onClick={() => setModalOpen(true)}
-          className="border-2 border-dashed border-slate-300 hover:border-slate-400 rounded-lg p-8 text-center cursor-pointer transition-colors group"
+          className={fallback ? "cursor-pointer group relative" : "border-2 border-dashed border-slate-300 hover:border-slate-400 rounded-lg p-8 text-center cursor-pointer transition-colors group"}
         >
-          <ImageIcon className="w-8 h-8 mx-auto text-slate-400 group-hover:text-slate-600 mb-2" />
-          <p className="text-sm font-medium text-slate-700">{placeholder}</p>
-          <p className="text-xs text-slate-500 mt-1">Upload or search Unsplash</p>
+          {fallback ? (
+            <>
+              {fallback}
+              <div className="absolute inset-0 rounded bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                <span className="px-3 py-1.5 bg-white/90 text-slate-900 rounded-lg text-xs font-semibold shadow-lg flex items-center gap-1.5">
+                  <Pencil className="w-3.5 h-3.5" />
+                  Edit
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              <ImageIcon className="w-8 h-8 mx-auto text-slate-400 group-hover:text-slate-600 mb-2" />
+              <p className="text-sm font-medium text-slate-700">{placeholder}</p>
+              <p className="text-xs text-slate-500 mt-1">Upload or search Unsplash</p>
+            </>
+          )}
         </div>
       )}
 

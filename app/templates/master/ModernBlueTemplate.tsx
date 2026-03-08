@@ -2,12 +2,15 @@
 
 import EditableText from '@/app/components/EditableText';
 import EditableButton from '@/app/components/EditableButton';
+import EditableImage from '@/app/components/EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
+import Link from 'next/link';
 import NavMenu from '@/app/components/NavMenu';
 import HeaderCartIcon from '@/app/components/ecommerce/HeaderCartIcon';
 import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -25,6 +28,8 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
     const siteContent = context?.siteContent || {};
     const updateSiteContent = context?.updateSiteContent || (() => { });
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const pathname = usePathname();
+    const isEditor = pathname?.startsWith('/editor');
 
     const pPrimary = palette.primary || '#0369a1';
     const pSecondary = palette.secondary || '#0ea5e9';
@@ -38,24 +43,39 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                     <div className="flex items-center justify-between h-18 py-4">
                         {/* Logo */}
                         <div className="flex items-center gap-3">
-                            <div
-                                className="w-9 h-9 rounded-xl flex items-center justify-center"
-                                style={{ background: `linear-gradient(135deg, ${pPrimary}, ${pSecondary})` }}
+                            <Link
+                                href={isEditor ? `/editor?siteId=${context?.siteId}&pageId=${context?.pages?.find(p => p.slug === 'home')?.id || ''}` : '/'}
+                                aria-label="Home"
+                                className="flex items-center gap-3 transition-opacity hover:opacity-90"
                             >
-                                <span className="text-white font-black text-sm">
-                                    {(siteContent.siteTitle || 'E')[0]?.toUpperCase()}
-                                </span>
-                            </div>
-                            <EditableText
-                                as="div"
-                                contentKey="siteTitle"
-                                content={siteContent.siteTitle}
-                                defaultValue="Elegant Co."
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="text-xl font-bold tracking-tight"
-                                style={{ color: pPrimary }}
-                            />
+                                <EditableImage
+                                    contentKey="siteLogo"
+                                    imageUrl={siteContent.siteLogo}
+                                    isEditMode={isEditMode}
+                                    onSave={updateSiteContent}
+                                    className="w-9 h-9 object-contain"
+                                    fallback={
+                                        <div
+                                            className="w-9 h-9 rounded-xl flex items-center justify-center"
+                                            style={{ background: `linear-gradient(135deg, ${pPrimary}, ${pSecondary})` }}
+                                        >
+                                            <span className="text-white font-black text-sm">
+                                                {(siteContent.siteTitle || 'E')[0]?.toUpperCase()}
+                                            </span>
+                                        </div>
+                                    }
+                                />
+                                <EditableText
+                                    as="div"
+                                    contentKey="siteTitle"
+                                    content={siteContent.siteTitle}
+                                    defaultValue="Elegant Co."
+                                    isEditMode={isEditMode}
+                                    onSave={updateSiteContent}
+                                    className="text-xl font-bold tracking-tight"
+                                    style={{ color: pPrimary }}
+                                />
+                            </Link>
                         </div>
 
                         {/* Desktop Nav + CTA */}

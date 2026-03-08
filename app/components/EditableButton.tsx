@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Pencil } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useEditorContext, NavItem } from '@/lib/editor-context';
 import NavItemEditModal from './NavItemEditModal';
 
@@ -52,6 +53,8 @@ export default function EditableButton({
 }: EditableButtonProps) {
     const context = useEditorContext();
     const [isEditing, setIsEditing] = useState(false);
+    const pathname = usePathname();
+    const isEditor = pathname?.startsWith('/editor');
 
     const pages = context?.pages || [];
     const blocks = context?.blocks || [];
@@ -88,8 +91,15 @@ export default function EditableButton({
     // Resolve the href for rendering
     const resolveHref = (): string => {
         if (context && currentLinkType === 'page' && currentPageId) {
-            // In editor, navigate to the page within the editor
-            return `?siteId=${context.siteId}&pageId=${currentPageId}`;
+            if (isEditor) {
+                // In editor, navigate to the page within the editor
+                return `/editor?siteId=${context.siteId}&pageId=${currentPageId}`;
+            } else {
+                // Public site, navigate using standard slug
+                const targetPage = pages.find(p => p.id === currentPageId);
+                const slug = targetPage ? targetPage.slug : '';
+                return slug === 'home' ? '/' : `/${slug}`;
+            }
         }
         if (currentLinkType === 'section' && currentBlockId) {
             return `#${currentBlockId}`;

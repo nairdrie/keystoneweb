@@ -2,12 +2,15 @@
 
 import EditableText from '@/app/components/EditableText';
 import EditableButton from '@/app/components/EditableButton';
+import EditableImage from '@/app/components/EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
+import Link from 'next/link';
 import NavMenu from '@/app/components/NavMenu';
 import HeaderCartIcon from '@/app/components/ecommerce/HeaderCartIcon';
 import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -27,6 +30,8 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
     const updateContent = context?.updateContent || (() => { });
     const updateSiteContent = context?.updateSiteContent || (() => { });
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const pathname = usePathname();
+    const isEditor = pathname?.startsWith('/editor');
 
     const pPrimary = palette.primary || '#374151';
     const pSecondary = palette.secondary || '#10b981';
@@ -39,16 +44,36 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
                 <div className="max-w-6xl mx-auto px-6">
                     <div className="flex items-center justify-between h-16">
                         {/* Logo */}
-                        <EditableText
-                            as="div"
-                            contentKey="siteTitle"
-                            content={siteContent.siteTitle}
-                            defaultValue="Studio"
-                            isEditMode={isEditMode}
-                            onSave={updateSiteContent}
-                            className="text-lg font-semibold tracking-wide"
-                            style={{ color: pPrimary }}
-                        />
+                        <div className="flex items-center gap-3">
+                            <Link
+                                href={isEditor ? `/editor?siteId=${context?.siteId}&pageId=${context?.pages?.find(p => p.slug === 'home')?.id || ''}` : '/'}
+                                aria-label="Home"
+                                className="flex items-center gap-3 transition-opacity hover:opacity-90"
+                            >
+                                <EditableImage
+                                    contentKey="siteLogo"
+                                    imageUrl={siteContent.siteLogo}
+                                    isEditMode={isEditMode}
+                                    onSave={updateSiteContent}
+                                    className="w-8 h-8 object-contain"
+                                    fallback={
+                                        <div className="w-8 h-8 rounded flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pPrimary }}>
+                                            {(siteContent.siteTitle || 'S')[0]?.toUpperCase()}
+                                        </div>
+                                    }
+                                />
+                                <EditableText
+                                    as="div"
+                                    contentKey="siteTitle"
+                                    content={siteContent.siteTitle}
+                                    defaultValue="Studio"
+                                    isEditMode={isEditMode}
+                                    onSave={updateSiteContent}
+                                    className="text-lg font-semibold tracking-wide"
+                                    style={{ color: pPrimary }}
+                                />
+                            </Link>
+                        </div>
 
                         {/* Desktop Nav */}
                         <div className="hidden md:flex items-center gap-8">

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Plus, X, Pencil } from 'lucide-react';
 import { useEditorContext, NavItem } from '@/lib/editor-context';
 import NavItemEditModal from './NavItemEditModal';
@@ -20,6 +21,9 @@ export default function NavMenu({ className = '', itemClassName = '' }: NavMenuP
     const updateNavItems = context?.updateNavItems;
     const pages = context?.pages || [];
     const blocks = context?.blocks || [];
+
+    const pathname = usePathname();
+    const isEditor = pathname?.startsWith('/editor');
 
     const [editingItem, setEditingItem] = useState<NavItem | null>(null);
 
@@ -64,8 +68,8 @@ export default function NavMenu({ className = '', itemClassName = '' }: NavMenuP
                         <Link
                             href={(() => {
                                 if (item.linkType === 'page') {
-                                    if (isEditMode) {
-                                        return `?siteId=${context?.siteId}&pageId=${item.pageId}`;
+                                    if (isEditor) {
+                                        return `/editor?siteId=${context?.siteId}&pageId=${item.pageId}`;
                                     } else {
                                         const targetPage = pages.find(p => p.id === item.pageId);
                                         const slug = targetPage ? targetPage.slug : '';
