@@ -56,6 +56,8 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
                                     isEditMode={isEditMode}
                                     onSave={updateSiteContent}
                                     className="w-8 h-8 object-contain"
+                                    editOverlayStyle="icon"
+                                    allowUnsplash={false}
                                     fallback={
                                         <div className="w-8 h-8 rounded flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pPrimary }}>
                                             {(siteContent.siteTitle || 'S')[0]?.toUpperCase()}

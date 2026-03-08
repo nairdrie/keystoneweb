@@ -14,6 +14,8 @@ interface EditableImageProps {
   className?: string;
   placeholder?: string;
   fallback?: React.ReactNode;
+  editOverlayStyle?: 'pill' | 'icon';
+  allowUnsplash?: boolean;
 }
 
 export default function EditableImage({
@@ -25,6 +27,8 @@ export default function EditableImage({
   className = '',
   placeholder = 'Click to add image',
   fallback,
+  editOverlayStyle = 'pill',
+  allowUnsplash = true,
 }: EditableImageProps) {
   const context = useEditorContext();
   const [previewUrl, setPreviewUrl] = useState<string | undefined>(imageUrl);
@@ -86,7 +90,7 @@ export default function EditableImage({
           style={imgStyle}
         />
         {/* Unsplash attribution */}
-        {attribution && (
+        {allowUnsplash && attribution && (
           <div className="absolute bottom-0 left-0 right-0 px-2 py-1 bg-black/40 text-white text-[10px] rounded-b">
             Photo by{' '}
             <a href={attribution.photographerUrl} target="_blank" rel="noopener noreferrer" className="underline">
@@ -106,7 +110,7 @@ export default function EditableImage({
   return (
     <>
       {previewUrl ? (
-        <div className="relative group cursor-pointer" onClick={() => setModalOpen(true)}>
+        <div className="relative group cursor-pointer" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setModalOpen(true); }}>
           <img
             src={previewUrl}
             alt={contentKey}
@@ -114,13 +118,19 @@ export default function EditableImage({
             style={imgStyle}
           />
           <div className="absolute inset-0 rounded bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-            <span className="px-4 py-2 bg-white/90 text-slate-900 rounded-lg text-sm font-semibold shadow-lg flex items-center gap-2">
-              <Pencil className="w-4 h-4" />
-              Edit Image
-            </span>
+            {editOverlayStyle === 'icon' ? (
+              <span className="p-2 bg-white text-red-600 rounded-full shadow-lg">
+                <Pencil className="w-4 h-4" />
+              </span>
+            ) : (
+              <span className="px-4 py-2 bg-white/90 text-slate-900 rounded-lg text-sm font-semibold shadow-lg flex items-center gap-2">
+                <Pencil className="w-4 h-4" />
+                Edit Image
+              </span>
+            )}
           </div>
           {/* Unsplash attribution */}
-          {attribution && (
+          {allowUnsplash && attribution && (
             <div className="absolute bottom-0 left-0 right-0 px-2 py-1 bg-black/40 text-white text-[10px] rounded-b">
               Photo by{' '}
               <a
@@ -145,30 +155,36 @@ export default function EditableImage({
             </div>
           )}
         </div>
+      ) : fallback ? (
+        <div
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setModalOpen(true); }}
+          className="cursor-pointer group relative block"
+        >
+          {fallback}
+          <div className="absolute inset-0 rounded bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+            {editOverlayStyle === 'icon' ? (
+              <span className="p-1.5 bg-white text-red-600 rounded-full shadow-lg">
+                <Pencil className="w-3.5 h-3.5" />
+              </span>
+            ) : (
+              <span className="px-3 py-1.5 bg-white/90 text-slate-900 rounded-lg text-xs font-semibold shadow-lg flex items-center gap-1.5">
+                <Pencil className="w-3.5 h-3.5" />
+                Edit
+              </span>
+            )}
+          </div>
+        </div>
       ) : (
         <div
-          onClick={() => setModalOpen(true)}
-          className={fallback ? "cursor-pointer group relative" : "border-2 border-dashed border-slate-300 hover:border-slate-400 rounded-lg p-8 text-center cursor-pointer transition-colors group"}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setModalOpen(true); }}
+          className="border-2 border-dashed border-slate-300 hover:border-slate-400 rounded-lg p-8 text-center cursor-pointer transition-colors group"
         >
-          {fallback ? (
-            <>
-              {fallback}
-              <div className="absolute inset-0 rounded bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                <span className="px-3 py-1.5 bg-white/90 text-slate-900 rounded-lg text-xs font-semibold shadow-lg flex items-center gap-1.5">
-                  <Pencil className="w-3.5 h-3.5" />
-                  Edit
-                </span>
-              </div>
-            </>
-          ) : (
-            <>
-              <ImageIcon className="w-8 h-8 mx-auto text-slate-400 group-hover:text-slate-600 mb-2" />
-              <p className="text-sm font-medium text-slate-700">{placeholder}</p>
-              <p className="text-xs text-slate-500 mt-1">Upload or search Unsplash</p>
-            </>
-          )}
+          <ImageIcon className="w-8 h-8 mx-auto text-slate-400 group-hover:text-slate-600 mb-2" />
+          <p className="text-sm font-medium text-slate-700">{placeholder}</p>
+          <p className="text-xs text-slate-500 mt-1">{allowUnsplash ? 'Upload or search Unsplash' : 'Upload an image'}</p>
         </div>
-      )}
+      )
+      }
 
       {/* Image Editor Modal */}
       <ImageEditorModal
@@ -178,9 +194,10 @@ export default function EditableImage({
         siteCategory={context?.siteCategory}
         siteId={context?.siteId || ''}
         onSave={handleSave}
-        onUpload={onUpload || (async () => '')}
+        onUpload={onUpload || context?.uploadImage || (async () => '')}
         contentKey={contentKey}
         currentSettings={imageSettings}
+        allowUnsplash={allowUnsplash}
       />
     </>
   );

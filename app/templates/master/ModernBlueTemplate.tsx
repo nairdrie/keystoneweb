@@ -54,6 +54,8 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                                     isEditMode={isEditMode}
                                     onSave={updateSiteContent}
                                     className="w-9 h-9 object-contain"
+                                    editOverlayStyle="icon"
+                                    allowUnsplash={false}
                                     fallback={
                                         <div
                                             className="w-9 h-9 rounded-xl flex items-center justify-center"

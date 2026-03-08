@@ -54,6 +54,8 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
                                     isEditMode={isEditMode}
                                     onSave={updateSiteContent}
                                     className="w-8 h-8 object-contain rounded-md"
+                                    editOverlayStyle="icon"
+                                    allowUnsplash={false}
                                     fallback={
                                         <div className="w-8 h-8 rounded-md flex items-center justify-center font-black text-sm text-white" style={{ backgroundColor: pSecondary }}>
                                             {(siteContent.siteTitle || 'B')[0]?.toUpperCase()}

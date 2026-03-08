@@ -40,6 +40,7 @@ interface ImageEditorModalProps {
     onUpload: (file: File, contentKey: string) => Promise<string>;
     contentKey: string;
     currentSettings?: ImageSettings;
+    allowUnsplash?: boolean;
 }
 
 type Tab = 'upload' | 'unsplash' | 'settings';
@@ -54,6 +55,7 @@ export default function ImageEditorModal({
     onUpload,
     contentKey,
     currentSettings,
+    allowUnsplash = true,
 }: ImageEditorModalProps) {
     const [activeTab, setActiveTab] = useState<Tab>('upload');
     const [isUploading, setIsUploading] = useState(false);
@@ -234,12 +236,15 @@ export default function ImageEditorModal({
 
     const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
         { id: 'upload', label: 'Upload', icon: <Upload className="w-4 h-4" /> },
-        { id: 'unsplash', label: 'Unsplash', icon: <Camera className="w-4 h-4" /> },
+        ...(allowUnsplash ? [{ id: 'unsplash' as Tab, label: 'Unsplash', icon: <Camera className="w-4 h-4" /> }] : []),
         ...(previewUrl ? [{ id: 'settings' as Tab, label: 'Settings', icon: <Settings className="w-4 h-4" /> }] : []),
     ];
 
     const modal = (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
+        <div
+            className="fixed inset-0 z-[10000] flex items-center justify-center p-4"
+            onClick={(e) => e.stopPropagation()}
+        >
             {/* Backdrop */}
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
