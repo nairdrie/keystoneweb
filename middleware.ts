@@ -20,9 +20,14 @@ export async function middleware(request: NextRequest) {
   if (domain.endsWith('.kswd.ca') && !domain.startsWith('www.')) {
     // Extract subdomain: akdesigns.kswd.ca → akdesigns
     const subdomain = domain.split('.kswd.ca')[0];
-    
+
     console.log(`[Middleware] ✅ Detected published subdomain: '${subdomain}'`);
     console.log(`[Middleware] Domain: '${domain}' → Subdomain: '${subdomain}'`);
+
+    // Do not rewrite API routes so they can be handled by app/api/
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.next();
+    }
 
     // Rewrite internally to the public route
     // The pathname will be preserved, so / stays /

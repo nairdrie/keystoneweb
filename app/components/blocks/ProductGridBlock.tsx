@@ -61,10 +61,16 @@ function ProductManager({ siteId, palette }: { siteId: string; palette: Record<s
 
     useEffect(() => {
         (async () => {
-            const res = await fetch(`/api/products?siteId=${siteId}`);
-            const data = await res.json();
-            setProducts(data.products || []);
-            setLoading(false);
+            try {
+                const res = await fetch(`/api/products?siteId=${siteId}`);
+                if (!res.ok) throw new Error('Failed to fetch');
+                const data = await res.json();
+                setProducts(data.products || []);
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
         })();
     }, [siteId]);
 
@@ -402,10 +408,16 @@ function ProductGrid({ siteId, palette }: { siteId: string; palette: Record<stri
 
     useEffect(() => {
         (async () => {
-            const res = await fetch(`/api/products?siteId=${siteId}`);
-            const data = await res.json();
-            setProducts((data.products || []).filter((p: Product) => p.is_active));
-            setLoading(false);
+            try {
+                const res = await fetch(`/api/products?siteId=${siteId}`);
+                if (!res.ok) throw new Error('Failed to fetch');
+                const data = await res.json();
+                setProducts((data.products || []).filter((p: Product) => p.is_active));
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
         })();
     }, [siteId]);
 
