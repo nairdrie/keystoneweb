@@ -671,6 +671,10 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
           selectedPalette={currentPalette}
           onSelectPalette={(palette) => handlePaletteChange(palette.name)}
           onCustomColorChange={handleCustomColorChange}
+          titleFont={siteContent.titleFont}
+          onTitleFontChange={(font) => handleUpdateSiteContent('titleFont', font)}
+          bodyFont={siteContent.bodyFont}
+          onBodyFontChange={(font) => handleUpdateSiteContent('bodyFont', font)}
           changes={changesHook.changes}
           onUndo={changesHook.undo}
           onRedo={changesHook.redo}

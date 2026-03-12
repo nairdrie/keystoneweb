@@ -72,6 +72,7 @@ export function ClassicProPlumber({
           <EditableText
             as="h1"
             contentKey="heroTitle"
+                                    styleData={content['heroTitle__styles']}
             content={content.heroTitle}
             defaultValue={defaults.heroTitle}
             isEditMode={actualEditMode}
@@ -82,6 +83,7 @@ export function ClassicProPlumber({
           <EditableText
             as="p"
             contentKey="heroSubtitle"
+                                    styleData={content['heroSubtitle__styles']}
             content={content.heroSubtitle}
             defaultValue={defaults.heroSubtitle}
             isEditMode={actualEditMode}
@@ -95,6 +97,7 @@ export function ClassicProPlumber({
           >
             <EditableText
               contentKey="heroCTA"
+                                    styleData={content['heroCTA__styles']}
               content={content.heroCTA}
               defaultValue={defaults.heroCTA}
               isEditMode={actualEditMode}
@@ -116,6 +119,7 @@ export function ClassicProPlumber({
               <EditableText
                 as="h3"
                 contentKey="service1Title"
+                                    styleData={content['service1Title__styles']}
                 content={content.service1Title}
                 defaultValue={defaults.service1Title}
                 isEditMode={actualEditMode}
@@ -125,6 +129,7 @@ export function ClassicProPlumber({
               <EditableText
                 as="p"
                 contentKey="service1Desc"
+                                    styleData={content['service1Desc__styles']}
                 content={content.service1Desc}
                 defaultValue={defaults.service1Desc}
                 isEditMode={actualEditMode}
@@ -137,6 +142,7 @@ export function ClassicProPlumber({
               <EditableText
                 as="h3"
                 contentKey="service2Title"
+                                    styleData={content['service2Title__styles']}
                 content={content.service2Title}
                 defaultValue={defaults.service2Title}
                 isEditMode={actualEditMode}
@@ -146,6 +152,7 @@ export function ClassicProPlumber({
               <EditableText
                 as="p"
                 contentKey="service2Desc"
+                                    styleData={content['service2Desc__styles']}
                 content={content.service2Desc}
                 defaultValue={defaults.service2Desc}
                 isEditMode={actualEditMode}
@@ -158,6 +165,7 @@ export function ClassicProPlumber({
               <EditableText
                 as="h3"
                 contentKey="service3Title"
+                                    styleData={content['service3Title__styles']}
                 content={content.service3Title}
                 defaultValue={defaults.service3Title}
                 isEditMode={actualEditMode}
@@ -167,6 +175,7 @@ export function ClassicProPlumber({
               <EditableText
                 as="p"
                 contentKey="service3Desc"
+                                    styleData={content['service3Desc__styles']}
                 content={content.service3Desc}
                 defaultValue={defaults.service3Desc}
                 isEditMode={actualEditMode}
@@ -183,6 +192,7 @@ export function ClassicProPlumber({
           <EditableText
             as="h2"
             contentKey="aboutTitle"
+                                    styleData={content['aboutTitle__styles']}
             content={content.aboutTitle}
             defaultValue={defaults.aboutTitle}
             isEditMode={actualEditMode}
@@ -193,6 +203,7 @@ export function ClassicProPlumber({
           <EditableText
             as="p"
             contentKey="aboutDesc"
+                                    styleData={content['aboutDesc__styles']}
             content={content.aboutDesc}
             defaultValue={defaults.aboutDesc}
             isEditMode={actualEditMode}

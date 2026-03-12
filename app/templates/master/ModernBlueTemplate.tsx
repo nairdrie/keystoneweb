@@ -35,8 +35,18 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
     const pSecondary = palette.secondary || '#0ea5e9';
     const pAccent = palette.accent || '#f0f9ff';
 
+    const titleFont = siteContent.titleFont || 'Inter';
+    const bodyFont = siteContent.bodyFont || 'Inter';
+
     return (
-        <div className="min-h-screen font-sans text-slate-800 bg-white">
+        <div className="template-wrapper min-h-screen text-slate-800 bg-white" style={{ fontFamily: `"${bodyFont}", sans-serif` }}>
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                @import url('https://fonts.googleapis.com/css2?family=${titleFont.replace(/ /g, '+')}:wght@400;500;600;700;800;900&family=${bodyFont.replace(/ /g, '+')}:wght@400;500;600;700&display=swap');
+                .template-wrapper h1, .template-wrapper h2, .template-wrapper h3, .template-wrapper h4, .template-wrapper h5, .template-wrapper h6, .template-wrapper .font-title { 
+                    font-family: "${titleFont}", sans-serif !important; 
+                }
+            `}} />
             {/* Header — frosted glass, elegant */}
             <nav className="sticky top-0 z-50 border-b border-white/20 shadow-sm bg-white/80 backdrop-blur-xl">
                 <div className="max-w-7xl mx-auto px-6">
@@ -70,11 +80,12 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                                 <EditableText
                                     as="div"
                                     contentKey="siteTitle"
+                                    styleData={siteContent['siteTitle__styles']}
                                     content={siteContent.siteTitle}
                                     defaultValue="Elegant Co."
                                     isEditMode={isEditMode}
                                     onSave={updateSiteContent}
-                                    className="text-xl font-bold tracking-tight"
+                                    className="text-xl font-bold tracking-tight font-title"
                                     style={{ color: pPrimary }}
                                 />
                             </Link>

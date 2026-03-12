@@ -25,6 +25,7 @@ export default function MapBlock({ block, palette }: { block: BlockData, palette
                 <EditableText
                     as="h2"
                     contentKey="title"
+                                    styleData={block.data['title__styles']}
                     content={title}
                     defaultValue="Find Us"
                     isEditMode={isEditMode}

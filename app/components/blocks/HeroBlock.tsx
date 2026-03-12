@@ -37,6 +37,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                     <EditableText
                         as="h1"
                         contentKey="title"
+                                    styleData={block.data['title__styles']}
                         content={title}
                         defaultValue="Welcome to our site"
                         isEditMode={isEditMode}
@@ -46,6 +47,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                     <EditableText
                         as="p"
                         contentKey="subtitle"
+                                    styleData={block.data['subtitle__styles']}
                         content={subtitle}
                         defaultValue="We offer the best services available."
                         isEditMode={isEditMode}
@@ -94,6 +96,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                     <EditableText
                         as="h1"
                         contentKey="title"
+                                    styleData={block.data['title__styles']}
                         content={title}
                         defaultValue="Welcome to our site"
                         isEditMode={isEditMode}
@@ -103,6 +106,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                     <EditableText
                         as="p"
                         contentKey="subtitle"
+                                    styleData={block.data['subtitle__styles']}
                         content={subtitle}
                         defaultValue="We offer the best services available."
                         isEditMode={isEditMode}
@@ -132,6 +136,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                     <EditableText
                         as="h1"
                         contentKey="title"
+                                    styleData={block.data['title__styles']}
                         content={title}
                         defaultValue="Welcome to our site"
                         isEditMode={isEditMode}
@@ -141,6 +146,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                     <EditableText
                         as="p"
                         contentKey="subtitle"
+                                    styleData={block.data['subtitle__styles']}
                         content={subtitle}
                         defaultValue="We offer the best services available."
                         isEditMode={isEditMode}

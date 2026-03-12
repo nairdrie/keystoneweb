@@ -72,6 +72,7 @@ export function ModernBluePlumber({
           <EditableText
             as="h1"
             contentKey="heroTitle"
+                                    styleData={content['heroTitle__styles']}
             content={content.heroTitle}
             defaultValue={defaults.heroTitle}
             isEditMode={actualEditMode}
@@ -82,6 +83,7 @@ export function ModernBluePlumber({
           <EditableText
             as="p"
             contentKey="heroSubtitle"
+                                    styleData={content['heroSubtitle__styles']}
             content={content.heroSubtitle}
             defaultValue={defaults.heroSubtitle}
             isEditMode={actualEditMode}
@@ -98,6 +100,7 @@ export function ModernBluePlumber({
           >
             <EditableText
               contentKey="heroCTA"
+                                    styleData={content['heroCTA__styles']}
               content={content.heroCTA}
               defaultValue={defaults.heroCTA}
               isEditMode={actualEditMode}
@@ -122,6 +125,7 @@ export function ModernBluePlumber({
               <EditableText
                 as="h3"
                 contentKey="feature1Title"
+                                    styleData={content['feature1Title__styles']}
                 content={content.feature1Title}
                 defaultValue={defaults.feature1Title}
                 isEditMode={actualEditMode}
@@ -131,6 +135,7 @@ export function ModernBluePlumber({
               <EditableText
                 as="p"
                 contentKey="feature1Desc"
+                                    styleData={content['feature1Desc__styles']}
                 content={content.feature1Desc}
                 defaultValue={defaults.feature1Desc}
                 isEditMode={actualEditMode}
@@ -147,6 +152,7 @@ export function ModernBluePlumber({
               <EditableText
                 as="h3"
                 contentKey="feature2Title"
+                                    styleData={content['feature2Title__styles']}
                 content={content.feature2Title}
                 defaultValue={defaults.feature2Title}
                 isEditMode={actualEditMode}
@@ -156,6 +162,7 @@ export function ModernBluePlumber({
               <EditableText
                 as="p"
                 contentKey="feature2Desc"
+                                    styleData={content['feature2Desc__styles']}
                 content={content.feature2Desc}
                 defaultValue={defaults.feature2Desc}
                 isEditMode={actualEditMode}
@@ -172,6 +179,7 @@ export function ModernBluePlumber({
               <EditableText
                 as="h3"
                 contentKey="feature3Title"
+                                    styleData={content['feature3Title__styles']}
                 content={content.feature3Title}
                 defaultValue={defaults.feature3Title}
                 isEditMode={actualEditMode}
@@ -181,6 +189,7 @@ export function ModernBluePlumber({
               <EditableText
                 as="p"
                 contentKey="feature3Desc"
+                                    styleData={content['feature3Desc__styles']}
                 content={content.feature3Desc}
                 defaultValue={defaults.feature3Desc}
                 isEditMode={actualEditMode}
@@ -201,6 +210,7 @@ export function ModernBluePlumber({
           <EditableText
             as="h2"
             contentKey="contactTitle"
+                                    styleData={content['contactTitle__styles']}
             content={content.contactTitle}
             defaultValue={defaults.contactTitle}
             isEditMode={actualEditMode}
@@ -217,6 +227,7 @@ export function ModernBluePlumber({
           >
             <EditableText
               contentKey="contactCTA"
+                                    styleData={content['contactCTA__styles']}
               content={content.contactCTA}
               defaultValue={defaults.contactCTA}
               isEditMode={actualEditMode}

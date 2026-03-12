@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Edit2, Check, X } from 'lucide-react';
+import { Edit2, Check, X, Settings } from 'lucide-react';
+import TextSettingsModal from './TextSettingsModal';
 
 interface EditableTextProps {
   contentKey: string;
@@ -12,6 +13,7 @@ interface EditableTextProps {
   defaultValue?: string;
   as?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'span' | 'div';
   style?: React.CSSProperties;
+  styleData?: string | Record<string, any>;
 }
 
 export default function EditableText({
@@ -23,12 +25,30 @@ export default function EditableText({
   defaultValue = '',
   as: Component = 'span',
   style = {},
+  styleData,
 }: EditableTextProps) {
   const displayText = content !== undefined && content !== '' ? content : defaultValue;
   const [isEditing, setIsEditing] = useState(false);
   const [tempValue, setTempValue] = useState(displayText);
   const [isHovered, setIsHovered] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Parse dynamic styles if present
+  let parsedStyles: Record<string, any> = {};
+  if (styleData) {
+    try {
+      parsedStyles = typeof styleData === 'string' ? JSON.parse(styleData) : styleData;
+    } catch (e) { console.error('Failed to parse styleData for', contentKey, e); }
+  }
+
+  // Combine baseline style with text-specific user settings
+  const mergedStyle = {
+    ...style,
+    ...(parsedStyles.fontFamily ? { fontFamily: `"${parsedStyles.fontFamily}", sans-serif` } : {}),
+    ...(parsedStyles.fontSize ? { fontSize: parsedStyles.fontSize } : {}),
+    ...(parsedStyles.color ? { color: parsedStyles.color } : {})
+  };
 
   // Sync tempValue when content/defaultValue changes externally (undo/redo, page switch)
   useEffect(() => {
@@ -60,13 +80,13 @@ export default function EditableText({
 
   // Preview mode: just show the text
   if (!isEditMode) {
-    return <Component className={className} style={style}>{displayText}</Component>;
+    return <Component className={className} style={mergedStyle}>{displayText}</Component>;
   }
 
   // Edit mode - show inline element with pencil on hover
   if (isEditing) {
     return (
-      <Component className={`${className} relative`} style={style}>
+      <Component className={`${className} relative`} style={mergedStyle}>
         <input
           ref={inputRef}
           type="text"
@@ -110,7 +130,7 @@ export default function EditableText({
   return (
     <Component
       className={`${className} cursor-text pointer-events-auto transition-colors`}
-      style={style}
+      style={mergedStyle}
       onClick={() => setIsEditing(true)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -119,20 +139,40 @@ export default function EditableText({
         {displayText}
 
         {/* Desktop: Show pencil on hover only. Mobile: Don't show pencil at all */}
-        <button
+        <div className={`absolute -right-16 top-1/2 -translate-y-1/2 flex items-center gap-1 z-50 hidden md:flex transition-all ${isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`} onMouseDown={e => e.preventDefault()}>
+          <button
           onClick={(e) => {
             e.stopPropagation();
             setIsEditing(true);
           }}
-          className={`absolute -right-8 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-6 h-6 bg-red-600 hover:bg-red-700 text-white rounded-full transition-all shadow-md z-50 hidden md:inline-flex ${
-            isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
-            }`}
+          className="inline-flex items-center justify-center w-7 h-7 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-md"
           title={`Edit: ${contentKey}`}
           onMouseDown={(e) => e.preventDefault()}
         >
           <Edit2 className="w-3 h-3" />
-        </button>
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsSettingsOpen(true);
+            }}
+            className="inline-flex items-center justify-center w-7 h-7 bg-slate-800 hover:bg-slate-900 text-white rounded-full shadow-md"
+            title={`Settings: ${contentKey}`}
+          >
+            <Settings className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </span>
+
+      <TextSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        title="Typography Settings"
+        initialStyles={parsedStyles}
+        onSave={(newStyles) => {
+            onSave(`${contentKey}__styles`, JSON.stringify(newStyles));
+        }}
+      />
     </Component>
   );
 }

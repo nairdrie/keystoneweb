@@ -37,8 +37,18 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
     const pSecondary = palette.secondary || '#10b981';
     const pAccent = palette.accent || '#ffffff';
 
+    const titleFont = siteContent.titleFont || 'Lora';
+    const bodyFont = siteContent.bodyFont || 'Inter';
+
     return (
-        <div className="min-h-screen font-sans text-slate-700" style={{ backgroundColor: pAccent }}>
+        <div className="template-wrapper min-h-screen text-slate-700" style={{ backgroundColor: pAccent, fontFamily: `"${bodyFont}", sans-serif` }}>
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                @import url('https://fonts.googleapis.com/css2?family=${titleFont.replace(/ /g, '+')}:wght@400;500;600;700;800;900&family=${bodyFont.replace(/ /g, '+')}:wght@400;500;600;700&display=swap');
+                .template-wrapper h1, .template-wrapper h2, .template-wrapper h3, .template-wrapper h4, .template-wrapper h5, .template-wrapper h6, .template-wrapper .font-title { 
+                    font-family: "${titleFont}", serif !important; 
+                }
+            `}} />
             {/* Header — minimal, airy */}
             <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-100">
                 <div className="max-w-6xl mx-auto px-6">
@@ -67,11 +77,12 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
                                 <EditableText
                                     as="div"
                                     contentKey="siteTitle"
+                                    styleData={siteContent['siteTitle__styles']}
                                     content={siteContent.siteTitle}
                                     defaultValue="Studio"
                                     isEditMode={isEditMode}
                                     onSave={updateSiteContent}
-                                    className="text-lg font-semibold tracking-wide"
+                                    className="text-lg font-semibold tracking-wide font-title"
                                     style={{ color: pPrimary }}
                                 />
                             </Link>

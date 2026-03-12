@@ -35,8 +35,18 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
     const pSecondary = palette.secondary || '#ef4444';
     const pAccent = palette.accent || '#f8fafc';
 
+    const titleFont = siteContent.titleFont || 'Oswald';
+    const bodyFont = siteContent.bodyFont || 'Roboto';
+
     return (
-        <div className="min-h-screen font-sans" style={{ backgroundColor: pAccent }}>
+        <div className="template-wrapper min-h-screen" style={{ backgroundColor: pAccent, fontFamily: `"${bodyFont}", sans-serif` }}>
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                @import url('https://fonts.googleapis.com/css2?family=${titleFont.replace(/ /g, '+')}:wght@400;500;600;700;800;900&family=${bodyFont.replace(/ /g, '+')}:wght@400;500;600;700&display=swap');
+                .template-wrapper h1, .template-wrapper h2, .template-wrapper h3, .template-wrapper h4, .template-wrapper h5, .template-wrapper h6, .template-wrapper .font-title { 
+                    font-family: "${titleFont}", sans-serif !important; 
+                }
+            `}} />
             {/* Header — dark, bold, authoritative */}
             <header className="sticky top-0 z-50 shadow-lg" style={{ backgroundColor: pPrimary }}>
                 <div className="max-w-7xl mx-auto px-4">
@@ -65,11 +75,12 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
                                 <EditableText
                                     as="div"
                                     contentKey="siteTitle"
+                                    styleData={siteContent['siteTitle__styles']}
                                     content={siteContent.siteTitle}
                                     defaultValue="YOUR BUSINESS"
                                     isEditMode={isEditMode}
                                     onSave={updateSiteContent}
-                                    className="text-lg font-black tracking-tight text-white"
+                                    className="text-lg font-black tracking-tight text-white font-title"
                                 />
                             </Link>
                         </div>

@@ -22,7 +22,10 @@ export interface EditorContextType {
   content: Record<string, any>;
 
   /** Site-level content (header title, CTA, etc.) — shared across all pages */
-  siteContent: Record<string, any>;
+  siteContent: Record<string, any> & {
+    titleFont?: string;
+    bodyFont?: string;
+  };
 
   /** Update a site-level content value (header fields) */
   updateSiteContent: (key: string, value: any) => void;

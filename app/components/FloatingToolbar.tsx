@@ -7,6 +7,8 @@ import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
 import AlertModal from './ui/AlertModal';
+import FontPickerModal from './FontPickerModal';
+import { Type } from 'lucide-react';
 
 interface Palette {
   name: string;
@@ -34,6 +36,10 @@ interface FloatingToolbarProps {
   selectedPalette?: Palette;
   onSelectPalette?: (palette: Palette) => void;
   onCustomColorChange?: (type: 'primary' | 'secondary' | 'accent', value: string) => void;
+  titleFont?: string;
+  onTitleFontChange?: (font: string) => void;
+  bodyFont?: string;
+  onBodyFontChange?: (font: string) => void;
   onSave: () => void;
   onPublish?: () => void;
   onPublishSuccess?: () => void;
@@ -77,6 +83,10 @@ export default function FloatingToolbar({
   selectedPalette,
   onSelectPalette,
   onCustomColorChange,
+  titleFont,
+  onTitleFontChange,
+  bodyFont,
+  onBodyFontChange,
   onSave,
   onPublish,
   onPublishSuccess,
@@ -109,6 +119,13 @@ export default function FloatingToolbar({
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' | 'warning', onConfirm?: () => void, confirmLabel?: string, cancelLabel?: string }>({ isOpen: false, message: '' });
   const [isPublishingUpdates, setIsPublishingUpdates] = useState(false);
   const isFullyDeployed = isSynced && changes.length === 0;
+
+  const [openSections, setOpenSections] = useState<string[]>(['general']);
+  const [fontPickerState, setFontPickerState] = useState<{isOpen: boolean, type: 'title'|'body'}>({ isOpen: false, type: 'title' });
+
+  const toggleSection = (section: string) => {
+    setOpenSections(prev => prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]);
+  };
 
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -237,354 +254,300 @@ export default function FloatingToolbar({
   // ─── Shared panel content (used in both sidebar and drawer) ─────────
 
   const panelContent = (
-    <div className="px-6 pb-8 pt-6 space-y-8">
-      {/* Currently Editing Section */}
-      <div>
-        <h3 className="text-xs font-bold uppercase text-slate-500 tracking-wide mb-4">Currently Editing</h3>
-
-        {/* Site Name Input & Inline Switcher */}
-        <div className="relative flex items-center mb-6">
-          <input
-            type="text"
-            value={siteTitle}
-            onChange={(e) => onSiteTitle(e.target.value)}
-            className="w-full text-2xl font-bold text-slate-900 bg-transparent border-b-2 border-slate-300 focus:border-red-600 focus:outline-none pb-2 placeholder-slate-400 transition-colors"
-            placeholder="My Awesome Website"
-          />
-
-          {/* Always show dropdown toggle if authenticated */}
-          {user && (
-            <button
-              onClick={() => setShowSiteSwitcher(!showSiteSwitcher)}
-              className="absolute right-0 bottom-2 p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
-              title="Switch or create sites"
-            >
-              <ChevronDown className={`w-5 h-5 transition-transform duration-200 ${showSiteSwitcher ? 'rotate-180' : ''}`} />
-            </button>
-          )}
-
-          {/* Dropdown Menu */}
-          {user && showSiteSwitcher && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-[60] animate-in fade-in slide-in-from-top-2">
-              <div className="max-h-60 overflow-y-auto outline-none p-2 space-y-1">
-                {/* Existing Sites */}
-                {userSites.length > 0 ? (
-                  <>
-                    <div className="px-3 py-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Your Sites</div>
-                    {userSites.map((site) => (
-                      <button
-                        key={site.id}
-                        onClick={() => {
-                          onOpenChange(false);
-                          setShowSiteSwitcher(false);
-                          router.push(`/editor?siteId=${site.id}`);
-                        }}
-                        className={`w-full text-left px-3 py-2.5 rounded-lg transition-all text-sm flex items-center justify-between group ${currentSiteId === site.id
-                          ? 'bg-red-50 text-red-900 font-semibold border border-red-100'
-                          : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-                          }`}
-                      >
-                        <span className="truncate pr-4">{site.siteSlug || `Site ${site.id.slice(0, 8)}`}</span>
-                        {currentSiteId === site.id && (
-                          <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                        )}
-                      </button>
-                    ))}
-                    <div className="h-px bg-slate-100 my-2 mx-1" />
-                  </>
-                ) : (
-                  <div className="px-3 py-4 text-sm text-slate-500 text-center">No other sites found</div>
-                )}
-
-                {/* Create New Option */}
-                <button
-                  onClick={() => {
-                    onOpenChange(false);
-                    setShowSiteSwitcher(false);
-                    router.push('/onboarding');
-                  }}
-                  className="w-full text-left px-3 py-2.5 rounded-lg transition-all text-sm flex items-center gap-2 text-red-600 hover:bg-red-50 font-medium mt-1"
-                >
-                  <Plus className="w-4 h-4" />
-                  Create New Site
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Selected Template Section */}
-      {templateName && (
-        <div>
-          <h3 className="text-xs font-bold uppercase text-slate-500 tracking-wide mb-3">Selected Template</h3>
-          <div className="bg-slate-50 rounded-lg p-4 mb-3">
-            <div className="font-semibold text-slate-900">{templateName}</div>
-          </div>
-          <button className="text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">
-            Switch Template
+    <div className="flex flex-col h-full max-h-full">
+      {/* Scrollable Accordions */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        
+        {/* General Section */}
+        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+          <button 
+            onClick={() => toggleSection('general')}
+            className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
+          >
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-2">General</span>
+            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('general') ? 'rotate-180' : ''}`} />
           </button>
-          <p className="text-xs text-slate-500 mt-2">
-            ⚠️ Switching templates will lose unsaved content that doesn't exist in the new template
-          </p>
-        </div>
-      )}
-
-      {/* Selected Color Palette Section */}
-      {templatePalettes && templatePalettes.length > 0 && (
-        <div>
-          <h3 className="text-xs font-bold uppercase text-slate-500 tracking-wide mb-3">Color Palette</h3>
-          <div className="grid grid-cols-4 gap-3">
-            {templatePalettes.map((palette) => (
-              <button
-                key={palette.name}
-                onClick={() => onSelectPalette?.(palette)}
-                className={`group relative flex flex-col items-center transition-all ${selectedPalette?.name === palette.name
-                  ? ''
-                  : ''
-                  }`}
-                title={palette.name}
-              >
-                {/* Color swatch */}
-                <div className={`w-full h-10 flex rounded-lg overflow-hidden border-2 transition-all ${selectedPalette?.name === palette.name
-                  ? 'shadow-lg'
-                  : 'border-slate-200 hover:border-slate-400'
-                  }`}
-                  style={selectedPalette?.name === palette.name ? { borderColor: 'var(--brand-primary)' } : {}}
-                >
-                  <div className="flex-1" style={{ backgroundColor: palette.primary }} />
-                  <div className="flex-1" style={{ backgroundColor: palette.secondary }} />
-                  <div className="flex-1" style={{ backgroundColor: palette.accent }} />
-                  {/* Selected checkmark */}
-                  {selectedPalette?.name === palette.name && (
-                    <div className="absolute top-1 right-1 text-white rounded-full p-0.5" style={{ backgroundColor: 'var(--brand-primary)' }}>
-                      <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
+          
+          {openSections.includes('general') && (
+            <div className="p-4 border-t border-slate-200 space-y-6">
+              {/* Currently Editing Section */}
+              <div>
+                <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-3">Site Title</h3>
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    value={siteTitle}
+                    onChange={(e) => onSiteTitle(e.target.value)}
+                    className="w-full text-lg font-bold text-slate-900 bg-transparent border-b-2 border-slate-300 focus:border-red-600 focus:outline-none pb-1 placeholder-slate-400 transition-colors"
+                    placeholder="My Awesome Website"
+                  />
+                  {user && (
+                    <button
+                      onClick={() => setShowSiteSwitcher(!showSiteSwitcher)}
+                      className="absolute right-0 bottom-1 p-1 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
+                      title="Switch or create sites"
+                    >
+                      <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showSiteSwitcher ? 'rotate-180' : ''}`} />
+                    </button>
+                  )}
+                  {user && showSiteSwitcher && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-[60] animate-in fade-in slide-in-from-top-2">
+                      <div className="max-h-60 overflow-y-auto outline-none p-2 space-y-1">
+                        {userSites.length > 0 ? (
+                          <>
+                            <div className="px-3 py-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Your Sites</div>
+                            {userSites.map((site) => (
+                              <button
+                                key={site.id}
+                                onClick={() => {
+                                  onOpenChange(false);
+                                  setShowSiteSwitcher(false);
+                                  router.push(`/editor?siteId=${site.id}`);
+                                }}
+                                className={`w-full text-left px-3 py-2.5 rounded-lg transition-all text-sm flex items-center justify-between group ${currentSiteId === site.id
+                                  ? 'bg-red-50 text-red-900 font-semibold border border-red-100'
+                                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                                  }`}
+                              >
+                                <span className="truncate pr-4">{site.siteSlug || `Site ${site.id.slice(0, 8)}`}</span>
+                                {currentSiteId === site.id && (
+                                  <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                                )}
+                              </button>
+                            ))}
+                            <div className="h-px bg-slate-100 my-2 mx-1" />
+                          </>
+                        ) : (
+                          <div className="px-3 py-4 text-sm text-slate-500 text-center">No other sites found</div>
+                        )}
+                        <button
+                          onClick={() => {
+                            onOpenChange(false);
+                            setShowSiteSwitcher(false);
+                            router.push('/onboarding');
+                          }}
+                          className="w-full text-left px-3 py-2.5 rounded-lg transition-all text-sm flex items-center gap-2 text-red-600 hover:bg-red-50 font-medium mt-1"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Create New Site
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
-                {/* Palette name always visible below */}
-                <span className={`capitalize text-[10px] font-semibold mt-1 transition-colors ${selectedPalette?.name === palette.name ? 'text-red-600' : 'text-slate-500'}`}>{palette.name}</span>
-              </button>
-            ))}
-          </div>
+              </div>
 
-          {/* Custom Color Pickers - Only show when "custom" is selected */}
-          {selectedPalette?.name === 'custom' && (
-            <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-lg flex justify-between items-center gap-2">
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Primary</span>
-                <input
-                  type="color"
-                  value={selectedPalette.primary}
-                  onChange={(e) => onCustomColorChange?.('primary', e.target.value)}
-                  className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent"
-                />
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Secondary</span>
-                <input
-                  type="color"
-                  value={selectedPalette.secondary}
-                  onChange={(e) => onCustomColorChange?.('secondary', e.target.value)}
-                  className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent"
-                />
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Accent</span>
-                <input
-                  type="color"
-                  value={selectedPalette.accent}
-                  onChange={(e) => onCustomColorChange?.('accent', e.target.value)}
-                  className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Unsaved Changes Section */}
-      {changes && changes.length > 0 && (
-        <div className="mb-6">
-          {/* Unsaved Changes Header - Clickable to expand */}
-          <button
-            onClick={() => setShowChanges(!showChanges)}
-            className="w-full flex items-center justify-between px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-full bg-amber-400 text-white flex items-center justify-center text-xs font-bold">
-                {changes.length}
-              </div>
-              <span className="text-sm font-semibold text-amber-900">
-                {changes.length} unsaved change{changes.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-            <div
-              className={`transition-transform ${showChanges ? 'rotate-180' : ''}`}
-            >
-              <ChevronDown className="w-4 h-4 text-amber-700" />
-            </div>
-          </button>
-
-          {/* Accordion Content */}
-          {showChanges && (
-            <div className="mt-2 p-4 bg-white border border-slate-200 rounded-lg space-y-2 max-h-48 overflow-y-auto">
-              {changes.map((change) => (
-                <div
-                  key={change.id}
-                  className="text-xs text-slate-700 pb-2 border-b border-slate-100 last:border-b-0"
-                >
-                  <div className="font-medium text-slate-900">
-                    {change.label}
-                  </div>
-                  <div className="text-slate-600 mt-1 flex items-start gap-2">
-                    <span className="line-through text-red-600 break-all flex-1">
-                      {change.from || '(empty)'}
-                    </span>
-                    <span className="text-slate-400 shrink-0">→</span>
-                    <span className="text-green-600 break-all flex-1">
-                      {change.to || '(empty)'}
-                    </span>
+              {/* Selected Template Section */}
+              {templateName && (
+                <div>
+                  <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2">Template</h3>
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                    <div className="font-semibold text-sm text-slate-900">{templateName}</div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-
-          {/* Undo/Redo Buttons */}
-          <div className="flex gap-2 mt-2">
-            <button
-              onClick={onUndo}
-              disabled={!canUndo}
-              className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-slate-200 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 font-semibold text-sm rounded transition-colors"
-              title="Undo"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Undo
-            </button>
-            <button
-              onClick={onRedo}
-              disabled={!canRedo}
-              className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-slate-200 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 font-semibold text-sm rounded transition-colors"
-              title="Redo"
-            >
-              <RotateCw className="w-4 h-4" />
-              Redo
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Save Draft & Publish / Live Site Actions */}
-      <div className="flex flex-col gap-3">
-        {isPublished && publishedDomain ? (
-          /* Live Site Status (When published) */
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-3 w-3">
-                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isFullyDeployed ? 'bg-green-400' : 'bg-amber-400'}`}></span>
-                  <span className={`relative inline-flex rounded-full h-3 w-3 ${isFullyDeployed ? 'bg-green-500' : 'bg-amber-500'}`}></span>
-                </span>
-                <span className={`text-xs font-bold uppercase tracking-wide ${isFullyDeployed ? 'text-slate-700' : 'text-amber-700'}`}>
-                  {isFullyDeployed ? 'Live' : 'Unpublished Changes'}
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                <a
-                  href={`https://${publishedDomain}.kswd.ca`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-slate-500 hover:text-slate-900 border-b border-slate-300 hover:border-slate-900 transition-colors truncate max-w-[150px]"
-                  title={`Visit https://${publishedDomain}.kswd.ca`}
-                >
-                  {publishedDomain}.kswd.ca
-                </a>
-                <button
-                  onClick={() => router.push(`/publish/domain-select?session_id=existing&siteId=${currentSiteId}&currentDomain=${publishedDomain}`)}
-                  className="p-1 hover:bg-slate-200 rounded text-slate-500 hover:text-slate-900 transition-colors"
-                  title="Change URL"
-                >
-                  <Pencil className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={handleSave}
-                disabled={saving || changes.length === 0}
-                className="flex-[0.8] py-2 bg-slate-200 hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 font-semibold text-sm rounded-md transition-colors whitespace-nowrap"
-              >
-                Save Draft
-              </button>
-
-              {!isFullyDeployed ? (
-                <button
-                  onClick={handlePublish}
-                  disabled={publishing || isPublishingUpdates}
-                  className="flex-[1.2] flex items-center justify-center py-2 text-white font-semibold text-sm rounded-md transition-colors hover:brightness-110 whitespace-nowrap"
-                  style={{ backgroundColor: 'var(--brand-primary)' }}
-                >
-                  {(publishing || isPublishingUpdates) ? 'Publishing...' : 'Publish'}
-                </button>
-              ) : (
-                <a
-                  href={`https://${publishedDomain}.kswd.ca`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-[1.2] flex items-center justify-center py-2 text-white font-semibold text-sm rounded-md transition-colors hover:brightness-110 whitespace-nowrap"
-                  style={{ backgroundColor: 'var(--brand-primary)' }}
-                >
-                  View Live Site
-                </a>
               )}
             </div>
-          </div>
-        ) : (
-          /* Edit Mode Actions (Save Draft & Publish) */
-          <div className="flex gap-3">
-            {/* Save Draft Button */}
-            <button
-              onClick={handleSave}
-              disabled={saving || changes.length === 0}
-              className="flex-1 py-3 text-white font-bold rounded-lg transition-colors hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed bg-slate-600 hover:bg-slate-700"
-              title={changes.length === 0 ? 'No changes to save' : 'Save your draft'}
+          )}
+        </div>
+
+        {/* Colors Section */}
+        {templatePalettes && templatePalettes.length > 0 && (
+          <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+            <button 
+              onClick={() => toggleSection('colors')}
+              className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
             >
-              {saving ? 'Saving...' : user ? 'Save Draft' : 'Sign Up to Save'}
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Colors</span>
+              <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('colors') ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {openSections.includes('colors') && (
+              <div className="p-4 border-t border-slate-200">
+                <div className="grid grid-cols-4 gap-3">
+                  {templatePalettes.map((palette) => (
+                    <button
+                      key={palette.name}
+                      onClick={() => onSelectPalette?.(palette)}
+                      className="group relative flex flex-col items-center transition-all"
+                      title={palette.name}
+                    >
+                      <div className={`w-full h-10 flex rounded-lg overflow-hidden border-2 transition-all ${selectedPalette?.name === palette.name
+                        ? 'shadow-lg border-red-500'
+                        : 'border-slate-200 hover:border-slate-400'
+                        }`}
+                        style={selectedPalette?.name === palette.name ? { borderColor: 'var(--brand-primary)' } : {}}
+                      >
+                        <div className="flex-1" style={{ backgroundColor: palette.primary }} />
+                        <div className="flex-1" style={{ backgroundColor: palette.secondary }} />
+                        <div className="flex-1" style={{ backgroundColor: palette.accent }} />
+                        {selectedPalette?.name === palette.name && (
+                          <div className="absolute top-1 right-1 text-white rounded-full p-0.5" style={{ backgroundColor: 'var(--brand-primary)' }}>
+                            <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                          </div>
+                        )}
+                      </div>
+                      <span className={`capitalize text-[10px] font-semibold mt-1 transition-colors ${selectedPalette?.name === palette.name ? 'text-red-600' : 'text-slate-500'}`}>{palette.name}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {selectedPalette?.name === 'custom' && (
+                  <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-lg flex justify-between items-center gap-2">
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Primary</span>
+                      <input type="color" value={selectedPalette.primary} onChange={(e) => onCustomColorChange?.('primary', e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent" />
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Secondary</span>
+                      <input type="color" value={selectedPalette.secondary} onChange={(e) => onCustomColorChange?.('secondary', e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent" />
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Accent</span>
+                      <input type="color" value={selectedPalette.accent} onChange={(e) => onCustomColorChange?.('accent', e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Typography Section */}
+        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+          <button 
+            onClick={() => toggleSection('typography')}
+            className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
+          >
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Typography</span>
+            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('typography') ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {openSections.includes('typography') && (
+            <div className="p-4 border-t border-slate-200 space-y-4">
+               <div>
+                 <label className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2 block">Heading Font</label>
+                 <button 
+                   onClick={() => setFontPickerState({ isOpen: true, type: 'title' })}
+                   className="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg hover:border-red-400 hover:bg-red-50 transition-all font-sans"
+                 >
+                   <span className="text-sm font-semibold text-slate-800" style={titleFont ? {fontFamily: `"${titleFont}", sans-serif`} : {}}>{titleFont || 'Default Serif'}</span>
+                   <Type className="w-4 h-4 text-slate-400" />
+                 </button>
+               </div>
+               <div>
+                 <label className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2 block">Body Text Font</label>
+                 <button 
+                   onClick={() => setFontPickerState({ isOpen: true, type: 'body' })}
+                   className="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg hover:border-red-400 hover:bg-red-50 transition-all font-sans"
+                 >
+                   <span className="text-sm font-medium text-slate-800" style={bodyFont ? {fontFamily: `"${bodyFont}", sans-serif`} : {}}>{bodyFont || 'Default Sans'}</span>
+                   <Type className="w-4 h-4 text-slate-400" />
+                 </button>
+               </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Fixed Bottom Section (Actions) */}
+      <div className="shrink-0 p-4 bg-slate-50 border-t border-slate-200 space-y-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
+        
+        {/* Unsaved Changes Section */}
+        {changes && changes.length > 0 && (
+          <div>
+            <button
+              onClick={() => setShowChanges(!showChanges)}
+              className="w-full flex items-center justify-between px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-amber-400 text-white flex items-center justify-center text-[10px] font-bold">
+                  {changes.length}
+                </div>
+                <span className="text-xs font-semibold text-amber-900">
+                  {changes.length} unsaved change{changes.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-amber-700 transition-transform ${showChanges ? 'rotate-180' : ''}`} />
             </button>
 
-            {/* Publish Button */}
-            <button
-              onClick={handlePublish}
-              disabled={publishing || !user || isSynced}
-              className="flex-1 py-3 text-white font-bold rounded-lg transition-colors hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
-              style={{ backgroundColor: isSynced ? '#94a3b8' : 'var(--brand-primary)' }}
-              title={!user ? 'Sign in to publish' : isSynced ? 'All changes are live' : 'Publish your site'}
-            >
-              {publishing ? 'Publishing...' : isSynced ? 'Published' : 'Publish'}
-            </button>
+            {showChanges && (
+              <div className="mt-2 p-3 bg-white border border-slate-200 rounded-lg space-y-2 max-h-40 overflow-y-auto shadow-inner">
+                {changes.map((change) => (
+                  <div key={change.id} className="text-[10px] text-slate-700 pb-2 border-b border-slate-100 last:border-b-0">
+                    <div className="font-bold text-slate-900 mb-0.5">{change.label}</div>
+                    <div className="text-slate-600 flex flex-col gap-0.5">
+                      <span className="line-through text-red-500 break-all">{change.from || '(empty)'}</span>
+                      <span className="text-green-600 break-all">{change.to || '(empty)'}</span>
+                    </div>
+                  </div>
+                ))}
+                {/* Undo/Redo */}
+                <div className="flex gap-2 pt-1">
+                  <button onClick={onUndo} disabled={!canUndo} className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 font-semibold text-xs rounded transition-colors"><RotateCcw className="w-3 h-3" /> Undo</button>
+                  <button onClick={onRedo} disabled={!canRedo} className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 font-semibold text-xs rounded transition-colors"><RotateCw className="w-3 h-3" /> Redo</button>
+                </div>
+              </div>
+            )}
           </div>
+        )}
+
+        {/* Save Draft & Publish / Live Site Actions */}
+        <div className="flex flex-col gap-2">
+          {isPublished && publishedDomain ? (
+            <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isFullyDeployed ? 'bg-green-400' : 'bg-amber-400'}`}></span>
+                    <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isFullyDeployed ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+                  </span>
+                  <span className={`text-[10px] font-bold uppercase tracking-wide ${isFullyDeployed ? 'text-slate-700' : 'text-amber-700'}`}>
+                    {isFullyDeployed ? 'Live' : 'Unpublished'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <a href={`https://${publishedDomain}.kswd.ca`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-slate-500 hover:text-slate-900 border-b border-slate-300 transition-colors truncate max-w-[120px]">{publishedDomain}.kswd.ca</a>
+                  <button onClick={() => router.push(`/publish/domain-select?session_id=existing&siteId=${currentSiteId}&currentDomain=${publishedDomain}`)} className="p-1 hover:bg-slate-100 rounded text-slate-400" title="Change URL"><Pencil className="w-3 h-3" /></button>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={handleSave} disabled={saving || changes.length === 0} className="flex-[0.8] py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 font-semibold text-xs rounded transition-colors">Save</button>
+                {!isFullyDeployed ? (
+                  <button onClick={handlePublish} disabled={publishing || isPublishingUpdates} className="flex-[1.2] py-1.5 text-white font-semibold text-xs rounded transition-colors hover:brightness-110" style={{ backgroundColor: 'var(--brand-primary)' }}>{(publishing || isPublishingUpdates) ? 'Publishing...' : 'Publish'}</button>
+                ) : (
+                  <a href={`https://${publishedDomain}.kswd.ca`} target="_blank" rel="noopener noreferrer" className="flex-[1.2] flex items-center justify-center py-1.5 text-white font-semibold text-xs rounded transition-colors hover:brightness-110" style={{ backgroundColor: 'var(--brand-primary)' }}>View Live</a>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button onClick={handleSave} disabled={saving || changes.length === 0} className="flex-1 py-2 text-white font-bold text-sm rounded-lg hover:brightness-110 disabled:opacity-60 bg-slate-600">{saving ? 'Saving...' : user ? 'Save Draft' : 'Sign Up to Save'}</button>
+              <button onClick={handlePublish} disabled={publishing || !user || isSynced} className="flex-1 py-2 text-white font-bold text-sm rounded-lg hover:brightness-110 disabled:opacity-60" style={{ backgroundColor: isSynced ? '#94a3b8' : 'var(--brand-primary)' }}>{publishing ? 'Publishing...' : isSynced ? 'Published' : 'Publish'}</button>
+            </div>
+          )}
+        </div>
+
+        {user && (
+          <button onClick={handleLogout} className="w-full py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-lg transition-colors">Log Out</button>
         )}
       </div>
 
-      {/* Divider */}
-      <div className="my-6 h-px bg-slate-200" />
-
-      {/* Logout Button */}
-      {user && (
-        <button
-          onClick={handleLogout}
-          className="w-full py-3 bg-slate-200 hover:bg-slate-300 text-slate-900 font-bold rounded-lg transition-colors"
-        >
-          Log Out
-        </button>
-      )}
-
+      <FontPickerModal 
+        isOpen={fontPickerState.isOpen}
+        onClose={() => setFontPickerState(prev => ({ ...prev, isOpen: false }))}
+        title={fontPickerState.type === 'title' ? 'Select Heading Font' : 'Select Body Font'}
+        currentFont={fontPickerState.type === 'title' ? titleFont : bodyFont}
+        onSelect={(fontName) => {
+          if (fontPickerState.type === 'title') {
+            onTitleFontChange?.(fontName);
+          } else {
+            onBodyFontChange?.(fontName);
+          }
+        }}
+      />
     </div>
   );
+
 
   // ─── RENDER ──────────────────────────────────────────────────────────
 
