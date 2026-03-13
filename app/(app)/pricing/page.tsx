@@ -42,6 +42,9 @@ function PricingContent() {
       .catch(console.error);
   }, []);
 
+  const isBasic = activePlan?.toLowerCase().includes('basic');
+  const isPro = activePlan?.toLowerCase().includes('pro');
+
   const handleCheckout = async (planName: 'Basic' | 'Pro', priceId: string) => {
     setLoading(true);
     setError(null);
@@ -158,13 +161,13 @@ function PricingContent() {
 
           <button
             onClick={() => handleCheckout('Basic', STRIPE_PRICES.basic)}
-            disabled={loading || activePlan === 'Basic'}
+            disabled={loading || isBasic}
             className="block w-full py-4 px-6 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-900 font-bold text-center transition-colors flex items-center justify-center gap-2"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {activePlan === 'Basic'
+            {isBasic
               ? 'Current Plan'
-              : activePlan === 'Pro'
+              : isPro
                 ? 'Downgrade to Basic'
                 : loading
                   ? 'Redirecting...'
@@ -213,13 +216,13 @@ function PricingContent() {
 
           <button
             onClick={() => handleCheckout('Pro', STRIPE_PRICES.pro)}
-            disabled={loading || activePlan === 'Pro'}
+            disabled={loading || isPro}
             className="block w-full py-4 px-6 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-bold text-center transition-colors shadow-lg hover:shadow-red-600/25 flex items-center justify-center gap-2"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {activePlan === 'Pro'
+            {isPro
               ? 'Current Plan'
-              : activePlan === 'Basic'
+              : isBasic
                 ? 'Upgrade to Pro'
                 : loading
                   ? 'Redirecting...'

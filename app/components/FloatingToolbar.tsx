@@ -9,6 +9,7 @@ import { Change } from '@/lib/hooks/useChangeTracking';
 import AlertModal from './ui/AlertModal';
 import FontPickerModal from './FontPickerModal';
 import { Type, User } from 'lucide-react';
+import ProfileDropdown from './ProfileDropdown';
 
 interface Palette {
   name: string;
@@ -575,12 +576,12 @@ export default function FloatingToolbar({
                       title: 'Unsaved Changes',
                       message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
                       type: 'warning',
-                      onConfirm: () => router.push('/settings'),
+                      onConfirm: () => router.push('/'),
                       confirmLabel: 'Leave',
                       cancelLabel: 'Stay'
                     });
                   } else {
-                    router.push('/settings');
+                    router.push('/');
                   }
                 }}
                 className="cursor-pointer"
@@ -589,27 +590,20 @@ export default function FloatingToolbar({
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  onClick={(e) => {
-                    if (changes.length > 0) {
-                      e.preventDefault();
-                      setAlertConfig({
-                        isOpen: true,
-                        title: 'Unsaved Changes',
-                        message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
-                        type: 'warning',
-                        onConfirm: () => router.push('/settings'),
-                        confirmLabel: 'Leave',
-                        cancelLabel: 'Stay'
-                      });
-                    } else {
-                      router.push('/settings');
-                    }
-                  }}
-                  className="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-full transition-colors" title="Account Settings"
-                >
-                  <User className="w-4 h-4" />
-                </button>
+                <ProfileDropdown onSettingsClick={(e) => {
+                  if (changes.length > 0) {
+                    e.preventDefault();
+                    setAlertConfig({
+                      isOpen: true,
+                      title: 'Unsaved Changes',
+                      message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
+                      type: 'warning',
+                      onConfirm: () => router.push('/settings'),
+                      confirmLabel: 'Leave',
+                      cancelLabel: 'Stay'
+                    });
+                  }
+                }} />
               </div>
             </div>
 
@@ -660,28 +654,20 @@ export default function FloatingToolbar({
               >
                 <KeystoneLogo href="/" size="lg" showText={false} />
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={(e) => {
-                      if (changes.length > 0) {
-                        e.preventDefault();
-                        setAlertConfig({
-                          isOpen: true,
-                          title: 'Unsaved Changes',
-                          message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
-                          type: 'warning',
-                          onConfirm: () => router.push('/settings'),
-                          confirmLabel: 'Leave',
-                          cancelLabel: 'Stay'
-                        });
-                      } else {
-                        router.push('/settings');
-                      }
-                    }}
-                    className="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-full transition-colors"
-                    title="Account Settings"
-                  >
-                    <User className="w-4 h-4" />
-                  </button>
+                  <ProfileDropdown onSettingsClick={(e) => {
+                    if (changes.length > 0) {
+                      e.preventDefault();
+                      setAlertConfig({
+                        isOpen: true,
+                        title: 'Unsaved Changes',
+                        message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
+                        type: 'warning',
+                        onConfirm: () => router.push('/settings'),
+                        confirmLabel: 'Leave',
+                        cancelLabel: 'Stay'
+                      });
+                    }
+                  }} />
                   <button
                     onClick={() => onOpenChange(false)}
                     className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-900"

@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
         const stripe = getStripeClient();
 
         // This is the URL the user will be redirected to after they exit the portal
-        const returnUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/settings`;
+        const returnUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://keystoneweb.ca'}/settings`;
 
         const portalSession = await stripe.billingPortal.sessions.create({
             customer: subscription.stripe_customer_id,

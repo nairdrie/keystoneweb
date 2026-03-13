@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 import KeystoneLogo from './KeystoneLogo';
 import { useAuth } from '@/lib/auth/context';
+import ProfileDropdown from './ProfileDropdown';
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
@@ -51,22 +52,13 @@ export default function Header() {
 
           {user ? (
             <div className="flex items-center gap-4">
-              <div className="flex flex-col items-end mr-2">
-                <span className="text-xs text-slate-500 font-medium">Signed in as</span>
-                <span className="text-sm text-slate-900 font-bold leading-tight">{user.email}</span>
-                <button
-                  onClick={() => signOut()}
-                  className="text-xs text-red-600 hover:text-red-700 font-semibold mt-0.5 transition-colors"
-                >
-                  Log out
-                </button>
-              </div>
               <Link
                 href="/editor"
                 className="px-6 py-2.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-colors shadow-md hover:shadow-lg"
               >
                 Continue Building
               </Link>
+              <ProfileDropdown />
             </div>
           ) : (
             <Link
@@ -153,7 +145,6 @@ export default function Header() {
 
             {user && (
               <div className="border-t border-slate-100 pt-3 mt-1">
-                <div className="text-xs text-slate-500 font-medium mb-1">Signed in as</div>
                 <div className="text-sm text-slate-900 font-bold mb-3">{user.email}</div>
                 <button
                   onClick={() => {
