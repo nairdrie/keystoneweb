@@ -73,11 +73,15 @@ export function useAIBuilder(
       });
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({ error: 'Request failed' }));
+        const errData = await res.json().catch(() => ({}));
+        // Only show the server's sanitized error message, or a generic fallback
+        const friendlyError = res.status === 403
+          ? (errData.error || 'AI Builder requires a Pro subscription.')
+          : 'Sorry, something went wrong. Please try again in a moment.';
         const errMsg: AIMessage = {
           id: `msg-${Date.now()}-err`,
           role: 'assistant',
-          content: errData.error || `Error: ${res.status}`,
+          content: friendlyError,
           isError: true,
         };
         setMessages(prev => [...prev, errMsg]);
@@ -106,7 +110,7 @@ export function useAIBuilder(
       const errMsg: AIMessage = {
         id: `msg-${Date.now()}-err`,
         role: 'assistant',
-        content: err.message || 'Something went wrong.',
+        content: 'Sorry, something went wrong. Please try again in a moment.',
         isError: true,
       };
       setMessages(prev => [...prev, errMsg]);

@@ -94,8 +94,9 @@ USER REQUEST: ${prompt}`;
       message: typeof parsed.message === 'string' ? parsed.message.slice(0, 1000) : 'Done.',
     });
   } catch (err: any) {
+    // Log full error server-side only — never expose raw provider messages to the client
     console.error('AI Builder error:', err);
-    return NextResponse.json({ error: err.message || 'AI Builder failed.' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again in a moment.' }, { status: 500 });
   }
 }
 
@@ -117,7 +118,9 @@ async function callAnthropic(apiKey: string, model: string, system: string, user
 
   if (!res.ok) {
     const errBody = await res.text();
-    throw new Error(`Anthropic API error ${res.status}: ${errBody}`);
+    // Log full details server-side only
+    console.error(`Anthropic API error ${res.status}:`, errBody);
+    throw new Error('AI service unavailable.');
   }
 
   const data = await res.json();
@@ -239,7 +242,8 @@ async function callOpenAI(apiKey: string, model: string, system: string, userMes
 
   if (!res.ok) {
     const errBody = await res.text();
-    throw new Error(`OpenAI API error ${res.status}: ${errBody}`);
+    console.error(`OpenAI API error ${res.status}:`, errBody);
+    throw new Error('AI service unavailable.');
   }
 
   const data = await res.json();
