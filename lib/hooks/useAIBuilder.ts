@@ -74,9 +74,9 @@ export function useAIBuilder(
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        // Only show the server's sanitized error message, or a generic fallback
-        const friendlyError = res.status === 403
-          ? (errData.error || 'AI Builder requires a Pro subscription.')
+        // Show server message for auth/rate-limit errors, generic fallback for everything else
+        const friendlyError = (res.status === 403 || res.status === 429)
+          ? (errData.error || 'Sorry, something went wrong. Please try again in a moment.')
           : 'Sorry, something went wrong. Please try again in a moment.';
         const errMsg: AIMessage = {
           id: `msg-${Date.now()}-err`,

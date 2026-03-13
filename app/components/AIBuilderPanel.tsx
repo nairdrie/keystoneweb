@@ -152,12 +152,18 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
           <textarea
             ref={inputRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => setInput(e.target.value.slice(0, 1000))}
             onKeyDown={handleKeyDown}
             placeholder="Describe what you want..."
+            maxLength={1000}
             rows={1}
             className="w-full resize-none bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 pr-10 text-[12px] text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300 focus:border-violet-300 transition-all"
           />
+          {input.length > 800 && (
+            <span className={`absolute left-3 bottom-2 text-[10px] ${input.length >= 1000 ? 'text-red-500' : 'text-slate-400'}`}>
+              {input.length}/1000
+            </span>
+          )}
           <button
             type="submit"
             disabled={!input.trim() || isLoading}

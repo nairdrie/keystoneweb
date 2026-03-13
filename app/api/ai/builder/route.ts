@@ -38,8 +38,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Limit prompt length to prevent abuse / excessive token usage
-    if (prompt.length > 2000) {
-      return NextResponse.json({ error: 'Prompt is too long. Please keep it under 2000 characters.' }, { status: 400 });
+    if (prompt.length > 1000) {
+      return NextResponse.json({ error: 'Prompt is too long. Please keep it under 1000 characters.' }, { status: 400 });
+    }
+
+    // Rate limiting: 1 request per 10 seconds, max 20 per hour
+    const rateLimitResult = checkRateLimit(user.id);
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json({ error: rateLimitResult.message }, { status: 429 });
     }
 
     // Build the user message with current site context
@@ -98,6 +104,49 @@ USER REQUEST: ${prompt}`;
     console.error('AI Builder error:', err);
     return NextResponse.json({ error: 'Something went wrong. Please try again in a moment.' }, { status: 500 });
   }
+}
+
+// ---- In-memory rate limiter ----
+// Tracks per-user request timestamps. Automatically cleans up old entries.
+// Limits: 1 request per 10 seconds, 20 requests per hour.
+
+const RATE_LIMIT_COOLDOWN_MS = 10_000;   // 10 seconds between requests
+const RATE_LIMIT_HOURLY_MAX = 20;
+const RATE_LIMIT_HOUR_MS = 60 * 60 * 1000;
+
+const rateLimitMap = new Map<string, number[]>();
+
+function checkRateLimit(userId: string): { allowed: boolean; message: string } {
+  const now = Date.now();
+  const timestamps = rateLimitMap.get(userId) || [];
+
+  // Prune entries older than 1 hour
+  const recent = timestamps.filter(t => now - t < RATE_LIMIT_HOUR_MS);
+
+  // Check cooldown (last request within 10s)
+  if (recent.length > 0 && now - recent[recent.length - 1] < RATE_LIMIT_COOLDOWN_MS) {
+    return { allowed: false, message: 'Please wait a few seconds before sending another request.' };
+  }
+
+  // Check hourly cap
+  if (recent.length >= RATE_LIMIT_HOURLY_MAX) {
+    return { allowed: false, message: 'You\'ve reached the hourly limit (20 requests). Please try again later.' };
+  }
+
+  // Record this request
+  recent.push(now);
+  rateLimitMap.set(userId, recent);
+
+  // Periodic cleanup: remove users with no recent activity (every ~100 requests)
+  if (Math.random() < 0.01) {
+    for (const [uid, ts] of rateLimitMap) {
+      if (ts.every(t => now - t >= RATE_LIMIT_HOUR_MS)) {
+        rateLimitMap.delete(uid);
+      }
+    }
+  }
+
+  return { allowed: true, message: '' };
 }
 
 async function callAnthropic(apiKey: string, model: string, system: string, userMessage: string): Promise<string> {
