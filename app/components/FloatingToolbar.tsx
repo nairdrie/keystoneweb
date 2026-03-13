@@ -633,7 +633,7 @@ export default function FloatingToolbar({
           {/* Drawer Overlay */}
           {isOpen && (
             <div
-              className="fixed inset-0 bg-black bg-opacity-5 z-[9998] overscroll-none touch-none"
+              className="fixed inset-0 bg-black/5 z-[9998] overscroll-none touch-none"
               onClick={() => onOpenChange(false)}
             />
           )}
@@ -691,7 +691,7 @@ export default function FloatingToolbar({
 
       {/* Publish Modal - Show when user tries to publish with unsaved changes */}
       {showPublishModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
             <h2 className="text-2xl font-bold text-slate-900 mb-4">Publish Your Site?</h2>
 

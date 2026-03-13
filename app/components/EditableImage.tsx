@@ -117,7 +117,7 @@ export default function EditableImage({
             className={`rounded ${className}`}
             style={imgStyle}
           />
-          <div className="absolute inset-0 rounded bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <div className="absolute inset-0 rounded bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
             {editOverlayStyle === 'icon' ? (
               <span className="p-2 bg-white text-red-600 rounded-full shadow-lg">
                 <Pencil className="w-4 h-4" />
@@ -161,7 +161,7 @@ export default function EditableImage({
           className="cursor-pointer group relative block"
         >
           {fallback}
-          <div className="absolute inset-0 rounded bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <div className="absolute inset-0 rounded bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
             {editOverlayStyle === 'icon' ? (
               <span className="p-1.5 bg-white text-red-600 rounded-full shadow-lg">
                 <Pencil className="w-3.5 h-3.5" />
