@@ -8,7 +8,7 @@ import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
 import AlertModal from './ui/AlertModal';
 import FontPickerModal from './FontPickerModal';
-import { Type } from 'lucide-react';
+import { Type, User } from 'lucide-react';
 
 interface Palette {
   name: string;
@@ -121,7 +121,7 @@ export default function FloatingToolbar({
   const isFullyDeployed = isSynced && changes.length === 0;
 
   const [openSections, setOpenSections] = useState<string[]>(['general']);
-  const [fontPickerState, setFontPickerState] = useState<{isOpen: boolean, type: 'title'|'body'}>({ isOpen: false, type: 'title' });
+  const [fontPickerState, setFontPickerState] = useState<{ isOpen: boolean, type: 'title' | 'body' }>({ isOpen: false, type: 'title' });
 
   const toggleSection = (section: string) => {
     setOpenSections(prev => prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]);
@@ -150,7 +150,7 @@ export default function FloatingToolbar({
 
   const handleLogout = async () => {
     await signOut();
-    router.push('/');
+    router.push('/settings');
   };
 
   const handleSave = () => {
@@ -257,17 +257,17 @@ export default function FloatingToolbar({
     <div className="flex flex-col h-full max-h-full">
       {/* Scrollable Accordions */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        
+
         {/* General Section */}
         <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
-          <button 
+          <button
             onClick={() => toggleSection('general')}
             className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
           >
             <span className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-2">General</span>
             <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('general') ? 'rotate-180' : ''}`} />
           </button>
-          
+
           {openSections.includes('general') && (
             <div className="p-4 border-t border-slate-200 space-y-6">
               {/* Currently Editing Section */}
@@ -353,14 +353,14 @@ export default function FloatingToolbar({
         {/* Colors Section */}
         {templatePalettes && templatePalettes.length > 0 && (
           <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
-            <button 
+            <button
               onClick={() => toggleSection('colors')}
               className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
             >
               <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Colors</span>
               <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('colors') ? 'rotate-180' : ''}`} />
             </button>
-            
+
             {openSections.includes('colors') && (
               <div className="p-4 border-t border-slate-200">
                 <div className="grid grid-cols-4 gap-3">
@@ -414,36 +414,36 @@ export default function FloatingToolbar({
 
         {/* Typography Section */}
         <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
-          <button 
+          <button
             onClick={() => toggleSection('typography')}
             className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
           >
             <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Typography</span>
             <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('typography') ? 'rotate-180' : ''}`} />
           </button>
-          
+
           {openSections.includes('typography') && (
             <div className="p-4 border-t border-slate-200 space-y-4">
-               <div>
-                 <label className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2 block">Heading Font</label>
-                 <button 
-                   onClick={() => setFontPickerState({ isOpen: true, type: 'title' })}
-                   className="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg hover:border-red-400 hover:bg-red-50 transition-all font-sans"
-                 >
-                   <span className="text-sm font-semibold text-slate-800" style={titleFont ? {fontFamily: `"${titleFont}", sans-serif`} : {}}>{titleFont || 'Default Serif'}</span>
-                   <Type className="w-4 h-4 text-slate-400" />
-                 </button>
-               </div>
-               <div>
-                 <label className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2 block">Body Text Font</label>
-                 <button 
-                   onClick={() => setFontPickerState({ isOpen: true, type: 'body' })}
-                   className="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg hover:border-red-400 hover:bg-red-50 transition-all font-sans"
-                 >
-                   <span className="text-sm font-medium text-slate-800" style={bodyFont ? {fontFamily: `"${bodyFont}", sans-serif`} : {}}>{bodyFont || 'Default Sans'}</span>
-                   <Type className="w-4 h-4 text-slate-400" />
-                 </button>
-               </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2 block">Heading Font</label>
+                <button
+                  onClick={() => setFontPickerState({ isOpen: true, type: 'title' })}
+                  className="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg hover:border-red-400 hover:bg-red-50 transition-all font-sans"
+                >
+                  <span className="text-sm font-semibold text-slate-800" style={titleFont ? { fontFamily: `"${titleFont}", sans-serif` } : {}}>{titleFont || 'Default Serif'}</span>
+                  <Type className="w-4 h-4 text-slate-400" />
+                </button>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2 block">Body Text Font</label>
+                <button
+                  onClick={() => setFontPickerState({ isOpen: true, type: 'body' })}
+                  className="w-full flex items-center justify-between px-3 py-2.5 bg-white border border-slate-200 rounded-lg hover:border-red-400 hover:bg-red-50 transition-all font-sans"
+                >
+                  <span className="text-sm font-medium text-slate-800" style={bodyFont ? { fontFamily: `"${bodyFont}", sans-serif` } : {}}>{bodyFont || 'Default Sans'}</span>
+                  <Type className="w-4 h-4 text-slate-400" />
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -451,7 +451,7 @@ export default function FloatingToolbar({
 
       {/* Fixed Bottom Section (Actions) */}
       <div className="shrink-0 p-4 bg-slate-50 border-t border-slate-200 space-y-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
-        
+
         {/* Unsaved Changes Section */}
         {changes && changes.length > 0 && (
           <div>
@@ -532,7 +532,7 @@ export default function FloatingToolbar({
         )}
       </div>
 
-      <FontPickerModal 
+      <FontPickerModal
         isOpen={fontPickerState.isOpen}
         onClose={() => setFontPickerState(prev => ({ ...prev, isOpen: false }))}
         title={fontPickerState.type === 'title' ? 'Select Heading Font' : 'Select Body Font'}
@@ -575,12 +575,12 @@ export default function FloatingToolbar({
                       title: 'Unsaved Changes',
                       message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
                       type: 'warning',
-                      onConfirm: () => router.push('/'),
+                      onConfirm: () => router.push('/settings'),
                       confirmLabel: 'Leave',
                       cancelLabel: 'Stay'
                     });
                   } else {
-                    router.push('/');
+                    router.push('/settings');
                   }
                 }}
                 className="cursor-pointer"
@@ -598,17 +598,17 @@ export default function FloatingToolbar({
                         title: 'Unsaved Changes',
                         message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
                         type: 'warning',
-                        onConfirm: () => router.push('/'),
+                        onConfirm: () => router.push('/settings'),
                         confirmLabel: 'Leave',
                         cancelLabel: 'Stay'
                       });
                     } else {
-                      router.push('/');
+                      router.push('/settings');
                     }
                   }}
-                  className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
+                  className="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-full transition-colors" title="Account Settings"
                 >
-                  Dashboard
+                  <User className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -669,17 +669,18 @@ export default function FloatingToolbar({
                           title: 'Unsaved Changes',
                           message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
                           type: 'warning',
-                          onConfirm: () => router.push('/'),
+                          onConfirm: () => router.push('/settings'),
                           confirmLabel: 'Leave',
                           cancelLabel: 'Stay'
                         });
                       } else {
-                        router.push('/');
+                        router.push('/settings');
                       }
                     }}
-                    className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
+                    className="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-full transition-colors"
+                    title="Account Settings"
                   >
-                    Dashboard
+                    <User className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => onOpenChange(false)}

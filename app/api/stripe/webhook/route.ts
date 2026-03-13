@@ -136,6 +136,44 @@ export async function POST(request: NextRequest) {
         console.log(`✅ Subscription activated for user ${userId}, plan: ${planName}`);
         break;
       }
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const status = subscription.status; // 'active', 'past_due', 'canceled', etc.
+
+        // Safely extract a plan name. If nickname fails, try to fetch the product name, or default to generic.
+        let planName = subscription.items.data[0]?.price.nickname;
+
+        if (!planName && subscription.items.data[0]?.price.product) {
+          const productId = subscription.items.data[0].price.product as string;
+          try {
+            const stripeClient = getStripeClient();
+            const product = await stripeClient.products.retrieve(productId);
+            planName = product.name;
+          } catch (e) {
+            console.error('Failed to retrieve full product name for subscription webhook', e);
+          }
+        }
+
+        planName = planName || 'Unknown Plan';
+
+        const { error } = await supabase
+          .from('user_subscriptions')
+          .update({
+            subscription_status: status,
+            subscription_plan: planName,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('stripe_subscription_id', subscription.id);
+
+        if (error) {
+          console.error(`Failed to update subscription ${subscription.id} to ${status}:`, error);
+          return NextResponse.json({ error: 'Failed to update subscription' }, { status: 500 });
+        }
+
+        console.log(`✅ Subscription ${subscription.id} updated to status: ${status}, plan: ${planName}`);
+        break;
+      }
 
       default:
         console.log(`Unhandled event type: ${event.type}`);
