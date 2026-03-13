@@ -71,18 +71,18 @@ export default function HomePage() {
             className="relative"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-700 rounded-3xl blur-xl opacity-10" />
-            <div className="relative bg-white rounded-3xl border border-slate-200 p-8 shadow-lg">
-              <div className="grid grid-cols-3 gap-8 text-center">
+            <div className="relative bg-white rounded-3xl border border-slate-200 p-4 sm:p-8 shadow-lg">
+              <div className="grid grid-cols-3 gap-4 sm:gap-8 text-center">
                 <div>
-                  <div className="text-4xl font-black text-red-600">5 min</div>
+                  <div className="text-3xl sm:text-4xl font-black text-red-600">5 min</div>
                   <p className="text-sm text-slate-900 mt-2 font-bold">To Launch</p>
                 </div>
                 <div>
-                  <div className="text-4xl font-black text-red-600">$15</div>
+                  <div className="text-3xl sm:text-4xl font-black text-red-600">$15</div>
                   <p className="text-sm text-slate-900 mt-2 font-bold">Per Month</p>
                 </div>
                 <div>
-                  <div className="text-4xl font-black text-red-600 flex justify-center"><Infinity className="w-10 h-10" /></div>
+                  <div className="text-3xl sm:text-4xl font-black text-red-600 flex justify-center"><Infinity className="w-8 h-8 sm:w-10 sm:h-10" /></div>
                   <p className="text-sm text-slate-900 mt-2 font-bold">Possibilities</p>
                 </div>
               </div>
