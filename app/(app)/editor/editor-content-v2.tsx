@@ -16,6 +16,7 @@ import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 import PageSelector from '@/app/components/PageSelector';
 import EmbeddedToggle from '@/app/components/EmbeddedToggle';
 import { usePages } from '@/lib/hooks/usePages';
+import { useAIBuilder } from '@/lib/hooks/useAIBuilder';
 import { CartProvider } from '@/app/components/ecommerce/CartProvider';
 import CartDrawer from '@/app/components/ecommerce/CartDrawer';
 import CartButton from '@/app/components/ecommerce/CartButton';
@@ -138,6 +139,20 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
 
   const siteId = searchParams.get('siteId');
   const { uploadImage } = useImageUpload(siteId || '');
+
+  // Pro user check for AI Builder
+  const [isProUser, setIsProUser] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    fetch('/api/user/subscription', { credentials: 'include' })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.subscription?.subscription_status === 'active') {
+          setIsProUser(true);
+        }
+      })
+      .catch(() => {});
+  }, [user]);
 
   // Compute if all draft content matches the published content
   const isSynced = useMemo(() => {
@@ -612,6 +627,109 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     setPaletteData(prev => ({ ...prev, [colorType]: value }));
   };
 
+  // AI Builder callbacks (stable references via useCallback)
+  const aiAddBlock = useCallback((type: string, data: Record<string, any>, index?: number) => {
+    setEditableContent((prev) => {
+      const currentBlocks: BlockData[] = Array.isArray(prev.blocks) ? prev.blocks : [];
+      const newBlock: BlockData = {
+        id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        type,
+        data,
+      };
+      const newBlocks = [...currentBlocks];
+      if (index !== undefined && index >= 0 && index <= newBlocks.length) {
+        newBlocks.splice(index, 0, newBlock);
+      } else {
+        newBlocks.push(newBlock);
+      }
+      addChange('blocks', `AI: Added ${type} block`, JSON.stringify(currentBlocks), JSON.stringify(newBlocks));
+      return { ...prev, blocks: newBlocks };
+    });
+  }, [addChange]);
+
+  const aiUpdateBlock = useCallback((blockId: string, updates: Record<string, any>) => {
+    setEditableContent((prev) => {
+      const currentBlocks: BlockData[] = Array.isArray(prev.blocks) ? prev.blocks : [];
+      const index = currentBlocks.findIndex(b => b.id === blockId);
+      if (index < 0) return prev;
+      const oldBlock = currentBlocks[index];
+      const newBlock = { ...oldBlock, data: { ...oldBlock.data, ...updates } };
+      const newBlocks = [...currentBlocks];
+      newBlocks[index] = newBlock;
+      addChange('blocks', `AI: Updated ${oldBlock.type} block`, JSON.stringify(currentBlocks), JSON.stringify(newBlocks));
+      return { ...prev, blocks: newBlocks };
+    });
+  }, [addChange]);
+
+  const aiRemoveBlock = useCallback((blockId: string) => {
+    setEditableContent((prev) => {
+      const currentBlocks: BlockData[] = Array.isArray(prev.blocks) ? prev.blocks : [];
+      const newBlocks = currentBlocks.filter(b => b.id !== blockId);
+      addChange('blocks', 'AI: Removed block', JSON.stringify(currentBlocks), JSON.stringify(newBlocks));
+      return { ...prev, blocks: newBlocks };
+    });
+  }, [addChange]);
+
+  const aiReorderBlocks = useCallback((blockIds: string[]) => {
+    setEditableContent((prev) => {
+      const currentBlocks: BlockData[] = Array.isArray(prev.blocks) ? prev.blocks : [];
+      const blockMap = new Map(currentBlocks.map(b => [b.id, b]));
+      const reordered = blockIds.map(id => blockMap.get(id)).filter(Boolean) as BlockData[];
+      for (const block of currentBlocks) {
+        if (!blockIds.includes(block.id)) reordered.push(block);
+      }
+      addChange('blocks', 'AI: Reordered blocks', JSON.stringify(currentBlocks), JSON.stringify(reordered));
+      return { ...prev, blocks: reordered };
+    });
+  }, [addChange]);
+
+  const aiSetSiteTitle = useCallback((title: string) => {
+    addChange('siteTitle', 'AI: Site Name', siteTitle, title);
+    setSiteTitle(title);
+  }, [addChange, siteTitle]);
+
+  const aiSetFont = useCallback((target: 'heading' | 'body', font: string) => {
+    const key = target === 'heading' ? 'titleFont' : 'bodyFont';
+    handleUpdateSiteContent(key, font);
+  }, [handleUpdateSiteContent]);
+
+  const aiSetCustomColors = useCallback((colors: { primary?: string; secondary?: string; accent?: string }) => {
+    if (colors.primary) handleUpdateContent('__customPalette_primary', colors.primary);
+    if (colors.secondary) handleUpdateContent('__customPalette_secondary', colors.secondary);
+    if (colors.accent) handleUpdateContent('__customPalette_accent', colors.accent);
+    if (selectedPaletteKey !== 'custom') {
+      handlePaletteChange('custom');
+    }
+    setPaletteData(prev => ({
+      ...prev,
+      ...(colors.primary ? { primary: colors.primary } : {}),
+      ...(colors.secondary ? { secondary: colors.secondary } : {}),
+      ...(colors.accent ? { accent: colors.accent } : {}),
+    }));
+  }, [selectedPaletteKey]);
+
+  const aiCallbacks = useMemo(() => ({
+    onAddBlock: aiAddBlock,
+    onUpdateBlock: aiUpdateBlock,
+    onRemoveBlock: aiRemoveBlock,
+    onReorderBlocks: aiReorderBlocks,
+    onSetSiteTitle: aiSetSiteTitle,
+    onSetFont: aiSetFont,
+    onSetCustomColors: aiSetCustomColors,
+  }), [aiAddBlock, aiUpdateBlock, aiRemoveBlock, aiReorderBlocks, aiSetSiteTitle, aiSetFont, aiSetCustomColors]);
+
+  const getAiSiteState = useCallback(() => ({
+    title: siteTitle,
+    blocks: editableContent.blocks || [],
+    palette: selectedPaletteKey,
+    headingFont: siteContent.titleFont,
+    bodyFont: siteContent.bodyFont,
+  }), [siteTitle, editableContent.blocks, selectedPaletteKey, siteContent.titleFont, siteContent.bodyFont]);
+
+  const aiPaletteNames = useMemo(() => Object.keys(availablePalettes), [availablePalettes]);
+
+  const aiBuilder = useAIBuilder(getAiSiteState, aiPaletteNames, aiCallbacks);
+
   if (loading || pagesLoading) {
     return <EditorLoadingScreen />;
   }
@@ -686,6 +804,12 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
           isSynced={isSynced}
           isOpen={sidebarOpen}
           onOpenChange={setSidebarOpen}
+          aiMessages={aiBuilder.messages}
+          aiIsLoading={aiBuilder.isLoading}
+          onAiSend={aiBuilder.sendMessage}
+          onAiCancel={aiBuilder.cancel}
+          onAiClear={aiBuilder.clearMessages}
+          isProUser={isProUser}
         />
 
         {/* Editor Banner - Redesigned */}

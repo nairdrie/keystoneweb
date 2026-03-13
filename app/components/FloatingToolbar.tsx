@@ -2,12 +2,14 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Settings, PanelLeftClose, PanelLeftOpen, Pencil } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Settings, PanelLeftClose, PanelLeftOpen, Pencil, Sparkles } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
 import AlertModal from './ui/AlertModal';
 import FontPickerModal from './FontPickerModal';
+import AIBuilderPanel from './AIBuilderPanel';
+import { AIMessage } from '@/lib/hooks/useAIBuilder';
 import { Type, User } from 'lucide-react';
 import ProfileDropdown from './ProfileDropdown';
 
@@ -56,6 +58,13 @@ interface FloatingToolbarProps {
   isSynced?: boolean;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  // AI Builder
+  aiMessages?: AIMessage[];
+  aiIsLoading?: boolean;
+  onAiSend?: (message: string) => void;
+  onAiCancel?: () => void;
+  onAiClear?: () => void;
+  isProUser?: boolean;
 }
 
 const LG_BREAKPOINT = 1024;
@@ -103,6 +112,12 @@ export default function FloatingToolbar({
   isSynced = false,
   isOpen,
   onOpenChange,
+  aiMessages = [],
+  aiIsLoading = false,
+  onAiSend,
+  onAiCancel,
+  onAiClear,
+  isProUser = false,
 }: FloatingToolbarProps) {
   const router = useRouter();
   const { signOut, user } = useAuth();
@@ -445,6 +460,34 @@ export default function FloatingToolbar({
                   <Type className="w-4 h-4 text-slate-400" />
                 </button>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* AI Builder Section */}
+        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+          <button
+            onClick={() => toggleSection('ai-builder')}
+            className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-violet-50 to-purple-50 hover:from-violet-100 hover:to-purple-100 transition-colors"
+          >
+            <span className="text-xs font-bold text-violet-700 uppercase tracking-wide flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" />
+              AI Builder
+              {!isProUser && <span className="text-[9px] font-bold bg-violet-600 text-white px-1.5 py-0.5 rounded-full ml-1">PRO</span>}
+            </span>
+            <ChevronDown className={`w-4 h-4 text-violet-500 transition-transform ${openSections.includes('ai-builder') ? 'rotate-180' : ''}`} />
+          </button>
+
+          {openSections.includes('ai-builder') && (
+            <div className="border-t border-slate-200">
+              <AIBuilderPanel
+                messages={aiMessages}
+                isLoading={aiIsLoading}
+                onSend={onAiSend || (() => {})}
+                onCancel={onAiCancel || (() => {})}
+                onClear={onAiClear || (() => {})}
+                isPro={isProUser}
+              />
             </div>
           )}
         </div>
