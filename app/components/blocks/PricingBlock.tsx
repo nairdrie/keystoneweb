@@ -159,7 +159,7 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                         <div
                             key={index}
                             className={`relative flex flex-col bg-white rounded-2xl p-8 shadow-sm border-2 transition-shadow hover:shadow-lg ${tier.highlighted ? 'ring-2 scale-105 shadow-lg' : ''}`}
-                            style={tier.highlighted ? { borderColor: pSecondary, ringColor: pSecondary } : { borderColor: '#e5e7eb' }}
+                            style={tier.highlighted ? { borderColor: pSecondary, '--tw-ring-color': pSecondary } as React.CSSProperties : { borderColor: '#e5e7eb' }}
                         >
                             {tier.highlighted && (
                                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-white text-xs font-bold uppercase tracking-wider" style={{ backgroundColor: pSecondary }}>
