@@ -30,15 +30,35 @@ export async function GET(request: NextRequest) {
       business_type: businessType,
     });
 
+    // Extract style tag from template_id (e.g. "luxe_salon" → "Luxe")
+    const getStyleTag = (id: string): string => {
+      const styles = ['luxe', 'vivid', 'airy', 'edge', 'classic', 'organic', 'sleek', 'vibrant'];
+      for (const style of styles) {
+        if (id.toLowerCase().includes(style)) {
+          return style.charAt(0).toUpperCase() + style.slice(1);
+        }
+      }
+      // Legacy fallback
+      if (id.includes('bold')) return 'Bold';
+      if (id.includes('elegant')) return 'Elegant';
+      if (id.includes('starter')) return 'Starter';
+      return '';
+    };
+
     // Convert to TemplatePreview format
-    const templates: Template[] = dbTemplates.map((t) => ({
-      id: t.template_id,
-      name: t.name,
-      category: t.category,
-      // The tags might be mapped or just omitted if not present in DB
-      tags: [],
-      imageUrl: t.thumbnail_url || `https://images.unsplash.com/photo-1460925895917-aeb19be489c7?w=400&h=300&fit=crop&t=${encodeURIComponent(t.template_id)}`,
-    }));
+    const templates: Template[] = dbTemplates.map((t) => {
+      const styleTag = getStyleTag(t.template_id);
+      const tags = [styleTag, 'Multi-page'].filter(Boolean);
+      if (t.business_type === 'products') tags.push('Shop');
+      if (t.business_type === 'services') tags.push('Booking');
+      return {
+        id: t.template_id,
+        name: t.name,
+        category: t.category,
+        tags,
+        imageUrl: t.thumbnail_url || `https://images.unsplash.com/photo-1460925895917-aeb19be489c7?w=400&h=300&fit=crop&t=${encodeURIComponent(t.template_id)}`,
+      };
+    });
 
     // Paginate
     const startIndex = (page - 1) * limit;

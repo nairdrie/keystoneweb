@@ -21,6 +21,9 @@ import FAQBlock from './FAQBlock';
 import BookingBlock from './BookingBlock';
 import ProductGridBlock from './ProductGridBlock';
 import ContactFormBlock from './ContactFormBlock';
+import LogoCloudBlock from './LogoCloudBlock';
+import PricingBlock from './PricingBlock';
+import TeamBlock from './TeamBlock';
 
 // We loosen the component type to accommodate both the simpler original blocks and the advanced blocks
 const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
@@ -41,6 +44,9 @@ const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     booking: BookingBlock,
     productGrid: ProductGridBlock,
     contact_form: ContactFormBlock,
+    logoCloud: LogoCloudBlock,
+    pricing: PricingBlock,
+    team: TeamBlock,
 };
 
 const AVAILABLE_BLOCKS = [
@@ -59,6 +65,9 @@ const AVAILABLE_BLOCKS = [
     { type: 'booking', label: '📅 Booking / Appointments' },
     { type: 'productGrid', label: '🛍️ Product Catalog' },
     { type: 'contact_form', label: 'Contact Form' },
+    { type: 'logoCloud', label: 'Logo Cloud / Partners' },
+    { type: 'pricing', label: 'Pricing Table' },
+    { type: 'team', label: 'Team Members' },
     { type: 'map', label: 'Google Map' },
     { type: 'custom_html', label: 'Custom HTML / Embed' },
 ];

@@ -463,14 +463,23 @@ export default function OnboardingWizard() {
                               <div className="p-4">
                                 <h3 className="text-lg font-bold text-slate-900 mb-2">{template.name}</h3>
                                 <div className="flex flex-wrap gap-1 mb-4">
-                                  {template.tags.map(tag => (
-                                    <span
-                                      key={tag}
-                                      className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded"
-                                    >
-                                      {tag}
-                                    </span>
-                                  ))}
+                                  {template.tags.map(tag => {
+                                    const isStyle = ['Luxe', 'Vivid', 'Airy', 'Edge', 'Classic', 'Organic', 'Sleek', 'Vibrant', 'Bold', 'Elegant', 'Starter'].includes(tag);
+                                    return (
+                                      <span
+                                        key={tag}
+                                        className={`text-xs px-2 py-1 rounded ${
+                                          isStyle
+                                            ? 'bg-red-50 text-red-700 font-semibold'
+                                            : tag === 'Shop' || tag === 'Booking'
+                                              ? 'bg-blue-50 text-blue-700'
+                                              : 'bg-slate-100 text-slate-600'
+                                        }`}
+                                      >
+                                        {tag}
+                                      </span>
+                                    );
+                                  })}
                                 </div>
                                 <button
                                   onClick={() => handleSelectTemplate(template.id)}
