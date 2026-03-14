@@ -157,9 +157,6 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
             <div className="bg-slate-100 text-slate-500 px-3 py-2 rounded-xl rounded-bl-sm flex items-center gap-2">
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
               <span className="text-[12px]">Building...</span>
-              <button onClick={onCancel} className="ml-1 p-0.5 hover:bg-slate-200 rounded" title="Cancel">
-                <Square className="w-3 h-3" />
-              </button>
             </div>
           </div>
         )}
@@ -194,13 +191,25 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
               {input.length}/1000
             </span>
           )}
-          <button
-            type="submit"
-            disabled={!input.trim() || isLoading}
-            className="absolute right-2 bottom-2 p-1.5 rounded-lg bg-violet-600 text-white disabled:opacity-30 hover:bg-violet-700 transition-colors"
-          >
-            <Send className="w-3.5 h-3.5" />
-          </button>
+          {isLoading ? (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="absolute right-2 bottom-2 p-1.5 rounded-lg text-white transition-colors hover:brightness-110"
+              style={{ backgroundColor: 'var(--brand-primary)' }}
+              title="Stop generating"
+            >
+              <Square className="w-3.5 h-3.5 fill-current" />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!input.trim()}
+              className="absolute right-2 bottom-2 p-1.5 rounded-lg bg-violet-600 text-white disabled:opacity-30 hover:bg-violet-700 transition-colors"
+            >
+              <Send className="w-3.5 h-3.5" />
+            </button>
+          )}
         </form>
       </div>
     </div>

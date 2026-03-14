@@ -738,12 +738,14 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
 
   // Auto-send AI prompt from onboarding flow
   const aiOnboardingSentRef = useRef(false);
+  const [aiOnboardingBuilding, setAiOnboardingBuilding] = useState(false);
   useEffect(() => {
     if (aiOnboardingSentRef.current || !templateComponent) return;
     const prompt = sessionStorage.getItem('keystoneAiOnboardingPrompt');
     if (prompt) {
       aiOnboardingSentRef.current = true;
       sessionStorage.removeItem('keystoneAiOnboardingPrompt');
+      setAiOnboardingBuilding(true);
       // Open sidebar, then send the prompt after a small delay for initialization
       setSidebarOpen(true);
       setTimeout(() => {
@@ -752,8 +754,17 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     }
   }, [templateComponent]);
 
-  if (loading || pagesLoading) {
-    return <EditorLoadingScreen />;
+  // Clear the AI onboarding loading screen once the AI finishes
+  useEffect(() => {
+    if (aiOnboardingBuilding && !aiBuilder.isLoading && aiOnboardingSentRef.current) {
+      // Small delay so operations apply before revealing
+      const timer = setTimeout(() => setAiOnboardingBuilding(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [aiOnboardingBuilding, aiBuilder.isLoading]);
+
+  if (loading || pagesLoading || aiOnboardingBuilding) {
+    return <EditorLoadingScreen message={aiOnboardingBuilding ? 'AI is building your site...' : undefined} />;
   }
 
   if (error) {

@@ -43,9 +43,12 @@ export function useAIBuilder(
   const [isLoading, setIsLoading] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const wasCancelledRef = useRef(false);
 
   const sendMessage = useCallback(async (prompt: string) => {
     if (!prompt.trim() || isLoading) return;
+
+    wasCancelledRef.current = false;
 
     const userMsg: AIMessage = {
       id: `msg-${Date.now()}-user`,
@@ -116,7 +119,18 @@ export function useAIBuilder(
 
       setMessages(prev => [...prev, assistantMsg]);
     } catch (err: any) {
-      if (err.name === 'AbortError') return;
+      if (err.name === 'AbortError') {
+        // User cancelled — tell server to refund the rate limit usage
+        fetch('/api/ai/builder/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        }).catch(() => {});
+
+        // Remove the user message since it wasn't completed
+        setMessages(prev => prev.filter(m => m.id !== userMsg.id));
+        return;
+      }
       const errMsg: AIMessage = {
         id: `msg-${Date.now()}-err`,
         role: 'assistant',
@@ -131,6 +145,7 @@ export function useAIBuilder(
   }, [isLoading, getSiteState, availablePalettes, callbacks]);
 
   const cancel = useCallback(() => {
+    wasCancelledRef.current = true;
     abortRef.current?.abort();
     setIsLoading(false);
   }, []);
