@@ -191,6 +191,9 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   }, [site, pages, changesHook.changes]);
 
   // Auth check and site loading (ONLY for editor mode)
+  // Use a ref to prevent re-fetching on tab-switch (Supabase auth token refresh
+  // fires onAuthStateChange which creates a new user object reference)
+  const hasFetchedSiteRef = useRef<string | null>(null);
   useEffect(() => {
     if (authLoading) return;
 
@@ -200,9 +203,16 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     }
 
     if (siteId) {
-      fetchSite(siteId);
+      // Only fetch if we haven't already loaded this specific site
+      if (hasFetchedSiteRef.current !== siteId) {
+        hasFetchedSiteRef.current = siteId;
+        fetchSite(siteId);
+      }
     } else {
-      redirectToLatestSite();
+      if (!hasFetchedSiteRef.current) {
+        hasFetchedSiteRef.current = '__redirecting__';
+        redirectToLatestSite();
+      }
     }
   }, [user, authLoading, siteId, router, isPublicView, publicSiteData]);
 
@@ -777,6 +787,15 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
       return () => clearTimeout(timer);
     }
   }, [aiOnboardingBuilding, aiBuilder.isLoading]);
+
+  // Safety timeout: if the loading screen is stuck for 45 seconds, force-dismiss it
+  useEffect(() => {
+    if (!aiOnboardingBuilding) return;
+    const timeout = setTimeout(() => {
+      setAiOnboardingBuilding(false);
+    }, 45_000);
+    return () => clearTimeout(timeout);
+  }, [aiOnboardingBuilding]);
 
   // Whether to tell the toolbar to focus/scroll to the AI builder section
   const [focusAiBuilder, setFocusAiBuilder] = useState(false);
