@@ -156,7 +156,7 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                             <span className="font-bold text-sm text-slate-800">{siteContent.siteTitle || 'Elegant Co.'}</span>
                         </div>
                         <p className="text-sm text-slate-400">
-                            &copy; {new Date().getFullYear()} {siteContent.siteTitle || 'Elegant Co.'}. All rights reserved.
+                            Powered by Keystone
                         </p>
                     </div>
                 </div>

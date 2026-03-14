@@ -142,7 +142,7 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             <span className="font-bold text-sm" style={{ color: pPrimary }}>{siteContent.siteTitle || 'Airy Studio'}</span>
                         </div>
                         <p className="text-xs text-gray-400">
-                            &copy; {new Date().getFullYear()} {siteContent.siteTitle || 'Airy Studio'}. All rights reserved.
+                            Powered by Keystone
                         </p>
                     </div>
                 </div>

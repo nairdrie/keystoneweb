@@ -143,7 +143,7 @@ export function LuxeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                     </div>
                     <div className="w-12 border-t mx-auto mb-6" style={{ borderColor: pSecondary }} />
                     <p className="text-sm text-white/40">
-                        &copy; {new Date().getFullYear()} {siteContent.siteTitle || 'Luxe Studio'}. All rights reserved.
+                        Powered by Keystone
                     </p>
                 </div>
             </footer>

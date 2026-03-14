@@ -140,15 +140,21 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   const siteId = searchParams.get('siteId');
   const { uploadImage } = useImageUpload(siteId || '');
 
-  // Pro user check for AI Builder
+  // Subscription check for AI Builder
   const [isProUser, setIsProUser] = useState(false);
+  const [isBasicUser, setIsBasicUser] = useState(false);
   useEffect(() => {
     if (!user) return;
     fetch('/api/user/subscription', { credentials: 'include' })
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data?.subscription?.subscription_status === 'active') {
-          setIsProUser(true);
+          const plan = data.subscription.subscription_plan?.toLowerCase() || '';
+          if (plan.includes('pro')) {
+            setIsProUser(true);
+          } else {
+            setIsBasicUser(true);
+          }
         }
       })
       .catch(() => {});
@@ -730,8 +736,61 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
 
   const aiBuilder = useAIBuilder(getAiSiteState, aiPaletteNames, aiCallbacks);
 
-  if (loading || pagesLoading) {
-    return <EditorLoadingScreen />;
+  // Auto-send AI prompt from onboarding flow
+  const aiOnboardingSentRef = useRef(false);
+  const [aiOnboardingBuilding, setAiOnboardingBuilding] = useState(() => {
+    // Check synchronously on mount — if there's a pending AI prompt, start in loading state
+    if (typeof window !== 'undefined' && sessionStorage.getItem('keystoneAiOnboardingPrompt')) {
+      return true;
+    }
+    return false;
+  });
+  const aiOnboardingDidStartRef = useRef(false);
+
+  useEffect(() => {
+    if (aiOnboardingSentRef.current || !templateComponent) return;
+    const prompt = sessionStorage.getItem('keystoneAiOnboardingPrompt');
+    if (prompt) {
+      aiOnboardingSentRef.current = true;
+      sessionStorage.removeItem('keystoneAiOnboardingPrompt');
+      setAiOnboardingBuilding(true);
+      // Open sidebar and focus AI builder, then send the prompt
+      setSidebarOpen(true);
+      setTimeout(() => {
+        aiBuilder.sendMessage(prompt);
+      }, 500);
+    }
+  }, [templateComponent]);
+
+  // Track when AI loading actually starts so we know when it's safe to dismiss
+  useEffect(() => {
+    if (aiOnboardingBuilding && aiBuilder.isLoading) {
+      aiOnboardingDidStartRef.current = true;
+    }
+  }, [aiOnboardingBuilding, aiBuilder.isLoading]);
+
+  // Clear the AI onboarding loading screen once the AI finishes (only after it actually started)
+  useEffect(() => {
+    if (aiOnboardingBuilding && aiOnboardingDidStartRef.current && !aiBuilder.isLoading) {
+      // Small delay so operations apply before revealing
+      const timer = setTimeout(() => setAiOnboardingBuilding(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [aiOnboardingBuilding, aiBuilder.isLoading]);
+
+  // Whether to tell the toolbar to focus/scroll to the AI builder section
+  const [focusAiBuilder, setFocusAiBuilder] = useState(false);
+  useEffect(() => {
+    // Once onboarding building finishes, focus the AI panel in the toolbar
+    if (aiOnboardingSentRef.current && !aiOnboardingBuilding && aiOnboardingDidStartRef.current) {
+      setFocusAiBuilder(true);
+      // Reset after a tick so it acts as a one-shot trigger
+      setTimeout(() => setFocusAiBuilder(false), 100);
+    }
+  }, [aiOnboardingBuilding]);
+
+  if (loading || pagesLoading || aiOnboardingBuilding) {
+    return <EditorLoadingScreen message={aiOnboardingBuilding ? 'AI is building your site...' : undefined} />;
   }
 
   if (error) {
@@ -810,6 +869,10 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
           onAiCancel={aiBuilder.cancel}
           onAiClear={aiBuilder.clearMessages}
           isProUser={isProUser}
+          isBasicUser={isBasicUser}
+          showAiUpgradeModal={aiBuilder.showUpgradeModal}
+          onDismissAiUpgradeModal={aiBuilder.dismissUpgradeModal}
+          focusAiBuilder={focusAiBuilder}
         />
 
         {/* Editor Banner - Redesigned */}

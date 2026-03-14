@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 
-export default function EditorLoadingScreen() {
+export default function EditorLoadingScreen({ message }: { message?: string } = {}) {
     // Precise SVG coordinates spanning an arch with inner radius 30 and outer radius 70.
     // Center at (100, 90). The pillars extend straight down to y=170.
     // We calculate proper trapezoidal angles (180 to 144, 144 to 108, 108 to 72, 72 to 36, 36 to 0) 
@@ -86,6 +86,16 @@ export default function EditorLoadingScreen() {
                         );
                     })}
                 </svg>
+                {message && (
+                    <motion.p
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.8, duration: 0.6 }}
+                        className="text-white/90 text-lg font-semibold text-center mt-2"
+                    >
+                        {message}
+                    </motion.p>
+                )}
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}

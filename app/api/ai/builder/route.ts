@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import { buildSystemPrompt } from '@/lib/ai/builder-schema';
+import { checkRateLimit } from './rate-limit';
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,15 +12,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Pro user check
+    // Subscription check - determine plan tier
     const { data: subscription } = await supabase
       .from('user_subscriptions')
-      .select('subscription_status')
+      .select('subscription_status, subscription_plan')
       .eq('user_id', user.id)
       .single();
 
-    if (!subscription || subscription.subscription_status !== 'active') {
-      return NextResponse.json({ error: 'AI Builder requires an active Pro subscription.' }, { status: 403 });
+    const isActive = subscription?.subscription_status === 'active';
+    const isPro = isActive && subscription?.subscription_plan?.toLowerCase().includes('pro');
+    const isBasic = isActive && !isPro;
+
+    if (!isActive) {
+      return NextResponse.json({ error: 'AI Builder requires an active subscription.' }, { status: 403 });
     }
 
     const apiKey = process.env.AI_BUILDER_API_KEY;
@@ -42,10 +47,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Prompt is too long. Please keep it under 1000 characters.' }, { status: 400 });
     }
 
-    // Rate limiting: 1 request per 10 seconds, max 20 per hour
-    const rateLimitResult = checkRateLimit(user.id);
+    // Rate limiting: basic users get 3/day, pro users get full limits
+    const rateLimitResult = checkRateLimit(user.id, isBasic);
     if (!rateLimitResult.allowed) {
-      return NextResponse.json({ error: rateLimitResult.message }, { status: 429 });
+      return NextResponse.json({
+        error: rateLimitResult.message,
+        ...(rateLimitResult.upgradeRequired ? { upgradeRequired: true } : {}),
+      }, { status: 429 });
     }
 
     // Build the user message with current site context
@@ -104,59 +112,6 @@ USER REQUEST: ${prompt}`;
     console.error('AI Builder error:', err);
     return NextResponse.json({ error: 'Something went wrong. Please try again in a moment.' }, { status: 500 });
   }
-}
-
-// ---- In-memory rate limiter ----
-// Tracks per-user request timestamps. Automatically cleans up old entries.
-// Limits: 1 request per 10 seconds, 20 requests per hour.
-
-const RATE_LIMIT_COOLDOWN_MS = 10_000;   // 10 seconds between requests
-const RATE_LIMIT_HOURLY_MAX = 20;
-const RATE_LIMIT_HOUR_MS = 60 * 60 * 1000;
-const RATE_LIMIT_DAY_MAX = 30;
-const RATE_LIMIT_DAY_MS = 24 * 60 * 60 * 1000;
-
-const rateLimitMap = new Map<string, number[]>();
-
-function checkRateLimit(userId: string): { allowed: boolean; message: string } {
-  const now = Date.now();
-  const timestamps = rateLimitMap.get(userId) || [];
-
-  // prune entries older than 1 day 
-  const requestsInDay = timestamps.filter(t => now - t < RATE_LIMIT_DAY_MS);
-
-  // Check daily cap
-  if (requestsInDay.length >= RATE_LIMIT_DAY_MAX) {
-    return { allowed: false, message: `You\'ve reached the daily limit (${RATE_LIMIT_DAY_MAX} requests). Please try again later.` };
-  }
-
-  // Prune entries older than 1 hour
-  const requestsInHour = timestamps.filter(t => now - t < RATE_LIMIT_HOUR_MS);
-
-  // Check cooldown (last request within 10s)
-  if (requestsInHour.length > 0 && now - requestsInHour[requestsInHour.length - 1] < RATE_LIMIT_COOLDOWN_MS) {
-    return { allowed: false, message: 'Please wait a few seconds before sending another request.' };
-  }
-
-  // Check hourly cap
-  if (requestsInHour.length >= RATE_LIMIT_HOURLY_MAX) {
-    return { allowed: false, message: `You\'ve reached the hourly limit (${RATE_LIMIT_HOURLY_MAX} requests). Please try again later.` };
-  }
-
-  // Record this request
-  requestsInHour.push(now);
-  rateLimitMap.set(userId, requestsInHour);
-
-  // Periodic cleanup: remove users with no recent activity (every ~100 requests)
-  if (Math.random() < 0.01) {
-    for (const [uid, ts] of rateLimitMap) {
-      if (ts.every(t => now - t >= RATE_LIMIT_HOUR_MS)) {
-        rateLimitMap.delete(uid);
-      }
-    }
-  }
-
-  return { allowed: true, message: '' };
 }
 
 async function callAnthropic(apiKey: string, model: string, system: string, userMessage: string): Promise<string> {

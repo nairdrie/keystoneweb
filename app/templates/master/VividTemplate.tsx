@@ -141,7 +141,7 @@ export function VividTemplate({ palette, isEditMode, children }: MasterTemplateP
                             <span className="font-bold text-lg">{siteContent.siteTitle || 'Vivid Co'}</span>
                         </div>
                         <p className="text-sm text-white/40">
-                            &copy; {new Date().getFullYear()} {siteContent.siteTitle || 'Vivid Co'}. All rights reserved.
+                            Powered by Keystone
                         </p>
                     </div>
                 </div>

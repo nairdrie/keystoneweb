@@ -145,7 +145,7 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
             <footer className="py-16 border-t border-slate-100">
                 <div className="max-w-6xl mx-auto px-6 text-center">
                     <p className="text-sm text-slate-400">
-                        &copy; {new Date().getFullYear()} {siteContent.siteTitle || 'Studio'}. All rights reserved.
+                        Powered by Keystone
                     </p>
                 </div>
             </footer>
