@@ -102,13 +102,12 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
         {messages.map((msg) => (
           <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div
-              className={`max-w-[85%] px-3 py-2 rounded-xl text-[12px] leading-relaxed ${
-                msg.role === 'user'
-                  ? 'bg-violet-600 text-white rounded-br-sm'
-                  : msg.isError
-                    ? 'bg-red-50 text-red-700 border border-red-200 rounded-bl-sm'
-                    : 'bg-slate-100 text-slate-800 rounded-bl-sm'
-              }`}
+              className={`max-w-[85%] px-3 py-2 rounded-xl text-[12px] leading-relaxed ${msg.role === 'user'
+                ? 'bg-violet-600 text-white rounded-br-sm'
+                : msg.isError
+                  ? 'bg-red-50 text-red-700 border border-red-200 rounded-bl-sm'
+                  : 'bg-slate-100 text-slate-800 rounded-bl-sm'
+                }`}
             >
               {msg.content}
               {msg.operations && msg.operations.length > 0 && (
@@ -160,7 +159,7 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
             className="w-full resize-none bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 pr-10 text-[12px] text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300 focus:border-violet-300 transition-all"
           />
           {input.length > 800 && (
-            <span className={`absolute left-3 bottom-2 text-[10px] ${input.length >= 1000 ? 'text-red-500' : 'text-slate-400'}`}>
+            <span className={`absolute left-3 bottom-[-10] text-[10px] ${input.length >= 1000 ? 'text-red-500' : 'text-slate-400'}`}>
               {input.length}/1000
             </span>
           )}

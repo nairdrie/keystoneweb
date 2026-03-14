@@ -113,6 +113,8 @@ USER REQUEST: ${prompt}`;
 const RATE_LIMIT_COOLDOWN_MS = 10_000;   // 10 seconds between requests
 const RATE_LIMIT_HOURLY_MAX = 20;
 const RATE_LIMIT_HOUR_MS = 60 * 60 * 1000;
+const RATE_LIMIT_DAY_MAX = 30;
+const RATE_LIMIT_DAY_MS = 24 * 60 * 60 * 1000;
 
 const rateLimitMap = new Map<string, number[]>();
 
@@ -120,22 +122,30 @@ function checkRateLimit(userId: string): { allowed: boolean; message: string } {
   const now = Date.now();
   const timestamps = rateLimitMap.get(userId) || [];
 
+  // prune entries older than 1 day 
+  const requestsInDay = timestamps.filter(t => now - t < RATE_LIMIT_DAY_MS);
+
+  // Check daily cap
+  if (requestsInDay.length >= RATE_LIMIT_DAY_MAX) {
+    return { allowed: false, message: `You\'ve reached the daily limit (${RATE_LIMIT_DAY_MAX} requests). Please try again later.` };
+  }
+
   // Prune entries older than 1 hour
-  const recent = timestamps.filter(t => now - t < RATE_LIMIT_HOUR_MS);
+  const requestsInHour = timestamps.filter(t => now - t < RATE_LIMIT_HOUR_MS);
 
   // Check cooldown (last request within 10s)
-  if (recent.length > 0 && now - recent[recent.length - 1] < RATE_LIMIT_COOLDOWN_MS) {
+  if (requestsInHour.length > 0 && now - requestsInHour[requestsInHour.length - 1] < RATE_LIMIT_COOLDOWN_MS) {
     return { allowed: false, message: 'Please wait a few seconds before sending another request.' };
   }
 
   // Check hourly cap
-  if (recent.length >= RATE_LIMIT_HOURLY_MAX) {
-    return { allowed: false, message: 'You\'ve reached the hourly limit (20 requests). Please try again later.' };
+  if (requestsInHour.length >= RATE_LIMIT_HOURLY_MAX) {
+    return { allowed: false, message: `You\'ve reached the hourly limit (${RATE_LIMIT_HOURLY_MAX} requests). Please try again later.` };
   }
 
   // Record this request
-  recent.push(now);
-  rateLimitMap.set(userId, recent);
+  requestsInHour.push(now);
+  rateLimitMap.set(userId, requestsInHour);
 
   // Periodic cleanup: remove users with no recent activity (every ~100 requests)
   if (Math.random() < 0.01) {
