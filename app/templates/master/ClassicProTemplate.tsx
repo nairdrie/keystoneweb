@@ -149,7 +149,7 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             <span className="font-bold text-sm">{siteContent.siteTitle || 'Your Business'}</span>
                         </div>
                         <p className="text-sm text-white/50">
-                            &copy; {new Date().getFullYear()} {siteContent.siteTitle || 'Your Business'}. All rights reserved.
+                            Powered by Keystone
                         </p>
                     </div>
                 </div>

@@ -141,7 +141,7 @@ export function EdgeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             <span className="font-bold text-sm text-white">{siteContent.siteTitle || 'Edge Co'}</span>
                         </div>
                         <p className="text-xs text-gray-600">
-                            &copy; {new Date().getFullYear()} {siteContent.siteTitle || 'Edge Co'}. All rights reserved.
+                            Powered by Keystone
                         </p>
                     </div>
                 </div>

@@ -165,7 +165,7 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                 <div className="border-t border-white/10 py-4">
                     <div className="max-w-7xl mx-auto px-4 text-center">
                         <p className="text-xs text-white/30">
-                            &copy; {new Date().getFullYear()} {siteContent.siteTitle || 'Classic Services'}. All rights reserved.
+                            Powered by Keystone
                         </p>
                     </div>
                 </div>

@@ -141,7 +141,7 @@ export function VibrantTemplate({ palette, isEditMode, children }: MasterTemplat
                             <span className="font-bold text-white">{siteContent.siteTitle || 'Vibrant Co'}</span>
                         </div>
                         <p className="text-sm text-white/50">
-                            &copy; {new Date().getFullYear()} {siteContent.siteTitle || 'Vibrant Co'}. All rights reserved.
+                            Powered by Keystone
                         </p>
                     </div>
                 </div>
