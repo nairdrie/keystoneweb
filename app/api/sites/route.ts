@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     const palettes = templateMeta?.palettes || {};
 
     // Extract site-level fields from default_content
-    const { blocks, ...siteHeaderFields } = defaultContent as any;
+    const { blocks, extra_pages, __navItems: templateNavItems, ...siteHeaderFields } = defaultContent as any;
 
     // Pick the first palette as default
     const paletteNames = Object.keys(palettes);
@@ -119,6 +119,82 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Build nav items: start with template-defined ones, or build from pages
+    const navItems: any[] = [];
+    // Track page IDs for nav item linking
+    const pageIdMap: Record<string, string> = {};
+    pageIdMap['home'] = homePageId;
+
+    // Prepare extra pages from template
+    const extraPageInserts: any[] = [];
+    if (extra_pages && Array.isArray(extra_pages)) {
+      extra_pages.forEach((page: any, index: number) => {
+        const pageId = uuidv4();
+        const pageSlug = page.slug || page.title?.toLowerCase().replace(/\s+/g, '-') || `page-${index + 1}`;
+        pageIdMap[pageSlug] = pageId;
+
+        const pageDesignData: Record<string, any> = {};
+        if (page.blocks && Array.isArray(page.blocks)) {
+          pageDesignData.blocks = page.blocks.map((block: any) => ({
+            id: `block-${uuidv4().slice(0, 8)}`,
+            type: block.type,
+            data: block.data || {},
+          }));
+        }
+
+        extraPageInserts.push({
+          id: pageId,
+          site_id: siteId,
+          slug: pageSlug,
+          title: page.title || `Page ${index + 1}`,
+          display_name: page.display_name || page.title || `Page ${index + 1}`,
+          is_visible_in_nav: page.is_visible_in_nav !== false,
+          nav_order: index + 1,
+          design_data: pageDesignData,
+          created_at: now,
+          updated_at: now,
+        });
+      });
+    }
+
+    // Build nav items from template nav items or auto-generate from pages
+    if (templateNavItems && Array.isArray(templateNavItems)) {
+      templateNavItems.forEach((navItem: any) => {
+        const resolvedPageId = navItem.pageSlug ? pageIdMap[navItem.pageSlug] : undefined;
+        navItems.push({
+          id: `nav-${uuidv4().slice(0, 8)}`,
+          label: navItem.label,
+          linkType: navItem.linkType || 'page',
+          href: navItem.href || `/${navItem.pageSlug || ''}`,
+          pageId: resolvedPageId || navItem.pageId,
+          blockId: navItem.blockId,
+        });
+      });
+    } else {
+      // Auto-generate nav items: Home + extra pages
+      navItems.push({
+        id: `nav-${uuidv4().slice(0, 8)}`,
+        label: 'Home',
+        linkType: 'page',
+        href: '/',
+        pageId: homePageId,
+      });
+      extraPageInserts.forEach((page) => {
+        navItems.push({
+          id: `nav-${uuidv4().slice(0, 8)}`,
+          label: page.display_name,
+          linkType: 'page',
+          href: `/${page.slug}`,
+          pageId: page.id,
+        });
+      });
+    }
+
+    // Store nav items in site design data
+    if (navItems.length > 0) {
+      siteDesignData.__navItems = navItems;
+    }
+
     // Insert site
     const { error: siteError } = await supabase.from('sites').insert({
       id: siteId,
@@ -153,7 +229,14 @@ export async function POST(request: NextRequest) {
 
     if (pageError) {
       console.error('Supabase error creating home page:', pageError);
-      // Site was created, page failed — still return siteId
+    }
+
+    // Insert extra pages (Products, Booking, About, etc.)
+    if (extraPageInserts.length > 0) {
+      const { error: extraPagesError } = await supabase.from('pages').insert(extraPageInserts);
+      if (extraPagesError) {
+        console.error('Supabase error creating extra pages:', extraPagesError);
+      }
     }
 
     return NextResponse.json({ siteId, message: 'Site created successfully' }, { status: 201 });
