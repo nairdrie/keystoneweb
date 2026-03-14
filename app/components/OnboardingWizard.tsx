@@ -191,19 +191,32 @@ export default function OnboardingWizard() {
 
     setAiLoading(true);
     try {
-      // Create a site with a default template, then redirect to editor with AI prompt
+      // Create a site with the airy template (lightweight default for AI-generated sites)
       const res = await fetch('/api/sites', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
-          selectedTemplateId: 'starter-blank',
+          selectedTemplateId: 'airy_general',
           businessType: 'services',
           category: 'general',
           userId: user?.id || null,
         }),
       });
 
+      if (!res.ok) {
+        console.error('Failed to create site:', await res.text());
+        setAiLoading(false);
+        return;
+      }
+
       const { siteId } = await res.json();
+      if (!siteId) {
+        console.error('No siteId returned from API');
+        setAiLoading(false);
+        return;
+      }
+
       // Store the AI prompt in sessionStorage so the editor can pick it up
       sessionStorage.setItem('keystoneAiOnboardingPrompt', aiPrompt.trim());
 
