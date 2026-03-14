@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth/context';
 import Header from './Header';
+import { Sparkles, Send } from 'lucide-react';
 
 type BusinessType = 'services' | 'products' | 'both' | null;
 type Category = string | null;
@@ -90,6 +91,9 @@ export default function OnboardingWizard() {
   const [userSites, setUserSites] = useState<any[]>([]);
   const [checkingSites, setCheckingSites] = useState(true);
   const [showWelcomeBack, setShowWelcomeBack] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const aiInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Check for existing sites if user is authenticated
   useEffect(() => {
@@ -181,6 +185,40 @@ export default function OnboardingWizard() {
     router.push(`/onboarding?businessType=${businessType}&category=${cat}&page=1`);
   };
 
+  const handleAiSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!aiPrompt.trim() || aiLoading) return;
+
+    setAiLoading(true);
+    try {
+      // Create a site with a default template, then redirect to editor with AI prompt
+      const res = await fetch('/api/sites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          selectedTemplateId: 'starter-blank',
+          businessType: 'services',
+          category: 'general',
+          userId: user?.id || null,
+        }),
+      });
+
+      const { siteId } = await res.json();
+      // Store the AI prompt in sessionStorage so the editor can pick it up
+      sessionStorage.setItem('keystoneAiOnboardingPrompt', aiPrompt.trim());
+
+      if (user) {
+        router.push(`/editor?siteId=${siteId}`);
+      } else {
+        // Redirect to signup with siteId so they land in the editor after auth
+        router.push(`/signup?siteId=${siteId}`);
+      }
+    } catch (error) {
+      console.error('Failed to create AI site:', error);
+      setAiLoading(false);
+    }
+  };
+
   const handleSelectTemplate = async (templateId: string) => {
     try {
       // Create a new site with selected template
@@ -193,12 +231,19 @@ export default function OnboardingWizard() {
           selectedTemplateId: templateId,
           businessType: (businessType as any) === 'service' ? 'services' : (businessType as any) === 'product' ? 'products' : businessType,
           category,
-          userId: user?.id || null, // Include userId if authenticated
+          userId: user?.id || null,
         }),
       });
 
       const { siteId } = await res.json();
-      router.push(`/editor?siteId=${siteId}`);
+
+      if (user) {
+        // Authenticated — go straight to editor
+        router.push(`/editor?siteId=${siteId}`);
+      } else {
+        // Not authenticated — redirect to signup with siteId so they come back to the editor after
+        router.push(`/signup?siteId=${siteId}`);
+      }
     } catch (error) {
       console.error('Failed to create site:', error);
     }
@@ -344,16 +389,83 @@ export default function OnboardingWizard() {
           )}
 
           {/* Main Content */}
-          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-20">
-            {/* Step 1: Business Type */}
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-12">
+            {/* Step 1: AI Builder + Business Type */}
             {step === 1 && (
               <div className="animate-fade-in">
-                <h1 className="text-5xl font-black text-slate-900 mb-4 text-center">
-                  What Do You Do?
-                </h1>
-                <p className="text-xl text-slate-600 mb-16 text-center max-w-2xl mx-auto">
-                  Tell us about your business so we can find the perfect template
-                </p>
+                {/* AI Site Builder Section */}
+                <div className="max-w-2xl mx-auto mb-12">
+                  <div className="text-center mb-8">
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-violet-100 to-purple-100 text-violet-700 text-sm font-bold mb-4">
+                      <Sparkles className="w-4 h-4" />
+                      AI-Powered
+                    </div>
+                    <h1 className="text-5xl font-black text-slate-900 mb-4">
+                      Describe Your Dream Website
+                    </h1>
+                    <p className="text-xl text-slate-600 max-w-xl mx-auto">
+                      Tell our AI what kind of site you need and we'll build it for you instantly
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleAiSubmit} className="relative">
+                    <div className="bg-white rounded-2xl border-2 border-slate-200 hover:border-violet-300 focus-within:border-violet-500 shadow-lg transition-all p-1">
+                      <textarea
+                        ref={aiInputRef}
+                        value={aiPrompt}
+                        onChange={(e) => setAiPrompt(e.target.value.slice(0, 500))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleAiSubmit();
+                          }
+                        }}
+                        placeholder="e.g. A modern plumbing business website with a hero section, services grid, testimonials, and contact form..."
+                        rows={3}
+                        className="w-full resize-none bg-transparent px-4 py-3 text-slate-800 placeholder-slate-400 focus:outline-none text-base"
+                      />
+                      <div className="flex items-center justify-between px-3 pb-2">
+                        <span className={`text-xs ${aiPrompt.length >= 500 ? 'text-red-500' : 'text-slate-400'}`}>
+                          {aiPrompt.length}/500
+                        </span>
+                        <button
+                          type="submit"
+                          disabled={!aiPrompt.trim() || aiLoading}
+                          className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold text-sm disabled:opacity-40 hover:brightness-110 transition-all flex items-center gap-2 shadow-md"
+                        >
+                          {aiLoading ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              Building...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-4 h-4" />
+                              Build My Site
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+
+                {/* OR Divider */}
+                <div className="flex items-center gap-4 max-w-2xl mx-auto mb-12">
+                  <div className="flex-1 h-px bg-slate-200" />
+                  <span className="text-sm font-bold text-slate-400 uppercase tracking-wide">or pick a template</span>
+                  <div className="flex-1 h-px bg-slate-200" />
+                </div>
+
+                {/* Business Type Selection */}
+                <div className="text-center mb-8">
+                  <h2 className="text-3xl font-black text-slate-900 mb-2">
+                    What Do You Do?
+                  </h2>
+                  <p className="text-lg text-slate-600">
+                    Tell us about your business so we can find the perfect template
+                  </p>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {BUSINESS_TYPES.map(type => (
@@ -404,107 +516,79 @@ export default function OnboardingWizard() {
             {/* Step 3: Templates */}
             {step === 3 && (
               <div className="animate-fade-in">
-                {/* Auth Required for Template Selection */}
-                {!user ? (
-                  <div className="max-w-md mx-auto text-center py-12">
-                    <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-8 mb-6">
-                      <h2 className="text-2xl font-bold text-slate-900 mb-3">Sign In Required</h2>
-                      <p className="text-slate-600 mb-6">
-                        Sign in to your account to select a template and create your site.
-                      </p>
-                      <div className="flex gap-3">
-                        <Link
-                          href="/signin"
-                          className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors"
-                        >
-                          Sign In
-                        </Link>
-                        <Link
-                          href="/signup"
-                          className="flex-1 py-3 border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-bold rounded-lg transition-colors"
-                        >
-                          Sign Up
-                        </Link>
-                      </div>
-                    </div>
+                <h1 className="text-5xl font-black text-slate-900 mb-4 text-center">
+                  Pick Your Template
+                </h1>
+                <p className="text-xl text-slate-600 mb-4 text-center max-w-2xl mx-auto">
+                  {totalTemplates} templates available for {category}
+                </p>
+
+                {loading && templates.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+                    <p className="mt-4 text-slate-600">Loading templates...</p>
                   </div>
                 ) : (
                   <>
-                    <h1 className="text-5xl font-black text-slate-900 mb-4 text-center">
-                      Pick Your Template
-                    </h1>
-                    <p className="text-xl text-slate-600 mb-4 text-center max-w-2xl mx-auto">
-                      {totalTemplates} templates available for {category}
-                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                      {templates.map(template => (
+                        <div
+                          key={template.id}
+                          className="border-2 border-slate-200 rounded-lg overflow-hidden hover:border-red-600 transition-all group cursor-pointer"
+                        >
+                          {/* Template Preview Image - vertical on mobile, horizontal on desktop */}
+                          <div className="relative w-full bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden h-72 md:h-48">
+                            <img
+                              src={template.imageUrl}
+                              alt={template.name}
+                              className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform"
+                            />
+                          </div>
 
-                    {loading && templates.length === 0 ? (
-                      <div className="text-center py-12">
-                        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
-                        <p className="mt-4 text-slate-600">Loading templates...</p>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                          {templates.map(template => (
-                            <div
-                              key={template.id}
-                              className="border-2 border-slate-200 rounded-lg overflow-hidden hover:border-red-600 transition-all group cursor-pointer"
-                            >
-                              {/* Template Preview Image */}
-                              <div className="relative w-full h-48 bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden">
-                                <img
-                                  src={template.imageUrl}
-                                  alt={template.name}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                />
-                              </div>
-
-                              {/* Template Info */}
-                              <div className="p-4">
-                                <h3 className="text-lg font-bold text-slate-900 mb-2">{template.name}</h3>
-                                <div className="flex flex-wrap gap-1 mb-4">
-                                  {template.tags.map(tag => {
-                                    const isStyle = ['Luxe', 'Vivid', 'Airy', 'Edge', 'Classic', 'Organic', 'Sleek', 'Vibrant', 'Bold', 'Elegant', 'Starter'].includes(tag);
-                                    return (
-                                      <span
-                                        key={tag}
-                                        className={`text-xs px-2 py-1 rounded ${
-                                          isStyle
-                                            ? 'bg-red-50 text-red-700 font-semibold'
-                                            : tag === 'Shop' || tag === 'Booking'
-                                              ? 'bg-blue-50 text-blue-700'
-                                              : 'bg-slate-100 text-slate-600'
-                                        }`}
-                                      >
-                                        {tag}
-                                      </span>
-                                    );
-                                  })}
-                                </div>
-                                <button
-                                  onClick={() => handleSelectTemplate(template.id)}
-                                  className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded transition-colors"
-                                >
-                                  Use This Template
-                                </button>
-                              </div>
+                          {/* Template Info */}
+                          <div className="p-4">
+                            <h3 className="text-lg font-bold text-slate-900 mb-2">{template.name}</h3>
+                            <div className="flex flex-wrap gap-1 mb-4">
+                              {template.tags.map(tag => {
+                                const isStyle = ['Luxe', 'Vivid', 'Airy', 'Edge', 'Classic', 'Organic', 'Sleek', 'Vibrant', 'Bold', 'Elegant', 'Starter'].includes(tag);
+                                return (
+                                  <span
+                                    key={tag}
+                                    className={`text-xs px-2 py-1 rounded ${
+                                      isStyle
+                                        ? 'bg-red-50 text-red-700 font-semibold'
+                                        : tag === 'Shop' || tag === 'Booking'
+                                          ? 'bg-blue-50 text-blue-700'
+                                          : 'bg-slate-100 text-slate-600'
+                                    }`}
+                                  >
+                                    {tag}
+                                  </span>
+                                );
+                              })}
                             </div>
-                          ))}
-                        </div>
-
-                        {/* Load More */}
-                        {hasMore && (
-                          <div className="text-center">
                             <button
-                              onClick={handleLoadMore}
-                              disabled={loading}
-                              className="px-8 py-3 border-2 border-red-600 text-red-600 hover:bg-red-50 font-bold rounded-lg disabled:opacity-50 transition-colors"
+                              onClick={() => handleSelectTemplate(template.id)}
+                              className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded transition-colors"
                             >
-                              {loading ? 'Loading...' : 'Load More Templates'}
+                              Use This Template
                             </button>
                           </div>
-                        )}
-                      </>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Load More */}
+                    {hasMore && (
+                      <div className="text-center">
+                        <button
+                          onClick={handleLoadMore}
+                          disabled={loading}
+                          className="px-8 py-3 border-2 border-red-600 text-red-600 hover:bg-red-50 font-bold rounded-lg disabled:opacity-50 transition-colors"
+                        >
+                          {loading ? 'Loading...' : 'Load More Templates'}
+                        </button>
+                      </div>
                     )}
                   </>
                 )}

@@ -41,6 +41,7 @@ export function useAIBuilder(
 ) {
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const sendMessage = useCallback(async (prompt: string) => {
@@ -74,6 +75,15 @@ export function useAIBuilder(
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
+
+        // Basic plan daily limit reached — show upgrade modal
+        if (res.status === 429 && errData.upgradeRequired) {
+          setShowUpgradeModal(true);
+          // Remove the user message since it wasn't processed
+          setMessages(prev => prev.filter(m => m.id !== userMsg.id));
+          return;
+        }
+
         // Show server message for auth/rate-limit errors, generic fallback for everything else
         const friendlyError = (res.status === 403 || res.status === 429)
           ? (errData.error || 'Sorry, something went wrong. Please try again in a moment.')
@@ -129,7 +139,11 @@ export function useAIBuilder(
     setMessages([]);
   }, []);
 
-  return { messages, isLoading, sendMessage, cancel, clearMessages };
+  const dismissUpgradeModal = useCallback(() => {
+    setShowUpgradeModal(false);
+  }, []);
+
+  return { messages, isLoading, sendMessage, cancel, clearMessages, showUpgradeModal, dismissUpgradeModal };
 }
 
 function applyOperation(op: AIOperation, callbacks: AIBuilderCallbacks) {

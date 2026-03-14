@@ -149,6 +149,7 @@ function PricingContent() {
               'Unlimited Site Pages',
               'Access to all Premium Templates',
               'Drag-and-Drop Visual Editor',
+              'AI Builder (3 prompts/day)',
               'Email Support',
               'Basic SEO Tools',
             ].map((feature) => (
@@ -202,6 +203,7 @@ function PricingContent() {
           <ul className="space-y-4 mb-8">
             {[
               'Everything in Basic',
+              'Increased AI Builder Limits',
               'Free Custom Domain Included',
               '24/7 Priority Email Support',
               'Advanced SEO Tools',

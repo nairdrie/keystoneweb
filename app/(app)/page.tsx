@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Zap, Layout, Smartphone, PenTool, TrendingUp, CircleDollarSign, Infinity } from 'lucide-react';
+import { Sparkles, MapPin, Smartphone, PenTool, TrendingUp, CircleDollarSign, Infinity } from 'lucide-react';
 import Header from '../components/Header';
 import mapleLeaf from '../../assets/maple-leaf.png';
 import AnimatedGridPattern from '../components/AnimatedGridPattern';
@@ -109,14 +109,14 @@ export default function HomePage() {
           <div className="grid md:grid-cols-3 gap-6">
             {[
               {
-                title: 'Lightning Fast Setup',
-                description: 'Choose a template, add your info, go live. No waiting, no confusion.',
-                icon: <Zap className="w-8 h-8 text-red-500" />,
+                title: 'AI Website Builder',
+                description: 'Describe what you want and our AI builds your entire site in seconds. No design skills needed.',
+                icon: <Sparkles className="w-8 h-8 text-violet-500" />,
               },
               {
-                title: 'Professional Design',
-                description: 'Beautiful, modern templates that make you look like a big brand',
-                icon: <Layout className="w-8 h-8 text-blue-500" />,
+                title: 'Built for Local Business',
+                description: 'Templates and tools designed specifically for Canadian small businesses and trades.',
+                icon: <span className="flex items-center justify-center"><Image src={mapleLeaf} alt="" className="w-8 h-8 object-contain" /></span>,
               },
               {
                 title: 'Mobile Ready',
@@ -125,17 +125,17 @@ export default function HomePage() {
               },
               {
                 title: 'Easy to Update',
-                description: 'Change your content without learning code',
+                description: 'Drag-and-drop editor with AI assistance. Change your content without learning code.',
                 icon: <PenTool className="w-8 h-8 text-amber-500" />,
               },
               {
                 title: 'Built for Growth',
-                description: 'Scales with your business as you grow',
+                description: 'SEO tools, analytics, and scalable infrastructure that grows with your business',
                 icon: <TrendingUp className="w-8 h-8 text-purple-500" />,
               },
               {
                 title: 'Affordable',
-                description: 'No hidden fees, no surprises. Transparent pricing.',
+                description: 'No hidden fees, no surprises. Transparent pricing starting at $15/mo.',
                 icon: <CircleDollarSign className="w-8 h-8 text-green-600" />,
               },
             ].map((feature, i) => (
@@ -155,6 +155,76 @@ export default function HomePage() {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Template Showcase Section */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-slate-950 overflow-hidden">
+        <div className="mx-auto max-w-6xl mb-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.6 }}
+            className="text-center"
+          >
+            <h2 className="text-5xl font-black text-white mb-4">Stunning Templates</h2>
+            <p className="text-lg text-slate-400 max-w-2xl mx-auto">
+              Professionally designed templates for every industry. Pick one and customize it your way.
+            </p>
+          </motion.div>
+        </div>
+
+        {/* Scrolling Template Rows */}
+        <div className="space-y-6">
+          {/* Row 1 - scrolls left */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="flex gap-6 animate-scroll-left"
+          >
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={`row1-${i}`}
+                className="flex-shrink-0 w-80 h-52 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 overflow-hidden group hover:border-red-500 transition-all duration-300"
+              >
+                <div className="w-full h-full flex items-center justify-center text-slate-600 text-sm font-medium">
+                  Template Preview
+                </div>
+              </div>
+            ))}
+          </motion.div>
+
+          {/* Row 2 - scrolls right */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="flex gap-6 animate-scroll-right"
+          >
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={`row2-${i}`}
+                className="flex-shrink-0 w-80 h-52 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 overflow-hidden group hover:border-red-500 transition-all duration-300"
+              >
+                <div className="w-full h-full flex items-center justify-center text-slate-600 text-sm font-medium">
+                  Template Preview
+                </div>
+              </div>
+            ))}
+          </motion.div>
+        </div>
+
+        <div className="text-center mt-12">
+          <Link
+            href="/templates"
+            className="inline-block px-8 py-4 rounded-full bg-white text-slate-900 font-bold text-lg hover:bg-slate-100 transition-all shadow-xl"
+          >
+            Browse All Templates
+          </Link>
         </div>
       </section>
 

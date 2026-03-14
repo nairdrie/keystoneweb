@@ -140,15 +140,21 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   const siteId = searchParams.get('siteId');
   const { uploadImage } = useImageUpload(siteId || '');
 
-  // Pro user check for AI Builder
+  // Subscription check for AI Builder
   const [isProUser, setIsProUser] = useState(false);
+  const [isBasicUser, setIsBasicUser] = useState(false);
   useEffect(() => {
     if (!user) return;
     fetch('/api/user/subscription', { credentials: 'include' })
       .then(res => res.ok ? res.json() : null)
       .then(data => {
         if (data?.subscription?.subscription_status === 'active') {
-          setIsProUser(true);
+          const plan = data.subscription.subscription_plan?.toLowerCase() || '';
+          if (plan.includes('pro')) {
+            setIsProUser(true);
+          } else {
+            setIsBasicUser(true);
+          }
         }
       })
       .catch(() => {});
@@ -730,6 +736,22 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
 
   const aiBuilder = useAIBuilder(getAiSiteState, aiPaletteNames, aiCallbacks);
 
+  // Auto-send AI prompt from onboarding flow
+  const aiOnboardingSentRef = useRef(false);
+  useEffect(() => {
+    if (aiOnboardingSentRef.current || !templateComponent) return;
+    const prompt = sessionStorage.getItem('keystoneAiOnboardingPrompt');
+    if (prompt) {
+      aiOnboardingSentRef.current = true;
+      sessionStorage.removeItem('keystoneAiOnboardingPrompt');
+      // Open sidebar, then send the prompt after a small delay for initialization
+      setSidebarOpen(true);
+      setTimeout(() => {
+        aiBuilder.sendMessage(prompt);
+      }, 500);
+    }
+  }, [templateComponent]);
+
   if (loading || pagesLoading) {
     return <EditorLoadingScreen />;
   }
@@ -810,6 +832,9 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
           onAiCancel={aiBuilder.cancel}
           onAiClear={aiBuilder.clearMessages}
           isProUser={isProUser}
+          isBasicUser={isBasicUser}
+          showAiUpgradeModal={aiBuilder.showUpgradeModal}
+          onDismissAiUpgradeModal={aiBuilder.dismissUpgradeModal}
         />
 
         {/* Editor Banner - Redesigned */}

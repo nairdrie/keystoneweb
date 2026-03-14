@@ -65,6 +65,9 @@ interface FloatingToolbarProps {
   onAiCancel?: () => void;
   onAiClear?: () => void;
   isProUser?: boolean;
+  isBasicUser?: boolean;
+  showAiUpgradeModal?: boolean;
+  onDismissAiUpgradeModal?: () => void;
 }
 
 const LG_BREAKPOINT = 1024;
@@ -118,6 +121,9 @@ export default function FloatingToolbar({
   onAiCancel,
   onAiClear,
   isProUser = false,
+  isBasicUser = false,
+  showAiUpgradeModal = false,
+  onDismissAiUpgradeModal,
 }: FloatingToolbarProps) {
   const router = useRouter();
   const { signOut, user } = useAuth();
@@ -275,39 +281,42 @@ export default function FloatingToolbar({
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
 
         {/* General Section */}
-        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+        <div className="border border-slate-200 rounded-lg bg-white shadow-sm" style={{ overflow: 'visible' }}>
           <button
             onClick={() => toggleSection('general')}
-            className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
+            className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors rounded-t-lg"
           >
             <span className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-2">General</span>
             <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('general') ? 'rotate-180' : ''}`} />
           </button>
 
           {openSections.includes('general') && (
-            <div className="p-4 border-t border-slate-200 space-y-6">
-              {/* Currently Editing Section */}
+            <div className="p-4 border-t border-slate-200 space-y-6" style={{ overflow: 'visible' }}>
+              {/* Currently Editing Display */}
               <div>
-                <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-3">Site Title</h3>
-                <div className="relative flex items-center">
-                  <input
-                    type="text"
-                    value={siteTitle}
-                    onChange={(e) => onSiteTitle(e.target.value)}
-                    className="w-full text-lg font-bold text-slate-900 bg-transparent border-b-2 border-slate-300 focus:border-red-600 focus:outline-none pb-1 placeholder-slate-400 transition-colors"
-                    placeholder="My Awesome Website"
-                  />
+                <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2">Currently Editing</h3>
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center justify-between">
+                  <div className="min-w-0">
+                    <div className="font-bold text-sm text-slate-900 truncate">{siteTitle || 'Untitled Site'}</div>
+                    {templateName && (
+                      <div className="text-[10px] text-slate-500 mt-0.5">{templateName}</div>
+                    )}
+                  </div>
                   {user && (
                     <button
                       onClick={() => setShowSiteSwitcher(!showSiteSwitcher)}
-                      className="absolute right-0 bottom-1 p-1 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
+                      className="ml-2 p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-200 rounded-lg transition-colors flex-shrink-0"
                       title="Switch or create sites"
                     >
                       <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showSiteSwitcher ? 'rotate-180' : ''}`} />
                     </button>
                   )}
-                  {user && showSiteSwitcher && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-[60] animate-in fade-in slide-in-from-top-2">
+                </div>
+
+                {/* Site Switcher Dropdown - positioned relative to the section, not clipped */}
+                {user && showSiteSwitcher && (
+                  <div className="relative">
+                    <div className="absolute left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 z-[9999] animate-in fade-in slide-in-from-top-2">
                       <div className="max-h-60 overflow-y-auto outline-none p-2 space-y-1">
                         {userSites.length > 0 ? (
                           <>
@@ -316,7 +325,6 @@ export default function FloatingToolbar({
                               <button
                                 key={site.id}
                                 onClick={() => {
-                                  onOpenChange(false);
                                   setShowSiteSwitcher(false);
                                   router.push(`/editor?siteId=${site.id}`);
                                 }}
@@ -338,7 +346,6 @@ export default function FloatingToolbar({
                         )}
                         <button
                           onClick={() => {
-                            onOpenChange(false);
                             setShowSiteSwitcher(false);
                             router.push('/onboarding');
                           }}
@@ -349,19 +356,21 @@ export default function FloatingToolbar({
                         </button>
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
 
-              {/* Selected Template Section */}
-              {templateName && (
-                <div>
-                  <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2">Template</h3>
-                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                    <div className="font-semibold text-sm text-slate-900">{templateName}</div>
-                  </div>
-                </div>
-              )}
+              {/* Rename Site */}
+              <div>
+                <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2">Rename Site</h3>
+                <input
+                  type="text"
+                  value={siteTitle}
+                  onChange={(e) => onSiteTitle(e.target.value)}
+                  className="w-full text-sm font-medium text-slate-900 bg-white border border-slate-200 rounded-lg px-3 py-2 focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none placeholder-slate-400 transition-all"
+                  placeholder="My Awesome Website"
+                />
+              </div>
             </div>
           )}
         </div>
@@ -473,7 +482,7 @@ export default function FloatingToolbar({
             <span className="text-xs font-bold text-violet-700 uppercase tracking-wide flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5" />
               AI Builder
-              {!isProUser && <span className="text-[9px] font-bold bg-violet-600 text-white px-1.5 py-0.5 rounded-full ml-1">PRO</span>}
+              {!isProUser && !isBasicUser && <span className="text-[9px] font-bold bg-violet-600 text-white px-1.5 py-0.5 rounded-full ml-1">PRO</span>}
             </span>
             <ChevronDown className={`w-4 h-4 text-violet-500 transition-transform ${openSections.includes('ai-builder') ? 'rotate-180' : ''}`} />
           </button>
@@ -487,6 +496,9 @@ export default function FloatingToolbar({
                 onCancel={onAiCancel || (() => {})}
                 onClear={onAiClear || (() => {})}
                 isPro={isProUser}
+                isBasic={isBasicUser}
+                showUpgradeModal={showAiUpgradeModal}
+                onDismissUpgradeModal={onDismissAiUpgradeModal || (() => {})}
               />
             </div>
           )}
