@@ -68,6 +68,7 @@ interface FloatingToolbarProps {
   isBasicUser?: boolean;
   showAiUpgradeModal?: boolean;
   onDismissAiUpgradeModal?: () => void;
+  focusAiBuilder?: boolean;
 }
 
 const LG_BREAKPOINT = 1024;
@@ -124,6 +125,7 @@ export default function FloatingToolbar({
   isBasicUser = false,
   showAiUpgradeModal = false,
   onDismissAiUpgradeModal,
+  focusAiBuilder = false,
 }: FloatingToolbarProps) {
   const router = useRouter();
   const { signOut, user } = useAuth();
@@ -144,10 +146,21 @@ export default function FloatingToolbar({
 
   const [openSections, setOpenSections] = useState<string[]>(['general']);
   const [fontPickerState, setFontPickerState] = useState<{ isOpen: boolean, type: 'title' | 'body' }>({ isOpen: false, type: 'title' });
+  const aiBuilderSectionRef = useRef<HTMLDivElement>(null);
 
   const toggleSection = (section: string) => {
     setOpenSections(prev => prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]);
   };
+
+  // When focusAiBuilder fires, collapse others, expand AI builder, and scroll to it
+  useEffect(() => {
+    if (!focusAiBuilder) return;
+    setOpenSections(['ai-builder']);
+    // Scroll to the AI builder section after a tick for the DOM to update
+    setTimeout(() => {
+      aiBuilderSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }, [focusAiBuilder]);
 
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -474,7 +487,7 @@ export default function FloatingToolbar({
         </div>
 
         {/* AI Builder Section */}
-        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+        <div ref={aiBuilderSectionRef} className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
           <button
             onClick={() => toggleSection('ai-builder')}
             className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-violet-50 to-purple-50 hover:from-violet-100 hover:to-purple-100 transition-colors"
