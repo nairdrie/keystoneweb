@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Settings, PanelLeftClose, PanelLeftOpen, Pencil, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
@@ -686,18 +686,6 @@ export default function FloatingToolbar({
          ═══════════════════════════════════════════════════════════════ */}
       {!isLargeScreen && (
         <>
-          {/* Floating Button */}
-          {!isOpen && (
-            <button
-              onClick={() => onOpenChange(true)}
-              className="fixed bottom-6 right-6 z-[9999] w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center transition-all hover:scale-110 hover:brightness-110"
-              style={{ backgroundColor: 'var(--brand-primary)' }}
-              title="Open editor settings"
-            >
-              <Settings className="w-6 h-6" />
-            </button>
-          )}
-
           {/* Drawer Overlay */}
           {isOpen && (
             <div
