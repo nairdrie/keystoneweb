@@ -71,8 +71,37 @@ export async function POST(request: NextRequest) {
       siteName = site.site_slug || 'My Website';
     }
 
-    // Create Stripe checkout session
     const stripe = getStripeClient();
+
+    // Check if the user already has an active subscription — if so, update it with proration
+    const { data: existingSubscription } = await supabase
+      .from('user_subscriptions')
+      .select('stripe_subscription_id, subscription_status')
+      .eq('user_id', user.id)
+      .single();
+
+    if (existingSubscription?.stripe_subscription_id && existingSubscription.subscription_status === 'active') {
+      const stripeSub = await stripe.subscriptions.retrieve(existingSubscription.stripe_subscription_id);
+      const itemId = stripeSub.items.data[0]?.id;
+
+      if (!itemId) {
+        return NextResponse.json({ error: 'Could not find subscription item to update' }, { status: 500 });
+      }
+
+      await stripe.subscriptions.update(existingSubscription.stripe_subscription_id, {
+        items: [{ id: itemId, price: priceId }],
+        proration_behavior: 'create_prorations',
+        metadata: { planName, userId: user.id },
+      });
+
+      const successUrl = siteId
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/publish/domain-select?siteId=${siteId}`
+        : `${process.env.NEXT_PUBLIC_APP_URL}/settings?plan_updated=true`;
+
+      return NextResponse.json({ url: successUrl });
+    }
+
+    // No existing subscription — create a new Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
