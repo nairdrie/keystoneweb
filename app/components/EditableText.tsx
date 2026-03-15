@@ -106,7 +106,7 @@ export default function EditableText({
             if (e.key === 'Escape') handleCancel();
           }}
         />
-        <div className="absolute right-0 top-full mt-2 flex items-center gap-2 z-[100] whitespace-nowrap">
+        <span className="absolute right-0 top-full mt-2 flex items-center gap-2 z-[100] whitespace-nowrap" style={{ display: 'flex' }}>
           <button
             onClick={handleSave}
             className="p-2 bg-green-500 hover:bg-green-600 text-white rounded shadow-lg transition-colors flex items-center gap-1 text-sm font-bold"
@@ -121,7 +121,7 @@ export default function EditableText({
           >
             <X className="w-4 h-4" /> Cancel
           </button>
-        </div>
+        </span>
       </Component>
     );
   }
@@ -139,7 +139,7 @@ export default function EditableText({
         {displayText}
 
         {/* Desktop: Show pencil on hover only. Mobile: Don't show pencil at all */}
-        <div className={`absolute -right-16 top-1/2 -translate-y-1/2 flex items-center gap-1 z-50 hidden md:flex transition-all ${isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`} onMouseDown={e => e.preventDefault()}>
+        <span className={`absolute -right-16 top-1/2 -translate-y-1/2 items-center gap-1 z-50 hidden md:flex transition-all ${isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`} onMouseDown={e => e.preventDefault()}>
           <button
           onClick={(e) => {
             e.stopPropagation();
@@ -161,7 +161,7 @@ export default function EditableText({
           >
             <Settings className="w-3.5 h-3.5" />
           </button>
-        </div>
+        </span>
       </span>
 
       <TextSettingsModal
