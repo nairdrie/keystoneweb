@@ -207,6 +207,7 @@ export default function TextBlock({ block, palette }: { block: BlockData; palett
     const html = block.data.html !== undefined ? block.data.html : defaultHtml;
 
     const editor = useEditor({
+        immediatelyRender: false,
         extensions: [
             StarterKit.configure({
                 heading: { levels: [1, 2, 3] },
