@@ -205,9 +205,8 @@ export default function AnimatedGridPattern() {
                     animate={{
                         opacity: [0, 0, 0.9, 0, 0],
                         scale: [0.3, 0.3, 1, 3, 3],
-                        times: [0, 2.1 / D, 2.3 / D, 3.2 / D, 1],
                     }}
-                    transition={loop}
+                    transition={{ ...loop, times: [0, 2.1 / D, 2.3 / D, 3.2 / D, 1] }}
                     className="absolute top-[12%] left-[5%] lg:left-[8%] z-10"
                     style={{ marginLeft: 260, marginTop: -1 }}
                 >
@@ -219,9 +218,8 @@ export default function AnimatedGridPattern() {
                     animate={{
                         opacity: [0, 0, 0.6, 0, 0],
                         scale: [0.3, 0.3, 1, 4, 4],
-                        times: [0, 2.3 / D, 2.5 / D, 3.5 / D, 1],
                     }}
-                    transition={loop}
+                    transition={{ ...loop, times: [0, 2.3 / D, 2.5 / D, 3.5 / D, 1] }}
                     className="absolute top-[12%] left-[5%] lg:left-[8%] z-10"
                     style={{ marginLeft: 260, marginTop: -1 }}
                 >
@@ -232,9 +230,8 @@ export default function AnimatedGridPattern() {
                 <motion.div
                     animate={{
                         opacity: [0, 0, 0.15, 0, 0],
-                        times: [0, 2.2 / D, 2.5 / D, 3.3 / D, 1],
                     }}
-                    transition={loop}
+                    transition={{ ...loop, times: [0, 2.2 / D, 2.5 / D, 3.3 / D, 1] }}
                     className="absolute top-[12%] left-[5%] lg:left-[8%] w-72 lg:w-80 h-64 rounded-xl bg-emerald-400 z-[9] blur-xl"
                 />
             </div>
@@ -359,9 +356,8 @@ export default function AnimatedGridPattern() {
                     animate={{
                         opacity: [0, 0, 0.7, 0, 0],
                         scale: [0.3, 0.3, 1, 2.5, 2.5],
-                        times: [0, 1.9 / D, 2.1 / D, 3.0 / D, 1],
                     }}
-                    transition={loop}
+                    transition={{ ...loop, times: [0, 1.9 / D, 2.1 / D, 3.0 / D, 1] }}
                     className="absolute top-[8%] left-1/2 z-10"
                     style={{ marginLeft: 88, marginTop: 1 }}
                 >
