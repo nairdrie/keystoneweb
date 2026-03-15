@@ -654,7 +654,7 @@ export default function FloatingToolbar({
                 }}
                 className="cursor-pointer"
               >
-                <KeystoneLogo size="md" showText={false} />
+                <KeystoneLogo href={undefined} size="md" showText={false} />
               </div>
 
               <div className="flex items-center gap-2">
@@ -726,7 +726,7 @@ export default function FloatingToolbar({
                     }
                   }}
                 >
-                  <KeystoneLogo size="lg" showText={false} />
+                  <KeystoneLogo href={undefined} size="lg" showText={false} />
                 </div>
                 <div className="flex items-center gap-2">
                   <ProfileDropdown onSettingsClick={(e) => {
