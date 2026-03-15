@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth/context';
 import Header from './Header';
 import { Sparkles, Send } from 'lucide-react';
+import SiteLimitModal from './SiteLimitModal';
 
 type BusinessType = 'services' | 'products' | 'both' | null;
 type Category = string | null;
@@ -93,6 +94,7 @@ export default function OnboardingWizard() {
   const [showWelcomeBack, setShowWelcomeBack] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [showSiteLimit, setShowSiteLimit] = useState(false);
   const aiInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Check for existing sites if user is authenticated
@@ -205,7 +207,12 @@ export default function OnboardingWizard() {
       });
 
       if (!res.ok) {
-        console.error('Failed to create site:', await res.text());
+        const errData = await res.json().catch(() => ({}));
+        if (res.status === 403 && errData.siteLimitReached) {
+          setShowSiteLimit(true);
+        } else {
+          console.error('Failed to create site:', errData);
+        }
         setAiLoading(false);
         return;
       }
@@ -248,6 +255,16 @@ export default function OnboardingWizard() {
         }),
       });
 
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        if (res.status === 403 && errData.siteLimitReached) {
+          setShowSiteLimit(true);
+        } else {
+          console.error('Failed to create site:', errData);
+        }
+        return;
+      }
+
       const { siteId } = await res.json();
 
       if (user) {
@@ -283,6 +300,8 @@ export default function OnboardingWizard() {
 
   return (
     <div className="min-h-screen bg-white">
+      {showSiteLimit && <SiteLimitModal onDismiss={() => setShowSiteLimit(false)} />}
+
       {/* Header */}
       <Header />
 

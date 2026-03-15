@@ -54,12 +54,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Enforce site limit for authenticated users on the basic plan
+    if (user) {
+      const { data: subscription } = await supabase
+        .from('user_subscriptions')
+        .select('subscription_status, subscription_plan')
+        .eq('user_id', user.id)
+        .single();
+
+      const isPro =
+        subscription?.subscription_status === 'active' &&
+        subscription?.subscription_plan?.toLowerCase().includes('pro');
+
+      if (!isPro) {
+        const { count } = await supabase
+          .from('sites')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        if ((count ?? 0) >= 5) {
+          return NextResponse.json(
+            { error: 'Site limit reached', siteLimitReached: true },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
     const siteId = uuidv4();
     const homePageId = uuidv4();
     const now = new Date().toISOString();
-
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
 
     // Fetch default_content and palettes from template_metadata
     const { data: templateMeta } = await supabase
