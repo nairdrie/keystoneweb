@@ -247,6 +247,7 @@ export default function OnboardingWizard() {
       const res = await fetch('/api/sites', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           selectedTemplateId: templateId,
           businessType: (businessType as any) === 'service' ? 'services' : (businessType as any) === 'product' ? 'products' : businessType,
