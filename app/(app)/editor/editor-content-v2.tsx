@@ -557,6 +557,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
       addChange('siteTitle', 'Site Name', siteTitle, newTitle);
     }
     setSiteTitle(newTitle);
+    handleUpdateSiteContent('siteTitle', newTitle);
   };
 
   const handleSaveDesign = async () => {
@@ -702,7 +703,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   const aiSetSiteTitle = useCallback((title: string) => {
     addChange('siteTitle', 'AI: Site Name', siteTitle, title);
     setSiteTitle(title);
-  }, [addChange, siteTitle]);
+    handleUpdateSiteContent('siteTitle', title);
+  }, [addChange, siteTitle, handleUpdateSiteContent]);
 
   const aiSetFont = useCallback((target: 'heading' | 'body', font: string) => {
     const key = target === 'heading' ? 'titleFont' : 'bodyFont';
