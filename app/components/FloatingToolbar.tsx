@@ -654,7 +654,7 @@ export default function FloatingToolbar({
                 }}
                 className="cursor-pointer"
               >
-                <KeystoneLogo href="/" size="md" showText={false} />
+                <KeystoneLogo size="md" showText={false} />
               </div>
 
               <div className="flex items-center gap-2">
@@ -708,7 +708,26 @@ export default function FloatingToolbar({
                 className="z-[100] sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between rounded-t-3xl cursor-grab active:cursor-grabbing group"
                 onMouseDown={handleDragStart}
               >
-                <KeystoneLogo href="/" size="lg" showText={false} />
+                <div
+                  className="cursor-pointer"
+                  onClick={() => {
+                    if (changes.length > 0) {
+                      setAlertConfig({
+                        isOpen: true,
+                        title: 'Unsaved Changes',
+                        message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
+                        type: 'warning',
+                        onConfirm: () => router.push('/'),
+                        confirmLabel: 'Leave',
+                        cancelLabel: 'Stay'
+                      });
+                    } else {
+                      router.push('/');
+                    }
+                  }}
+                >
+                  <KeystoneLogo size="lg" showText={false} />
+                </div>
                 <div className="flex items-center gap-2">
                   <ProfileDropdown onSettingsClick={(e) => {
                     if (changes.length > 0) {
