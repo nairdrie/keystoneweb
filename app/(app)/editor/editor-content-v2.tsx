@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense, createElement, useRef, useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Settings, Save, Smartphone, Monitor, Play, Loader2, Undo, Redo, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
+import { Save, Smartphone, Monitor, Play, Loader2, Undo, Redo } from 'lucide-react';
 import FloatingToolbar from '@/app/components/FloatingToolbar';
 import { EditorProvider, BlockData, NavItem } from '@/lib/editor-context';
 import { getTemplateComponent } from '@/app/templates/registry';
@@ -901,37 +901,15 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
         >
           {/* Left: Logo + Page Selector */}
           <div className="flex items-center gap-4">
-            {/* Keystone Logo (Click to toggle sidebar on desktop, leave editor on mobile) */}
+            {/* Hamburger Menu Button (Toggle settings panel on all screen sizes) */}
             <button
-              onClick={(e) => {
-                if (window.innerWidth >= 1024) {
-                  // Desktop: Toggle sidebar
-                  e.preventDefault();
-                  setSidebarOpen(!sidebarOpen);
-                } else {
-                  // Mobile: Try to leave editor (warn if unsaved)
-                  if (changesHook.changes.length > 0) {
-                    e.preventDefault();
-                    setLeaveConfirmOpen(true);
-                  } else {
-                    router.push('/');
-                  }
-                }
-              }}
-              className="flex-shrink-0 flex items-center gap-2 hover:opacity-80 transition-opacity mr-4"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="flex-shrink-0 flex items-center hover:opacity-80 transition-opacity mr-4 text-white"
               title={sidebarOpen ? "Close settings" : "Open settings"}
             >
-              {/* Desktop: Sidebar Toggle Icon */}
-              <div className="hidden lg:block text-white">
-                {sidebarOpen ? <PanelLeftClose className="w-6 h-6" /> : <PanelLeftOpen className="w-6 h-6" />}
-              </div>
-              {/* Mobile: Keystone Logo */}
-              <div className="block lg:hidden">
-                <svg width="24" height="26" viewBox="0 0 100 110" xmlns="http://www.w3.org/2000/svg">
-                  <polygon points="20,15 80,15 65,95 35,95" fill="white" stroke="white" strokeWidth="24" strokeLinejoin="round" />
-                  <text x="50" y="52" fontFamily="system-ui, -apple-system, sans-serif" fontWeight="900" fontSize="54" fill="#ef4444" textAnchor="middle" dominantBaseline="central">K</text>
-                </svg>
-              </div>
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
             </button>
 
             {/* Page Selector */}
