@@ -17,7 +17,10 @@ import {
   AlertCircle,
   Mail,
   RefreshCw,
-  ShoppingCart,
+  MapPin,
+  ChevronDown,
+  ChevronUp,
+  Leaf,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 
@@ -82,11 +85,13 @@ function DomainSelectContent() {
   // Custom domain state
   const [customMode, setCustomMode] = useState<CustomMode>('search');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<DomainSearchResult[]>([]);
+  const [recommendedResults, setRecommendedResults] = useState<DomainSearchResult[]>([]);
+  const [otherResults, setOtherResults] = useState<DomainSearchResult[]>([]);
   const [suggestions, setSuggestions] = useState<DomainSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [purchasing, setPurchasing] = useState(false);
+  const [showOtherTlds, setShowOtherTlds] = useState(false);
 
   // External domain state
   const [externalDomain, setExternalDomain] = useState('');
@@ -219,9 +224,11 @@ function DomainSelectContent() {
 
     setSearching(true);
     setError(null);
-    setSearchResults([]);
+    setRecommendedResults([]);
+    setOtherResults([]);
     setSuggestions([]);
     setSelectedDomain(null);
+    setShowOtherTlds(false);
 
     try {
       const res = await fetch(
@@ -235,7 +242,8 @@ function DomainSelectContent() {
       }
 
       const data = await res.json();
-      setSearchResults(data.exact || []);
+      setRecommendedResults(data.recommended || []);
+      setOtherResults(data.other || []);
       setSuggestions(data.suggestions || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to search domains');
@@ -588,7 +596,7 @@ function DomainSelectContent() {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-semibold text-slate-900 mb-2">
-                        Search for a Domain
+                        Search for Your Domain
                       </label>
                       <div className="flex gap-2">
                         <input
@@ -613,16 +621,34 @@ function DomainSelectContent() {
                         </button>
                       </div>
                       <p className="text-xs text-slate-500 mt-1.5">
-                        One free custom domain is included with your Pro plan.
+                        A custom domain is included free with your Pro plan.
                       </p>
                     </div>
 
-                    {/* Search Results */}
-                    {searchResults.length > 0 && (
+                    {/* ── Recommended: .ca Domains ──────────────────────── */}
+                    {recommendedResults.length > 0 && (
                       <div>
-                        <h3 className="text-sm font-semibold text-slate-900 mb-2">Available Domains</h3>
-                        <div className="space-y-2 max-h-64 overflow-y-auto">
-                          {searchResults.map((result) => (
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 border border-red-200 rounded-full">
+                            <Leaf className="w-3.5 h-3.5 text-red-600" />
+                            <span className="text-xs font-bold text-red-700">Recommended</span>
+                          </div>
+                          <h3 className="text-sm font-semibold text-slate-900">Canadian Domains</h3>
+                        </div>
+
+                        <div className="p-3 bg-red-50/50 border border-red-100 rounded-lg mb-3">
+                          <div className="flex items-start gap-2">
+                            <MapPin className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                            <p className="text-xs text-slate-700">
+                              <span className="font-semibold text-slate-900">Running a Canadian business?</span>{' '}
+                              A <span className="font-mono font-bold">.ca</span> domain builds trust with local customers, boosts your SEO
+                              rankings in Canada, and shows you&apos;re proudly Canadian. It&apos;s the go-to choice for businesses serving Canadian markets.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          {recommendedResults.map((result) => (
                             <button
                               key={result.domain}
                               onClick={() => result.available && setSelectedDomain(result.domain)}
@@ -631,7 +657,7 @@ function DomainSelectContent() {
                                 selectedDomain === result.domain
                                   ? 'border-red-600 bg-red-50'
                                   : result.available
-                                    ? 'border-slate-200 hover:border-slate-300 bg-white'
+                                    ? 'border-red-200 hover:border-red-300 bg-white'
                                     : 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed'
                               }`}
                             >
@@ -648,7 +674,7 @@ function DomainSelectContent() {
                                 </span>
                               </div>
                               <span className={`text-xs font-semibold ${result.available ? 'text-green-700' : 'text-slate-400'}`}>
-                                {result.available ? (result.price ? `$${(result.price / 1000000).toFixed(2)}/yr` : 'Available') : 'Taken'}
+                                {result.available ? 'Included with plan' : 'Taken'}
                               </span>
                             </button>
                           ))}
@@ -656,10 +682,62 @@ function DomainSelectContent() {
                       </div>
                     )}
 
+                    {/* ── Other TLDs (Collapsible) ─────────────────────── */}
+                    {otherResults.length > 0 && (
+                      <div>
+                        <button
+                          onClick={() => setShowOtherTlds(!showOtherTlds)}
+                          className="w-full flex items-center justify-between py-2 text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+                        >
+                          <span>Explore other extensions (.com, .net, .org...)</span>
+                          {showOtherTlds ? (
+                            <ChevronUp className="w-4 h-4" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4" />
+                          )}
+                        </button>
+
+                        {showOtherTlds && (
+                          <div className="space-y-2 mt-2">
+                            {otherResults.map((result) => (
+                              <button
+                                key={result.domain}
+                                onClick={() => result.available && setSelectedDomain(result.domain)}
+                                disabled={!result.available}
+                                className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all text-left ${
+                                  selectedDomain === result.domain
+                                    ? 'border-red-600 bg-red-50'
+                                    : result.available
+                                      ? 'border-slate-200 hover:border-slate-300 bg-white'
+                                      : 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  {selectedDomain === result.domain ? (
+                                    <CheckCircle2 className="w-4 h-4 text-red-600 flex-shrink-0" />
+                                  ) : result.available ? (
+                                    <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                  ) : (
+                                    <X className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                  )}
+                                  <span className="font-mono font-semibold text-sm text-slate-900">
+                                    {result.domain}
+                                  </span>
+                                </div>
+                                <span className={`text-xs font-semibold ${result.available ? 'text-green-700' : 'text-slate-400'}`}>
+                                  {result.available ? 'Included with plan' : 'Taken'}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Suggestions */}
                     {suggestions.length > 0 && (
                       <div>
-                        <h3 className="text-sm font-semibold text-slate-700 mb-2">Suggestions</h3>
+                        <h3 className="text-sm font-semibold text-slate-700 mb-2">Other ideas</h3>
                         <div className="flex flex-wrap gap-2">
                           {suggestions.map((s) => (
                             <button
@@ -678,9 +756,9 @@ function DomainSelectContent() {
                       </div>
                     )}
 
-                    {/* Purchase Button */}
+                    {/* Register Button */}
                     {selectedDomain && (
-                      <div className="pt-2 border-t border-slate-100">
+                      <div className="pt-3 border-t border-slate-100">
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-sm text-slate-600">Selected domain:</span>
                           <span className="font-mono font-bold text-slate-900">{selectedDomain}</span>
@@ -697,16 +775,19 @@ function DomainSelectContent() {
                             </>
                           ) : (
                             <>
-                              <ShoppingCart className="w-4 h-4" />
-                              Register &amp; Connect Domain
+                              <Globe className="w-4 h-4" />
+                              Claim &amp; Connect Domain
                             </>
                           )}
                         </button>
+                        <p className="text-xs text-center text-slate-500 mt-2">
+                          No extra cost — included with your Pro plan.
+                        </p>
                       </div>
                     )}
 
-                    {/* Empty state after search */}
-                    {!searching && searchResults.length === 0 && searchQuery.length >= 2 && suggestions.length === 0 && (
+                    {/* Empty state */}
+                    {!searching && recommendedResults.length === 0 && otherResults.length === 0 && searchQuery.length >= 2 && suggestions.length === 0 && (
                       <p className="text-sm text-slate-500 text-center py-4">
                         Search for a domain name to see available options.
                       </p>
