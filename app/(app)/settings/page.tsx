@@ -95,7 +95,7 @@ export default function SettingsPage() {
                         >
                             <ArrowLeft className="w-5 h-5" />
                         </button>
-                        <KeystoneLogo size="lg" showText={false} />
+                        <KeystoneLogo href="/" size="lg" showText={false} />
                     </div>
                     <div className="text-sm font-semibold text-slate-600">
                         Account Settings

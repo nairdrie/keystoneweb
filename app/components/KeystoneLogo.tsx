@@ -22,7 +22,7 @@ interface KeystoneLogoProps {
  * - showText: Show "KEYSTONE WEB DESIGN" text alongside logo
  */
 export default function KeystoneLogo({
-  href = '/',
+  href,
   size = 'md',
   showText = true,
 }: KeystoneLogoProps) {
