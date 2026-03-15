@@ -54,7 +54,7 @@ function Divider() {
     return <div className="w-px h-5 bg-slate-300 mx-0.5 self-center" />;
 }
 
-function Toolbar({ editor }: { editor: ReturnType<typeof useEditor> }) {
+function Toolbar({ editor }: { editor: ReturnType<typeof useEditor> | null }) {
     const [showLinkInput, setShowLinkInput] = useState(false);
     const [linkUrl, setLinkUrl] = useState('');
 
