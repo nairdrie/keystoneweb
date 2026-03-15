@@ -249,7 +249,7 @@ export default function TextBlock({ block, palette }: { block: BlockData; palett
         return (
             <section className="py-16 bg-white">
                 <div
-                    className="max-w-4xl mx-auto px-4 prose prose-slate lg:prose-lg max-w-none"
+                    className="max-w-4xl mx-auto px-4 prose"
                     dangerouslySetInnerHTML={{ __html: html }}
                 />
             </section>
