@@ -39,6 +39,7 @@ interface DomainSearchResult {
   available: boolean;
   price?: number;
   currency?: string;
+  isAlternative?: boolean;
 }
 
 interface DnsRecord {
@@ -735,22 +736,39 @@ function DomainSelectContent() {
                       </div>
                     )}
 
-                    {/* Suggestions */}
+                    {/* Smart Suggestions (LLM-generated alternatives) */}
                     {suggestions.length > 0 && (
                       <div>
-                        <h3 className="text-sm font-semibold text-slate-700 mb-2">Other ideas</h3>
-                        <div className="flex flex-wrap gap-2">
+                        <h3 className="text-sm font-semibold text-slate-700 mb-2">Smart suggestions</h3>
+                        <div className="space-y-2">
                           {suggestions.map((s) => (
                             <button
                               key={s.domain}
-                              onClick={() => setSelectedDomain(s.domain)}
-                              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                              onClick={() => s.available && setSelectedDomain(s.domain)}
+                              disabled={!s.available}
+                              className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all text-left ${
                                 selectedDomain === s.domain
-                                  ? 'border-red-600 bg-red-50 text-red-700'
-                                  : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                                  ? 'border-red-600 bg-red-50'
+                                  : s.available
+                                    ? 'border-slate-200 hover:border-slate-300 bg-white'
+                                    : 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed'
                               }`}
                             >
-                              {s.domain}
+                              <div className="flex items-center gap-2">
+                                {selectedDomain === s.domain ? (
+                                  <CheckCircle2 className="w-4 h-4 text-red-600 flex-shrink-0" />
+                                ) : s.available ? (
+                                  <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                ) : (
+                                  <X className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                )}
+                                <span className="font-mono font-semibold text-sm text-slate-900">
+                                  {s.domain}
+                                </span>
+                              </div>
+                              <span className={`text-xs font-semibold ${s.available ? 'text-green-700' : 'text-slate-400'}`}>
+                                {s.available ? 'Included with plan' : 'Taken'}
+                              </span>
                             </button>
                           ))}
                         </div>
