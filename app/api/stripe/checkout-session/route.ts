@@ -73,14 +73,19 @@ export async function POST(request: NextRequest) {
 
     const stripe = getStripeClient();
 
-    // Check if the user already has an active subscription — if so, update it with proration
+    // Check if the user already has an active subscription — if so, send them to the
+    // Stripe Customer Portal with a confirmation flow so they can review proration before paying
     const { data: existingSubscription } = await supabase
       .from('user_subscriptions')
-      .select('stripe_subscription_id, subscription_status')
+      .select('stripe_subscription_id, stripe_customer_id, subscription_status')
       .eq('user_id', user.id)
       .single();
 
-    if (existingSubscription?.stripe_subscription_id && existingSubscription.subscription_status === 'active') {
+    if (
+      existingSubscription?.stripe_subscription_id &&
+      existingSubscription?.stripe_customer_id &&
+      existingSubscription.subscription_status === 'active'
+    ) {
       const stripeSub = await stripe.subscriptions.retrieve(existingSubscription.stripe_subscription_id);
       const itemId = stripeSub.items.data[0]?.id;
 
@@ -88,17 +93,25 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Could not find subscription item to update' }, { status: 500 });
       }
 
-      await stripe.subscriptions.update(existingSubscription.stripe_subscription_id, {
-        items: [{ id: itemId, price: priceId }],
-        proration_behavior: 'create_prorations',
-        metadata: { planName, userId: user.id },
+      const returnUrl = siteId
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/publish/domain-select?siteId=${siteId}`
+        : `${process.env.NEXT_PUBLIC_APP_URL}/settings`;
+
+      // Use the portal's subscription_update_confirm flow so the user sees a proration
+      // preview and confirms before any charge is made
+      const portalSession = await stripe.billingPortal.sessions.create({
+        customer: existingSubscription.stripe_customer_id,
+        return_url: returnUrl,
+        flow_data: {
+          type: 'subscription_update_confirm',
+          subscription_update_confirm: {
+            subscription: existingSubscription.stripe_subscription_id,
+            items: [{ id: itemId, price: priceId, quantity: 1 }],
+          },
+        },
       });
 
-      const successUrl = siteId
-        ? `${process.env.NEXT_PUBLIC_APP_URL}/publish/domain-select?siteId=${siteId}`
-        : `${process.env.NEXT_PUBLIC_APP_URL}/settings?plan_updated=true`;
-
-      return NextResponse.json({ url: successUrl });
+      return NextResponse.json({ url: portalSession.url });
     }
 
     // No existing subscription — create a new Stripe checkout session
