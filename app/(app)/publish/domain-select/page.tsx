@@ -21,6 +21,7 @@ import {
   ChevronDown,
   ChevronUp,
   Leaf,
+  ShoppingCart,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 
