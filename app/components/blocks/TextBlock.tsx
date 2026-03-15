@@ -249,7 +249,7 @@ export default function TextBlock({ block, palette }: { block: BlockData; palett
         return (
             <section className="py-16 bg-white">
                 <div
-                    className="max-w-4xl mx-auto px-4 prose"
+                    className="max-w-7xl mx-auto px-4 prose"
                     dangerouslySetInnerHTML={{ __html: html }}
                 />
             </section>
@@ -258,7 +258,7 @@ export default function TextBlock({ block, palette }: { block: BlockData; palett
 
     return (
         <section className="py-16 bg-white">
-            <div className="max-w-4xl mx-auto px-4">
+            <div className="max-w-7xl mx-auto px-4">
                 <Toolbar editor={editor} />
                 <EditorContent
                     editor={editor}
