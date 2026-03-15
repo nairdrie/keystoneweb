@@ -5,6 +5,7 @@ import { createServerClient } from '@supabase/ssr';
  * Middleware for handling:
  * 1. Supabase Auth token validation and refresh (via cookies)
  * 2. Subdomain routing (published sites at *.kswd.ca)
+ * 3. Custom domain routing (user-owned domains pointed via DNS)
  */
 export async function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
@@ -21,8 +22,7 @@ export async function middleware(request: NextRequest) {
     // Extract subdomain: akdesigns.kswd.ca → akdesigns
     const subdomain = domain.split('.kswd.ca')[0];
 
-    console.log(`[Middleware] ✅ Detected published subdomain: '${subdomain}'`);
-    console.log(`[Middleware] Domain: '${domain}' → Subdomain: '${subdomain}'`);
+    console.log(`[Middleware] Detected published subdomain: '${subdomain}'`);
 
     // Do not rewrite API routes so they can be handled by app/api/
     if (pathname.startsWith('/api/')) {
@@ -30,16 +30,13 @@ export async function middleware(request: NextRequest) {
     }
 
     // Rewrite internally to the public route
-    // The pathname will be preserved, so / stays /
     const rewriteUrl = new URL(`/public/${subdomain}${pathname}`, request.url);
     console.log(`[Middleware] Rewriting to: /public/${subdomain}${pathname}`);
     return NextResponse.rewrite(rewriteUrl);
   }
 
-  console.log(`[Middleware] Not a published subdomain: ${domain}`);
-
   // ============================================================
-  // STEP 2: For app domain, validate auth and refresh tokens
+  // STEP 1b: Detect custom domain routing
   // ============================================================
   const isAppDomain =
     hostname.includes('localhost') ||
@@ -49,8 +46,24 @@ export async function middleware(request: NextRequest) {
     hostname.includes('keystoneweb.com') ||
     hostname.startsWith('127.0.0.1');
 
+  if (!isAppDomain && !domain.endsWith('.kswd.ca')) {
+    // This could be a custom domain — rewrite to the custom domain route
+    // Strip www. prefix if present
+    const cleanDomain = domain.startsWith('www.') ? domain.slice(4) : domain;
+
+    console.log(`[Middleware] Detected possible custom domain: '${cleanDomain}'`);
+
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.next();
+    }
+
+    // Rewrite to the (site)/[domain] route for custom domain resolution
+    const rewriteUrl = new URL(`/${cleanDomain}${pathname}`, request.url);
+    console.log(`[Middleware] Rewriting custom domain to: /${cleanDomain}${pathname}`);
+    return NextResponse.rewrite(rewriteUrl);
+  }
+
   if (!isAppDomain) {
-    // Not a recognized domain, let it through
     return NextResponse.next();
   }
 
