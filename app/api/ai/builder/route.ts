@@ -1,7 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import { buildSystemPrompt } from '@/lib/ai/builder-schema';
-import { checkRateLimit } from './rate-limit';
+import { checkAndRecordUsage, getUsageRemaining, UserPlan } from './rate-limit';
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function getPlan(status: string | undefined, plan: string | undefined): UserPlan {
+  if (status !== 'active') return 'free';
+  if (plan?.toLowerCase().includes('pro')) return 'pro';
+  return 'basic';
+}
+
+// ── GET /api/ai/builder — return remaining usage without consuming a prompt ─
+
+export async function GET(_req: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: subscription } = await supabase
+      .from('user_subscriptions')
+      .select('subscription_status, subscription_plan, subscription_started_at')
+      .eq('user_id', user.id)
+      .single();
+
+    const plan = getPlan(subscription?.subscription_status, subscription?.subscription_plan);
+    const remaining = await getUsageRemaining(
+      user.id,
+      plan,
+      subscription?.subscription_started_at ?? null,
+      supabase,
+    );
+
+    return NextResponse.json({ remaining });
+  } catch (err) {
+    console.error('AI Builder usage check error:', err);
+    return NextResponse.json({ error: 'Failed to fetch usage' }, { status: 500 });
+  }
+}
+
+// ── POST /api/ai/builder — check limits, record usage, call AI ─────────────
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,34 +53,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Subscription check - determine plan tier
+    // Subscription check
     const { data: subscription } = await supabase
       .from('user_subscriptions')
-      .select('subscription_status, subscription_plan, free_ai_prompts_used')
+      .select('subscription_status, subscription_plan, subscription_started_at')
       .eq('user_id', user.id)
       .single();
 
-    const isActive = subscription?.subscription_status === 'active';
-    const isPro = isActive && subscription?.subscription_plan?.toLowerCase().includes('pro');
-    const isBasic = isActive && !isPro;
+    const plan = getPlan(subscription?.subscription_status, subscription?.subscription_plan);
 
-    // Free (unpaid) users get 3 total lifetime prompts tracked in the DB
-    const FREE_PROMPT_LIMIT = 3;
-    if (!isActive) {
-      const promptsUsed = subscription?.free_ai_prompts_used ?? 0;
-      if (promptsUsed >= FREE_PROMPT_LIMIT) {
-        return NextResponse.json({
-          error: `You've used all ${FREE_PROMPT_LIMIT} free AI Builder prompts. Subscribe to keep building!`,
-          upgradeRequired: true,
-        }, { status: 429 });
-      }
-      // Increment counter (upsert in case no row exists yet)
-      await supabase
-        .from('user_subscriptions')
-        .upsert(
-          { user_id: user.id, free_ai_prompts_used: promptsUsed + 1, updated_at: new Date().toISOString() },
-          { onConflict: 'user_id' },
-        );
+    // Rate limit check + record usage in DB
+    const rateLimitResult = await checkAndRecordUsage(
+      user.id,
+      plan,
+      subscription?.subscription_started_at ?? null,
+      supabase,
+    );
+
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json({
+        error: rateLimitResult.message,
+        remaining: rateLimitResult.remaining,
+        ...(rateLimitResult.upgradeRequired ? { upgradeRequired: true } : {}),
+      }, { status: 429 });
     }
 
     const apiKey = process.env.AI_BUILDER_API_KEY;
@@ -60,15 +96,6 @@ export async function POST(req: NextRequest) {
     // Limit prompt length to prevent abuse / excessive token usage
     if (prompt.length > 1000) {
       return NextResponse.json({ error: 'Prompt is too long. Please keep it under 1000 characters.' }, { status: 400 });
-    }
-
-    // Rate limiting: basic users get 3/day, pro users get full limits
-    const rateLimitResult = checkRateLimit(user.id, isBasic);
-    if (!rateLimitResult.allowed) {
-      return NextResponse.json({
-        error: rateLimitResult.message,
-        ...(rateLimitResult.upgradeRequired ? { upgradeRequired: true } : {}),
-      }, { status: 429 });
     }
 
     // Build the user message with current site context
@@ -109,6 +136,7 @@ USER REQUEST: ${prompt}`;
         operations: [],
         message: 'Sorry, I had trouble processing that request. Please try again.',
         parseError: true,
+        remaining: rateLimitResult.remaining,
       });
     }
 
@@ -128,6 +156,7 @@ USER REQUEST: ${prompt}`;
     return NextResponse.json({
       operations: sanitized,
       message: safeMessage,
+      remaining: rateLimitResult.remaining,
     });
   } catch (err: any) {
     // Log full error server-side only — never expose raw provider messages to the client

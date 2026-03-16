@@ -9,7 +9,7 @@ import { Change } from '@/lib/hooks/useChangeTracking';
 import AlertModal from './ui/AlertModal';
 import FontPickerModal from './FontPickerModal';
 import AIBuilderPanel from './AIBuilderPanel';
-import { AIMessage } from '@/lib/hooks/useAIBuilder';
+import { AIMessage, UsageRemaining } from '@/lib/hooks/useAIBuilder';
 import { Type, User } from 'lucide-react';
 import ProfileDropdown from './ProfileDropdown';
 
@@ -69,6 +69,7 @@ interface FloatingToolbarProps {
   isFreeUser?: boolean;
   showAiUpgradeModal?: boolean;
   onDismissAiUpgradeModal?: () => void;
+  aiRemaining?: UsageRemaining | null;
   focusAiBuilder?: boolean;
 }
 
@@ -127,6 +128,7 @@ export default function FloatingToolbar({
   isFreeUser = false,
   showAiUpgradeModal = false,
   onDismissAiUpgradeModal,
+  aiRemaining,
   focusAiBuilder = false,
 }: FloatingToolbarProps) {
   const router = useRouter();
@@ -498,7 +500,7 @@ export default function FloatingToolbar({
               <Sparkles className="w-3.5 h-3.5" />
               AI Builder
               {!isProUser && !isBasicUser && !isFreeUser && <span className="text-[9px] font-bold bg-violet-600 text-white px-1.5 py-0.5 rounded-full ml-1">PRO</span>}
-              {isFreeUser && <span className="text-[9px] font-bold bg-slate-400 text-white px-1.5 py-0.5 rounded-full ml-1">3 FREE</span>}
+              {isFreeUser && <span className="text-[9px] font-bold bg-slate-400 text-white px-1.5 py-0.5 rounded-full ml-1">4 FREE</span>}
             </span>
             <ChevronDown className={`w-4 h-4 text-violet-500 transition-transform ${openSections.includes('ai-builder') ? 'rotate-180' : ''}`} />
           </button>
@@ -514,6 +516,7 @@ export default function FloatingToolbar({
                 isPro={isProUser}
                 isBasic={isBasicUser}
                 isFree={isFreeUser}
+                remaining={aiRemaining}
                 showUpgradeModal={showAiUpgradeModal}
                 onDismissUpgradeModal={onDismissAiUpgradeModal || (() => {})}
               />

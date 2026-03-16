@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
-import { refundLastRateLimitEntry, checkCancelRateLimit } from '../rate-limit';
+import { refundLastUsage, checkCancelRateLimit } from '../rate-limit';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,8 +15,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Too many cancel requests.' }, { status: 429 });
     }
 
-    // Refund the last rate limit entry for this user
-    refundLastRateLimitEntry(user.id);
+    // Delete the most recent usage row for this user
+    await refundLastUsage(user.id, supabase);
 
     return NextResponse.json({ ok: true });
   } catch {
