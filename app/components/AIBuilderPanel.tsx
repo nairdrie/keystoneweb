@@ -12,6 +12,7 @@ interface AIBuilderPanelProps {
   onClear: () => void;
   isPro: boolean;
   isBasic?: boolean;
+  isFree?: boolean;
   showUpgradeModal?: boolean;
   onDismissUpgradeModal?: () => void;
 }
@@ -24,7 +25,7 @@ const QUICK_PROMPTS = [
   'Change the color scheme to something modern and dark',
 ];
 
-export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, onClear, isPro, isBasic = false, showUpgradeModal = false, onDismissUpgradeModal }: AIBuilderPanelProps) {
+export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, onClear, isPro, isBasic = false, isFree = false, showUpgradeModal = false, onDismissUpgradeModal }: AIBuilderPanelProps) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -56,7 +57,7 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
     }
   };
 
-  if (!isPro && !isBasic) {
+  if (!isPro && !isBasic && !isFree) {
     return (
       <div className="p-4 text-center space-y-3">
         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mx-auto">
@@ -78,22 +79,33 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
 
   return (
     <>
-      {/* Upgrade Modal - shown when basic plan daily limit is reached */}
+      {/* Upgrade Modal - shown when free or basic plan limit is reached */}
       {showUpgradeModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[10000] p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-8 text-center animate-in fade-in zoom-in-95">
             <div className="w-14 h-14 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mx-auto mb-4">
               <Sparkles className="w-7 h-7 text-white" />
             </div>
-            <h2 className="text-2xl font-black text-slate-900 mb-2">Daily Limit Reached</h2>
-            <p className="text-slate-600 mb-6 text-sm leading-relaxed">
-              You've used all <strong>3 free AI Builder prompts</strong> for today on the Basic plan. Upgrade to Pro for increased daily limits and unlock the full power of AI site building.
-            </p>
+            {isFree ? (
+              <>
+                <h2 className="text-2xl font-black text-slate-900 mb-2">Free Limit Reached</h2>
+                <p className="text-slate-600 mb-6 text-sm leading-relaxed">
+                  You've used all <strong>3 free AI Builder prompts</strong>. Subscribe to a plan to keep building with AI.
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-2xl font-black text-slate-900 mb-2">Daily Limit Reached</h2>
+                <p className="text-slate-600 mb-6 text-sm leading-relaxed">
+                  You've used all <strong>3 AI Builder prompts</strong> for today on the Basic plan. Upgrade to Pro for increased daily limits and unlock the full power of AI site building.
+                </p>
+              </>
+            )}
             <a
               href="/pricing"
               className="block w-full py-3 px-6 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold text-sm hover:brightness-110 transition-all shadow-lg mb-3"
             >
-              Upgrade to Pro
+              {isFree ? 'Subscribe to Continue' : 'Upgrade to Pro'}
             </a>
             <button
               onClick={onDismissUpgradeModal}

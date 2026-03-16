@@ -66,6 +66,7 @@ interface FloatingToolbarProps {
   onAiClear?: () => void;
   isProUser?: boolean;
   isBasicUser?: boolean;
+  isFreeUser?: boolean;
   showAiUpgradeModal?: boolean;
   onDismissAiUpgradeModal?: () => void;
   focusAiBuilder?: boolean;
@@ -123,6 +124,7 @@ export default function FloatingToolbar({
   onAiClear,
   isProUser = false,
   isBasicUser = false,
+  isFreeUser = false,
   showAiUpgradeModal = false,
   onDismissAiUpgradeModal,
   focusAiBuilder = false,
@@ -495,7 +497,8 @@ export default function FloatingToolbar({
             <span className="text-xs font-bold text-violet-700 uppercase tracking-wide flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5" />
               AI Builder
-              {!isProUser && !isBasicUser && <span className="text-[9px] font-bold bg-violet-600 text-white px-1.5 py-0.5 rounded-full ml-1">PRO</span>}
+              {!isProUser && !isBasicUser && !isFreeUser && <span className="text-[9px] font-bold bg-violet-600 text-white px-1.5 py-0.5 rounded-full ml-1">PRO</span>}
+              {isFreeUser && <span className="text-[9px] font-bold bg-slate-400 text-white px-1.5 py-0.5 rounded-full ml-1">3 FREE</span>}
             </span>
             <ChevronDown className={`w-4 h-4 text-violet-500 transition-transform ${openSections.includes('ai-builder') ? 'rotate-180' : ''}`} />
           </button>
@@ -510,6 +513,7 @@ export default function FloatingToolbar({
                 onClear={onAiClear || (() => {})}
                 isPro={isProUser}
                 isBasic={isBasicUser}
+                isFree={isFreeUser}
                 showUpgradeModal={showAiUpgradeModal}
                 onDismissUpgradeModal={onDismissAiUpgradeModal || (() => {})}
               />
