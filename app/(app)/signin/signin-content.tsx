@@ -31,22 +31,21 @@ export default function SignInContent() {
     setError('');
     setLoading(true);
 
-    try {
-      await signIn(email, password);
+    const { error } = await signIn(email, password);
 
-      // Success - redirect appropriately
-      if (aiOnboarding) {
-        // Return to onboarding to create site and run AI builder (now authenticated)
-        router.push('/onboarding?resumeAi=true');
-      } else if (siteId) {
-        router.push(`/editor?siteId=${siteId}`);
-      } else {
-        router.push('/editor');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Incorrect email or password');
-    } finally {
+    if (error) {
+      setError('Incorrect email or password');
       setLoading(false);
+      return;
+    }
+
+    // Success - redirect appropriately
+    if (aiOnboarding) {
+      router.push('/onboarding?resumeAi=true');
+    } else if (siteId) {
+      router.push(`/editor?siteId=${siteId}`);
+    } else {
+      router.push('/editor');
     }
   };
 
@@ -100,7 +99,13 @@ export default function SignInContent() {
             </button>
           </form>
 
-          <p className="text-center text-slate-400 text-sm mt-6">
+          <p className="text-center mt-4">
+            <Link href={`/forgot-password${email ? `?email=${encodeURIComponent(email)}` : ''}`} className="text-sm text-slate-400 hover:text-slate-300">
+              Forgot your password?
+            </Link>
+          </p>
+
+          <p className="text-center text-slate-400 text-sm mt-4">
             Don't have an account?{' '}
             <Link href={`/signup${email ? `?email=${encodeURIComponent(email)}` : ''}${aiOnboarding ? `${email ? '&' : '?'}aiOnboarding=true` : ''}`} className="text-red-400 hover:text-red-300">
               Create one
