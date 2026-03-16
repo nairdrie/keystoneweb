@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Check,
@@ -22,6 +22,7 @@ import {
   ChevronUp,
   Leaf,
   ShoppingCart,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 
@@ -56,6 +57,63 @@ interface DnsInstructions {
 
 type DomainTab = 'subdomain' | 'custom';
 type CustomMode = 'search' | 'external';
+
+// ─── Loading Messages ────────────────────────────────────────────────────────
+
+const LOADING_MESSAGES = [
+  'Checking availability...',
+  'Finding the perfect domain for you...',
+  'Searching across registrars...',
+  'Looking for smart alternatives...',
+  'Almost there...',
+];
+
+function useRotatingText(active: boolean, messages: string[], intervalMs = 2200) {
+  const [index, setIndex] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (active) {
+      setIndex(0);
+      timerRef.current = setInterval(() => {
+        setIndex((prev: number) => (prev + 1) % messages.length);
+      }, intervalMs);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [active, messages.length, intervalMs]);
+
+  return messages[index];
+}
+
+// ─── Skeleton Loader ─────────────────────────────────────────────────────────
+
+function DomainResultsSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      {/* Recommended .ca skeleton */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="h-6 w-28 bg-red-100 rounded-full" />
+          <div className="h-4 w-32 bg-slate-200 rounded" />
+        </div>
+        <div className="h-14 bg-slate-100 rounded-lg border-2 border-slate-100" />
+      </div>
+      {/* Smart suggestions skeleton */}
+      <div>
+        <div className="h-4 w-36 bg-slate-200 rounded mb-3" />
+        <div className="space-y-2">
+          <div className="h-12 bg-slate-50 rounded-lg border border-slate-100" />
+          <div className="h-12 bg-slate-50 rounded-lg border border-slate-100" />
+          <div className="h-12 bg-slate-50 rounded-lg border border-slate-100" />
+        </div>
+      </div>
+      {/* Other extensions skeleton */}
+      <div className="h-10 bg-slate-50 rounded-lg border border-slate-100" />
+    </div>
+  );
+}
 
 // ─── Main Content ────────────────────────────────────────────────────────────
 
@@ -105,6 +163,9 @@ function DomainSelectContent() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const isPro = userPlan?.toLowerCase().includes('pro');
+
+  // Rotating loading text for domain search
+  const loadingText = useRotatingText(searching, LOADING_MESSAGES);
 
   // Fetch user subscription
   useEffect(() => {
@@ -604,9 +665,9 @@ function DomainSelectContent() {
                         <input
                           type="text"
                           value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                          onChange={(e) => setSearchQuery(e.target.value.toLowerCase().replace(/[^a-z0-9-.]/g, ''))}
                           onKeyDown={(e) => e.key === 'Enter' && handleDomainSearch()}
-                          placeholder="e.g., mybusiness"
+                          placeholder="e.g., mybusiness or mybusiness.ca"
                           className="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg text-slate-900 font-medium placeholder-slate-400 focus:ring-2 focus:ring-red-600 focus:border-transparent"
                         />
                         <button
@@ -627,15 +688,28 @@ function DomainSelectContent() {
                       </p>
                     </div>
 
-                    {/* ── Recommended: .ca Domains ──────────────────────── */}
-                    {recommendedResults.length > 0 && (
+                    {/* ── Skeleton Loader ─────────────────────────────── */}
+                    {searching && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-4">
+                          <Loader2 className="w-4 h-4 animate-spin text-red-600" />
+                          <p className="text-sm font-medium text-slate-600 transition-all duration-300">
+                            {loadingText}
+                          </p>
+                        </div>
+                        <DomainResultsSkeleton />
+                      </div>
+                    )}
+
+                    {/* ── Recommended: .ca Domain ────────────────────────── */}
+                    {!searching && recommendedResults.length > 0 && (
                       <div>
                         <div className="flex items-center gap-2 mb-3">
                           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 border border-red-200 rounded-full">
                             <Leaf className="w-3.5 h-3.5 text-red-600" />
                             <span className="text-xs font-bold text-red-700">Recommended</span>
                           </div>
-                          <h3 className="text-sm font-semibold text-slate-900">Canadian Domains</h3>
+                          <h3 className="text-sm font-semibold text-slate-900">Canadian Domain</h3>
                         </div>
 
                         <div className="p-3 bg-red-50/50 border border-red-100 rounded-lg mb-3">
@@ -684,8 +758,54 @@ function DomainSelectContent() {
                       </div>
                     )}
 
-                    {/* ── Other TLDs (Collapsible) ─────────────────────── */}
-                    {otherResults.length > 0 && (
+                    {/* ── Smart Suggestions (.ca alternatives, only when exact .ca is taken) ── */}
+                    {!searching && suggestions.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 border border-purple-200 rounded-full">
+                            <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                            <span className="text-xs font-bold text-purple-700">Smart Suggestions</span>
+                          </div>
+                          <h3 className="text-sm font-semibold text-slate-700">Available .ca alternatives</h3>
+                        </div>
+
+                        <div className="space-y-2">
+                          {suggestions.map((s) => (
+                            <button
+                              key={s.domain}
+                              onClick={() => s.available && setSelectedDomain(s.domain)}
+                              disabled={!s.available}
+                              className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all text-left ${
+                                selectedDomain === s.domain
+                                  ? 'border-red-600 bg-red-50'
+                                  : s.available
+                                    ? 'border-purple-100 hover:border-purple-200 bg-white'
+                                    : 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                {selectedDomain === s.domain ? (
+                                  <CheckCircle2 className="w-4 h-4 text-red-600 flex-shrink-0" />
+                                ) : s.available ? (
+                                  <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                ) : (
+                                  <X className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                )}
+                                <span className="font-mono font-semibold text-sm text-slate-900">
+                                  {s.domain}
+                                </span>
+                              </div>
+                              <span className={`text-xs font-semibold ${s.available ? 'text-green-700' : 'text-slate-400'}`}>
+                                {s.available ? 'Included with plan' : 'Taken'}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Other TLDs (Collapsible, below suggestions) ──── */}
+                    {!searching && otherResults.length > 0 && (
                       <div>
                         <button
                           onClick={() => setShowOtherTlds(!showOtherTlds)}
@@ -736,47 +856,8 @@ function DomainSelectContent() {
                       </div>
                     )}
 
-                    {/* Smart Suggestions (LLM-generated alternatives) */}
-                    {suggestions.length > 0 && (
-                      <div>
-                        <h3 className="text-sm font-semibold text-slate-700 mb-2">Smart suggestions</h3>
-                        <div className="space-y-2">
-                          {suggestions.map((s) => (
-                            <button
-                              key={s.domain}
-                              onClick={() => s.available && setSelectedDomain(s.domain)}
-                              disabled={!s.available}
-                              className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all text-left ${
-                                selectedDomain === s.domain
-                                  ? 'border-red-600 bg-red-50'
-                                  : s.available
-                                    ? 'border-slate-200 hover:border-slate-300 bg-white'
-                                    : 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                {selectedDomain === s.domain ? (
-                                  <CheckCircle2 className="w-4 h-4 text-red-600 flex-shrink-0" />
-                                ) : s.available ? (
-                                  <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
-                                ) : (
-                                  <X className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                                )}
-                                <span className="font-mono font-semibold text-sm text-slate-900">
-                                  {s.domain}
-                                </span>
-                              </div>
-                              <span className={`text-xs font-semibold ${s.available ? 'text-green-700' : 'text-slate-400'}`}>
-                                {s.available ? 'Included with plan' : 'Taken'}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     {/* Register Button */}
-                    {selectedDomain && (
+                    {!searching && selectedDomain && (
                       <div className="pt-3 border-t border-slate-100">
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-sm text-slate-600">Selected domain:</span>

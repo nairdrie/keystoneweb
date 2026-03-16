@@ -8,7 +8,6 @@ const AI_API_KEY = process.env.AI_BUILDER_API_KEY;
 const VERCEL_API_BASE = 'https://api.vercel.com';
 
 // TLDs ordered by preference — .ca first to push Canadian identity
-const CA_TLDS = ['ca'];
 const OTHER_TLDS = ['com', 'net', 'org', 'co', 'shop', 'store', 'io', 'xyz'];
 
 interface VercelAvailabilityResult {
@@ -36,7 +35,7 @@ interface DomainResult {
  * One cheap/fast call replaces brittle programmatic string manipulation.
  */
 async function generateAlternatives(query: string): Promise<string[]> {
-  if (!AI_API_KEY) return [query];
+  if (!AI_API_KEY) return [];
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -49,14 +48,14 @@ async function generateAlternatives(query: string): Promise<string[]> {
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 256,
-        system: `You generate domain name alternatives. Given a query, return a JSON array of 6-10 short, brandable domain name variations. Include the original query first, then smart alternatives: abbreviations, hyphenated forms, slight respellings, dropped/added letters, compound splits. Only lowercase alphanumeric and hyphens. No TLDs. No explanations — ONLY the JSON array.`,
+        system: `You generate domain name alternatives. Given a query, return a JSON array of 8-12 short, brandable domain name variations. Do NOT include the original query. Generate smart alternatives: abbreviations, hyphenated forms, slight respellings, dropped/added letters, compound splits, creative variations. Only lowercase alphanumeric and hyphens. No TLDs. No explanations — ONLY the JSON array.`,
         messages: [{ role: 'user', content: query }],
       }),
     });
 
     if (!res.ok) {
       console.error('Haiku alternatives error:', res.status);
-      return [query];
+      return [];
     }
 
     const data = await res.json();
@@ -66,25 +65,19 @@ async function generateAlternatives(query: string): Promise<string[]> {
     const cleaned = text.trim().replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
     const alternatives: string[] = JSON.parse(cleaned);
 
-    // Sanitize: only allow valid domain labels
-    const valid = alternatives
+    // Sanitize: only allow valid domain labels, deduplicate, exclude original
+    const seen = new Set<string>([query]);
+    return alternatives
       .map(a => a.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/^-+|-+$/g, ''))
-      .filter(a => a.length >= 2 && a.length <= 63);
-
-    // Ensure the original query is first and deduplicate
-    const seen = new Set<string>();
-    const result: string[] = [];
-    for (const name of [query, ...valid]) {
-      if (!seen.has(name)) {
-        seen.add(name);
-        result.push(name);
-      }
-    }
-
-    return result.slice(0, 10);
+      .filter(a => {
+        if (a.length < 2 || a.length > 63 || seen.has(a)) return false;
+        seen.add(a);
+        return true;
+      })
+      .slice(0, 12);
   } catch (err) {
     console.error('Failed to generate alternatives:', err);
-    return [query];
+    return [];
   }
 }
 
@@ -95,6 +88,8 @@ async function generateAlternatives(query: string): Promise<string[]> {
 async function checkBulkAvailability(
   domains: string[]
 ): Promise<{ results: VercelAvailabilityResult[]; rateLimited: boolean }> {
+  if (domains.length === 0) return { results: [], rateLimited: false };
+
   const teamParam = VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : '';
 
   const res = await fetch(
@@ -152,8 +147,7 @@ async function getDomainPrice(domain: string): Promise<number | undefined> {
 }
 
 /**
- * Fetch prices for multiple domains concurrently, with a concurrency cap
- * to avoid hammering Vercel's API.
+ * Fetch prices for multiple domains concurrently, with a concurrency cap.
  */
 async function getPricesForDomains(
   domains: string[],
@@ -182,11 +176,18 @@ async function getPricesForDomains(
 /**
  * GET /api/domains/search?query=akdesigns
  *
- * 1. Claude Haiku generates smart name alternatives
- * 2. Cross alternatives × TLDs → up to 50 domain candidates
- * 3. Single bulk availability check via Vercel
- * 4. Fetch prices for available domains
- * 5. Return: recommended (.ca), other TLDs, suggestions (alternatives)
+ * Two-phase approach to minimize latency:
+ *
+ * Phase 1 (fast): Check exact query across .ca + other TLDs in one bulk call.
+ *   - If exact .ca is available → return immediately, no AI needed.
+ *
+ * Phase 2 (only if .ca taken): Call Claude Haiku for smart alternatives,
+ *   check those as .ca only, plus return other TLDs from phase 1.
+ *
+ * Response shape:
+ *   recommended: [exact .ca match]
+ *   suggestions: [alternative .ca domains from AI]
+ *   other: [exact match in .com, .net, .org, etc]
  */
 export async function GET(request: NextRequest) {
   try {
@@ -229,8 +230,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Clean the query: lowercase, valid domain chars only
-    const cleanQuery = query.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/^-+|-+$/g, '');
+    // Clean the query: strip any TLD the user may have typed (e.g. "akdesigns.com" → "akdesigns")
+    let cleanQuery = query.toLowerCase().replace(/[^a-z0-9-.]/g, '').replace(/^-+|-+$/g, '');
+    const dotIndex = cleanQuery.indexOf('.');
+    if (dotIndex > 0) {
+      cleanQuery = cleanQuery.substring(0, dotIndex);
+    }
     if (cleanQuery.length < 2) {
       return NextResponse.json(
         { error: 'Invalid domain query' },
@@ -238,36 +243,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Step 1: Generate smart alternatives via Claude Haiku
-    const alternatives = await generateAlternatives(cleanQuery);
+    // ── Phase 1: Check exact query across all TLDs ──────────────────────
+    const allTlds = ['ca', ...OTHER_TLDS];
+    const exactDomains = allTlds.map(tld => `${cleanQuery}.${tld}`);
 
-    // Step 2: Build domain candidates — alternatives × TLDs
-    // The original query gets all TLDs; alternatives get only .ca + .com
-    // This keeps us under the 50-domain bulk limit
-    const allTlds = [...CA_TLDS, ...OTHER_TLDS];
-    const altTlds = [...CA_TLDS, 'com'];
-
-    const domainCandidates: string[] = [];
-    const candidateSet = new Set<string>();
-
-    for (let i = 0; i < alternatives.length; i++) {
-      const name = alternatives[i];
-      const tlds = i === 0 ? allTlds : altTlds; // Original query gets all TLDs
-
-      for (const tld of tlds) {
-        const domain = `${name}.${tld}`;
-        if (!candidateSet.has(domain)) {
-          candidateSet.add(domain);
-          domainCandidates.push(domain);
-        }
-      }
-    }
-
-    // Cap at 50 (Vercel bulk limit)
-    const domainsToCheck = domainCandidates.slice(0, 50);
-
-    // Step 3: Bulk availability check — single API call
-    const { results, rateLimited } = await checkBulkAvailability(domainsToCheck);
+    const { results: exactResults, rateLimited } = await checkBulkAvailability(exactDomains);
 
     if (rateLimited) {
       return NextResponse.json(
@@ -276,38 +256,29 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Build a lookup map
+    // Build availability map from phase 1
     const availabilityMap = new Map<string, boolean>();
-    for (const r of results) {
+    for (const r of exactResults) {
       availabilityMap.set(r.domain, r.available);
     }
 
-    // Step 4: Fetch prices for available domains (concurrently, capped)
-    const availableDomains = results
-      .filter(r => r.available)
-      .map(r => r.domain);
+    const caAvailable = availabilityMap.get(`${cleanQuery}.ca`) === true;
 
-    const prices = await getPricesForDomains(availableDomains);
-
-    // Step 5: Build response — split into recommended (.ca), other, suggestions
     const buildResult = (domain: string, isAlt: boolean): DomainResult => ({
       domain,
       available: availabilityMap.get(domain) ?? false,
-      price: prices.get(domain),
       currency: 'USD',
       isAlternative: isAlt,
     });
 
-    // Recommended: .ca domains for the original query
+    // Build recommended (.ca) result
     const recommended: DomainResult[] = [];
-    for (const tld of CA_TLDS) {
-      const domain = `${cleanQuery}.${tld}`;
-      if (availabilityMap.has(domain)) {
-        recommended.push(buildResult(domain, false));
-      }
+    const caDomain = `${cleanQuery}.ca`;
+    if (availabilityMap.has(caDomain)) {
+      recommended.push(buildResult(caDomain, false));
     }
 
-    // Other TLDs: non-.ca domains for the original query
+    // Build other TLDs for exact query
     const other: DomainResult[] = [];
     for (const tld of OTHER_TLDS) {
       const domain = `${cleanQuery}.${tld}`;
@@ -316,36 +287,62 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Suggestions: alternative names that are available (any TLD)
-    const suggestions: DomainResult[] = [];
-    const suggestedSet = new Set<string>();
-    for (let i = 1; i < alternatives.length; i++) {
-      const name = alternatives[i];
-      for (const tld of [...CA_TLDS, 'com']) {
-        const domain = `${name}.${tld}`;
-        if (
-          availabilityMap.get(domain) &&
-          !suggestedSet.has(domain)
-        ) {
-          suggestedSet.add(domain);
-          suggestions.push(buildResult(domain, true));
+    // ── Phase 2: Only if .ca is taken, generate AI alternatives ─────────
+    let suggestions: DomainResult[] = [];
+    let alternativeNames: string[] = [];
+
+    if (!caAvailable) {
+      // Call Haiku for smart alternatives while user waits
+      alternativeNames = await generateAlternatives(cleanQuery);
+
+      if (alternativeNames.length > 0) {
+        // Check alternatives as .ca only (keep it focused, save API budget)
+        const altCaDomains = alternativeNames.map(name => `${name}.ca`);
+
+        // Cap at 50 minus what we already checked
+        const toCheck = altCaDomains.slice(0, 50);
+
+        const { results: altResults, rateLimited: altRateLimited } =
+          await checkBulkAvailability(toCheck);
+
+        if (!altRateLimited) {
+          for (const r of altResults) {
+            availabilityMap.set(r.domain, r.available);
+          }
+
+          // Only include available .ca alternatives as suggestions
+          for (const name of alternativeNames) {
+            const domain = `${name}.ca`;
+            if (availabilityMap.get(domain)) {
+              suggestions.push({
+                domain,
+                available: true,
+                currency: 'USD',
+                isAlternative: true,
+              });
+            }
+          }
         }
       }
     }
 
-    // Sort suggestions: .ca first, then by name
-    suggestions.sort((a, b) => {
-      const aIsCa = a.domain.endsWith('.ca') ? 0 : 1;
-      const bIsCa = b.domain.endsWith('.ca') ? 0 : 1;
-      if (aIsCa !== bIsCa) return aIsCa - bIsCa;
-      return a.domain.localeCompare(b.domain);
-    });
+    // Fetch prices for all available domains
+    const allAvailable = [...exactResults, ...(suggestions.map(s => ({ domain: s.domain, available: s.available })))]
+      .filter(r => r.available)
+      .map(r => r.domain);
+
+    const prices = await getPricesForDomains(allAvailable);
+
+    // Attach prices to results
+    for (const r of recommended) r.price = prices.get(r.domain);
+    for (const r of other) r.price = prices.get(r.domain);
+    for (const r of suggestions) r.price = prices.get(r.domain);
 
     return NextResponse.json({
       recommended,
-      other,
       suggestions,
-      alternatives: alternatives.slice(1), // The name variations used (for transparency)
+      other,
+      alternatives: alternativeNames,
     });
   } catch (error) {
     console.error('Error searching domains:', error);
