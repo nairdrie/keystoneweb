@@ -42,6 +42,7 @@ export function useAIBuilder(
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [authExpired, setAuthExpired] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const wasCancelledRef = useRef(false);
 
@@ -84,6 +85,13 @@ export function useAIBuilder(
         if (res.status === 429 && errData.upgradeRequired) {
           setShowUpgradeModal(true);
           // Remove the user message since it wasn't processed
+          setMessages(prev => prev.filter(m => m.id !== userMsg.id));
+          return;
+        }
+
+        // Session expired — signal to redirect to login
+        if (res.status === 401) {
+          setAuthExpired(true);
           setMessages(prev => prev.filter(m => m.id !== userMsg.id));
           return;
         }
@@ -172,7 +180,7 @@ export function useAIBuilder(
     setShowUpgradeModal(false);
   }, []);
 
-  return { messages, isLoading, sendMessage, cancel, clearMessages, showUpgradeModal, dismissUpgradeModal };
+  return { messages, isLoading, sendMessage, cancel, clearMessages, showUpgradeModal, dismissUpgradeModal, authExpired };
 }
 
 function applyOperation(op: AIOperation, callbacks: AIBuilderCallbacks) {

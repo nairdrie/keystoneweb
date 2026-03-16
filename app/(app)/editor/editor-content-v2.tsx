@@ -748,6 +748,13 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
 
   const aiBuilder = useAIBuilder(getAiSiteState, aiPaletteNames, aiCallbacks);
 
+  // Redirect to signin if AI builder detects expired session
+  useEffect(() => {
+    if (aiBuilder.authExpired) {
+      router.push('/signin');
+    }
+  }, [aiBuilder.authExpired]);
+
   // Auto-send AI prompt from onboarding flow
   const aiOnboardingSentRef = useRef(false);
   const [aiOnboardingBuilding, setAiOnboardingBuilding] = useState(() => {

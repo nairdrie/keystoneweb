@@ -157,6 +157,66 @@ export default function OnboardingWizard() {
     }
   };
 
+  // Resume AI builder flow after auth redirect
+  const resumeAiTriggered = useRef(false);
+  useEffect(() => {
+    if (resumeAiTriggered.current || authLoading || !user) return;
+    const resumeAi = searchParams.get('resumeAi');
+    if (resumeAi !== 'true') return;
+
+    const savedPrompt = sessionStorage.getItem('keystoneAiOnboardingPrompt');
+    if (!savedPrompt) return;
+
+    resumeAiTriggered.current = true;
+    // Restore the prompt into the input and auto-submit
+    setAiPrompt(savedPrompt);
+    // Remove the param from URL to prevent re-triggering
+    router.replace('/onboarding');
+    // Use a short delay so state settles before submitting
+    setTimeout(() => {
+      // Call handleAiSubmit programmatically — prompt is in sessionStorage still,
+      // and we've set aiPrompt state. The submit function reads from aiPrompt.
+      setAiLoading(true);
+      setAiError(null);
+      fetch('/api/sites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          selectedTemplateId: 'airy_general',
+          businessType: 'services',
+          category: 'general',
+          userId: user.id,
+        }),
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            if (res.status === 403 && errData.siteLimitReached) {
+              setShowSiteLimit(true);
+            } else {
+              setAiError('Something went wrong creating your site. Please try again.');
+            }
+            setAiLoading(false);
+            return;
+          }
+          const resData = await res.json();
+          const { siteId } = resData;
+          if (!siteId) {
+            setAiError('Something went wrong creating your site. Please try again.');
+            setAiLoading(false);
+            return;
+          }
+          // Prompt is already in sessionStorage — editor will pick it up
+          router.push(`/editor?siteId=${siteId}`);
+        })
+        .catch(() => {
+          setAiError('Something went wrong creating your site. Please try again.');
+          setAiLoading(false);
+        });
+    }, 100);
+  }, [user, authLoading, searchParams]);
+
   // Load from URL on mount
   useEffect(() => {
     const paramBusinessType = searchParams.get('businessType') as BusinessType;
@@ -223,6 +283,13 @@ export default function OnboardingWizard() {
     e?.preventDefault();
     if (!aiPrompt.trim() || aiLoading) return;
 
+    // If not authenticated, store prompt and redirect to signup/login first
+    if (!user) {
+      sessionStorage.setItem('keystoneAiOnboardingPrompt', aiPrompt.trim());
+      router.push('/signup?aiOnboarding=true');
+      return;
+    }
+
     setAiLoading(true);
     setAiError(null);
     try {
@@ -235,7 +302,7 @@ export default function OnboardingWizard() {
           selectedTemplateId: 'airy_general',
           businessType: 'services',
           category: 'general',
-          userId: user?.id || null,
+          userId: user.id,
         }),
       });
 
@@ -243,6 +310,10 @@ export default function OnboardingWizard() {
         const errData = await res.json().catch(() => ({}));
         if (res.status === 403 && errData.siteLimitReached) {
           setShowSiteLimit(true);
+        } else if (res.status === 401) {
+          // Session expired — store prompt and redirect to signin
+          sessionStorage.setItem('keystoneAiOnboardingPrompt', aiPrompt.trim());
+          router.push('/signin?aiOnboarding=true');
         } else {
           console.error('[Onboarding] AI site creation failed', {
             status: res.status,
@@ -250,7 +321,7 @@ export default function OnboardingWizard() {
             url: res.url,
             error: errData?.error,
             details: errData,
-            userId: user?.id ?? 'unauthenticated',
+            userId: user.id,
           });
           setAiError('Something went wrong creating your site. Please try again.');
         }
@@ -261,7 +332,7 @@ export default function OnboardingWizard() {
       const resData = await res.json();
       const { siteId } = resData;
       if (!siteId) {
-        console.error('[Onboarding] No siteId returned from /api/sites', { response: resData, userId: user?.id ?? 'unauthenticated' });
+        console.error('[Onboarding] No siteId returned from /api/sites', { response: resData, userId: user.id });
         setAiError('Something went wrong creating your site. Please try again.');
         setAiLoading(false);
         return;
@@ -270,12 +341,7 @@ export default function OnboardingWizard() {
       // Store the AI prompt in sessionStorage so the editor can pick it up
       sessionStorage.setItem('keystoneAiOnboardingPrompt', aiPrompt.trim());
 
-      if (user) {
-        router.push(`/editor?siteId=${siteId}`);
-      } else {
-        // Redirect to signup with siteId so they land in the editor after auth
-        router.push(`/signup?siteId=${siteId}`);
-      }
+      router.push(`/editor?siteId=${siteId}`);
     } catch (error) {
       console.error('[Onboarding] Network or unexpected error creating AI site:', error instanceof Error ? { message: error.message, stack: error.stack } : error);
       setAiError('Something went wrong creating your site. Please try again.');

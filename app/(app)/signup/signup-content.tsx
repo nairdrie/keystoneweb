@@ -19,6 +19,7 @@ export default function SignUpContent() {
 
   // Redirect to editor after signup
   const siteId = searchParams.get('siteId');
+  const aiOnboarding = searchParams.get('aiOnboarding');
 
   // Prefill email from query param
   useEffect(() => {
@@ -45,7 +46,7 @@ export default function SignUpContent() {
 
       if (exists) {
         // Redirect to signin with email prefilled
-        router.push(`/signin?email=${encodeURIComponent(email)}${siteId ? `&siteId=${siteId}` : ''}`);
+        router.push(`/signin?email=${encodeURIComponent(email)}${siteId ? `&siteId=${siteId}` : ''}${aiOnboarding ? '&aiOnboarding=true' : ''}`);
       } else {
         // Move to password step for new account
         setStep('password');
@@ -70,8 +71,11 @@ export default function SignUpContent() {
         return;
       }
 
-      // Success - redirect to editor
-      if (siteId) {
+      // Success - redirect appropriately
+      if (aiOnboarding) {
+        // Return to onboarding to create site and run AI builder (now authenticated)
+        router.push('/onboarding?resumeAi=true');
+      } else if (siteId) {
         router.push(`/editor?siteId=${siteId}`);
       } else {
         router.push('/editor');
@@ -123,7 +127,7 @@ export default function SignUpContent() {
 
               <p className="text-center text-slate-400 text-sm mt-6">
                 Already have an account?{' '}
-                <Link href={`/signin${email ? `?email=${encodeURIComponent(email)}` : ''}`} className="text-blue-400 hover:text-blue-300">
+                <Link href={`/signin${email ? `?email=${encodeURIComponent(email)}` : ''}${aiOnboarding ? `${email ? '&' : '?'}aiOnboarding=true` : ''}`} className="text-blue-400 hover:text-blue-300">
                   Sign in
                 </Link>
               </p>
