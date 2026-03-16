@@ -1,12 +1,55 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const AI_BUILDING_MESSAGES = [
+    "AI is building your site...",
+    "Laying the foundation...",
+    "Picking the perfect layout...",
+    "Choosing colors that pop...",
+    "Writing copy that converts...",
+    "Arranging sections just right...",
+    "Adding the finishing touches...",
+    "Polishing every pixel...",
+    "Making it look professional...",
+    "Almost there, hang tight...",
+];
+
+// How long each message displays before cycling
+const MESSAGE_CYCLE_MS = 5000;
+// How long the arch animation takes to fully build (last stone delay + spring settle)
+const ARCH_ANIM_DURATION_MS = 2200;
+// Interval at which the arch replays
+const ARCH_REPLAY_MS = 5500;
 
 export default function EditorLoadingScreen({ message }: { message?: string } = {}) {
+    const isAiBuilding = !!message; // if a message is passed, we're in AI building mode
+    const [messageIndex, setMessageIndex] = useState(0);
+    const [archKey, setArchKey] = useState(0); // changing key forces re-mount → replays animation
+
+    // Cycle through building messages
+    useEffect(() => {
+        if (!isAiBuilding) return;
+        const interval = setInterval(() => {
+            setMessageIndex((prev: number) => (prev + 1) % AI_BUILDING_MESSAGES.length);
+        }, MESSAGE_CYCLE_MS);
+        return () => clearInterval(interval);
+    }, [isAiBuilding]);
+
+    // Replay arch animation periodically
+    useEffect(() => {
+        if (!isAiBuilding) return;
+        const interval = setInterval(() => {
+            setArchKey((prev: number) => prev + 1);
+        }, ARCH_REPLAY_MS);
+        return () => clearInterval(interval);
+    }, [isAiBuilding]);
+
+    const displayMessage = isAiBuilding ? AI_BUILDING_MESSAGES[messageIndex] : message;
+
     // Precise SVG coordinates spanning an arch with inner radius 30 and outer radius 70.
     // Center at (100, 90). The pillars extend straight down to y=170.
-    // We calculate proper trapezoidal angles (180 to 144, 144 to 108, 108 to 72, 72 to 36, 36 to 0) 
-    // to ensure they fit together with zero gaps.
     const archStones = [
         // L1 (Base 1)
         { points: "25,168 25,128 65,128 65,168", cx: 45, cy: 148, isKeystone: false },
@@ -39,8 +82,8 @@ export default function EditorLoadingScreen({ message }: { message?: string } = 
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-red-500 rounded-full blur-[100px] opacity-50 pointer-events-none" />
 
             <div className="relative z-10 flex flex-col items-center">
-                {/* Perfect fitted SVG Archway Container */}
-                <svg viewBox="0 0 200 200" className="w-64 h-64 relative mb-12 overflow-visible drop-shadow-2xl">
+                {/* Perfect fitted SVG Archway Container — key change forces re-mount to replay animation */}
+                <svg key={archKey} viewBox="0 0 200 200" className="w-64 h-64 relative mb-12 overflow-visible drop-shadow-2xl">
                     <defs>
                         <linearGradient id="stoneGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                             <stop offset="0%" stopColor="#ffffff" />
@@ -53,9 +96,6 @@ export default function EditorLoadingScreen({ message }: { message?: string } = 
                     </defs>
 
                     {archStones.map((stone, index) => {
-                        // Delay mapping.
-                        // We want base first, then middle, then lower curves, upper curves, then keystone.
-                        // Order of drawing matching pairs: 0&1, 2&3, 4&5, 6&7, 8 (keystone)
                         const step = Math.floor(index / 2);
                         const delay = stone.isKeystone ? 1.0 : step * 0.15;
 
@@ -63,9 +103,7 @@ export default function EditorLoadingScreen({ message }: { message?: string } = 
                             <motion.polygon
                                 key={index}
                                 points={stone.points}
-                                // Start at scale 0, no translating, no opacity fade
                                 initial={{ scale: 0 }}
-                                // Pop slightly larger, then settle to a scaled-down size for true transparent gaps
                                 animate={{ scale: 0.85 }}
                                 transition={{
                                     type: "spring",
@@ -74,11 +112,8 @@ export default function EditorLoadingScreen({ message }: { message?: string } = 
                                     mass: 1.5,
                                     delay: delay,
                                 }}
-                                // Scale relative to the exact center of this specific polygon shape
                                 style={{ transformOrigin: `${stone.cx}px ${stone.cy}px` }}
                                 fill="url(#stoneGrad)"
-                                // We use a thick stroke of the SAME gradient to create rounded corners,
-                                // while the scale reduction creates the true transparent gaps underneath!
                                 stroke="url(#stoneGrad)"
                                 strokeWidth="4"
                                 strokeLinejoin="round"
@@ -86,16 +121,25 @@ export default function EditorLoadingScreen({ message }: { message?: string } = 
                         );
                     })}
                 </svg>
-                {message && (
-                    <motion.p
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.8, duration: 0.6 }}
-                        className="text-white/90 text-lg font-semibold text-center mt-2"
-                    >
-                        {message}
-                    </motion.p>
-                )}
+
+                {/* Cycling status message with crossfade */}
+                <div className="h-8 flex items-center justify-center">
+                    <AnimatePresence mode="wait">
+                        {displayMessage && (
+                            <motion.p
+                                key={displayMessage}
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -8 }}
+                                transition={{ duration: 0.4 }}
+                                className="text-white/90 text-lg font-semibold text-center"
+                            >
+                                {displayMessage}
+                            </motion.p>
+                        )}
+                    </AnimatePresence>
+                </div>
+
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}

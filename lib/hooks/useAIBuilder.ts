@@ -105,6 +105,19 @@ export function useAIBuilder(
       const operations: AIOperation[] = data.operations || [];
       const message: string = data.message || 'Done.';
 
+      // If the server flagged a parse error, treat it as an error message
+      // (operations will be [] so nothing wrong gets applied)
+      if (data.parseError) {
+        const errMsg: AIMessage = {
+          id: `msg-${Date.now()}-err`,
+          role: 'assistant',
+          content: message,
+          isError: true,
+        };
+        setMessages(prev => [...prev, errMsg]);
+        return;
+      }
+
       // Apply operations
       for (const op of operations) {
         applyOperation(op, callbacks);
