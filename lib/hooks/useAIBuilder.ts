@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { BlockData } from '@/lib/editor-context';
 
 export interface AIMessage {
@@ -14,6 +14,14 @@ export interface AIMessage {
 export interface AIOperation {
   op: string;
   [key: string]: any;
+}
+
+// Shared with AIBuilderPanel — do NOT import from server-only rate-limit.ts
+export interface UsageRemaining {
+  total?: number; // free plan only
+  day?: number;
+  week?: number;
+  month?: number;
 }
 
 interface SiteState {
@@ -43,8 +51,17 @@ export function useAIBuilder(
   const [isLoading, setIsLoading] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [authExpired, setAuthExpired] = useState(false);
+  const [remaining, setRemaining] = useState<UsageRemaining | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const wasCancelledRef = useRef(false);
+
+  // Fetch remaining on mount so the UI can show usage warnings before the first request
+  useEffect(() => {
+    fetch('/api/ai/builder', { credentials: 'include' })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.remaining) setRemaining(data.remaining); })
+      .catch(() => {});
+  }, []);
 
   const sendMessage = useCallback(async (prompt: string, options?: { isNewSite?: boolean }) => {
     if (!prompt.trim() || isLoading) return;
@@ -81,10 +98,12 @@ export function useAIBuilder(
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
 
-        // Basic plan daily limit reached — show upgrade modal
+        // Update remaining even on rate-limit responses so the UI stays accurate
+        if (errData.remaining) setRemaining(errData.remaining);
+
+        // Limit reached — show upgrade modal
         if (res.status === 429 && errData.upgradeRequired) {
           setShowUpgradeModal(true);
-          // Remove the user message since it wasn't processed
           setMessages(prev => prev.filter(m => m.id !== userMsg.id));
           return;
         }
@@ -114,8 +133,10 @@ export function useAIBuilder(
       const operations: AIOperation[] = data.operations || [];
       const message: string = data.message || 'Done.';
 
+      // Update remaining from successful response
+      if (data.remaining) setRemaining(data.remaining);
+
       // If the server flagged a parse error, treat it as an error message
-      // (operations will be [] so nothing wrong gets applied)
       if (data.parseError) {
         const errMsg: AIMessage = {
           id: `msg-${Date.now()}-err`,
@@ -180,7 +201,7 @@ export function useAIBuilder(
     setShowUpgradeModal(false);
   }, []);
 
-  return { messages, isLoading, sendMessage, cancel, clearMessages, showUpgradeModal, dismissUpgradeModal, authExpired };
+  return { messages, isLoading, sendMessage, cancel, clearMessages, showUpgradeModal, dismissUpgradeModal, authExpired, remaining };
 }
 
 function applyOperation(op: AIOperation, callbacks: AIBuilderCallbacks) {

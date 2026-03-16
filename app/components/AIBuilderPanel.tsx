@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Sparkles, Trash2, X, Square } from 'lucide-react';
-import { AIMessage } from '@/lib/hooks/useAIBuilder';
+import { Send, Loader2, Sparkles, Trash2, Square } from 'lucide-react';
+import { AIMessage, UsageRemaining } from '@/lib/hooks/useAIBuilder';
+
+const WARN_THRESHOLD = 3; // show remaining badge when this many or fewer left
 
 interface AIBuilderPanelProps {
   messages: AIMessage[];
@@ -13,8 +15,38 @@ interface AIBuilderPanelProps {
   isPro: boolean;
   isBasic?: boolean;
   isFree?: boolean;
+  remaining?: UsageRemaining | null;
   showUpgradeModal?: boolean;
   onDismissUpgradeModal?: () => void;
+}
+
+/** Returns the most urgent low-quota warning string, or null if not close to any limit. */
+function getRemainingWarning(remaining: UsageRemaining | null | undefined, isFree: boolean): string | null {
+  if (!remaining) return null;
+
+  if (isFree) {
+    if (remaining.total !== undefined && remaining.total <= WARN_THRESHOLD) {
+      return remaining.total === 0
+        ? 'No free prompts left'
+        : `${remaining.total} free prompt${remaining.total === 1 ? '' : 's'} left`;
+    }
+    return null;
+  }
+
+  // Show the most pressing (lowest) limit
+  const candidates: Array<{ value: number; label: string }> = [];
+  if (remaining.day   !== undefined) candidates.push({ value: remaining.day,   label: 'today' });
+  if (remaining.week  !== undefined) candidates.push({ value: remaining.week,  label: 'this week' });
+  if (remaining.month !== undefined) candidates.push({ value: remaining.month, label: 'this month' });
+
+  const urgent = candidates
+    .filter(c => c.value <= WARN_THRESHOLD)
+    .sort((a, b) => a.value - b.value)[0];
+
+  if (!urgent) return null;
+  return urgent.value === 0
+    ? `No prompts left ${urgent.label}`
+    : `${urgent.value} prompt${urgent.value === 1 ? '' : 's'} left ${urgent.label}`;
 }
 
 const QUICK_PROMPTS = [
@@ -25,7 +57,7 @@ const QUICK_PROMPTS = [
   'Change the color scheme to something modern and dark',
 ];
 
-export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, onClear, isPro, isBasic = false, isFree = false, showUpgradeModal = false, onDismissUpgradeModal }: AIBuilderPanelProps) {
+export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, onClear, isPro, isBasic = false, isFree = false, remaining, showUpgradeModal = false, onDismissUpgradeModal }: AIBuilderPanelProps) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -90,14 +122,21 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
               <>
                 <h2 className="text-2xl font-black text-slate-900 mb-2">Free Limit Reached</h2>
                 <p className="text-slate-600 mb-6 text-sm leading-relaxed">
-                  You've used all <strong>3 free AI Builder prompts</strong>. Subscribe to a plan to keep building with AI.
+                  You've used all <strong>4 free AI Builder prompts</strong>. Subscribe to a plan to keep building with AI.
+                </p>
+              </>
+            ) : isBasic ? (
+              <>
+                <h2 className="text-2xl font-black text-slate-900 mb-2">Limit Reached</h2>
+                <p className="text-slate-600 mb-6 text-sm leading-relaxed">
+                  You've hit your Basic plan limit (10/day · 20/week · 30/month). Upgrade to Pro for 30 per day, 50 per week, and 100 per month.
                 </p>
               </>
             ) : (
               <>
-                <h2 className="text-2xl font-black text-slate-900 mb-2">Daily Limit Reached</h2>
+                <h2 className="text-2xl font-black text-slate-900 mb-2">Limit Reached</h2>
                 <p className="text-slate-600 mb-6 text-sm leading-relaxed">
-                  You've used all <strong>3 AI Builder prompts</strong> for today on the Basic plan. Upgrade to Pro for increased daily limits and unlock the full power of AI site building.
+                  You've reached your Pro plan limit for this period. Your quota resets daily, weekly, and monthly.
                 </p>
               </>
             )}
@@ -175,6 +214,23 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
 
           <div ref={messagesEndRef} />
         </div>
+
+        {/* Remaining prompts warning */}
+        {(() => {
+          const warning = getRemainingWarning(remaining, isFree);
+          if (!warning) return null;
+          const isOut = warning.startsWith('No');
+          return (
+            <div className={`shrink-0 mx-3 mb-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 ${
+              isOut
+                ? 'bg-red-50 text-red-600 border border-red-200'
+                : 'bg-amber-50 text-amber-700 border border-amber-200'
+            }`}>
+              <span className="shrink-0">{isOut ? '⛔' : '⚠️'}</span>
+              {warning}
+            </div>
+          );
+        })()}
 
         {/* Input */}
         <div className="shrink-0 px-3 pb-3 pt-2 border-t border-slate-100">

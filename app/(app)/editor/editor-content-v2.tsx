@@ -905,6 +905,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
           isFreeUser={isFreeUser}
           showAiUpgradeModal={aiBuilder.showUpgradeModal}
           onDismissAiUpgradeModal={aiBuilder.dismissUpgradeModal}
+          aiRemaining={aiBuilder.remaining}
           focusAiBuilder={focusAiBuilder}
         />
 
