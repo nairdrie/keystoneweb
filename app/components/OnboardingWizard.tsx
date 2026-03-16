@@ -125,6 +125,7 @@ export default function OnboardingWizard() {
   const [showWelcomeBack, setShowWelcomeBack] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [showSiteLimit, setShowSiteLimit] = useState(false);
   const aiInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -223,6 +224,7 @@ export default function OnboardingWizard() {
     if (!aiPrompt.trim() || aiLoading) return;
 
     setAiLoading(true);
+    setAiError(null);
     try {
       // Create a site with the airy template (lightweight default for AI-generated sites)
       const res = await fetch('/api/sites', {
@@ -242,15 +244,25 @@ export default function OnboardingWizard() {
         if (res.status === 403 && errData.siteLimitReached) {
           setShowSiteLimit(true);
         } else {
-          console.error('Failed to create site:', errData);
+          console.error('[Onboarding] AI site creation failed', {
+            status: res.status,
+            statusText: res.statusText,
+            url: res.url,
+            error: errData?.error,
+            details: errData,
+            userId: user?.id ?? 'unauthenticated',
+          });
+          setAiError('Something went wrong creating your site. Please try again.');
         }
         setAiLoading(false);
         return;
       }
 
-      const { siteId } = await res.json();
+      const resData = await res.json();
+      const { siteId } = resData;
       if (!siteId) {
-        console.error('No siteId returned from API');
+        console.error('[Onboarding] No siteId returned from /api/sites', { response: resData, userId: user?.id ?? 'unauthenticated' });
+        setAiError('Something went wrong creating your site. Please try again.');
         setAiLoading(false);
         return;
       }
@@ -265,7 +277,8 @@ export default function OnboardingWizard() {
         router.push(`/signup?siteId=${siteId}`);
       }
     } catch (error) {
-      console.error('Failed to create AI site:', error);
+      console.error('[Onboarding] Network or unexpected error creating AI site:', error instanceof Error ? { message: error.message, stack: error.stack } : error);
+      setAiError('Something went wrong creating your site. Please try again.');
       setAiLoading(false);
     }
   };
@@ -292,12 +305,25 @@ export default function OnboardingWizard() {
         if (res.status === 403 && errData.siteLimitReached) {
           setShowSiteLimit(true);
         } else {
-          console.error('Failed to create site:', errData);
+          console.error('[Onboarding] Template site creation failed', {
+            status: res.status,
+            statusText: res.statusText,
+            url: res.url,
+            error: errData?.error,
+            details: errData,
+            templateId,
+            userId: user?.id ?? 'unauthenticated',
+          });
         }
         return;
       }
 
-      const { siteId } = await res.json();
+      const resData = await res.json();
+      const { siteId } = resData;
+      if (!siteId) {
+        console.error('[Onboarding] No siteId returned from /api/sites for template', { response: resData, templateId, userId: user?.id ?? 'unauthenticated' });
+        return;
+      }
 
       if (user) {
         // Authenticated — go straight to editor
@@ -307,7 +333,7 @@ export default function OnboardingWizard() {
         router.push(`/signup?siteId=${siteId}`);
       }
     } catch (error) {
-      console.error('Failed to create site:', error);
+      console.error('[Onboarding] Network or unexpected error creating template site:', error instanceof Error ? { message: error.message, stack: error.stack } : error);
     }
   };
 
@@ -512,6 +538,10 @@ export default function OnboardingWizard() {
                       </div>
                     </div>
                   </form>
+
+                  {aiError && (
+                    <p className="mt-3 text-sm text-red-600 text-center">{aiError}</p>
+                  )}
                 </div>
 
                 {/* OR Divider */}
