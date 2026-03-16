@@ -8,7 +8,7 @@ import Header from './Header';
 import { Sparkles, Send } from 'lucide-react';
 import SiteLimitModal from './SiteLimitModal';
 
-type BusinessType = 'services' | 'products' | 'both' | null;
+type BusinessType = 'services' | 'products' | 'portfolio' | 'nonprofit' | 'other' | null;
 type Category = string | null;
 
 interface TemplatePreview {
@@ -40,10 +40,22 @@ const BUSINESS_TYPES = [
     icon: '📦',
   },
   {
-    id: 'both',
-    label: 'Both',
-    description: 'I do services AND sell products',
-    icon: '🎯',
+    id: 'portfolio',
+    label: 'Portfolio / Branding',
+    description: 'Showcase my work and personal brand',
+    icon: '🎨',
+  },
+  {
+    id: 'nonprofit',
+    label: 'Association / Non-Profit',
+    description: 'Serve a community or cause',
+    icon: '🤝',
+  },
+  {
+    id: 'other',
+    label: 'Other',
+    description: 'Something else entirely',
+    icon: '✨',
   },
 ];
 
@@ -69,10 +81,29 @@ const CATEGORIES: Record<Exclude<BusinessType, null>, any[]> = {
     { id: 'dropship', label: 'Dropshipping', icon: '📮' },
     { id: 'subscription', label: 'Subscription Box', icon: '📬' },
   ],
-  both: [
-    { id: 'agency', label: 'Agency', icon: '🏢' },
-    { id: 'studio', label: 'Creative Studio', icon: '🎭' },
-    { id: 'retail', label: 'Retail + Services', icon: '🏪' },
+  portfolio: [
+    { id: 'photographer', label: 'Photographer', example: 'Photography portfolio & booking', icon: '📷' },
+    { id: 'designer', label: 'Designer', example: 'Graphic & UI/UX design work', icon: '🖌️' },
+    { id: 'artist', label: 'Artist', example: 'Fine art, illustration, murals', icon: '🎭' },
+    { id: 'videographer', label: 'Videographer', example: 'Video production & film', icon: '🎬' },
+    { id: 'architect', label: 'Architect / Interior', example: 'Architecture & interior design', icon: '🏛️' },
+    { id: 'agency', label: 'Creative Agency', example: 'Branding, marketing, campaigns', icon: '🏢' },
+  ],
+  nonprofit: [
+    { id: 'nonprofit', label: 'Non-Profit Org', example: 'Mission-driven organization', icon: '🌍' },
+    { id: 'charity', label: 'Charity / Fundraising', example: 'Donations & fundraising campaigns', icon: '❤️' },
+    { id: 'association', label: 'Association', example: 'Member-based organization', icon: '🤝' },
+    { id: 'community', label: 'Community Group', example: 'Local or online community', icon: '🏘️' },
+    { id: 'foundation', label: 'Foundation', example: 'Grantmaking & philanthropy', icon: '🏛️' },
+    { id: 'church', label: 'Church / Religious', example: 'Faith-based organization', icon: '⛪' },
+  ],
+  other: [
+    { id: 'restaurant', label: 'Restaurant / Food', example: 'Menu, reservations & ordering', icon: '🍽️' },
+    { id: 'event', label: 'Events / Weddings', example: 'Event planning & coordination', icon: '🎉' },
+    { id: 'blog', label: 'Blog / Content', example: 'Articles, news & storytelling', icon: '✍️' },
+    { id: 'realestate', label: 'Real Estate', example: 'Property listings & agents', icon: '🏡' },
+    { id: 'education', label: 'Education / Courses', example: 'Teaching, tutoring & e-learning', icon: '🎓' },
+    { id: 'general', label: 'General / Other', example: 'Everything else', icon: '🌐' },
   ],
 };
 
@@ -500,7 +531,7 @@ export default function OnboardingWizard() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
                   {BUSINESS_TYPES.map(type => (
                     <button
                       key={type.id}
@@ -525,7 +556,10 @@ export default function OnboardingWizard() {
                   Tell Us More
                 </h1>
                 <p className="text-xl text-slate-600 mb-16 text-center max-w-2xl mx-auto">
-                  What type of {businessType} business are you?
+                  {businessType === 'portfolio' ? 'What best describes your creative work?' :
+                   businessType === 'nonprofit' ? 'What kind of organization are you?' :
+                   businessType === 'other' ? 'What best describes your website?' :
+                   `What type of ${businessType} business are you?`}
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
