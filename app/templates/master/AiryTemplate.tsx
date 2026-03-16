@@ -46,10 +46,19 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
                 .template-wrapper h1, .template-wrapper h2, .template-wrapper h3, .template-wrapper h4, .template-wrapper h5, .template-wrapper h6, .template-wrapper .font-title {
                     font-family: "${titleFont}", sans-serif !important;
                 }
+                /* First block top-padding offset for floating header — adds header height to existing block padding */
+                .first-block-offset section.py-40 { padding-top: calc(10rem + var(--header-offset, 0px)) !important; }
+                .first-block-offset section.py-24 { padding-top: calc(6rem + var(--header-offset, 0px)) !important; }
+                .first-block-offset section.py-20 { padding-top: calc(5rem + var(--header-offset, 0px)) !important; }
+                .first-block-offset section.py-16 { padding-top: calc(4rem + var(--header-offset, 0px)) !important; }
+                .first-block-offset section.py-12 { padding-top: calc(3rem + var(--header-offset, 0px)) !important; }
+                .first-block-offset section:not([class*="py-"]) { padding-top: var(--header-offset, 0px) !important; }
             `}} />
 
-            {/* Header — floating pill nav */}
-            <header className="sticky top-0 z-50 pt-3 px-4 bg-white">
+            {/* Header — floating pill nav. Sticky with h-0 so it takes no document space;
+                the inner pill is absolutely positioned to overlay content. */}
+            <header className="sticky top-0 z-50 h-0 overflow-visible">
+                <div className="pt-3 px-4">
                 <div className="max-w-6xl mx-auto bg-white/90 backdrop-blur-xl rounded-2xl shadow-lg shadow-black/5 border border-white/50 px-5">
                     <div className="flex items-center justify-between h-14">
                         <Link
@@ -125,10 +134,11 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
                         </div>
                     )}
                 </div>
+                </div>
             </header>
 
-            <main className="flex-1 w-full flex flex-col min-h-[50vh] bg-white">
-                {children || <BlockRenderer palette={palette} />}
+            <main className="flex-1 w-full flex flex-col min-h-[50vh]">
+                {children || <BlockRenderer palette={palette} headerOffset={80} />}
             </main>
 
             {/* Footer — soft rounded */}

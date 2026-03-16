@@ -72,7 +72,7 @@ const AVAILABLE_BLOCKS = [
     { type: 'custom_html', label: 'Custom HTML / Embed' },
 ];
 
-export default function BlockRenderer({ palette }: { palette: Record<string, string> }) {
+export default function BlockRenderer({ palette, headerOffset }: { palette: Record<string, string>; headerOffset?: number }) {
     const context = useEditorContext();
     const blocks = context?.blocks || [];
     const isEditMode = context?.isEditMode || false;
@@ -175,8 +175,13 @@ export default function BlockRenderer({ palette }: { palette: Record<string, str
                 const Component = BLOCK_COMPONENTS[block.type];
                 if (!Component) return null;
 
+                const isFirst = i === 0 && !!headerOffset;
                 return (
-                    <div key={block.id} className="w-full">
+                    <div
+                        key={block.id}
+                        className={`w-full${isFirst ? ' first-block-offset' : ''}`}
+                        style={isFirst ? { '--header-offset': `${headerOffset}px` } as React.CSSProperties : undefined}
+                    >
                         <AddBlockMenu index={i} />
                         <BlockWrapper id={block.id} type={block.type}>
                             <Component
