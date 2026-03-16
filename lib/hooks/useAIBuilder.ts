@@ -45,7 +45,7 @@ export function useAIBuilder(
   const abortRef = useRef<AbortController | null>(null);
   const wasCancelledRef = useRef(false);
 
-  const sendMessage = useCallback(async (prompt: string) => {
+  const sendMessage = useCallback(async (prompt: string, options?: { isNewSite?: boolean }) => {
     if (!prompt.trim() || isLoading) return;
 
     wasCancelledRef.current = false;
@@ -73,6 +73,7 @@ export function useAIBuilder(
           prompt: prompt.trim(),
           siteState,
           availablePalettes,
+          ...(options?.isNewSite ? { isNewSite: true } : {}),
         }),
       });
 
@@ -104,6 +105,19 @@ export function useAIBuilder(
       const data = await res.json();
       const operations: AIOperation[] = data.operations || [];
       const message: string = data.message || 'Done.';
+
+      // If the server flagged a parse error, treat it as an error message
+      // (operations will be [] so nothing wrong gets applied)
+      if (data.parseError) {
+        const errMsg: AIMessage = {
+          id: `msg-${Date.now()}-err`,
+          role: 'assistant',
+          content: message,
+          isError: true,
+        };
+        setMessages(prev => [...prev, errMsg]);
+        return;
+      }
 
       // Apply operations
       for (const op of operations) {

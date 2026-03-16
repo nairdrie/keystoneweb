@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { prompt, siteState, availablePalettes } = body;
+    const { prompt, siteState, availablePalettes, isNewSite } = body;
 
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json({ error: 'Missing prompt.' }, { status: 400 });
@@ -68,8 +68,11 @@ CURRENT SITE STATE:
 
     const systemPrompt = buildSystemPrompt(availablePalettes || []);
 
-    const userMessage = `${siteContext}
+    const newSiteContext = isNewSite ? `
+CONTEXT: This is a BRAND NEW site being built from scratch via onboarding. The current blocks are default template placeholders and should ALL be removed and replaced with blocks tailored to the user's request. Start by removing every existing block, then add your new blocks.
+` : '';
 
+    const userMessage = `${siteContext}${newSiteContext}
 USER REQUEST: ${prompt}`;
 
     let aiResponse: string;
@@ -80,20 +83,16 @@ USER REQUEST: ${prompt}`;
       aiResponse = await callOpenAI(apiKey, modelId, systemPrompt, userMessage);
     }
 
-    // Parse the AI response as JSON
+    // Parse the AI response as JSON — try multiple extraction strategies
     let parsed;
     try {
-      // Strip markdown code fences if present
-      let cleaned = aiResponse.trim();
-      if (cleaned.startsWith('```')) {
-        cleaned = cleaned.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
-      }
-      parsed = JSON.parse(cleaned);
+      parsed = extractJSON(aiResponse);
     } catch {
+      // Never expose raw AI response to the client — log it server-side for debugging
+      console.error('AI Builder: failed to parse response as JSON. Raw response:', aiResponse.slice(0, 1000));
       return NextResponse.json({
         operations: [],
-        message: aiResponse.slice(0, 500),
-        raw: aiResponse,
+        message: 'Sorry, I had trouble processing that request. Please try again.',
         parseError: true,
       });
     }
@@ -103,9 +102,17 @@ USER REQUEST: ${prompt}`;
     // with valid block types can pass through.
     const sanitized = sanitizeOperations(parsed.operations || []);
 
+    // Sanitize the message: if it looks like raw JSON or contains JSON objects, replace with a generic message
+    let safeMessage = typeof parsed.message === 'string' ? parsed.message.slice(0, 1000) : 'Done.';
+    if (safeMessage.trim().startsWith('{') || safeMessage.trim().startsWith('[') || safeMessage.includes('"op":')) {
+      safeMessage = sanitized.length > 0
+        ? `I've made ${sanitized.length} change${sanitized.length !== 1 ? 's' : ''} to your site.`
+        : 'Done.';
+    }
+
     return NextResponse.json({
       operations: sanitized,
-      message: typeof parsed.message === 'string' ? parsed.message.slice(0, 1000) : 'Done.',
+      message: safeMessage,
     });
   } catch (err: any) {
     // Log full error server-side only — never expose raw provider messages to the client
@@ -235,6 +242,54 @@ function stripTags(str: string): string {
     .replace(/<script[\s>]/gi, '')
     .replace(/javascript\s*:/gi, '')
     .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
+}
+
+/**
+ * Robustly extract a JSON object from an AI response.
+ * Tries multiple strategies: direct parse, markdown fence stripping,
+ * and scanning for the outermost { ... } in the response.
+ */
+function extractJSON(raw: string): { operations: any[]; message: string } {
+  const cleaned = raw.trim();
+
+  // Strategy 1: Direct parse
+  try {
+    const result = JSON.parse(cleaned);
+    if (result && typeof result === 'object') return result;
+  } catch { /* continue */ }
+
+  // Strategy 2: Strip markdown code fences
+  const fenceMatch = cleaned.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+  if (fenceMatch) {
+    try {
+      const result = JSON.parse(fenceMatch[1].trim());
+      if (result && typeof result === 'object') return result;
+    } catch { /* continue */ }
+  }
+
+  // Strategy 3: Find the outermost JSON object by scanning for balanced braces
+  const firstBrace = cleaned.indexOf('{');
+  if (firstBrace !== -1) {
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    for (let i = firstBrace; i < cleaned.length; i++) {
+      const ch = cleaned[i];
+      if (escape) { escape = false; continue; }
+      if (ch === '\\' && inString) { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === '{') depth++;
+      if (ch === '}') { depth--; if (depth === 0) {
+        try {
+          const result = JSON.parse(cleaned.slice(firstBrace, i + 1));
+          if (result && typeof result === 'object') return result;
+        } catch { /* continue scanning */ }
+      }}
+    }
+  }
+
+  throw new Error('No valid JSON found in AI response');
 }
 
 async function callOpenAI(apiKey: string, model: string, system: string, userMessage: string): Promise<string> {
