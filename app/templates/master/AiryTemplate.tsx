@@ -49,7 +49,7 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
             `}} />
 
             {/* Header — floating pill nav */}
-            <header className="sticky top-0 z-50 pt-3 px-4">
+            <header className="sticky top-0 z-50 pt-3 px-4 bg-white">
                 <div className="max-w-6xl mx-auto bg-white/90 backdrop-blur-xl rounded-2xl shadow-lg shadow-black/5 border border-white/50 px-5">
                     <div className="flex items-center justify-between h-14">
                         <Link
@@ -127,7 +127,7 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
                 </div>
             </header>
 
-            <main className="flex-1 w-full flex flex-col min-h-[50vh]">
+            <main className="flex-1 w-full flex flex-col min-h-[50vh] bg-white">
                 {children || <BlockRenderer palette={palette} />}
             </main>
 
