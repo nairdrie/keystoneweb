@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import { sendOrderConfirmation, sendOrderNotification } from '@/lib/email';
+import { completeDomainPurchase } from '@/app/api/domains/purchase/route';
 import Stripe from 'stripe';
 
 // Initialize Stripe only when API key is available
@@ -45,6 +46,35 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
+
+        // ── Domain Purchase Payment ─────────────────────────────────
+        if (session.metadata?.type === 'domain_purchase') {
+          const { domainPurchaseId, domain, siteId, userId } = session.metadata;
+
+          if (!domainPurchaseId || !domain || !siteId || !userId) {
+            console.error('Missing domain purchase metadata in checkout session');
+            return NextResponse.json({ error: 'Invalid session metadata' }, { status: 400 });
+          }
+
+          console.log(`Processing paid domain purchase: ${domain} for user ${userId}`);
+
+          const result = await completeDomainPurchase(
+            domainPurchaseId,
+            domain,
+            siteId,
+            userId,
+          );
+
+          if (result.success) {
+            console.log(`✅ Domain ${domain} purchased and linked successfully`);
+          } else {
+            console.error(`❌ Domain purchase failed for ${domain}:`, result.error);
+            // The purchase record is already marked as 'failed' by completeDomainPurchase
+          }
+
+          break;
+        }
+
         if (session.metadata?.type === 'ecommerce_order') {
           const orderId = session.metadata.orderId;
           const siteId = session.metadata.siteId;

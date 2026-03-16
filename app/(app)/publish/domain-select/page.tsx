@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Check,
@@ -22,6 +22,8 @@ import {
   ChevronUp,
   Leaf,
   ShoppingCart,
+  Sparkles,
+  HelpCircle,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 
@@ -39,6 +41,7 @@ interface DomainSearchResult {
   available: boolean;
   price?: number;
   currency?: string;
+  isAlternative?: boolean;
 }
 
 interface DnsRecord {
@@ -55,6 +58,113 @@ interface DnsInstructions {
 
 type DomainTab = 'subdomain' | 'custom';
 type CustomMode = 'search' | 'external';
+
+// ─── Loading Messages ────────────────────────────────────────────────────────
+
+const LOADING_MESSAGES = [
+  'Checking availability...',
+  'Finding the perfect domain for you...',
+  'Searching across registrars...',
+  'Looking for smart alternatives...',
+  'Almost there...',
+];
+
+function useRotatingText(active: boolean, messages: string[], intervalMs = 2200) {
+  const [index, setIndex] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (active) {
+      setIndex(0);
+      timerRef.current = setInterval(() => {
+        setIndex((prev: number) => (prev + 1) % messages.length);
+      }, intervalMs);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [active, messages.length, intervalMs]);
+
+  return messages[index];
+}
+
+// ─── Skeleton Loader ─────────────────────────────────────────────────────────
+
+function DomainResultsSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      {/* Recommended .ca skeleton */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <div className="h-6 w-28 bg-red-100 rounded-full" />
+          <div className="h-4 w-32 bg-slate-200 rounded" />
+        </div>
+        <div className="h-14 bg-slate-100 rounded-lg border-2 border-slate-100" />
+      </div>
+      {/* Smart suggestions skeleton */}
+      <div>
+        <div className="h-4 w-36 bg-slate-200 rounded mb-3" />
+        <div className="space-y-2">
+          <div className="h-12 bg-slate-50 rounded-lg border border-slate-100" />
+          <div className="h-12 bg-slate-50 rounded-lg border border-slate-100" />
+          <div className="h-12 bg-slate-50 rounded-lg border border-slate-100" />
+        </div>
+      </div>
+      {/* Other extensions skeleton */}
+      <div className="h-10 bg-slate-50 rounded-lg border border-slate-100" />
+    </div>
+  );
+}
+
+// ─── Price Label ─────────────────────────────────────────────────────────────
+
+function DomainPriceLabel({
+  available,
+  price,
+  freeDomainUsed,
+  domain,
+  showTooltip,
+  onToggleTooltip,
+}: {
+  available: boolean;
+  price?: number;
+  freeDomainUsed: boolean;
+  domain: string;
+  showTooltip: boolean;
+  onToggleTooltip: (domain: string | null) => void;
+}) {
+  if (!available) {
+    return <span className="text-xs font-semibold text-slate-400">Taken</span>;
+  }
+
+  if (!freeDomainUsed) {
+    return <span className="text-xs font-semibold text-green-700">Included with Pro</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-1 relative">
+      <span className="text-xs font-semibold text-slate-800">
+        ${price?.toFixed(2) ?? '—'} USD
+      </span>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleTooltip(showTooltip ? null : domain);
+        }}
+        className="text-slate-400 hover:text-slate-600 transition-colors"
+        aria-label="Why does this cost money?"
+      >
+        <HelpCircle className="w-3.5 h-3.5" />
+      </button>
+      {showTooltip && (
+        <div className="absolute right-0 top-6 z-10 w-56 p-2.5 bg-slate-800 text-white text-xs rounded-lg shadow-lg">
+          <p>Your Pro plan includes one free domain. Since you&apos;ve already registered a domain, additional domains are available at this price.</p>
+          <div className="absolute -top-1 right-3 w-2 h-2 bg-slate-800 rotate-45" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Main Content ────────────────────────────────────────────────────────────
 
@@ -93,6 +203,8 @@ function DomainSelectContent() {
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [purchasing, setPurchasing] = useState(false);
   const [showOtherTlds, setShowOtherTlds] = useState(false);
+  const [freeDomainUsed, setFreeDomainUsed] = useState(false);
+  const [showPriceTooltip, setShowPriceTooltip] = useState<string | null>(null);
 
   // External domain state
   const [externalDomain, setExternalDomain] = useState('');
@@ -104,6 +216,9 @@ function DomainSelectContent() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const isPro = userPlan?.toLowerCase().includes('pro');
+
+  // Rotating loading text for domain search
+  const loadingText = useRotatingText(searching, LOADING_MESSAGES);
 
   // Fetch user subscription
   useEffect(() => {
@@ -246,6 +361,7 @@ function DomainSelectContent() {
       setRecommendedResults(data.recommended || []);
       setOtherResults(data.other || []);
       setSuggestions(data.suggestions || []);
+      setFreeDomainUsed(data.freeDomainUsed ?? false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to search domains');
       console.error(err);
@@ -263,21 +379,42 @@ function DomainSelectContent() {
     setError(null);
 
     try {
-      const res = await fetch('/api/domains/purchase', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ siteId, domain: selectedDomain }),
-      });
+      if (freeDomainUsed) {
+        // Paid flow: create Stripe checkout session, redirect to Stripe
+        const res = await fetch('/api/domains/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ siteId, domain: selectedDomain }),
+        });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to purchase domain');
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || 'Failed to create checkout');
+        }
+
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+          return; // Don't set purchasing false — we're navigating away
+        }
+      } else {
+        // Free flow: purchase directly
+        const res = await fetch('/api/domains/purchase', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ siteId, domain: selectedDomain }),
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || 'Failed to purchase domain');
+        }
+
+        setSuccess(true);
+        setPublishedUrl(`https://${selectedDomain}`);
       }
-
-      const result = await res.json();
-      setSuccess(true);
-      setPublishedUrl(`https://${selectedDomain}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to purchase domain');
       console.error(err);
@@ -603,9 +740,9 @@ function DomainSelectContent() {
                         <input
                           type="text"
                           value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                          onChange={(e) => setSearchQuery(e.target.value.toLowerCase().replace(/[^a-z0-9-.]/g, ''))}
                           onKeyDown={(e) => e.key === 'Enter' && handleDomainSearch()}
-                          placeholder="e.g., mybusiness"
+                          placeholder="e.g., mybusiness or mybusiness.ca"
                           className="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg text-slate-900 font-medium placeholder-slate-400 focus:ring-2 focus:ring-red-600 focus:border-transparent"
                         />
                         <button
@@ -626,15 +763,28 @@ function DomainSelectContent() {
                       </p>
                     </div>
 
-                    {/* ── Recommended: .ca Domains ──────────────────────── */}
-                    {recommendedResults.length > 0 && (
+                    {/* ── Skeleton Loader ─────────────────────────────── */}
+                    {searching && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-4">
+                          <Loader2 className="w-4 h-4 animate-spin text-red-600" />
+                          <p className="text-sm font-medium text-slate-600 transition-all duration-300">
+                            {loadingText}
+                          </p>
+                        </div>
+                        <DomainResultsSkeleton />
+                      </div>
+                    )}
+
+                    {/* ── Recommended: .ca Domain ────────────────────────── */}
+                    {!searching && recommendedResults.length > 0 && (
                       <div>
                         <div className="flex items-center gap-2 mb-3">
                           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-50 border border-red-200 rounded-full">
                             <Leaf className="w-3.5 h-3.5 text-red-600" />
                             <span className="text-xs font-bold text-red-700">Recommended</span>
                           </div>
-                          <h3 className="text-sm font-semibold text-slate-900">Canadian Domains</h3>
+                          <h3 className="text-sm font-semibold text-slate-900">Canadian Domain</h3>
                         </div>
 
                         <div className="p-3 bg-red-50/50 border border-red-100 rounded-lg mb-3">
@@ -674,17 +824,73 @@ function DomainSelectContent() {
                                   {result.domain}
                                 </span>
                               </div>
-                              <span className={`text-xs font-semibold ${result.available ? 'text-green-700' : 'text-slate-400'}`}>
-                                {result.available ? 'Included with plan' : 'Taken'}
-                              </span>
+                              <DomainPriceLabel
+                                available={result.available}
+                                price={result.price}
+                                freeDomainUsed={freeDomainUsed}
+                                domain={result.domain}
+                                showTooltip={showPriceTooltip === result.domain}
+                                onToggleTooltip={setShowPriceTooltip}
+                              />
                             </button>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    {/* ── Other TLDs (Collapsible) ─────────────────────── */}
-                    {otherResults.length > 0 && (
+                    {/* ── Smart Suggestions (.ca alternatives, only when exact .ca is taken) ── */}
+                    {!searching && suggestions.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 border border-purple-200 rounded-full">
+                            <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                            <span className="text-xs font-bold text-purple-700">Smart Suggestions</span>
+                          </div>
+                          <h3 className="text-sm font-semibold text-slate-700">Available .ca alternatives</h3>
+                        </div>
+
+                        <div className="space-y-2">
+                          {suggestions.map((s) => (
+                            <button
+                              key={s.domain}
+                              onClick={() => s.available && setSelectedDomain(s.domain)}
+                              disabled={!s.available}
+                              className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all text-left ${
+                                selectedDomain === s.domain
+                                  ? 'border-red-600 bg-red-50'
+                                  : s.available
+                                    ? 'border-purple-100 hover:border-purple-200 bg-white'
+                                    : 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                {selectedDomain === s.domain ? (
+                                  <CheckCircle2 className="w-4 h-4 text-red-600 flex-shrink-0" />
+                                ) : s.available ? (
+                                  <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                                ) : (
+                                  <X className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                                )}
+                                <span className="font-mono font-semibold text-sm text-slate-900">
+                                  {s.domain}
+                                </span>
+                              </div>
+                              <DomainPriceLabel
+                                available={s.available}
+                                price={s.price}
+                                freeDomainUsed={freeDomainUsed}
+                                domain={s.domain}
+                                showTooltip={showPriceTooltip === s.domain}
+                                onToggleTooltip={setShowPriceTooltip}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Other TLDs (Collapsible, below suggestions) ──── */}
+                    {!searching && otherResults.filter(r => r.available).length > 0 && (
                       <div>
                         <button
                           onClick={() => setShowOtherTlds(!showOtherTlds)}
@@ -700,7 +906,7 @@ function DomainSelectContent() {
 
                         {showOtherTlds && (
                           <div className="space-y-2 mt-2">
-                            {otherResults.map((result) => (
+                            {otherResults.filter(r => r.available).map((result) => (
                               <button
                                 key={result.domain}
                                 onClick={() => result.available && setSelectedDomain(result.domain)}
@@ -725,9 +931,14 @@ function DomainSelectContent() {
                                     {result.domain}
                                   </span>
                                 </div>
-                                <span className={`text-xs font-semibold ${result.available ? 'text-green-700' : 'text-slate-400'}`}>
-                                  {result.available ? 'Included with plan' : 'Taken'}
-                                </span>
+                                <DomainPriceLabel
+                                  available={result.available}
+                                  price={result.price}
+                                  freeDomainUsed={freeDomainUsed}
+                                  domain={result.domain}
+                                  showTooltip={showPriceTooltip === result.domain}
+                                  onToggleTooltip={setShowPriceTooltip}
+                                />
                               </button>
                             ))}
                           </div>
@@ -735,57 +946,46 @@ function DomainSelectContent() {
                       </div>
                     )}
 
-                    {/* Suggestions */}
-                    {suggestions.length > 0 && (
-                      <div>
-                        <h3 className="text-sm font-semibold text-slate-700 mb-2">Other ideas</h3>
-                        <div className="flex flex-wrap gap-2">
-                          {suggestions.map((s) => (
-                            <button
-                              key={s.domain}
-                              onClick={() => setSelectedDomain(s.domain)}
-                              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                                selectedDomain === s.domain
-                                  ? 'border-red-600 bg-red-50 text-red-700'
-                                  : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                              }`}
-                            >
-                              {s.domain}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     {/* Register Button */}
-                    {selectedDomain && (
-                      <div className="pt-3 border-t border-slate-100">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-sm text-slate-600">Selected domain:</span>
-                          <span className="font-mono font-bold text-slate-900">{selectedDomain}</span>
+                    {!searching && selectedDomain && (() => {
+                      const selectedResult = [...recommendedResults, ...suggestions, ...otherResults]
+                        .find(r => r.domain === selectedDomain);
+                      const domainPrice = selectedResult?.price;
+                      const isPaid = freeDomainUsed && domainPrice && domainPrice > 0;
+
+                      return (
+                        <div className="pt-3 border-t border-slate-100">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-sm text-slate-600">Selected domain:</span>
+                            <span className="font-mono font-bold text-slate-900">{selectedDomain}</span>
+                          </div>
+                          <button
+                            onClick={handlePurchaseDomain}
+                            disabled={purchasing}
+                            className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                          >
+                            {purchasing ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                {isPaid ? 'Proceeding to checkout...' : 'Registering Domain...'}
+                              </>
+                            ) : (
+                              <>
+                                <Globe className="w-4 h-4" />
+                                {isPaid
+                                  ? `Purchase Domain — $${domainPrice.toFixed(2)} USD`
+                                  : 'Claim & Connect Domain'}
+                              </>
+                            )}
+                          </button>
+                          <p className="text-xs text-center text-slate-500 mt-2">
+                            {isPaid
+                              ? 'You\u2019ll be redirected to a secure checkout.'
+                              : 'No extra cost \u2014 included with your Pro plan.'}
+                          </p>
                         </div>
-                        <button
-                          onClick={handlePurchaseDomain}
-                          disabled={purchasing}
-                          className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                          {purchasing ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              Registering Domain...
-                            </>
-                          ) : (
-                            <>
-                              <Globe className="w-4 h-4" />
-                              Claim &amp; Connect Domain
-                            </>
-                          )}
-                        </button>
-                        <p className="text-xs text-center text-slate-500 mt-2">
-                          No extra cost — included with your Pro plan.
-                        </p>
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     {/* Empty state */}
                     {!searching && recommendedResults.length === 0 && otherResults.length === 0 && searchQuery.length >= 2 && suggestions.length === 0 && (
