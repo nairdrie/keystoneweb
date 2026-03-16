@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
 
 interface SignUpModalProps {
@@ -25,6 +26,7 @@ function getPasswordStrength(password: string): { level: number; text: string; c
 
 export default function SignUpModal({ isOpen, onClose, siteId, onSuccess, defaultToSignin }: SignUpModalProps) {
   const { signUp, signIn } = useAuth();
+  const router = useRouter();
   
   // Start in signin mode if user is returning from continue editing
   const [step, setStep] = useState<Step>(defaultToSignin ? 'email' : 'email');
@@ -361,7 +363,7 @@ export default function SignUpModal({ isOpen, onClose, siteId, onSuccess, defaul
 
             <button
               type="button"
-              onClick={() => setError('Password reset not yet implemented')}
+              onClick={() => router.push(`/forgot-password?email=${encodeURIComponent(email)}`)}
               className="w-full text-sm text-red-600 hover:text-red-700 font-medium"
             >
               Forgot Password?
