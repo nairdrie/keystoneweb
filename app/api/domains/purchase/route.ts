@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
     // Verify Pro plan
     const { data: subscription } = await supabase
       .from('user_subscriptions')
-      .select('subscription_status, subscription_plan')
+      .select('subscription_status, subscription_plan, stripe_subscription_id')
       .eq('user_id', user.id)
       .single();
 
@@ -269,7 +269,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Record the free domain purchase
+    const claimedAt = new Date().toISOString();
+
+    // Record the free domain purchase, linking it to the active subscription
     await supabase.from('domain_purchases').insert({
       user_id: user.id,
       site_id: siteId,
@@ -278,7 +280,14 @@ export async function POST(request: NextRequest) {
       amount_cents: 0,
       is_free_with_pro: true,
       status: 'completed',
+      stripe_subscription_id: subscription?.stripe_subscription_id ?? null,
     });
+
+    // Flag the subscription so refund-review logic (webhook) knows a digital good was delivered
+    await supabase
+      .from('user_subscriptions')
+      .update({ free_domain_claimed: true, free_domain_claimed_at: claimedAt })
+      .eq('user_id', user.id);
 
     return NextResponse.json({
       success: true,

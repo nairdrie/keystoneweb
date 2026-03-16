@@ -14,10 +14,12 @@ const getStripeClient = () => {
 
 /**
  * POST /api/stripe/webhook
- * Handle Stripe webhook events for subscription confirmation
- * 
+ * Handle Stripe webhook events for subscription and payment lifecycle.
+ *
  * Listens for:
- * - checkout.session.completed: Store subscription info in DB when payment succeeds
+ * - checkout.session.completed: Store subscription info / trigger domain purchase on payment success
+ * - customer.subscription.updated: Sync status; tag customer as refund-ineligible if free domain was claimed
+ * - customer.subscription.deleted: Same as above + marks subscription as canceled
  */
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -187,18 +189,47 @@ export async function POST(request: NextRequest) {
 
         planName = planName || 'Unknown Plan';
 
-        const { error } = await supabase
+        const { data: userSub, error } = await supabase
           .from('user_subscriptions')
           .update({
             subscription_status: status,
             subscription_plan: planName,
             updated_at: new Date().toISOString(),
           })
-          .eq('stripe_subscription_id', subscription.id);
+          .eq('stripe_subscription_id', subscription.id)
+          .select('stripe_customer_id, free_domain_claimed, free_domain_claimed_at')
+          .single();
 
         if (error) {
           console.error(`Failed to update subscription ${subscription.id} to ${status}:`, error);
           return NextResponse.json({ error: 'Failed to update subscription' }, { status: 500 });
+        }
+
+        // ── Refund abuse prevention ────────────────────────────────────────
+        // If this subscription is being cancelled/lapsed and the user already
+        // claimed their free Pro domain, tag the Stripe customer so any refund
+        // request is immediately flagged in the dashboard.
+        const isCancelling = status === 'canceled' ||
+          (event.type === 'customer.subscription.updated' &&
+            (event.data.object as Stripe.Subscription).cancel_at_period_end === true);
+
+        if (isCancelling && userSub?.free_domain_claimed && userSub.stripe_customer_id) {
+          try {
+            const stripeClient = getStripeClient();
+            await stripeClient.customers.update(userSub.stripe_customer_id, {
+              metadata: {
+                free_domain_claimed: 'true',
+                free_domain_claimed_at: userSub.free_domain_claimed_at ?? new Date().toISOString(),
+                refund_policy: 'no_refund_digital_goods_delivered',
+              },
+            });
+            console.warn(
+              `⚠️  Subscription ${subscription.id} cancelled — free domain was already claimed. ` +
+              `Customer ${userSub.stripe_customer_id} tagged as refund-ineligible.`
+            );
+          } catch (tagErr) {
+            console.error('Failed to tag Stripe customer for refund prevention:', tagErr);
+          }
         }
 
         console.log(`✅ Subscription ${subscription.id} updated to status: ${status}, plan: ${planName}`);
