@@ -32,7 +32,7 @@ CREATE TABLE public.sites (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid CHECK (user_id IS NULL OR user_id IS NOT NULL),
   selected_template_id character varying NOT NULL,
-  business_type character varying NOT NULL CHECK (business_type::text = ANY (ARRAY['services'::character varying, 'products'::character varying, 'both'::character varying]::text[])),
+  business_type character varying NOT NULL CHECK (business_type::text = ANY (ARRAY['services'::character varying, 'products'::character varying, 'portfolio'::character varying, 'nonprofit'::character varying, 'other'::character varying]::text[])),
   category character varying NOT NULL,
   site_slug character varying UNIQUE,
   custom_domain character varying UNIQUE,
