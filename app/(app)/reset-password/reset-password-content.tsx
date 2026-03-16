@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/db/supabase';
 
 export default function ResetPasswordContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -15,15 +16,21 @@ export default function ResetPasswordContent() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    // Supabase fires PASSWORD_RECOVERY when user lands via the reset link
+    // Listen for PASSWORD_RECOVERY BEFORE exchanging the code so we don't miss the event
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setReady(true);
       }
     });
 
+    // PKCE flow: Supabase redirects here with ?code=xxx — exchange it for a session
+    const code = searchParams.get('code');
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).catch(console.error);
+    }
+
     return () => subscription.unsubscribe();
-  }, []);
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
