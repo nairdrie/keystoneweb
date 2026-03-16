@@ -24,6 +24,7 @@ export default function SignInContent() {
   }, [searchParams]);
 
   const siteId = searchParams.get('siteId');
+  const aiOnboarding = searchParams.get('aiOnboarding');
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,8 +34,11 @@ export default function SignInContent() {
     try {
       await signIn(email, password);
 
-      // Success - redirect to editor
-      if (siteId) {
+      // Success - redirect appropriately
+      if (aiOnboarding) {
+        // Return to onboarding to create site and run AI builder (now authenticated)
+        router.push('/onboarding?resumeAi=true');
+      } else if (siteId) {
         router.push(`/editor?siteId=${siteId}`);
       } else {
         router.push('/editor');
@@ -98,7 +102,7 @@ export default function SignInContent() {
 
           <p className="text-center text-slate-400 text-sm mt-6">
             Don't have an account?{' '}
-            <Link href={`/signup${email ? `?email=${encodeURIComponent(email)}` : ''}`} className="text-red-400 hover:text-red-300">
+            <Link href={`/signup${email ? `?email=${encodeURIComponent(email)}` : ''}${aiOnboarding ? `${email ? '&' : '?'}aiOnboarding=true` : ''}`} className="text-red-400 hover:text-red-300">
               Create one
             </Link>
           </p>
