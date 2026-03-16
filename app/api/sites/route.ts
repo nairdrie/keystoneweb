@@ -244,7 +244,7 @@ export async function POST(request: NextRequest) {
 
     if (siteError) {
       console.error('Supabase error creating site:', siteError);
-      return NextResponse.json({ error: 'Failed to create site' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to create site', detail: siteError.message }, { status: 500 });
     }
 
     // Insert home page with default blocks
