@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { prompt, siteState, availablePalettes } = body;
+    const { prompt, siteState, availablePalettes, isNewSite } = body;
 
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json({ error: 'Missing prompt.' }, { status: 400 });
@@ -68,8 +68,11 @@ CURRENT SITE STATE:
 
     const systemPrompt = buildSystemPrompt(availablePalettes || []);
 
-    const userMessage = `${siteContext}
+    const newSiteContext = isNewSite ? `
+CONTEXT: This is a BRAND NEW site being built from scratch via onboarding. The current blocks are default template placeholders and should ALL be removed and replaced with blocks tailored to the user's request. Start by removing every existing block, then add your new blocks.
+` : '';
 
+    const userMessage = `${siteContext}${newSiteContext}
 USER REQUEST: ${prompt}`;
 
     let aiResponse: string;

@@ -45,7 +45,7 @@ export function useAIBuilder(
   const abortRef = useRef<AbortController | null>(null);
   const wasCancelledRef = useRef(false);
 
-  const sendMessage = useCallback(async (prompt: string) => {
+  const sendMessage = useCallback(async (prompt: string, options?: { isNewSite?: boolean }) => {
     if (!prompt.trim() || isLoading) return;
 
     wasCancelledRef.current = false;
@@ -73,6 +73,7 @@ export function useAIBuilder(
           prompt: prompt.trim(),
           siteState,
           availablePalettes,
+          ...(options?.isNewSite ? { isNewSite: true } : {}),
         }),
       });
 

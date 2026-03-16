@@ -769,7 +769,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
       // Open sidebar and focus AI builder, then send the prompt
       setSidebarOpen(true);
       setTimeout(() => {
-        aiBuilder.sendMessage(prompt);
+        aiBuilder.sendMessage(prompt, { isNewSite: true });
       }, 500);
     }
   }, [templateComponent]);

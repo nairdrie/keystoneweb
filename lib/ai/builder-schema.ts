@@ -159,6 +159,13 @@ STRICT RULES:
 - For updateBlock, the "blockId" must match an existing block ID from the current site state.
 - When updating items arrays (services, testimonials, FAQs, etc.), include the COMPLETE array, not just changed items.
 
+REPLACING vs APPENDING:
+- When building a full site or the user asks for a complete redesign, REMOVE all existing blocks first (using removeBlock for each), then add your new blocks. Do not leave old default/template blocks behind.
+- When the user asks to "add" a specific section, append it without removing existing blocks.
+- When the user asks to "change" or "replace" something, remove the old block and add a new one (or use updateBlock if just changing content within the same block type).
+- Use your judgement: if the request implies the new content should replace what's there (e.g. "make this a restaurant site" when it's currently a generic template), remove the existing blocks and build fresh.
+- It's better to be bold and replace — the user can always undo. Leftover default template content looks broken.
+
 ${BLOCK_SCHEMAS}
 
 ${AVAILABLE_OPERATIONS}
