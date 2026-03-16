@@ -143,6 +143,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   // Subscription check for AI Builder
   const [isProUser, setIsProUser] = useState(false);
   const [isBasicUser, setIsBasicUser] = useState(false);
+  const [subscriptionLoaded, setSubscriptionLoaded] = useState(false);
   useEffect(() => {
     if (!user) return;
     fetch('/api/user/subscription', { credentials: 'include' })
@@ -156,9 +157,12 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
             setIsBasicUser(true);
           }
         }
+        setSubscriptionLoaded(true);
       })
-      .catch(() => {});
+      .catch(() => { setSubscriptionLoaded(true); });
   }, [user]);
+  // Free: authenticated but not on any paid plan
+  const isFreeUser = !!user && subscriptionLoaded && !isProUser && !isBasicUser;
 
   // Compute if all draft content matches the published content
   const isSynced = useMemo(() => {
@@ -898,6 +902,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
           onAiClear={aiBuilder.clearMessages}
           isProUser={isProUser}
           isBasicUser={isBasicUser}
+          isFreeUser={isFreeUser}
           showAiUpgradeModal={aiBuilder.showUpgradeModal}
           onDismissAiUpgradeModal={aiBuilder.dismissUpgradeModal}
           focusAiBuilder={focusAiBuilder}

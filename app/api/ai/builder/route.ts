@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     // Subscription check - determine plan tier
     const { data: subscription } = await supabase
       .from('user_subscriptions')
-      .select('subscription_status, subscription_plan')
+      .select('subscription_status, subscription_plan, free_ai_prompts_used')
       .eq('user_id', user.id)
       .single();
 
@@ -23,8 +23,23 @@ export async function POST(req: NextRequest) {
     const isPro = isActive && subscription?.subscription_plan?.toLowerCase().includes('pro');
     const isBasic = isActive && !isPro;
 
+    // Free (unpaid) users get 3 total lifetime prompts tracked in the DB
+    const FREE_PROMPT_LIMIT = 3;
     if (!isActive) {
-      return NextResponse.json({ error: 'AI Builder requires an active subscription.' }, { status: 403 });
+      const promptsUsed = subscription?.free_ai_prompts_used ?? 0;
+      if (promptsUsed >= FREE_PROMPT_LIMIT) {
+        return NextResponse.json({
+          error: `You've used all ${FREE_PROMPT_LIMIT} free AI Builder prompts. Subscribe to keep building!`,
+          upgradeRequired: true,
+        }, { status: 429 });
+      }
+      // Increment counter (upsert in case no row exists yet)
+      await supabase
+        .from('user_subscriptions')
+        .upsert(
+          { user_id: user.id, free_ai_prompts_used: promptsUsed + 1, updated_at: new Date().toISOString() },
+          { onConflict: 'user_id' },
+        );
     }
 
     const apiKey = process.env.AI_BUILDER_API_KEY;
