@@ -271,36 +271,48 @@ export async function GET(request: NextRequest) {
       isAlternative: isAlt,
     });
 
-    // Build recommended (.ca) result
+    // Build recommended: always show exact .ca (even if taken, so user sees status)
     const recommended: DomainResult[] = [];
     const caDomain = `${cleanQuery}.ca`;
     if (availabilityMap.has(caDomain)) {
       recommended.push(buildResult(caDomain, false));
     }
 
-    // Build other TLDs for exact query
-    const other: DomainResult[] = [];
+    // Build other TLDs for exact query — only available ones
+    let other: DomainResult[] = [];
     for (const tld of OTHER_TLDS) {
       const domain = `${cleanQuery}.${tld}`;
-      if (availabilityMap.has(domain)) {
+      if (availabilityMap.get(domain) === true) {
         other.push(buildResult(domain, false));
       }
     }
 
-    // ── Phase 2: Only if .ca is taken, generate AI alternatives ─────────
+    // ── Phase 2: If .ca is taken, generate AI alternatives ──────────────
     let suggestions: DomainResult[] = [];
     let alternativeNames: string[] = [];
 
     if (!caAvailable) {
-      // Call Haiku for smart alternatives while user waits
+      // Call Haiku for smart alternatives
       alternativeNames = await generateAlternatives(cleanQuery);
 
       if (alternativeNames.length > 0) {
-        // Check alternatives as .ca only (keep it focused, save API budget)
-        const altCaDomains = alternativeNames.map(name => `${name}.ca`);
+        // Check alternatives as .ca + other TLDs to populate both sections
+        // Build candidate list: each alternative × .ca, plus each alternative × other TLDs
+        const altDomains: string[] = [];
+        const altDomainSet = new Set<string>();
+        for (const name of alternativeNames) {
+          // Always check .ca for smart suggestions
+          const caDom = `${name}.ca`;
+          if (!altDomainSet.has(caDom)) { altDomainSet.add(caDom); altDomains.push(caDom); }
+          // Also check other TLDs so we can populate "explore other extensions" with available options
+          for (const tld of OTHER_TLDS) {
+            const dom = `${name}.${tld}`;
+            if (!altDomainSet.has(dom)) { altDomainSet.add(dom); altDomains.push(dom); }
+          }
+        }
 
-        // Cap at 50 minus what we already checked
-        const toCheck = altCaDomains.slice(0, 50);
+        // Cap at 50 (Vercel bulk limit)
+        const toCheck = altDomains.slice(0, 50);
 
         const { results: altResults, rateLimited: altRateLimited } =
           await checkBulkAvailability(toCheck);
@@ -310,10 +322,10 @@ export async function GET(request: NextRequest) {
             availabilityMap.set(r.domain, r.available);
           }
 
-          // Only include available .ca alternatives as suggestions
+          // Smart suggestions: only available .ca alternatives
           for (const name of alternativeNames) {
             const domain = `${name}.ca`;
-            if (availabilityMap.get(domain)) {
+            if (availabilityMap.get(domain) === true) {
               suggestions.push({
                 domain,
                 available: true,
@@ -322,14 +334,34 @@ export async function GET(request: NextRequest) {
               });
             }
           }
+
+          // Supplement "other" with available alternative domains in non-.ca TLDs
+          // (only if the exact query's version of that TLD was taken)
+          const otherDomainSet = new Set(other.map(o => o.domain));
+          for (const name of alternativeNames) {
+            for (const tld of OTHER_TLDS) {
+              const domain = `${name}.${tld}`;
+              if (availabilityMap.get(domain) === true && !otherDomainSet.has(domain)) {
+                otherDomainSet.add(domain);
+                other.push({
+                  domain,
+                  available: true,
+                  currency: 'USD',
+                  isAlternative: true,
+                });
+              }
+            }
+          }
         }
       }
     }
 
-    // Fetch prices for all available domains
-    const allAvailable = [...exactResults, ...(suggestions.map(s => ({ domain: s.domain, available: s.available })))]
-      .filter(r => r.available)
-      .map(r => r.domain);
+    // Fetch prices for all available domains across all sections
+    const allAvailable = [
+      ...recommended.filter(r => r.available),
+      ...suggestions,
+      ...other.filter(r => r.available),
+    ].map(r => r.domain);
 
     const prices = await getPricesForDomains(allAvailable);
 

@@ -805,7 +805,7 @@ function DomainSelectContent() {
                     )}
 
                     {/* ── Other TLDs (Collapsible, below suggestions) ──── */}
-                    {!searching && otherResults.length > 0 && (
+                    {!searching && otherResults.filter(r => r.available).length > 0 && (
                       <div>
                         <button
                           onClick={() => setShowOtherTlds(!showOtherTlds)}
@@ -821,7 +821,7 @@ function DomainSelectContent() {
 
                         {showOtherTlds && (
                           <div className="space-y-2 mt-2">
-                            {otherResults.map((result) => (
+                            {otherResults.filter(r => r.available).map((result) => (
                               <button
                                 key={result.domain}
                                 onClick={() => result.available && setSelectedDomain(result.domain)}
