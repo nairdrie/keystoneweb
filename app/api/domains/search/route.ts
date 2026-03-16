@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
+import { calculateDomainPrice } from '@/lib/domains/pricing';
 
 const VERCEL_API_TOKEN = process.env.VERCEL_API_TOKEN;
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID;
@@ -25,7 +26,8 @@ interface VercelPriceData {
 interface DomainResult {
   domain: string;
   available: boolean;
-  price?: number;
+  price?: number;        // Keystone selling price (with markup)
+  vercelPrice?: number;  // Original Vercel price (for purchase confirmation)
   currency: string;
   isAlternative?: boolean;
 }
@@ -215,6 +217,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Check if user has already used their free Pro domain
+    const { count: purchaseCount } = await supabase
+      .from('domain_purchases')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('status', 'completed');
+
+    const freeDomainUsed = (purchaseCount ?? 0) > 0;
+
     const query = request.nextUrl.searchParams.get('query');
     if (!query || query.length < 2) {
       return NextResponse.json(
@@ -365,16 +376,27 @@ export async function GET(request: NextRequest) {
 
     const prices = await getPricesForDomains(allAvailable);
 
-    // Attach prices to results
-    for (const r of recommended) r.price = prices.get(r.domain);
-    for (const r of other) r.price = prices.get(r.domain);
-    for (const r of suggestions) r.price = prices.get(r.domain);
+    // Attach prices to results — vercelPrice is the raw cost, price is Keystone's selling price
+    const attachPrices = (results: DomainResult[]) => {
+      for (const r of results) {
+        const vercelPrice = prices.get(r.domain);
+        if (vercelPrice !== undefined) {
+          r.vercelPrice = vercelPrice;
+          r.price = freeDomainUsed ? calculateDomainPrice(vercelPrice) : 0;
+        }
+      }
+    };
+
+    attachPrices(recommended);
+    attachPrices(other);
+    attachPrices(suggestions);
 
     return NextResponse.json({
       recommended,
       suggestions,
       other,
       alternatives: alternativeNames,
+      freeDomainUsed,
     });
   } catch (error) {
     console.error('Error searching domains:', error);

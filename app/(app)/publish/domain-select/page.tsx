@@ -23,6 +23,7 @@ import {
   Leaf,
   ShoppingCart,
   Sparkles,
+  HelpCircle,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 
@@ -115,6 +116,56 @@ function DomainResultsSkeleton() {
   );
 }
 
+// ─── Price Label ─────────────────────────────────────────────────────────────
+
+function DomainPriceLabel({
+  available,
+  price,
+  freeDomainUsed,
+  domain,
+  showTooltip,
+  onToggleTooltip,
+}: {
+  available: boolean;
+  price?: number;
+  freeDomainUsed: boolean;
+  domain: string;
+  showTooltip: boolean;
+  onToggleTooltip: (domain: string | null) => void;
+}) {
+  if (!available) {
+    return <span className="text-xs font-semibold text-slate-400">Taken</span>;
+  }
+
+  if (!freeDomainUsed) {
+    return <span className="text-xs font-semibold text-green-700">Included with Pro</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-1 relative">
+      <span className="text-xs font-semibold text-slate-800">
+        ${price?.toFixed(2) ?? '—'} USD
+      </span>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleTooltip(showTooltip ? null : domain);
+        }}
+        className="text-slate-400 hover:text-slate-600 transition-colors"
+        aria-label="Why does this cost money?"
+      >
+        <HelpCircle className="w-3.5 h-3.5" />
+      </button>
+      {showTooltip && (
+        <div className="absolute right-0 top-6 z-10 w-56 p-2.5 bg-slate-800 text-white text-xs rounded-lg shadow-lg">
+          <p>Your Pro plan includes one free domain. Since you&apos;ve already registered a domain, additional domains are available at this price.</p>
+          <div className="absolute -top-1 right-3 w-2 h-2 bg-slate-800 rotate-45" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Content ────────────────────────────────────────────────────────────
 
 function DomainSelectContent() {
@@ -152,6 +203,8 @@ function DomainSelectContent() {
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [purchasing, setPurchasing] = useState(false);
   const [showOtherTlds, setShowOtherTlds] = useState(false);
+  const [freeDomainUsed, setFreeDomainUsed] = useState(false);
+  const [showPriceTooltip, setShowPriceTooltip] = useState<string | null>(null);
 
   // External domain state
   const [externalDomain, setExternalDomain] = useState('');
@@ -308,6 +361,7 @@ function DomainSelectContent() {
       setRecommendedResults(data.recommended || []);
       setOtherResults(data.other || []);
       setSuggestions(data.suggestions || []);
+      setFreeDomainUsed(data.freeDomainUsed ?? false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to search domains');
       console.error(err);
@@ -325,21 +379,42 @@ function DomainSelectContent() {
     setError(null);
 
     try {
-      const res = await fetch('/api/domains/purchase', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ siteId, domain: selectedDomain }),
-      });
+      if (freeDomainUsed) {
+        // Paid flow: create Stripe checkout session, redirect to Stripe
+        const res = await fetch('/api/domains/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ siteId, domain: selectedDomain }),
+        });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to purchase domain');
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || 'Failed to create checkout');
+        }
+
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+          return; // Don't set purchasing false — we're navigating away
+        }
+      } else {
+        // Free flow: purchase directly
+        const res = await fetch('/api/domains/purchase', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ siteId, domain: selectedDomain }),
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || 'Failed to purchase domain');
+        }
+
+        setSuccess(true);
+        setPublishedUrl(`https://${selectedDomain}`);
       }
-
-      const result = await res.json();
-      setSuccess(true);
-      setPublishedUrl(`https://${selectedDomain}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to purchase domain');
       console.error(err);
@@ -749,9 +824,14 @@ function DomainSelectContent() {
                                   {result.domain}
                                 </span>
                               </div>
-                              <span className={`text-xs font-semibold ${result.available ? 'text-green-700' : 'text-slate-400'}`}>
-                                {result.available ? 'Included with plan' : 'Taken'}
-                              </span>
+                              <DomainPriceLabel
+                                available={result.available}
+                                price={result.price}
+                                freeDomainUsed={freeDomainUsed}
+                                domain={result.domain}
+                                showTooltip={showPriceTooltip === result.domain}
+                                onToggleTooltip={setShowPriceTooltip}
+                              />
                             </button>
                           ))}
                         </div>
@@ -795,9 +875,14 @@ function DomainSelectContent() {
                                   {s.domain}
                                 </span>
                               </div>
-                              <span className={`text-xs font-semibold ${s.available ? 'text-green-700' : 'text-slate-400'}`}>
-                                {s.available ? 'Included with plan' : 'Taken'}
-                              </span>
+                              <DomainPriceLabel
+                                available={s.available}
+                                price={s.price}
+                                freeDomainUsed={freeDomainUsed}
+                                domain={s.domain}
+                                showTooltip={showPriceTooltip === s.domain}
+                                onToggleTooltip={setShowPriceTooltip}
+                              />
                             </button>
                           ))}
                         </div>
@@ -846,9 +931,14 @@ function DomainSelectContent() {
                                     {result.domain}
                                   </span>
                                 </div>
-                                <span className={`text-xs font-semibold ${result.available ? 'text-green-700' : 'text-slate-400'}`}>
-                                  {result.available ? 'Included with plan' : 'Taken'}
-                                </span>
+                                <DomainPriceLabel
+                                  available={result.available}
+                                  price={result.price}
+                                  freeDomainUsed={freeDomainUsed}
+                                  domain={result.domain}
+                                  showTooltip={showPriceTooltip === result.domain}
+                                  onToggleTooltip={setShowPriceTooltip}
+                                />
                               </button>
                             ))}
                           </div>
@@ -857,34 +947,45 @@ function DomainSelectContent() {
                     )}
 
                     {/* Register Button */}
-                    {!searching && selectedDomain && (
-                      <div className="pt-3 border-t border-slate-100">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-sm text-slate-600">Selected domain:</span>
-                          <span className="font-mono font-bold text-slate-900">{selectedDomain}</span>
+                    {!searching && selectedDomain && (() => {
+                      const selectedResult = [...recommendedResults, ...suggestions, ...otherResults]
+                        .find(r => r.domain === selectedDomain);
+                      const domainPrice = selectedResult?.price;
+                      const isPaid = freeDomainUsed && domainPrice && domainPrice > 0;
+
+                      return (
+                        <div className="pt-3 border-t border-slate-100">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-sm text-slate-600">Selected domain:</span>
+                            <span className="font-mono font-bold text-slate-900">{selectedDomain}</span>
+                          </div>
+                          <button
+                            onClick={handlePurchaseDomain}
+                            disabled={purchasing}
+                            className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                          >
+                            {purchasing ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                {isPaid ? 'Proceeding to checkout...' : 'Registering Domain...'}
+                              </>
+                            ) : (
+                              <>
+                                <Globe className="w-4 h-4" />
+                                {isPaid
+                                  ? `Purchase Domain — $${domainPrice.toFixed(2)} USD`
+                                  : 'Claim & Connect Domain'}
+                              </>
+                            )}
+                          </button>
+                          <p className="text-xs text-center text-slate-500 mt-2">
+                            {isPaid
+                              ? 'You\u2019ll be redirected to a secure checkout.'
+                              : 'No extra cost \u2014 included with your Pro plan.'}
+                          </p>
                         </div>
-                        <button
-                          onClick={handlePurchaseDomain}
-                          disabled={purchasing}
-                          className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                          {purchasing ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              Registering Domain...
-                            </>
-                          ) : (
-                            <>
-                              <Globe className="w-4 h-4" />
-                              Claim &amp; Connect Domain
-                            </>
-                          )}
-                        </button>
-                        <p className="text-xs text-center text-slate-500 mt-2">
-                          No extra cost — included with your Pro plan.
-                        </p>
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     {/* Empty state */}
                     {!searching && recommendedResults.length === 0 && otherResults.length === 0 && searchQuery.length >= 2 && suggestions.length === 0 && (
