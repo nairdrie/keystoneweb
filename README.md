@@ -1,4 +1,4 @@
-# Keystone Web - Multi-Tenant CMS Platform
+# Keystone Web
 
 [![Deployment Status](https://img.shields.io/badge/deployment-ready-brightgreen)](https://keystoneweb.vercel.app)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org)
