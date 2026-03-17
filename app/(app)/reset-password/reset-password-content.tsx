@@ -16,17 +16,23 @@ export default function ResetPasswordContent() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    // Listen for PASSWORD_RECOVERY BEFORE exchanging the code so we don't miss the event
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      // Implicit flow (fallback): fires PASSWORD_RECOVERY with hash-based tokens
       if (event === 'PASSWORD_RECOVERY') {
         setReady(true);
       }
     });
 
-    // PKCE flow: Supabase redirects here with ?code=xxx — exchange it for a session
+    // PKCE flow: exchange ?code=xxx for a session — fires SIGNED_IN, not PASSWORD_RECOVERY
     const code = searchParams.get('code');
     if (code) {
-      supabase.auth.exchangeCodeForSession(code).catch(console.error);
+      supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+        if (!error && data.session) {
+          setReady(true);
+        } else if (error) {
+          console.error('Failed to exchange code for session:', error);
+        }
+      });
     }
 
     return () => subscription.unsubscribe();
