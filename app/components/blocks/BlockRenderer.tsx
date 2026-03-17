@@ -24,6 +24,7 @@ import ContactFormBlock from './ContactFormBlock';
 import LogoCloudBlock from './LogoCloudBlock';
 import PricingBlock from './PricingBlock';
 import TeamBlock from './TeamBlock';
+import BlogBlock from './BlogBlock';
 
 // We loosen the component type to accommodate both the simpler original blocks and the advanced blocks
 const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
@@ -47,6 +48,7 @@ const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     logoCloud: LogoCloudBlock,
     pricing: PricingBlock,
     team: TeamBlock,
+    blog: BlogBlock,
 };
 
 const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: boolean }> = [
@@ -69,6 +71,7 @@ const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: boolean }
     { type: 'pricing', label: 'Pricing Table' },
     { type: 'team', label: 'Team Members' },
     { type: 'map', label: 'Google Map' },
+    { type: 'blog', label: '📝 Blog / News' },
     { type: 'custom_html', label: 'Custom HTML / Embed', proOnly: true },
 ];
 
