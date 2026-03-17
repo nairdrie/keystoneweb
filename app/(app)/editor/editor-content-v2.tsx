@@ -911,8 +911,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
 
         {/* Editor Banner - Redesigned */}
         <div
-          className="flex-none h-12 px-4 z-[1000] shadow flex items-center justify-between gap-6 border-b"
-          style={{ backgroundColor: 'var(--brand-primary)' }}
+          className="flex-none px-4 z-[1000] shadow flex items-center justify-between gap-6 border-b"
+          style={{ backgroundColor: 'var(--brand-primary)', paddingTop: 'env(safe-area-inset-top)', minHeight: 'calc(3rem + env(safe-area-inset-top))' }}
         >
           {/* Left: Logo + Page Selector */}
           <div className="flex items-center gap-4">

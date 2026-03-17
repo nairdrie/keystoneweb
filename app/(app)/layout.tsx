@@ -18,6 +18,10 @@ export const metadata: Metadata = {
   description: "Create a beautiful, professional website with Keystone Web's smart builder.",
 };
 
+export const viewport = {
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
