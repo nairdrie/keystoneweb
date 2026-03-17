@@ -23,10 +23,11 @@ export default function ResetPasswordContent() {
       }
     });
 
-    console.log('searchParams', searchParams);
+    console.log('searchParams', JSON.stringify(searchParams));
     // PKCE flow: Supabase redirects here with ?code=xxx — exchange it for a session
     const code = searchParams.get('code');
     if (code) {
+      console.log('code', code);
       supabase.auth.exchangeCodeForSession(code).catch(console.error);
     }
 
