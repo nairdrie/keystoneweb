@@ -3,6 +3,7 @@ import { createClient } from '@/lib/db/supabase-server';
 import { sendOrderConfirmation, sendOrderNotification } from '@/lib/email';
 import { completeDomainPurchase } from '@/app/api/domains/purchase/route';
 import Stripe from 'stripe';
+import { trackEvent } from '@/lib/analytics';
 
 // Initialize Stripe only when API key is available
 const getStripeClient = () => {
@@ -165,6 +166,11 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        trackEvent('subscription_upgrade', {
+          userId,
+          metadata: { plan: planName, customerId },
+        });
+
         console.log(`✅ Subscription activated for user ${userId}, plan: ${planName}`);
         break;
       }
@@ -230,6 +236,20 @@ export async function POST(request: NextRequest) {
           } catch (tagErr) {
             console.error('Failed to tag Stripe customer for refund prevention:', tagErr);
           }
+        }
+
+        if (status === 'canceled' || isCancelling) {
+          // Look up user_id for the event — userSub has stripe_customer_id, not user_id directly
+          // We stored user_id in user_subscriptions so fetch it
+          const { data: subRow } = await supabase
+            .from('user_subscriptions')
+            .select('user_id')
+            .eq('stripe_subscription_id', subscription.id)
+            .single();
+          trackEvent('subscription_cancel', {
+            userId: subRow?.user_id,
+            metadata: { plan: planName, status },
+          });
         }
 
         console.log(`✅ Subscription ${subscription.id} updated to status: ${status}, plan: ${planName}`);

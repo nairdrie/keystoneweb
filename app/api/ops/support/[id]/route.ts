@@ -1,0 +1,74 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
+import { createClient } from '@/lib/db/supabase-server';
+
+async function assertAdmin(): Promise<boolean> {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+    const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
+      .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+    return adminEmails.includes(user.email?.toLowerCase() ?? '');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * GET /api/ops/support/[id]
+ * Returns a single support request including body_html.
+ */
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!await assertAdmin()) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from('support_requests')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error || !data) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  return NextResponse.json(data);
+}
+
+/**
+ * PATCH /api/ops/support/[id]
+ * Update status, priority, or notes on a support request.
+ * Body: { status?, priority?, notes? }
+ */
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!await assertAdmin()) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const body = await request.json();
+  const allowed = ['status', 'priority', 'notes'];
+  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+
+  for (const key of allowed) {
+    if (key in body) update[key] = body[key];
+  }
+
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from('support_requests')
+    .update(update)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: 'Update failed' }, { status: 500 });
+  }
+
+  return NextResponse.json(data);
+}

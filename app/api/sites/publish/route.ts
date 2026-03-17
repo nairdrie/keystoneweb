@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
+import { trackEvent } from '@/lib/analytics';
 
 interface PublishRequest {
   siteId: string;
@@ -143,6 +144,12 @@ export async function POST(request: NextRequest) {
 
     const fullPublishedDomain = `${updatedSite.published_domain}.kswd.ca`;
     console.log(`✅ Site published: ${siteId} → ${fullPublishedDomain}`);
+
+    trackEvent('site_publish', {
+      userId: user.id,
+      siteId,
+      metadata: { domain: fullPublishedDomain },
+    });
 
     return NextResponse.json({
       success: true,

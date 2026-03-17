@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { createClient } from '@/lib/db/supabase-server';
+import { trackEvent } from '@/lib/analytics';
 
 interface CreateSiteRequest {
   selectedTemplateId: string;
@@ -273,6 +274,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    trackEvent('site_create', {
+      userId: user?.id,
+      siteId,
+      metadata: { templateId: selectedTemplateId, businessType, category },
+    });
+
     return NextResponse.json({ siteId, message: 'Site created successfully' }, { status: 201 });
   } catch (error) {
     console.error('Error creating site:', error);
@@ -414,6 +421,8 @@ export async function PATCH(request: NextRequest) {
     }
 
     const siteData = mapSupabaseToSiteData(updatedSite);
+
+    trackEvent('site_edit', { userId: user.id, siteId });
 
     return NextResponse.json({
       message: 'Site updated successfully',
