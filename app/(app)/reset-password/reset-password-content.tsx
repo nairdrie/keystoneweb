@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/db/supabase';
 
 export default function ResetPasswordContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,27 +15,14 @@ export default function ResetPasswordContent() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      // Implicit flow (fallback): fires PASSWORD_RECOVERY with hash-based tokens
-      if (event === 'PASSWORD_RECOVERY') {
+    // The server-side /auth/callback route already exchanged the code for a
+    // session, so we just need to check if the user is authenticated.
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
         setReady(true);
       }
     });
-
-    // PKCE flow: exchange ?code=xxx for a session — fires SIGNED_IN, not PASSWORD_RECOVERY
-    const code = searchParams.get('code');
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
-        if (!error && data.session) {
-          setReady(true);
-        } else if (error) {
-          console.error('Failed to exchange code for session:', error);
-        }
-      });
-    }
-
-    return () => subscription.unsubscribe();
-  }, [searchParams]);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
