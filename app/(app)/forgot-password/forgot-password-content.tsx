@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { supabase } from '@/lib/db/supabase';
 
 export default function ForgotPasswordContent() {
   const searchParams = useSearchParams();
@@ -23,16 +22,15 @@ export default function ForgotPasswordContent() {
     setLoading(true);
 
     try {
-      // Must call from the browser client so the PKCE code verifier is stored
-      // in the browser's storage — calling from a server API route causes a
-      // storage mismatch that breaks exchangeCodeForSession later.
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${siteUrl}/reset-password`,
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
       });
 
-      if (resetError) {
-        setError('Something went wrong. Please try again.');
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || 'Something went wrong. Please try again.');
         return;
       }
 
