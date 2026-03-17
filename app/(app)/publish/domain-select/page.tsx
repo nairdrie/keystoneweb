@@ -564,22 +564,20 @@ function DomainSelectContent() {
         <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-6">
           <button
             onClick={() => { setActiveTab('subdomain'); setError(null); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${
-              activeTab === 'subdomain'
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${activeTab === 'subdomain'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-500 hover:text-slate-700'
-            }`}
+              }`}
           >
             <Globe className="w-4 h-4" />
             Free Subdomain
           </button>
           <button
             onClick={() => { setActiveTab('custom'); setError(null); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${
-              activeTab === 'custom'
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${activeTab === 'custom'
                 ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-500 hover:text-slate-700'
-            }`}
+              }`}
           >
             <Crown className="w-4 h-4" />
             Custom Domain
@@ -628,11 +626,10 @@ function DomainSelectContent() {
 
             {domainCheck && !error && (
               <div
-                className={`p-4 rounded-lg border-2 flex items-start gap-3 ${
-                  domainCheck.available
+                className={`p-4 rounded-lg border-2 flex items-start gap-3 ${domainCheck.available
                     ? 'bg-green-50 border-green-200'
                     : 'bg-red-50 border-red-200'
-                }`}
+                  }`}
               >
                 {domainCheck.available ? (
                   <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
@@ -683,7 +680,7 @@ function DomainSelectContent() {
                   Custom Domains are a Pro Feature
                 </h2>
                 <p className="text-slate-600 mb-6 max-w-sm mx-auto">
-                  Upgrade to Pro to register a custom domain like <span className="font-mono font-semibold text-slate-800">yourbusiness.com</span> or
+                  Upgrade to Pro to register a custom domain like <span className="font-mono font-semibold text-slate-800">yourbusiness.ca</span> or
                   connect a domain you already own.
                 </p>
                 <div className="space-y-3">
@@ -707,22 +704,20 @@ function DomainSelectContent() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => { setCustomMode('search'); setError(null); }}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold border-2 transition-all ${
-                      customMode === 'search'
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold border-2 transition-all ${customMode === 'search'
                         ? 'border-red-600 bg-red-50 text-red-700'
                         : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                    }`}
+                      }`}
                   >
                     <ShoppingCart className="w-4 h-4" />
                     Buy a New Domain
                   </button>
                   <button
                     onClick={() => { setCustomMode('external'); setError(null); }}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold border-2 transition-all ${
-                      customMode === 'external'
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold border-2 transition-all ${customMode === 'external'
                         ? 'border-red-600 bg-red-50 text-red-700'
                         : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                    }`}
+                      }`}
                   >
                     <ExternalLink className="w-4 h-4" />
                     Use a Domain I Own
@@ -804,13 +799,12 @@ function DomainSelectContent() {
                               key={result.domain}
                               onClick={() => result.available && setSelectedDomain(result.domain)}
                               disabled={!result.available}
-                              className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all text-left ${
-                                selectedDomain === result.domain
+                              className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all text-left ${selectedDomain === result.domain
                                   ? 'border-red-600 bg-red-50'
                                   : result.available
                                     ? 'border-red-200 hover:border-red-300 bg-white'
                                     : 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed'
-                              }`}
+                                }`}
                             >
                               <div className="flex items-center gap-2">
                                 {selectedDomain === result.domain ? (
@@ -855,13 +849,12 @@ function DomainSelectContent() {
                               key={s.domain}
                               onClick={() => s.available && setSelectedDomain(s.domain)}
                               disabled={!s.available}
-                              className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all text-left ${
-                                selectedDomain === s.domain
+                              className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all text-left ${selectedDomain === s.domain
                                   ? 'border-red-600 bg-red-50'
                                   : s.available
                                     ? 'border-purple-100 hover:border-purple-200 bg-white'
                                     : 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed'
-                              }`}
+                                }`}
                             >
                               <div className="flex items-center gap-2">
                                 {selectedDomain === s.domain ? (
@@ -911,13 +904,12 @@ function DomainSelectContent() {
                                 key={result.domain}
                                 onClick={() => result.available && setSelectedDomain(result.domain)}
                                 disabled={!result.available}
-                                className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all text-left ${
-                                  selectedDomain === result.domain
+                                className={`w-full flex items-center justify-between p-3 rounded-lg border-2 transition-all text-left ${selectedDomain === result.domain
                                     ? 'border-red-600 bg-red-50'
                                     : result.available
                                       ? 'border-slate-200 hover:border-slate-300 bg-white'
                                       : 'border-slate-100 bg-slate-50 opacity-60 cursor-not-allowed'
-                                }`}
+                                  }`}
                               >
                                 <div className="flex items-center gap-2">
                                   {selectedDomain === result.domain ? (

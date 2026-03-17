@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * Proxy for Google Places Text Search API.
  * Keeps the API key server-side and prevents direct client exposure.
  *
- * GET /api/seo/places?query=Acme+Plumbing+Vancouver
+ * GET /api/seo/places?query=Acme+Plumbing+Toronto
  * Returns a list of place candidates with address, phone, and coordinates.
  */
 export async function GET(request: NextRequest) {

@@ -19,7 +19,7 @@ export default function ContactBlock({ id, data, isEditMode, palette, updateCont
 
     const contactItems = [
         { icon: Phone, key: 'phone', defaultValue: '(555) 123-4567', label: 'Phone' },
-        { icon: Mail, key: 'email', defaultValue: 'hello@yourbusiness.com', label: 'Email' },
+        { icon: Mail, key: 'email', defaultValue: 'hello@yourbusiness.ca', label: 'Email' },
         { icon: MapPin, key: 'address', defaultValue: '123 Main Street, Suite 100, Your City, ST 12345', label: 'Address' },
         { icon: Clock, key: 'hours', defaultValue: 'Mon–Fri: 8am–6pm | Sat: 9am–2pm', label: 'Hours' },
     ];

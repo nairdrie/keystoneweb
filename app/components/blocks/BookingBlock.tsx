@@ -157,8 +157,8 @@ function BookingSetup({ siteId, palette }: { siteId: string; palette: Record<str
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
-                                        ? 'border-blue-600 text-blue-600'
-                                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                                    ? 'border-blue-600 text-blue-600'
+                                    : 'border-transparent text-slate-500 hover:text-slate-700'
                                     }`}
                             >
                                 {tab.icon}
@@ -480,7 +480,7 @@ function SettingsEditor({ siteId, settings, setSettings }: {
                 <label className="text-sm font-medium text-slate-700 block mb-1">Notification Email</label>
                 <input
                     type="email"
-                    placeholder="you@business.com"
+                    placeholder="you@business.ca"
                     value={local.notification_email || ''}
                     onChange={e => setLocal({ ...local, notification_email: e.target.value || null })}
                     className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
@@ -535,7 +535,7 @@ function SettingsEditor({ siteId, settings, setSettings }: {
                     <label className="text-sm font-medium text-slate-700 block mb-1">e-Transfer Email</label>
                     <input
                         type="email"
-                        placeholder="payments@business.com"
+                        placeholder="payments@business.ca"
                         value={local.etransfer_email || ''}
                         onChange={e => setLocal({ ...local, etransfer_email: e.target.value || null })}
                         className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
@@ -669,8 +669,8 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                         <div key={s} className="flex items-center gap-1">
                             <div
                                 className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${step === s ? 'text-white' :
-                                        ['service', 'date', 'time', 'form'].indexOf(step) > i ? 'bg-green-100 text-green-700' :
-                                            'bg-slate-100 text-slate-400'
+                                    ['service', 'date', 'time', 'form'].indexOf(step) > i ? 'bg-green-100 text-green-700' :
+                                        'bg-slate-100 text-slate-400'
                                     }`}
                                 style={step === s ? { backgroundColor: pSecondary } : {}}
                             >
@@ -942,9 +942,9 @@ function MiniCalendar({ month, year, selectedDate, maxAdvanceDays, onSelect, onC
                             disabled={disabled}
                             onClick={() => onSelect(dateStr)}
                             className={`py-2 text-sm rounded-lg transition-all ${isSelected ? 'text-white font-bold shadow-md' :
-                                    disabled ? 'text-slate-300 cursor-not-allowed' :
-                                        isToday ? 'font-bold text-slate-900 bg-slate-100 hover:bg-slate-200' :
-                                            'text-slate-700 hover:bg-slate-100'
+                                disabled ? 'text-slate-300 cursor-not-allowed' :
+                                    isToday ? 'font-bold text-slate-900 bg-slate-100 hover:bg-slate-200' :
+                                        'text-slate-700 hover:bg-slate-100'
                                 }`}
                             style={isSelected ? { backgroundColor: accentColor } : {}}
                         >

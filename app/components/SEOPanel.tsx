@@ -74,7 +74,7 @@ export default function SEOPanel({ siteId }: SEOPanelProps) {
           setMode('manual');
         }
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoadingProfile(false));
   }, [siteId]);
 
@@ -271,7 +271,7 @@ export default function SEOPanel({ siteId }: SEOPanelProps) {
                 type="text"
                 value={profile.addressLocality}
                 onChange={(e) => handleFieldChange('addressLocality', e.target.value)}
-                placeholder="Vancouver"
+                placeholder="Toronto"
                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-red-400 focus:ring-1 focus:ring-red-400 focus:outline-none"
               />
             </div>
@@ -281,7 +281,7 @@ export default function SEOPanel({ siteId }: SEOPanelProps) {
                 type="text"
                 value={profile.addressRegion}
                 onChange={(e) => handleFieldChange('addressRegion', e.target.value)}
-                placeholder="BC"
+                placeholder="ON"
                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-red-400 focus:ring-1 focus:ring-red-400 focus:outline-none"
               />
             </div>
@@ -294,7 +294,7 @@ export default function SEOPanel({ siteId }: SEOPanelProps) {
                 type="text"
                 value={profile.postalCode}
                 onChange={(e) => handleFieldChange('postalCode', e.target.value)}
-                placeholder="V5K 0A1"
+                placeholder="M5A 1A1"
                 className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-red-400 focus:ring-1 focus:ring-red-400 focus:outline-none"
               />
             </div>
@@ -319,7 +319,7 @@ export default function SEOPanel({ siteId }: SEOPanelProps) {
                 type="tel"
                 value={profile.telephone}
                 onChange={(e) => handleFieldChange('telephone', e.target.value)}
-                placeholder="+1 604-555-0123"
+                placeholder="+1 416-555-0123"
                 className="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-red-400 focus:ring-1 focus:ring-red-400 focus:outline-none"
               />
             </div>
