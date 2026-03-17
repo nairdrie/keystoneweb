@@ -3,7 +3,6 @@
 [![Deployment Status](https://img.shields.io/badge/deployment-ready-brightgreen)](https://keystoneweb.vercel.app)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A scalable, cost-effective multi-tenant CMS platform that serves unlimited websites from a single Next.js instance and shared PostgreSQL database.
 
