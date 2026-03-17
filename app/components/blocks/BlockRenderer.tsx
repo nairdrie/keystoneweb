@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useEditorContext, BlockData } from '@/lib/editor-context';
 import BlockWrapper from './BlockWrapper';
-import { Plus } from 'lucide-react';
+import { Plus, Crown } from 'lucide-react';
 import HeroBlock from './HeroBlock';
 import TextBlock from './TextBlock';
 import CustomHTMLBlock from './CustomHTMLBlock';
@@ -49,7 +49,7 @@ const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     team: TeamBlock,
 };
 
-const AVAILABLE_BLOCKS = [
+const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: boolean }> = [
     { type: 'hero', label: 'Hero Section' },
     { type: 'text', label: 'Rich Text Paragraph' },
     { type: 'image', label: 'Image Section' },
@@ -69,13 +69,14 @@ const AVAILABLE_BLOCKS = [
     { type: 'pricing', label: 'Pricing Table' },
     { type: 'team', label: 'Team Members' },
     { type: 'map', label: 'Google Map' },
-    { type: 'custom_html', label: 'Custom HTML / Embed' },
+    { type: 'custom_html', label: 'Custom HTML / Embed', proOnly: true },
 ];
 
 export default function BlockRenderer({ palette, headerOffset }: { palette: Record<string, string>; headerOffset?: number }) {
     const context = useEditorContext();
     const blocks = context?.blocks || [];
     const isEditMode = context?.isEditMode || false;
+    const isProUser = context?.isProUser || false;
 
     const AddBlockMenu = ({ index }: { index: number }) => {
         const [isOpen, setIsOpen] = useState(false);
@@ -139,14 +140,24 @@ export default function BlockRenderer({ palette, headerOffset }: { palette: Reco
                                 filteredBlocks.map(b => (
                                     <button
                                         key={b.type}
-                                        className="w-full text-left px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-md transition-colors"
+                                        className="w-full text-left px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-md transition-colors flex items-center justify-between"
                                         onClick={() => {
+                                            if (b.proOnly && !isProUser) {
+                                                window.location.href = '/pricing';
+                                                return;
+                                            }
                                             context?.addBlock?.(b.type, index);
                                             setIsOpen(false);
                                             setSearchQuery('');
                                         }}
                                     >
-                                        {b.label}
+                                        <span>{b.label}</span>
+                                        {b.proOnly && !isProUser && (
+                                            <span className="flex items-center gap-1 text-[10px] font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-white px-1.5 py-0.5 rounded-full">
+                                                <Crown className="w-3 h-3" />
+                                                PRO
+                                            </span>
+                                        )}
                                     </button>
                                 ))
                             ) : (
@@ -183,7 +194,12 @@ export default function BlockRenderer({ palette, headerOffset }: { palette: Reco
                         style={isFirst ? { '--header-offset': `${headerOffset}px` } as React.CSSProperties : undefined}
                     >
                         <AddBlockMenu index={i} />
-                        <BlockWrapper id={block.id} type={block.type}>
+                        <BlockWrapper
+                            id={block.id}
+                            type={block.type}
+                            customCss={block.data?.__customCss || ''}
+                            onUpdateCustomCss={(css) => context?.updateBlockData?.(block.id, '__customCss', css)}
+                        >
                             <Component
                                 id={block.id}
                                 data={block.data || {}}
