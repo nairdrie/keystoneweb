@@ -2,8 +2,63 @@ import { createClient } from '@/lib/db/supabase-server';
 import EditorContent from '@/app/(app)/editor/editor-content-v2';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
+import JsonLdScript from '@/app/components/JsonLdScript';
+import { BusinessProfile } from '@/lib/types/sites';
+import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic'; // Always fetch fresh data
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ subdomain: string }>;
+}): Promise<Metadata> {
+  const { subdomain } = await params;
+  const supabase = await createClient();
+
+  const { data: site } = await supabase
+    .from('sites')
+    .select('published_data, business_profile')
+    .eq('published_domain', subdomain)
+    .eq('is_published', true)
+    .single();
+
+  const publishedData = site?.published_data || {};
+  const businessProfile = site?.business_profile as BusinessProfile | null;
+
+  const title = publishedData.siteTitle || publishedData.title || `${subdomain}.kswd.ca`;
+  const description = publishedData.tagline || publishedData.description || 'A site built with Keystone Web.';
+
+  // Inject JSON-LD into <head> via metadata.other when a business profile exists
+  const other: Record<string, string> = {};
+  if (businessProfile?.legalName) {
+    const jsonLd: Record<string, any> = {
+      '@context': 'https://schema.org',
+      '@type': 'LocalBusiness',
+      name: businessProfile.legalName,
+      url: `https://${subdomain}.kswd.ca`,
+      address: {
+        '@type': 'PostalAddress',
+        streetAddress: businessProfile.streetAddress,
+        addressLocality: businessProfile.addressLocality,
+        addressRegion: businessProfile.addressRegion,
+        postalCode: businessProfile.postalCode,
+        addressCountry: businessProfile.addressCountry,
+      },
+      ...(businessProfile.telephone ? { telephone: businessProfile.telephone } : {}),
+      ...(businessProfile.latitude !== null && businessProfile.longitude !== null
+        ? { geo: { '@type': 'GeoCoordinates', latitude: businessProfile.latitude, longitude: businessProfile.longitude } }
+        : {}),
+    };
+    other['application/ld+json'] = JSON.stringify(jsonLd);
+  }
+
+  return {
+    title,
+    description,
+    ...(Object.keys(other).length > 0 ? { other } : {}),
+  };
+}
 
 export default async function PublicSitePage({
   params,
@@ -18,7 +73,7 @@ export default async function PublicSitePage({
     // Fetch the published site by subdomain
     const { data: site, error } = await supabase
       .from('sites')
-      .select('id, selected_template_id, published_data')
+      .select('id, selected_template_id, published_data, business_profile')
       .eq('published_domain', subdomain)
       .eq('is_published', true)
       .single();
@@ -73,23 +128,31 @@ export default async function PublicSitePage({
 
     // Render the published site via unified EditorContent (read-only mode)
     return (
-      <EditorContent
-        isPublicView={true}
-        publicSiteData={{
-          id: site.id,
-          userId: null,
-          selectedTemplateId: site.selected_template_id,
-          businessType: '',
-          category: '',
-          designData: mergedPublishData,
-          isPublished: true,
-          createdAt: '',
-          updatedAt: ''
-        }}
-        precomputedPalette={paletteData}
-      >
-        {TemplateComp && <TemplateComp palette={paletteData} isEditMode={false} />}
-      </EditorContent>
+      <>
+        {site.business_profile && (
+          <JsonLdScript
+            businessProfile={site.business_profile}
+            siteUrl={`https://${subdomain}.kswd.ca`}
+          />
+        )}
+        <EditorContent
+          isPublicView={true}
+          publicSiteData={{
+            id: site.id,
+            userId: null,
+            selectedTemplateId: site.selected_template_id,
+            businessType: '',
+            category: '',
+            designData: mergedPublishData,
+            isPublished: true,
+            createdAt: '',
+            updatedAt: ''
+          }}
+          precomputedPalette={paletteData}
+        >
+          {TemplateComp && <TemplateComp palette={paletteData} isEditMode={false} />}
+        </EditorContent>
+      </>
     );
   } catch (error) {
     console.error('Error rendering published site:', error);
