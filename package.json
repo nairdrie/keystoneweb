@@ -30,6 +30,7 @@
     "react-dom": "19.2.3",
     "resend": "^6.9.3",
     "stripe": "^20.4.0",
+    "svix": "^1.88.0",
     "uuid": "^13.0.0"
   },
   "devDependencies": {

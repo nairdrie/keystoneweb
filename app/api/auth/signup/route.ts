@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { trackEvent } from '@/lib/analytics';
 
 export async function POST(request: Request) {
   const cookieStore = await cookies();
@@ -54,6 +55,8 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    trackEvent('user_signup', { userId: data.user?.id, metadata: { email } });
 
     return NextResponse.json({
       success: true,

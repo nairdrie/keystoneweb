@@ -6,6 +6,7 @@ import { createServerClient } from '@supabase/ssr';
  * 1. Supabase Auth token validation and refresh (via cookies)
  * 2. Subdomain routing (published sites at *.kswd.ca)
  * 3. Custom domain routing (user-owned domains pointed via DNS)
+ * 4. Ops dashboard routing (ops.keystoneweb.ca → /ops/*)
  */
 export async function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
@@ -17,6 +18,66 @@ export async function middleware(request: NextRequest) {
   // STEP 1: Detect published site subdomains (.kswd.ca)
   // ============================================================
   const domain = hostname.split(':')[0]; // Remove port if present
+
+  // ============================================================
+  // STEP 1a: Ops dashboard — ops.keystoneweb.ca
+  // Only admin emails (OPS_ADMIN_EMAILS env var) are allowed in.
+  // Everyone else is hard-redirected to keystoneweb.ca.
+  // ============================================================
+  if (domain === 'ops.keystoneweb.ca') {
+    // API routes pass through without redirect so the ops pages can call them
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.next();
+    }
+
+    const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+
+    // We need to validate the session to check the email
+    let userEmail: string | null = null;
+    const opsCheckResponse = NextResponse.next();
+
+    try {
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return request.cookies.getAll();
+            },
+            setAll(cookiesToSet) {
+              cookiesToSet.forEach(({ name, value, options }) => {
+                opsCheckResponse.cookies.set(name, value, options);
+              });
+            },
+          },
+        }
+      );
+      const { data: { user } } = await supabase.auth.getUser();
+      userEmail = user?.email?.toLowerCase() ?? null;
+    } catch {
+      // Auth error → treat as not authenticated
+    }
+
+    if (!userEmail || !adminEmails.includes(userEmail)) {
+      console.log(`[Middleware] Ops access denied for: ${userEmail ?? 'unauthenticated'}`);
+      return NextResponse.redirect(new URL('https://keystoneweb.ca'));
+    }
+
+    // Admin confirmed — rewrite ops.keystoneweb.ca/* → /ops/*
+    const rewritePath = `/ops${pathname === '/' ? '' : pathname}`;
+    const rewriteUrl = new URL(rewritePath || '/ops', request.url);
+    console.log(`[Middleware] Ops rewrite → ${rewriteUrl.pathname}`);
+    const rewriteResponse = NextResponse.rewrite(rewriteUrl);
+    // Forward any refreshed auth cookies
+    opsCheckResponse.cookies.getAll().forEach(({ name, value, ...options }) => {
+      rewriteResponse.cookies.set(name, value, options);
+    });
+    return rewriteResponse;
+  }
 
   if (domain.endsWith('.kswd.ca') && !domain.startsWith('www.')) {
     // Extract subdomain: akdesigns.kswd.ca → akdesigns
