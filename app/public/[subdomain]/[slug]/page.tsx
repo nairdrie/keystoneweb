@@ -69,11 +69,20 @@ export default async function PublicSiteDynamicPage({
         const TemplateComp = await getTemplateComponent(site.selected_template_id);
         const metadata = await getTemplateMetadata(site.selected_template_id);
 
-        let paletteData = {};
+        let paletteData: Record<string, string> = {};
         if (metadata) {
             const palettesObj = metadata.palettes || {};
             const requestedPalette = mergedPublishData.__selectedPalette || 'default';
-            paletteData = palettesObj[requestedPalette] || palettesObj['default'] || {};
+            if (requestedPalette === 'custom') {
+                const defaultPalette = palettesObj['default'] || {};
+                paletteData = {
+                    primary: mergedPublishData.__customPalette_primary || defaultPalette.primary || '',
+                    secondary: mergedPublishData.__customPalette_secondary || defaultPalette.secondary || '',
+                    accent: mergedPublishData.__customPalette_accent || defaultPalette.accent || '',
+                };
+            } else {
+                paletteData = palettesObj[requestedPalette] || palettesObj['default'] || {};
+            }
         }
 
         return (

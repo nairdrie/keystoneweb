@@ -29,7 +29,7 @@ export default function ContactBlock({ id, data, isEditMode, palette, updateCont
             <div className="max-w-5xl mx-auto px-4">
                 <EditableText
                     as="h2"
-                    contentKey={`${id}.title`}
+                    contentKey="title"
                     content={data.title}
                     defaultValue="Get In Touch"
                     isEditMode={isEditMode}
@@ -39,7 +39,7 @@ export default function ContactBlock({ id, data, isEditMode, palette, updateCont
                 />
                 <EditableText
                     as="p"
-                    contentKey={`${id}.subtitle`}
+                    contentKey="subtitle"
                     content={data.subtitle}
                     defaultValue="We'd love to hear from you. Reach out anytime."
                     isEditMode={isEditMode}
@@ -65,7 +65,7 @@ export default function ContactBlock({ id, data, isEditMode, palette, updateCont
                                     <p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-1">{ci.label}</p>
                                     <EditableText
                                         as="p"
-                                        contentKey={`${id}.${ci.key}`}
+                                        contentKey={ci.key}
                                         content={data[ci.key]}
                                         defaultValue={ci.defaultValue}
                                         isEditMode={isEditMode}
