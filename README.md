@@ -90,10 +90,6 @@ Automatically deployed to Vercel on push to `main`.
 vercel deploy
 ```
 
-## 📝 License
-
-MIT
-
 ---
 
 **Start with [START_HERE.md](./START_HERE.md)** for full documentation and learning paths!
