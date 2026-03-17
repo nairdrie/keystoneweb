@@ -68,6 +68,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
             setPalette: () => { },
             blocks: pubDesign.blocks || [],
             pages: pubDesign.__pages || [],
+            isProUser: false,
           }}
         >
           <div className="w-full min-h-screen">
@@ -1026,6 +1027,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
               removeBlock,
               moveBlock,
               updateBlockData,
+              isProUser,
             }}
           >
             <div className="w-full">

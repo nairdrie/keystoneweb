@@ -71,6 +71,9 @@ export interface EditorContextType {
 
   /** Function to upload image to Supabase Storage */
   uploadImage?: (file: File, contentKey: string) => Promise<string>;
+
+  /** Whether the current user is on a Pro subscription */
+  isProUser?: boolean;
 }
 
 const EditorContext = createContext<EditorContextType | undefined>(undefined);
