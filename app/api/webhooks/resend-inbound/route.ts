@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Resend } from 'resend';
+import { Webhook } from 'svix';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 
 /**
@@ -42,15 +42,15 @@ export async function POST(request: NextRequest) {
   // Must read the raw body before any parsing for signature verification
   const rawBody = await request.text();
 
-  // Verify the Svix signature using the Resend SDK
-  const resend = new Resend(process.env.RESEND_API_KEY);
+  // Verify the Svix signature
+  const wh = new Webhook(signingSecret);
   let payload: any;
   try {
-    payload = resend.webhooks.verify(rawBody, {
+    payload = wh.verify(rawBody, {
       'svix-id': request.headers.get('svix-id') ?? '',
       'svix-timestamp': request.headers.get('svix-timestamp') ?? '',
       'svix-signature': request.headers.get('svix-signature') ?? '',
-    }, signingSecret);
+    });
   } catch (err) {
     console.warn('[resend-inbound] Signature verification failed:', err);
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
