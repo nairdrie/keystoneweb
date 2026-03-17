@@ -9,8 +9,9 @@ import { Change } from '@/lib/hooks/useChangeTracking';
 import AlertModal from './ui/AlertModal';
 import FontPickerModal from './FontPickerModal';
 import AIBuilderPanel from './AIBuilderPanel';
+import SEOPanel from './SEOPanel';
 import { AIMessage, UsageRemaining } from '@/lib/hooks/useAIBuilder';
-import { Type, User } from 'lucide-react';
+import { Type, User, Globe } from 'lucide-react';
 import ProfileDropdown from './ProfileDropdown';
 
 interface Palette {
@@ -520,6 +521,26 @@ export default function FloatingToolbar({
                 showUpgradeModal={showAiUpgradeModal}
                 onDismissUpgradeModal={onDismissAiUpgradeModal || (() => {})}
               />
+            </div>
+          )}
+        </div>
+
+        {/* SEO Section */}
+        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+          <button
+            onClick={() => toggleSection('seo')}
+            className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 transition-colors"
+          >
+            <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide flex items-center gap-1.5">
+              <Globe className="w-3.5 h-3.5" />
+              SEO
+            </span>
+            <ChevronDown className={`w-4 h-4 text-emerald-500 transition-transform ${openSections.includes('seo') ? 'rotate-180' : ''}`} />
+          </button>
+
+          {openSections.includes('seo') && (
+            <div className="border-t border-slate-200">
+              <SEOPanel siteId={currentSiteId} />
             </div>
           )}
         </div>

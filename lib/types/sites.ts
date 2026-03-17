@@ -5,6 +5,21 @@
 
 export type BusinessType = 'services' | 'products' | 'both';
 
+/** Structured local business data for Schema.org LocalBusiness JSON-LD injection */
+export interface BusinessProfile {
+  legalName: string;
+  streetAddress: string;
+  addressLocality: string;    // City
+  addressRegion: string;      // Province / State
+  postalCode: string;
+  addressCountry: string;     // ISO 3166-1 alpha-2 (e.g. "CA")
+  telephone: string;
+  latitude: number | null;
+  longitude: number | null;
+  placeId: string | null;     // Google Places ID; null = manually entered
+  verifiedAt: string | null;  // ISO-8601 timestamp
+}
+
 export interface SiteData {
   // Core Identifiers
   id: string; // UUID for the site
@@ -76,6 +91,7 @@ export interface SiteDesignData {
   seoTitle?: string; // Page title for SEO
   seoDescription?: string; // Meta description
   seoKeywords?: string[];
+  businessProfile?: BusinessProfile; // Structured local business data (JSON-LD)
   
   // Footer
   footerText?: string;
