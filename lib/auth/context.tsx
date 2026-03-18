@@ -45,7 +45,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    getInitialSession();
+    // Safety timeout: if getSession() hangs (e.g. stale token refresh on mobile),
+    // ensure loading resolves so the UI is never stuck indefinitely.
+    const safetyTimer = setTimeout(() => setLoading(false), 8000);
+    getInitialSession().finally(() => clearTimeout(safetyTimer));
 
     // Listen for auth state changes
     const {
@@ -56,6 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => {
+      clearTimeout(safetyTimer);
       subscription?.unsubscribe();
     };
   }, []);

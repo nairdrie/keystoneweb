@@ -141,8 +141,10 @@ export default function OnboardingWizard() {
   }, [user, authLoading]);
 
   const checkUserSites = async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     try {
-      const res = await fetch('/api/user/sites', { credentials: 'include' });
+      const res = await fetch('/api/user/sites', { credentials: 'include', signal: controller.signal });
       if (res.ok) {
         const { sites } = await res.json();
         setUserSites(sites);
@@ -153,6 +155,7 @@ export default function OnboardingWizard() {
     } catch (error) {
       console.error('Failed to check user sites:', error);
     } finally {
+      clearTimeout(timeoutId);
       setCheckingSites(false);
     }
   };
