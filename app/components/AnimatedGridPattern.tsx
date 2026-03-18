@@ -121,7 +121,7 @@ export default function AnimatedGridPattern() {
             </div>
 
             {/* ━━━ Desktop ━━━ */}
-            <div className="flex justify-center">
+            <div className="absolute inset-0 flex justify-center">
                 <div className="relative w-full max-w-5xl h-full">
 
                     {/* ── SEGMENT 1: Browser mockup (0.2 → 4.5s) ── */}
