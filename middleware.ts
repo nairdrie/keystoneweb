@@ -13,6 +13,8 @@ import { createServerClient } from '@supabase/ssr';
 // In production, set domain=.keystoneweb.ca so the cookie is sent on all subdomains.
 const COOKIE_DOMAIN =
   process.env.NODE_ENV === 'production' ? '.keystoneweb.ca' : undefined;
+
+export async function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
   const pathname = request.nextUrl.pathname;
 
