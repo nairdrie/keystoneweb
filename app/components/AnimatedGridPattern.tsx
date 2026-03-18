@@ -10,9 +10,9 @@ import { motion } from 'framer-motion';
 const D = 15;
 
 // Segment boundaries (in / out seconds)
-const B_IN = 0.2;  const B_OUT = 4.5;   // Browser
-const C_IN = 4.8;  const C_OUT = 9.5;   // Component card
-const P_IN = 9.8;  const P_OUT = 14.2;  // Phone
+const B_IN = 0.1; const B_OUT = 4.9;   // Browser
+const C_IN = 5.1; const C_OUT = 9.9;   // Component card
+const P_IN = 10.1; const P_OUT = 14.9;  // Phone
 
 // Build times array for 6-keyframe fade: invisible → fade in → hold → fade out → invisible
 function makeTimes(inAt: number, outAt: number) {
@@ -77,21 +77,21 @@ export default function AnimatedGridPattern() {
     const cFrame = fade(C_IN, C_OUT, 0.9);
     const pFrame = fade(P_IN, P_OUT, 0.85);
 
-    const bNav    = slideIn(B_IN + 0.2, B_OUT, 'left', 30);
-    const bHero   = slideIn(B_IN + 0.4, B_OUT, 'left', 25);
-    const bImg    = slideIn(B_IN + 0.6, B_OUT, 'right', 20);
-    const bCta    = slideIn(B_IN + 0.8, B_OUT, 'left', 15);
-    const bCard1  = slideIn(B_IN + 1.0, B_OUT, 'bottom', 15);
-    const bCard2  = slideIn(B_IN + 1.2, B_OUT, 'bottom', 15);
-    const bCard3  = slideIn(B_IN + 1.4, B_OUT, 'bottom', 15);
+    const bNav = slideIn(B_IN + 0.2, B_OUT, 'left', 30);
+    const bHero = slideIn(B_IN + 0.4, B_OUT, 'left', 25);
+    const bImg = slideIn(B_IN + 0.6, B_OUT, 'right', 20);
+    const bCta = slideIn(B_IN + 0.8, B_OUT, 'left', 15);
+    const bCard1 = slideIn(B_IN + 1.0, B_OUT, 'bottom', 15);
+    const bCard2 = slideIn(B_IN + 1.2, B_OUT, 'bottom', 15);
+    const bCard3 = slideIn(B_IN + 1.4, B_OUT, 'bottom', 15);
     const bFooter = slideIn(B_IN + 1.6, B_OUT, 'bottom', 10);
 
     const cHeader = slideIn(C_IN + 0.2, C_OUT, 'right', 20);
-    const cImg    = slideIn(C_IN + 0.5, C_OUT, 'right', 15);
-    const cText   = slideIn(C_IN + 0.7, C_OUT, 'right', 15);
-    const cStats  = slideIn(C_IN + 0.9, C_OUT, 'bottom', 10);
-    const cCta    = slideIn(C_IN + 1.1, C_OUT, 'right', 10);
-    const cBars   = slideIn(C_IN + 1.3, C_OUT, 'bottom', 8);
+    const cImg = slideIn(C_IN + 0.5, C_OUT, 'right', 15);
+    const cText = slideIn(C_IN + 0.7, C_OUT, 'right', 15);
+    const cStats = slideIn(C_IN + 0.9, C_OUT, 'bottom', 10);
+    const cCta = slideIn(C_IN + 1.1, C_OUT, 'right', 10);
+    const cBars = slideIn(C_IN + 1.3, C_OUT, 'bottom', 8);
 
     const pEl1 = slideIn(P_IN + 0.2, P_OUT, 'bottom', 10, 0.9);
     const pEl2 = slideIn(P_IN + 0.4, P_OUT, 'bottom', 10, 0.9);
@@ -121,239 +121,175 @@ export default function AnimatedGridPattern() {
             </div>
 
             {/* ━━━ Desktop ━━━ */}
-            <div className="hidden md:flex justify-center">
-            <div className="relative w-full max-w-5xl h-full">
+            <div className="flex justify-center">
+                <div className="relative w-full max-w-5xl h-full">
 
-                {/* ── SEGMENT 1: Browser mockup (0.2 → 4.5s) ── */}
-                <motion.div
-                    animate={{ ...bFrame.animate, y: [15, 15, 0, 0, 10, 15] }}
-                    transition={tr(bFrame.transition.times)}
-                    className="absolute top-[12%] left-[5%] lg:left-[8%] w-72 lg:w-80 rounded-xl border border-slate-300/80 bg-white/50 backdrop-blur-sm overflow-hidden z-10 shadow-md"
-                >
-                    <div className="flex items-center gap-1.5 px-3 h-8 border-b border-slate-200/60 bg-white/60 shrink-0">
-                        <div className="w-2.5 h-2.5 rounded-full bg-red-400/80" />
-                        <div className="w-2.5 h-2.5 rounded-full bg-amber-300/60" />
-                        <div className="w-2.5 h-2.5 rounded-full bg-green-300/60" />
-                        <div className="flex-1 mx-3 h-3 rounded-md bg-slate-200/70" />
-                    </div>
-                    <div className="p-3 space-y-2">
-                        <motion.div animate={bNav.animate} transition={tr(bNav.transition.times)} className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded bg-red-400/70" />
-                            <div className="flex-1" />
-                            <div className="w-8 h-2 rounded bg-slate-300/70" />
-                            <div className="w-8 h-2 rounded bg-slate-300/70" />
-                            <div className="w-8 h-2 rounded bg-slate-300/70" />
-                        </motion.div>
+                    {/* ── SEGMENT 1: Browser mockup (0.2 → 4.5s) ── */}
+                    <motion.div
+                        animate={{ ...bFrame.animate, y: [15, 15, 0, 0, 10, 15] }}
+                        transition={tr(bFrame.transition.times)}
+                        className="absolute top-[12%] left-[5%] lg:left-[8%] w-72 lg:w-80 rounded-xl border border-slate-300/80 bg-white/50 backdrop-blur-sm overflow-hidden z-10 shadow-md"
+                    >
+                        <div className="flex items-center gap-1.5 px-3 h-8 border-b border-slate-200/60 bg-white/60 shrink-0">
+                            <div className="w-2.5 h-2.5 rounded-full bg-red-400/80" />
+                            <div className="w-2.5 h-2.5 rounded-full bg-amber-300/60" />
+                            <div className="w-2.5 h-2.5 rounded-full bg-green-300/60" />
+                            <div className="flex-1 mx-3 h-3 rounded-md bg-slate-200/70" />
+                        </div>
+                        <div className="p-3 space-y-2">
+                            <motion.div animate={bNav.animate} transition={tr(bNav.transition.times)} className="flex items-center gap-2">
+                                <div className="w-5 h-5 rounded bg-red-400/70" />
+                                <div className="flex-1" />
+                                <div className="w-8 h-2 rounded bg-slate-300/70" />
+                                <div className="w-8 h-2 rounded bg-slate-300/70" />
+                                <div className="w-8 h-2 rounded bg-slate-300/70" />
+                            </motion.div>
 
-                        <motion.div animate={bHero.animate} transition={tr(bHero.transition.times)} className="flex gap-2 items-start">
-                            <div className="flex-1 space-y-1.5 pt-1">
-                                <div className="h-3 rounded bg-slate-800/25 w-full" />
-                                <div className="h-3 rounded bg-slate-800/20 w-4/5" />
-                                <div className="h-2 rounded bg-slate-400/30 w-full mt-1" />
-                                <div className="h-2 rounded bg-slate-400/30 w-3/4" />
+                            <motion.div animate={bHero.animate} transition={tr(bHero.transition.times)} className="flex gap-2 items-start">
+                                <div className="flex-1 space-y-1.5 pt-1">
+                                    <div className="h-3 rounded bg-slate-800/25 w-full" />
+                                    <div className="h-3 rounded bg-slate-800/20 w-4/5" />
+                                    <div className="h-2 rounded bg-slate-400/30 w-full mt-1" />
+                                    <div className="h-2 rounded bg-slate-400/30 w-3/4" />
+                                </div>
+                                <motion.div animate={bImg.animate} transition={tr(bImg.transition.times)}
+                                    className="w-20 h-16 rounded-lg bg-slate-200/80 border border-slate-300/50 flex items-center justify-center shrink-0">
+                                    <svg className="w-6 h-6 text-slate-400/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
+                                    </svg>
+                                </motion.div>
+                            </motion.div>
+
+                            <motion.div animate={bCta.animate} transition={tr(bCta.transition.times)}>
+                                <div className="w-20 h-5 rounded-full bg-red-400/60" />
+                            </motion.div>
+
+                            <div className="flex gap-1.5 pt-1">
+                                <motion.div animate={bCard1.animate} transition={tr(bCard1.transition.times)}
+                                    className="flex-1 h-12 rounded-lg bg-slate-100/80 border border-slate-200/60 p-1.5">
+                                    <div className="w-4 h-4 rounded bg-red-300/50 mb-1" />
+                                    <div className="h-1.5 rounded bg-slate-300/60 w-3/4" />
+                                </motion.div>
+                                <motion.div animate={bCard2.animate} transition={tr(bCard2.transition.times)}
+                                    className="flex-1 h-12 rounded-lg bg-slate-100/80 border border-slate-200/60 p-1.5">
+                                    <div className="w-4 h-4 rounded bg-amber-300/50 mb-1" />
+                                    <div className="h-1.5 rounded bg-slate-300/60 w-3/4" />
+                                </motion.div>
+                                <motion.div animate={bCard3.animate} transition={tr(bCard3.transition.times)}
+                                    className="flex-1 h-12 rounded-lg bg-slate-100/80 border border-slate-200/60 p-1.5">
+                                    <div className="w-4 h-4 rounded bg-emerald-300/50 mb-1" />
+                                    <div className="h-1.5 rounded bg-slate-300/60 w-3/4" />
+                                </motion.div>
                             </div>
-                            <motion.div animate={bImg.animate} transition={tr(bImg.transition.times)}
-                                className="w-20 h-16 rounded-lg bg-slate-200/80 border border-slate-300/50 flex items-center justify-center shrink-0">
-                                <svg className="w-6 h-6 text-slate-400/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Z" />
-                                </svg>
-                            </motion.div>
-                        </motion.div>
 
-                        <motion.div animate={bCta.animate} transition={tr(bCta.transition.times)}>
-                            <div className="w-20 h-5 rounded-full bg-red-400/60" />
-                        </motion.div>
+                            <motion.div animate={bFooter.animate} transition={tr(bFooter.transition.times)}
+                                className="h-3 rounded bg-slate-200/60 w-full" />
+                        </div>
+                    </motion.div>
 
-                        <div className="flex gap-1.5 pt-1">
-                            <motion.div animate={bCard1.animate} transition={tr(bCard1.transition.times)}
-                                className="flex-1 h-12 rounded-lg bg-slate-100/80 border border-slate-200/60 p-1.5">
-                                <div className="w-4 h-4 rounded bg-red-300/50 mb-1" />
-                                <div className="h-1.5 rounded bg-slate-300/60 w-3/4" />
+                    {/* Launch dot */}
+                    <motion.div
+                        animate={{ opacity: [0, 0, 1, 1, 0, 0], scale: [0, 0, 1.2, 1, 1, 0] }}
+                        transition={tr(launchTimes)}
+                        className="absolute top-[12%] left-[5%] lg:left-[8%] z-20"
+                        style={{ marginLeft: 270, marginTop: 10 }}
+                    >
+                        <div className="w-3 h-3 rounded-full bg-emerald-400 shadow-[0_0_8px_3px_rgba(52,211,153,0.6)]" />
+                    </motion.div>
+
+                    {/* Pulse ring 1 */}
+                    <motion.div
+                        animate={{ opacity: [0, 0, 0.9, 0, 0], scale: [0.3, 0.3, 1, 3, 3] }}
+                        transition={{ ...baseLoop, times: [0, (launchInAt - 0.1) / D, (launchInAt + 0.2) / D, (launchInAt + 1.2) / D, 1] }}
+                        className="absolute top-[12%] left-[5%] lg:left-[8%] z-10"
+                        style={{ marginLeft: 260, marginTop: -1 }}
+                    >
+                        <div className="w-8 h-8 rounded-full border-2 border-emerald-400/80" />
+                    </motion.div>
+
+                    {/* Pulse ring 2 */}
+                    <motion.div
+                        animate={{ opacity: [0, 0, 0.6, 0, 0], scale: [0.3, 0.3, 1, 4, 4] }}
+                        transition={{ ...baseLoop, times: [0, (launchInAt + 0.1) / D, (launchInAt + 0.4) / D, (launchInAt + 1.4) / D, 1] }}
+                        className="absolute top-[12%] left-[5%] lg:left-[8%] z-10"
+                        style={{ marginLeft: 260, marginTop: -1 }}
+                    >
+                        <div className="w-8 h-8 rounded-full border border-emerald-400/50" />
+                    </motion.div>
+
+                    {/* Browser glow */}
+                    <motion.div
+                        animate={{ opacity: [0, 0, 0.15, 0, 0] }}
+                        transition={{ ...baseLoop, times: [0, launchInAt / D, (launchInAt + 0.3) / D, (launchInAt + 1.1) / D, 1] }}
+                        className="absolute top-[12%] left-[5%] lg:left-[8%] w-72 lg:w-80 h-64 rounded-xl bg-emerald-400 z-[9] blur-xl"
+                    />
+
+                    {/* ── SEGMENT 2: Component card (4.8 → 9.5s) ── */}
+                    <motion.div
+                        animate={{ ...cFrame.animate, y: [20, 20, 0, 0, 10, 20] }}
+                        transition={tr(cFrame.transition.times)}
+                        className="absolute top-[20%] left-[50%] -translate-x-1/2 lg:left-auto lg:translate-x-0 lg:right-[10%] w-56 lg:w-60 rounded-xl border border-red-300/60 bg-white/40 backdrop-blur-sm overflow-hidden z-10 shadow-md"
+                    >
+                        <div className="p-3 space-y-2">
+                            <motion.div animate={cHeader.animate} transition={tr(cHeader.transition.times)} className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-lg bg-red-300/60 shrink-0" />
+                                <div className="flex-1 space-y-1">
+                                    <div className="h-2.5 rounded bg-slate-700/25 w-3/4" />
+                                    <div className="h-2 rounded bg-slate-400/30 w-full" />
+                                </div>
                             </motion.div>
-                            <motion.div animate={bCard2.animate} transition={tr(bCard2.transition.times)}
-                                className="flex-1 h-12 rounded-lg bg-slate-100/80 border border-slate-200/60 p-1.5">
-                                <div className="w-4 h-4 rounded bg-amber-300/50 mb-1" />
-                                <div className="h-1.5 rounded bg-slate-300/60 w-3/4" />
+                            <motion.div animate={cImg.animate} transition={tr(cImg.transition.times)}
+                                className="h-14 rounded-lg bg-slate-200/70 border border-slate-300/40" />
+                            <motion.div animate={cText.animate} transition={tr(cText.transition.times)} className="space-y-1">
+                                <div className="h-2 rounded bg-slate-300/60 w-full" />
+                                <div className="h-2 rounded bg-slate-300/50 w-2/3" />
                             </motion.div>
-                            <motion.div animate={bCard3.animate} transition={tr(bCard3.transition.times)}
-                                className="flex-1 h-12 rounded-lg bg-slate-100/80 border border-slate-200/60 p-1.5">
-                                <div className="w-4 h-4 rounded bg-emerald-300/50 mb-1" />
-                                <div className="h-1.5 rounded bg-slate-300/60 w-3/4" />
+                            <motion.div animate={cStats.animate} transition={tr(cStats.transition.times)} className="flex gap-2 pt-0.5">
+                                <div className="flex-1 h-6 rounded-lg bg-emerald-100/70 border border-emerald-200/50 flex items-center justify-center">
+                                    <div className="w-6 h-1.5 rounded bg-emerald-400/60" />
+                                </div>
+                                <div className="flex-1 h-6 rounded-lg bg-slate-100/70 border border-slate-200/40" />
+                                <div className="flex-1 h-6 rounded-lg bg-slate-100/70 border border-slate-200/40" />
+                            </motion.div>
+                            <motion.div animate={cCta.animate} transition={tr(cCta.transition.times)}>
+                                <div className="h-6 rounded-full bg-red-400/50 w-3/5" />
+                            </motion.div>
+                            <motion.div animate={cBars.animate} transition={tr(cBars.transition.times)} className="space-y-1 pt-0.5">
+                                <div className="h-1.5 rounded-full bg-slate-200/60 w-full overflow-hidden">
+                                    <div className="h-full bg-red-400/50 rounded-full" style={{ width: '65%' }} />
+                                </div>
+                                <div className="h-1.5 rounded-full bg-slate-200/60 w-full overflow-hidden">
+                                    <div className="h-full bg-amber-400/40 rounded-full" style={{ width: '40%' }} />
+                                </div>
                             </motion.div>
                         </div>
+                    </motion.div>
 
-                        <motion.div animate={bFooter.animate} transition={tr(bFooter.transition.times)}
-                            className="h-3 rounded bg-slate-200/60 w-full" />
-                    </div>
-                </motion.div>
-
-                {/* Launch dot */}
-                <motion.div
-                    animate={{ opacity: [0, 0, 1, 1, 0, 0], scale: [0, 0, 1.2, 1, 1, 0] }}
-                    transition={tr(launchTimes)}
-                    className="absolute top-[12%] left-[5%] lg:left-[8%] z-20"
-                    style={{ marginLeft: 270, marginTop: 10 }}
-                >
-                    <div className="w-3 h-3 rounded-full bg-emerald-400 shadow-[0_0_8px_3px_rgba(52,211,153,0.6)]" />
-                </motion.div>
-
-                {/* Pulse ring 1 */}
-                <motion.div
-                    animate={{ opacity: [0, 0, 0.9, 0, 0], scale: [0.3, 0.3, 1, 3, 3] }}
-                    transition={{ ...baseLoop, times: [0, (launchInAt - 0.1) / D, (launchInAt + 0.2) / D, (launchInAt + 1.2) / D, 1] }}
-                    className="absolute top-[12%] left-[5%] lg:left-[8%] z-10"
-                    style={{ marginLeft: 260, marginTop: -1 }}
-                >
-                    <div className="w-8 h-8 rounded-full border-2 border-emerald-400/80" />
-                </motion.div>
-
-                {/* Pulse ring 2 */}
-                <motion.div
-                    animate={{ opacity: [0, 0, 0.6, 0, 0], scale: [0.3, 0.3, 1, 4, 4] }}
-                    transition={{ ...baseLoop, times: [0, (launchInAt + 0.1) / D, (launchInAt + 0.4) / D, (launchInAt + 1.4) / D, 1] }}
-                    className="absolute top-[12%] left-[5%] lg:left-[8%] z-10"
-                    style={{ marginLeft: 260, marginTop: -1 }}
-                >
-                    <div className="w-8 h-8 rounded-full border border-emerald-400/50" />
-                </motion.div>
-
-                {/* Browser glow */}
-                <motion.div
-                    animate={{ opacity: [0, 0, 0.15, 0, 0] }}
-                    transition={{ ...baseLoop, times: [0, launchInAt / D, (launchInAt + 0.3) / D, (launchInAt + 1.1) / D, 1] }}
-                    className="absolute top-[12%] left-[5%] lg:left-[8%] w-72 lg:w-80 h-64 rounded-xl bg-emerald-400 z-[9] blur-xl"
-                />
-
-                {/* ── SEGMENT 2: Component card (4.8 → 9.5s) ── */}
-                <motion.div
-                    animate={{ ...cFrame.animate, y: [20, 20, 0, 0, 10, 20] }}
-                    transition={tr(cFrame.transition.times)}
-                    className="absolute top-[20%] left-[50%] -translate-x-1/2 lg:left-auto lg:translate-x-0 lg:right-[10%] w-56 lg:w-60 rounded-xl border border-red-300/60 bg-white/40 backdrop-blur-sm overflow-hidden z-10 shadow-md"
-                >
-                    <div className="p-3 space-y-2">
-                        <motion.div animate={cHeader.animate} transition={tr(cHeader.transition.times)} className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-red-300/60 shrink-0" />
-                            <div className="flex-1 space-y-1">
-                                <div className="h-2.5 rounded bg-slate-700/25 w-3/4" />
-                                <div className="h-2 rounded bg-slate-400/30 w-full" />
-                            </div>
-                        </motion.div>
-                        <motion.div animate={cImg.animate} transition={tr(cImg.transition.times)}
-                            className="h-14 rounded-lg bg-slate-200/70 border border-slate-300/40" />
-                        <motion.div animate={cText.animate} transition={tr(cText.transition.times)} className="space-y-1">
-                            <div className="h-2 rounded bg-slate-300/60 w-full" />
-                            <div className="h-2 rounded bg-slate-300/50 w-2/3" />
-                        </motion.div>
-                        <motion.div animate={cStats.animate} transition={tr(cStats.transition.times)} className="flex gap-2 pt-0.5">
-                            <div className="flex-1 h-6 rounded-lg bg-emerald-100/70 border border-emerald-200/50 flex items-center justify-center">
-                                <div className="w-6 h-1.5 rounded bg-emerald-400/60" />
-                            </div>
-                            <div className="flex-1 h-6 rounded-lg bg-slate-100/70 border border-slate-200/40" />
-                            <div className="flex-1 h-6 rounded-lg bg-slate-100/70 border border-slate-200/40" />
-                        </motion.div>
-                        <motion.div animate={cCta.animate} transition={tr(cCta.transition.times)}>
-                            <div className="h-6 rounded-full bg-red-400/50 w-3/5" />
-                        </motion.div>
-                        <motion.div animate={cBars.animate} transition={tr(cBars.transition.times)} className="space-y-1 pt-0.5">
-                            <div className="h-1.5 rounded-full bg-slate-200/60 w-full overflow-hidden">
-                                <div className="h-full bg-red-400/50 rounded-full" style={{ width: '65%' }} />
-                            </div>
-                            <div className="h-1.5 rounded-full bg-slate-200/60 w-full overflow-hidden">
-                                <div className="h-full bg-amber-400/40 rounded-full" style={{ width: '40%' }} />
-                            </div>
-                        </motion.div>
-                    </div>
-                </motion.div>
-
-                {/* ── SEGMENT 3: Phone mockup (9.8 → 14.2s) ── */}
-                <motion.div
-                    animate={{ ...pFrame.animate, y: [18, 18, 0, 0, 10, 18] }}
-                    transition={tr(pFrame.transition.times)}
-                    className="absolute top-[15%] left-[50%] -translate-x-1/2 lg:left-auto lg:translate-x-0 lg:right-[14%] w-24 h-44 rounded-2xl border-2 border-slate-300/60 bg-white/35 backdrop-blur-sm overflow-hidden z-10 shadow-md"
-                >
-                    <div className="mx-auto mt-1.5 w-10 h-2 rounded-full bg-slate-300/60" />
-                    <div className="p-2 mt-1 space-y-1.5">
-                        <motion.div animate={pEl1.animate} transition={tr(pEl1.transition.times)} className="h-2 rounded bg-red-300/60 w-full" />
-                        <motion.div animate={pEl2.animate} transition={tr(pEl2.transition.times)} className="h-7 rounded-lg bg-slate-200/60 w-full" />
-                        <motion.div animate={pEl3.animate} transition={tr(pEl3.transition.times)} className="h-1.5 rounded bg-slate-300/50 w-3/4" />
-                        <motion.div animate={pEl4.animate} transition={tr(pEl4.transition.times)} className="flex gap-1">
-                            <div className="flex-1 h-4 rounded bg-slate-100/70 border border-slate-200/50" />
-                            <div className="flex-1 h-4 rounded bg-slate-100/70 border border-slate-200/50" />
-                        </motion.div>
-                        <motion.div animate={pEl5.animate} transition={tr(pEl5.transition.times)}>
-                            <div className="h-5 rounded-full bg-red-400/50 w-2/3 mx-auto" />
-                        </motion.div>
-                    </div>
-                    <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-slate-400/40" />
-                </motion.div>
-            </div>
+                    {/* ── SEGMENT 3: Phone mockup (9.8 → 14.2s) ── */}
+                    <motion.div
+                        animate={{ ...pFrame.animate, y: [18, 18, 0, 0, 10, 18] }}
+                        transition={tr(pFrame.transition.times)}
+                        className="absolute top-[15%] left-[50%] -translate-x-1/2 lg:left-auto lg:translate-x-0 lg:right-[14%] w-24 h-44 rounded-2xl border-2 border-slate-300/60 bg-white/35 backdrop-blur-sm overflow-hidden z-10 shadow-md"
+                    >
+                        <div className="mx-auto mt-1.5 w-10 h-2 rounded-full bg-slate-300/60" />
+                        <div className="p-2 mt-1 space-y-1.5">
+                            <motion.div animate={pEl1.animate} transition={tr(pEl1.transition.times)} className="h-2 rounded bg-red-300/60 w-full" />
+                            <motion.div animate={pEl2.animate} transition={tr(pEl2.transition.times)} className="h-7 rounded-lg bg-slate-200/60 w-full" />
+                            <motion.div animate={pEl3.animate} transition={tr(pEl3.transition.times)} className="h-1.5 rounded bg-slate-300/50 w-3/4" />
+                            <motion.div animate={pEl4.animate} transition={tr(pEl4.transition.times)} className="flex gap-1">
+                                <div className="flex-1 h-4 rounded bg-slate-100/70 border border-slate-200/50" />
+                                <div className="flex-1 h-4 rounded bg-slate-100/70 border border-slate-200/50" />
+                            </motion.div>
+                            <motion.div animate={pEl5.animate} transition={tr(pEl5.transition.times)}>
+                                <div className="h-5 rounded-full bg-red-400/50 w-2/3 mx-auto" />
+                            </motion.div>
+                        </div>
+                        <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-slate-400/40" />
+                    </motion.div>
+                </div>
             </div>
 
-            {/* ━━━ Mobile — browser then phone ━━━ */}
-            <div className="block md:hidden">
-                {/* Mobile browser (0.2 → 6.8s) */}
-                {(() => {
-                    const mbFrame = fade(0.2, 6.8, 0.65);
-                    const mb1 = slideIn(0.4, 6.8, 'left', 15, 0.8);
-                    const mb2 = slideIn(0.6, 6.8, 'left', 15, 0.8);
-                    const mb3 = slideIn(0.8, 6.8, 'left', 10, 0.8);
-                    const mb4 = slideIn(1.0, 6.8, 'bottom', 10, 0.8);
-                    const mb5 = slideIn(1.2, 6.8, 'bottom', 10, 0.8);
-                    return (
-                        <motion.div
-                            animate={{ ...mbFrame.animate, y: [10, 10, 0, 0, 5, 10] }}
-                            transition={tr(mbFrame.transition.times)}
-                            className="absolute top-[8%] left-1/2 -translate-x-1/2 w-56 rounded-xl border border-slate-300/50 bg-white/30 overflow-hidden z-10 shadow-sm"
-                        >
-                            <div className="flex items-center gap-1 px-2 h-6 border-b border-slate-200/40 bg-white/40 shrink-0">
-                                <div className="w-2 h-2 rounded-full bg-red-400/60" />
-                                <div className="w-2 h-2 rounded-full bg-amber-300/40" />
-                                <div className="w-2 h-2 rounded-full bg-green-300/40" />
-                                <div className="flex-1 mx-1.5 h-2 rounded bg-slate-200/50" />
-                            </div>
-                            <div className="p-2 space-y-1.5">
-                                <motion.div animate={mb1.animate} transition={tr(mb1.transition.times)} className="h-2.5 rounded bg-red-300/50 w-full" />
-                                <motion.div animate={mb2.animate} transition={tr(mb2.transition.times)} className="h-6 rounded bg-slate-200/50 w-full" />
-                                <motion.div animate={mb3.animate} transition={tr(mb3.transition.times)}>
-                                    <div className="w-14 h-3.5 rounded-full bg-red-400/50" />
-                                </motion.div>
-                                <div className="flex gap-1">
-                                    <motion.div animate={mb4.animate} transition={tr(mb4.transition.times)} className="flex-1 h-6 rounded bg-slate-100/70 border border-slate-200/40" />
-                                    <motion.div animate={mb5.animate} transition={tr(mb5.transition.times)} className="flex-1 h-6 rounded bg-slate-100/70 border border-slate-200/40" />
-                                </div>
-                            </div>
-                        </motion.div>
-                    );
-                })()}
 
-                {/* Mobile phone (7.5 → 14.5s) */}
-                {(() => {
-                    const mpFrame = fade(7.5, 14.2, 0.65);
-                    const mp1 = slideIn(7.7, 14.2, 'bottom', 8, 0.8);
-                    const mp2 = slideIn(7.9, 14.2, 'bottom', 8, 0.8);
-                    const mp3 = slideIn(8.1, 14.2, 'bottom', 8, 0.8);
-                    const mp4 = slideIn(8.3, 14.2, 'bottom', 8, 0.8);
-                    return (
-                        <motion.div
-                            animate={{ ...mpFrame.animate, y: [15, 15, 0, 0, 8, 15] }}
-                            transition={tr(mpFrame.transition.times)}
-                            className="absolute top-[6%] left-1/2 -translate-x-1/2 w-20 h-40 rounded-2xl border-2 border-slate-300/50 bg-white/30 overflow-hidden z-10 shadow-sm"
-                        >
-                            <div className="mx-auto mt-1 w-8 h-1.5 rounded-full bg-slate-300/50" />
-                            <div className="p-1.5 mt-0.5 space-y-1">
-                                <motion.div animate={mp1.animate} transition={tr(mp1.transition.times)} className="h-1.5 rounded bg-red-300/60 w-full" />
-                                <motion.div animate={mp2.animate} transition={tr(mp2.transition.times)} className="h-4 rounded bg-slate-200/60 w-full" />
-                                <motion.div animate={mp3.animate} transition={tr(mp3.transition.times)} className="h-1 rounded bg-slate-300/50 w-3/4" />
-                                <motion.div animate={mp4.animate} transition={tr(mp4.transition.times)} className="flex gap-0.5">
-                                    <div className="flex-1 h-3 rounded bg-slate-200/50" />
-                                    <div className="flex-1 h-3 rounded bg-slate-200/50" />
-                                </motion.div>
-                            </div>
-                            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-7 h-1 rounded-full bg-slate-400/35" />
-                        </motion.div>
-                    );
-                })()}
-            </div>
         </div>
     );
 }
