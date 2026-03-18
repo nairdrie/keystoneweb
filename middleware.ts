@@ -8,7 +8,11 @@ import { createServerClient } from '@supabase/ssr';
  * 3. Custom domain routing (user-owned domains pointed via DNS)
  * 4. Ops dashboard routing (ops.keystoneweb.ca → /ops/*)
  */
-export async function middleware(request: NextRequest) {
+
+// Auth cookies must be shared across keystoneweb.ca subdomains (e.g. ops.keystoneweb.ca).
+// In production, set domain=.keystoneweb.ca so the cookie is sent on all subdomains.
+const COOKIE_DOMAIN =
+  process.env.NODE_ENV === 'production' ? '.keystoneweb.ca' : undefined;
   const hostname = request.headers.get('host') || '';
   const pathname = request.nextUrl.pathname;
 
@@ -50,7 +54,7 @@ export async function middleware(request: NextRequest) {
             },
             setAll(cookiesToSet) {
               cookiesToSet.forEach(({ name, value, options }) => {
-                opsCheckResponse.cookies.set(name, value, options);
+                opsCheckResponse.cookies.set(name, value, { ...options, domain: COOKIE_DOMAIN });
               });
             },
           },
@@ -142,7 +146,7 @@ export async function middleware(request: NextRequest) {
           },
           setAll(cookiesToSet) {
             cookiesToSet.forEach(({ name, value, options }) => {
-              response.cookies.set(name, value, options);
+              response.cookies.set(name, value, { ...options, domain: COOKIE_DOMAIN });
             });
           },
         },
