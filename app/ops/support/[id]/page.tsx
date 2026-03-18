@@ -73,7 +73,7 @@ export default function SupportTicketPage() {
     return (
       <div className="py-24 text-center text-gray-500">
         Ticket not found.{' '}
-        <Link href="/ops/support" className="text-emerald-400 underline">
+        <Link href="/support" className="text-emerald-400 underline">
           Back to support
         </Link>
       </div>
@@ -84,7 +84,7 @@ export default function SupportTicketPage() {
     <div className="max-w-3xl space-y-6">
       <div className="flex items-center gap-3">
         <Link
-          href="/ops/support"
+          href="/support"
           className="text-sm text-gray-500 hover:text-white transition-colors"
         >
           ← Support
