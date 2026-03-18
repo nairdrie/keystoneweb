@@ -121,7 +121,8 @@ export default function AnimatedGridPattern() {
             </div>
 
             {/* ━━━ Desktop ━━━ */}
-            <div className="hidden md:block">
+            <div className="hidden md:flex justify-center">
+            <div className="relative w-full max-w-5xl h-full">
 
                 {/* ── SEGMENT 1: Browser mockup (0.2 → 4.5s) ── */}
                 <motion.div
@@ -285,6 +286,7 @@ export default function AnimatedGridPattern() {
                     </div>
                     <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-slate-400/40" />
                 </motion.div>
+            </div>
             </div>
 
             {/* ━━━ Mobile — browser then phone ━━━ */}
