@@ -24,9 +24,11 @@ export async function createClient() {
           return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
+          const cookieDomain =
+            process.env.NODE_ENV === 'production' ? '.keystoneweb.ca' : undefined;
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
+              cookieStore.set(name, value, { ...options, domain: cookieDomain });
             });
           } catch (error) {
             // Handle errors during cookie setting (e.g., in middleware)
