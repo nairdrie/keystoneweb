@@ -8,7 +8,16 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Supabase environment variables not set. Database operations will fail.');
 }
 
-export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
+const cookieDomain =
+  typeof window !== 'undefined' && window.location.hostname.endsWith('keystoneweb.ca')
+    ? '.keystoneweb.ca'
+    : undefined;
+
+export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey, {
+  cookieOptions: {
+    domain: cookieDomain,
+  },
+});
 
 // For server-side operations, we can also use direct connection if needed
 export const getDatabaseUrl = () => {

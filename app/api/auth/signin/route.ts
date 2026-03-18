@@ -15,9 +15,11 @@ export async function POST(request: Request) {
           return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
+          const domain =
+            process.env.NODE_ENV === 'production' ? '.keystoneweb.ca' : undefined;
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
+              cookieStore.set(name, value, { ...options, domain })
             );
           } catch {
             // Handle errors silently
