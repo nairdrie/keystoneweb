@@ -157,7 +157,7 @@ export default async function OpsOverviewPage() {
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        <StatCard label="Total Users" value={totalUsers ?? 0} href="/ops/users" />
+        <StatCard label="Total Users" value={totalUsers ?? 0} href="/users" />
         <StatCard
           label="Active Subs"
           value={activeSubs ?? 0}
@@ -179,7 +179,7 @@ export default async function OpsOverviewPage() {
           label="Open Support"
           value={openSupport ?? 0}
           accent={(openSupport ?? 0) > 0 ? 'text-amber-400' : 'text-white'}
-          href="/ops/support"
+          href="/support"
         />
       </div>
 
