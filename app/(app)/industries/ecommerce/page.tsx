@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { ShoppingBag, CreditCard, Box, Truck, BarChart3, Globe } from 'lucide-react';
 import Header from '../../../components/Header';
-import AnimatedGridPattern from '../../../components/AnimatedGridPattern';
+
 
 export default function EcommerceIndustryPage() {
     return (
@@ -13,7 +13,7 @@ export default function EcommerceIndustryPage() {
 
             {/* Hero Section */}
             <section className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
-                <AnimatedGridPattern />
+                
 
                 <div className="mx-auto max-w-4xl text-center relative z-10">
                     <motion.div

@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Check, Loader2 } from 'lucide-react';
 import Header from '../../components/Header';
-import AnimatedGridPattern from '../../components/AnimatedGridPattern';
+
 
 const STRIPE_PRICES = {
   basic: {
@@ -38,7 +38,7 @@ function PricingContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activePlan, setActivePlan] = useState<string | null>(null);
-  const [isYearly, setIsYearly] = useState(false);
+  const [isYearly, setIsYearly] = useState(true);
 
   useEffect(() => {
     fetch('/api/user/subscription', { credentials: 'include' })
@@ -297,7 +297,7 @@ export default function PricingPage() {
   return (
     <main className="min-h-screen bg-white relative overflow-hidden">
       <Header />
-      <AnimatedGridPattern />
+      
 
       <div className="absolute top-40 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-red-200 rounded-full blur-[100px] opacity-50 -z-10" />
 

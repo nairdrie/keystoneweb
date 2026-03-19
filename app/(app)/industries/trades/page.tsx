@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { Hammer, CalendarClock, ShieldCheck, MapPin, Users, PhoneCall } from 'lucide-react';
 import Header from '../../../components/Header';
-import AnimatedGridPattern from '../../../components/AnimatedGridPattern';
+
 
 export default function TradesIndustryPage() {
     return (
@@ -13,7 +13,7 @@ export default function TradesIndustryPage() {
 
             {/* Hero Section */}
             <section className="relative pt-32 pb-24 px-4 sm:px-6 lg:px-8 overflow-hidden bg-white">
-                <AnimatedGridPattern />
+                
 
                 <div className="mx-auto max-w-4xl text-center relative z-10">
                     <motion.div
