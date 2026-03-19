@@ -7,10 +7,15 @@ import { Check, Loader2 } from 'lucide-react';
 import Header from '../../components/Header';
 import AnimatedGridPattern from '../../components/AnimatedGridPattern';
 
-// Stripe Price IDs - Replace with your actual Stripe Price IDs from Stripe dashboard
 const STRIPE_PRICES = {
-  basic: 'price_1T50Wv9e8C5naDN43dBXbWwJ', // Basic Plan ($15/month)
-  pro: 'price_1T50Xn9e8C5naDN4yEASWwsV', // Pro Plan ($30/month)
+  basic: {
+    monthly: 'price_1TCZSU9e8C5naDN47tc8rB74', // $30/mo
+    yearly: 'price_1TCZSm9e8C5naDN4d8Zctb6D',  // $180/yr
+  },
+  pro: {
+    monthly: 'price_1TCZRk9e8C5naDN44O78PCfh', // $60/mo
+    yearly: 'price_1TCZRS9e8C5naDN4LtllOW7G',  // $360/yr
+  },
 };
 
 const MONTHLY_PRICES = { basic: 30, pro: 60 };
@@ -201,7 +206,7 @@ function PricingContent() {
           </ul>
 
           <button
-            onClick={() => handleCheckout('Basic', STRIPE_PRICES.basic)}
+            onClick={() => handleCheckout('Basic', isYearly ? STRIPE_PRICES.basic.yearly : STRIPE_PRICES.basic.monthly)}
             disabled={loading || isBasic}
             className="block w-full py-4 px-6 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-900 font-bold text-center transition-colors flex items-center justify-center gap-2"
           >
@@ -267,7 +272,7 @@ function PricingContent() {
           </ul>
 
           <button
-            onClick={() => handleCheckout('Pro', STRIPE_PRICES.pro)}
+            onClick={() => handleCheckout('Pro', isYearly ? STRIPE_PRICES.pro.yearly : STRIPE_PRICES.pro.monthly)}
             disabled={loading || isPro}
             className="block w-full py-4 px-6 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-bold text-center transition-colors shadow-lg hover:shadow-red-600/25 flex items-center justify-center gap-2"
           >
