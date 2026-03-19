@@ -172,6 +172,18 @@ export async function middleware(request: NextRequest) {
       response.headers.set('x-user-id', user.id);
       response.headers.set('x-user-email', user.email || '');
 
+      // Check if user is banned
+      const { data: profile } = await supabase
+        .from('users')
+        .select('is_banned')
+        .eq('id', user.id)
+        .single();
+
+      if (profile?.is_banned) {
+        console.log(`[Middleware] Banned user attempted access: ${user.email}`);
+        return NextResponse.redirect(new URL('https://keystoneweb.ca?error=account_blocked'));
+      }
+
       // ============================================================
       // STEP 2: Impersonation check
       // ============================================================

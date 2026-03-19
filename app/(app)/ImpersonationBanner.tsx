@@ -13,8 +13,8 @@ export default function ImpersonationBanner({ userEmail }: { userEmail: string }
         method: 'DELETE',
       });
       if (res.ok) {
-        // Redirect back to ops dashboard or refresh
-        window.location.href = '/ops/users';
+        // Redirect back to ops dashboard
+        window.location.href = 'https://ops.keystoneweb.ca/users';
       }
     } catch (err) {
       console.error(err);
@@ -25,7 +25,7 @@ export default function ImpersonationBanner({ userEmail }: { userEmail: string }
   }
 
   return (
-    <div className="bg-amber-600 text-white px-4 py-2 sticky top-0 z-[100] flex items-center justify-between shadow-lg">
+    <div className="bg-amber-600 text-white px-4 py-2 fixed top-0 left-0 w-full z-[10000] flex items-center justify-between shadow-lg h-9">
       <div className="flex items-center gap-2 text-sm font-semibold">
         <UserCircle className="w-4 h-4" />
         <span>You are currently impersonating <span className="underline">{userEmail}</span></span>

@@ -106,6 +106,26 @@ export default function SupportTicketPage() {
     }
   }
 
+  async function deleteTicket() {
+    if (!confirm('Are you sure you want to permanently delete this ticket? This cannot be undone.')) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/ops/support/${id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        window.location.href = '/support';
+      } else {
+        alert('Failed to delete ticket.');
+        setSaving(false);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('An error occurred while deleting.');
+      setSaving(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24 text-gray-500">
@@ -218,7 +238,7 @@ export default function SupportTicketPage() {
       </div>
 
       {/* Controls */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 pt-4 border-t border-gray-800">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 pt-4 border-t border-gray-800 items-end">
         <div>
           <label className="block text-xs text-gray-500 mb-1">Status</label>
           <select
@@ -248,6 +268,15 @@ export default function SupportTicketPage() {
               </option>
             ))}
           </select>
+        </div>
+        <div className="sm:col-span-2 flex justify-end">
+          <button
+            onClick={deleteTicket}
+            disabled={saving}
+            className="rounded-md bg-red-900/30 px-4 py-1.5 text-sm font-medium text-red-400 hover:bg-red-900/50 transition-colors disabled:opacity-50"
+          >
+            {saving ? 'Processing…' : 'Delete Ticket'}
+          </button>
         </div>
       </div>
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
+import { trackEvent } from '@/lib/analytics';
 import { DEFAULT_TEMPLATE_BLOCKS } from '@/lib/default-blocks';
 
 interface CreatePageRequest {
@@ -233,6 +234,8 @@ export async function PATCH(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    trackEvent('site_edit', { userId: user.id, siteId });
 
     return NextResponse.json({ page: updatedPage });
   } catch (error) {

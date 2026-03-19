@@ -46,10 +46,19 @@ export default function RootLayout({
 async function ImpersonationIndicator() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const isImpersonated = user && (user as any).is_impersonated;
 
-  if (user && (user as any).is_impersonated) {
-    return <ImpersonationBanner userEmail={user.email || 'User'} />;
-  }
-
-  return null;
+  return (
+    <>
+      <style dangerouslySetInnerHTML={{ __html: `
+        :root {
+          --impersonation-height: ${isImpersonated ? '36px' : '0px'};
+        }
+        body {
+          padding-top: var(--impersonation-height) !important;
+        }
+      `}} />
+      {isImpersonated && <ImpersonationBanner userEmail={user.email || 'User'} />}
+    </>
+  );
 }

@@ -72,3 +72,26 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   return NextResponse.json(data);
 }
+
+/**
+ * DELETE /api/ops/support/[id]
+ * Permanently delete a support request.
+ */
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!await assertAdmin()) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const db = createAdminClient();
+  const { error } = await db
+    .from('support_requests')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    return NextResponse.json({ error: 'Delete failed' }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
+}

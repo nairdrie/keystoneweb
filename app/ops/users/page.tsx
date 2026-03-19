@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import ImpersonateButton from './ImpersonateButton';
+import UserActions from './UserActions';
 
 const PLAN_COLORS: Record<string, string> = {
   pro: 'text-emerald-400 bg-emerald-400/10',
@@ -47,7 +47,7 @@ export default async function OpsUsersPage({
 
   let query = db
     .from('users')
-    .select('id, email, business_name, is_admin, created_at', { count: 'exact' })
+    .select('id, email, business_name, is_admin, is_banned, created_at', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -102,6 +102,7 @@ export default async function OpsUsersPage({
       email: u.email,
       businessName: u.business_name,
       isAdmin: u.is_admin,
+      isBanned: u.is_banned,
       createdAt: u.created_at,
       plan: sub?.subscription_plan ?? 'free',
       subscriptionStatus: sub?.subscription_status ?? null,
@@ -170,6 +171,11 @@ export default async function OpsUsersPage({
                       admin
                     </span>
                   )}
+                  {u.isBanned && (
+                    <span className="ml-2 rounded bg-red-900 px-1.5 py-0.5 text-xs text-red-300">
+                      banned
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-gray-400">{u.businessName ?? '—'}</td>
                 <td className="px-4 py-3">{planBadge(u.plan)}</td>
@@ -185,7 +191,7 @@ export default async function OpsUsersPage({
                   {new Date(u.createdAt).toLocaleDateString('en-CA')}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <ImpersonateButton userId={u.id} userEmail={u.email} />
+                  <UserActions userId={u.id} userEmail={u.email} isBanned={u.isBanned} currentPlan={u.plan} />
                 </td>
               </tr>
             ))}

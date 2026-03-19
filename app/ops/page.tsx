@@ -89,6 +89,7 @@ export default async function OpsOverviewPage() {
     { count: signups7d },
     { count: signups30d },
     { count: siteCreates30d },
+    { count: siteEdits30d },
     { count: sitePublishes30d },
     { count: upgrades30d },
   ] = await Promise.all([
@@ -100,6 +101,7 @@ export default async function OpsOverviewPage() {
     db.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'user_signup').gte('created_at', day7),
     db.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'user_signup').gte('created_at', day30),
     db.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'site_create').gte('created_at', day30),
+    db.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'site_edit').gte('created_at', day30),
     db.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'site_publish').gte('created_at', day30),
     db.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'subscription_upgrade').gte('created_at', day30),
   ]);
@@ -114,12 +116,13 @@ export default async function OpsOverviewPage() {
   const { data: chartRows } = await db
     .from('analytics_events')
     .select('event_type, created_at')
-    .in('event_type', ['user_signup', 'site_create', 'site_publish', 'subscription_upgrade'])
+    .in('event_type', ['user_signup', 'site_create', 'site_edit', 'site_publish', 'subscription_upgrade'])
     .gte('created_at', day30)
     .order('created_at', { ascending: true });
 
   const signupSeries = new Array(30).fill(0);
   const createSeries = new Array(30).fill(0);
+  const editSeries = new Array(30).fill(0);
   const publishSeries = new Array(30).fill(0);
   const upgradeSeries = new Array(30).fill(0);
 
@@ -129,6 +132,7 @@ export default async function OpsOverviewPage() {
     if (idx === -1) continue;
     if (row.event_type === 'user_signup') signupSeries[idx]++;
     if (row.event_type === 'site_create') createSeries[idx]++;
+    if (row.event_type === 'site_edit') editSeries[idx]++;
     if (row.event_type === 'site_publish') publishSeries[idx]++;
     if (row.event_type === 'subscription_upgrade') upgradeSeries[idx]++;
   }
@@ -204,6 +208,9 @@ export default async function OpsOverviewPage() {
             Site Activity — last 30 days
           </h2>
           <BarChart data={createSeries} label={`Creates (${siteCreates30d ?? 0})`} color="#a78bfa" />
+          <div className="mt-3">
+            <BarChart data={editSeries} label={`Edits (${siteEdits30d ?? 0})`} color="#fbbf24" />
+          </div>
           <div className="mt-3">
             <BarChart data={publishSeries} label={`Publishes (${sitePublishes30d ?? 0})`} color="#10b981" />
           </div>
