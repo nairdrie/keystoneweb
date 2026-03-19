@@ -16,11 +16,7 @@ import { sendSupportRequestNotification } from '@/lib/email';
  * Resend signs webhooks using Svix (svix-id / svix-timestamp / svix-signature
  * headers). The SDK's webhooks.verify() handles all of that automatically.
  *
- * Note: the webhook payload contains only email metadata (from, subject, etc) —
- * no body text or HTML. The body is fetched separately via the Resend
- * Received Emails API: GET /emails/receiving/{email_id}.
- *
- * Payload shape:
+ * Payload shape (email.received):
  * {
  *   "type": "email.received",
  *   "created_at": "...",
@@ -29,6 +25,8 @@ import { sendSupportRequestNotification } from '@/lib/email';
  *     "from": "User Name <user@example.com>",
  *     "to": ["support@keystoneweb.ca"],
  *     "subject": "...",
+ *     "text": "plain text body",
+ *     "html": "<p>html body</p>",
  *     "message_id": "<unique-id@mail.example.com>"
  *   }
  * }
@@ -97,12 +95,12 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // The inbound webhook payload contains only metadata (no text/html body).
-  // Fetch the full email content via the Received Emails API.
-  let bodyText: string | null = null;
-  let bodyHtml: string | null = null;
+  // Extract body from the webhook payload directly
+  let bodyText: string | null = emailData?.text ?? null;
+  let bodyHtml: string | null = emailData?.html ?? null;
 
-  if (emailId && process.env.RESEND_API_KEY) {
+  // Fallback: fetch via Received Emails API if payload didn't include body
+  if (!bodyText && !bodyHtml && emailId && process.env.RESEND_API_KEY) {
     try {
       const emailRes = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
         headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
