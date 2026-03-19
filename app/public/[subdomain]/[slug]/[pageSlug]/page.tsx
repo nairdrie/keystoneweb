@@ -100,7 +100,7 @@ export default async function PublicSiteTranslatedPage({
             .select('id, slug, title')
             .eq('site_id', site.id);
 
-        const mergedPublishData = {
+        const mergedPublishData: Record<string, any> = {
             ...translatedSiteData,
             ...translatedPageData,
             __pages: allPages || [],
