@@ -136,7 +136,7 @@ export default function UserActions({ userId, userEmail, isBanned, currentPlan }
                   key={p}
                   onClick={() => changePlan(p)}
                   className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-700 transition-colors ${
-                    currentPlan.toLowerCase() === p.toLowerCase() ? 'text-emerald-400 font-bold' : 'text-gray-300'
+                    currentPlan.toLowerCase().includes(p.toLowerCase()) ? 'text-emerald-400 font-bold' : 'text-gray-300'
                   }`}
                 >
                   {p}
