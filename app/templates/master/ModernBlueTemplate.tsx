@@ -8,6 +8,7 @@ import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import Link from 'next/link';
 import NavMenu from '@/app/components/NavMenu';
 import HeaderCartIcon from '@/app/components/ecommerce/HeaderCartIcon';
+import HeaderLanguageSelector from '@/app/components/HeaderLanguageSelector';
 import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
@@ -97,6 +98,7 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                                 className="flex items-center gap-7"
                                 itemClassName="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
                             />
+                            <HeaderLanguageSelector />
                             <HeaderCartIcon color={pPrimary} />
                             <EditableButton
                                 contentKey="navButtonText"

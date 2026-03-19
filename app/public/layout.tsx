@@ -22,8 +22,11 @@ export default function PublicSiteLayout({
 }: Readonly<{
     children: React.ReactNode;
 }>) {
+    // The lang attribute is set to "en" by default.
+    // For translated pages, the template components read __currentLanguage
+    // from designData and can update the lang attribute client-side.
     return (
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
             <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
                 {children}
             </body>

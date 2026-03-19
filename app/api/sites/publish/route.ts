@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     // Fetch site and verify ownership
     const { data: site, error: siteError } = await supabase
       .from('sites')
-      .select('id, user_id, published_domain, design_data')
+      .select('id, user_id, published_domain, design_data, translations_config, translations')
       .eq('id', siteId)
       .single();
 

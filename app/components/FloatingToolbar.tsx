@@ -10,8 +10,9 @@ import AlertModal from './ui/AlertModal';
 import FontPickerModal from './FontPickerModal';
 import AIBuilderPanel from './AIBuilderPanel';
 import SEOPanel from './SEOPanel';
+import TranslationsPanel from './TranslationsPanel';
 import { AIMessage, UsageRemaining } from '@/lib/hooks/useAIBuilder';
-import { Type, User, Globe } from 'lucide-react';
+import { Type, User, Globe, Languages } from 'lucide-react';
 import ProfileDropdown from './ProfileDropdown';
 
 interface Palette {
@@ -541,6 +542,26 @@ export default function FloatingToolbar({
           {openSections.includes('seo') && (
             <div className="border-t border-slate-200">
               <SEOPanel siteId={currentSiteId} />
+            </div>
+          )}
+        </div>
+
+        {/* Translations Section */}
+        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+          <button
+            onClick={() => toggleSection('translations')}
+            className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-colors"
+          >
+            <span className="text-xs font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1.5">
+              <Languages className="w-3.5 h-3.5" />
+              Translations
+            </span>
+            <ChevronDown className={`w-4 h-4 text-blue-500 transition-transform ${openSections.includes('translations') ? 'rotate-180' : ''}`} />
+          </button>
+
+          {openSections.includes('translations') && (
+            <div className="border-t border-slate-200">
+              <TranslationsPanel siteId={currentSiteId} />
             </div>
           )}
         </div>
