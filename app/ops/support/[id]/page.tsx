@@ -20,6 +20,10 @@ type SupportRequest = {
 
 const STATUSES = ['open', 'in_progress', 'resolved', 'closed'];
 const PRIORITIES = ['low', 'normal', 'high', 'urgent'];
+const SENDER_OPTIONS = [
+  { email: 'support@keystoneweb.ca', name: 'Keystone Support' },
+  { email: 'nick@keystoneweb.ca', name: 'Nick' },
+];
 
 const STATUS_STYLES: Record<string, string> = {
   open: 'text-amber-400 bg-amber-400/10 border-amber-400/30',
@@ -34,6 +38,11 @@ export default function SupportTicketPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState('');
+
+  // Reply state
+  const [replying, setReplying] = useState(false);
+  const [replyBody, setReplyBody] = useState('');
+  const [replySenderIndex, setReplySenderIndex] = useState(0);
 
   useEffect(() => {
     fetch(`/api/ops/support/${id}`)
@@ -61,6 +70,41 @@ export default function SupportTicketPage() {
     setSaving(false);
   }
 
+  async function sendReply() {
+    if (!replyBody.trim()) return;
+    setReplying(true);
+    
+    const sender = SENDER_OPTIONS[replySenderIndex];
+    
+    try {
+      const res = await fetch(`/api/ops/support/${id}/reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fromEmail: sender.email,
+          fromName: sender.name,
+          bodyText: replyBody,
+        }),
+      });
+
+      if (res.ok) {
+        const updated = await res.json();
+        setTicket(updated);
+        setNotes(updated.notes ?? '');
+        setReplyBody(''); // Clear on success
+        alert('Reply sent successfully!');
+      } else {
+        const err = await res.json();
+        alert(`Failed to send: ${err.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('An error occurred while sending the reply.');
+    } finally {
+      setReplying(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24 text-gray-500">
@@ -81,7 +125,7 @@ export default function SupportTicketPage() {
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-3xl space-y-8 pb-12">
       <div className="flex items-center gap-3">
         <Link
           href="/support"
@@ -123,8 +167,52 @@ export default function SupportTicketPage() {
         )}
       </div>
 
+      {/* Reply Section */}
+      <div className="rounded-lg border border-gray-800 bg-gray-900 overflow-hidden">
+        <div className="bg-gray-800 px-4 py-3 border-b border-gray-700 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-white">Reply to Customer</h2>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">Send as:</span>
+            <select
+              value={replySenderIndex}
+              onChange={(e) => setReplySenderIndex(Number(e.target.value))}
+              disabled={replying}
+              className="rounded-md border border-gray-600 bg-gray-700 px-2 py-1 text-xs text-white focus:outline-none focus:border-gray-500"
+            >
+              {SENDER_OPTIONS.map((opt, i) => (
+                <option key={i} value={i}>
+                  {opt.name} &lt;{opt.email}&gt;
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="p-4 space-y-3">
+          <textarea
+            value={replyBody}
+            onChange={(e) => setReplyBody(e.target.value)}
+            rows={5}
+            placeholder="Write your reply here... (Original message will be quoted below)"
+            className="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-500 resize-y"
+            disabled={replying}
+          />
+          <div className="flex justify-end">
+            <button
+              onClick={sendReply}
+              disabled={replying || !replyBody.trim()}
+              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 transition-colors disabled:opacity-50"
+            >
+              {replying ? 'Sending...' : 'Send Reply via Email'}
+            </button>
+          </div>
+          <p className="text-xs text-gray-500">
+            💡 <strong>Handoff Tip:</strong> By replying here, the email is sent via Resend. You will be BCC'd automatically so it appears in your personal inbox. When the customer replies, it will go straight to your email app!
+          </p>
+        </div>
+      </div>
+
       {/* Controls */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 pt-4 border-t border-gray-800">
         <div>
           <label className="block text-xs text-gray-500 mb-1">Status</label>
           <select
@@ -176,7 +264,7 @@ export default function SupportTicketPage() {
         </button>
       </div>
 
-      <p className="text-xs text-gray-700">
+      <p className="text-xs text-gray-700 pb-8">
         Last updated {new Date(ticket.updated_at).toLocaleString('en-CA')}
       </p>
     </div>
