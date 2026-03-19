@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/lib/auth/context";
+import { createClient } from "@/lib/db/supabase-server";
+import ImpersonationBanner from "./ImpersonationBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -33,9 +35,21 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
+          <ImpersonationIndicator />
           {children}
         </AuthProvider>
       </body>
     </html>
   );
+}
+
+async function ImpersonationIndicator() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (user && (user as any).is_impersonated) {
+    return <ImpersonationBanner userEmail={user.email || 'User'} />;
+  }
+
+  return null;
 }

@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/db/supabase-admin';
+import ImpersonateButton from './ImpersonateButton';
 
 const PLAN_COLORS: Record<string, string> = {
   pro: 'text-emerald-400 bg-emerald-400/10',
@@ -10,12 +11,12 @@ function planBadge(plan: string) {
   const key = plan.toLowerCase().includes('pro')
     ? 'pro'
     : plan.toLowerCase().includes('basic')
-    ? 'basic'
-    : 'free';
+      ? 'basic'
+      : 'free';
   const cls = PLAN_COLORS[key] ?? PLAN_COLORS.free;
   return (
     <span className={`rounded px-2 py-0.5 text-xs font-medium ${cls}`}>
-      {plan}
+      {key.toUpperCase()}
     </span>
   );
 }
@@ -32,6 +33,18 @@ export default async function OpsUsersPage({
 
   const db = createAdminClient();
 
+  let filteredUserIds: string[] | null = null;
+
+  // If plan filter is active, fetch matching user IDs first
+  if (plan) {
+    const { data: subData } = await db
+      .from('user_subscriptions')
+      .select('user_id')
+      .ilike('subscription_plan', `%${plan}%`);
+    
+    filteredUserIds = (subData ?? []).map(s => s.user_id);
+  }
+
   let query = db
     .from('users')
     .select('id, email, business_name, is_admin, created_at', { count: 'exact' })
@@ -39,6 +52,14 @@ export default async function OpsUsersPage({
     .range(offset, offset + limit - 1);
 
   if (search) query = query.ilike('email', `%${search}%`);
+  if (filteredUserIds) {
+    // If we have a plan filter but no matches, ensure we return nothing
+    if (filteredUserIds.length === 0) {
+      query = query.eq('id', '00000000-0000-0000-0000-000000000000');
+    } else {
+      query = query.in('id', filteredUserIds);
+    }
+  }
 
   const { data: users, count, error } = await query;
 
@@ -48,18 +69,22 @@ export default async function OpsUsersPage({
 
   // Fetch subscriptions and site counts for the retrieved users
   const userIds = (users ?? []).map((u: any) => u.id);
-  const siteCounts: Record<string, number> = {};
+  const totalSiteCounts: Record<string, number> = {};
+  const publishedSiteCounts: Record<string, number> = {};
   const subscriptions: Record<string, any> = {};
 
   if (userIds.length) {
     const [sitesRes, subsRes] = await Promise.all([
-      db.from('sites').select('user_id').in('user_id', userIds).not('user_id', 'is', null),
+      db.from('sites').select('user_id, is_published').in('user_id', userIds).not('user_id', 'is', null),
       db.from('user_subscriptions').select('*').in('user_id', userIds)
     ]);
 
     if (sitesRes.data) {
       for (const row of sitesRes.data) {
-        siteCounts[row.user_id] = (siteCounts[row.user_id] ?? 0) + 1;
+        totalSiteCounts[row.user_id] = (totalSiteCounts[row.user_id] ?? 0) + 1;
+        if (row.is_published) {
+          publishedSiteCounts[row.user_id] = (publishedSiteCounts[row.user_id] ?? 0) + 1;
+        }
       }
     }
 
@@ -80,13 +105,10 @@ export default async function OpsUsersPage({
       createdAt: u.created_at,
       plan: sub?.subscription_plan ?? 'free',
       subscriptionStatus: sub?.subscription_status ?? null,
-      siteCount: siteCounts[u.id] ?? 0,
+      totalSites: totalSiteCounts[u.id] ?? 0,
+      publishedSites: publishedSiteCounts[u.id] ?? 0,
     };
   });
-
-  const filtered = plan
-    ? enriched.filter((u) => u.plan.toLowerCase().includes(plan.toLowerCase()))
-    : enriched;
 
   const totalPages = Math.ceil((count ?? 0) / limit);
 
@@ -94,7 +116,9 @@ export default async function OpsUsersPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">Users</h1>
-        <span className="text-sm text-gray-500">{count ?? 0} total</span>
+        <span className="text-sm text-gray-500">
+          {count ?? 0} {(search || plan) ? 'matching' : 'total'}
+        </span>
       </div>
 
       {/* Filters */}
@@ -133,10 +157,11 @@ export default async function OpsUsersPage({
               <th className="px-4 py-3 text-left">Plan</th>
               <th className="px-4 py-3 text-right">Sites</th>
               <th className="px-4 py-3 text-left">Joined</th>
+              <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800 bg-gray-950">
-            {filtered.map((u) => (
+            {enriched.map((u) => (
               <tr key={u.id} className="hover:bg-gray-900/50 transition-colors">
                 <td className="px-4 py-3 text-gray-200">
                   {u.email}
@@ -148,15 +173,25 @@ export default async function OpsUsersPage({
                 </td>
                 <td className="px-4 py-3 text-gray-400">{u.businessName ?? '—'}</td>
                 <td className="px-4 py-3">{planBadge(u.plan)}</td>
-                <td className="px-4 py-3 text-right text-gray-300">{u.siteCount}</td>
+                <td className="px-4 py-3 text-right text-gray-300 font-mono">
+                  {u.totalSites}
+                  {u.publishedSites > 0 && (
+                    <span className="ml-1 text-[10px] text-emerald-500 font-sans" title="Published sites">
+                      ({u.publishedSites} pub)
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-gray-500">
                   {new Date(u.createdAt).toLocaleDateString('en-CA')}
                 </td>
+                <td className="px-4 py-3 text-right">
+                  <ImpersonateButton userId={u.id} userEmail={u.email} />
+                </td>
               </tr>
             ))}
-            {filtered.length === 0 && (
+            {enriched.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-600">
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-600">
                   No users found.
                 </td>
               </tr>

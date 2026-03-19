@@ -156,7 +156,7 @@ export default async function OpsOverviewPage() {
       <h1 className="text-2xl font-bold text-white">Platform Overview</h1>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard label="Total Users" value={totalUsers ?? 0} href="/users" />
         <StatCard
           label="Active Subs"
@@ -167,7 +167,11 @@ export default async function OpsOverviewPage() {
         <StatCard
           label="Total Sites"
           value={totalSites ?? 0}
-          sub={`${publishedSites ?? 0} published`}
+        />
+        <StatCard
+          label="Published Sites"
+          value={publishedSites ?? 0}
+          accent="text-emerald-400"
         />
         <StatCard
           label="New Signups"

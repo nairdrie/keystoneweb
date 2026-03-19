@@ -171,6 +171,20 @@ export async function middleware(request: NextRequest) {
     if (user) {
       response.headers.set('x-user-id', user.id);
       response.headers.set('x-user-email', user.email || '');
+
+      // ============================================================
+      // STEP 2: Impersonation check
+      // ============================================================
+      const impersonateId = request.cookies.get('ksw_impersonate')?.value;
+      const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+
+      if (impersonateId && adminEmails.includes(user.email?.toLowerCase() ?? '')) {
+        console.log(`[Middleware] Admin ${user.email} is impersonating: ${impersonateId}`);
+        response.headers.set('x-impersonated-user-id', impersonateId);
+      }
     }
   } catch (err) {
     console.error('[Middleware] Auth validation error:', err);
