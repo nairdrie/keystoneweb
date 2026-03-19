@@ -91,7 +91,7 @@ export default async function ProductDetailPage({
         let paletteData: Record<string, string> = {};
         if (metadata) {
             const palettesObj = metadata.palettes || {};
-            const requestedPalette = mergedPublishData.__selectedPalette || 'default';
+            const requestedPalette = sitePublishData.__selectedPalette || 'default';
             paletteData = palettesObj[requestedPalette] || palettesObj['default'] || {};
         }
 

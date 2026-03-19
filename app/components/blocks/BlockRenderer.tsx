@@ -135,7 +135,7 @@ export default function BlockRenderer({ palette, headerOffset }: { palette: Reco
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
                                 placeholder="Search blocks..."
-                                className="w-full bg-slate-50 border border-slate-200 text-sm px-2 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                className="w-full bg-slate-50 border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 px-2 py-1.5 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                             />
                         </div>
                         <div className="overflow-y-auto flex-1 space-y-0.5 px-0.5">

@@ -81,7 +81,22 @@ export default function NavMenu({ className = '', itemClassName = '' }: NavMenuP
                                 return item.href;
                             })()}
                             target={item.linkType === 'custom' && item.href.startsWith('http') ? '_blank' : undefined}
-                            className={`${itemClassName} ${isEditMode ? 'hover:text-blue-500 transition-colors' : ''}`}
+                            className={`${itemClassName} ${isEditMode ? 'hover:text-blue-500 transition-colors' : ''} ${(() => {
+                                if (isEditMode || item.linkType !== 'page') return '';
+                                const targetPage = pages.find(p => p.id === item.pageId);
+                                const slug = targetPage?.slug || '';
+                                const itemPath = slug === 'home' ? '/' : `/${slug}`;
+                                const normalizedPathname = pathname === '' ? '/' : pathname;
+                                return normalizedPathname === itemPath ? 'underline underline-offset-4 decoration-2' : '';
+                            })()}`}
+                            aria-current={(() => {
+                                if (item.linkType !== 'page') return undefined;
+                                const targetPage = pages.find(p => p.id === item.pageId);
+                                const slug = targetPage?.slug || '';
+                                const itemPath = slug === 'home' ? '/' : `/${slug}`;
+                                const normalizedPathname = pathname === '' ? '/' : pathname;
+                                return normalizedPathname === itemPath ? 'page' as const : undefined;
+                            })()}
                         >
                             {item.label}
                         </Link>

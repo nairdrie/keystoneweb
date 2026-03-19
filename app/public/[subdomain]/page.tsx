@@ -123,16 +123,17 @@ export default async function PublicSitePage({
     const TemplateComp = await getTemplateComponent(site.selected_template_id);
     const metadata = await getTemplateMetadata(site.selected_template_id);
 
+    // Resolve palette from site-level data only (not page overrides) for consistency across pages
     let paletteData: Record<string, string> = {};
     if (metadata) {
       const palettesObj = metadata.palettes || {};
-      const requestedPalette = mergedPublishData.__selectedPalette || 'default';
+      const requestedPalette = sitePublishData.__selectedPalette || 'default';
       if (requestedPalette === 'custom') {
         const defaultPalette = palettesObj['default'] || {};
         paletteData = {
-          primary: mergedPublishData.__customPalette_primary || defaultPalette.primary || '',
-          secondary: mergedPublishData.__customPalette_secondary || defaultPalette.secondary || '',
-          accent: mergedPublishData.__customPalette_accent || defaultPalette.accent || '',
+          primary: sitePublishData.__customPalette_primary || defaultPalette.primary || '',
+          secondary: sitePublishData.__customPalette_secondary || defaultPalette.secondary || '',
+          accent: sitePublishData.__customPalette_accent || defaultPalette.accent || '',
         };
       } else {
         paletteData = palettesObj[requestedPalette] || palettesObj['default'] || {};

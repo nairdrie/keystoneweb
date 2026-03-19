@@ -1,10 +1,10 @@
 import React from 'react';
 import EditableText from '../EditableText';
-import { Palette } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 
 interface ServicesGridBlockProps {
-    id: string; // The block UUID
-    data: any;  // The dynamic block data payload
+    id: string;
+    data: any;
     isEditMode: boolean;
     palette: Record<string, string>;
     updateContent: (key: string, value: any) => void;
@@ -21,6 +21,17 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
         { title: "Service 3", description: "Third service description." }
     ];
 
+    const handleAddItem = () => {
+        const newItems = [...items, { title: `Service ${items.length + 1}`, description: "Description of this service." }];
+        updateContent('items', newItems);
+    };
+
+    const handleRemoveItem = (index: number) => {
+        if (items.length <= 1) return;
+        const newItems = items.filter((_: any, i: number) => i !== index);
+        updateContent('items', newItems);
+    };
+
     return (
         <section className="py-24" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
             <div className="max-w-7xl mx-auto px-4">
@@ -35,7 +46,7 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
                         className="text-4xl font-bold mb-4"
                         style={{ color: pPrimary }}
                     />
-                    {data.subtitle && (
+                    {(data.subtitle || isEditMode) && (
                         <EditableText
                             as="p"
                             contentKey={`${id}.subtitle`}
@@ -60,7 +71,17 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
                             key={index}
                             className="bg-gray-50 p-8 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative group"
                         >
-                            {/* Number Badge or Icon Placeholder */}
+                            {isEditMode && items.length > 1 && (
+                                <button
+                                    onClick={() => handleRemoveItem(index)}
+                                    className="absolute top-2 right-2 p-1 bg-red-100 hover:bg-red-200 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="Remove service"
+                                >
+                                    <X className="w-3.5 h-3.5 text-red-600" />
+                                </button>
+                            )}
+
+                            {/* Number Badge */}
                             <div className="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg mb-6 text-white" style={{ backgroundColor: pSecondary }}>
                                 {index + 1}
                             </div>
@@ -87,6 +108,54 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
                         </div>
                     ))}
                 </div>
+
+                {/* Add Service Button (edit mode only) */}
+                {isEditMode && (
+                    <div className="flex justify-center mt-6">
+                        <button
+                            onClick={handleAddItem}
+                            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-dashed border-blue-300"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Add Service
+                        </button>
+                    </div>
+                )}
+
+                {/* Optional CTA Link */}
+                {(data.ctaText || data.ctaUrl || isEditMode) && (
+                    <div className="text-center mt-12">
+                        {isEditMode ? (
+                            <div className="inline-flex flex-col items-center gap-2">
+                                <EditableText
+                                    as="span"
+                                    contentKey={`${id}.ctaText`}
+                                    content={data.ctaText}
+                                    defaultValue="See All Services →"
+                                    isEditMode={isEditMode}
+                                    onSave={(key, value) => updateContent(key, value)}
+                                    className="text-lg font-semibold cursor-text"
+                                    style={{ color: pSecondary }}
+                                />
+                                <input
+                                    type="text"
+                                    value={data.ctaUrl || ''}
+                                    onChange={(e) => updateContent('ctaUrl', e.target.value)}
+                                    placeholder="Link URL (e.g. /services)"
+                                    className="text-xs text-slate-900 placeholder:text-slate-400 bg-slate-50 border border-slate-200 rounded px-2 py-1 w-64 text-center focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                            </div>
+                        ) : data.ctaText && data.ctaUrl ? (
+                            <a
+                                href={data.ctaUrl}
+                                className="text-lg font-semibold hover:underline transition-colors"
+                                style={{ color: pSecondary }}
+                            >
+                                {data.ctaText}
+                            </a>
+                        ) : null}
+                    </div>
+                )}
             </div>
         </section>
     );

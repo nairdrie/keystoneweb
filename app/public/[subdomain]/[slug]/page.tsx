@@ -115,7 +115,7 @@ async function renderHomePage(
 
     const TemplateComp = await getTemplateComponent(site.selected_template_id);
     const metadata = await getTemplateMetadata(site.selected_template_id);
-    const paletteData = resolvePalette(mergedPublishData, metadata);
+    const paletteData = resolvePalette(sitePublishData, metadata);
 
     return (
         <EditorContent
@@ -201,7 +201,7 @@ async function renderPage(
 
     const TemplateComp = await getTemplateComponent(site.selected_template_id);
     const metadata = await getTemplateMetadata(site.selected_template_id);
-    const paletteData = resolvePalette(mergedPublishData, metadata);
+    const paletteData = resolvePalette(sitePublishData, metadata);
 
     return (
         <EditorContent
@@ -224,16 +224,17 @@ async function renderPage(
     );
 }
 
-function resolvePalette(mergedData: Record<string, any>, metadata: any): Record<string, string> {
+function resolvePalette(siteData: Record<string, any>, metadata: any): Record<string, string> {
     if (!metadata) return {};
     const palettesObj = metadata.palettes || {};
-    const requestedPalette = mergedData.__selectedPalette || 'default';
+    // Always use site-level palette settings for consistency across all pages
+    const requestedPalette = siteData.__selectedPalette || 'default';
     if (requestedPalette === 'custom') {
         const defaultPalette = palettesObj['default'] || {};
         return {
-            primary: mergedData.__customPalette_primary || defaultPalette.primary || '',
-            secondary: mergedData.__customPalette_secondary || defaultPalette.secondary || '',
-            accent: mergedData.__customPalette_accent || defaultPalette.accent || '',
+            primary: siteData.__customPalette_primary || defaultPalette.primary || '',
+            secondary: siteData.__customPalette_secondary || defaultPalette.secondary || '',
+            accent: siteData.__customPalette_accent || defaultPalette.accent || '',
         };
     }
     return palettesObj[requestedPalette] || palettesObj['default'] || {};
