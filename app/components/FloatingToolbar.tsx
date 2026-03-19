@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Copy, Check as CheckIcon, Link } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
@@ -153,6 +153,12 @@ export default function FloatingToolbar({
   const [openSections, setOpenSections] = useState<string[]>(['general']);
   const [fontPickerState, setFontPickerState] = useState<{ isOpen: boolean, type: 'title' | 'body' }>({ isOpen: false, type: 'title' });
   const aiBuilderSectionRef = useRef<HTMLDivElement>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isGeneratingTransfer, setIsGeneratingTransfer] = useState(false);
+  const [transferUrl, setTransferUrl] = useState<string | null>(null);
+  const [copiedTransfer, setCopiedTransfer] = useState(false);
 
   const toggleSection = (section: string) => {
     setOpenSections(prev => prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]);
@@ -269,6 +275,75 @@ export default function FloatingToolbar({
       setShowPublishModal(false);
       await executePublishRoute();
     }, 500);
+  };
+
+  const handleDeleteSite = async () => {
+    if (!currentSiteId) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch('/api/sites', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ siteId: currentSiteId }),
+      });
+      if (res.ok) {
+        setShowDeleteConfirm(false);
+        setDeleteConfirmText('');
+        router.push('/');
+      } else {
+        const data = await res.json();
+        setAlertConfig({ isOpen: true, title: 'Delete Failed', message: data.error || 'Failed to delete site.', type: 'error' });
+      }
+    } catch {
+      setAlertConfig({ isOpen: true, title: 'Delete Failed', message: 'An unexpected error occurred.', type: 'error' });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleGenerateTransferLink = async () => {
+    if (!currentSiteId) return;
+    setIsGeneratingTransfer(true);
+    setTransferUrl(null);
+    try {
+      const res = await fetch('/api/sites/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ siteId: currentSiteId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTransferUrl(data.transferUrl);
+      } else {
+        const data = await res.json();
+        setAlertConfig({ isOpen: true, title: 'Transfer Failed', message: data.error || 'Failed to generate transfer link.', type: 'error' });
+      }
+    } catch {
+      setAlertConfig({ isOpen: true, title: 'Transfer Failed', message: 'An unexpected error occurred.', type: 'error' });
+    } finally {
+      setIsGeneratingTransfer(false);
+    }
+  };
+
+  const handleCopyTransferUrl = async () => {
+    if (!transferUrl) return;
+    try {
+      await navigator.clipboard.writeText(transferUrl);
+      setCopiedTransfer(true);
+      setTimeout(() => setCopiedTransfer(false), 2000);
+    } catch {
+      // Fallback
+      const input = document.createElement('input');
+      input.value = transferUrl;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      setCopiedTransfer(true);
+      setTimeout(() => setCopiedTransfer(false), 2000);
+    }
   };
 
   const handleDragStart = (e: React.MouseEvent) => {
@@ -565,6 +640,116 @@ export default function FloatingToolbar({
             </div>
           )}
         </div>
+
+        {/* Other Settings Section */}
+        {user && currentSiteId && (
+          <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+            <button
+              onClick={() => toggleSection('other-settings')}
+              className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
+            >
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                <Settings className="w-3.5 h-3.5" />
+                Other Settings
+              </span>
+              <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('other-settings') ? 'rotate-180' : ''}`} />
+            </button>
+
+            {openSections.includes('other-settings') && (
+              <div className="p-4 border-t border-slate-200 space-y-4">
+                {/* Transfer Site */}
+                <div>
+                  <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2">Transfer Site</h3>
+                  <p className="text-xs text-slate-500 mb-3">Generate a link to transfer ownership of this site to someone else. The link expires in 7 days.</p>
+
+                  {!transferUrl ? (
+                    <button
+                      onClick={handleGenerateTransferLink}
+                      disabled={isGeneratingTransfer}
+                      className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-semibold text-xs rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                      {isGeneratingTransfer ? 'Generating...' : 'Generate Transfer Link'}
+                    </button>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                        <Link className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                        <span className="text-[10px] text-slate-600 truncate flex-1">{transferUrl}</span>
+                        <button
+                          onClick={handleCopyTransferUrl}
+                          className="p-1 hover:bg-slate-200 rounded transition-colors flex-shrink-0"
+                          title="Copy link"
+                        >
+                          {copiedTransfer ? (
+                            <CheckIcon className="w-3.5 h-3.5 text-green-600" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5 text-slate-500" />
+                          )}
+                        </button>
+                      </div>
+                      <button
+                        onClick={handleGenerateTransferLink}
+                        disabled={isGeneratingTransfer}
+                        className="w-full text-xs text-slate-500 hover:text-slate-700 font-medium transition-colors disabled:opacity-50"
+                      >
+                        Generate new link (invalidates previous)
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Divider */}
+                <div className="h-px bg-slate-200" />
+
+                {/* Delete Site */}
+                <div>
+                  <h3 className="text-[10px] font-bold uppercase text-red-500 tracking-wide mb-2">Danger Zone</h3>
+                  {!showDeleteConfirm ? (
+                    <button
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-semibold text-xs rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete Site
+                    </button>
+                  ) : (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg space-y-3">
+                      <p className="text-xs text-red-700 font-medium">
+                        This action cannot be undone. This will permanently delete your site, all its pages, and all associated data.
+                      </p>
+                      <p className="text-xs text-red-600">
+                        Type <strong>{siteTitle || 'delete'}</strong> to confirm:
+                      </p>
+                      <input
+                        type="text"
+                        value={deleteConfirmText}
+                        onChange={(e) => setDeleteConfirmText(e.target.value)}
+                        className="w-full text-sm text-slate-900 bg-white border border-red-300 rounded-lg px-3 py-2 focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none placeholder-slate-400"
+                        placeholder={siteTitle || 'delete'}
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); }}
+                          className="flex-1 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleDeleteSite}
+                          disabled={isDeleting || deleteConfirmText !== (siteTitle || 'delete')}
+                          className="flex-1 py-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          {isDeleting ? 'Deleting...' : 'Delete Forever'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Fixed Bottom Section (Actions) */}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 import { trackEvent } from '@/lib/analytics';
 
 interface CreateSiteRequest {
@@ -434,5 +435,63 @@ export async function PATCH(request: NextRequest) {
       { error: 'Failed to update site' },
       { status: 500 }
     );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { siteId } = await request.json();
+    if (!siteId) {
+      return NextResponse.json({ error: 'Site ID is required' }, { status: 400 });
+    }
+
+    // Verify ownership
+    const { data: site, error: fetchError } = await supabase
+      .from('sites')
+      .select('id, user_id, published_domain')
+      .eq('id', siteId)
+      .single();
+
+    if (fetchError || !site) {
+      return NextResponse.json({ error: 'Site not found' }, { status: 404 });
+    }
+
+    if (site.user_id !== user.id) {
+      return NextResponse.json({ error: 'Forbidden: You can only delete your own sites' }, { status: 403 });
+    }
+
+    // Use admin client to bypass RLS for cascading deletes
+    const admin = createAdminClient();
+
+    // Delete pages first (foreign key constraint)
+    await admin.from('pages').delete().eq('site_id', siteId);
+
+    // Delete any pending transfers
+    await admin.from('site_transfers').delete().eq('site_id', siteId);
+
+    // Delete DNS records
+    await admin.from('dns_records').delete().eq('site_id', siteId);
+
+    // Delete the site
+    const { error: deleteError } = await admin.from('sites').delete().eq('id', siteId);
+
+    if (deleteError) {
+      console.error('Error deleting site:', deleteError);
+      return NextResponse.json({ error: 'Failed to delete site' }, { status: 500 });
+    }
+
+    trackEvent('site_delete', { userId: user.id, siteId });
+
+    return NextResponse.json({ message: 'Site deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting site:', error);
+    return NextResponse.json({ error: 'Failed to delete site' }, { status: 500 });
   }
 }
