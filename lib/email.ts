@@ -251,6 +251,62 @@ export async function sendOrderNotification(data: OrderEmailData, ownerEmail: st
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Support Request Emails
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Notify ops admins that a new support request has arrived via email.
+ */
+export async function sendSupportRequestNotification(data: {
+    fromName: string | null;
+    fromEmail: string;
+    subject: string;
+    bodyPreview: string | null;
+}, adminEmails: string[]) {
+    if (!adminEmails.length) return { success: true };
+
+    try {
+        const displayName = data.fromName ? `${data.fromName} <${data.fromEmail}>` : data.fromEmail;
+        const preview = data.bodyPreview
+            ? `<div style="background:#f9fafb;border-radius:8px;padding:16px;margin-top:16px;">
+                <p style="margin:0;font-size:14px;color:#374151;white-space:pre-wrap;line-height:1.5;">${data.bodyPreview}</p>
+               </div>`
+            : '';
+
+        await resend.emails.send({
+            from: 'Keystone Web <support@keystoneweb.ca>',
+            to: adminEmails,
+            subject: `New Support Request — ${data.subject}`,
+            html: `
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
+                    <div style="text-align:center;padding:24px 0;">
+                        <div style="width:48px;height:48px;background:#fef3c7;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">📬</div>
+                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">New Support Request</h1>
+                        <p style="margin:0;color:#6b7280;font-size:14px;">A new email has arrived at support@keystoneweb.ca</p>
+                    </div>
+                    <div style="background:#f0f9ff;border-radius:8px;padding:16px;">
+                        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                            <tr><td style="padding:4px 0;color:#6b7280;width:60px;">From</td><td style="padding:4px 0;font-weight:600;color:#111827;">${displayName}</td></tr>
+                            <tr><td style="padding:4px 0;color:#6b7280;">Subject</td><td style="padding:4px 0;font-weight:600;color:#111827;">${data.subject}</td></tr>
+                        </table>
+                    </div>
+                    ${preview}
+                    <div style="text-align:center;margin-top:20px;">
+                        <a href="https://ops.keystoneweb.ca/support" style="display:inline-block;background:#111827;color:#fff;text-decoration:none;padding:10px 24px;border-radius:6px;font-size:14px;font-weight:600;">View in Ops Dashboard</a>
+                    </div>
+                    <p style="margin-top:24px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
+                </div>
+            `,
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send support request notification email:', error);
+        return { success: false, error };
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Contact Form Emails
 // ═══════════════════════════════════════════════════════════════════════════════
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Webhook } from 'svix';
 import { createAdminClient } from '@/lib/db/supabase-admin';
+import { sendSupportRequestNotification } from '@/lib/email';
 
 /**
  * POST /api/webhooks/resend-inbound
@@ -135,5 +136,15 @@ export async function POST(request: NextRequest) {
   }
 
   console.log(`[resend-inbound] New support request from ${fromEmail}: ${subject}`);
+
+  // Notify ops admins
+  const adminEmails = (process.env.OPS_ADMIN_EMAILS ?? '')
+    .split(',')
+    .map(e => e.trim())
+    .filter(Boolean);
+
+  const bodyPreview = bodyText ? bodyText.slice(0, 300) : null;
+  await sendSupportRequestNotification({ fromName, fromEmail, subject, bodyPreview }, adminEmails);
+
   return NextResponse.json({ received: true });
 }
