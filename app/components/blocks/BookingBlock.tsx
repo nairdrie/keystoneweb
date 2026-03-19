@@ -581,6 +581,7 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
 
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
+    const pAccent = palette.accent || '#f3f4f6';
 
     // Load services
     useEffect(() => {
@@ -645,15 +646,15 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
 
     if (loading) {
         return (
-            <section className="py-16 text-center">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-400" />
+            <section className="py-16 text-center" style={{ backgroundColor: pAccent }}>
+                <Loader2 className="w-8 h-8 animate-spin mx-auto" style={{ color: pPrimary + '80' }} />
             </section>
         );
     }
 
     if (services.length === 0) {
         return (
-            <section className="py-16 text-center text-slate-400">
+            <section className="py-16 text-center" style={{ backgroundColor: pAccent, color: pPrimary + '80' }}>
                 <Calendar className="w-10 h-10 mx-auto mb-3" />
                 <p className="font-medium">Booking coming soon</p>
             </section>
@@ -661,7 +662,7 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
     }
 
     return (
-        <section className="py-16 px-4">
+        <section className="py-16 px-4" style={{ backgroundColor: pAccent }}>
             <div className="max-w-xl mx-auto">
                 {/* Progress */}
                 <div className="flex items-center justify-center gap-1 mb-8">

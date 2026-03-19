@@ -44,7 +44,8 @@ export default function ContactBlock({ id, data, isEditMode, palette, updateCont
                     defaultValue="We'd love to hear from you. Reach out anytime."
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
-                    className="text-lg text-gray-500 text-center mb-16 max-w-2xl mx-auto"
+                    className="text-lg text-center mb-16 max-w-2xl mx-auto"
+                    style={{ color: pPrimary + 'b3' }}
                 />
 
                 <div className="grid md:grid-cols-2 gap-6">

@@ -218,7 +218,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                                         required
                                         value={form.name}
                                         onChange={(e) => setForm({ ...form, name: e.target.value })}
-                                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200 rounded-xl outline-none transition-all"
+                                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200 rounded-xl outline-none transition-all"
                                         placeholder="John Doe"
                                     />
                                 </div>
@@ -234,7 +234,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                                         required
                                         value={form.email}
                                         onChange={(e) => setForm({ ...form, email: e.target.value })}
-                                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200 rounded-xl outline-none transition-all"
+                                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200 rounded-xl outline-none transition-all"
                                         placeholder="john@example.com"
                                     />
                                 </div>
@@ -251,7 +251,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                                     type="tel"
                                     value={form.phone}
                                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200 rounded-xl outline-none transition-all"
+                                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200 rounded-xl outline-none transition-all"
                                     placeholder="(555) 123-4567"
                                 />
                             </div>
@@ -267,7 +267,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                                     required
                                     value={form.message}
                                     onChange={(e) => setForm({ ...form, message: e.target.value })}
-                                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200 rounded-xl outline-none transition-all resize-none"
+                                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200 rounded-xl outline-none transition-all resize-none"
                                     rows={5}
                                     placeholder="How can we help you?"
                                 />

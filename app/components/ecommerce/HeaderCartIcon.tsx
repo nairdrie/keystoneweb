@@ -2,15 +2,22 @@
 
 import { ShoppingCart } from 'lucide-react';
 import { useCart } from './CartProvider';
+import { useEditorContext } from '@/lib/editor-context';
 
 /**
  * Cart icon to go in the header navigation.
- * Only shows the badge if there are items in the cart.
+ * Only shows when the current page has a productGrid block,
+ * or when the site-level __hasProductBlock flag is set.
  */
 export default function HeaderCartIcon({ color = '#475569' }: { color?: string }) {
     const cart = useCart();
-    // If we're not inside a CartProvider, render nothing
-    if (!cart) return null;
+    const context = useEditorContext();
+
+    const hasProductBlock =
+        context?.blocks?.some(b => b.type === 'productGrid') ||
+        !!context?.siteContent?.__hasProductBlock;
+
+    if (!cart || !hasProductBlock) return null;
 
     return (
         <button

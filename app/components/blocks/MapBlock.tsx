@@ -12,7 +12,9 @@ export default function MapBlock({ block, palette }: { block: BlockData, palette
     };
 
     const title = block.data.title !== undefined ? block.data.title : 'Find Us';
-    const address = block.data.address !== undefined ? block.data.address : '1600 Amphitheatre Parkway, Mountain View, CA';
+    // Saved address for the iframe; fall back to a placeholder location only for the map display
+    const savedAddress = block.data.address || '';
+    const address = savedAddress || '1600 Amphitheatre Parkway, Mountain View, CA';
 
     // Create safe embed URL
     const encodedAddress = encodeURIComponent(address);
@@ -39,9 +41,9 @@ export default function MapBlock({ block, palette }: { block: BlockData, palette
                             <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Edit Address</label>
                             <input
                                 type="text"
-                                defaultValue={address}
+                                defaultValue={savedAddress}
                                 onBlur={(e) => updateData('address', e.target.value)}
-                                className="text-sm border p-2 rounded w-64 outline-none focus:border-blue-500"
+                                className="text-sm text-slate-900 border p-2 rounded w-64 outline-none focus:border-blue-500"
                                 placeholder="Enter an address or landmark..."
                             />
                         </div>
