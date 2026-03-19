@@ -13,8 +13,8 @@ const STRIPE_PRICES = {
   pro: 'price_1T50Xn9e8C5naDN4yEASWwsV', // Pro Plan ($30/month)
 };
 
-const MONTHLY_PRICES = { basic: 15, pro: 30 };
-const YEARLY_DISCOUNT = 0.5; // 50% off
+const MONTHLY_PRICES = { basic: 30, pro: 60 };
+const YEARLY_PRICES = { basic: 15, pro: 30 };
 
 interface CheckoutData {
   siteId?: string;
@@ -172,14 +172,14 @@ function PricingContent() {
           <div className="mb-8">
             <div className="flex items-end gap-2 flex-wrap">
               <span className="text-5xl font-black text-slate-900">
-                ${isYearly ? Math.round(MONTHLY_PRICES.basic * (1 - YEARLY_DISCOUNT)) : MONTHLY_PRICES.basic}
+                ${isYearly ? YEARLY_PRICES.basic : MONTHLY_PRICES.basic}
               </span>
               <span className="text-slate-500 font-medium">/month</span>
             </div>
             {isYearly && (
               <p className="text-sm text-slate-400 mt-1">
                 <span className="line-through">${MONTHLY_PRICES.basic}/mo</span>
-                {' · '}billed ${Math.round(MONTHLY_PRICES.basic * (1 - YEARLY_DISCOUNT) * 12)}/yr
+                {' · '}billed ${YEARLY_PRICES.basic * 12}/yr
               </p>
             )}
           </div>
@@ -238,14 +238,14 @@ function PricingContent() {
           <div className="mb-8">
             <div className="flex items-end gap-2 flex-wrap">
               <span className="text-5xl font-black text-white">
-                ${isYearly ? Math.round(MONTHLY_PRICES.pro * (1 - YEARLY_DISCOUNT)) : MONTHLY_PRICES.pro}
+                ${isYearly ? YEARLY_PRICES.pro : MONTHLY_PRICES.pro}
               </span>
               <span className="text-slate-300 font-medium tracking-wide">/month</span>
             </div>
             {isYearly && (
               <p className="text-sm text-slate-400 mt-1">
                 <span className="line-through">${MONTHLY_PRICES.pro}/mo</span>
-                {' · '}billed ${Math.round(MONTHLY_PRICES.pro * (1 - YEARLY_DISCOUNT) * 12)}/yr
+                {' · '}billed ${YEARLY_PRICES.pro * 12}/yr
               </p>
             )}
           </div>
