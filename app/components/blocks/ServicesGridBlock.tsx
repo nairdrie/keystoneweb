@@ -32,13 +32,20 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
         updateContent('items', newItems);
     };
 
+    const handleUpdateItem = (index: number, field: string, value: string) => {
+        const newItems = items.map((item: any, i: number) =>
+            i === index ? { ...item, [field]: value } : item
+        );
+        updateContent('items', newItems);
+    };
+
     return (
         <section className="py-24" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
             <div className="max-w-7xl mx-auto px-4">
                 <div className="text-center max-w-3xl mx-auto mb-16">
                     <EditableText
                         as="h2"
-                        contentKey={`${id}.title`}
+                        contentKey="title"
                         content={data.title}
                         defaultValue="Our Core Services"
                         isEditMode={isEditMode}
@@ -49,12 +56,13 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
                     {(data.subtitle || isEditMode) && (
                         <EditableText
                             as="p"
-                            contentKey={`${id}.subtitle`}
+                            contentKey="subtitle"
                             content={data.subtitle}
                             defaultValue="Professional expertise tailored to your needs."
                             isEditMode={isEditMode}
                             onSave={(key, value) => updateContent(key, value)}
-                            className="text-xl text-gray-500 mb-6"
+                            className="text-xl mb-6"
+                            style={{ color: pPrimary, opacity: 0.7 }}
                         />
                     )}
                     <div className="w-24 border-b-4 mx-auto" style={{ borderColor: pSecondary }}></div>
@@ -88,22 +96,23 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
 
                             <EditableText
                                 as="h3"
-                                contentKey={`${id}.items.${index}.title`}
+                                contentKey={`item_${index}_title`}
                                 content={item.title}
                                 defaultValue={`Premium Service ${index + 1}`}
                                 isEditMode={isEditMode}
-                                onSave={(key, value) => updateContent(key, value)}
+                                onSave={(_key, value) => handleUpdateItem(index, 'title', value)}
                                 className="text-xl font-bold mb-3"
                                 style={{ color: pPrimary }}
                             />
                             <EditableText
                                 as="p"
-                                contentKey={`${id}.items.${index}.description`}
+                                contentKey={`item_${index}_desc`}
                                 content={item.description}
                                 defaultValue="Comprehensive diagnostic, repair, and installation services handled by our certified professionals."
                                 isEditMode={isEditMode}
-                                onSave={(key, value) => updateContent(key, value)}
-                                className="text-gray-600 leading-relaxed"
+                                onSave={(_key, value) => handleUpdateItem(index, 'description', value)}
+                                className="leading-relaxed"
+                                style={{ color: pPrimary, opacity: 0.7 }}
                             />
                         </div>
                     ))}
@@ -129,7 +138,7 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
                             <div className="inline-flex flex-col items-center gap-2">
                                 <EditableText
                                     as="span"
-                                    contentKey={`${id}.ctaText`}
+                                    contentKey="ctaText"
                                     content={data.ctaText}
                                     defaultValue="See All Services →"
                                     isEditMode={isEditMode}

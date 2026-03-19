@@ -24,12 +24,19 @@ export default function FAQBlock({ id, data, isEditMode, palette, updateContent 
         { question: 'What areas do you serve?', answer: 'We serve the greater metro area and surrounding communities within a 30-mile radius.' },
     ];
 
+    const handleUpdateItem = (index: number, field: string, value: string) => {
+        const newItems = items.map((item: any, i: number) =>
+            i === index ? { ...item, [field]: value } : item
+        );
+        updateContent('items', newItems);
+    };
+
     return (
         <section className="py-24" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
             <div className="max-w-3xl mx-auto px-4">
                 <EditableText
                     as="h2"
-                    contentKey={`${id}.title`}
+                    contentKey="title"
                     content={data.title}
                     defaultValue="Frequently Asked Questions"
                     isEditMode={isEditMode}
@@ -39,12 +46,13 @@ export default function FAQBlock({ id, data, isEditMode, palette, updateContent 
                 />
                 <EditableText
                     as="p"
-                    contentKey={`${id}.subtitle`}
+                    contentKey="subtitle"
                     content={data.subtitle}
                     defaultValue="Everything you need to know about our services."
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
-                    className="text-lg text-gray-500 text-center mb-12"
+                    className="text-lg text-center mb-12"
+                    style={{ color: pPrimary, opacity: 0.6 }}
                 />
 
                 <div className="space-y-3">
@@ -61,14 +69,11 @@ export default function FAQBlock({ id, data, isEditMode, palette, updateContent 
                                 >
                                     <EditableText
                                         as="span"
-                                        contentKey={`${id}.items.${index}.question`}
+                                        contentKey={`faq_${index}_question`}
                                         content={item.question}
                                         defaultValue={`Question ${index + 1}`}
                                         isEditMode={isEditMode}
-                                        onSave={(key, value) => {
-                                            // Prevent toggle when editing
-                                            updateContent(key, value);
-                                        }}
+                                        onSave={(_key, value) => handleUpdateItem(index, 'question', value)}
                                         className="font-semibold text-left pr-4 flex-1"
                                         style={{ color: pPrimary }}
                                     />
@@ -82,12 +87,13 @@ export default function FAQBlock({ id, data, isEditMode, palette, updateContent 
                                     <div className="px-5 pb-5 pt-0">
                                         <EditableText
                                             as="p"
-                                            contentKey={`${id}.items.${index}.answer`}
+                                            contentKey={`faq_${index}_answer`}
                                             content={item.answer}
                                             defaultValue="Answer goes here."
                                             isEditMode={isEditMode}
-                                            onSave={(key, value) => updateContent(key, value)}
-                                            className="text-gray-600 leading-relaxed"
+                                            onSave={(_key, value) => handleUpdateItem(index, 'answer', value)}
+                                            className="leading-relaxed"
+                                            style={{ color: pPrimary, opacity: 0.7 }}
                                         />
                                     </div>
                                 </div>

@@ -25,12 +25,19 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
     // Placeholder slots in edit mode
     const slots = isEditMode ? Math.max(images.length + 1, columns * 2) : images.length;
 
+    const handleUpdateImage = (index: number, value: string) => {
+        const newImages = [...images];
+        while (newImages.length <= index) newImages.push('');
+        newImages[index] = value;
+        updateContent('images', newImages);
+    };
+
     return (
         <section className="py-24" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
             <div className="max-w-7xl mx-auto px-4">
                 <EditableText
                     as="h2"
-                    contentKey={`${id}.title`}
+                    contentKey="title"
                     content={data.title}
                     defaultValue="Our Work"
                     isEditMode={isEditMode}
@@ -40,12 +47,13 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                 />
                 <EditableText
                     as="p"
-                    contentKey={`${id}.subtitle`}
+                    contentKey="subtitle"
                     content={data.subtitle}
                     defaultValue="Browse our portfolio of recent projects."
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
-                    className="text-lg text-gray-500 text-center mb-12 max-w-2xl mx-auto"
+                    className="text-lg text-center mb-12 max-w-2xl mx-auto"
+                    style={{ color: pPrimary, opacity: 0.6 }}
                 />
 
                 <div className={`grid gap-4 ${columns === 2 ? 'grid-cols-2' :
@@ -60,10 +68,10 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                         return (
                             <div key={index} className="relative group">
                                 <EditableImage
-                                    contentKey={`${id}.images.${index}`}
+                                    contentKey={`gallery_image_${index}`}
                                     imageUrl={imageUrl}
                                     isEditMode={isEditMode}
-                                    onSave={(key, value) => updateContent(key, value)}
+                                    onSave={(_key, value) => handleUpdateImage(index, value)}
                                     onUpload={context?.uploadImage}
                                     className="w-full aspect-square object-cover rounded-xl bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity"
                                     placeholder="+ Add image"

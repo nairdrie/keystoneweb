@@ -17,7 +17,7 @@ export default function CtaBlock({ id, data, isEditMode, palette, updateContent 
     // Allow overriding background color, default to secondary for high impact
     const bgColor = data.backgroundColor || pSecondary;
 
-    // Auto-detect text color based on background if we were doing true contrast checking, 
+    // Auto-detect text color based on background if we were doing true contrast checking,
     // but for now we'll assume dark background means white text, light background means primary text
     const isDarkBg = bgColor === pSecondary || bgColor === pPrimary;
     const textColor = isDarkBg ? '#ffffff' : pPrimary;
@@ -32,7 +32,7 @@ export default function CtaBlock({ id, data, isEditMode, palette, updateContent 
             <div className="max-w-4xl mx-auto px-4 relative z-10">
                 <EditableText
                     as="h2"
-                    contentKey={`${id}.title`}
+                    contentKey="title"
                     content={data.title}
                     defaultValue="Ready to start your project?"
                     isEditMode={isEditMode}
@@ -41,7 +41,7 @@ export default function CtaBlock({ id, data, isEditMode, palette, updateContent 
                 />
                 <EditableText
                     as="p"
-                    contentKey={`${id}.subtitle`}
+                    contentKey="subtitle"
                     content={data.subtitle}
                     defaultValue="Contact our professional team today for a free, no-obligation estimate."
                     isEditMode={isEditMode}

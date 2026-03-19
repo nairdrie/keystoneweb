@@ -26,13 +26,20 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
         { name: 'Mike Rodriguez', role: 'Head of Operations', image: '', bio: 'Ensuring everything runs smoothly, every single day.' },
     ];
 
+    const handleUpdateMember = (index: number, field: string, value: string) => {
+        const newMembers = members.map((member: any, i: number) =>
+            i === index ? { ...member, [field]: value } : member
+        );
+        updateContent('members', newMembers);
+    };
+
     if (variant === 'minimal') {
         return (
             <section className="py-24" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
                 <div className="max-w-5xl mx-auto px-4">
                     <EditableText
                         as="h2"
-                        contentKey={`${id}.title`}
+                        contentKey="title"
                         content={data.title}
                         defaultValue="Our Team"
                         isEditMode={isEditMode}
@@ -44,10 +51,10 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                         {members.map((member: any, index: number) => (
                             <div key={index} className="flex items-center gap-6 group">
                                 <EditableImage
-                                    contentKey={`${id}.members.${index}.image`}
+                                    contentKey={`member_${index}_image`}
                                     imageUrl={member.image}
                                     isEditMode={isEditMode}
-                                    onSave={(key, value) => updateContent(key, value)}
+                                    onSave={(_key, value) => handleUpdateMember(index, 'image', value)}
                                     onUpload={context?.uploadImage}
                                     className="w-16 h-16 rounded-full object-cover bg-gray-200 flex-shrink-0"
                                     placeholder="Photo"
@@ -55,21 +62,21 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                 <div className="flex-1">
                                     <EditableText
                                         as="h3"
-                                        contentKey={`${id}.members.${index}.name`}
+                                        contentKey={`member_${index}_name`}
                                         content={member.name}
                                         defaultValue={`Team Member ${index + 1}`}
                                         isEditMode={isEditMode}
-                                        onSave={(key, value) => updateContent(key, value)}
+                                        onSave={(_key, value) => handleUpdateMember(index, 'name', value)}
                                         className="text-lg font-bold"
                                         style={{ color: pPrimary }}
                                     />
                                     <EditableText
                                         as="p"
-                                        contentKey={`${id}.members.${index}.role`}
+                                        contentKey={`member_${index}_role`}
                                         content={member.role}
                                         defaultValue="Role"
                                         isEditMode={isEditMode}
-                                        onSave={(key, value) => updateContent(key, value)}
+                                        onSave={(_key, value) => handleUpdateMember(index, 'role', value)}
                                         className="text-sm"
                                         style={{ color: pSecondary }}
                                     />
@@ -88,7 +95,7 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                 <div className="max-w-7xl mx-auto px-4">
                     <EditableText
                         as="h2"
-                        contentKey={`${id}.title`}
+                        contentKey="title"
                         content={data.title}
                         defaultValue="Meet Our Team"
                         isEditMode={isEditMode}
@@ -98,21 +105,22 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                     />
                     <EditableText
                         as="p"
-                        contentKey={`${id}.subtitle`}
+                        contentKey="subtitle"
                         content={data.subtitle}
                         defaultValue="The people behind our success."
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
-                        className="text-lg text-gray-500 text-center mb-16 max-w-2xl mx-auto"
+                        className="text-lg text-center mb-16 max-w-2xl mx-auto"
+                        style={{ color: pPrimary, opacity: 0.6 }}
                     />
                     <div className={`grid gap-8 ${members.length === 2 ? 'md:grid-cols-2 max-w-4xl mx-auto' : members.length >= 4 ? 'md:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'}`}>
                         {members.map((member: any, index: number) => (
                             <div key={index} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-lg transition-shadow">
                                 <EditableImage
-                                    contentKey={`${id}.members.${index}.image`}
+                                    contentKey={`member_${index}_image`}
                                     imageUrl={member.image}
                                     isEditMode={isEditMode}
-                                    onSave={(key, value) => updateContent(key, value)}
+                                    onSave={(_key, value) => handleUpdateMember(index, 'image', value)}
                                     onUpload={context?.uploadImage}
                                     className="w-full h-64 object-cover bg-gray-200"
                                     placeholder="Team member photo"
@@ -120,32 +128,33 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                 <div className="p-6">
                                     <EditableText
                                         as="h3"
-                                        contentKey={`${id}.members.${index}.name`}
+                                        contentKey={`member_${index}_name`}
                                         content={member.name}
                                         defaultValue={`Team Member ${index + 1}`}
                                         isEditMode={isEditMode}
-                                        onSave={(key, value) => updateContent(key, value)}
+                                        onSave={(_key, value) => handleUpdateMember(index, 'name', value)}
                                         className="text-xl font-bold mb-1"
                                         style={{ color: pPrimary }}
                                     />
                                     <EditableText
                                         as="p"
-                                        contentKey={`${id}.members.${index}.role`}
+                                        contentKey={`member_${index}_role`}
                                         content={member.role}
                                         defaultValue="Role"
                                         isEditMode={isEditMode}
-                                        onSave={(key, value) => updateContent(key, value)}
+                                        onSave={(_key, value) => handleUpdateMember(index, 'role', value)}
                                         className="text-sm font-semibold mb-3"
                                         style={{ color: pSecondary }}
                                     />
                                     <EditableText
                                         as="p"
-                                        contentKey={`${id}.members.${index}.bio`}
+                                        contentKey={`member_${index}_bio`}
                                         content={member.bio}
                                         defaultValue="A brief bio about this team member."
                                         isEditMode={isEditMode}
-                                        onSave={(key, value) => updateContent(key, value)}
-                                        className="text-gray-500 text-sm leading-relaxed"
+                                        onSave={(_key, value) => handleUpdateMember(index, 'bio', value)}
+                                        className="text-sm leading-relaxed"
+                                        style={{ color: pPrimary, opacity: 0.6 }}
                                     />
                                 </div>
                             </div>
@@ -162,7 +171,7 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
             <div className="max-w-7xl mx-auto px-4">
                 <EditableText
                     as="h2"
-                    contentKey={`${id}.title`}
+                    contentKey="title"
                     content={data.title}
                     defaultValue="Meet Our Team"
                     isEditMode={isEditMode}
@@ -172,42 +181,43 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                 />
                 <EditableText
                     as="p"
-                    contentKey={`${id}.subtitle`}
+                    contentKey="subtitle"
                     content={data.subtitle}
                     defaultValue="The people behind our success."
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
-                    className="text-lg text-gray-500 text-center mb-16 max-w-2xl mx-auto"
+                    className="text-lg text-center mb-16 max-w-2xl mx-auto"
+                    style={{ color: pPrimary, opacity: 0.6 }}
                 />
                 <div className={`grid gap-12 ${members.length === 2 ? 'md:grid-cols-2 max-w-3xl mx-auto' : members.length >= 4 ? 'grid-cols-2 md:grid-cols-4' : 'md:grid-cols-3'}`}>
                     {members.map((member: any, index: number) => (
                         <div key={index} className="text-center group">
                             <EditableImage
-                                contentKey={`${id}.members.${index}.image`}
+                                contentKey={`member_${index}_image`}
                                 imageUrl={member.image}
                                 isEditMode={isEditMode}
-                                onSave={(key, value) => updateContent(key, value)}
+                                onSave={(_key, value) => handleUpdateMember(index, 'image', value)}
                                 onUpload={context?.uploadImage}
                                 className="w-32 h-32 rounded-full object-cover bg-gray-200 mx-auto mb-4 ring-4 ring-white shadow-lg group-hover:scale-105 transition-transform"
                                 placeholder="Photo"
                             />
                             <EditableText
                                 as="h3"
-                                contentKey={`${id}.members.${index}.name`}
+                                contentKey={`member_${index}_name`}
                                 content={member.name}
                                 defaultValue={`Team Member ${index + 1}`}
                                 isEditMode={isEditMode}
-                                onSave={(key, value) => updateContent(key, value)}
+                                onSave={(_key, value) => handleUpdateMember(index, 'name', value)}
                                 className="text-lg font-bold mb-1"
                                 style={{ color: pPrimary }}
                             />
                             <EditableText
                                 as="p"
-                                contentKey={`${id}.members.${index}.role`}
+                                contentKey={`member_${index}_role`}
                                 content={member.role}
                                 defaultValue="Role"
                                 isEditMode={isEditMode}
-                                onSave={(key, value) => updateContent(key, value)}
+                                onSave={(_key, value) => handleUpdateMember(index, 'role', value)}
                                 className="text-sm font-medium"
                                 style={{ color: pSecondary }}
                             />

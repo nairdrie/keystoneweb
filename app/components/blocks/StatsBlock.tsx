@@ -25,6 +25,13 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
 
     const variant = data.variant || 'banner'; // 'banner' | 'cards'
 
+    const handleUpdateItem = (index: number, field: string, value: string) => {
+        const newItems = items.map((item: any, i: number) =>
+            i === index ? { ...item, [field]: value } : item
+        );
+        updateContent('items', newItems);
+    };
+
     if (variant === 'cards') {
         return (
             <section className="py-20" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
@@ -32,7 +39,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                     {data.title && (
                         <EditableText
                             as="h2"
-                            contentKey={`${id}.title`}
+                            contentKey="title"
                             content={data.title}
                             defaultValue="Our Track Record"
                             isEditMode={isEditMode}
@@ -46,22 +53,23 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                             <div key={index} className="text-center p-8 rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow">
                                 <EditableText
                                     as="div"
-                                    contentKey={`${id}.items.${index}.value`}
+                                    contentKey={`stat_${index}_value`}
                                     content={item.value}
                                     defaultValue="100+"
                                     isEditMode={isEditMode}
-                                    onSave={(key, value) => updateContent(key, value)}
+                                    onSave={(_key, value) => handleUpdateItem(index, 'value', value)}
                                     className="text-4xl md:text-5xl font-black mb-2"
                                     style={{ color: pSecondary }}
                                 />
                                 <EditableText
                                     as="p"
-                                    contentKey={`${id}.items.${index}.label`}
+                                    contentKey={`stat_${index}_label`}
                                     content={item.label}
                                     defaultValue="Metric"
                                     isEditMode={isEditMode}
-                                    onSave={(key, value) => updateContent(key, value)}
-                                    className="text-gray-600 font-medium text-sm uppercase tracking-wider"
+                                    onSave={(_key, value) => handleUpdateItem(index, 'label', value)}
+                                    className="font-medium text-sm uppercase tracking-wider"
+                                    style={{ color: pPrimary, opacity: 0.7 }}
                                 />
                             </div>
                         ))}
@@ -80,20 +88,20 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                         <div key={index} className="text-center">
                             <EditableText
                                 as="div"
-                                contentKey={`${id}.items.${index}.value`}
+                                contentKey={`stat_${index}_value`}
                                 content={item.value}
                                 defaultValue="100+"
                                 isEditMode={isEditMode}
-                                onSave={(key, value) => updateContent(key, value)}
+                                onSave={(_key, value) => handleUpdateItem(index, 'value', value)}
                                 className="text-4xl md:text-5xl font-black mb-1 text-white"
                             />
                             <EditableText
                                 as="p"
-                                contentKey={`${id}.items.${index}.label`}
+                                contentKey={`stat_${index}_label`}
                                 content={item.label}
                                 defaultValue="Metric"
                                 isEditMode={isEditMode}
-                                onSave={(key, value) => updateContent(key, value)}
+                                onSave={(_key, value) => handleUpdateItem(index, 'label', value)}
                                 className="text-white/70 font-medium text-sm uppercase tracking-wider"
                             />
                         </div>

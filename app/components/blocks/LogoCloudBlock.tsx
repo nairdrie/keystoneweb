@@ -21,18 +21,26 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
     const logos: string[] = data.logos || [];
     const slots = isEditMode ? Math.max(logos.length + 1, 6) : logos.length;
 
+    const handleUpdateLogo = (index: number, value: string) => {
+        const newLogos = [...logos];
+        while (newLogos.length <= index) newLogos.push('');
+        newLogos[index] = value;
+        updateContent('logos', newLogos);
+    };
+
     if (variant === 'grid') {
         return (
             <section className="py-20" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
                 <div className="max-w-6xl mx-auto px-4">
                     <EditableText
                         as="p"
-                        contentKey={`${id}.title`}
+                        contentKey="title"
                         content={data.title}
                         defaultValue="Trusted by leading brands"
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
-                        className="text-center text-sm font-semibold uppercase tracking-widest text-gray-400 mb-12"
+                        className="text-center text-sm font-semibold uppercase tracking-widest mb-12"
+                        style={{ color: pPrimary, opacity: 0.4 }}
                     />
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
                         {Array.from({ length: slots }).map((_, index) => {
@@ -41,10 +49,10 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
                             return (
                                 <div key={index} className="flex items-center justify-center p-6 bg-gray-50 rounded-xl">
                                     <EditableImage
-                                        contentKey={`${id}.logos.${index}`}
+                                        contentKey={`logo_${index}`}
                                         imageUrl={logoUrl}
                                         isEditMode={isEditMode}
-                                        onSave={(key, value) => updateContent(key, value)}
+                                        onSave={(_key, value) => handleUpdateLogo(index, value)}
                                         onUpload={context?.uploadImage}
                                         className="h-12 w-auto max-w-[160px] object-contain grayscale hover:grayscale-0 transition-all opacity-60 hover:opacity-100"
                                         placeholder="+ Logo"
@@ -65,12 +73,13 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
                 <div className="max-w-7xl mx-auto px-4">
                     <EditableText
                         as="p"
-                        contentKey={`${id}.title`}
+                        contentKey="title"
                         content={data.title}
                         defaultValue="Trusted by leading brands"
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
-                        className="text-center text-sm font-semibold uppercase tracking-widest text-gray-400 mb-8"
+                        className="text-center text-sm font-semibold uppercase tracking-widest mb-8"
+                        style={{ color: pPrimary, opacity: 0.4 }}
                     />
                 </div>
                 <div className={isEditMode ? "flex flex-wrap justify-center gap-12 px-4" : "flex items-center gap-16 animate-marquee"}>
@@ -80,10 +89,10 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
                         return (
                             <div key={index} className="flex-shrink-0">
                                 <EditableImage
-                                    contentKey={`${id}.logos.${index}`}
+                                    contentKey={`logo_${index}`}
                                     imageUrl={logoUrl}
                                     isEditMode={isEditMode}
-                                    onSave={(key, value) => updateContent(key, value)}
+                                    onSave={(_key, value) => handleUpdateLogo(index, value)}
                                     onUpload={context?.uploadImage}
                                     className="h-10 w-auto max-w-[140px] object-contain grayscale opacity-50"
                                     placeholder="+ Logo"
@@ -109,12 +118,13 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
             <div className="max-w-7xl mx-auto px-4">
                 <EditableText
                     as="p"
-                    contentKey={`${id}.title`}
+                    contentKey="title"
                     content={data.title}
                     defaultValue="Trusted by leading brands"
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
-                    className="text-center text-sm font-semibold uppercase tracking-widest text-gray-400 mb-10"
+                    className="text-center text-sm font-semibold uppercase tracking-widest mb-10"
+                    style={{ color: pPrimary, opacity: 0.4 }}
                 />
                 <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6">
                     {Array.from({ length: slots }).map((_, index) => {
@@ -123,10 +133,10 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
                         return (
                             <EditableImage
                                 key={index}
-                                contentKey={`${id}.logos.${index}`}
+                                contentKey={`logo_${index}`}
                                 imageUrl={logoUrl}
                                 isEditMode={isEditMode}
-                                onSave={(key, value) => updateContent(key, value)}
+                                onSave={(_key, value) => handleUpdateLogo(index, value)}
                                 onUpload={context?.uploadImage}
                                 className="h-10 w-auto max-w-[140px] object-contain grayscale hover:grayscale-0 transition-all opacity-50 hover:opacity-100"
                                 placeholder="+ Logo"

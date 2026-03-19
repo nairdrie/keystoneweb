@@ -24,6 +24,13 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
         { name: 'Lisa K.', role: 'Property Manager', quote: 'They handle all our properties and never disappoint. Quick response time and excellent craftsmanship on every job.', rating: 5 },
     ];
 
+    const handleUpdateItem = (index: number, field: string, value: string) => {
+        const newItems = items.map((item: any, i: number) =>
+            i === index ? { ...item, [field]: value } : item
+        );
+        updateContent('items', newItems);
+    };
+
     const renderStars = (rating: number) => (
         <div className="flex gap-0.5 mb-3">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -44,7 +51,7 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                 <div className="max-w-3xl mx-auto px-4 text-center">
                     <EditableText
                         as="h2"
-                        contentKey={`${id}.title`}
+                        contentKey="title"
                         content={data.title}
                         defaultValue="What Our Clients Say"
                         isEditMode={isEditMode}
@@ -56,32 +63,34 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                         <div className="text-6xl leading-none mb-4" style={{ color: pSecondary }}>"</div>
                         <EditableText
                             as="p"
-                            contentKey={`${id}.items.0.quote`}
+                            contentKey="testimonial_0_quote"
                             content={item.quote}
                             defaultValue="Outstanding service from start to finish."
                             isEditMode={isEditMode}
-                            onSave={(key, value) => updateContent(key, value)}
-                            className="text-xl md:text-2xl italic text-gray-600 mb-8 leading-relaxed"
+                            onSave={(_key, value) => handleUpdateItem(0, 'quote', value)}
+                            className="text-xl md:text-2xl italic mb-8 leading-relaxed"
+                            style={{ color: pPrimary, opacity: 0.7 }}
                         />
                         {renderStars(item.rating || 5)}
                         <EditableText
                             as="p"
-                            contentKey={`${id}.items.0.name`}
+                            contentKey="testimonial_0_name"
                             content={item.name}
                             defaultValue="Happy Customer"
                             isEditMode={isEditMode}
-                            onSave={(key, value) => updateContent(key, value)}
+                            onSave={(_key, value) => handleUpdateItem(0, 'name', value)}
                             className="font-bold text-lg"
                             style={{ color: pPrimary }}
                         />
                         <EditableText
                             as="p"
-                            contentKey={`${id}.items.0.role`}
+                            contentKey="testimonial_0_role"
                             content={item.role}
                             defaultValue="Homeowner"
                             isEditMode={isEditMode}
-                            onSave={(key, value) => updateContent(key, value)}
-                            className="text-sm text-gray-500"
+                            onSave={(_key, value) => handleUpdateItem(0, 'role', value)}
+                            className="text-sm"
+                            style={{ color: pPrimary, opacity: 0.6 }}
                         />
                     </div>
                 </div>
@@ -94,7 +103,7 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
             <div className="max-w-7xl mx-auto px-4">
                 <EditableText
                     as="h2"
-                    contentKey={`${id}.title`}
+                    contentKey="title"
                     content={data.title}
                     defaultValue="What Our Clients Say"
                     isEditMode={isEditMode}
@@ -104,12 +113,13 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                 />
                 <EditableText
                     as="p"
-                    contentKey={`${id}.subtitle`}
+                    contentKey="subtitle"
                     content={data.subtitle}
                     defaultValue="Don't just take our word for it — hear from our satisfied customers."
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
-                    className="text-lg text-gray-500 text-center mb-16 max-w-2xl mx-auto"
+                    className="text-lg text-center mb-16 max-w-2xl mx-auto"
+                    style={{ color: pPrimary, opacity: 0.6 }}
                 />
 
                 <div className={`grid gap-8 ${items.length <= 2 ? 'md:grid-cols-2 max-w-4xl mx-auto' : 'md:grid-cols-3'}`}>
@@ -122,32 +132,34 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                             {renderStars(item.rating || 5)}
                             <EditableText
                                 as="p"
-                                contentKey={`${id}.items.${index}.quote`}
+                                contentKey={`testimonial_${index}_quote`}
                                 content={item.quote}
                                 defaultValue="Great service and outstanding results!"
                                 isEditMode={isEditMode}
-                                onSave={(key, value) => updateContent(key, value)}
-                                className="text-gray-600 leading-relaxed mb-6"
+                                onSave={(_key, value) => handleUpdateItem(index, 'quote', value)}
+                                className="leading-relaxed mb-6"
+                                style={{ color: pPrimary, opacity: 0.7 }}
                             />
                             <div className="border-t border-gray-100 pt-4">
                                 <EditableText
                                     as="p"
-                                    contentKey={`${id}.items.${index}.name`}
+                                    contentKey={`testimonial_${index}_name`}
                                     content={item.name}
                                     defaultValue={`Client ${index + 1}`}
                                     isEditMode={isEditMode}
-                                    onSave={(key, value) => updateContent(key, value)}
+                                    onSave={(_key, value) => handleUpdateItem(index, 'name', value)}
                                     className="font-bold"
                                     style={{ color: pPrimary }}
                                 />
                                 <EditableText
                                     as="p"
-                                    contentKey={`${id}.items.${index}.role`}
+                                    contentKey={`testimonial_${index}_role`}
                                     content={item.role}
                                     defaultValue="Satisfied Customer"
                                     isEditMode={isEditMode}
-                                    onSave={(key, value) => updateContent(key, value)}
-                                    className="text-sm text-gray-500"
+                                    onSave={(_key, value) => handleUpdateItem(index, 'role', value)}
+                                    className="text-sm"
+                                    style={{ color: pPrimary, opacity: 0.6 }}
                                 />
                             </div>
                         </div>

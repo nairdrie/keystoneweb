@@ -46,13 +46,30 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
         },
     ];
 
+    const handleUpdateTier = (index: number, field: string, value: any) => {
+        const newTiers = tiers.map((tier: any, i: number) =>
+            i === index ? { ...tier, [field]: value } : tier
+        );
+        updateContent('tiers', newTiers);
+    };
+
+    const handleUpdateFeature = (tierIndex: number, featureIndex: number, value: string) => {
+        const newTiers = tiers.map((tier: any, i: number) => {
+            if (i !== tierIndex) return tier;
+            const newFeatures = [...(tier.features || [])];
+            newFeatures[featureIndex] = value;
+            return { ...tier, features: newFeatures };
+        });
+        updateContent('tiers', newTiers);
+    };
+
     if (variant === 'simple') {
         return (
             <section className="py-24" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
                 <div className="max-w-4xl mx-auto px-4">
                     <EditableText
                         as="h2"
-                        contentKey={`${id}.title`}
+                        contentKey="title"
                         content={data.title}
                         defaultValue="Simple, Transparent Pricing"
                         isEditMode={isEditMode}
@@ -62,12 +79,13 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                     />
                     <EditableText
                         as="p"
-                        contentKey={`${id}.subtitle`}
+                        contentKey="subtitle"
                         content={data.subtitle}
                         defaultValue="No hidden fees. Cancel anytime."
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
-                        className="text-lg text-gray-500 text-center mb-16"
+                        className="text-lg text-center mb-16"
+                        style={{ color: pPrimary, opacity: 0.6 }}
                     />
                     <div className="space-y-4">
                         {tiers.map((tier: any, index: number) => (
@@ -79,45 +97,46 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                                 <div>
                                     <EditableText
                                         as="h3"
-                                        contentKey={`${id}.tiers.${index}.name`}
+                                        contentKey={`tier_${index}_name`}
                                         content={tier.name}
                                         defaultValue={`Plan ${index + 1}`}
                                         isEditMode={isEditMode}
-                                        onSave={(key, value) => updateContent(key, value)}
+                                        onSave={(_key, value) => handleUpdateTier(index, 'name', value)}
                                         className="text-lg font-bold"
                                         style={{ color: pPrimary }}
                                     />
                                     <EditableText
                                         as="p"
-                                        contentKey={`${id}.tiers.${index}.description`}
+                                        contentKey={`tier_${index}_description`}
                                         content={tier.description}
                                         defaultValue="Plan description"
                                         isEditMode={isEditMode}
-                                        onSave={(key, value) => updateContent(key, value)}
-                                        className="text-sm text-gray-500"
+                                        onSave={(_key, value) => handleUpdateTier(index, 'description', value)}
+                                        className="text-sm"
+                                        style={{ color: pPrimary, opacity: 0.6 }}
                                     />
                                 </div>
                                 <div className="flex items-center gap-6">
                                     <div className="text-right">
                                         <EditableText
                                             as="span"
-                                            contentKey={`${id}.tiers.${index}.price`}
+                                            contentKey={`tier_${index}_price`}
                                             content={tier.price}
                                             defaultValue="$99"
                                             isEditMode={isEditMode}
-                                            onSave={(key, value) => updateContent(key, value)}
+                                            onSave={(_key, value) => handleUpdateTier(index, 'price', value)}
                                             className="text-3xl font-black"
                                             style={{ color: pPrimary }}
                                         />
-                                        <span className="text-gray-400 text-sm">{tier.period || '/month'}</span>
+                                        <span className="text-sm" style={{ color: pPrimary, opacity: 0.4 }}>{tier.period || '/month'}</span>
                                     </div>
                                     <EditableButton
-                                        contentKey={`${id}.tiers.${index}.buttonText`}
+                                        contentKey={`tier_${index}_buttonText`}
                                         label={tier.buttonText}
                                         linkData={tier.buttonTextLink}
                                         defaultLabel="Get Started"
                                         isEditMode={isEditMode}
-                                        onSave={(key, value) => updateContent(key, value)}
+                                        onSave={(_key, value) => handleUpdateTier(index, _key.endsWith('Link') ? 'buttonTextLink' : 'buttonText', value)}
                                         className="px-6 py-2.5 rounded-lg text-sm font-bold text-white transition-opacity hover:opacity-90 inline-flex items-center justify-center"
                                         style={{ backgroundColor: tier.highlighted ? pSecondary : pPrimary }}
                                     />
@@ -136,7 +155,7 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
             <div className="max-w-7xl mx-auto px-4">
                 <EditableText
                     as="h2"
-                    contentKey={`${id}.title`}
+                    contentKey="title"
                     content={data.title}
                     defaultValue="Choose Your Plan"
                     isEditMode={isEditMode}
@@ -146,12 +165,13 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                 />
                 <EditableText
                     as="p"
-                    contentKey={`${id}.subtitle`}
+                    contentKey="subtitle"
                     content={data.subtitle}
                     defaultValue="Find the perfect plan for your needs."
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
-                    className="text-lg text-gray-500 text-center mb-16 max-w-2xl mx-auto"
+                    className="text-lg text-center mb-16 max-w-2xl mx-auto"
+                    style={{ color: pPrimary, opacity: 0.6 }}
                 />
 
                 <div className={`grid gap-8 items-stretch ${tiers.length === 2 ? 'md:grid-cols-2 max-w-4xl mx-auto' : 'md:grid-cols-3'}`}>
@@ -169,61 +189,62 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
 
                             <EditableText
                                 as="h3"
-                                contentKey={`${id}.tiers.${index}.name`}
+                                contentKey={`tier_${index}_name`}
                                 content={tier.name}
                                 defaultValue={`Plan ${index + 1}`}
                                 isEditMode={isEditMode}
-                                onSave={(key, value) => updateContent(key, value)}
+                                onSave={(_key, value) => handleUpdateTier(index, 'name', value)}
                                 className="text-xl font-bold mb-2"
                                 style={{ color: pPrimary }}
                             />
                             <EditableText
                                 as="p"
-                                contentKey={`${id}.tiers.${index}.description`}
+                                contentKey={`tier_${index}_description`}
                                 content={tier.description}
                                 defaultValue="Plan description"
                                 isEditMode={isEditMode}
-                                onSave={(key, value) => updateContent(key, value)}
-                                className="text-gray-500 text-sm mb-6"
+                                onSave={(_key, value) => handleUpdateTier(index, 'description', value)}
+                                className="text-sm mb-6"
+                                style={{ color: pPrimary, opacity: 0.6 }}
                             />
 
                             <div className="mb-8">
                                 <EditableText
                                     as="span"
-                                    contentKey={`${id}.tiers.${index}.price`}
+                                    contentKey={`tier_${index}_price`}
                                     content={tier.price}
                                     defaultValue="$99"
                                     isEditMode={isEditMode}
-                                    onSave={(key, value) => updateContent(key, value)}
+                                    onSave={(_key, value) => handleUpdateTier(index, 'price', value)}
                                     className="text-5xl font-black"
                                     style={{ color: pPrimary }}
                                 />
-                                <span className="text-gray-400 text-base ml-1">{tier.period || '/month'}</span>
+                                <span className="text-base ml-1" style={{ color: pPrimary, opacity: 0.4 }}>{tier.period || '/month'}</span>
                             </div>
 
                             <ul className="space-y-3 mb-8 flex-1">
                                 {(tier.features || []).map((feature: string, fi: number) => (
-                                    <li key={fi} className="flex items-center gap-2 text-sm text-gray-600">
+                                    <li key={fi} className="flex items-center gap-2 text-sm" style={{ color: pPrimary, opacity: 0.7 }}>
                                         <span className="flex-shrink-0 font-bold" style={{ color: pSecondary }}>&#10003;</span>
                                         <EditableText
                                             as="span"
-                                            contentKey={`${id}.tiers.${index}.features.${fi}`}
+                                            contentKey={`tier_${index}_feature_${fi}`}
                                             content={feature}
                                             defaultValue={`Feature ${fi + 1}`}
                                             isEditMode={isEditMode}
-                                            onSave={(key, value) => updateContent(key, value)}
+                                            onSave={(_key, value) => handleUpdateFeature(index, fi, value)}
                                         />
                                     </li>
                                 ))}
                             </ul>
 
                             <EditableButton
-                                contentKey={`${id}.tiers.${index}.buttonText`}
+                                contentKey={`tier_${index}_buttonText`}
                                 label={tier.buttonText}
                                 linkData={tier.buttonTextLink}
                                 defaultLabel="Get Started"
                                 isEditMode={isEditMode}
-                                onSave={(key, value) => updateContent(key, value)}
+                                onSave={(_key, value) => handleUpdateTier(index, _key.endsWith('Link') ? 'buttonTextLink' : 'buttonText', value)}
                                 className="w-full py-3 rounded-xl text-sm font-bold transition-all hover:opacity-90 text-center inline-flex items-center justify-center"
                                 style={{
                                     backgroundColor: tier.highlighted ? pSecondary : 'transparent',
