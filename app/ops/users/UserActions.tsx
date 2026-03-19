@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { UserCircle, Ban, Unlock, CreditCard, ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { createPortal } from 'react-dom';
 
 interface UserActionsProps {
   userId: string;
@@ -15,6 +16,18 @@ export default function UserActions({ userId, userEmail, isBanned, currentPlan }
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showPlanMenu, setShowShowPlanMenu] = useState(false);
+  const [menuCoords, setMenuCoords] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (showPlanMenu && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setMenuCoords({
+        top: rect.bottom + window.scrollY,
+        left: rect.right - 128 + window.scrollX, // 128 is menu width (w-32)
+      });
+    }
+  }, [showPlanMenu]);
 
   async function handleImpersonate() {
     if (!confirm(`Are you sure you want to login as ${userEmail}?`)) return;
@@ -94,7 +107,7 @@ export default function UserActions({ userId, userEmail, isBanned, currentPlan }
       </button>
 
       {/* Plan Dropdown */}
-      <div className="relative">
+      <div className="relative" ref={triggerRef}>
         <button
           onClick={() => setShowShowPlanMenu(!showPlanMenu)}
           disabled={loading}
@@ -105,10 +118,19 @@ export default function UserActions({ userId, userEmail, isBanned, currentPlan }
           <ChevronDown className="w-3 h-3" />
         </button>
 
-        {showPlanMenu && (
+        {showPlanMenu && createPortal(
           <>
-            <div className="fixed inset-0 z-10" onClick={() => setShowShowPlanMenu(false)} />
-            <div className="absolute right-0 mt-2 w-32 rounded-md bg-gray-800 border border-gray-700 shadow-xl z-20 overflow-hidden">
+            <div 
+              className="fixed inset-0 z-[60]" 
+              onClick={() => setShowShowPlanMenu(false)} 
+            />
+            <div 
+              className="absolute z-[70] mt-2 w-32 rounded-md bg-gray-800 border border-gray-700 shadow-xl overflow-hidden"
+              style={{ 
+                top: menuCoords.top, 
+                left: menuCoords.left 
+              }}
+            >
               {['Free', 'Basic', 'Pro'].map((p) => (
                 <button
                   key={p}
@@ -121,9 +143,11 @@ export default function UserActions({ userId, userEmail, isBanned, currentPlan }
                 </button>
               ))}
             </div>
-          </>
+          </>,
+          document.body
         )}
       </div>
     </div>
   );
 }
+
