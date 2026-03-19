@@ -30,34 +30,9 @@ export async function generateMetadata({
   const title = publishedData.siteTitle || publishedData.title || `${subdomain}.kswd.ca`;
   const description = publishedData.tagline || publishedData.description || 'A site built with Keystone Web.';
 
-  // Inject JSON-LD into <head> via metadata.other when a business profile exists
-  const other: Record<string, string> = {};
-  if (businessProfile?.legalName) {
-    const jsonLd: Record<string, any> = {
-      '@context': 'https://schema.org',
-      '@type': 'LocalBusiness',
-      name: businessProfile.legalName,
-      url: `https://${subdomain}.kswd.ca`,
-      address: {
-        '@type': 'PostalAddress',
-        streetAddress: businessProfile.streetAddress,
-        addressLocality: businessProfile.addressLocality,
-        addressRegion: businessProfile.addressRegion,
-        postalCode: businessProfile.postalCode,
-        addressCountry: businessProfile.addressCountry,
-      },
-      ...(businessProfile.telephone ? { telephone: businessProfile.telephone } : {}),
-      ...(businessProfile.latitude !== null && businessProfile.longitude !== null
-        ? { geo: { '@type': 'GeoCoordinates', latitude: businessProfile.latitude, longitude: businessProfile.longitude } }
-        : {}),
-    };
-    other['application/ld+json'] = JSON.stringify(jsonLd);
-  }
-
   return {
     title,
     description,
-    ...(Object.keys(other).length > 0 ? { other } : {}),
   };
 }
 
@@ -147,6 +122,7 @@ export default async function PublicSitePage({
           <JsonLdScript
             businessProfile={site.business_profile}
             siteUrl={`https://${subdomain}.kswd.ca`}
+            socialLinks={mergedPublishData.socialLinks}
           />
         )}
         <EditorContent

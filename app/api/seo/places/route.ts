@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
- * Proxy for Google Places Text Search API.
- * Keeps the API key server-side and prevents direct client exposure.
- *
+ * Proxy for Google Places API (New/v1).
+ * 
  * GET /api/seo/places?query=Acme+Plumbing+Toronto
  * Returns a list of place candidates with address, phone, and coordinates.
  */
@@ -20,73 +19,76 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Text Search to get candidate place IDs
-    const searchUrl = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json');
-    searchUrl.searchParams.set('query', query);
-    searchUrl.searchParams.set('key', apiKey);
+    // Places API (New) - Search Text
+    // https://developers.google.com/maps/documentation/places/web-service/search-text
+    const url = 'https://places.googleapis.com/v1/places:searchText';
+    
+    // We request specific fields via the FieldMask header to control costs and data
+    const fieldMask = [
+      'places.id',
+      'places.displayName',
+      'places.formattedAddress',
+      'places.location',
+      'places.nationalPhoneNumber',
+      'places.addressComponents'
+    ].join(',');
 
-    const searchRes = await fetch(searchUrl.toString(), { cache: 'no-store' });
-    if (!searchRes.ok) {
-      throw new Error(`Places Text Search failed: ${searchRes.status}`);
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': fieldMask,
+      },
+      body: JSON.stringify({
+        textQuery: query,
+        maxResultCount: 5,
+      }),
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      const errData = await response.json();
+      console.error('Google Places API (New) error:', response.status, errData);
+      return NextResponse.json({ 
+        error: `Google API Error: ${response.status}`,
+        message: errData.error?.message || 'Failed to search places'
+      }, { status: response.status });
     }
 
-    const searchData = await searchRes.json();
+    const data = await response.json();
 
-    if (searchData.status === 'ZERO_RESULTS' || !searchData.results?.length) {
+    if (!data.places || data.places.length === 0) {
       return NextResponse.json({ places: [] });
     }
 
-    // Return up to 5 candidates with the fields needed for JSON-LD
-    const candidates = searchData.results.slice(0, 5).map((place: any) => ({
-      placeId: place.place_id,
-      name: place.name,
-      formattedAddress: place.formatted_address,
-      // Geometry is included in Text Search results
-      latitude: place.geometry?.location?.lat ?? null,
-      longitude: place.geometry?.location?.lng ?? null,
-    }));
+    const places = data.places.map((place: any) => {
+      // Parse address components
+      const components: Record<string, string> = {};
+      for (const comp of place.addressComponents || []) {
+        const type = comp.types?.[0];
+        if (type) components[type] = comp.shortText || comp.longText;
+      }
 
-    // Enrich first candidate (and up to 5) with phone number via Place Details
-    const enriched = await Promise.all(
-      candidates.map(async (candidate: any) => {
-        try {
-          const detailUrl = new URL('https://maps.googleapis.com/maps/api/place/details/json');
-          detailUrl.searchParams.set('place_id', candidate.placeId);
-          detailUrl.searchParams.set('fields', 'formatted_phone_number,address_component');
-          detailUrl.searchParams.set('key', apiKey);
+      return {
+        placeId: place.id,
+        name: place.displayName?.text || '',
+        formattedAddress: place.formattedAddress,
+        latitude: place.location?.latitude ?? null,
+        longitude: place.location?.longitude ?? null,
+        telephone: place.nationalPhoneNumber || null,
+        streetNumber: components['street_number'] || '',
+        route: components['route'] || '',
+        addressLocality: components['locality'] || components['sublocality'] || '',
+        addressRegion: components['administrative_area_level_1'] || '',
+        postalCode: components['postal_code'] || '',
+        addressCountry: components['country'] || '',
+      };
+    });
 
-          const detailRes = await fetch(detailUrl.toString(), { cache: 'no-store' });
-          if (!detailRes.ok) return candidate;
-
-          const detailData = await detailRes.json();
-          const result = detailData.result || {};
-
-          // Parse address components
-          const components: Record<string, string> = {};
-          for (const comp of result.address_components || []) {
-            const type = comp.types?.[0];
-            if (type) components[type] = comp.short_name || comp.long_name;
-          }
-
-          return {
-            ...candidate,
-            telephone: result.formatted_phone_number || null,
-            streetNumber: components['street_number'] || '',
-            route: components['route'] || '',
-            addressLocality: components['locality'] || components['sublocality'] || '',
-            addressRegion: components['administrative_area_level_1'] || '',
-            postalCode: components['postal_code'] || '',
-            addressCountry: components['country'] || '',
-          };
-        } catch {
-          return candidate;
-        }
-      })
-    );
-
-    return NextResponse.json({ places: enriched });
+    return NextResponse.json({ places });
   } catch (err) {
     console.error('Google Places proxy error:', err);
-    return NextResponse.json({ error: 'Failed to search places' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error during place search' }, { status: 500 });
   }
 }

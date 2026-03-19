@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
   const { data: site, error } = await supabase
     .from('sites')
-    .select('business_profile, user_id')
+    .select('business_profile, design_data, user_id')
     .eq('id', siteId)
     .single();
 
@@ -29,7 +29,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  return NextResponse.json({ businessProfile: site.business_profile || null });
+  return NextResponse.json({ 
+    businessProfile: site.business_profile || null,
+    socialLinks: (site.design_data as any)?.socialLinks || null
+  });
 }
 
 export async function PATCH(request: NextRequest) {
@@ -41,16 +44,16 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { siteId, businessProfile } = body;
+  const { siteId, businessProfile, socialLinks } = body;
 
   if (!siteId) {
     return NextResponse.json({ error: 'siteId is required' }, { status: 400 });
   }
 
-  // Verify ownership
+  // Verify ownership and fetch existing design_data
   const { data: site, error: fetchError } = await supabase
     .from('sites')
-    .select('user_id')
+    .select('user_id, design_data')
     .eq('id', siteId)
     .single();
 
@@ -62,10 +65,17 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  // Merge socialLinks into existing design_data
+  const updatedDesignData = {
+    ...(site.design_data as any || {}),
+    socialLinks: socialLinks || (site.design_data as any)?.socialLinks || {}
+  };
+
   const { error: updateError } = await supabase
     .from('sites')
     .update({
       business_profile: businessProfile,
+      design_data: updatedDesignData,
       updated_at: new Date().toISOString(),
     })
     .eq('id', siteId);
@@ -75,5 +85,13 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to save business profile' }, { status: 500 });
   }
 
-  return NextResponse.json({ message: 'Business profile saved', businessProfile });
+  // Track the edit event
+  const { trackEvent } = await import('@/lib/analytics');
+  trackEvent('site_edit', { userId: user.id, siteId });
+
+  return NextResponse.json({ 
+    message: 'Business profile and social links saved', 
+    businessProfile, 
+    socialLinks 
+  });
 }

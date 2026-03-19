@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, MapPin, Phone, CheckCircle, AlertCircle, Loader2, PlusCircle } from 'lucide-react';
+import { Search, MapPin, Phone, CheckCircle, AlertCircle, Loader2, PlusCircle, Globe } from 'lucide-react';
 
 export interface BusinessProfile {
   legalName: string;
@@ -15,6 +15,14 @@ export interface BusinessProfile {
   longitude: number | null;
   placeId: string | null;
   verifiedAt: string | null;
+}
+
+export interface SocialLinks {
+  facebook?: string;
+  instagram?: string;
+  twitter?: string;
+  linkedin?: string;
+  youtube?: string;
 }
 
 interface PlaceCandidate {
@@ -50,12 +58,21 @@ const EMPTY_PROFILE: BusinessProfile = {
   verifiedAt: null,
 };
 
+const EMPTY_SOCIAL: SocialLinks = {
+  facebook: '',
+  instagram: '',
+  twitter: '',
+  linkedin: '',
+  youtube: '',
+};
+
 export default function SEOPanel({ siteId }: SEOPanelProps) {
   const [mode, setMode] = useState<'idle' | 'search' | 'manual'>('idle');
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<PlaceCandidate[]>([]);
   const [searching, setSearching] = useState(false);
   const [profile, setProfile] = useState<BusinessProfile>(EMPTY_PROFILE);
+  const [socialLinks, setSocialLinks] = useState<SocialLinks>(EMPTY_SOCIAL);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [loadingProfile, setLoadingProfile] = useState(false);
@@ -73,6 +90,9 @@ export default function SEOPanel({ siteId }: SEOPanelProps) {
           // If there's already a profile, show the manual form pre-filled
           setMode('manual');
         }
+        if (data?.socialLinks) {
+          setSocialLinks(prev => ({ ...prev, ...data.socialLinks }));
+        }
       })
       .catch(() => { })
       .finally(() => setLoadingProfile(false));
@@ -87,12 +107,17 @@ export default function SEOPanel({ siteId }: SEOPanelProps) {
     setSearching(true);
     try {
       const res = await fetch(`/api/seo/places?query=${encodeURIComponent(q)}`, { credentials: 'include' });
+      const data = await res.json();
+      
       if (res.ok) {
-        const { places } = await res.json();
-        setSearchResults(places || []);
+        setSearchResults(data.places || []);
+      } else {
+        console.error('Places search error:', data.error || 'Unknown error');
+        setSearchResults([]);
       }
-    } catch {
-      // silently ignore
+    } catch (err) {
+      console.error('Places search fetch failed:', err);
+      setSearchResults([]);
     } finally {
       setSearching(false);
     }
@@ -128,6 +153,10 @@ export default function SEOPanel({ siteId }: SEOPanelProps) {
     setProfile(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleSocialChange = (field: keyof SocialLinks, value: string) => {
+    setSocialLinks(prev => ({ ...prev, [field]: value }));
+  };
+
   const handleSave = async () => {
     if (!siteId) return;
     setSaving(true);
@@ -137,7 +166,7 @@ export default function SEOPanel({ siteId }: SEOPanelProps) {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ siteId, businessProfile: profile }),
+        body: JSON.stringify({ siteId, businessProfile: profile, socialLinks }),
       });
       if (res.ok) {
         setSaveStatus('success');
@@ -322,6 +351,36 @@ export default function SEOPanel({ siteId }: SEOPanelProps) {
                 placeholder="+1 416-555-0123"
                 className="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-red-400 focus:ring-1 focus:ring-red-400 focus:outline-none"
               />
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <div className="text-[10px] font-bold uppercase text-slate-400 tracking-widest border-b border-slate-100 pb-1 mb-3">
+              Social Profiles (SEO)
+            </div>
+            
+            <div className="space-y-3">
+              {[
+                { id: 'facebook', label: 'Facebook', placeholder: 'https://facebook.com/yourpage' },
+                { id: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/yourhandle' },
+                { id: 'twitter', label: 'Twitter / X', placeholder: 'https://twitter.com/yourhandle' },
+                { id: 'linkedin', label: 'LinkedIn', placeholder: 'https://linkedin.com/company/yourpage' },
+                { id: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/@yourchannel' },
+              ].map((social) => (
+                <div key={social.id}>
+                  <label className="block text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-1">{social.label}</label>
+                  <div className="relative">
+                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    <input
+                      type="url"
+                      value={(socialLinks as any)[social.id] || ''}
+                      onChange={(e) => handleSocialChange(social.id as keyof SocialLinks, e.target.value)}
+                      placeholder={social.placeholder}
+                      className="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-red-400 focus:ring-1 focus:ring-red-400 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

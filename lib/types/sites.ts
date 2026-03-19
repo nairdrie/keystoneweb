@@ -18,6 +18,9 @@ export interface BusinessProfile {
   longitude: number | null;
   placeId: string | null;     // Google Places ID; null = manually entered
   verifiedAt: string | null;  // ISO-8601 timestamp
+  priceRange?: string;        // e.g. "$$"
+  openingHours?: string[];    // e.g. ["Mo-Fr 09:00-17:00"]
+  image?: string;             // URL to business image
 }
 
 export interface SiteData {
