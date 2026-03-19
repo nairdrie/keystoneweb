@@ -56,6 +56,9 @@ export async function POST(request: NextRequest) {
     let contentType: string;
     let originalName: string;
 
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
+
     if (imageUrl) {
       // URL-based upload (e.g. from Unsplash)
       const imgRes = await fetch(imageUrl);
@@ -68,20 +71,67 @@ export async function POST(request: NextRequest) {
 
       const imgBuffer = Buffer.from(await imgRes.arrayBuffer());
 
-      // Resize to max 1080px wide, preserving aspect ratio
-      buffer = await sharp(imgBuffer)
-        .resize({ width: 1080, withoutEnlargement: true })
-        .jpeg({ quality: 85 })
-        .toBuffer();
+      // Validate file size
+      if (imgBuffer.length > MAX_FILE_SIZE) {
+        return NextResponse.json(
+          { error: 'Image from URL is too large (max 10MB)' },
+          { status: 400 }
+        );
+      }
 
-      contentType = 'image/jpeg';
-      originalName = 'unsplash.jpg';
+      // Resize and sanitize with sharp
+      try {
+        buffer = await sharp(imgBuffer)
+          .resize({ width: 2000, withoutEnlargement: true })
+          .jpeg({ quality: 85, mozjpeg: true })
+          .toBuffer();
+        
+        contentType = 'image/jpeg';
+        originalName = 'imported-image.jpg';
+      } catch (err) {
+        return NextResponse.json(
+          { error: 'Failed to process image from URL' },
+          { status: 400 }
+        );
+      }
     } else if (file) {
-      // File-based upload (original flow)
+      // Validate MIME type
+      if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+        return NextResponse.json(
+          { error: `Unsupported file type: ${file.type}. Allowed types: JPEG, PNG, WebP, GIF, AVIF.` },
+          { status: 400 }
+        );
+      }
+
+      // Validate file size
+      if (file.size > MAX_FILE_SIZE) {
+        return NextResponse.json(
+          { error: 'File is too large (max 10MB)' },
+          { status: 400 }
+        );
+      }
+
       const arrayBuffer = await file.arrayBuffer();
-      buffer = Buffer.from(arrayBuffer);
-      contentType = file.type;
-      originalName = file.name.toLowerCase().replace(/[^a-z0-9.]/g, '-');
+      const inputBuffer = Buffer.from(arrayBuffer);
+
+      // Always process with sharp for security (re-encoding kills many attacks)
+      // and optimization (resizing/quality)
+      try {
+        buffer = await sharp(inputBuffer)
+          .resize({ width: 2000, withoutEnlargement: true })
+          .jpeg({ quality: 85, mozjpeg: true })
+          .toBuffer();
+
+        contentType = 'image/jpeg';
+        // Sanitize filename and force .jpg extension
+        const baseName = (file.name || 'upload').replace(/\.[^/.]+$/, "").toLowerCase().replace(/[^a-z0-9]/g, '-');
+        originalName = `${baseName || 'image'}.jpg`;
+      } catch (err) {
+        return NextResponse.json(
+          { error: 'Invalid or corrupted image file' },
+          { status: 400 }
+        );
+      }
     } else {
       return NextResponse.json(
         { error: 'No image provided' },
