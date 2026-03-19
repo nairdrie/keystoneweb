@@ -128,12 +128,17 @@ export default function OnboardingWizard() {
   const [aiError, setAiError] = useState<string | null>(null);
   const [showSiteLimit, setShowSiteLimit] = useState(false);
   const aiInputRef = useRef<HTMLTextAreaElement>(null);
+  // Use a ref to prevent re-fetching on tab-switch (Supabase auth token refresh
+  // fires onAuthStateChange which creates a new user object reference)
+  const hasFetchedSitesRef = useRef(false);
 
   // Check for existing sites if user is authenticated
   useEffect(() => {
     if (authLoading) return;
 
     if (user) {
+      if (hasFetchedSitesRef.current) return;
+      hasFetchedSitesRef.current = true;
       checkUserSites();
     } else {
       setCheckingSites(false);
