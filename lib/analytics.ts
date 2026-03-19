@@ -9,7 +9,10 @@ export type AnalyticsEventType =
   | 'subscription_upgrade'
   | 'subscription_cancel'
   | 'domain_purchase'
-  | 'page_view';
+  | 'page_view'
+  | 'site_delete'
+  | 'site_transfer_created'
+  | 'site_transfer_accepted';
 
 /**
  * Fire-and-forget analytics event logger.
