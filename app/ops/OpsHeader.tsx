@@ -23,7 +23,7 @@ export default function OpsHeader({ userEmail }: { userEmail?: string }) {
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-8">
             <Link href="/" className="flex items-center gap-3 group">
-              <div className="relative w-8 h-8">
+              <div className="relative w-28 h-16">
                 <Image
                   src={KeystoneLogoImage}
                   alt="Keystone"
@@ -43,9 +43,8 @@ export default function OpsHeader({ userEmail }: { userEmail?: string }) {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`hover:text-white transition-colors ${
-                    pathname === link.href ? 'text-white font-medium' : ''
-                  }`}
+                  className={`hover:text-white transition-colors ${pathname === link.href ? 'text-white font-medium' : ''
+                    }`}
                 >
                   {link.label}
                 </Link>
@@ -57,7 +56,7 @@ export default function OpsHeader({ userEmail }: { userEmail?: string }) {
             {userEmail && (
               <span className="hidden sm:inline text-xs text-gray-500 font-mono">{userEmail}</span>
             )}
-            
+
             {/* Hamburger Button */}
             <button
               onClick={() => setIsOpen(!isOpen)}
@@ -78,11 +77,10 @@ export default function OpsHeader({ userEmail }: { userEmail?: string }) {
               key={link.href}
               href={link.href}
               onClick={() => setIsOpen(false)}
-              className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                pathname === link.href
-                  ? 'bg-gray-800 text-white'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-              }`}
+              className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${pathname === link.href
+                ? 'bg-gray-800 text-white'
+                : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                }`}
             >
               {link.label}
             </Link>

@@ -34,35 +34,44 @@ export default async function OpsUsersPage({
 
   let query = db
     .from('users')
-    .select(`
-      id, email, business_name, is_admin, created_at,
-      user_subscriptions (
-        subscription_plan, subscription_status, subscription_started_at
-      )
-    `, { count: 'exact' })
+    .select('id, email, business_name, is_admin, created_at', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
   if (search) query = query.ilike('email', `%${search}%`);
 
-  const { data: users, count } = await query;
+  const { data: users, count, error } = await query;
 
-  // Site counts
+  if (error) {
+    console.error('[OpsUsers] Error fetching users:', error);
+  }
+
+  // Fetch subscriptions and site counts for the retrieved users
   const userIds = (users ?? []).map((u: any) => u.id);
   const siteCounts: Record<string, number> = {};
+  const subscriptions: Record<string, any> = {};
+
   if (userIds.length) {
-    const { data: siteRows } = await db
-      .from('sites')
-      .select('user_id')
-      .in('user_id', userIds)
-      .not('user_id', 'is', null);
-    for (const row of siteRows ?? []) {
-      siteCounts[row.user_id] = (siteCounts[row.user_id] ?? 0) + 1;
+    const [sitesRes, subsRes] = await Promise.all([
+      db.from('sites').select('user_id').in('user_id', userIds).not('user_id', 'is', null),
+      db.from('user_subscriptions').select('*').in('user_id', userIds)
+    ]);
+
+    if (sitesRes.data) {
+      for (const row of sitesRes.data) {
+        siteCounts[row.user_id] = (siteCounts[row.user_id] ?? 0) + 1;
+      }
+    }
+
+    if (subsRes.data) {
+      for (const sub of subsRes.data) {
+        subscriptions[sub.user_id] = sub;
+      }
     }
   }
 
   const enriched = (users ?? []).map((u: any) => {
-    const sub = Array.isArray(u.user_subscriptions) ? u.user_subscriptions[0] : u.user_subscriptions;
+    const sub = subscriptions[u.id];
     return {
       id: u.id,
       email: u.email,

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import DOMPurify from 'isomorphic-dompurify';
 
 type SupportRequest = {
   id: string;
@@ -157,13 +158,18 @@ export default function SupportTicketPage() {
       </div>
 
       {/* Body */}
-      <div className="rounded-lg border border-gray-800 bg-gray-900 p-5">
+      <div className="rounded-lg border border-gray-800 bg-gray-900 p-5 overflow-hidden">
         {ticket.body_text ? (
           <pre className="whitespace-pre-wrap text-sm text-gray-300 font-sans leading-relaxed">
             {ticket.body_text}
           </pre>
+        ) : ticket.body_html ? (
+          <div 
+            className="prose prose-invert prose-sm max-w-none text-gray-300"
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(ticket.body_html) }}
+          />
         ) : (
-          <p className="text-gray-600 text-sm">No plain-text body.</p>
+          <p className="text-gray-600 text-sm italic">No message body content found.</p>
         )}
       </div>
 

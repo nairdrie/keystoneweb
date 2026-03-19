@@ -95,12 +95,12 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Fetch the full email body via the Resend API
-  // The webhook payload only includes metadata — body requires a separate call
-  let bodyText: string | null = null;
-  let bodyHtml: string | null = null;
+  // 1. Try to get body directly from webhook payload (Resend usually includes it)
+  let bodyText: string | null = emailData?.text ?? null;
+  let bodyHtml: string | null = emailData?.html ?? null;
 
-  if (emailId && process.env.RESEND_API_KEY) {
+  // 2. Fallback: Fetch via API if missing from payload
+  if (!bodyText && !bodyHtml && emailId && process.env.RESEND_API_KEY) {
     try {
       const emailRes = await fetch(`https://api.resend.com/emails/${emailId}`, {
         headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
@@ -109,11 +109,9 @@ export async function POST(request: NextRequest) {
         const full = await emailRes.json();
         bodyText = full.text ?? null;
         bodyHtml = full.html ?? null;
-      } else {
-        console.warn(`[resend-inbound] Could not fetch email body for ${emailId}: ${emailRes.status}`);
       }
     } catch (err) {
-      console.warn('[resend-inbound] Failed to fetch email body:', err);
+      console.warn('[resend-inbound] Failed to fetch email body fallback:', err);
     }
   }
 
