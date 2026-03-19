@@ -101,7 +101,8 @@ export async function middleware(request: NextRequest) {
     }
 
     // Rewrite internally to the public route
-    const rewriteUrl = new URL(`/public/${subdomain}${pathname}`, request.url);
+    const rewriteUrl = request.nextUrl.clone();
+    rewriteUrl.pathname = `/public/${subdomain}${pathname}`;
     console.log(`[Middleware] Rewriting to: ${rewriteUrl.pathname}${rewriteUrl.search}`);
     return NextResponse.rewrite(rewriteUrl);
   }
@@ -129,7 +130,8 @@ export async function middleware(request: NextRequest) {
     }
 
     // Rewrite to the (site)/[domain] route for custom domain resolution
-    const rewriteUrl = new URL(`/${cleanDomain}${pathname}`, request.url);
+    const rewriteUrl = request.nextUrl.clone();
+    rewriteUrl.pathname = `/${cleanDomain}${pathname}`;
     console.log(`[Middleware] Rewriting custom domain to: ${rewriteUrl.pathname}${rewriteUrl.search}`);
     return NextResponse.rewrite(rewriteUrl);
   }
