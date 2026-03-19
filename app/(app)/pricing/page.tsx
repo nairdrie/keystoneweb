@@ -7,11 +7,19 @@ import { Check, Loader2 } from 'lucide-react';
 import Header from '../../components/Header';
 import AnimatedGridPattern from '../../components/AnimatedGridPattern';
 
-// Stripe Price IDs - Replace with your actual Stripe Price IDs from Stripe dashboard
 const STRIPE_PRICES = {
-  basic: 'price_1T50Wv9e8C5naDN43dBXbWwJ', // Basic Plan ($15/month)
-  pro: 'price_1T50Xn9e8C5naDN4yEASWwsV', // Pro Plan ($30/month)
+  basic: {
+    monthly: 'price_1TCZSU9e8C5naDN47tc8rB74', // $30/mo
+    yearly: 'price_1TCZSm9e8C5naDN4d8Zctb6D',  // $180/yr
+  },
+  pro: {
+    monthly: 'price_1TCZRk9e8C5naDN44O78PCfh', // $60/mo
+    yearly: 'price_1TCZRS9e8C5naDN4LtllOW7G',  // $360/yr
+  },
 };
+
+const MONTHLY_PRICES = { basic: 30, pro: 60 };
+const YEARLY_PRICES = { basic: 15, pro: 30 };
 
 interface CheckoutData {
   siteId?: string;
@@ -30,6 +38,7 @@ function PricingContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activePlan, setActivePlan] = useState<string | null>(null);
+  const [isYearly, setIsYearly] = useState(false);
 
   useEffect(() => {
     fetch('/api/user/subscription', { credentials: 'include' })
@@ -107,12 +116,38 @@ function PricingContent() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
-          className="text-xl text-slate-900 font-medium max-w-2xl mx-auto"
+          className="text-xl text-slate-900 font-medium max-w-2xl mx-auto mb-8"
         >
           {isPublishFlow
             ? 'Choose a plan to publish your site to the web.'
             : 'Simple pricing. No hidden fees. Pick the plan that fits your business.'}
         </motion.p>
+
+        {/* Billing Toggle */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="inline-flex items-center gap-4"
+        >
+          <span className={`text-sm font-semibold ${!isYearly ? 'text-slate-900' : 'text-slate-400'}`}>Monthly</span>
+          <button
+            onClick={() => setIsYearly(!isYearly)}
+            className={`relative w-14 h-7 rounded-full transition-colors duration-200 focus:outline-none ${isYearly ? 'bg-red-600' : 'bg-slate-300'}`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform duration-200 ${isYearly ? 'translate-x-7' : 'translate-x-0'}`}
+            />
+          </button>
+          <span className={`text-sm font-semibold ${isYearly ? 'text-slate-900' : 'text-slate-400'}`}>
+            Yearly
+          </span>
+          {isYearly && (
+            <span className="bg-red-100 text-red-700 text-xs font-bold px-2.5 py-1 rounded-full">
+              Save 50%
+            </span>
+          )}
+        </motion.div>
       </div>
 
       {error && (
@@ -140,8 +175,18 @@ function PricingContent() {
           <h3 className="text-2xl font-bold text-slate-900 mb-2">Basic</h3>
           <p className="text-slate-500 mb-6">Perfect for small businesses getting started.</p>
           <div className="mb-8">
-            <span className="text-5xl font-black text-slate-900">$15</span>
-            <span className="text-slate-500 font-medium">/month</span>
+            <div className="flex items-end gap-2 flex-wrap">
+              <span className="text-5xl font-black text-slate-900">
+                ${isYearly ? YEARLY_PRICES.basic : MONTHLY_PRICES.basic}
+              </span>
+              <span className="text-slate-500 font-medium">/month</span>
+            </div>
+            {isYearly && (
+              <p className="text-sm text-slate-400 mt-1">
+                <span className="line-through">${MONTHLY_PRICES.basic}/mo</span>
+                {' · '}billed ${YEARLY_PRICES.basic * 12}/yr
+              </p>
+            )}
           </div>
 
           <ul className="space-y-4 mb-8">
@@ -161,7 +206,7 @@ function PricingContent() {
           </ul>
 
           <button
-            onClick={() => handleCheckout('Basic', STRIPE_PRICES.basic)}
+            onClick={() => handleCheckout('Basic', isYearly ? STRIPE_PRICES.basic.yearly : STRIPE_PRICES.basic.monthly)}
             disabled={loading || isBasic}
             className="block w-full py-4 px-6 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-60 text-slate-900 font-bold text-center transition-colors flex items-center justify-center gap-2"
           >
@@ -196,8 +241,18 @@ function PricingContent() {
               : 'For serious business owners who want to scale.'}
           </p>
           <div className="mb-8">
-            <span className="text-5xl font-black text-white">$30</span>
-            <span className="text-slate-300 font-medium tracking-wide">/month</span>
+            <div className="flex items-end gap-2 flex-wrap">
+              <span className="text-5xl font-black text-white">
+                ${isYearly ? YEARLY_PRICES.pro : MONTHLY_PRICES.pro}
+              </span>
+              <span className="text-slate-300 font-medium tracking-wide">/month</span>
+            </div>
+            {isYearly && (
+              <p className="text-sm text-slate-400 mt-1">
+                <span className="line-through">${MONTHLY_PRICES.pro}/mo</span>
+                {' · '}billed ${YEARLY_PRICES.pro * 12}/yr
+              </p>
+            )}
           </div>
 
           <ul className="space-y-4 mb-8">
@@ -217,7 +272,7 @@ function PricingContent() {
           </ul>
 
           <button
-            onClick={() => handleCheckout('Pro', STRIPE_PRICES.pro)}
+            onClick={() => handleCheckout('Pro', isYearly ? STRIPE_PRICES.pro.yearly : STRIPE_PRICES.pro.monthly)}
             disabled={loading || isPro}
             className="block w-full py-4 px-6 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-bold text-center transition-colors shadow-lg hover:shadow-red-600/25 flex items-center justify-center gap-2"
           >
