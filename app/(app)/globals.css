@@ -39,6 +39,14 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* iOS safe area support for editor banner */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .safe-area-banner {
+    padding-top: env(safe-area-inset-top, 0px);
+    min-height: calc(3rem + env(safe-area-inset-top, 0px));
+  }
+}
+
 /* Drawer slide animation */
 @keyframes slideInFromBottom {
   from {
