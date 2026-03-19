@@ -15,8 +15,9 @@ import { createAdminClient } from '@/lib/db/supabase-admin';
  * Resend signs webhooks using Svix (svix-id / svix-timestamp / svix-signature
  * headers). The SDK's webhooks.verify() handles all of that automatically.
  *
- * Note: the webhook payload contains only email metadata (from, subject, etc).
- * The body text/HTML is fetched separately via the Resend API using email_id.
+ * Note: the webhook payload contains only email metadata (from, subject, etc) —
+ * no body text or HTML. The body is fetched separately via the Resend
+ * Received Emails API: GET /emails/receiving/{email_id}.
  *
  * Payload shape:
  * {
@@ -95,23 +96,25 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // 1. Try to get body directly from webhook payload (Resend usually includes it)
-  let bodyText: string | null = emailData?.text ?? null;
-  let bodyHtml: string | null = emailData?.html ?? null;
+  // The inbound webhook payload contains only metadata (no text/html body).
+  // Fetch the full email content via the Received Emails API.
+  let bodyText: string | null = null;
+  let bodyHtml: string | null = null;
 
-  // 2. Fallback: Fetch via API if missing from payload
-  if (!bodyText && !bodyHtml && emailId && process.env.RESEND_API_KEY) {
+  if (emailId && process.env.RESEND_API_KEY) {
     try {
-      const emailRes = await fetch(`https://api.resend.com/emails/${emailId}`, {
+      const emailRes = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
         headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
       });
       if (emailRes.ok) {
         const full = await emailRes.json();
         bodyText = full.text ?? null;
         bodyHtml = full.html ?? null;
+      } else {
+        console.warn('[resend-inbound] Received Emails API returned', emailRes.status, 'for', emailId);
       }
     } catch (err) {
-      console.warn('[resend-inbound] Failed to fetch email body fallback:', err);
+      console.warn('[resend-inbound] Failed to fetch email body:', err);
     }
   }
 
