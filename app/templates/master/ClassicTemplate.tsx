@@ -8,6 +8,7 @@ import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import Link from 'next/link';
 import NavMenu from '@/app/components/NavMenu';
 import HeaderCartIcon from '@/app/components/ecommerce/HeaderCartIcon';
+import HeaderLanguageSelector from '@/app/components/HeaderLanguageSelector';
 import { Menu, X, Phone } from 'lucide-react';
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
@@ -100,6 +101,7 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                                 className="flex items-center gap-6"
                                 itemClassName="text-sm font-semibold text-gray-700 hover:text-gray-900 transition-colors"
                             />
+                            <HeaderLanguageSelector />
                             <HeaderCartIcon color={pPrimary} />
                             <EditableButton
                                 contentKey="navButtonText"

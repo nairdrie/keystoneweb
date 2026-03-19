@@ -5,6 +5,7 @@ import { getTemplateMetadata } from '@/lib/db/template-queries';
 import JsonLdScript from '@/app/components/JsonLdScript';
 import { BusinessProfile } from '@/lib/types/sites';
 import type { Metadata } from 'next';
+import { fetchTranslationsConfig } from '@/lib/translations/resolve';
 
 export const dynamic = 'force-dynamic'; // Always fetch fresh data
 
@@ -73,7 +74,7 @@ export default async function PublicSitePage({
     // Fetch the published site by subdomain
     const { data: site, error } = await supabase
       .from('sites')
-      .select('id, selected_template_id, published_data, business_profile')
+      .select('id, selected_template_id, published_data, business_profile, translations_config')
       .eq('published_domain', subdomain)
       .eq('is_published', true)
       .single();
@@ -109,10 +110,13 @@ export default async function PublicSitePage({
       .select('id, slug, title')
       .eq('site_id', site.id);
 
+    const translationsConfig = site.translations_config as any;
     const mergedPublishData = {
       ...sitePublishData,
       ...pagePublishData,
-      __pages: allPages || []
+      __pages: allPages || [],
+      __currentLanguage: translationsConfig?.defaultLanguage || 'en',
+      __translationsConfig: translationsConfig || null,
     };
 
     // Preload template component and metadata for SSR

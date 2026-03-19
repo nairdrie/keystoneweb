@@ -25,6 +25,7 @@ CREATE TABLE public.pages (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   published_data jsonb DEFAULT '{}'::jsonb,
+  translations jsonb DEFAULT '{}'::jsonb,
   CONSTRAINT pages_pkey PRIMARY KEY (id),
   CONSTRAINT pages_site_id_fkey FOREIGN KEY (site_id) REFERENCES public.sites(id)
 );
@@ -44,6 +45,8 @@ CREATE TABLE public.sites (
   published_domain text,
   is_published boolean DEFAULT false,
   published_data jsonb DEFAULT '{}'::jsonb,
+  translations_config jsonb DEFAULT '{}'::jsonb,
+  translations jsonb DEFAULT '{}'::jsonb,
   CONSTRAINT sites_pkey PRIMARY KEY (id),
   CONSTRAINT sites_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );

@@ -2,6 +2,14 @@ import { createClient } from '@/lib/db/supabase-server';
 import EditorContent from '@/app/(app)/editor/editor-content-v2';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
+import LanguageSelector from '@/app/components/LanguageSelector';
+import {
+    fetchTranslationsConfig,
+    fetchSiteTranslations,
+    fetchPageTranslations,
+    resolveTranslatedContent,
+    isLanguageCode,
+} from '@/lib/translations/resolve';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +26,7 @@ export default async function PublicSiteDynamicPage({
         // Fetch the published site by subdomain
         const { data: site, error } = await supabase
             .from('sites')
-            .select('id, selected_template_id, published_data')
+            .select('id, selected_template_id, published_data, translations_config, translations')
             .eq('published_domain', subdomain)
             .eq('is_published', true)
             .single();
@@ -33,77 +41,15 @@ export default async function PublicSiteDynamicPage({
             );
         }
 
-        // Fetch the specific page
-        const { data: routePage, error: pageError } = await supabase
-            .from('pages')
-            .select('published_data')
-            .eq('site_id', site.id)
-            .eq('slug', slug)
-            .single();
+        const translationsConfig = site.translations_config as any;
 
-        if (pageError || !routePage) {
-            return (
-                <div className="flex items-center justify-center min-h-screen bg-slate-50">
-                    <div className="text-center">
-                        <h1 className="text-4xl font-bold text-slate-900 mb-4">Page Not Found</h1>
-                        <a href="/" className="text-blue-600 hover:underline">← Back to home</a>
-                    </div>
-                </div>
-            );
+        // Check if this slug is actually a language code (e.g., /fr = home page in French)
+        if (isLanguageCode(slug, translationsConfig)) {
+            return renderHomePage(supabase, site, subdomain, slug);
         }
 
-        // Fetch all pages for navigation links
-        const { data: allPages } = await supabase
-            .from('pages')
-            .select('id, slug, title')
-            .eq('site_id', site.id);
-
-        const pagePublishData = routePage.published_data || {};
-        const sitePublishData = site.published_data || {};
-        const mergedPublishData = {
-            ...sitePublishData,
-            ...pagePublishData,
-            __pages: allPages || []
-        };
-
-        const TemplateComp = await getTemplateComponent(site.selected_template_id);
-        const metadata = await getTemplateMetadata(site.selected_template_id);
-
-        let paletteData: Record<string, string> = {};
-        if (metadata) {
-            const palettesObj = metadata.palettes || {};
-            const requestedPalette = mergedPublishData.__selectedPalette || 'default';
-            if (requestedPalette === 'custom') {
-                const defaultPalette = palettesObj['default'] || {};
-                paletteData = {
-                    primary: mergedPublishData.__customPalette_primary || defaultPalette.primary || '',
-                    secondary: mergedPublishData.__customPalette_secondary || defaultPalette.secondary || '',
-                    accent: mergedPublishData.__customPalette_accent || defaultPalette.accent || '',
-                };
-            } else {
-                paletteData = palettesObj[requestedPalette] || palettesObj['default'] || {};
-            }
-        }
-
-        return (
-            <EditorContent
-                isPublicView={true}
-                publicSiteData={{
-                    id: site.id,
-                    userId: null,
-                    selectedTemplateId: site.selected_template_id,
-                    businessType: '',
-                    category: '',
-                    designData: mergedPublishData,
-                    isPublished: true,
-                    createdAt: '',
-                    updatedAt: ''
-                }}
-                precomputedPalette={paletteData}
-            >
-                {TemplateComp && <TemplateComp palette={paletteData} isEditMode={false} />}
-            </EditorContent>
-        );
+        // Otherwise, render the specific page (no language prefix = default language)
+        return renderPage(supabase, site, subdomain, slug, translationsConfig?.defaultLanguage || 'en');
     } catch (error) {
         console.error('Error rendering dynamic page:', error);
         return (
@@ -114,4 +60,181 @@ export default async function PublicSiteDynamicPage({
             </div>
         );
     }
+}
+
+/**
+ * Render the home page in a specific language.
+ */
+async function renderHomePage(
+    supabase: any,
+    site: any,
+    subdomain: string,
+    language: string,
+) {
+    const config = site.translations_config;
+    const defaultLang = config?.defaultLanguage || 'en';
+
+    // Fetch home page
+    const { data: homePage } = await supabase
+        .from('pages')
+        .select('published_data, translations')
+        .eq('site_id', site.id)
+        .eq('slug', 'home')
+        .single();
+
+    const pagePublishData = homePage?.published_data || {};
+    const sitePublishData = site.published_data || {};
+
+    // Apply translations
+    const translatedSiteData = resolveTranslatedContent(
+        sitePublishData,
+        site.translations,
+        language,
+        defaultLang,
+    );
+    const translatedPageData = resolveTranslatedContent(
+        pagePublishData,
+        homePage?.translations,
+        language,
+        defaultLang,
+    );
+
+    // Fetch all pages for navigation
+    const { data: allPages } = await supabase
+        .from('pages')
+        .select('id, slug, title')
+        .eq('site_id', site.id);
+
+    const mergedPublishData = {
+        ...translatedSiteData,
+        ...translatedPageData,
+        __pages: allPages || [],
+        __currentLanguage: language,
+        __translationsConfig: config,
+    };
+
+    const TemplateComp = await getTemplateComponent(site.selected_template_id);
+    const metadata = await getTemplateMetadata(site.selected_template_id);
+    const paletteData = resolvePalette(mergedPublishData, metadata);
+
+    return (
+        <EditorContent
+            isPublicView={true}
+            publicSiteData={{
+                id: site.id,
+                userId: null,
+                selectedTemplateId: site.selected_template_id,
+                businessType: '',
+                category: '',
+                designData: mergedPublishData,
+                isPublished: true,
+                createdAt: '',
+                updatedAt: '',
+            }}
+            precomputedPalette={paletteData}
+        >
+            {TemplateComp && <TemplateComp palette={paletteData} isEditMode={false} />}
+        </EditorContent>
+    );
+}
+
+/**
+ * Render a specific page (optionally with translations).
+ */
+async function renderPage(
+    supabase: any,
+    site: any,
+    subdomain: string,
+    pageSlug: string,
+    language: string,
+) {
+    const config = site.translations_config;
+    const defaultLang = config?.defaultLanguage || 'en';
+
+    const { data: routePage, error: pageError } = await supabase
+        .from('pages')
+        .select('published_data, translations')
+        .eq('site_id', site.id)
+        .eq('slug', pageSlug)
+        .single();
+
+    if (pageError || !routePage) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-slate-50">
+                <div className="text-center">
+                    <h1 className="text-4xl font-bold text-slate-900 mb-4">Page Not Found</h1>
+                    <a href="/" className="text-blue-600 hover:underline">← Back to home</a>
+                </div>
+            </div>
+        );
+    }
+
+    const sitePublishData = site.published_data || {};
+    const pagePublishData = routePage.published_data || {};
+
+    // Apply translations if not default language
+    const translatedSiteData = resolveTranslatedContent(
+        sitePublishData,
+        site.translations,
+        language,
+        defaultLang,
+    );
+    const translatedPageData = resolveTranslatedContent(
+        pagePublishData,
+        routePage.translations,
+        language,
+        defaultLang,
+    );
+
+    const { data: allPages } = await supabase
+        .from('pages')
+        .select('id, slug, title')
+        .eq('site_id', site.id);
+
+    const mergedPublishData = {
+        ...translatedSiteData,
+        ...translatedPageData,
+        __pages: allPages || [],
+        __currentLanguage: language,
+        __translationsConfig: config,
+    };
+
+    const TemplateComp = await getTemplateComponent(site.selected_template_id);
+    const metadata = await getTemplateMetadata(site.selected_template_id);
+    const paletteData = resolvePalette(mergedPublishData, metadata);
+
+    return (
+        <EditorContent
+            isPublicView={true}
+            publicSiteData={{
+                id: site.id,
+                userId: null,
+                selectedTemplateId: site.selected_template_id,
+                businessType: '',
+                category: '',
+                designData: mergedPublishData,
+                isPublished: true,
+                createdAt: '',
+                updatedAt: '',
+            }}
+            precomputedPalette={paletteData}
+        >
+            {TemplateComp && <TemplateComp palette={paletteData} isEditMode={false} />}
+        </EditorContent>
+    );
+}
+
+function resolvePalette(mergedData: Record<string, any>, metadata: any): Record<string, string> {
+    if (!metadata) return {};
+    const palettesObj = metadata.palettes || {};
+    const requestedPalette = mergedData.__selectedPalette || 'default';
+    if (requestedPalette === 'custom') {
+        const defaultPalette = palettesObj['default'] || {};
+        return {
+            primary: mergedData.__customPalette_primary || defaultPalette.primary || '',
+            secondary: mergedData.__customPalette_secondary || defaultPalette.secondary || '',
+            accent: mergedData.__customPalette_accent || defaultPalette.accent || '',
+        };
+    }
+    return palettesObj[requestedPalette] || palettesObj['default'] || {};
 }

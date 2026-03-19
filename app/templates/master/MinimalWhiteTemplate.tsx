@@ -8,6 +8,7 @@ import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import Link from 'next/link';
 import NavMenu from '@/app/components/NavMenu';
 import HeaderCartIcon from '@/app/components/ecommerce/HeaderCartIcon';
+import HeaderLanguageSelector from '@/app/components/HeaderLanguageSelector';
 import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
@@ -94,6 +95,7 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
                                 className="flex items-center gap-7"
                                 itemClassName="text-sm text-slate-500 hover:text-slate-900 transition-colors font-medium"
                             />
+                            <HeaderLanguageSelector />
                             <HeaderCartIcon color={pPrimary} />
                             <EditableButton
                                 contentKey="navButtonText"

@@ -8,6 +8,7 @@ import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import Link from 'next/link';
 import NavMenu from '@/app/components/NavMenu';
 import HeaderCartIcon from '@/app/components/ecommerce/HeaderCartIcon';
+import HeaderLanguageSelector from '@/app/components/HeaderLanguageSelector';
 import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
@@ -91,6 +92,7 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
                                 className="flex items-center gap-6"
                                 itemClassName="text-sm font-semibold text-white/80 hover:text-white transition-colors tracking-wide uppercase"
                             />
+                            <HeaderLanguageSelector />
                             <HeaderCartIcon color="#ffffff" />
                             <EditableButton
                                 contentKey="navButtonText"
