@@ -16,7 +16,7 @@ import { sendSupportRequestNotification } from '@/lib/email';
  * Resend signs webhooks using Svix (svix-id / svix-timestamp / svix-signature
  * headers). The SDK's webhooks.verify() handles all of that automatically.
  *
- * Payload shape (email.received):
+ * Payload shape (email.received) — body is NOT included, metadata only:
  * {
  *   "type": "email.received",
  *   "created_at": "...",
@@ -25,11 +25,13 @@ import { sendSupportRequestNotification } from '@/lib/email';
  *     "from": "User Name <user@example.com>",
  *     "to": ["support@keystoneweb.ca"],
  *     "subject": "...",
- *     "text": "plain text body",
- *     "html": "<p>html body</p>",
  *     "message_id": "<unique-id@mail.example.com>"
  *   }
  * }
+ * Body (text/html) must be fetched separately:
+ *   GET https://api.resend.com/emails/receiving/{email_id}
+ * Resend may not have the body ready immediately when the webhook fires,
+ * so we retry with delays.
  */
 export async function POST(request: NextRequest) {
   const signingSecret = process.env.RESEND_INBOUND_SECRET;
@@ -95,25 +97,34 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Extract body from the webhook payload directly
-  let bodyText: string | null = emailData?.text ?? null;
-  let bodyHtml: string | null = emailData?.html ?? null;
+  // Fetch body via Received Emails API.
+  // Resend fires the webhook before the body is always ready, so retry a few
+  // times with short delays to give it time to process.
+  let bodyText: string | null = null;
+  let bodyHtml: string | null = null;
 
-  // Fallback: fetch via Received Emails API if payload didn't include body
-  if (!bodyText && !bodyHtml && emailId && process.env.RESEND_API_KEY) {
-    try {
-      const emailRes = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
-        headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-      });
-      if (emailRes.ok) {
-        const full = await emailRes.json();
-        bodyText = full.text ?? null;
-        bodyHtml = full.html ?? null;
-      } else {
-        console.warn('[resend-inbound] Received Emails API returned', emailRes.status, 'for', emailId);
+  if (emailId && process.env.RESEND_API_KEY) {
+    const delays = [0, 2000, 5000]; // immediate, 2s, 5s
+    for (const delay of delays) {
+      if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay));
+      try {
+        const emailRes = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
+          headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+        });
+        if (emailRes.ok) {
+          const full = await emailRes.json();
+          bodyText = full.text ?? null;
+          bodyHtml = full.html ?? null;
+          if (bodyText || bodyHtml) break; // got the body, stop retrying
+          console.warn(`[resend-inbound] Body empty on attempt (delay=${delay}ms), retrying…`);
+        } else {
+          console.warn('[resend-inbound] Received Emails API returned', emailRes.status, 'for', emailId);
+          break; // non-200 won't improve with retries
+        }
+      } catch (err) {
+        console.warn('[resend-inbound] Failed to fetch email body:', err);
+        break;
       }
-    } catch (err) {
-      console.warn('[resend-inbound] Failed to fetch email body:', err);
     }
   }
 
