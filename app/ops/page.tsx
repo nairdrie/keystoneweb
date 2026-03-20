@@ -144,15 +144,50 @@ export default async function OpsOverviewPage() {
     .order('created_at', { ascending: false })
     .limit(25);
 
-  const eventLabels: Record<string, string> = {
-    user_signup: '👤 Signup',
-    user_signin: '🔑 Sign-in',
-    site_create: '🏗 Site created',
-    site_edit: '✏️ Site edited',
-    site_publish: '🚀 Site published',
-    subscription_upgrade: '⬆️ Subscribed',
-    subscription_cancel: '↩️ Cancelled',
-    domain_purchase: '🌐 Domain bought',
+  // Enrich with user and site info
+  const userIds = [...new Set((recentEvents ?? []).map((e: any) => e.user_id).filter(Boolean))];
+  const siteIds = [...new Set((recentEvents ?? []).map((e: any) => e.site_id).filter(Boolean))];
+
+  const [{ data: userRows }, { data: siteRows }] = await Promise.all([
+    userIds.length > 0
+      ? db.from('users').select('id, email, business_name').in('id', userIds)
+      : Promise.resolve({ data: [] }),
+    siteIds.length > 0
+      ? db.from('sites').select('id, site_slug').in('id', siteIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const userMap: Record<string, { id: string; email: string | null; business_name: string | null }> =
+    Object.fromEntries((userRows ?? []).map((u: any) => [u.id, u]));
+
+  // Fallback: any user_id not in public.users (e.g. profile row missing) — look up via auth admin
+  const missingUserIds = userIds.filter((id) => !userMap[id]);
+  if (missingUserIds.length > 0) {
+    await Promise.all(
+      missingUserIds.map(async (uid) => {
+        try {
+          const { data: { user: authUser } } = await db.auth.admin.getUserById(uid);
+          if (authUser?.email) {
+            userMap[uid] = { id: authUser.id, email: authUser.email, business_name: null };
+          }
+        } catch {
+          // auth user doesn't exist or request failed — leave blank
+        }
+      })
+    );
+  }
+  const siteMap = Object.fromEntries((siteRows ?? []).map((s: any) => [s.id, s]));
+
+  // Action verb for each event type (used in "[site] [verb] by [user] on [date]")
+  const eventVerbs: Record<string, string> = {
+    user_signup: 'signed up',
+    user_signin: 'signed in',
+    site_create: 'created',
+    site_edit: 'edited',
+    site_publish: 'published',
+    subscription_upgrade: 'subscribed',
+    subscription_cancel: 'cancelled',
+    domain_purchase: 'bought a domain',
   };
 
   return (
@@ -233,16 +268,24 @@ export default async function OpsOverviewPage() {
         <div className="rounded-lg border border-gray-800 bg-gray-900 p-5">
           <h2 className="mb-4 text-sm font-semibold text-gray-300">Recent Activity</h2>
           <ul className="space-y-2 text-sm">
-            {(recentEvents ?? []).map((ev: any) => (
-              <li key={ev.id} className="flex items-center justify-between gap-2 text-gray-300">
-                <span>{eventLabels[ev.event_type] ?? ev.event_type}</span>
-                <span className="text-xs text-gray-600 shrink-0">
-                  {new Date(ev.created_at).toLocaleString('en-CA', {
-                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-                  })}
-                </span>
-              </li>
-            ))}
+            {(recentEvents ?? []).map((ev: any) => {
+              const user = userMap[ev.user_id];
+              const site = siteMap[ev.site_id];
+              const userName = user?.business_name || user?.email || null;
+              const siteName = site?.site_slug || null;
+              const verb = eventVerbs[ev.event_type] ?? ev.event_type;
+              const dateStr = new Date(ev.created_at).toLocaleString('en-CA', {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+              });
+              return (
+                <li key={ev.id} className="text-sm text-gray-300">
+                  {siteName && <span className="font-medium text-white">{siteName}</span>}{' '}
+                  <span className="text-gray-400">{verb}</span>
+                  {userName && <span className="text-gray-500"> by {userName}</span>}
+                  <span className="text-gray-600"> on {dateStr}</span>
+                </li>
+              );
+            })}
             {!recentEvents?.length && (
               <li className="text-gray-600 text-xs">No events yet — events are recorded as users sign up, create sites, and subscribe.</li>
             )}

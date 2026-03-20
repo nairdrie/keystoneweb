@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/db/supabase-admin';
+import { Resend } from 'resend';
 import Link from 'next/link';
 
 const STATUS_STYLES: Record<string, string> = {
@@ -30,7 +31,7 @@ export default async function OpsSupportPage({
   let query = db
     .from('support_requests')
     .select(
-      'id, from_email, from_name, subject, body_text, status, priority, created_at, updated_at',
+      'id, from_email, from_name, subject, body_text, body_html, resend_email_id, status, priority, created_at, updated_at',
       { count: 'exact' }
     )
     .order('created_at', { ascending: false })
@@ -39,6 +40,37 @@ export default async function OpsSupportPage({
   if (status) query = query.eq('status', status);
 
   const { data: requests, count } = await query;
+
+  // Proactively backfill missing email bodies from Resend SDK
+  const apiKey = process.env.RESEND_API_KEY;
+  if (apiKey && requests) {
+    const needsBody = requests.filter(
+      (r: any) => !r.body_text && !r.body_html && r.resend_email_id
+    );
+    if (needsBody.length > 0) {
+      const resend = new Resend(apiKey);
+      await Promise.all(
+        needsBody.map(async (req: any) => {
+          try {
+            const { data: email, error } = await resend.emails.receiving.get(req.resend_email_id);
+            if (error || !email) return;
+            const text = (email as any).text ?? null;
+            const html = (email as any).html ?? null;
+            if (text || html) {
+              req.body_text = text;
+              req.body_html = html;
+              await db
+                .from('support_requests')
+                .update({ body_text: text, body_html: html, updated_at: new Date().toISOString() })
+                .eq('id', req.id);
+            }
+          } catch {
+            // Non-fatal — list still renders
+          }
+        })
+      );
+    }
+  }
 
   // Counts per status for tabs
   const [openCount, inProgressCount, resolvedCount, closedCount] = await Promise.all([
