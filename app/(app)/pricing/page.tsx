@@ -195,8 +195,7 @@ function PricingContent() {
               'Access to all Premium Templates',
               'Drag-and-Drop Visual Editor',
               'AI Builder (3 prompts/day)',
-              'Email Support',
-              'Basic SEO Tools',
+              'Email Support'
             ].map((feature) => (
               <li key={feature} className="flex items-center gap-3 text-slate-700">
                 <Check className="w-5 h-5 text-red-500 shrink-0" />
@@ -259,6 +258,7 @@ function PricingContent() {
             {[
               'Everything in Basic',
               'Increased AI Builder Limits',
+              'Unlimited Sites',
               'Free Custom Domain Included',
               '24/7 Priority Email Support',
               'Advanced Analytics',
