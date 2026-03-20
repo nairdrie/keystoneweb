@@ -148,9 +148,10 @@ export function VividTemplate({ palette, isEditMode, children }: MasterTemplateP
                             </div>
                             <span className="font-bold text-lg">{siteContent.siteTitle || 'Vivid Co'}</span>
                         </div>
-                        <p className="text-sm text-white/40">
-                            Powered by Keystone
+                        <p className="text-sm text-white/50">
+                            Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>
                         </p>
+
                     </div>
                 </div>
             </footer>

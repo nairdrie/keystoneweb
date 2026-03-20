@@ -162,7 +162,7 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                             <span className="font-bold text-sm text-slate-800">{siteContent.siteTitle || 'Elegant Co.'}</span>
                         </div>
                         <p className="text-sm text-slate-400">
-                            Powered by Keystone
+                            Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>
                         </p>
                     </div>
                 </div>

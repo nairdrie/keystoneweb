@@ -155,7 +155,7 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             <span className="font-bold text-sm">{siteContent.siteTitle || 'Your Business'}</span>
                         </div>
                         <p className="text-sm text-white/50">
-                            Powered by Keystone
+                            Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>
                         </p>
                     </div>
                 </div>

@@ -141,9 +141,14 @@ export function SleekTemplate({ palette, isEditMode, children }: MasterTemplateP
             <footer className="py-8 border-t border-gray-100">
                 <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
                     <span className="text-sm font-medium" style={{ color: pPrimary }}>{siteContent.siteTitle || 'Sleek'}</span>
-                    <p className="text-xs text-gray-300">
-                        &copy; {new Date().getFullYear()}
-                    </p>
+                    <div className="flex flex-col items-end gap-1">
+                        <p className="text-xs text-gray-300">
+                            &copy; {new Date().getFullYear()}
+                        </p>
+                        <p className="text-[10px] text-gray-400">
+                            Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>
+                        </p>
+                    </div>
                 </div>
             </footer>
         </div>

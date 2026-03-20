@@ -151,7 +151,7 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
             <footer className="py-16 border-t border-slate-100">
                 <div className="max-w-6xl mx-auto px-6 text-center">
                     <p className="text-sm text-slate-400">
-                        Powered by Keystone
+                        Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>
                     </p>
                 </div>
             </footer>

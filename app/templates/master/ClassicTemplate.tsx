@@ -171,7 +171,7 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                 <div className="border-t border-white/10 py-4">
                     <div className="max-w-7xl mx-auto px-4 text-center">
                         <p className="text-xs text-white/30">
-                            Powered by Keystone
+                            Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>
                         </p>
                     </div>
                 </div>

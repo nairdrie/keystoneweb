@@ -147,7 +147,7 @@ export function EdgeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             <span className="font-bold text-sm text-white">{siteContent.siteTitle || 'Edge Co'}</span>
                         </div>
                         <p className="text-xs text-gray-600">
-                            Powered by Keystone
+                            Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>
                         </p>
                     </div>
                 </div>
