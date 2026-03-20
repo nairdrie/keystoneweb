@@ -3,6 +3,8 @@ import EditorContent from '@/app/(app)/editor/editor-content-v2';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import LanguageSelector from '@/app/components/LanguageSelector';
+import JsonLdScript from '@/app/components/JsonLdScript';
+import { BusinessProfile } from '@/lib/types/sites';
 import {
     fetchTranslationsConfig,
     fetchSiteTranslations,
@@ -26,7 +28,7 @@ export default async function PublicSiteDynamicPage({
         // Fetch the published site by subdomain
         const { data: site, error } = await supabase
             .from('sites')
-            .select('id, selected_template_id, published_data, translations_config, translations')
+            .select('id, selected_template_id, published_data, business_profile, translations_config, translations')
             .eq('published_domain', subdomain)
             .eq('is_published', true)
             .single();
@@ -118,23 +120,32 @@ async function renderHomePage(
     const paletteData = resolvePalette(sitePublishData, metadata);
 
     return (
-        <EditorContent
-            isPublicView={true}
-            publicSiteData={{
-                id: site.id,
-                userId: null,
-                selectedTemplateId: site.selected_template_id,
-                businessType: '',
-                category: '',
-                designData: mergedPublishData,
-                isPublished: true,
-                createdAt: '',
-                updatedAt: '',
-            }}
-            precomputedPalette={paletteData}
-        >
-            {TemplateComp && <TemplateComp palette={paletteData} isEditMode={false} />}
-        </EditorContent>
+        <>
+            {site.business_profile && (
+                <JsonLdScript
+                    businessProfile={site.business_profile as BusinessProfile}
+                    siteUrl={`https://${subdomain}.kswd.ca/${language}`}
+                    socialLinks={mergedPublishData.socialLinks}
+                />
+            )}
+            <EditorContent
+                isPublicView={true}
+                publicSiteData={{
+                    id: site.id,
+                    userId: null,
+                    selectedTemplateId: site.selected_template_id,
+                    businessType: '',
+                    category: '',
+                    designData: mergedPublishData,
+                    isPublished: true,
+                    createdAt: '',
+                    updatedAt: '',
+                }}
+                precomputedPalette={paletteData}
+            >
+                {TemplateComp && <TemplateComp palette={paletteData} isEditMode={false} />}
+            </EditorContent>
+        </>
     );
 }
 
@@ -204,23 +215,32 @@ async function renderPage(
     const paletteData = resolvePalette(sitePublishData, metadata);
 
     return (
-        <EditorContent
-            isPublicView={true}
-            publicSiteData={{
-                id: site.id,
-                userId: null,
-                selectedTemplateId: site.selected_template_id,
-                businessType: '',
-                category: '',
-                designData: mergedPublishData,
-                isPublished: true,
-                createdAt: '',
-                updatedAt: '',
-            }}
-            precomputedPalette={paletteData}
-        >
-            {TemplateComp && <TemplateComp palette={paletteData} isEditMode={false} />}
-        </EditorContent>
+        <>
+            {site.business_profile && (
+                <JsonLdScript
+                    businessProfile={site.business_profile as BusinessProfile}
+                    siteUrl={`https://${subdomain}.kswd.ca/${pageSlug}`}
+                    socialLinks={mergedPublishData.socialLinks}
+                />
+            )}
+            <EditorContent
+                isPublicView={true}
+                publicSiteData={{
+                    id: site.id,
+                    userId: null,
+                    selectedTemplateId: site.selected_template_id,
+                    businessType: '',
+                    category: '',
+                    designData: mergedPublishData,
+                    isPublished: true,
+                    createdAt: '',
+                    updatedAt: '',
+                }}
+                precomputedPalette={paletteData}
+            >
+                {TemplateComp && <TemplateComp palette={paletteData} isEditMode={false} />}
+            </EditorContent>
+        </>
     );
 }
 

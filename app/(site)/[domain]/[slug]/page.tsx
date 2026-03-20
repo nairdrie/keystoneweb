@@ -2,6 +2,8 @@ import { createClient } from '@/lib/db/supabase-server';
 import EditorContent from '@/app/(app)/editor/editor-content-v2';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
+import JsonLdScript from '@/app/components/JsonLdScript';
+import { BusinessProfile } from '@/lib/types/sites';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +20,7 @@ export default async function CustomDomainDynamicPage({
         // Fetch the published site by custom domain
         const { data: site, error } = await supabase
             .from('sites')
-            .select('id, selected_template_id, published_data')
+            .select('id, selected_template_id, published_data, business_profile')
             .eq('custom_domain', domain)
             .eq('is_published', true)
             .single();
@@ -87,23 +89,32 @@ export default async function CustomDomainDynamicPage({
         }
 
         return (
-            <EditorContent
-                isPublicView={true}
-                publicSiteData={{
-                    id: site.id,
-                    userId: null,
-                    selectedTemplateId: site.selected_template_id,
-                    businessType: '',
-                    category: '',
-                    designData: mergedPublishData,
-                    isPublished: true,
-                    createdAt: '',
-                    updatedAt: ''
-                }}
-                precomputedPalette={paletteData}
-            >
-                {TemplateComp && <TemplateComp palette={paletteData} isEditMode={false} />}
-            </EditorContent>
+            <>
+                {site.business_profile && (
+                    <JsonLdScript
+                        businessProfile={site.business_profile as BusinessProfile}
+                        siteUrl={`https://${domain}/${slug}`}
+                        socialLinks={mergedPublishData.socialLinks}
+                    />
+                )}
+                <EditorContent
+                    isPublicView={true}
+                    publicSiteData={{
+                        id: site.id,
+                        userId: null,
+                        selectedTemplateId: site.selected_template_id,
+                        businessType: '',
+                        category: '',
+                        designData: mergedPublishData,
+                        isPublished: true,
+                        createdAt: '',
+                        updatedAt: ''
+                    }}
+                    precomputedPalette={paletteData}
+                >
+                    {TemplateComp && <TemplateComp palette={paletteData} isEditMode={false} />}
+                </EditorContent>
+            </>
         );
     } catch (error) {
         console.error('Error rendering dynamic page:', error);
