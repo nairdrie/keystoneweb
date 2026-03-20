@@ -142,6 +142,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Record history snapshot (publish event)
+    try {
+      await supabase.from('site_history').insert({
+        site_id: siteId,
+        user_id: user.id,
+        event_type: 'publish',
+        site_design_data: site.design_data || {},
+        pages_snapshot: pages || [],
+        site_title: updatedSite.site_slug,
+        selected_palette: (site.design_data as any)?.__selectedPalette,
+      });
+    } catch (historyErr) {
+      console.error('Failed to record publish history:', historyErr);
+    }
+
     const fullPublishedDomain = `${updatedSite.published_domain}.kswd.ca`;
     console.log(`✅ Site published: ${siteId} → ${fullPublishedDomain}`);
 

@@ -423,6 +423,28 @@ export async function PATCH(request: NextRequest) {
 
     const siteData = mapSupabaseToSiteData(updatedSite);
 
+    // Record history snapshot (save_draft event)
+    try {
+      const { data: allPages } = await supabase
+        .from('pages')
+        .select('id, slug, title, design_data')
+        .eq('site_id', siteId)
+        .order('nav_order', { ascending: true });
+
+      await supabase.from('site_history').insert({
+        site_id: siteId,
+        user_id: user.id,
+        event_type: 'save_draft',
+        site_design_data: mergedDesignData,
+        pages_snapshot: allPages || [],
+        site_title: title || currentSite.site_slug,
+        selected_palette: mergedDesignData.__selectedPalette,
+      });
+    } catch (historyErr) {
+      // Non-blocking: don't fail the save if history recording fails
+      console.error('Failed to record site history:', historyErr);
+    }
+
     trackEvent('site_edit', { userId: user.id, siteId });
 
     return NextResponse.json({
