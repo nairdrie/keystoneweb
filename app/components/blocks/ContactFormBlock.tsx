@@ -50,8 +50,12 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
     }, [isEditMode, siteId]);
 
     const handleSaveNotificationEmail = async (email: string) => {
+        const oldEmail = notificationEmail;
         setNotificationEmail(email);
         if (!siteId) return;
+
+        // Add to change tracking
+        context?.addChange?.('notification_email', 'Business Notification Email', oldEmail, email);
 
         setIsSavingEmail(true);
         try {

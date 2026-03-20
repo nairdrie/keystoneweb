@@ -1090,6 +1090,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
               removeBlock,
               moveBlock,
               updateBlockData,
+              addChange,
               isProUser,
             }}
           >

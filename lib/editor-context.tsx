@@ -72,6 +72,9 @@ export interface EditorContextType {
   /** Function to upload image to Supabase Storage */
   uploadImage?: (file: File, contentKey: string) => Promise<string>;
 
+  /** Track an unsaved change in the editor history */
+  addChange?: (field: string, label: string, from: string, to: string) => void;
+
   /** Whether the current user is on a Pro subscription */
   isProUser?: boolean;
 }
