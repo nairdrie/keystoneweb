@@ -758,6 +758,14 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     });
   }, [addChange]);
 
+  const aiReplaceBlocks = useCallback((blocks: BlockData[]) => {
+    setEditableContent((prev) => {
+      const currentBlocks: BlockData[] = Array.isArray(prev.blocks) ? prev.blocks : [];
+      addChange('blocks', 'AI: Complete redesign', JSON.stringify(currentBlocks), JSON.stringify(blocks));
+      return { ...prev, blocks };
+    });
+  }, [addChange]);
+
   const aiSetSiteTitle = useCallback((title: string) => {
     addChange('siteTitle', 'AI: Site Name', siteTitle, title);
     setSiteTitle(title);
@@ -790,15 +798,31 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     }));
   }, [selectedPaletteKey, handlePaletteChange, handleUpdateSiteContent]);
 
+  const aiSetTemplate = useCallback((templateId: string) => {
+    if (!site?.id) return;
+    setTemplateComponent(null); // Show loading
+    getTemplateComponent(templateId).then(comp => {
+      if (comp) {
+        setTemplateComponent(() => comp);
+        // Persist the change
+        const updatedSite = { ...site, selectedTemplateId: templateId };
+        setSite(updatedSite);
+        addChange('template', 'AI: Changed Template', site.selectedTemplateId, templateId);
+      }
+    });
+  }, [site, addChange]);
+
   const aiCallbacks = useMemo(() => ({
     onAddBlock: aiAddBlock,
     onUpdateBlock: aiUpdateBlock,
     onRemoveBlock: aiRemoveBlock,
     onReorderBlocks: aiReorderBlocks,
+    onReplaceBlocks: aiReplaceBlocks,
     onSetSiteTitle: aiSetSiteTitle,
     onSetFont: aiSetFont,
     onSetCustomColors: aiSetCustomColors,
-  }), [aiAddBlock, aiUpdateBlock, aiRemoveBlock, aiReorderBlocks, aiSetSiteTitle, aiSetFont, aiSetCustomColors]);
+    onSetTemplate: aiSetTemplate,
+  }), [aiAddBlock, aiUpdateBlock, aiRemoveBlock, aiReorderBlocks, aiReplaceBlocks, aiSetSiteTitle, aiSetFont, aiSetCustomColors, aiSetTemplate]);
 
   const getAiSiteState = useCallback(() => ({
     title: siteTitle,

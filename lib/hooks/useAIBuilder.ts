@@ -40,6 +40,8 @@ interface AIBuilderCallbacks {
   onSetSiteTitle: (title: string) => void;
   onSetFont: (target: 'heading' | 'body', font: string) => void;
   onSetCustomColors: (colors: { primary?: string; secondary?: string; accent?: string }) => void;
+  onSetTemplate: (templateId: string) => void;
+  onReplaceBlocks: (blocks: any[]) => void;
 }
 
 export function useAIBuilder(
@@ -89,6 +91,7 @@ export function useAIBuilder(
         signal: abortRef.current.signal,
         body: JSON.stringify({
           prompt: prompt.trim(),
+          history: messages.map(m => ({ role: m.role, content: m.content })),
           siteState,
           availablePalettes,
           ...(options?.isNewSite ? { isNewSite: true } : {}),
@@ -206,6 +209,16 @@ export function useAIBuilder(
 
 function applyOperation(op: AIOperation, callbacks: AIBuilderCallbacks) {
   switch (op.op) {
+    case 'setTemplate':
+      if (op.templateId) {
+        callbacks.onSetTemplate(op.templateId);
+      }
+      break;
+    case 'replaceBlocks':
+      if (Array.isArray(op.blocks)) {
+        callbacks.onReplaceBlocks(op.blocks);
+      }
+      break;
     case 'addBlock':
       callbacks.onAddBlock(op.blockType, op.data || {}, op.index);
       break;

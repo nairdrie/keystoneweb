@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { prompt, siteState, availablePalettes, isNewSite } = body;
+    const { prompt, history, siteState, availablePalettes, isNewSite } = body;
 
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json({ error: 'Missing prompt.' }, { status: 400 });
@@ -97,6 +97,14 @@ export async function POST(req: NextRequest) {
     if (prompt.length > 1000) {
       return NextResponse.json({ error: 'Prompt is too long. Please keep it under 1000 characters.' }, { status: 400 });
     }
+
+    // Filter history to latest N messages (e.g., 10 turns) to manage context window
+    const sanitizedHistory = (Array.isArray(history) ? history : [])
+      .slice(-20) // Latest 10 turns (user+ai)
+      .map((m: any) => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: typeof m.content === 'string' ? m.content.slice(0, 1000) : '',
+      }));
 
     // Build the user message with current site context
     const siteContext = siteState ? `
@@ -114,15 +122,15 @@ CURRENT SITE STATE:
 CONTEXT: This is a BRAND NEW site being built from scratch via onboarding. The current blocks are default template placeholders and should ALL be removed and replaced with blocks tailored to the user's request. Start by removing every existing block, then add your new blocks.
 ` : '';
 
-    const userMessage = `${siteContext}${newSiteContext}
+    const latestUserMessage = `${siteContext}${newSiteContext}
 USER REQUEST: ${prompt}`;
 
     let aiResponse: string;
 
     if (apiProvider === 'anthropic') {
-      aiResponse = await callAnthropic(apiKey, modelId, systemPrompt, userMessage);
+      aiResponse = await callAnthropic(apiKey, modelId, systemPrompt, sanitizedHistory, latestUserMessage);
     } else {
-      aiResponse = await callOpenAI(apiKey, modelId, systemPrompt, userMessage);
+      aiResponse = await callOpenAI(apiKey, modelId, systemPrompt, sanitizedHistory, latestUserMessage);
     }
 
     // Parse the AI response as JSON — try multiple extraction strategies
@@ -165,7 +173,7 @@ USER REQUEST: ${prompt}`;
   }
 }
 
-async function callAnthropic(apiKey: string, model: string, system: string, userMessage: string): Promise<string> {
+async function callAnthropic(apiKey: string, model: string, system: string, history: any[], latestUserMessage: string): Promise<string> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -177,7 +185,10 @@ async function callAnthropic(apiKey: string, model: string, system: string, user
       model,
       max_tokens: 4096,
       system,
-      messages: [{ role: 'user', content: userMessage }],
+      messages: [
+        ...history,
+        { role: 'user', content: latestUserMessage }
+      ],
     }),
   });
 
@@ -197,12 +208,13 @@ async function callAnthropic(apiKey: string, model: string, system: string, user
 // operations with valid block types pass through. This prevents prompt injection
 // from producing arbitrary payloads.
 
-const VALID_OPS = new Set(['addBlock', 'updateBlock', 'removeBlock', 'reorderBlocks', 'setSiteTitle', 'setFont', 'setCustomColors']);
+const VALID_OPS = new Set(['addBlock', 'updateBlock', 'removeBlock', 'reorderBlocks', 'setSiteTitle', 'setFont', 'setCustomColors', 'setTemplate', 'replaceBlocks']);
 const VALID_BLOCK_TYPES = new Set([
   'hero', 'text', 'image', 'servicesGrid', 'featuresList', 'aboutImageText',
   'testimonials', 'stats', 'gallery', 'contact', 'faq', 'cta', 'booking',
-  'productGrid', 'contact_form', 'map', 'custom_html',
+  'productGrid', 'contact_form', 'map', 'custom_html', 'pricing', 'logoCloud', 'team', 'blog',
 ]);
+const VALID_TEMPLATES = new Set(['luxe', 'vivid', 'airy', 'edge', 'classic', 'organic', 'sleek', 'vibrant']);
 const HEX_COLOR = /^#[0-9a-fA-F]{3,8}$/;
 
 function sanitizeOperations(operations: any[]): any[] {
@@ -212,6 +224,23 @@ function sanitizeOperations(operations: any[]): any[] {
     .filter((op): op is Record<string, any> => op && typeof op === 'object' && VALID_OPS.has(op.op))
     .map(op => {
       switch (op.op) {
+        case 'setTemplate': {
+          if (!VALID_TEMPLATES.has(op.templateId)) return null;
+          return { op: 'setTemplate', templateId: op.templateId };
+        }
+        case 'replaceBlocks': {
+          if (!Array.isArray(op.blocks)) return null;
+          const sanitizedBlocks = op.blocks.map((b: any, idx: number) => {
+            if (!b || typeof b !== 'object' || !VALID_BLOCK_TYPES.has(b.blockType)) return null;
+            const data = (typeof b.data === 'object' && b.data !== null) ? b.data : {};
+            return {
+              id: `block-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
+              type: b.blockType,
+              data: deepSanitizeStrings(data)
+            };
+          }).filter(Boolean);
+          return { op: 'replaceBlocks', blocks: sanitizedBlocks };
+        }
         case 'addBlock': {
           if (!VALID_BLOCK_TYPES.has(op.blockType)) return null;
           const data = (typeof op.data === 'object' && op.data !== null) ? op.data : {};
@@ -336,7 +365,7 @@ function extractJSON(raw: string): { operations: any[]; message: string } {
   throw new Error('No valid JSON found in AI response');
 }
 
-async function callOpenAI(apiKey: string, model: string, system: string, userMessage: string): Promise<string> {
+async function callOpenAI(apiKey: string, model: string, system: string, history: any[], latestUserMessage: string): Promise<string> {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -348,7 +377,8 @@ async function callOpenAI(apiKey: string, model: string, system: string, userMes
       max_tokens: 4096,
       messages: [
         { role: 'system', content: system },
-        { role: 'user', content: userMessage },
+        ...history,
+        { role: 'user', content: latestUserMessage },
       ],
     }),
   });
