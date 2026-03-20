@@ -96,7 +96,6 @@ export function VividTemplate({ palette, isEditMode, children }: MasterTemplateP
                                 label={siteContent.navButtonText}
                                 linkData={siteContent.navButtonTextLink}
                                 iconData={siteContent.navButtonTextIcon}
-                                iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Get Started"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}
