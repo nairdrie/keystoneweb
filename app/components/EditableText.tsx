@@ -158,7 +158,7 @@ export default function EditableText({
         {/* Desktop: Show pencil on hover only. Mobile: Don't show pencil at all */}
         <span 
             className={`absolute top-1/2 -translate-y-1/2 items-center gap-1 z-50 hidden md:flex transition-all ${isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'} ${
-                controlsOnLeft ? '-left-16' : '-right-16'
+                controlsOnLeft ? '-left-14' : '-right-16'
             }`} 
             onMouseDown={e => e.preventDefault()}
         >

@@ -172,7 +172,7 @@ export default function EditableButton({
                     {/* Floating controls on hover */}
                     <span 
                         className={`absolute top-1/2 -translate-y-1/2 items-center gap-1 z-50 hidden md:flex opacity-0 group-hover/btn:opacity-100 transition-all scale-90 group-hover/btn:scale-100 ${
-                            controlsOnLeft ? '-left-16' : '-right-16'
+                            controlsOnLeft ? '-left-14' : '-right-16'
                         }`}
                         onClick={e => e.stopPropagation()}
                     >
