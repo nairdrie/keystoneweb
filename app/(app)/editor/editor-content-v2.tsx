@@ -945,7 +945,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   return (
     <CartProvider siteId={siteId || ''}>
       <div
-        className={`h-screen flex flex-col overflow-hidden relative transition-[margin] duration-300 ease-out ${sidebarOpen ? 'lg:ml-[20rem]' : ''}`}
+        className={`fixed inset-0 flex flex-col overflow-hidden transition-[margin] duration-300 ease-out ${sidebarOpen ? 'lg:ml-[20rem]' : ''}`}
       >
         {/* Floating Toolbar / Sidebar */}
         <FloatingToolbar
