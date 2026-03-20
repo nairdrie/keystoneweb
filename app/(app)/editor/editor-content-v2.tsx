@@ -283,6 +283,21 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     }
   }, [availablePalettes, selectedPaletteKey]);
 
+  // Synchronize paletteData with selectedPaletteKey and current content
+  useEffect(() => {
+    if (selectedPaletteKey === 'custom') {
+      setPaletteData({
+        primary: siteContent.__customPalette_primary || editableContent.__customPalette_primary || '#0f172a',
+        secondary: siteContent.__customPalette_secondary || editableContent.__customPalette_secondary || '#64748b',
+        accent: siteContent.__customPalette_accent || editableContent.__customPalette_accent || '#cbd5e1',
+      });
+    } else if (availablePalettes[selectedPaletteKey]) {
+      setPaletteData(availablePalettes[selectedPaletteKey]);
+    }
+  }, [selectedPaletteKey, availablePalettes, 
+      siteContent.__customPalette_primary, siteContent.__customPalette_secondary, siteContent.__customPalette_accent,
+      editableContent.__customPalette_primary, editableContent.__customPalette_secondary, editableContent.__customPalette_accent]);
+
   const redirectToLatestSite = async () => {
     try {
       setLoading(true);
@@ -364,13 +379,19 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
         setAvailablePalettes(palettesObj);
 
         // Use the saved palette key if it exists in the new metadata, otherwise default to first
-        const activeKey = (savedPaletteKey && paletteKeys.includes(savedPaletteKey))
+        const activeKey = (savedPaletteKey === 'custom' || (savedPaletteKey && paletteKeys.includes(savedPaletteKey)))
           ? savedPaletteKey
           : (paletteKeys[0] || 'default');
 
         setSelectedPaletteKey(activeKey);
         initialPaletteRef.current = activeKey;
-        setPaletteData(palettesObj[activeKey] || {});
+        
+        if (activeKey === 'custom') {
+          // If custom, we'll rely on the colors already in state or loaded from designData
+          // The paletteData will be synced by the effects or handlePaletteChange
+        } else {
+          setPaletteData(palettesObj[activeKey] || {});
+        }
       }
 
       // NOW we set the component, so when it initially renders, it instantly has the correct palette loaded!
@@ -575,12 +596,22 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
       const siteDesignData = {
         ...siteContent,
         __selectedPalette: selectedPaletteKey,
+        ...(selectedPaletteKey === 'custom' ? {
+          __customPalette_primary: paletteData.primary,
+          __customPalette_secondary: paletteData.secondary,
+          __customPalette_accent: paletteData.accent,
+        } : {}),
       };
 
       // Page-level design data (blocks and page-specific content)
       const pageDesignData = {
         ...editableContent,
         __selectedPalette: selectedPaletteKey,
+        ...(selectedPaletteKey === 'custom' ? {
+          __customPalette_primary: paletteData.primary,
+          __customPalette_secondary: paletteData.secondary,
+          __customPalette_accent: paletteData.accent,
+        } : {}),
       };
 
       const res = await fetch('/api/sites', {
@@ -629,9 +660,9 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
 
     if (paletteKey === 'custom') {
       setPaletteData({
-        primary: editableContent.__customPalette_primary || '#0f172a',
-        secondary: editableContent.__customPalette_secondary || '#64748b',
-        accent: editableContent.__customPalette_accent || '#cbd5e1',
+        primary: siteContent.__customPalette_primary || editableContent.__customPalette_primary || '#0f172a',
+        secondary: siteContent.__customPalette_secondary || editableContent.__customPalette_secondary || '#64748b',
+        accent: siteContent.__customPalette_accent || editableContent.__customPalette_accent || '#cbd5e1',
       });
     } else {
       const palette = availablePalettes[paletteKey];
@@ -642,7 +673,11 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   };
 
   const handleCustomColorChange = (colorType: 'primary' | 'secondary' | 'accent', value: string) => {
+    // Record as content change to support undo/redo (it expects field 'content' for this)
     handleUpdateContent(`__customPalette_${colorType}`, value);
+    // Also update siteContent for global consistency
+    handleUpdateSiteContent(`__customPalette_${colorType}`, value);
+    
     if (selectedPaletteKey !== 'custom') {
       handlePaletteChange('custom');
     }
@@ -717,9 +752,18 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   }, [handleUpdateSiteContent]);
 
   const aiSetCustomColors = useCallback((colors: { primary?: string; secondary?: string; accent?: string }) => {
-    if (colors.primary) handleUpdateContent('__customPalette_primary', colors.primary);
-    if (colors.secondary) handleUpdateContent('__customPalette_secondary', colors.secondary);
-    if (colors.accent) handleUpdateContent('__customPalette_accent', colors.accent);
+    if (colors.primary) {
+      handleUpdateContent('__customPalette_primary', colors.primary);
+      handleUpdateSiteContent('__customPalette_primary', colors.primary);
+    }
+    if (colors.secondary) {
+      handleUpdateContent('__customPalette_secondary', colors.secondary);
+      handleUpdateSiteContent('__customPalette_secondary', colors.secondary);
+    }
+    if (colors.accent) {
+      handleUpdateContent('__customPalette_accent', colors.accent);
+      handleUpdateSiteContent('__customPalette_accent', colors.accent);
+    }
     if (selectedPaletteKey !== 'custom') {
       handlePaletteChange('custom');
     }
@@ -729,7 +773,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
       ...(colors.secondary ? { secondary: colors.secondary } : {}),
       ...(colors.accent ? { accent: colors.accent } : {}),
     }));
-  }, [selectedPaletteKey]);
+  }, [selectedPaletteKey, handlePaletteChange, handleUpdateContent, handleUpdateSiteContent]);
 
   const aiCallbacks = useMemo(() => ({
     onAddBlock: aiAddBlock,
@@ -851,9 +895,9 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   // Add the custom palette option
   const customPalette = {
     name: 'custom',
-    primary: editableContent.__customPalette_primary || '#0f172a',
-    secondary: editableContent.__customPalette_secondary || '#64748b',
-    accent: editableContent.__customPalette_accent || '#cbd5e1',
+    primary: siteContent.__customPalette_primary || editableContent.__customPalette_primary || '#0f172a',
+    secondary: siteContent.__customPalette_secondary || editableContent.__customPalette_secondary || '#64748b',
+    accent: siteContent.__customPalette_accent || editableContent.__customPalette_accent || '#cbd5e1',
   };
   paletteArray.push(customPalette);
 
