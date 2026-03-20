@@ -44,13 +44,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'You cannot transfer a site to yourself' }, { status: 400 });
     }
 
-    // Transfer ownership: update the site's user_id
+    // Check acceptor's subscription status
+    const { data: subscription } = await admin
+      .from('user_subscriptions')
+      .select('subscription_status')
+      .eq('user_id', user.id)
+      .single();
+
+    const isPaid = subscription?.subscription_status === 'active';
+
+    // Transfer ownership: update the site's user_id, remove custom domain,
+    // and potentially unpublish if they haven't paid
+    const updateData: any = {
+      user_id: user.id,
+      custom_domain: null,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (!isPaid) {
+      updateData.is_published = false;
+    }
+
     const { error: updateError } = await admin
       .from('sites')
-      .update({
-        user_id: user.id,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', transfer.site_id);
 
     if (updateError) {
