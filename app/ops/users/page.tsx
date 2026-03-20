@@ -73,9 +73,11 @@ export default async function OpsUsersPage({
   const publishedSiteCounts: Record<string, number> = {};
   const subscriptions: Record<string, any> = {};
 
+  const phoneNumbers: Record<string, string> = {};
+
   if (userIds.length) {
     const [sitesRes, subsRes] = await Promise.all([
-      db.from('sites').select('user_id, is_published').in('user_id', userIds).not('user_id', 'is', null),
+      db.from('sites').select('user_id, is_published, business_profile').in('user_id', userIds).not('user_id', 'is', null),
       db.from('user_subscriptions').select('*').in('user_id', userIds)
     ]);
 
@@ -84,6 +86,11 @@ export default async function OpsUsersPage({
         totalSiteCounts[row.user_id] = (totalSiteCounts[row.user_id] ?? 0) + 1;
         if (row.is_published) {
           publishedSiteCounts[row.user_id] = (publishedSiteCounts[row.user_id] ?? 0) + 1;
+        }
+        // Extract phone from business_profile (first one found wins)
+        const phone = (row.business_profile as any)?.telephone;
+        if (phone && !phoneNumbers[row.user_id]) {
+          phoneNumbers[row.user_id] = phone;
         }
       }
     }
@@ -108,6 +115,7 @@ export default async function OpsUsersPage({
       subscriptionStatus: sub?.subscription_status ?? null,
       totalSites: totalSiteCounts[u.id] ?? 0,
       publishedSites: publishedSiteCounts[u.id] ?? 0,
+      phone: phoneNumbers[u.id] ?? null,
     };
   });
 
@@ -191,7 +199,7 @@ export default async function OpsUsersPage({
                   {new Date(u.createdAt).toLocaleDateString('en-CA')}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <UserActions userId={u.id} userEmail={u.email} isBanned={u.isBanned} currentPlan={u.plan} />
+                  <UserActions userId={u.id} userEmail={u.email} isBanned={u.isBanned} currentPlan={u.plan} phone={u.phone} />
                 </td>
               </tr>
             ))}

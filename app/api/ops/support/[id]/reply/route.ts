@@ -56,7 +56,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const quotedMessage = `\n\n\nOn ${quotedDate}, ${originalSender} wrote:\n> ` + 
     (ticket.body_text || '').split('\n').join('\n> ');
 
-  const fullBodyText = bodyText + quotedMessage;
+  // Thread ref: use the root ticket ID so customer replies get threaded
+  const threadRoot = ticket.thread_id ?? ticket.id;
+  const threadRef = `\n\nref:${threadRoot}`;
+  const fullBodyText = bodyText + quotedMessage + threadRef;
 
   // Use the fromName if provided, otherwise default
   const fromAddress = fromName ? `${fromName} <${fromEmail}>` : fromEmail;
@@ -65,7 +68,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { error: sendError } = await resend.emails.send({
       from: fromAddress,
       to: [ticket.from_email],
-      bcc: [fromEmail], // BCC sender for email client handoff
       subject: replySubject,
       text: fullBodyText,
       // Pass the original message ID if we have it to thread properly

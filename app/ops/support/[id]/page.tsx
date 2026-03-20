@@ -5,6 +5,17 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import DOMPurify from 'isomorphic-dompurify';
 
+type ThreadMessage = {
+  id: string;
+  from_email: string;
+  from_name: string | null;
+  subject: string | null;
+  body_text: string | null;
+  body_html: string | null;
+  created_at: string;
+  thread_id: string | null;
+};
+
 type SupportRequest = {
   id: string;
   from_email: string;
@@ -16,8 +27,10 @@ type SupportRequest = {
   priority: string;
   notes: string | null;
   resend_email_id: string | null;
+  thread_id: string | null;
   created_at: string;
   updated_at: string;
+  thread_messages?: ThreadMessage[];
 };
 
 const STATUSES = ['open', 'in_progress', 'resolved', 'closed'];
@@ -33,6 +46,12 @@ const STATUS_STYLES: Record<string, string> = {
   resolved: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30',
   closed: 'text-gray-500 bg-gray-800 border-gray-700',
 };
+
+/** Strip the hidden thread ref token from displayed body text */
+function cleanBody(text: string | null): string | null {
+  if (!text) return text;
+  return text.replace(/\n*ref:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\s*$/i, '').trimEnd();
+}
 
 export default function SupportTicketPage() {
   const { id } = useParams<{ id: string }>();
@@ -75,9 +94,9 @@ export default function SupportTicketPage() {
   async function sendReply() {
     if (!replyBody.trim()) return;
     setReplying(true);
-    
+
     const sender = SENDER_OPTIONS[replySenderIndex];
-    
+
     try {
       const res = await fetch(`/api/ops/support/${id}/reply`, {
         method: 'POST',
@@ -93,7 +112,7 @@ export default function SupportTicketPage() {
         const updated = await res.json();
         setTicket(updated);
         setNotes(updated.notes ?? '');
-        setReplyBody(''); // Clear on success
+        setReplyBody('');
         alert('Reply sent successfully!');
       } else {
         const err = await res.json();
@@ -130,7 +149,7 @@ export default function SupportTicketPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24 text-gray-500">
-        Loading…
+        Loading...
       </div>
     );
   }
@@ -146,6 +165,9 @@ export default function SupportTicketPage() {
     );
   }
 
+  const threadMessages = ticket.thread_messages ?? [];
+  const hasThread = threadMessages.length > 1;
+
   return (
     <div className="max-w-3xl space-y-8 pb-12">
       <div className="flex items-center gap-3">
@@ -153,11 +175,16 @@ export default function SupportTicketPage() {
           href="/support"
           className="text-sm text-gray-500 hover:text-white transition-colors"
         >
-          ← Support
+          &larr; Support
         </Link>
         <span className={`rounded border px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[ticket.status] ?? STATUS_STYLES.open}`}>
           {ticket.status.replace('_', ' ')}
         </span>
+        {hasThread && (
+          <span className="text-xs text-gray-500">
+            {threadMessages.length} messages in thread
+          </span>
+        )}
       </div>
 
       {/* Header */}
@@ -168,7 +195,7 @@ export default function SupportTicketPage() {
           <span className="text-gray-200">
             {ticket.from_name ? `${ticket.from_name} <${ticket.from_email}>` : ticket.from_email}
           </span>
-          {' · '}
+          {' \u00b7 '}
           <time className="text-gray-500">
             {new Date(ticket.created_at).toLocaleString('en-CA', {
               dateStyle: 'medium',
@@ -178,22 +205,70 @@ export default function SupportTicketPage() {
         </p>
       </div>
 
-      {/* Body */}
-      <div className="rounded-lg border border-gray-800 bg-gray-900 p-5 overflow-hidden">
-        {ticket.body_text ? (
-          <pre className="whitespace-pre-wrap text-sm text-gray-300 font-sans leading-relaxed">
-            {ticket.body_text}
-          </pre>
-        ) : ticket.body_html ? (
-          <div 
-            className="prose prose-invert prose-sm max-w-none text-gray-300"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(ticket.body_html) }}
-          />
-        ) : (
-          <p className="text-gray-600 text-sm italic">No message body content found.</p>
-        )}
-      </div>
-
+      {/* Conversation thread */}
+      {hasThread ? (
+        <div className="space-y-3">
+          {threadMessages.map((msg, i) => {
+            const isRoot = !msg.thread_id;
+            const bodyClean = cleanBody(msg.body_text);
+            return (
+              <div
+                key={msg.id}
+                className={`rounded-lg border p-4 overflow-hidden ${
+                  isRoot
+                    ? 'border-gray-800 bg-gray-900'
+                    : 'border-gray-800/60 bg-gray-900/60 ml-4'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-gray-400">
+                    <span className="text-gray-300 font-medium">
+                      {msg.from_name || msg.from_email}
+                    </span>
+                    {msg.from_name && (
+                      <span className="text-gray-600 ml-1">&lt;{msg.from_email}&gt;</span>
+                    )}
+                  </p>
+                  <time className="text-xs text-gray-600">
+                    {new Date(msg.created_at).toLocaleString('en-CA', {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    })}
+                  </time>
+                </div>
+                {bodyClean ? (
+                  <pre className="whitespace-pre-wrap text-sm text-gray-300 font-sans leading-relaxed">
+                    {bodyClean}
+                  </pre>
+                ) : msg.body_html ? (
+                  <div
+                    className="prose prose-invert prose-sm max-w-none text-gray-300"
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg.body_html) }}
+                  />
+                ) : (
+                  <p className="text-gray-600 text-sm italic">No message body.</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* Single message — no thread */
+        <div className="rounded-lg border border-gray-800 bg-gray-900 p-5 overflow-hidden">
+          {ticket.body_text ? (
+            <pre className="whitespace-pre-wrap text-sm text-gray-300 font-sans leading-relaxed">
+              {cleanBody(ticket.body_text)}
+            </pre>
+          ) : ticket.body_html ? (
+            <div
+              className="prose prose-invert prose-sm max-w-none text-gray-300"
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(ticket.body_html) }}
+            />
+          ) : (
+            <p className="text-gray-600 text-sm italic">No message body content found.</p>
+          )}
+        </div>
+      )}
 
       {/* Reply Section */}
       <div className="rounded-lg border border-gray-800 bg-gray-900 overflow-hidden">
@@ -220,7 +295,7 @@ export default function SupportTicketPage() {
             value={replyBody}
             onChange={(e) => setReplyBody(e.target.value)}
             rows={5}
-            placeholder="Write your reply here... (Original message will be quoted below)"
+            placeholder="Write your reply here..."
             className="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-500 resize-y"
             disabled={replying}
           />
@@ -233,9 +308,6 @@ export default function SupportTicketPage() {
               {replying ? 'Sending...' : 'Send Reply via Email'}
             </button>
           </div>
-          <p className="text-xs text-gray-500">
-            💡 <strong>Handoff Tip:</strong> By replying here, the email is sent via Resend. You will be BCC'd automatically so it appears in your personal inbox. When the customer replies, it will go straight to your email app!
-          </p>
         </div>
       </div>
 
@@ -277,7 +349,7 @@ export default function SupportTicketPage() {
             disabled={saving}
             className="rounded-md bg-red-900/30 px-4 py-1.5 text-sm font-medium text-red-400 hover:bg-red-900/50 transition-colors disabled:opacity-50"
           >
-            {saving ? 'Processing…' : 'Delete Ticket'}
+            {saving ? 'Processing...' : 'Delete Ticket'}
           </button>
         </div>
       </div>
@@ -289,7 +361,7 @@ export default function SupportTicketPage() {
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={4}
-          placeholder="Add notes for yourself…"
+          placeholder="Add notes for yourself..."
           className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-500 resize-none"
         />
         <button
@@ -297,7 +369,7 @@ export default function SupportTicketPage() {
           disabled={saving || notes === (ticket.notes ?? '')}
           className="mt-2 rounded-md bg-gray-700 px-4 py-1.5 text-sm text-white hover:bg-gray-600 transition-colors disabled:opacity-40"
         >
-          {saving ? 'Saving…' : 'Save notes'}
+          {saving ? 'Saving...' : 'Save notes'}
         </button>
       </div>
 

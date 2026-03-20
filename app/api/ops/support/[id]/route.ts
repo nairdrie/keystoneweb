@@ -36,7 +36,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  return NextResponse.json(data);
+  // Resolve the thread root: if this is a reply, follow to root
+  const rootId = data.thread_id ?? data.id;
+
+  // Fetch all messages in this thread (root + replies) sorted chronologically
+  const { data: threadMessages } = await db
+    .from('support_requests')
+    .select('id, from_email, from_name, subject, body_text, body_html, created_at, thread_id')
+    .or(`id.eq.${rootId},thread_id.eq.${rootId}`)
+    .order('created_at', { ascending: true });
+
+  return NextResponse.json({ ...data, thread_messages: threadMessages ?? [] });
 }
 
 /**

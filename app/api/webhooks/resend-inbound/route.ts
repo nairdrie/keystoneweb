@@ -81,6 +81,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing from email' }, { status: 400 });
   }
 
+  // Skip emails from our own ops addresses (e.g. BCC'd replies)
+  if (fromEmail.toLowerCase().endsWith('@keystoneweb.ca')) {
+    console.log(`[resend-inbound] Skipping ops self-email from ${fromEmail}`);
+    return NextResponse.json({ received: true, skipped: 'ops_sender' });
+  }
+
   const admin = createAdminClient();
 
   // Deduplicate by Resend email_id (most reliable unique key)
@@ -158,6 +164,24 @@ export async function POST(request: NextRequest) {
     bodyText = `[WEBHOOK DEBUG — body fetch failed]\n\n${log.join('\n')}\n\nWebhook payload.data keys: [${Object.keys(emailData ?? {}).join(', ')}]\nemail_id: ${emailId}\nfrom: ${fromRaw}\nsubject: ${subject}`;
   }
 
+  // Thread detection: scan body for ref:UUID token from ops replies
+  let threadId: string | null = null;
+  const refMatch = (bodyText ?? '').match(/ref:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i)
+    ?? (bodyHtml ?? '').match(/ref:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+  if (refMatch) {
+    const candidateId = refMatch[1];
+    // Verify the referenced ticket exists
+    const { data: rootTicket } = await admin
+      .from('support_requests')
+      .select('id, thread_id')
+      .eq('id', candidateId)
+      .maybeSingle();
+    if (rootTicket) {
+      // Point to the root of the chain (if the ref is itself a reply, follow to root)
+      threadId = rootTicket.thread_id ?? rootTicket.id;
+    }
+  }
+
   const { error } = await admin.from('support_requests').insert({
     from_email: fromEmail,
     from_name: fromName,
@@ -165,7 +189,8 @@ export async function POST(request: NextRequest) {
     body_text: bodyText,
     body_html: bodyHtml,
     resend_email_id: dedupKey || null,
-    status: 'open',
+    thread_id: threadId,
+    status: threadId ? 'in_progress' : 'open',
     priority: 'normal',
   });
 
