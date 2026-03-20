@@ -42,6 +42,27 @@ const BLOCK_TYPE_LABELS: Record<string, string> = {
   custom_html: 'Custom HTML',
 };
 
+// Human-readable labels for site-level content keys
+const SITE_CONTENT_LABELS: Record<string, string> = {
+  siteTitle: 'Site Title',
+  headerCTA: 'Header Button',
+  headerCtaText: 'Header Button Text',
+  headerCtaLink: 'Header Button Link',
+  siteLogo: 'Site Logo',
+  titleFont: 'Heading Font',
+  bodyFont: 'Body Font',
+  __customPalette_primary: 'Primary Color',
+  __customPalette_secondary: 'Secondary Color',
+  __customPalette_accent: 'Accent Color',
+  headerTitle: 'Header Title',
+  headerSubtitle: 'Header Subtitle',
+  footerText: 'Footer Text',
+  footerCopyright: 'Footer Copyright',
+  socialLinks: 'Social Links',
+  __navItems: 'Navigation Menu',
+  navItems: 'Navigation Menu',
+};
+
 // Human-readable field labels
 const FIELD_LABELS: Record<string, string> = {
   title: 'title',
@@ -96,6 +117,117 @@ function getFieldLabel(key: string): string {
     return `${FIELD_LABELS[base] || base} formatting`;
   }
   return FIELD_LABELS[key] || key.replace(/([A-Z])/g, ' $1').toLowerCase().trim();
+}
+
+// Convert a camelCase or snake_case key to Title Case
+function humanizeKey(key: string): string {
+  const clean = key.replace(/^__/, '');
+  return clean
+    .replace(/_/g, ' ')
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/\b\w/g, c => c.toUpperCase())
+    .trim();
+}
+
+// Format a value for display, catching stray JSON, HTML, URLs
+function formatDisplayValue(val: string): string {
+  if (!val || val === '') return '(empty)';
+
+  // Detect JSON arrays/objects and summarize
+  if ((val.startsWith('[') || val.startsWith('{')) && val.length > 2) {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) {
+        if (parsed.length === 0) return '(empty)';
+        // Try to extract meaningful labels from items
+        const labels = parsed
+          .slice(0, 3)
+          .map((item: any) => {
+            if (typeof item === 'string') return truncate(item, 25);
+            if (item?.label) return item.label;
+            if (item?.title) return item.title;
+            if (item?.name) return item.name;
+            return null;
+          })
+          .filter(Boolean);
+        if (labels.length > 0) {
+          const suffix = parsed.length > 3 ? ` + ${parsed.length - 3} more` : '';
+          return labels.join(', ') + suffix;
+        }
+        return `${parsed.length} items`;
+      }
+      // Object
+      if (parsed.label) return parsed.label;
+      if (parsed.title) return parsed.title;
+      if (parsed.name) return parsed.name;
+      // Small objects — show key count
+      const keys = Object.keys(parsed);
+      if (keys.length <= 3) {
+        return keys.map(k => `${k}: ${truncate(String(parsed[k] ?? ''), 15)}`).join(', ');
+      }
+      return `${keys.length} properties`;
+    } catch {
+      // Not valid JSON, treat as string
+    }
+  }
+
+  // Strip HTML
+  if (val.includes('<') && val.includes('>')) {
+    return truncate(stripHtml(val)) || '(empty)';
+  }
+
+  // URLs — show shortened
+  if (val.startsWith('http') || val.startsWith('data:')) {
+    if (val.startsWith('data:')) return '(uploaded image)';
+    return truncate(val, 40);
+  }
+
+  return truncate(val);
+}
+
+// Diff navigation items and produce human-readable from/to
+function diffNavItems(oldJson: string, newJson: string): { label: string; from: string; to: string } | null {
+  try {
+    const oldItems: any[] = JSON.parse(oldJson || '[]');
+    const newItems: any[] = JSON.parse(newJson || '[]');
+
+    const oldMap = new Map(oldItems.map(i => [i.id, i]));
+    const newMap = new Map(newItems.map(i => [i.id, i]));
+    const summaryParts: string[] = [];
+
+    // Additions
+    for (const item of newItems) {
+      if (!oldMap.has(item.id)) summaryParts.push(`Added "${item.label}"`);
+    }
+    // Removals
+    for (const item of oldItems) {
+      if (!newMap.has(item.id)) summaryParts.push(`Removed "${item.label}"`);
+    }
+    // Renames & link changes
+    for (const item of newItems) {
+      const old = oldMap.get(item.id);
+      if (!old) continue;
+      if (old.label !== item.label) summaryParts.push(`Renamed "${old.label}" to "${item.label}"`);
+      else if (old.href !== item.href) summaryParts.push(`Updated link for "${item.label}"`);
+    }
+    // Reorder detection
+    if (summaryParts.length === 0 && oldItems.length === newItems.length) {
+      const oldOrder = oldItems.map(i => i.id).join(',');
+      const newOrder = newItems.map(i => i.id).join(',');
+      if (oldOrder !== newOrder) summaryParts.push('Reordered menu items');
+    }
+
+    const oldLabels = oldItems.map(i => i.label).join(', ') || '(empty)';
+    const newLabels = newItems.map(i => i.label).join(', ') || '(empty)';
+
+    return {
+      label: summaryParts.length > 0 ? `Navigation: ${summaryParts.join(', ')}` : 'Navigation Menu',
+      from: oldLabels,
+      to: newLabels,
+    };
+  } catch {
+    return null;
+  }
 }
 
 // Strip HTML tags for clean text display
@@ -207,67 +339,99 @@ function formatStyleChange(oldStyles: any, newStyles: any): { from: string; to: 
 }
 
 // Helper to diff blocks array and create a human-readable change
-function diffBlocks(oldBlocksRaw: string, newBlocksRaw: string): Partial<Change> | null {
+function diffBlocks(oldBlocksRaw: string, newBlocksRaw: string, callerLabel?: string): Partial<Change> | null {
   try {
-    const oldBlocks = JSON.parse(oldBlocksRaw || '[]');
-    const newBlocks = JSON.parse(newBlocksRaw || '[]');
+    const oldBlocks: any[] = JSON.parse(oldBlocksRaw || '[]');
+    const newBlocks: any[] = JSON.parse(newBlocksRaw || '[]');
 
-    if (oldBlocks.length !== newBlocks.length) {
+    const oldIds = new Set(oldBlocks.map(b => b.id));
+    const newIds = new Set(newBlocks.map(b => b.id));
+
+    // Blocks added
+    const added = newBlocks.filter(b => !oldIds.has(b.id));
+    if (added.length > 0 && newBlocks.length > oldBlocks.length) {
+      const blockNames = added.map(b => getBlockLabel(b.type));
       return {
-        label: 'Layout Blocks',
-        from: `${oldBlocks.length} blocks`,
-        to: `${newBlocks.length} blocks`,
+        label: added.length === 1
+          ? `Added ${blockNames[0]} Block`
+          : `Added ${added.length} Blocks`,
+        from: oldBlocks.length === 0 ? '(empty)' : `${oldBlocks.length} blocks`,
+        to: added.length === 1 ? blockNames[0] : blockNames.join(', '),
       };
     }
 
-    // Find which exact block changed
-    for (let i = 0; i < oldBlocks.length; i++) {
-      const oldB = oldBlocks[i];
-      const newB = newBlocks[i];
+    // Blocks removed
+    const removed = oldBlocks.filter(b => !newIds.has(b.id));
+    if (removed.length > 0 && newBlocks.length < oldBlocks.length) {
+      const blockNames = removed.map(b => getBlockLabel(b.type));
+      return {
+        label: removed.length === 1
+          ? `Removed ${blockNames[0]} Block`
+          : `Removed ${removed.length} Blocks`,
+        from: removed.length === 1 ? blockNames[0] : blockNames.join(', '),
+        to: newBlocks.length === 0 ? '(empty)' : `${newBlocks.length} blocks remaining`,
+      };
+    }
 
-      if (JSON.stringify(oldB.data) !== JSON.stringify(newB.data)) {
+    // Same count — check for reorder vs content changes
+    if (oldBlocks.length === newBlocks.length && oldBlocks.length > 0) {
+      const oldMap = new Map(oldBlocks.map(b => [b.id, b]));
+
+      // Find content change by matching block IDs
+      for (const newB of newBlocks) {
+        const oldB = oldMap.get(newB.id);
+        if (!oldB || JSON.stringify(oldB.data) === JSON.stringify(newB.data)) continue;
+
         const blockLabel = getBlockLabel(newB.type);
-
-        // Find which exact data field changed
         const allKeys = new Set([...Object.keys(oldB.data || {}), ...Object.keys(newB.data || {})]);
 
         for (const key of allKeys) {
           const oldVal = oldB.data?.[key];
           const newVal = newB.data?.[key];
+          if (JSON.stringify(oldVal) === JSON.stringify(newVal)) continue;
 
-          if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
-            const fieldLabel = getFieldLabel(key);
+          const fieldLabel = getFieldLabel(key);
 
-            // Style object changes (fonts, formatting)
-            if (key.endsWith('__styles') && typeof oldVal === 'object' && typeof newVal === 'object') {
-              const styleDiff = formatStyleChange(oldVal, newVal);
-              if (styleDiff) {
-                return {
-                  label: `${blockLabel} — ${fieldLabel}`,
-                  from: styleDiff.from,
-                  to: styleDiff.to,
-                };
-              }
+          // Style object changes (fonts, formatting)
+          if (key.endsWith('__styles') && typeof oldVal === 'object' && typeof newVal === 'object') {
+            const styleDiff = formatStyleChange(oldVal, newVal);
+            if (styleDiff) {
+              return { label: `${blockLabel} — ${fieldLabel}`, from: styleDiff.from, to: styleDiff.to };
             }
-
-            // Array changes (items, members, tiers, etc.)
-            if (Array.isArray(oldVal) && Array.isArray(newVal)) {
-              const summary = summarizeArrayChange(oldVal, newVal, fieldLabel);
-              return {
-                label: `${blockLabel} — ${fieldLabel}`,
-                from: summary.from,
-                to: summary.to,
-              };
-            }
-
-            // Simple value changes
-            return {
-              label: `${blockLabel} — ${fieldLabel}`,
-              from: formatValue(oldVal, key),
-              to: formatValue(newVal, key),
-            };
           }
+
+          // Array changes (items, members, tiers, etc.)
+          if (Array.isArray(oldVal) && Array.isArray(newVal)) {
+            const summary = summarizeArrayChange(oldVal, newVal, fieldLabel);
+            return { label: `${blockLabel} — ${fieldLabel}`, from: summary.from, to: summary.to };
+          }
+
+          // Simple value changes
+          return { label: `${blockLabel} — ${fieldLabel}`, from: formatValue(oldVal, key), to: formatValue(newVal, key) };
         }
+      }
+
+      // Pure reorder (IDs same, order different)
+      const oldIdOrder = oldBlocks.map(b => b.id);
+      const newIdOrder = newBlocks.map(b => b.id);
+      if (oldIdOrder.some((id: string, i: number) => id !== newIdOrder[i])) {
+        return {
+          label: 'Reordered Blocks',
+          from: oldBlocks.map(b => getBlockLabel(b.type)).join(' → '),
+          to: newBlocks.map(b => getBlockLabel(b.type)).join(' → '),
+        };
+      }
+    }
+
+    // Complete replacement (all different IDs, e.g. AI redesign)
+    if (oldBlocks.length > 0 || newBlocks.length > 0) {
+      const allNew = newBlocks.every(b => !oldIds.has(b.id));
+      if (allNew && newBlocks.length > 0) {
+        return {
+          label: callerLabel || 'Redesigned Layout',
+          from: oldBlocks.length === 0 ? '(empty)' : `${oldBlocks.length} blocks`,
+          to: `${newBlocks.length} blocks`,
+        };
       }
     }
   } catch (e) {
@@ -309,13 +473,52 @@ export function useChangeTracking() {
       let rawFrom = from;
       let rawTo = to;
 
+      // === BLOCKS ===
       if (field === 'blocks') {
-        const diff = diffBlocks(from, to);
+        const diff = diffBlocks(from, to, label);
         if (diff) {
           finalLabel = diff.label || label;
           finalFrom = diff.from || from;
           finalTo = diff.to || to;
+        } else {
+          // Fallback: never show raw JSON for blocks
+          try {
+            const oldLen = JSON.parse(from || '[]').length;
+            const newLen = JSON.parse(to || '[]').length;
+            finalFrom = oldLen === 0 ? '(empty)' : `${oldLen} blocks`;
+            finalTo = newLen === 0 ? '(empty)' : `${newLen} blocks`;
+          } catch {
+            finalFrom = '(previous layout)';
+            finalTo = '(updated layout)';
+          }
         }
+      }
+      // === NAV ITEMS ===
+      else if (field === 'siteContent:navItems' || field === 'siteContent:__navItems') {
+        const navDiff = diffNavItems(from, to);
+        if (navDiff) {
+          finalLabel = navDiff.label;
+          finalFrom = navDiff.from;
+          finalTo = navDiff.to;
+        } else {
+          finalLabel = 'Navigation Menu';
+          finalFrom = formatDisplayValue(from);
+          finalTo = formatDisplayValue(to);
+        }
+      }
+      // === SITE CONTENT ===
+      else if (field.startsWith('siteContent:')) {
+        const key = field.replace('siteContent:', '');
+        finalLabel = SITE_CONTENT_LABELS[key] || humanizeKey(key);
+        finalFrom = formatDisplayValue(from);
+        finalTo = formatDisplayValue(to);
+      }
+      // === PAGE CONTENT ===
+      else if (field.startsWith('content:')) {
+        const key = field.replace('content:', '');
+        finalLabel = humanizeKey(key);
+        finalFrom = formatDisplayValue(from);
+        finalTo = formatDisplayValue(to);
       }
 
       // Create new change
