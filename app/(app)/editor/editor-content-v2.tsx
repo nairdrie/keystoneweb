@@ -273,9 +273,6 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     }
 
     setEditableContent(content);
-    if (content.__selectedPalette) {
-      setSelectedPaletteKey(content.__selectedPalette);
-    }
     initialContentRef.current = { ...content };
     clearChanges();
   }, [currentPage, clearChanges, site?.designData]);
@@ -291,16 +288,15 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   useEffect(() => {
     if (selectedPaletteKey === 'custom') {
       setPaletteData({
-        primary: siteContent.__customPalette_primary || editableContent.__customPalette_primary || '#0f172a',
-        secondary: siteContent.__customPalette_secondary || editableContent.__customPalette_secondary || '#64748b',
-        accent: siteContent.__customPalette_accent || editableContent.__customPalette_accent || '#cbd5e1',
+        primary: siteContent.__customPalette_primary || '#0f172a',
+        secondary: siteContent.__customPalette_secondary || '#64748b',
+        accent: siteContent.__customPalette_accent || '#cbd5e1',
       });
     } else if (availablePalettes[selectedPaletteKey]) {
       setPaletteData(availablePalettes[selectedPaletteKey]);
     }
   }, [selectedPaletteKey, availablePalettes, 
-      siteContent.__customPalette_primary, siteContent.__customPalette_secondary, siteContent.__customPalette_accent,
-      editableContent.__customPalette_primary, editableContent.__customPalette_secondary, editableContent.__customPalette_accent]);
+      siteContent.__customPalette_primary, siteContent.__customPalette_secondary, siteContent.__customPalette_accent]);
 
   const redirectToLatestSite = async () => {
     try {
@@ -636,12 +632,6 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
       // Page-level design data (blocks and page-specific content)
       const pageDesignData = {
         ...editableContent,
-        __selectedPalette: selectedPaletteKey,
-        ...(selectedPaletteKey === 'custom' ? {
-          __customPalette_primary: paletteData.primary,
-          __customPalette_secondary: paletteData.secondary,
-          __customPalette_accent: paletteData.accent,
-        } : {}),
       };
 
       const res = await fetch('/api/sites', {
@@ -690,9 +680,9 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
 
     if (paletteKey === 'custom') {
       setPaletteData({
-        primary: siteContent.__customPalette_primary || editableContent.__customPalette_primary || '#0f172a',
-        secondary: siteContent.__customPalette_secondary || editableContent.__customPalette_secondary || '#64748b',
-        accent: siteContent.__customPalette_accent || editableContent.__customPalette_accent || '#cbd5e1',
+        primary: siteContent.__customPalette_primary || '#0f172a',
+        secondary: siteContent.__customPalette_secondary || '#64748b',
+        accent: siteContent.__customPalette_accent || '#cbd5e1',
       });
     } else {
       const palette = availablePalettes[paletteKey];
@@ -703,9 +693,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   };
 
   const handleCustomColorChange = (colorType: 'primary' | 'secondary' | 'accent', value: string) => {
-    // Record as content change to support undo/redo (it expects field 'content' for this)
-    handleUpdateContent(`__customPalette_${colorType}`, value);
-    // Also update siteContent for global consistency
+    // Record as content change to support undo/redo
     handleUpdateSiteContent(`__customPalette_${colorType}`, value);
     
     if (selectedPaletteKey !== 'custom') {
@@ -783,15 +771,12 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
 
   const aiSetCustomColors = useCallback((colors: { primary?: string; secondary?: string; accent?: string }) => {
     if (colors.primary) {
-      handleUpdateContent('__customPalette_primary', colors.primary);
       handleUpdateSiteContent('__customPalette_primary', colors.primary);
     }
     if (colors.secondary) {
-      handleUpdateContent('__customPalette_secondary', colors.secondary);
       handleUpdateSiteContent('__customPalette_secondary', colors.secondary);
     }
     if (colors.accent) {
-      handleUpdateContent('__customPalette_accent', colors.accent);
       handleUpdateSiteContent('__customPalette_accent', colors.accent);
     }
     if (selectedPaletteKey !== 'custom') {
@@ -803,7 +788,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
       ...(colors.secondary ? { secondary: colors.secondary } : {}),
       ...(colors.accent ? { accent: colors.accent } : {}),
     }));
-  }, [selectedPaletteKey, handlePaletteChange, handleUpdateContent, handleUpdateSiteContent]);
+  }, [selectedPaletteKey, handlePaletteChange, handleUpdateSiteContent]);
 
   const aiCallbacks = useMemo(() => ({
     onAddBlock: aiAddBlock,
@@ -925,9 +910,9 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   // Add the custom palette option
   const customPalette = {
     name: 'custom',
-    primary: siteContent.__customPalette_primary || editableContent.__customPalette_primary || '#0f172a',
-    secondary: siteContent.__customPalette_secondary || editableContent.__customPalette_secondary || '#64748b',
-    accent: siteContent.__customPalette_accent || editableContent.__customPalette_accent || '#cbd5e1',
+    primary: siteContent.__customPalette_primary || '#0f172a',
+    secondary: siteContent.__customPalette_secondary || '#64748b',
+    accent: siteContent.__customPalette_accent || '#cbd5e1',
   };
   paletteArray.push(customPalette);
 
