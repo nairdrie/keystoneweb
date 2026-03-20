@@ -12,7 +12,7 @@ interface RevealProps {
 export default function Reveal({ children, className = '', delay }: RevealProps) {
   return (
     <motion.div
-      variants={revealVariants}
+      variants={revealVariants as any}
       className={className}
       transition={delay ? { delay } : undefined}
     >

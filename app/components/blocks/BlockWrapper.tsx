@@ -36,7 +36,7 @@ export default function BlockWrapper({ id, type, children, customCss, onUpdateCu
         : '';
 
     const animationProps = {
-        variants: staggerContainer,
+        variants: staggerContainer as any,
         initial: "hidden",
         whileInView: "show",
         viewport: { once: true, margin: "-50px" }
