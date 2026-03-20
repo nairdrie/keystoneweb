@@ -94,21 +94,50 @@ export default function EditableText({
     setIsEditing(false);
   };
 
+  // Helper to parse {{text}} into highlighted spans and \n into <br/>
+  const renderFormattedText = (text: string) => {
+    // Split by literal \n string or actual newline character
+    const lines = text.split(/\n|\\n/g);
+    
+    return lines.map((line, lineIdx) => {
+      // For each line, handle the {{highlight}} syntax
+      const parts = line.split(/(\{\{.*?\}\})/g);
+      const formattedLine = parts.map((part, partIdx) => {
+        if (part.startsWith('{{') && part.endsWith('}}')) {
+          const content = part.slice(2, -2);
+          return (
+            <span key={`${lineIdx}-${partIdx}`} className="ksw-highlight">
+              {content}
+            </span>
+          );
+        }
+        return part;
+      });
+
+      return (
+        <span key={lineIdx}>
+          {formattedLine}
+          {lineIdx < lines.length - 1 && <br />}
+        </span>
+      );
+    });
+  };
+
   // Preview mode: just show the text
   if (!isEditMode) {
-    return <Component className={className} style={mergedStyle}>{displayText}</Component>;
+    return <Component className={className} style={mergedStyle}>{renderFormattedText(displayText)}</Component>;
   }
 
   // Edit mode - show inline element with pencil on hover
   if (isEditing) {
     return (
       <Component className={`${className} relative`} style={mergedStyle}>
-        <input
-          ref={inputRef}
-          type="text"
+        <textarea
+          ref={inputRef as any}
           value={tempValue}
           onChange={(e) => setTempValue(e.target.value)}
-          className="bg-blue-50/80 border-b-2 border-blue-500 text-slate-900 outline-none w-full"
+          className="bg-blue-50/80 border-b-2 border-blue-500 text-slate-900 outline-none w-full resize-none overflow-hidden block"
+          rows={tempValue.split('\n').length || 1}
           style={{
             fontFamily: 'inherit',
             fontSize: 'inherit',
@@ -116,9 +145,14 @@ export default function EditableText({
             textAlign: 'inherit',
             padding: 0,
             margin: 0,
+            lineHeight: 'inherit',
           }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') handleSave();
+            // Enter saves, Shift+Enter adds newline
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSave();
+            }
             if (e.key === 'Escape') handleCancel();
           }}
         />
@@ -153,7 +187,7 @@ export default function EditableText({
       onMouseLeave={() => setIsHovered(false)}
     >
       <span className={`relative inline-block ${isHovered ? 'bg-blue-100/50 outline outline-2 outline-blue-400 outline-offset-2 rounded-sm' : 'bg-blue-100/20 md:bg-transparent outline outline-1 outline-blue-300 md:outline-none outline-offset-2 rounded-sm'}`}>
-        {displayText}
+        {renderFormattedText(displayText)}
 
         {/* Desktop: Show pencil on hover only. Mobile: Don't show pencil at all */}
         <span 

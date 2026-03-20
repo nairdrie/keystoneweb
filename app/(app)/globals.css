@@ -177,3 +177,11 @@ body {
 .prose strong { font-weight: 700; }
 .prose em { font-style: italic; }
 .prose s  { text-decoration: line-through; }
+
+/* ── Keystone Highlight ──────────────────────────────────────────────────── */
+/* Use {{text}} in any EditableText to wrap it in this class */
+.ksw-highlight {
+  color: var(--brand-primary);
+  /* Default placeholder style - users can override this in Custom CSS modal */
+  transition: all 0.2s ease;
+}
