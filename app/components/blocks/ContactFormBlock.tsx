@@ -104,7 +104,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
 
     if (isEditMode) {
         return (
-            <section className="relative group py-16 px-4" style={{ backgroundColor: '#ffffff' }}>
+            <section className="relative group py-16 px-4 text-slate-900" style={{ backgroundColor: '#ffffff' }}>
                 <div className="max-w-3xl mx-auto space-y-8">
                     <div className="absolute top-4 right-4 bg-white/90 backdrop-blur p-2 rounded-lg shadow border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-2">
                         <Settings className="w-4 h-4 text-slate-500" />
@@ -116,21 +116,21 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                             type="text"
                             value={title}
                             onChange={(e) => updateContent('title', e.target.value)}
-                            className="w-full text-center text-3xl font-bold bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none transition-colors"
+                            className="w-full text-center text-3xl font-bold bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none transition-colors text-slate-900"
                             style={{ color: pPrimary }}
                             placeholder="Contact Form Title"
                         />
                         <textarea
                             value={description}
                             onChange={(e) => updateContent('description', e.target.value)}
-                            className="w-full text-center text-lg bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none transition-colors resize-none"
+                            className="w-full text-center text-lg bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none transition-colors resize-none text-slate-600"
                             style={{ color: '#4b5563' }}
                             placeholder="Description text"
                             rows={2}
                         />
                     </div>
 
-                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 md:p-8 space-y-6 opacity-60 pointer-events-none">
+                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 md:p-8 space-y-6 pointer-events-none">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-700">Full Name</label>
@@ -191,7 +191,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                                 type="text"
                                 value={submitText}
                                 onChange={(e) => updateContent('submitText', e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg text-slate-900 bg-white"
                                 placeholder="Send Message"
                             />
                         </div>
@@ -201,7 +201,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                                 type="text"
                                 value={successMessage}
                                 onChange={(e) => updateContent('successMessage', e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg text-slate-900 bg-white"
                                 placeholder="Thank you for your message!"
                             />
                         </div>
@@ -215,7 +215,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                                 type="email"
                                 value={notificationEmail}
                                 onChange={(e) => handleSaveNotificationEmail(e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg text-slate-900 bg-white"
                                 placeholder="you@business.ca"
                             />
                             <p className="text-[10px] text-slate-500 mt-1">This email will receive all submissions from this form. If left blank, it will go to your account email.</p>
