@@ -1044,12 +1044,16 @@ export default function FloatingToolbar({
 
             {/* Show changes summary */}
             {changes.length > 0 && (
-              <div className="bg-slate-50 rounded-lg p-4 mb-6 max-h-32 overflow-y-auto">
+              <div className="bg-slate-50 rounded-lg p-4 mb-6 max-h-40 overflow-y-auto">
                 <p className="text-xs font-semibold text-slate-700 mb-2">Unsaved changes:</p>
-                <div className="space-y-1">
+                <div className="space-y-2">
                   {changes.map((change) => (
-                    <div key={change.id} className="text-xs text-slate-600">
-                      <span className="font-medium">{change.label}:</span> {change.from} → {change.to}
+                    <div key={change.id} className="text-xs text-slate-600 pb-2 border-b border-slate-100 last:border-b-0">
+                      <div className="font-semibold text-slate-800 mb-0.5">{change.label}</div>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="line-through text-red-400 break-all">{change.from || '(empty)'}</span>
+                        <span className="text-green-600 break-all">{change.to || '(empty)'}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
