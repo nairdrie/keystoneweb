@@ -127,12 +127,16 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
                                 className="flex flex-col"
                                 itemClassName="text-sm font-medium text-gray-500 hover:text-gray-800 py-2 px-3 rounded-xl hover:bg-gray-50 transition-colors"
                             />
-                            <button
-                                className="w-full mt-2 px-5 py-2.5 rounded-full text-white text-sm font-semibold"
+                            <EditableButton
+                                contentKey="navButtonText"
+                                label={siteContent.navButtonText}
+                                linkData={siteContent.navButtonTextLink}
+                                defaultLabel="Contact Us"
+                                isEditMode={isEditMode}
+                                onSave={updateSiteContent}
+                                className="w-full mt-2 px-5 py-2.5 rounded-full text-white text-sm font-semibold flex items-center justify-center"
                                 style={{ backgroundColor: pPrimary }}
-                            >
-                                {siteContent.navButtonText || 'Contact Us'}
-                            </button>
+                            />
                         </div>
                     )}
                 </div>

@@ -119,12 +119,16 @@ export function EdgeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                                 className="flex flex-col gap-1"
                                 itemClassName="text-sm font-medium text-gray-400 hover:text-white py-2 px-3 transition-colors"
                             />
-                            <button
-                                className="w-full mt-3 px-5 py-2.5 font-bold text-sm"
+                            <EditableButton
+                                contentKey="navButtonText"
+                                label={siteContent.navButtonText}
+                                linkData={siteContent.navButtonTextLink}
+                                defaultLabel="Launch"
+                                isEditMode={isEditMode}
+                                onSave={updateSiteContent}
+                                className="w-full mt-3 px-5 py-2.5 font-bold text-sm cursor-pointer inline-flex items-center justify-center"
                                 style={{ backgroundColor: pSecondary, color: '#0a0f1a' }}
-                            >
-                                {siteContent.navButtonText || 'Launch'}
-                            </button>
+                            />
                         </div>
                     )}
                 </div>

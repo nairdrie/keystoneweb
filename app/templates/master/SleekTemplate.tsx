@@ -118,12 +118,16 @@ export function SleekTemplate({ palette, isEditMode, children }: MasterTemplateP
                                 className="flex flex-col"
                                 itemClassName="text-sm text-gray-400 hover:text-gray-900 py-2 px-2 transition-colors"
                             />
-                            <button
-                                className="w-full mt-2 px-5 py-2 rounded-sm text-white text-sm font-medium"
+                            <EditableButton
+                                contentKey="navButtonText"
+                                label={siteContent.navButtonText}
+                                linkData={siteContent.navButtonTextLink}
+                                defaultLabel="Contact"
+                                isEditMode={isEditMode}
+                                onSave={updateSiteContent}
+                                className="w-full mt-2 px-5 py-2 rounded-sm text-white text-sm font-medium flex items-center justify-center"
                                 style={{ backgroundColor: pPrimary }}
-                            >
-                                {siteContent.navButtonText || 'Contact'}
-                            </button>
+                            />
                         </div>
                     )}
                 </div>

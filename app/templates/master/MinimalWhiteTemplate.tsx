@@ -127,12 +127,16 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
                                 className="flex flex-col"
                                 itemClassName="text-sm text-slate-500 hover:text-slate-900 py-2.5 px-3 rounded-lg hover:bg-slate-50 transition-colors font-medium"
                             />
-                            <button
-                                className="w-full mt-3 px-5 py-2.5 rounded-lg text-white text-sm font-semibold"
+                            <EditableButton
+                                contentKey="navButtonText"
+                                label={siteContent.navButtonText}
+                                linkData={siteContent.navButtonTextLink}
+                                defaultLabel="Contact"
+                                isEditMode={isEditMode}
+                                onSave={updateSiteContent}
+                                className="w-full mt-3 px-5 py-2.5 rounded-lg text-white text-sm font-semibold cursor-pointer inline-flex items-center justify-center"
                                 style={{ backgroundColor: pPrimary }}
-                            >
-                                {siteContent.navButtonText || 'Contact'}
-                            </button>
+                            />
                         </div>
                     )}
                 </div>

@@ -121,12 +121,16 @@ export function LuxeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                                     className="flex flex-col items-center gap-3"
                                     itemClassName="text-xs font-medium tracking-[0.15em] uppercase text-gray-500 hover:text-gray-900 py-2 transition-colors"
                                 />
-                                <button
-                                    className="w-full mt-3 px-5 py-2.5 border-2 text-xs font-semibold tracking-[0.15em] uppercase"
-                                    style={{ borderColor: pSecondary, color: pSecondary }}
-                                >
-                                    {siteContent.navButtonText || 'Reserve'}
-                                </button>
+                                <EditableButton
+                                    contentKey="navButtonText"
+                                    label={siteContent.navButtonText}
+                                    linkData={siteContent.navButtonTextLink}
+                                    defaultLabel="Reserve"
+                                    isEditMode={isEditMode}
+                                    onSave={updateSiteContent}
+                                    className="w-full mt-3 px-5 py-2.5 border-2 text-xs font-semibold tracking-[0.15em] uppercase flex items-center justify-center"
+                                    style={{ borderColor: pSecondary, color: pSecondary, backgroundColor: 'transparent' }}
+                                />
                             </div>
                         )}
                     </div>

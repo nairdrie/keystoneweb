@@ -117,12 +117,16 @@ export function VividTemplate({ palette, isEditMode, children }: MasterTemplateP
                                 className="flex flex-col gap-2"
                                 itemClassName="text-sm font-medium text-white/80 hover:text-white py-2 px-2 rounded-lg hover:bg-white/10 transition-colors"
                             />
-                            <button
-                                className="w-full mt-3 px-5 py-2.5 rounded-full font-bold text-sm"
+                            <EditableButton
+                                contentKey="navButtonText"
+                                label={siteContent.navButtonText}
+                                linkData={siteContent.navButtonTextLink}
+                                defaultLabel="Get Started"
+                                isEditMode={isEditMode}
+                                onSave={updateSiteContent}
+                                className="w-full mt-3 px-5 py-2.5 rounded-full font-bold text-sm flex items-center justify-center"
                                 style={{ backgroundColor: pSecondary, color: pPrimary }}
-                            >
-                                {siteContent.navButtonText || 'Get Started'}
-                            </button>
+                            />
                         </div>
                     )}
                 </div>

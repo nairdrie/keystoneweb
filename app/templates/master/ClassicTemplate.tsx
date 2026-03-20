@@ -129,12 +129,16 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                                 className="flex flex-col gap-1"
                                 itemClassName="text-sm font-semibold text-gray-700 hover:text-gray-900 py-2 px-3 rounded hover:bg-gray-50 transition-colors"
                             />
-                            <button
-                                className="w-full mt-3 px-5 py-2.5 rounded text-white text-sm font-bold"
+                            <EditableButton
+                                contentKey="navButtonText"
+                                label={siteContent.navButtonText}
+                                linkData={siteContent.navButtonTextLink}
+                                defaultLabel="Get a Quote"
+                                isEditMode={isEditMode}
+                                onSave={updateSiteContent}
+                                className="w-full mt-3 px-5 py-2.5 rounded text-white text-sm font-bold flex items-center justify-center"
                                 style={{ backgroundColor: pSecondary }}
-                            >
-                                {siteContent.navButtonText || 'Get a Quote'}
-                            </button>
+                            />
                         </div>
                     )}
                 </div>

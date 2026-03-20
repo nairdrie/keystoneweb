@@ -124,12 +124,16 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
                                 className="flex flex-col gap-2"
                                 itemClassName="text-sm font-semibold text-white/80 hover:text-white py-2 px-2 rounded-md hover:bg-white/5 transition-colors"
                             />
-                            <button
-                                className="w-full mt-2 px-5 py-2.5 rounded-md font-bold text-sm text-white"
+                            <EditableButton
+                                contentKey="navButtonText"
+                                label={siteContent.navButtonText}
+                                linkData={siteContent.navButtonTextLink}
+                                defaultLabel="Get Quote"
+                                isEditMode={isEditMode}
+                                onSave={updateSiteContent}
+                                className="w-full mt-2 px-5 py-2.5 rounded-md font-bold text-sm text-white flex items-center justify-center"
                                 style={{ backgroundColor: pSecondary }}
-                            >
-                                {siteContent.navButtonText || 'Get Quote'}
-                            </button>
+                            />
                         </div>
                     )}
                 </div>

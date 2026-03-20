@@ -118,12 +118,16 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
                                 className="flex flex-col gap-1"
                                 itemClassName="text-sm font-medium text-gray-600 hover:text-amber-800 py-2 px-3 rounded-lg hover:bg-amber-50 transition-colors"
                             />
-                            <button
-                                className="w-full mt-3 px-5 py-2.5 rounded-full text-white text-sm font-semibold"
+                            <EditableButton
+                                contentKey="navButtonText"
+                                label={siteContent.navButtonText}
+                                linkData={siteContent.navButtonTextLink}
+                                defaultLabel="Shop Now"
+                                isEditMode={isEditMode}
+                                onSave={updateSiteContent}
+                                className="w-full mt-3 px-5 py-2.5 rounded-full text-white text-sm font-semibold flex items-center justify-center"
                                 style={{ backgroundColor: pSecondary }}
-                            >
-                                {siteContent.navButtonText || 'Shop Now'}
-                            </button>
+                            />
                         </div>
                     )}
                 </div>
