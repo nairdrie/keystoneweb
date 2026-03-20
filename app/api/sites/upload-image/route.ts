@@ -81,13 +81,24 @@ export async function POST(request: NextRequest) {
 
       // Resize and sanitize with sharp
       try {
-        buffer = await sharp(imgBuffer)
-          .resize({ width: 2000, withoutEnlargement: true })
-          .jpeg({ quality: 85, mozjpeg: true })
-          .toBuffer();
-        
-        contentType = 'image/jpeg';
-        originalName = 'imported-image.jpg';
+        const image = sharp(imgBuffer);
+        const metadata = await image.metadata();
+        const isTransparent = metadata.format === 'png' || metadata.format === 'webp' || metadata.format === 'gif';
+
+        if (isTransparent) {
+          buffer = await image
+            .resize({ width: 2000, withoutEnlargement: true })
+            .toBuffer();
+          contentType = `image/${metadata.format}`;
+          originalName = `imported-image.${metadata.format}`;
+        } else {
+          buffer = await image
+            .resize({ width: 2000, withoutEnlargement: true })
+            .jpeg({ quality: 85, mozjpeg: true })
+            .toBuffer();
+          contentType = 'image/jpeg';
+          originalName = 'imported-image.jpg';
+        }
       } catch (err) {
         return NextResponse.json(
           { error: 'Failed to process image from URL' },
@@ -117,15 +128,27 @@ export async function POST(request: NextRequest) {
       // Always process with sharp for security (re-encoding kills many attacks)
       // and optimization (resizing/quality)
       try {
-        buffer = await sharp(inputBuffer)
-          .resize({ width: 2000, withoutEnlargement: true })
-          .jpeg({ quality: 85, mozjpeg: true })
-          .toBuffer();
+        const image = sharp(inputBuffer);
+        const metadata = await image.metadata();
+        const isTransparent = metadata.format === 'png' || metadata.format === 'webp' || metadata.format === 'gif';
 
-        contentType = 'image/jpeg';
-        // Sanitize filename and force .jpg extension
-        const baseName = (file.name || 'upload').replace(/\.[^/.]+$/, "").toLowerCase().replace(/[^a-z0-9]/g, '-');
-        originalName = `${baseName || 'image'}.jpg`;
+        if (isTransparent) {
+          buffer = await image
+            .resize({ width: 2000, withoutEnlargement: true })
+            .toBuffer();
+          contentType = file.type;
+          const ext = metadata.format === 'png' ? 'png' : metadata.format === 'webp' ? 'webp' : 'gif';
+          const baseName = (file.name || 'upload').replace(/\.[^/.]+$/, "").toLowerCase().replace(/[^a-z0-9]/g, '-');
+          originalName = `${baseName || 'image'}.${ext}`;
+        } else {
+          buffer = await image
+            .resize({ width: 2000, withoutEnlargement: true })
+            .jpeg({ quality: 85, mozjpeg: true })
+            .toBuffer();
+          contentType = 'image/jpeg';
+          const baseName = (file.name || 'upload').replace(/\.[^/.]+$/, "").toLowerCase().replace(/[^a-z0-9]/g, '-');
+          originalName = `${baseName || 'image'}.jpg`;
+        }
       } catch (err) {
         return NextResponse.json(
           { error: 'Invalid or corrupted image file' },
