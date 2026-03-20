@@ -2,6 +2,7 @@ import React from 'react';
 import EditableText from '../EditableText';
 import EditableImage from '../EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
+import Reveal from '@/app/components/Reveal';
 
 interface AboutImageTextBlockProps {
     id: string;
@@ -51,59 +52,67 @@ export default function AboutImageTextBlock({ id, data, isEditMode, palette, upd
 
 function ImageContent({ data, isEditMode, updateContent, uploadImage }: any) {
     return (
-        <EditableImage
-            contentKey="image"
-            imageUrl={data.image}
-            isEditMode={isEditMode}
-            onSave={(key, value) => updateContent(key, value)}
-            onUpload={uploadImage}
-            className="w-full h-96 rounded-lg shadow-xl object-cover bg-gray-300"
-            placeholder="Click to upload about image"
-        />
+        <Reveal>
+            <EditableImage
+                contentKey="image"
+                imageUrl={data.image}
+                isEditMode={isEditMode}
+                onSave={(key, value) => updateContent(key, value)}
+                onUpload={uploadImage}
+                className="w-full h-96 rounded-lg shadow-xl object-cover bg-gray-300"
+                placeholder="Click to upload about image"
+            />
+        </Reveal>
     );
 }
 
 function TextContent({ data, items, isEditMode, updateContent, handleUpdateItem, pPrimary, pSecondary }: any) {
     return (
         <div>
-            <EditableText
-                as="h2"
-                contentKey="title"
-                content={data.title}
-                defaultValue="Why Choose Us?"
-                isEditMode={isEditMode}
-                onSave={(key, value) => updateContent(key, value)}
-                className="text-4xl font-bold mb-6"
-                style={{ color: pPrimary }}
-            />
-            {data.description && (
+            <Reveal>
                 <EditableText
-                    as="p"
-                    contentKey="description"
-                    content={data.description}
-                    defaultValue=""
+                    as="h2"
+                    contentKey="title"
+                    content={data.title}
+                    defaultValue="Why Choose Us?"
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
-                    className="text-lg mb-8 leading-relaxed"
-                    style={{ color: pPrimary, opacity: 0.7 }}
+                    className="text-4xl font-bold mb-6"
+                    style={{ color: pPrimary }}
                 />
+            </Reveal>
+            {data.description && (
+                <Reveal>
+                    <EditableText
+                        as="p"
+                        contentKey="description"
+                        content={data.description}
+                        defaultValue=""
+                        isEditMode={isEditMode}
+                        onSave={(key, value) => updateContent(key, value)}
+                        className="text-lg mb-8 leading-relaxed"
+                        style={{ color: pPrimary, opacity: 0.7 }}
+                    />
+                </Reveal>
             )}
             <ul className="space-y-4 text-lg">
                 {items.map((item: string, index: number) => (
-                    <li key={index} className="flex items-center gap-3">
-                        <span className="font-bold flex-shrink-0" style={{ color: pSecondary }}>✓</span>
-                        <div className="flex-1 w-full">
-                            <EditableText
-                                as="span"
-                                contentKey={`about_item_${index}`}
-                                content={item}
-                                defaultValue={item}
-                                isEditMode={isEditMode}
-                                onSave={(_key, value) => handleUpdateItem(index, value)}
-                                style={{ color: pPrimary }}
-                            />
-                        </div>
-                    </li>
+                    <Reveal key={index}>
+                        <li className="flex items-center gap-3">
+                            <span className="font-bold flex-shrink-0" style={{ color: pSecondary }}>✓</span>
+                            <div className="flex-1 w-full">
+                                <EditableText
+                                    as="span"
+                                    contentKey={`about_item_${index}`}
+                                    content={item}
+                                    defaultValue={item}
+                                    isEditMode={isEditMode}
+                                    onSave={(_key, value) => handleUpdateItem(index, value)}
+                                    style={{ color: pPrimary }}
+                                />
+                            </div>
+                        </li>
+                    </Reveal>
                 ))}
             </ul>
         </div>

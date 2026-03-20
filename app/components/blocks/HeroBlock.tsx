@@ -4,6 +4,7 @@ import { BlockData, useEditorContext } from '@/lib/editor-context';
 import EditableText from '@/app/components/EditableText';
 import EditableImage from '@/app/components/EditableImage';
 import EditableButton from '@/app/components/EditableButton';
+import Reveal from '@/app/components/Reveal';
 
 export default function HeroBlock({ block, palette }: { block: BlockData, palette: Record<string, string> }) {
     const context = useEditorContext();
@@ -29,39 +30,45 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
         return (
             <section className="py-40 relative" style={{ backgroundColor: pAccent }}>
                 <div className="max-w-5xl mx-auto px-4">
-                    <EditableText
-                        as="h1"
-                        contentKey="title"
-                        styleData={block.data['title__styles']}
-                        content={title}
-                        defaultValue="Welcome to our site"
-                        isEditMode={isEditMode}
-                        onSave={(key, val) => updateData(key, val)}
-                        className="text-6xl md:text-8xl font-black mb-8 leading-[0.95] tracking-tight"
-                        style={{ color: pPrimary }}
-                    />
-                    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
+                    <Reveal>
                         <EditableText
-                            as="p"
-                            contentKey="subtitle"
-                            styleData={block.data['subtitle__styles']}
-                            content={subtitle}
-                            defaultValue="We offer the best services available."
+                            as="h1"
+                            contentKey="title"
+                            styleData={block.data['title__styles']}
+                            content={title}
+                            defaultValue="Welcome to our site"
                             isEditMode={isEditMode}
                             onSave={(key, val) => updateData(key, val)}
-                            className="text-xl md:text-2xl text-gray-500 max-w-xl"
+                            className="text-6xl md:text-8xl font-black mb-8 leading-[0.95] tracking-tight"
+                            style={{ color: pPrimary }}
                         />
-                        <EditableButton
-                            contentKey="buttonText"
-                            label={buttonText}
-                            linkData={block.data.buttonTextLink}
-                            iconData={block.data.buttonTextIcon}
-                            defaultLabel="Get Started"
-                            isEditMode={isEditMode}
-                            onSave={(key, val) => updateData(key, val)}
-                            className="px-10 py-4 text-lg font-bold rounded-full shadow-lg hover:scale-105 transition-transform text-white inline-block flex-shrink-0"
-                            style={{ backgroundColor: pSecondary }}
-                        />
+                    </Reveal>
+                    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
+                        <Reveal className="max-w-xl">
+                            <EditableText
+                                as="p"
+                                contentKey="subtitle"
+                                styleData={block.data['subtitle__styles']}
+                                content={subtitle}
+                                defaultValue="We offer the best services available."
+                                isEditMode={isEditMode}
+                                onSave={(key, val) => updateData(key, val)}
+                                className="text-xl md:text-2xl text-gray-500"
+                            />
+                        </Reveal>
+                        <Reveal>
+                            <EditableButton
+                                contentKey="buttonText"
+                                label={buttonText}
+                                linkData={block.data.buttonTextLink}
+                                iconData={block.data.buttonTextIcon}
+                                defaultLabel="Get Started"
+                                isEditMode={isEditMode}
+                                onSave={(key, val) => updateData(key, val)}
+                                className="px-10 py-4 text-lg font-bold rounded-full shadow-lg hover:scale-105 transition-transform text-white inline-block flex-shrink-0"
+                                style={{ backgroundColor: pSecondary }}
+                            />
+                        </Reveal>
                     </div>
                 </div>
             </section>
@@ -102,37 +109,43 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                     </div>
                 )}
                 <div className="max-w-5xl mx-auto px-4 py-24 relative z-10 text-center">
-                    <EditableText
-                        as="h1"
-                        contentKey="title"
-                        styleData={block.data['title__styles']}
-                        content={title}
-                        defaultValue="Welcome to our site"
-                        isEditMode={isEditMode}
-                        onSave={(key, val) => updateData(key, val)}
-                        className="text-5xl md:text-7xl font-black mb-6 leading-tight text-white drop-shadow-lg"
-                    />
-                    <EditableText
-                        as="p"
-                        contentKey="subtitle"
-                        styleData={block.data['subtitle__styles']}
-                        content={subtitle}
-                        defaultValue="We offer the best services available."
-                        isEditMode={isEditMode}
-                        onSave={(key, val) => updateData(key, val)}
-                        className="text-xl md:text-2xl text-white/85 mb-10 max-w-2xl mx-auto"
-                    />
-                    <EditableButton
-                        contentKey="buttonText"
-                        label={buttonText}
-                        linkData={block.data.buttonTextLink}
-                        iconData={block.data.buttonTextIcon}
-                        defaultLabel="Get a Free Quote"
-                        isEditMode={isEditMode}
-                        onSave={(key, val) => updateData(key, val)}
-                        className="px-10 py-4 text-lg font-bold rounded-full shadow-xl hover:scale-105 transition-transform text-white inline-block"
-                        style={{ backgroundColor: pSecondary }}
-                    />
+                    <Reveal>
+                        <EditableText
+                            as="h1"
+                            contentKey="title"
+                            styleData={block.data['title__styles']}
+                            content={title}
+                            defaultValue="Welcome to our site"
+                            isEditMode={isEditMode}
+                            onSave={(key, val) => updateData(key, val)}
+                            className="text-5xl md:text-7xl font-black mb-6 leading-tight text-white drop-shadow-lg"
+                        />
+                    </Reveal>
+                    <Reveal className="max-w-2xl mx-auto">
+                        <EditableText
+                            as="p"
+                            contentKey="subtitle"
+                            styleData={block.data['subtitle__styles']}
+                            content={subtitle}
+                            defaultValue="We offer the best services available."
+                            isEditMode={isEditMode}
+                            onSave={(key, val) => updateData(key, val)}
+                            className="text-xl md:text-2xl text-white/85 mb-10"
+                        />
+                    </Reveal>
+                    <Reveal>
+                        <EditableButton
+                            contentKey="buttonText"
+                            label={buttonText}
+                            linkData={block.data.buttonTextLink}
+                            iconData={block.data.buttonTextIcon}
+                            defaultLabel="Get a Free Quote"
+                            isEditMode={isEditMode}
+                            onSave={(key, val) => updateData(key, val)}
+                            className="px-10 py-4 text-lg font-bold rounded-full shadow-xl hover:scale-105 transition-transform text-white inline-block"
+                            style={{ backgroundColor: pSecondary }}
+                        />
+                    </Reveal>
                 </div>
             </section>
         );
@@ -149,37 +162,43 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
             >
                 <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, white 0%, transparent 60%)' }} />
                 <div className="max-w-4xl mx-auto px-4 relative z-10">
-                    <EditableText
-                        as="h1"
-                        contentKey="title"
-                                    styleData={block.data['title__styles']}
-                        content={title}
-                        defaultValue="Welcome to our site"
-                        isEditMode={isEditMode}
-                        onSave={(key, val) => updateData(key, val)}
-                        className="text-5xl md:text-6xl font-black mb-6 leading-tight text-white"
-                    />
-                    <EditableText
-                        as="p"
-                        contentKey="subtitle"
-                                    styleData={block.data['subtitle__styles']}
-                        content={subtitle}
-                        defaultValue="We offer the best services available."
-                        isEditMode={isEditMode}
-                        onSave={(key, val) => updateData(key, val)}
-                        className="text-xl md:text-2xl text-white/85 mb-10 max-w-2xl mx-auto"
-                    />
-                    <EditableButton
-                        contentKey="buttonText"
-                        label={buttonText}
-                        linkData={block.data.buttonTextLink}
-                        iconData={block.data.buttonTextIcon}
-                        defaultLabel="Get a Free Quote"
-                        isEditMode={isEditMode}
-                        onSave={(key, val) => updateData(key, val)}
-                        className="px-10 py-4 text-lg font-bold rounded-full shadow-xl hover:scale-105 transition-transform inline-block"
-                        style={{ backgroundColor: '#ffffff', color: pPrimary }}
-                    />
+                    <Reveal>
+                        <EditableText
+                            as="h1"
+                            contentKey="title"
+                            styleData={block.data['title__styles']}
+                            content={title}
+                            defaultValue="Welcome to our site"
+                            isEditMode={isEditMode}
+                            onSave={(key, val) => updateData(key, val)}
+                            className="text-5xl md:text-6xl font-black mb-6 leading-tight text-white"
+                        />
+                    </Reveal>
+                    <Reveal className="max-w-2xl mx-auto">
+                        <EditableText
+                            as="p"
+                            contentKey="subtitle"
+                            styleData={block.data['subtitle__styles']}
+                            content={subtitle}
+                            defaultValue="We offer the best services available."
+                            isEditMode={isEditMode}
+                            onSave={(key, val) => updateData(key, val)}
+                            className="text-xl md:text-2xl text-white/85 mb-10"
+                        />
+                    </Reveal>
+                    <Reveal>
+                        <EditableButton
+                            contentKey="buttonText"
+                            label={buttonText}
+                            linkData={block.data.buttonTextLink}
+                            iconData={block.data.buttonTextIcon}
+                            defaultLabel="Get a Free Quote"
+                            isEditMode={isEditMode}
+                            onSave={(key, val) => updateData(key, val)}
+                            className="px-10 py-4 text-lg font-bold rounded-full shadow-xl hover:scale-105 transition-transform inline-block"
+                            style={{ backgroundColor: '#ffffff', color: pPrimary }}
+                        />
+                    </Reveal>
                 </div>
             </section>
         );
@@ -209,37 +228,43 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                     </div>
                 )}
                 <div className="max-w-5xl mx-auto px-4 py-24 relative z-10 text-center">
-                    <EditableText
-                        as="h1"
-                        contentKey="title"
-                                    styleData={block.data['title__styles']}
-                        content={title}
-                        defaultValue="Welcome to our site"
-                        isEditMode={isEditMode}
-                        onSave={(key, val) => updateData(key, val)}
-                        className="text-5xl md:text-7xl font-black mb-6 leading-tight text-white"
-                    />
-                    <EditableText
-                        as="p"
-                        contentKey="subtitle"
-                                    styleData={block.data['subtitle__styles']}
-                        content={subtitle}
-                        defaultValue="We offer the best services available."
-                        isEditMode={isEditMode}
-                        onSave={(key, val) => updateData(key, val)}
-                        className="text-xl md:text-2xl text-white/80 mb-10 max-w-2xl mx-auto"
-                    />
-                    <EditableButton
-                        contentKey="buttonText"
-                        label={buttonText}
-                        linkData={block.data.buttonTextLink}
-                        iconData={block.data.buttonTextIcon}
-                        defaultLabel="Get a Free Quote"
-                        isEditMode={isEditMode}
-                        onSave={(key, val) => updateData(key, val)}
-                        className="px-10 py-4 text-lg font-bold rounded-full shadow-xl hover:scale-105 transition-transform text-white inline-block"
-                        style={{ backgroundColor: pSecondary }}
-                    />
+                    <Reveal>
+                        <EditableText
+                            as="h1"
+                            contentKey="title"
+                            styleData={block.data['title__styles']}
+                            content={title}
+                            defaultValue="Welcome to our site"
+                            isEditMode={isEditMode}
+                            onSave={(key, val) => updateData(key, val)}
+                            className="text-5xl md:text-7xl font-black mb-6 leading-tight text-white"
+                        />
+                    </Reveal>
+                    <Reveal className="max-w-2xl mx-auto">
+                        <EditableText
+                            as="p"
+                            contentKey="subtitle"
+                            styleData={block.data['subtitle__styles']}
+                            content={subtitle}
+                            defaultValue="We offer the best services available."
+                            isEditMode={isEditMode}
+                            onSave={(key, val) => updateData(key, val)}
+                            className="text-xl md:text-2xl text-white/80 mb-10"
+                        />
+                    </Reveal>
+                    <Reveal>
+                        <EditableButton
+                            contentKey="buttonText"
+                            label={buttonText}
+                            linkData={block.data.buttonTextLink}
+                            iconData={block.data.buttonTextIcon}
+                            defaultLabel="Get a Free Quote"
+                            isEditMode={isEditMode}
+                            onSave={(key, val) => updateData(key, val)}
+                            className="px-10 py-4 text-lg font-bold rounded-full shadow-xl hover:scale-105 transition-transform text-white inline-block"
+                            style={{ backgroundColor: pSecondary }}
+                        />
+                    </Reveal>
                 </div>
             </section>
         );
@@ -250,47 +275,55 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
         <section className="py-24" style={{ backgroundColor: pAccent }}>
             <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
                 <div>
-                    <EditableText
-                        as="h1"
-                        contentKey="title"
-                                    styleData={block.data['title__styles']}
-                        content={title}
-                        defaultValue="Welcome to our site"
-                        isEditMode={isEditMode}
-                        onSave={(key, val) => updateData(key, val)}
-                        className="text-5xl font-extrabold mb-6 leading-tight text-gray-900"
-                    />
-                    <EditableText
-                        as="p"
-                        contentKey="subtitle"
-                                    styleData={block.data['subtitle__styles']}
-                        content={subtitle}
-                        defaultValue="We offer the best services available."
-                        isEditMode={isEditMode}
-                        onSave={(key, val) => updateData(key, val)}
-                        className="text-xl text-gray-600 mb-8"
-                    />
-                    <EditableButton
-                        contentKey="buttonText"
-                        label={buttonText}
-                        linkData={block.data.buttonTextLink}
-                        iconData={block.data.buttonTextIcon}
-                        defaultLabel="Get a Free Quote"
-                        isEditMode={isEditMode}
-                        onSave={(key, val) => updateData(key, val)}
-                        className="px-8 py-4 text-white font-bold rounded-lg shadow-lg hover:opacity-90 transition-opacity inline-block"
-                        style={{ backgroundColor: pSecondary }}
-                    />
+                    <Reveal>
+                        <EditableText
+                            as="h1"
+                            contentKey="title"
+                            styleData={block.data['title__styles']}
+                            content={title}
+                            defaultValue="Welcome to our site"
+                            isEditMode={isEditMode}
+                            onSave={(key, val) => updateData(key, val)}
+                            className="text-5xl font-extrabold mb-6 leading-tight text-gray-900"
+                        />
+                    </Reveal>
+                    <Reveal>
+                        <EditableText
+                            as="p"
+                            contentKey="subtitle"
+                            styleData={block.data['subtitle__styles']}
+                            content={subtitle}
+                            defaultValue="We offer the best services available."
+                            isEditMode={isEditMode}
+                            onSave={(key, val) => updateData(key, val)}
+                            className="text-xl text-gray-600 mb-8"
+                        />
+                    </Reveal>
+                    <Reveal>
+                        <EditableButton
+                            contentKey="buttonText"
+                            label={buttonText}
+                            linkData={block.data.buttonTextLink}
+                            iconData={block.data.buttonTextIcon}
+                            defaultLabel="Get a Free Quote"
+                            isEditMode={isEditMode}
+                            onSave={(key, val) => updateData(key, val)}
+                            className="px-8 py-4 text-white font-bold rounded-lg shadow-lg hover:opacity-90 transition-opacity inline-block"
+                            style={{ backgroundColor: pSecondary }}
+                        />
+                    </Reveal>
                 </div>
-                <EditableImage
-                    contentKey="image"
-                    imageUrl={imageUrl}
-                    isEditMode={isEditMode}
-                    onSave={(key, val) => updateData(key, val)}
-                    onUpload={context?.uploadImage}
-                    className="w-full h-96 object-cover rounded-2xl shadow-xl"
-                    placeholder="Click to upload hero image"
-                />
+                <Reveal>
+                    <EditableImage
+                        contentKey="image"
+                        imageUrl={imageUrl}
+                        isEditMode={isEditMode}
+                        onSave={(key, val) => updateData(key, val)}
+                        onUpload={context?.uploadImage}
+                        className="w-full h-96 object-cover rounded-2xl shadow-xl"
+                        placeholder="Click to upload hero image"
+                    />
+                </Reveal>
             </div>
         </section>
     );

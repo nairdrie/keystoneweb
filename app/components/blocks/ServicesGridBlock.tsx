@@ -1,6 +1,7 @@
 import React from 'react';
 import EditableText from '../EditableText';
 import { Plus, X } from 'lucide-react';
+import Reveal from '@/app/components/Reveal';
 
 interface ServicesGridBlockProps {
     id: string;
@@ -43,29 +44,35 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
         <section className="py-24" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
             <div className="max-w-7xl mx-auto px-4">
                 <div className="text-center max-w-3xl mx-auto mb-16">
-                    <EditableText
-                        as="h2"
-                        contentKey="title"
-                        content={data.title}
-                        defaultValue="Our Core Services"
-                        isEditMode={isEditMode}
-                        onSave={(key, value) => updateContent(key, value)}
-                        className="text-4xl font-bold mb-4"
-                        style={{ color: pPrimary }}
-                    />
-                    {(data.subtitle || isEditMode) && (
+                    <Reveal>
                         <EditableText
-                            as="p"
-                            contentKey="subtitle"
-                            content={data.subtitle}
-                            defaultValue="Professional expertise tailored to your needs."
+                            as="h2"
+                            contentKey="title"
+                            content={data.title}
+                            defaultValue="Our Core Services"
                             isEditMode={isEditMode}
                             onSave={(key, value) => updateContent(key, value)}
-                            className="text-xl mb-6"
-                            style={{ color: pPrimary, opacity: 0.7 }}
+                            className="text-4xl font-bold mb-4"
+                            style={{ color: pPrimary }}
                         />
+                    </Reveal>
+                    {(data.subtitle || isEditMode) && (
+                        <Reveal>
+                            <EditableText
+                                as="p"
+                                contentKey="subtitle"
+                                content={data.subtitle}
+                                defaultValue="Professional expertise tailored to your needs."
+                                isEditMode={isEditMode}
+                                onSave={(key, value) => updateContent(key, value)}
+                                className="text-xl mb-6"
+                                style={{ color: pPrimary, opacity: 0.7 }}
+                            />
+                        </Reveal>
                     )}
-                    <div className="w-24 border-b-4 mx-auto" style={{ borderColor: pSecondary }}></div>
+                    <Reveal>
+                        <div className="w-24 border-b-4 mx-auto" style={{ borderColor: pSecondary }}></div>
+                    </Reveal>
                 </div>
 
                 {/* Dynamic Grid Layout */}
@@ -75,7 +82,7 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
                             'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
                     }`}>
                     {items.map((item: any, index: number) => (
-                        <div
+                        <Reveal
                             key={index}
                             className="bg-gray-50 p-8 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative group"
                         >
@@ -114,7 +121,7 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
                                 className="leading-relaxed"
                                 style={{ color: pPrimary, opacity: 0.7 }}
                             />
-                        </div>
+                        </Reveal>
                     ))}
                 </div>
 
@@ -133,7 +140,7 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
 
                 {/* Optional CTA Link */}
                 {(data.ctaText || data.ctaUrl || isEditMode) && (
-                    <div className="text-center mt-12">
+                    <Reveal className="text-center mt-12">
                         {isEditMode ? (
                             <div className="inline-flex flex-col items-center gap-2">
                                 <EditableText
@@ -163,7 +170,7 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
                                 {data.ctaText}
                             </a>
                         ) : null}
-                    </div>
+                    </Reveal>
                 )}
             </div>
         </section>

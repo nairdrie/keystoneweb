@@ -4,6 +4,8 @@ import { ReactNode, useState } from 'react';
 import { useEditorContext } from '@/lib/editor-context';
 import { ArrowUp, ArrowDown, Trash2, Settings } from 'lucide-react';
 import BlockSettingsModal from './BlockSettingsModal';
+import { motion } from 'framer-motion';
+import { staggerContainer } from '@/lib/motion';
 
 interface BlockWrapperProps {
     id: string;
@@ -33,17 +35,32 @@ export default function BlockWrapper({ id, type, children, customCss, onUpdateCu
             .join('\n')
         : '';
 
+    const animationProps = {
+        variants: staggerContainer,
+        initial: "hidden",
+        whileInView: "show",
+        viewport: { once: true, margin: "-50px" }
+    };
+
     if (!isEditMode) {
         return (
-            <div id={id} className={`w-full ks-block ks-block-${type}`}>
+            <motion.div 
+                id={id} 
+                {...animationProps}
+                className={`w-full ks-block ks-block-${type}`}
+            >
                 {scopedCss && <style dangerouslySetInnerHTML={{ __html: scopedCss }} />}
                 {children}
-            </div>
+            </motion.div>
         );
     }
 
     return (
-        <div id={id} className={`relative group w-full border-2 border-transparent hover:border-slate-300 transition-colors ks-block ks-block-${type}`}>
+        <motion.div 
+            id={id} 
+            {...animationProps}
+            className={`relative group w-full border-2 border-transparent hover:border-slate-300 transition-colors ks-block ks-block-${type}`}
+        >
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white shadow-md border border-slate-200 rounded-md flex overflow-hidden z-[100]">
                 <button
                     onClick={() => setSettingsOpen(true)}
@@ -86,6 +103,6 @@ export default function BlockWrapper({ id, type, children, customCss, onUpdateCu
                 onSaveCustomCss={(css) => onUpdateCustomCss?.(css)}
                 isProUser={isProUser}
             />
-        </div>
+        </motion.div>
     );
 }

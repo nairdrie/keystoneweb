@@ -1,5 +1,6 @@
 import React from 'react';
 import EditableText from '../EditableText';
+import Reveal from '@/app/components/Reveal';
 
 interface FeaturesListBlockProps {
     id: string;
@@ -30,33 +31,37 @@ export default function FeaturesListBlock({ id, data, isEditMode, palette, updat
     return (
         <section className="py-24" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
             <div className="max-w-4xl mx-auto px-4">
-                <EditableText
-                    as="h2"
-                    contentKey="title"
-                    content={data.title}
-                    defaultValue="Why Choose Us?"
-                    isEditMode={isEditMode}
-                    onSave={(key, value) => updateContent(key, value)}
-                    className="text-4xl font-bold mb-10 text-center"
-                    style={{ color: pPrimary }}
-                />
+                <Reveal>
+                    <EditableText
+                        as="h2"
+                        contentKey="title"
+                        content={data.title}
+                        defaultValue="Why Choose Us?"
+                        isEditMode={isEditMode}
+                        onSave={(key, value) => updateContent(key, value)}
+                        className="text-4xl font-bold mb-10 text-center"
+                        style={{ color: pPrimary }}
+                    />
+                </Reveal>
 
                 <ul className="space-y-6 text-lg max-w-2xl mx-auto">
                     {items.map((item: string, index: number) => (
-                        <li key={index} className="flex items-center gap-4 bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-100">
-                            <span className="font-bold shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm ring-1 ring-gray-100" style={{ color: pSecondary }}>✓</span>
-                            <div className="flex-1 w-full">
-                                <EditableText
-                                    as="span"
-                                    contentKey={`feature_${index}`}
-                                    content={item}
-                                    defaultValue={item}
-                                    isEditMode={isEditMode}
-                                    onSave={(_key, value) => handleUpdateItem(index, value)}
-                                    style={{ color: pPrimary }}
-                                />
-                            </div>
-                        </li>
+                        <Reveal key={index}>
+                            <li className="flex items-center gap-4 bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-100">
+                                <span className="font-bold shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm ring-1 ring-gray-100" style={{ color: pSecondary }}>✓</span>
+                                <div className="flex-1 w-full">
+                                    <EditableText
+                                        as="span"
+                                        contentKey={`feature_${index}`}
+                                        content={item}
+                                        defaultValue={item}
+                                        isEditMode={isEditMode}
+                                        onSave={(_key, value) => handleUpdateItem(index, value)}
+                                        style={{ color: pPrimary }}
+                                    />
+                                </div>
+                            </li>
+                        </Reveal>
                     ))}
                 </ul>
             </div>

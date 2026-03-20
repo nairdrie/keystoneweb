@@ -3,6 +3,7 @@
 import React from 'react';
 import EditableText from '../EditableText';
 import { Star } from 'lucide-react';
+import Reveal from '@/app/components/Reveal';
 
 interface TestimonialsBlockProps {
     id: string;
@@ -49,49 +50,63 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
         return (
             <section className="py-24" style={{ backgroundColor: data.backgroundColor || pAccent }}>
                 <div className="max-w-3xl mx-auto px-4 text-center">
-                    <EditableText
-                        as="h2"
-                        contentKey="title"
-                        content={data.title}
-                        defaultValue="What Our Clients Say"
-                        isEditMode={isEditMode}
-                        onSave={(key, value) => updateContent(key, value)}
-                        className="text-4xl font-bold mb-12"
-                        style={{ color: pPrimary }}
-                    />
-                    <div className="relative">
-                        <div className="text-6xl leading-none mb-4" style={{ color: pSecondary }}>"</div>
+                    <Reveal>
                         <EditableText
-                            as="p"
-                            contentKey="testimonial_0_quote"
-                            content={item.quote}
-                            defaultValue="Outstanding service from start to finish."
+                            as="h2"
+                            contentKey="title"
+                            content={data.title}
+                            defaultValue="What Our Clients Say"
                             isEditMode={isEditMode}
-                            onSave={(_key, value) => handleUpdateItem(0, 'quote', value)}
-                            className="text-xl md:text-2xl italic mb-8 leading-relaxed"
-                            style={{ color: pPrimary, opacity: 0.7 }}
-                        />
-                        {renderStars(item.rating || 5)}
-                        <EditableText
-                            as="p"
-                            contentKey="testimonial_0_name"
-                            content={item.name}
-                            defaultValue="Happy Customer"
-                            isEditMode={isEditMode}
-                            onSave={(_key, value) => handleUpdateItem(0, 'name', value)}
-                            className="font-bold text-lg"
+                            onSave={(key, value) => updateContent(key, value)}
+                            className="text-4xl font-bold mb-12"
                             style={{ color: pPrimary }}
                         />
-                        <EditableText
-                            as="p"
-                            contentKey="testimonial_0_role"
-                            content={item.role}
-                            defaultValue="Homeowner"
-                            isEditMode={isEditMode}
-                            onSave={(_key, value) => handleUpdateItem(0, 'role', value)}
-                            className="text-sm"
-                            style={{ color: pPrimary, opacity: 0.6 }}
-                        />
+                    </Reveal>
+                    <div className="relative">
+                        <Reveal>
+                            <div className="text-6xl leading-none mb-4" style={{ color: pSecondary }}>"</div>
+                        </Reveal>
+                        <Reveal>
+                            <EditableText
+                                as="p"
+                                contentKey="testimonial_0_quote"
+                                content={item.quote}
+                                defaultValue="Outstanding service from start to finish."
+                                isEditMode={isEditMode}
+                                onSave={(_key, value) => handleUpdateItem(0, 'quote', value)}
+                                className="text-xl md:text-2xl italic mb-8 leading-relaxed"
+                                style={{ color: pPrimary, opacity: 0.7 }}
+                            />
+                        </Reveal>
+                        <Reveal>
+                            <div className="flex justify-center mb-4">
+                                {renderStars(item.rating || 5)}
+                            </div>
+                        </Reveal>
+                        <Reveal>
+                            <EditableText
+                                as="p"
+                                contentKey="testimonial_0_name"
+                                content={item.name}
+                                defaultValue="Happy Customer"
+                                isEditMode={isEditMode}
+                                onSave={(_key, value) => handleUpdateItem(0, 'name', value)}
+                                className="font-bold text-lg"
+                                style={{ color: pPrimary }}
+                            />
+                        </Reveal>
+                        <Reveal>
+                            <EditableText
+                                as="p"
+                                contentKey="testimonial_0_role"
+                                content={item.role}
+                                defaultValue="Homeowner"
+                                isEditMode={isEditMode}
+                                onSave={(_key, value) => handleUpdateItem(0, 'role', value)}
+                                className="text-sm"
+                                style={{ color: pPrimary, opacity: 0.6 }}
+                            />
+                        </Reveal>
                     </div>
                 </div>
             </section>
@@ -101,30 +116,34 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
     return (
         <section className="py-24" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
             <div className="max-w-7xl mx-auto px-4">
-                <EditableText
-                    as="h2"
-                    contentKey="title"
-                    content={data.title}
-                    defaultValue="What Our Clients Say"
-                    isEditMode={isEditMode}
-                    onSave={(key, value) => updateContent(key, value)}
-                    className="text-4xl font-bold text-center mb-4"
-                    style={{ color: pPrimary }}
-                />
-                <EditableText
-                    as="p"
-                    contentKey="subtitle"
-                    content={data.subtitle}
-                    defaultValue="Don't just take our word for it — hear from our satisfied customers."
-                    isEditMode={isEditMode}
-                    onSave={(key, value) => updateContent(key, value)}
-                    className="text-lg text-center mb-16 max-w-2xl mx-auto"
-                    style={{ color: pPrimary, opacity: 0.6 }}
-                />
+                <Reveal>
+                    <EditableText
+                        as="h2"
+                        contentKey="title"
+                        content={data.title}
+                        defaultValue="What Our Clients Say"
+                        isEditMode={isEditMode}
+                        onSave={(key, value) => updateContent(key, value)}
+                        className="text-4xl font-bold text-center mb-4"
+                        style={{ color: pPrimary }}
+                    />
+                </Reveal>
+                <Reveal className="max-w-2xl mx-auto mb-16">
+                    <EditableText
+                        as="p"
+                        contentKey="subtitle"
+                        content={data.subtitle}
+                        defaultValue="Don't just take our word for it — hear from our satisfied customers."
+                        isEditMode={isEditMode}
+                        onSave={(key, value) => updateContent(key, value)}
+                        className="text-lg text-center"
+                        style={{ color: pPrimary, opacity: 0.6 }}
+                    />
+                </Reveal>
 
                 <div className={`grid gap-8 ${items.length <= 2 ? 'md:grid-cols-2 max-w-4xl mx-auto' : 'md:grid-cols-3'}`}>
                     {items.map((item: any, index: number) => (
-                        <div
+                        <Reveal
                             key={index}
                             className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 hover:shadow-lg transition-shadow relative"
                         >
@@ -162,7 +181,7 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                                     style={{ color: pPrimary, opacity: 0.6 }}
                                 />
                             </div>
-                        </div>
+                        </Reveal>
                     ))}
                 </div>
             </div>

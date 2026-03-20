@@ -1,6 +1,7 @@
 import React from 'react';
 import EditableText from '../EditableText';
 import EditableButton from '../EditableButton';
+import Reveal from '@/app/components/Reveal';
 
 interface CtaBlockProps {
     id: string;
@@ -30,35 +31,41 @@ export default function CtaBlock({ id, data, isEditMode, palette, updateContent 
                 <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at top right, white, transparent 70%)' }}></div>
             )}
             <div className="max-w-4xl mx-auto px-4 relative z-10">
-                <EditableText
-                    as="h2"
-                    contentKey="title"
-                    content={data.title}
-                    defaultValue="Ready to start your project?"
-                    isEditMode={isEditMode}
-                    onSave={(key, value) => updateContent(key, value)}
-                    className="text-4xl md:text-5xl font-bold mb-6"
-                />
-                <EditableText
-                    as="p"
-                    contentKey="subtitle"
-                    content={data.subtitle}
-                    defaultValue="Contact our professional team today for a free, no-obligation estimate."
-                    isEditMode={isEditMode}
-                    onSave={(key, value) => updateContent(key, value)}
-                    className="text-xl md:text-2xl mb-10 opacity-90 max-w-2xl mx-auto"
-                />
-                <EditableButton
-                    contentKey="buttonText"
-                    label={data.buttonText}
-                    linkData={data.buttonTextLink}
-                    iconData={data.buttonTextIcon}
-                    defaultLabel="Call Us Now"
-                    isEditMode={isEditMode}
-                    onSave={(key, value) => updateContent(key, value)}
-                    className="px-10 py-5 font-bold rounded-full shadow-lg hover:scale-105 transition-transform text-lg inline-block"
-                    style={{ backgroundColor: buttonBgColor, color: buttonTextColor }}
-                />
+                <Reveal>
+                    <EditableText
+                        as="h2"
+                        contentKey="title"
+                        content={data.title}
+                        defaultValue="Ready to start your project?"
+                        isEditMode={isEditMode}
+                        onSave={(key, value) => updateContent(key, value)}
+                        className="text-4xl md:text-5xl font-bold mb-6"
+                    />
+                </Reveal>
+                <Reveal className="max-w-2xl mx-auto">
+                    <EditableText
+                        as="p"
+                        contentKey="subtitle"
+                        content={data.subtitle}
+                        defaultValue="Contact our professional team today for a free, no-obligation estimate."
+                        isEditMode={isEditMode}
+                        onSave={(key, value) => updateContent(key, value)}
+                        className="text-xl md:text-2xl mb-10 opacity-90"
+                    />
+                </Reveal>
+                <Reveal>
+                    <EditableButton
+                        contentKey="buttonText"
+                        label={data.buttonText}
+                        linkData={data.buttonTextLink}
+                        iconData={data.buttonTextIcon}
+                        defaultLabel="Call Us Now"
+                        isEditMode={isEditMode}
+                        onSave={(key, value) => updateContent(key, value)}
+                        className="px-10 py-5 font-bold rounded-full shadow-lg hover:scale-105 transition-transform text-lg inline-block"
+                        style={{ backgroundColor: buttonBgColor, color: buttonTextColor }}
+                    />
+                </Reveal>
             </div>
         </section>
     );
