@@ -995,6 +995,15 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
           onDismissAiUpgradeModal={aiBuilder.dismissUpgradeModal}
           aiRemaining={aiBuilder.remaining}
           focusAiBuilder={focusAiBuilder}
+          onHistoryRevert={() => {
+            // Re-fetch site and pages to reflect the reverted state
+            if (siteId) {
+              hasFetchedSiteRef.current = null; // Allow re-fetch
+              fetchSite(siteId);
+              fetchPages();
+              clearChanges();
+            }
+          }}
         />
 
         {/* Editor Banner - Redesigned */}
