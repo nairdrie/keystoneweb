@@ -261,7 +261,7 @@ function PricingContent() {
               'Increased AI Builder Limits',
               'Free Custom Domain Included',
               '24/7 Priority Email Support',
-              'Advanced SEO Tools',
+              'Advanced Analytics',
               'Custom CSS Injection',
             ].map((feature) => (
               <li key={feature} className="flex items-center gap-3 text-slate-200 font-medium">
@@ -297,7 +297,7 @@ export default function PricingPage() {
   return (
     <main className="min-h-screen bg-white relative overflow-hidden">
       <Header />
-      
+
 
       <div className="absolute top-40 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-red-200 rounded-full blur-[100px] opacity-50 -z-10" />
 
