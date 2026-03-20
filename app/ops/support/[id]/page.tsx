@@ -5,14 +5,6 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import DOMPurify from 'isomorphic-dompurify';
 
-type ResendLog = {
-  attempted: boolean;
-  success?: boolean;
-  error?: string;
-  text_length?: number;
-  html_length?: number;
-};
-
 type SupportRequest = {
   id: string;
   from_email: string;
@@ -26,7 +18,6 @@ type SupportRequest = {
   resend_email_id: string | null;
   created_at: string;
   updated_at: string;
-  _resend_log?: ResendLog;
 };
 
 const STATUSES = ['open', 'in_progress', 'resolved', 'closed'];
@@ -203,32 +194,6 @@ export default function SupportTicketPage() {
         )}
       </div>
 
-      {/* Resend fetch log — shown when body is missing or auto-fetch was attempted */}
-      {(!ticket.body_text && !ticket.body_html) && (
-        <div className="rounded-lg border border-yellow-800/50 bg-yellow-950/20 p-4 space-y-2">
-          <p className="text-xs font-semibold text-yellow-400 uppercase tracking-wider">Email Body Debug</p>
-          <p className="text-xs text-yellow-600">
-            resend_email_id: <code className="text-yellow-300">{ticket.resend_email_id ?? 'none'}</code>
-          </p>
-          {ticket._resend_log?.attempted ? (
-            ticket._resend_log.success ? (
-              <p className="text-xs text-emerald-400">
-                Auto-fetched from Resend — text: {ticket._resend_log.text_length ?? 0}b, html: {ticket._resend_log.html_length ?? 0}b. Body saved to DB but still empty here — try reloading.
-              </p>
-            ) : (
-              <p className="text-xs text-red-400">
-                Auto-fetch attempted but failed: {ticket._resend_log.error}
-              </p>
-            )
-          ) : (
-            <p className="text-xs text-gray-500">
-              {ticket.resend_email_id
-                ? 'Auto-fetch was not attempted (body may have been stored already).'
-                : 'No resend_email_id stored — cannot fetch body from Resend.'}
-            </p>
-          )}
-        </div>
-      )}
 
       {/* Reply Section */}
       <div className="rounded-lg border border-gray-800 bg-gray-900 overflow-hidden">

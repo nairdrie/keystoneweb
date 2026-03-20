@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Webhook } from 'svix';
+import { Resend } from 'resend';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { sendSupportRequestNotification } from '@/lib/email';
 
@@ -97,35 +98,64 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Fetch body via Received Emails API.
+  // Fetch body via Resend SDK.
   // Resend fires the webhook before the body is always ready, so retry a few
   // times with short delays to give it time to process.
   let bodyText: string | null = null;
   let bodyHtml: string | null = null;
+  const log: string[] = [];
 
-  if (emailId && process.env.RESEND_API_KEY) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!emailId) {
+    log.push('[WARN] No email_id in webhook payload — cannot fetch body.');
+  } else if (!apiKey) {
+    log.push('[WARN] RESEND_API_KEY env var is not set — cannot fetch body.');
+  } else {
+    const resend = new Resend(apiKey);
     const delays = [0, 2000, 5000]; // immediate, 2s, 5s
     for (const delay of delays) {
       if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay));
+      const attemptLabel = `attempt delay=${delay}ms`;
       try {
-        const emailRes = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
-          headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-        });
-        if (emailRes.ok) {
-          const full = await emailRes.json();
-          bodyText = full.text ?? null;
-          bodyHtml = full.html ?? null;
-          if (bodyText || bodyHtml) break; // got the body, stop retrying
-          console.warn(`[resend-inbound] Body empty on attempt (delay=${delay}ms), retrying…`);
-        } else {
-          console.warn('[resend-inbound] Received Emails API returned', emailRes.status, 'for', emailId);
-          break; // non-200 won't improve with retries
+        log.push(`[${attemptLabel}] Calling resend.emails.receiving.get("${emailId}")…`);
+        const { data: fullEmail, error: resendErr } = await resend.emails.receiving.get(emailId);
+
+        if (resendErr) {
+          log.push(`[${attemptLabel}] SDK error: ${JSON.stringify(resendErr)}`);
+          break; // SDK-level error won't improve with retries
         }
-      } catch (err) {
-        console.warn('[resend-inbound] Failed to fetch email body:', err);
+
+        if (!fullEmail) {
+          log.push(`[${attemptLabel}] SDK returned null data, no error.`);
+          continue;
+        }
+
+        // Log all top-level keys so we can see what Resend actually returns
+        const keys = Object.keys(fullEmail);
+        log.push(`[${attemptLabel}] Response keys: [${keys.join(', ')}]`);
+
+        const text = (fullEmail as any).text ?? null;
+        const html = (fullEmail as any).html ?? null;
+        log.push(`[${attemptLabel}] text=${text ? `${text.length}chars` : 'null'}, html=${html ? `${html.length}chars` : 'null'}`);
+
+        if (text || html) {
+          bodyText = text;
+          bodyHtml = html;
+          log.push(`[OK] Body fetched successfully.`);
+          break;
+        }
+        log.push(`[${attemptLabel}] Body still empty, will retry…`);
+      } catch (err: any) {
+        log.push(`[${attemptLabel}] Exception: ${err?.message ?? String(err)}`);
         break;
       }
     }
+  }
+
+  // If body is still empty, store the diagnostic log as body_text so ops can see
+  // what happened directly in the support ticket.
+  if (!bodyText && !bodyHtml && log.length > 0) {
+    bodyText = `[WEBHOOK DEBUG — body fetch failed]\n\n${log.join('\n')}\n\nWebhook payload.data keys: [${Object.keys(emailData ?? {}).join(', ')}]\nemail_id: ${emailId}\nfrom: ${fromRaw}\nsubject: ${subject}`;
   }
 
   const { error } = await admin.from('support_requests').insert({
@@ -144,7 +174,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Storage failed' }, { status: 500 });
   }
 
-  console.log(`[resend-inbound] New support request from ${fromEmail}: ${subject}`);
+  console.log(`[resend-inbound] New support request from ${fromEmail}: ${subject}`, log.join(' | '));
 
   // Notify ops admins
   const adminEmails = (process.env.OPS_ADMIN_EMAILS ?? '')

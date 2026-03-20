@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { createClient } from '@/lib/db/supabase-server';
-import { Resend } from 'resend';
 
 async function assertAdmin(): Promise<boolean> {
   try {
@@ -37,41 +36,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  // Auto-fetch body from Resend if missing
-  let resendLog: { attempted: boolean; success?: boolean; error?: string; text_length?: number; html_length?: number } = { attempted: false };
-
-  if (!data.body_text && !data.body_html && data.resend_email_id) {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      resendLog = { attempted: true, success: false, error: 'RESEND_API_KEY not set' };
-    } else {
-      try {
-        const resend = new Resend(apiKey);
-        const { data: email, error: resendErr } = await resend.emails.receiving.get(data.resend_email_id);
-        if (resendErr || !email) {
-          resendLog = { attempted: true, success: false, error: String(resendErr ?? 'No data returned') };
-        } else {
-          const text = (email as any).text ?? null;
-          const html = (email as any).html ?? null;
-          if (text || html) {
-            data.body_text = text;
-            data.body_html = html;
-            await db
-              .from('support_requests')
-              .update({ body_text: text, body_html: html, updated_at: new Date().toISOString() })
-              .eq('id', id);
-            resendLog = { attempted: true, success: true, text_length: text?.length ?? 0, html_length: html?.length ?? 0 };
-          } else {
-            resendLog = { attempted: true, success: false, error: 'Resend returned email but body (text/html) was empty' };
-          }
-        }
-      } catch (err: any) {
-        resendLog = { attempted: true, success: false, error: err?.message ?? String(err) };
-      }
-    }
-  }
-
-  return NextResponse.json({ ...data, _resend_log: resendLog });
+  return NextResponse.json(data);
 }
 
 /**
