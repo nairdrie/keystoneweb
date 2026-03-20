@@ -11,6 +11,7 @@ import FontPickerModal from './FontPickerModal';
 import AIBuilderPanel from './AIBuilderPanel';
 import SEOPanel from './SEOPanel';
 import TranslationsPanel from './TranslationsPanel';
+import ImageEditorModal from './ImageEditorModal';
 import { AIMessage, UsageRemaining } from '@/lib/hooks/useAIBuilder';
 import { Type, User, Globe, Languages } from 'lucide-react';
 import ProfileDropdown from './ProfileDropdown';
@@ -41,6 +42,10 @@ interface FloatingToolbarProps {
   selectedPalette?: Palette;
   onSelectPalette?: (palette: Palette) => void;
   onCustomColorChange?: (type: 'primary' | 'secondary' | 'accent', value: string) => void;
+  logoUrl?: string;
+  onLogoChange?: (url: string) => void;
+  uploadImage?: (file: File, contentKey: string) => Promise<string>;
+  siteCategory?: string;
   titleFont?: string;
   onTitleFontChange?: (font: string) => void;
   bodyFont?: string;
@@ -101,6 +106,10 @@ export default function FloatingToolbar({
   selectedPalette,
   onSelectPalette,
   onCustomColorChange,
+  logoUrl,
+  onLogoChange,
+  uploadImage,
+  siteCategory,
   titleFont,
   onTitleFontChange,
   bodyFont,
@@ -141,6 +150,7 @@ export default function FloatingToolbar({
   const [loadingSites, setLoadingSites] = useState(false);
   const [showChanges, setShowChanges] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef<number>(0);
   const dragStartHeight = useRef<number>(0);
@@ -464,6 +474,30 @@ export default function FloatingToolbar({
                   className="w-full text-sm font-medium text-slate-900 bg-white border border-slate-200 rounded-lg px-3 py-2 focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none placeholder-slate-400 transition-all"
                   placeholder="My Awesome Website"
                 />
+              </div>
+
+              {/* Site Logo */}
+              <div>
+                <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2">Site Logo</h3>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-slate-100 rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                    {logoUrl ? (
+                      <img src={logoUrl} alt="Site Logo" className="w-full h-full object-contain" />
+                    ) : (
+                      <span className="text-[10px] font-bold text-slate-400">NO LOGO</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setIsImageModalOpen(true)}
+                    className="flex-1 py-2 px-3 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-slate-700 hover:text-red-700 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    {logoUrl ? 'Change Logo' : 'Upload Logo'}
+                  </button>
+                </div>
+                <p className="mt-1.5 text-[10px] text-slate-400 italic">
+                  Used in header, footer, and as favicon.
+                </p>
               </div>
             </div>
           )}
@@ -1052,6 +1086,21 @@ export default function FloatingToolbar({
         onConfirm={alertConfig.onConfirm}
         confirmLabel={alertConfig.confirmLabel}
         cancelLabel={alertConfig.cancelLabel}
+      />
+
+      <ImageEditorModal
+        isOpen={isImageModalOpen}
+        onClose={() => setIsImageModalOpen(false)}
+        currentImageUrl={logoUrl}
+        siteCategory={siteCategory}
+        siteId={currentSiteId || ''}
+        onSave={(url) => {
+          onLogoChange?.(url);
+          setIsImageModalOpen(false);
+        }}
+        onUpload={uploadImage || (async () => '')}
+        contentKey="siteLogo"
+        allowUnsplash={false}
       />
     </>
   );

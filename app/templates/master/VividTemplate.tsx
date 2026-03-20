@@ -2,7 +2,6 @@
 
 import EditableText from '@/app/components/EditableText';
 import EditableButton from '@/app/components/EditableButton';
-import EditableImage from '@/app/components/EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import Link from 'next/link';
@@ -58,20 +57,13 @@ export function VividTemplate({ palette, isEditMode, children }: MasterTemplateP
                             aria-label="Home"
                             className="flex items-center gap-3 transition-opacity hover:opacity-90"
                         >
-                            <EditableImage
-                                contentKey="siteLogo"
-                                imageUrl={siteContent.siteLogo}
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="w-9 h-9 object-contain rounded-lg"
-                                editOverlayStyle="icon"
-                                allowUnsplash={false}
-                                fallback={
-                                    <div className="w-9 h-9 rounded-lg flex items-center justify-center font-black text-sm" style={{ backgroundColor: pSecondary, color: pPrimary }}>
-                                        {(siteContent.siteTitle || 'V')[0]?.toUpperCase()}
-                                    </div>
-                                }
-                            />
+                            {siteContent.siteLogo ? (
+                                <img src={siteContent.siteLogo} alt="" className="w-9 h-9 object-contain rounded-lg" />
+                            ) : (
+                                <div className="w-9 h-9 rounded-lg flex items-center justify-center font-black text-sm" style={{ backgroundColor: pSecondary, color: pPrimary }}>
+                                    {(siteContent.siteTitle || 'V')[0]?.toUpperCase()}
+                                </div>
+                            )}
                             <EditableText
                                 as="div"
                                 contentKey="siteTitle"
@@ -143,9 +135,13 @@ export function VividTemplate({ palette, isEditMode, children }: MasterTemplateP
                 <div className="max-w-7xl mx-auto px-4">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm" style={{ backgroundColor: pSecondary, color: pPrimary }}>
-                                {(siteContent.siteTitle || 'V')[0]?.toUpperCase()}
-                            </div>
+                            {siteContent.siteLogo ? (
+                                <img src={siteContent.siteLogo} alt="" className="w-8 h-8 object-contain rounded-lg" />
+                            ) : (
+                                <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm" style={{ backgroundColor: pSecondary, color: pPrimary }}>
+                                    {(siteContent.siteTitle || 'V')[0]?.toUpperCase()}
+                                </div>
+                            )}
                             <span className="font-bold text-lg">{siteContent.siteTitle || 'Vivid Co'}</span>
                         </div>
                         <p className="text-sm text-white/50">

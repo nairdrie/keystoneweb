@@ -2,7 +2,6 @@
 
 import EditableText from '@/app/components/EditableText';
 import EditableButton from '@/app/components/EditableButton';
-import EditableImage from '@/app/components/EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import Link from 'next/link';
@@ -59,20 +58,13 @@ export function EdgeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             aria-label="Home"
                             className="flex items-center gap-3 transition-opacity hover:opacity-90"
                         >
-                            <EditableImage
-                                contentKey="siteLogo"
-                                imageUrl={siteContent.siteLogo}
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="w-8 h-8 object-contain"
-                                editOverlayStyle="icon"
-                                allowUnsplash={false}
-                                fallback={
-                                    <div className="w-8 h-8 border flex items-center justify-center font-mono font-bold text-sm" style={{ borderColor: pSecondary, color: pSecondary }}>
-                                        {'//'}
-                                    </div>
-                                }
-                            />
+                            {siteContent.siteLogo ? (
+                                <img src={siteContent.siteLogo} alt="" className="w-8 h-8 object-contain" />
+                            ) : (
+                                <div className="w-8 h-8 border flex items-center justify-center font-mono font-bold text-sm" style={{ borderColor: pSecondary, color: pSecondary }}>
+                                    {'//'}
+                                </div>
+                            )}
                             <EditableText
                                 as="div"
                                 contentKey="siteTitle"
@@ -143,7 +135,11 @@ export function EdgeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                 <div className="max-w-7xl mx-auto px-4">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs" style={{ color: pSecondary }}>{'// '}</span>
+                            {siteContent.siteLogo ? (
+                                <img src={siteContent.siteLogo} alt="" className="w-6 h-6 object-contain" />
+                            ) : (
+                                <span className="font-mono text-xs" style={{ color: pSecondary }}>{'// '}</span>
+                            )}
                             <span className="font-bold text-sm text-white">{siteContent.siteTitle || 'Edge Co'}</span>
                         </div>
                         <p className="text-xs text-gray-600">

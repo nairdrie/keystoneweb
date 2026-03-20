@@ -2,7 +2,6 @@
 
 import EditableText from '@/app/components/EditableText';
 import EditableButton from '@/app/components/EditableButton';
-import EditableImage from '@/app/components/EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import Link from 'next/link';
@@ -59,25 +58,22 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                                 aria-label="Home"
                                 className="flex items-center gap-3 transition-opacity hover:opacity-90"
                             >
-                                <EditableImage
-                                    contentKey="siteLogo"
-                                    imageUrl={siteContent.siteLogo}
-                                    isEditMode={isEditMode}
-                                    onSave={updateSiteContent}
-                                    className="w-9 h-9 object-contain"
-                                    editOverlayStyle="icon"
-                                    allowUnsplash={false}
-                                    fallback={
-                                        <div
-                                            className="w-9 h-9 rounded-xl flex items-center justify-center"
-                                            style={{ background: `linear-gradient(135deg, ${pPrimary}, ${pSecondary})` }}
-                                        >
-                                            <span className="text-white font-black text-sm">
-                                                {(siteContent.siteTitle || 'E')[0]?.toUpperCase()}
-                                            </span>
-                                        </div>
-                                    }
-                                />
+                                {siteContent.siteLogo ? (
+                                    <img
+                                        src={siteContent.siteLogo}
+                                        alt={siteContent.siteTitle || 'Logo'}
+                                        className="w-9 h-9 object-contain"
+                                    />
+                                ) : (
+                                    <div
+                                        className="w-9 h-9 rounded-xl flex items-center justify-center"
+                                        style={{ background: `linear-gradient(135deg, ${pPrimary}, ${pSecondary})` }}
+                                    >
+                                        <span className="text-white font-black text-sm">
+                                            {(siteContent.siteTitle || 'E')[0]?.toUpperCase()}
+                                        </span>
+                                    </div>
+                                )}
                                 <EditableText
                                     as="div"
                                     contentKey="siteTitle"
@@ -155,10 +151,22 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                 <div className="max-w-7xl mx-auto px-6">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
-                            <div
-                                className="w-6 h-6 rounded-lg"
-                                style={{ background: `linear-gradient(135deg, ${pPrimary}, ${pSecondary})` }}
-                            />
+                            {siteContent.siteLogo ? (
+                                <img
+                                    src={siteContent.siteLogo}
+                                    alt={siteContent.siteTitle || 'Logo'}
+                                    className="w-6 h-6 object-contain"
+                                />
+                            ) : (
+                                <div
+                                    className="w-6 h-6 rounded-lg flex items-center justify-center"
+                                    style={{ background: `linear-gradient(135deg, ${pPrimary}, ${pSecondary})` }}
+                                >
+                                    <span className="text-white font-black text-[8px]">
+                                        {(siteContent.siteTitle || 'E')[0]?.toUpperCase()}
+                                    </span>
+                                </div>
+                            )}
                             <span className="font-bold text-sm text-slate-800">{siteContent.siteTitle || 'Elegant Co.'}</span>
                         </div>
                         <p className="text-sm text-slate-400">

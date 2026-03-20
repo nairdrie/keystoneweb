@@ -2,7 +2,6 @@
 
 import EditableText from '@/app/components/EditableText';
 import EditableButton from '@/app/components/EditableButton';
-import EditableImage from '@/app/components/EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import Link from 'next/link';
@@ -58,20 +57,17 @@ export function VibrantTemplate({ palette, isEditMode, children }: MasterTemplat
                             aria-label="Home"
                             className="flex items-center gap-2.5 transition-opacity hover:opacity-90"
                         >
-                            <EditableImage
-                                contentKey="siteLogo"
-                                imageUrl={siteContent.siteLogo}
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="w-9 h-9 object-contain rounded-xl"
-                                editOverlayStyle="icon"
-                                allowUnsplash={false}
-                                fallback={
-                                    <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center font-bold text-sm text-white backdrop-blur-sm">
-                                        {(siteContent.siteTitle || 'V')[0]?.toUpperCase()}
-                                    </div>
-                                }
-                            />
+                            {siteContent.siteLogo ? (
+                                <img
+                                    src={siteContent.siteLogo}
+                                    alt={siteContent.siteTitle || 'Logo'}
+                                    className="w-9 h-9 object-contain rounded-xl"
+                                />
+                            ) : (
+                                <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center font-bold text-sm text-white backdrop-blur-sm">
+                                    {(siteContent.siteTitle || 'V')[0]?.toUpperCase()}
+                                </div>
+                            )}
                             <EditableText
                                 as="div"
                                 contentKey="siteTitle"
@@ -141,9 +137,13 @@ export function VibrantTemplate({ palette, isEditMode, children }: MasterTemplat
                 <div className="max-w-6xl mx-auto px-4">
                     <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-8 text-center">
                         <div className="flex items-center justify-center gap-2 mb-3">
-                            <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-xs font-bold text-white">
-                                {(siteContent.siteTitle || 'V')[0]?.toUpperCase()}
-                            </div>
+                            {siteContent.siteLogo ? (
+                                <img src={siteContent.siteLogo} alt="" className="w-7 h-7 object-contain rounded-lg" />
+                            ) : (
+                                <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-xs font-bold text-white">
+                                    {(siteContent.siteTitle || 'V')[0]?.toUpperCase()}
+                                </div>
+                            )}
                             <span className="font-bold text-white">{siteContent.siteTitle || 'Vibrant Co'}</span>
                         </div>
                         <p className="text-sm text-white/50">

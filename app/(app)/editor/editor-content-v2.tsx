@@ -52,6 +52,10 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     const pubDesign = publicSiteData?.designData || {};
     return (
       <CartProvider siteId={publicSiteData?.id || ''}>
+        {/* Dynamic favicon for published site */}
+        {pubDesign.siteLogo && (
+          <link rel="icon" href={`/api/sites/favicon?siteId=${publicSiteData?.id}`} />
+        )}
         <EditorProvider
           value={{
             content: pubDesign,
@@ -960,6 +964,10 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
           onRedo={changesHook.redo}
           canUndo={changesHook.canUndo}
           canRedo={changesHook.canRedo}
+          logoUrl={siteContent.siteLogo}
+          onLogoChange={(url) => handleUpdateSiteContent('siteLogo', url)}
+          uploadImage={uploadImage}
+          siteCategory={site?.category || undefined}
           currentSiteId={siteId || undefined}
           isPublished={site?.isPublished || false}
           publishedDomain={site?.publishedDomain}

@@ -67,20 +67,13 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             aria-label="Home"
                             className="flex items-center gap-2.5 transition-opacity hover:opacity-90"
                         >
-                            <EditableImage
-                                contentKey="siteLogo"
-                                imageUrl={siteContent.siteLogo}
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="w-8 h-8 object-contain rounded-full"
-                                editOverlayStyle="icon"
-                                allowUnsplash={false}
-                                fallback={
-                                    <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pPrimary }}>
-                                        {(siteContent.siteTitle || 'A')[0]?.toUpperCase()}
-                                    </div>
-                                }
-                            />
+                            {siteContent.siteLogo ? (
+                                <img src={siteContent.siteLogo} alt="" className="w-8 h-8 object-contain rounded-full" />
+                            ) : (
+                                <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pPrimary }}>
+                                    {(siteContent.siteTitle || 'A')[0]?.toUpperCase()}
+                                </div>
+                            )}
                             <EditableText
                                 as="div"
                                 contentKey="siteTitle"
@@ -152,9 +145,13 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
                 <div className="max-w-6xl mx-auto px-6">
                     <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
                         <div className="flex items-center justify-center gap-2 mb-3">
-                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: pPrimary }}>
-                                {(siteContent.siteTitle || 'A')[0]?.toUpperCase()}
-                            </div>
+                            {siteContent.siteLogo ? (
+                                <img src={siteContent.siteLogo} alt="" className="w-8 h-8 object-contain rounded-full" />
+                            ) : (
+                                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: pPrimary }}>
+                                    {(siteContent.siteTitle || 'A')[0]?.toUpperCase()}
+                                </div>
+                            )}
                             <span className="font-bold text-sm" style={{ color: pPrimary }}>{siteContent.siteTitle || 'Airy Studio'}</span>
                         </div>
                         <p className="text-xs text-gray-400">

@@ -2,7 +2,6 @@
 
 import EditableText from '@/app/components/EditableText';
 import EditableButton from '@/app/components/EditableButton';
-import EditableImage from '@/app/components/EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import Link from 'next/link';
@@ -58,20 +57,13 @@ export function LuxeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                         aria-label="Home"
                         className="inline-flex flex-col items-center gap-2 transition-opacity hover:opacity-90"
                     >
-                        <EditableImage
-                            contentKey="siteLogo"
-                            imageUrl={siteContent.siteLogo}
-                            isEditMode={isEditMode}
-                            onSave={updateSiteContent}
-                            className="w-12 h-12 object-contain"
-                            editOverlayStyle="icon"
-                            allowUnsplash={false}
-                            fallback={
-                                <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white" style={{ backgroundColor: pSecondary }}>
-                                    {(siteContent.siteTitle || 'L')[0]?.toUpperCase()}
-                                </div>
-                            }
-                        />
+                        {siteContent.siteLogo ? (
+                            <img src={siteContent.siteLogo} alt="" className="w-12 h-12 object-contain" />
+                        ) : (
+                            <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white" style={{ backgroundColor: pSecondary }}>
+                                {(siteContent.siteTitle || 'L')[0]?.toUpperCase()}
+                            </div>
+                        )}
                         <EditableText
                             as="div"
                             contentKey="siteTitle"
@@ -144,8 +136,17 @@ export function LuxeTemplate({ palette, isEditMode, children }: MasterTemplatePr
             {/* Footer — elegant with columns */}
             <footer className="py-16 border-t border-gray-100" style={{ backgroundColor: pPrimary }}>
                 <div className="max-w-6xl mx-auto px-6 text-center">
-                    <div className="text-2xl font-bold tracking-[0.2em] uppercase font-title text-white/90 mb-4">
-                        {siteContent.siteTitle || 'LUXE STUDIO'}
+                    <div className="flex flex-col items-center gap-4 mb-4">
+                        {siteContent.siteLogo ? (
+                            <img src={siteContent.siteLogo} alt="" className="w-10 h-10 object-contain rounded-full" />
+                        ) : (
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: pSecondary }}>
+                                {(siteContent.siteTitle || 'L')[0]?.toUpperCase()}
+                            </div>
+                        )}
+                        <div className="text-2xl font-bold tracking-[0.2em] uppercase font-title text-white/90">
+                            {siteContent.siteTitle || 'LUXE STUDIO'}
+                        </div>
                     </div>
                     <div className="w-12 border-t mx-auto mb-6" style={{ borderColor: pSecondary }} />
                     <p className="text-sm text-white/40">

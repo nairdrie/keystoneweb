@@ -2,7 +2,6 @@
 
 import EditableText from '@/app/components/EditableText';
 import EditableButton from '@/app/components/EditableButton';
-import EditableImage from '@/app/components/EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import Link from 'next/link';
@@ -58,20 +57,17 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
                             aria-label="Home"
                             className="flex items-center gap-3 transition-opacity hover:opacity-90"
                         >
-                            <EditableImage
-                                contentKey="siteLogo"
-                                imageUrl={siteContent.siteLogo}
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="w-9 h-9 object-contain rounded-full"
-                                editOverlayStyle="icon"
-                                allowUnsplash={false}
-                                fallback={
-                                    <div className="w-9 h-9 rounded-full flex items-center justify-center font-serif font-bold text-sm text-white" style={{ backgroundColor: pSecondary }}>
-                                        {(siteContent.siteTitle || 'O')[0]?.toUpperCase()}
-                                    </div>
-                                }
-                            />
+                            {siteContent.siteLogo ? (
+                                <img
+                                    src={siteContent.siteLogo}
+                                    alt={siteContent.siteTitle || 'Logo'}
+                                    className="w-9 h-9 object-contain rounded-full"
+                                />
+                            ) : (
+                                <div className="w-9 h-9 rounded-full flex items-center justify-center font-serif font-bold text-sm text-white" style={{ backgroundColor: pSecondary }}>
+                                    {(siteContent.siteTitle || 'O')[0]?.toUpperCase()}
+                                </div>
+                            )}
                             <EditableText
                                 as="div"
                                 contentKey="siteTitle"
@@ -142,8 +138,21 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
             {/* Footer — warm with leaf/nature motif */}
             <footer className="py-16 border-t" style={{ borderColor: `${pSecondary}33` }}>
                 <div className="max-w-6xl mx-auto px-6 text-center">
-                    <div className="font-title italic text-lg mb-2" style={{ color: pPrimary }}>
-                        {siteContent.siteTitle || 'Organic Co.'}
+                    <div className="flex items-center justify-center gap-3 mb-3">
+                        {siteContent.siteLogo ? (
+                            <img
+                                src={siteContent.siteLogo}
+                                alt={siteContent.siteTitle || 'Logo'}
+                                className="w-8 h-8 object-contain rounded-full"
+                            />
+                        ) : (
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center font-serif font-bold text-[10px] text-white" style={{ backgroundColor: pSecondary }}>
+                                {(siteContent.siteTitle || 'O')[0]?.toUpperCase()}
+                            </div>
+                        )}
+                        <div className="font-title italic text-lg" style={{ color: pPrimary }}>
+                            {siteContent.siteTitle || 'Organic Co.'}
+                        </div>
                     </div>
                     <p className="text-sm text-gray-400">
                         &copy; {new Date().getFullYear()} {siteContent.siteTitle || 'Organic Co.'}. Made with care.

@@ -2,7 +2,6 @@
 
 import EditableText from '@/app/components/EditableText';
 import EditableButton from '@/app/components/EditableButton';
-import EditableImage from '@/app/components/EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import Link from 'next/link';
@@ -69,20 +68,13 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                             aria-label="Home"
                             className="flex items-center gap-3 transition-opacity hover:opacity-90"
                         >
-                            <EditableImage
-                                contentKey="siteLogo"
-                                imageUrl={siteContent.siteLogo}
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="w-10 h-10 object-contain"
-                                editOverlayStyle="icon"
-                                allowUnsplash={false}
-                                fallback={
-                                    <div className="w-10 h-10 rounded flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pPrimary }}>
-                                        {(siteContent.siteTitle || 'C')[0]?.toUpperCase()}
-                                    </div>
-                                }
-                            />
+                            {siteContent.siteLogo ? (
+                                <img src={siteContent.siteLogo} alt="" className="w-10 h-10 object-contain" />
+                            ) : (
+                                <div className="w-10 h-10 rounded flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pPrimary }}>
+                                    {(siteContent.siteTitle || 'C')[0]?.toUpperCase()}
+                                </div>
+                            )}
                             <EditableText
                                 as="div"
                                 contentKey="siteTitle"
@@ -152,9 +144,18 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
             <footer style={{ backgroundColor: pPrimary }}>
                 <div className="max-w-7xl mx-auto px-4 py-12">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div>
-                            <div className="font-bold text-lg text-white font-title">{siteContent.siteTitle || 'Classic Services'}</div>
-                            <p className="text-sm text-white/50 mt-1">Professional service you can trust.</p>
+                        <div className="flex items-center gap-3">
+                            {siteContent.siteLogo ? (
+                                <img src={siteContent.siteLogo} alt="" className="w-10 h-10 object-contain rounded" />
+                            ) : (
+                                <div className="w-10 h-10 rounded flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pSecondary }}>
+                                    {(siteContent.siteTitle || 'C')[0]?.toUpperCase()}
+                                </div>
+                            )}
+                            <div>
+                                <div className="font-bold text-lg text-white font-title">{siteContent.siteTitle || 'Classic Services'}</div>
+                                <p className="text-sm text-white/50 mt-1">Professional service you can trust.</p>
+                            </div>
                         </div>
                         <EditableButton
                             contentKey="navButtonText"

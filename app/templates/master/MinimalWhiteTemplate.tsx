@@ -2,7 +2,6 @@
 
 import EditableText from '@/app/components/EditableText';
 import EditableButton from '@/app/components/EditableButton';
-import EditableImage from '@/app/components/EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import Link from 'next/link';
@@ -61,20 +60,17 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
                                 aria-label="Home"
                                 className="flex items-center gap-3 transition-opacity hover:opacity-90"
                             >
-                                <EditableImage
-                                    contentKey="siteLogo"
-                                    imageUrl={siteContent.siteLogo}
-                                    isEditMode={isEditMode}
-                                    onSave={updateSiteContent}
-                                    className="w-8 h-8 object-contain"
-                                    editOverlayStyle="icon"
-                                    allowUnsplash={false}
-                                    fallback={
-                                        <div className="w-8 h-8 rounded flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pPrimary }}>
-                                            {(siteContent.siteTitle || 'S')[0]?.toUpperCase()}
-                                        </div>
-                                    }
-                                />
+                                {siteContent.siteLogo ? (
+                                    <img
+                                        src={siteContent.siteLogo}
+                                        alt={siteContent.siteTitle || 'Logo'}
+                                        className="w-8 h-8 object-contain"
+                                    />
+                                ) : (
+                                    <div className="w-8 h-8 rounded flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pPrimary }}>
+                                        {(siteContent.siteTitle || 'S')[0]?.toUpperCase()}
+                                    </div>
+                                )}
                                 <EditableText
                                     as="div"
                                     contentKey="siteTitle"
@@ -150,6 +146,22 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
             {/* Footer — clean & minimal */}
             <footer className="py-16 border-t border-slate-100">
                 <div className="max-w-6xl mx-auto px-6 text-center">
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                        {siteContent.siteLogo ? (
+                            <img
+                                src={siteContent.siteLogo}
+                                alt={siteContent.siteTitle || 'Logo'}
+                                className="w-8 h-8 object-contain"
+                            />
+                        ) : (
+                            <div className="w-8 h-8 rounded flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pPrimary }}>
+                                {(siteContent.siteTitle || 'S')[0]?.toUpperCase()}
+                            </div>
+                        )}
+                        <span className="text-lg font-semibold tracking-wide font-title" style={{ color: pPrimary }}>
+                            {siteContent.siteTitle || 'Studio'}
+                        </span>
+                    </div>
                     <p className="text-sm text-slate-400">
                         Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>
                     </p>
