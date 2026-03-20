@@ -100,7 +100,7 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
                             <EditableButton
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink}
+                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Contact"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}
@@ -130,7 +130,7 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
                             <EditableButton
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink}
+                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Contact"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}

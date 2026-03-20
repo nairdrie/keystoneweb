@@ -31,20 +31,20 @@ export default function TextSettingsModal({
     isOpen,
     onClose,
     onSave,
-    initialStyles = {},
+    initialStyles,
     title = "Text Settings"
 }: TextSettingsModalProps) {
-    const [styles, setStyles] = useState<TextStyles>(initialStyles);
+    const [styles, setStyles] = useState<TextStyles>(initialStyles || {});
     const [activeTab, setActiveTab] = useState<'font' | 'size' | 'color'>('font');
     const [searchQuery, setSearchQuery] = useState('');
 
     // Reset local state when opened with new initialStyles
     useEffect(() => {
         if (isOpen) {
-            setStyles(initialStyles);
+            setStyles(initialStyles || {});
             setActiveTab('font');
         }
-    }, [isOpen, initialStyles]);
+    }, [isOpen]); // Only sync when the modal opens
 
     if (!isOpen) return null;
 

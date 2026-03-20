@@ -103,7 +103,7 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                             <EditableButton
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink}
+                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Book Now"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}
@@ -133,7 +133,7 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                             <EditableButton
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink}
+                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Book Now"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}

@@ -402,135 +402,137 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     }
   };
 
-  const handleUpdateContent = (key: string, value: string) => {
-    setEditableContent((prev) => {
-      const updated = {
-        ...prev,
-        [key]: value,
-      };
+  // Sync refs for stable access in callbacks
+  const siteContentRef = useRef(siteContent);
+  const editableContentRef = useRef(editableContent);
+  useEffect(() => { siteContentRef.current = siteContent; }, [siteContent]);
+  useEffect(() => { editableContentRef.current = editableContent; }, [editableContent]);
 
-      // Track content change
-      const oldValue = prev[key] || '';
-      if (oldValue !== value) {
-        addChange('content', `Content: ${key}`, oldValue, value);
-      }
+  const handleUpdateContent = useCallback((key: string, value: string) => {
+    const oldValue = editableContentRef.current[key] || '';
+    if (oldValue === value) return;
 
-      return updated;
-    });
-  };
+    // Track content change first
+    addChange(`content:${key}`, `Content: ${key}`, oldValue, value);
+
+    setEditableContent((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  }, [addChange]);
 
   // Site-level content updates (header title, CTA text, etc.)
   const handleUpdateSiteContent = useCallback((key: string, value: any) => {
-    setSiteContent((prev) => {
-      const oldValue = prev[key] || '';
-      if (oldValue !== value) {
-        addChange('siteContent', `Header: ${key}`, String(oldValue), String(value));
-      }
-      return { ...prev, [key]: value };
-    });
+    const oldValue = siteContentRef.current[key] || '';
+    if (JSON.stringify(oldValue) === JSON.stringify(value)) return;
+
+    // Track change with specific field key to avoid overwriting other site content changes
+    addChange(`siteContent:${key}`, `Header: ${key}`, 
+      typeof oldValue === 'object' ? JSON.stringify(oldValue) : String(oldValue), 
+      typeof value === 'object' ? JSON.stringify(value) : String(value)
+    );
+
+    setSiteContent((prev) => ({ ...prev, [key]: value }));
   }, [addChange]);
 
   // Nav items update (site-level)
   const handleUpdateNavItems = useCallback((items: NavItem[]) => {
-    setSiteContent((prev) => {
-      const oldItems: NavItem[] = prev.__navItems || [];
-      // Build human-readable summary of changes
-      const oldLabels = new Map(oldItems.map((i: NavItem) => [i.id, i.label]));
-      const newLabels = new Map(items.map((i: NavItem) => [i.id, i.label]));
-      const changes: string[] = [];
-      // Added items
-      for (const item of items) {
-        if (!oldLabels.has(item.id)) changes.push(`Added "${item.label}"`);
+    const oldItems: NavItem[] = siteContentRef.current.__navItems || [];
+    
+    // Build human-readable summary of changes
+    const oldLabels = new Map(oldItems.map((i: NavItem) => [i.id, i.label]));
+    const newLabels = new Map(items.map((i: NavItem) => [i.id, i.label]));
+    const changes: string[] = [];
+    
+    for (const item of items) {
+      if (!oldLabels.has(item.id)) changes.push(`Added "${item.label}"`);
+    }
+    for (const item of oldItems) {
+      if (!newLabels.has(item.id)) changes.push(`Removed "${item.label}"`);
+    }
+    for (const item of items) {
+      const oldLabel = oldLabels.get(item.id);
+      if (oldLabel && oldLabel !== item.label) changes.push(`Renamed "${oldLabel}" → "${item.label}"`);
+      if (oldLabel && oldLabel === item.label) {
+        const oldItem = oldItems.find((o: NavItem) => o.id === item.id);
+        if (oldItem && oldItem.href !== item.href) changes.push(`Updated link for "${item.label}"`);
       }
-      // Removed items
-      for (const item of oldItems) {
-        if (!newLabels.has(item.id)) changes.push(`Removed "${item.label}"`);
-      }
-      // Changed items
-      for (const item of items) {
-        const oldLabel = oldLabels.get(item.id);
-        if (oldLabel && oldLabel !== item.label) changes.push(`Renamed "${oldLabel}" → "${item.label}"`);
-        if (oldLabel && oldLabel === item.label) {
-          const oldItem = oldItems.find((o: NavItem) => o.id === item.id);
-          if (oldItem && oldItem.href !== item.href) changes.push(`Updated link for "${item.label}"`);
-        }
-      }
-      const summary = changes.length > 0 ? changes.join(', ') : 'Reordered menu';
-      addChange('siteContent', 'Navigation Menu', '', summary);
-      return { ...prev, __navItems: items };
-    });
+    }
+    
+    const summary = changes.length > 0 ? changes.join(', ') : 'Reordered menu';
+    if (changes.length > 0 || oldItems.length !== items.length) {
+      // Pass full items as rawTo for accurate restoration in undo/redo
+      addChange('siteContent:navItems', 'Navigation Menu', JSON.stringify(oldItems), JSON.stringify(items));
+    }
+
+    setSiteContent((prev) => ({ ...prev, __navItems: items }));
   }, [addChange]);
 
   const navItems: NavItem[] = siteContent.__navItems || [];
 
   const addBlock = (type: string, index?: number) => {
-    setEditableContent((prev) => {
-      const currentBlocks: BlockData[] = Array.isArray(prev.blocks) ? prev.blocks : [];
-      const newBlock: BlockData = {
-        id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        type,
-        data: {}
-      };
+    const currentBlocks: BlockData[] = Array.isArray(editableContentRef.current.blocks) ? editableContentRef.current.blocks : [];
+    const newBlock: BlockData = {
+      id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type,
+      data: {}
+    };
 
-      const newBlocks = [...currentBlocks];
-      if (index !== undefined && index >= 0 && index <= newBlocks.length) {
-        newBlocks.splice(index, 0, newBlock);
-      } else {
-        newBlocks.push(newBlock);
-      }
+    const newBlocks = [...currentBlocks];
+    if (index !== undefined && index >= 0 && index <= newBlocks.length) {
+      newBlocks.splice(index, 0, newBlock);
+    } else {
+      newBlocks.push(newBlock);
+    }
 
-      addChange('blocks', 'Added Content Block', JSON.stringify(currentBlocks), JSON.stringify(newBlocks));
-      return { ...prev, blocks: newBlocks };
-    });
+    addChange('blocks', 'Added Content Block', JSON.stringify(currentBlocks), JSON.stringify(newBlocks));
+    
+    setEditableContent((prev) => ({ ...prev, blocks: newBlocks }));
   };
 
   const removeBlock = (id: string) => {
-    setEditableContent((prev) => {
-      const currentBlocks: BlockData[] = Array.isArray(prev.blocks) ? prev.blocks : [];
-      const newBlocks = currentBlocks.filter(b => b.id !== id);
-      addChange('blocks', 'Removed Content Block', JSON.stringify(currentBlocks), JSON.stringify(newBlocks));
-      return { ...prev, blocks: newBlocks };
-    });
+    const currentBlocks: BlockData[] = Array.isArray(editableContentRef.current.blocks) ? editableContentRef.current.blocks : [];
+    const newBlocks = currentBlocks.filter(b => b.id !== id);
+    
+    addChange('blocks', 'Removed Content Block', JSON.stringify(currentBlocks), JSON.stringify(newBlocks));
+    
+    setEditableContent((prev) => ({ ...prev, blocks: newBlocks }));
   };
 
   const moveBlock = (id: string, direction: 'up' | 'down') => {
-    setEditableContent((prev) => {
-      const currentBlocks: BlockData[] = Array.isArray(prev.blocks) ? prev.blocks : [];
-      const index = currentBlocks.findIndex(b => b.id === id);
-      if (index < 0) return prev;
-      if (direction === 'up' && index === 0) return prev;
-      if (direction === 'down' && index === currentBlocks.length - 1) return prev;
+    const currentBlocks: BlockData[] = Array.isArray(editableContentRef.current.blocks) ? editableContentRef.current.blocks : [];
+    const index = currentBlocks.findIndex(b => b.id === id);
+    if (index < 0) return;
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === currentBlocks.length - 1) return;
 
-      const newBlocks = [...currentBlocks];
-      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const newBlocks = [...currentBlocks];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
 
-      // Swap
-      [newBlocks[index], newBlocks[targetIndex]] = [newBlocks[targetIndex], newBlocks[index]];
+    // Swap
+    [newBlocks[index], newBlocks[targetIndex]] = [newBlocks[targetIndex], newBlocks[index]];
 
-      addChange('blocks', 'Moved Content Block', JSON.stringify(currentBlocks), JSON.stringify(newBlocks));
-      return { ...prev, blocks: newBlocks };
-    });
+    addChange('blocks', 'Moved Content Block', JSON.stringify(currentBlocks), JSON.stringify(newBlocks));
+    
+    setEditableContent((prev) => ({ ...prev, blocks: newBlocks }));
   };
 
   const updateBlockData = (id: string, key: string, value: any) => {
-    setEditableContent((prev) => {
-      const currentBlocks: BlockData[] = Array.isArray(prev.blocks) ? prev.blocks : [];
-      const index = currentBlocks.findIndex(b => b.id === id);
-      if (index < 0) return prev;
+    const currentBlocks: BlockData[] = Array.isArray(editableContentRef.current.blocks) ? editableContentRef.current.blocks : [];
+    const index = currentBlocks.findIndex(b => b.id === id);
+    if (index < 0) return;
 
-      const oldBlock = currentBlocks[index];
-      const newBlock = { ...oldBlock, data: { ...oldBlock.data, [key]: value } };
+    const oldBlock = currentBlocks[index];
+    const oldValue = oldBlock.data[key] || '';
+    if (JSON.stringify(oldValue) === JSON.stringify(value)) return;
 
-      const newBlocks = [...currentBlocks];
-      newBlocks[index] = newBlock;
+    const newBlock = { ...oldBlock, data: { ...oldBlock.data, [key]: value } };
+    const newBlocks = [...currentBlocks];
+    newBlocks[index] = newBlock;
 
-      const oldValue = oldBlock.data[key] || '';
-      if (oldValue !== value) {
-        addChange('blocks', 'Updated Block Content', JSON.stringify(currentBlocks), JSON.stringify(newBlocks));
-      }
-
-      return { ...prev, blocks: newBlocks };
-    });
+    addChange('blocks', 'Updated Block Content', JSON.stringify(currentBlocks), JSON.stringify(newBlocks));
+    
+    setEditableContent((prev) => ({ ...prev, blocks: newBlocks }));
   };
 
   // Reconstruct state when History Undo/Redo is triggered
@@ -542,17 +544,44 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     let restoredTitle = initialTitleRef.current;
     let restoredPalette = initialPaletteRef.current;
     let restoredContent = { ...initialContentRef.current };
+    let restoredSiteContent = { ...initialSiteContentRef.current };
 
     // Simply replay all changes currently active in the history array top-down!
     for (const change of action.changes) {
-      if (change.field === 'siteTitle') {
+      if (change.field === 'siteTitle' || change.field === 'siteContent:siteTitle') {
         restoredTitle = change.to;
+        restoredSiteContent.siteTitle = change.to;
       } else if (change.field === 'palette') {
         restoredPalette = change.to;
+      } else if (change.field.startsWith('content:')) {
+        const key = change.field.replace('content:', '');
+        restoredContent[key] = change.to;
       } else if (change.field === 'content') {
-        // change.label looks like "Content: heroTitle", we just need the key
+        // legacy change format
         const key = change.label.replace('Content: ', '');
         restoredContent[key] = change.to;
+      } else if (change.field.startsWith('siteContent:')) {
+        const key = change.field.replace('siteContent:', '');
+        if (key === 'navItems') {
+          try {
+            restoredSiteContent.__navItems = JSON.parse(change.to);
+          } catch (e) { console.error('Failed to parse navItems in undo', e); }
+        } else {
+          // Check if it's JSON (for objects like icons)
+          try {
+            if (change.to.startsWith('{') || change.to.startsWith('[')) {
+              restoredSiteContent[key] = JSON.parse(change.to);
+            } else {
+              restoredSiteContent[key] = change.to;
+            }
+          } catch (e) {
+            restoredSiteContent[key] = change.to;
+          }
+        }
+      } else if (change.field === 'siteContent') {
+        // legacy change format
+        const key = change.label.replace('Header: ', '');
+        restoredSiteContent[key] = change.to;
       } else if (change.field === 'blocks') {
         restoredContent.blocks = JSON.parse(change.rawTo || change.to);
       }
@@ -561,27 +590,24 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     // Apply the restored state completely!
     setSiteTitle(restoredTitle);
     setSelectedPaletteKey(restoredPalette);
+    setEditableContent(restoredContent);
+    setSiteContent(restoredSiteContent);
 
     const palette = restoredPalette === 'custom'
       ? {
-        primary: restoredContent.__customPalette_primary || '#0f172a',
-        secondary: restoredContent.__customPalette_secondary || '#64748b',
-        accent: restoredContent.__customPalette_accent || '#cbd5e1',
+        primary: restoredSiteContent.__customPalette_primary || restoredContent.__customPalette_primary || '#0f172a',
+        secondary: restoredSiteContent.__customPalette_secondary || restoredContent.__customPalette_secondary || '#64748b',
+        accent: restoredSiteContent.__customPalette_accent || restoredContent.__customPalette_accent || '#cbd5e1',
       }
       : availablePalettes[restoredPalette];
 
     if (palette) {
       setPaletteData(palette);
     }
-
-    setEditableContent(restoredContent);
-
   }, [changesHook.lastAction, availablePalettes]);
 
   const handleSiteTitleChange = (newTitle: string) => {
-    if (newTitle !== siteTitle) {
-      addChange('siteTitle', 'Site Name', siteTitle, newTitle);
-    }
+    // Redundancy handled: handleUpdateSiteContent will call addChange if it changed
     setSiteTitle(newTitle);
     handleUpdateSiteContent('siteTitle', newTitle);
   };

@@ -106,7 +106,7 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                             <EditableButton
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink}
+                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Get a Quote"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}
@@ -132,7 +132,7 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                             <EditableButton
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink}
+                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Get a Quote"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}
@@ -159,7 +159,7 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                         <EditableButton
                             contentKey="navButtonText"
                             label={siteContent.navButtonText}
-                            linkData={siteContent.navButtonTextLink}
+                            linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
                             defaultLabel="Get a Quote"
                             isEditMode={isEditMode}
                             onSave={updateSiteContent}

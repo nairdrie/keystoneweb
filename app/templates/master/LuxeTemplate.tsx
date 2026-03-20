@@ -99,7 +99,7 @@ export function LuxeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             <EditableButton
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink}
+                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Reserve"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}
@@ -124,7 +124,7 @@ export function LuxeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                                 <EditableButton
                                     contentKey="navButtonText"
                                     label={siteContent.navButtonText}
-                                    linkData={siteContent.navButtonTextLink}
+                                    linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
                                     defaultLabel="Reserve"
                                     isEditMode={isEditMode}
                                     onSave={updateSiteContent}

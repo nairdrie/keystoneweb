@@ -95,7 +95,7 @@ export function SleekTemplate({ palette, isEditMode, children }: MasterTemplateP
                             <EditableButton
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink}
+                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Contact"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}
@@ -121,7 +121,7 @@ export function SleekTemplate({ palette, isEditMode, children }: MasterTemplateP
                             <EditableButton
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink}
+                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Contact"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}

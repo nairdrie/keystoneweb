@@ -32,7 +32,9 @@ export default function EditableText({
   const [tempValue, setTempValue] = useState(displayText);
   const [isHovered, setIsHovered] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [controlsOnLeft, setControlsOnLeft] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLElement>(null);
 
   // Parse dynamic styles if present
   let parsedStyles: Record<string, any> = {};
@@ -64,6 +66,20 @@ export default function EditableText({
       inputRef.current.select();
     }
   }, [isEditing]);
+
+  // Detect if we should show controls on the left based on screen position
+  useEffect(() => {
+    if (isEditMode && containerRef.current && isHovered) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceOnRight = window.innerWidth - rect.right;
+      // If less than 120px on right (slightly more for text since icons are far), flip controls to left
+      if (spaceOnRight < 120) {
+        setControlsOnLeft(true);
+      } else {
+        setControlsOnLeft(false);
+      }
+    }
+  }, [isEditMode, isHovered]);
 
   const handleSave = () => {
     // Always save if value differs from what was displayed — allow empty strings
@@ -129,6 +145,7 @@ export default function EditableText({
   // Edit mode, not currently editing: show text with pencil icon on hover
   return (
     <Component
+      ref={containerRef as any}
       className={`${className} cursor-text pointer-events-auto transition-colors`}
       style={mergedStyle}
       onClick={() => setIsEditing(true)}
@@ -139,7 +156,12 @@ export default function EditableText({
         {displayText}
 
         {/* Desktop: Show pencil on hover only. Mobile: Don't show pencil at all */}
-        <span className={`absolute -right-16 top-1/2 -translate-y-1/2 items-center gap-1 z-50 hidden md:flex transition-all ${isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`} onMouseDown={e => e.preventDefault()}>
+        <span 
+            className={`absolute top-1/2 -translate-y-1/2 items-center gap-1 z-50 hidden md:flex transition-all ${isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'} ${
+                controlsOnLeft ? '-left-16' : '-right-16'
+            }`} 
+            onMouseDown={e => e.preventDefault()}
+        >
           <button
           onClick={(e) => {
             e.stopPropagation();

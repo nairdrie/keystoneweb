@@ -95,6 +95,8 @@ export function VividTemplate({ palette, isEditMode, children }: MasterTemplateP
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
                                 linkData={siteContent.navButtonTextLink}
+                                iconData={siteContent.navButtonTextIcon}
+                                iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Get Started"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}
@@ -121,6 +123,7 @@ export function VividTemplate({ palette, isEditMode, children }: MasterTemplateP
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
                                 linkData={siteContent.navButtonTextLink}
+                                iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Get Started"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}

@@ -94,7 +94,7 @@ export function VibrantTemplate({ palette, isEditMode, children }: MasterTemplat
                             <EditableButton
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink}
+                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Start Free"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}
@@ -120,7 +120,7 @@ export function VibrantTemplate({ palette, isEditMode, children }: MasterTemplat
                             <EditableButton
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink}
+                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Start Free"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}

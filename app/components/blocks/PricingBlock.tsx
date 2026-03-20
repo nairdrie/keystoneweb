@@ -134,9 +134,10 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                                         contentKey={`tier_${index}_buttonText`}
                                         label={tier.buttonText}
                                         linkData={tier.buttonTextLink}
+                                        iconData={tier.buttonTextIcon}
                                         defaultLabel="Get Started"
                                         isEditMode={isEditMode}
-                                        onSave={(_key, value) => handleUpdateTier(index, _key.endsWith('Link') ? 'buttonTextLink' : 'buttonText', value)}
+                                        onSave={(_key, value) => handleUpdateTier(index, _key.endsWith('Link') ? 'buttonTextLink' : (_key.endsWith('Icon') ? 'buttonTextIcon' : 'buttonText'), value)}
                                         className="px-6 py-2.5 rounded-lg text-sm font-bold text-white transition-opacity hover:opacity-90 inline-flex items-center justify-center"
                                         style={{ backgroundColor: tier.highlighted ? pSecondary : pPrimary }}
                                     />
@@ -242,9 +243,10 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                                 contentKey={`tier_${index}_buttonText`}
                                 label={tier.buttonText}
                                 linkData={tier.buttonTextLink}
+                                iconData={tier.buttonTextIcon}
                                 defaultLabel="Get Started"
                                 isEditMode={isEditMode}
-                                onSave={(_key, value) => handleUpdateTier(index, _key.endsWith('Link') ? 'buttonTextLink' : 'buttonText', value)}
+                                onSave={(_key, value) => handleUpdateTier(index, _key.endsWith('Link') ? 'buttonTextLink' : (_key.endsWith('Icon') ? 'buttonTextIcon' : 'buttonText'), value)}
                                 className="w-full py-3 rounded-xl text-sm font-bold transition-all hover:opacity-90 text-center inline-flex items-center justify-center"
                                 style={{
                                     backgroundColor: tier.highlighted ? pSecondary : 'transparent',

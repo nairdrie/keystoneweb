@@ -97,7 +97,7 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             <EditableButton
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink}
+                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Get Quote"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}
@@ -127,7 +127,7 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             <EditableButton
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink}
+                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Get Quote"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}

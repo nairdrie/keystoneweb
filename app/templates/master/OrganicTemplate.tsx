@@ -96,6 +96,7 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
                                 linkData={siteContent.navButtonTextLink}
+                                iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Shop Now"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}
@@ -122,6 +123,7 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
                                 linkData={siteContent.navButtonTextLink}
+                                iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Shop Now"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}

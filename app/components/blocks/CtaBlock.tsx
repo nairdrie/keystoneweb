@@ -52,6 +52,7 @@ export default function CtaBlock({ id, data, isEditMode, palette, updateContent 
                     contentKey="buttonText"
                     label={data.buttonText}
                     linkData={data.buttonTextLink}
+                    iconData={data.buttonTextIcon}
                     defaultLabel="Call Us Now"
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}

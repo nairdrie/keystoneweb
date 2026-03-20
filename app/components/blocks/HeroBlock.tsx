@@ -55,6 +55,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                             contentKey="buttonText"
                             label={buttonText}
                             linkData={block.data.buttonTextLink}
+                            iconData={block.data.buttonTextIcon}
                             defaultLabel="Get Started"
                             isEditMode={isEditMode}
                             onSave={(key, val) => updateData(key, val)}
@@ -125,6 +126,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                         contentKey="buttonText"
                         label={buttonText}
                         linkData={block.data.buttonTextLink}
+                        iconData={block.data.buttonTextIcon}
                         defaultLabel="Get a Free Quote"
                         isEditMode={isEditMode}
                         onSave={(key, val) => updateData(key, val)}
@@ -171,6 +173,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                         contentKey="buttonText"
                         label={buttonText}
                         linkData={block.data.buttonTextLink}
+                        iconData={block.data.buttonTextIcon}
                         defaultLabel="Get a Free Quote"
                         isEditMode={isEditMode}
                         onSave={(key, val) => updateData(key, val)}
@@ -230,6 +233,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                         contentKey="buttonText"
                         label={buttonText}
                         linkData={block.data.buttonTextLink}
+                        iconData={block.data.buttonTextIcon}
                         defaultLabel="Get a Free Quote"
                         isEditMode={isEditMode}
                         onSave={(key, val) => updateData(key, val)}
@@ -270,6 +274,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                         contentKey="buttonText"
                         label={buttonText}
                         linkData={block.data.buttonTextLink}
+                        iconData={block.data.buttonTextIcon}
                         defaultLabel="Get a Free Quote"
                         isEditMode={isEditMode}
                         onSave={(key, val) => updateData(key, val)}

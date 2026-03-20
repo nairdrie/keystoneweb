@@ -96,7 +96,7 @@ export function EdgeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             <EditableButton
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink}
+                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Launch"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}
@@ -122,7 +122,7 @@ export function EdgeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             <EditableButton
                                 contentKey="navButtonText"
                                 label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink}
+                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
                                 defaultLabel="Launch"
                                 isEditMode={isEditMode}
                                 onSave={updateSiteContent}
