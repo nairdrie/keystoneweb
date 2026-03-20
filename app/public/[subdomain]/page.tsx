@@ -120,9 +120,9 @@ export default async function PublicSitePage({
       <>
         {site.business_profile && (
           <JsonLdScript
-            businessProfile={site.business_profile}
+            businessProfile={site.business_profile as BusinessProfile}
             siteUrl={`https://${subdomain}.kswd.ca`}
-            socialLinks={mergedPublishData.socialLinks}
+            socialLinks={(mergedPublishData as any).socialLinks}
           />
         )}
         <EditorContent

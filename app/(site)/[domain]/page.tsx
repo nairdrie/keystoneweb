@@ -91,7 +91,7 @@ export default async function CustomDomainPage({
           <JsonLdScript
             businessProfile={site.business_profile as BusinessProfile}
             siteUrl={`https://${domain}`}
-            socialLinks={mergedPublishData.socialLinks}
+            socialLinks={(mergedPublishData as any).socialLinks}
           />
         )}
         <EditorContent

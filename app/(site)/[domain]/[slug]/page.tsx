@@ -94,7 +94,7 @@ export default async function CustomDomainDynamicPage({
                     <JsonLdScript
                         businessProfile={site.business_profile as BusinessProfile}
                         siteUrl={`https://${domain}/${slug}`}
-                        socialLinks={mergedPublishData.socialLinks}
+                        socialLinks={(mergedPublishData as any).socialLinks}
                     />
                 )}
                 <EditorContent

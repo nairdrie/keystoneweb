@@ -125,7 +125,7 @@ async function renderHomePage(
                 <JsonLdScript
                     businessProfile={site.business_profile as BusinessProfile}
                     siteUrl={`https://${subdomain}.kswd.ca/${language}`}
-                    socialLinks={mergedPublishData.socialLinks}
+                    socialLinks={(mergedPublishData as any).socialLinks}
                 />
             )}
             <EditorContent
@@ -220,7 +220,7 @@ async function renderPage(
                 <JsonLdScript
                     businessProfile={site.business_profile as BusinessProfile}
                     siteUrl={`https://${subdomain}.kswd.ca/${pageSlug}`}
-                    socialLinks={mergedPublishData.socialLinks}
+                    socialLinks={(mergedPublishData as any).socialLinks}
                 />
             )}
             <EditorContent
