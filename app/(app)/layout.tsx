@@ -60,7 +60,6 @@ export default function RootLayout({
     </html>
   );
 }
-}
 
 async function ImpersonationIndicator() {
   const supabase = await createClient();
@@ -69,7 +68,8 @@ async function ImpersonationIndicator() {
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         :root {
           --impersonation-height: ${isImpersonated ? '36px' : '0px'};
         }
