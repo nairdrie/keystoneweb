@@ -37,14 +37,16 @@ export default function BlockWrapper({ id, type, children, customCss, onUpdateCu
 
     const animationProps = {
         variants: staggerContainer as any,
-        initial: "hidden",
+        initial: isEditMode ? "show" : "hidden",
         whileInView: "show",
+        animate: isEditMode ? "show" : undefined,
         viewport: { once: true, margin: "-50px" }
     };
 
     if (!isEditMode) {
         return (
             <motion.div 
+                key={`${id}-view`}
                 id={id} 
                 {...animationProps}
                 className={`w-full ks-block ks-block-${type}`}
@@ -57,6 +59,7 @@ export default function BlockWrapper({ id, type, children, customCss, onUpdateCu
 
     return (
         <motion.div 
+            key={`${id}-edit`}
             id={id} 
             {...animationProps}
             className={`relative group w-full border-2 border-transparent hover:border-slate-300 transition-colors ks-block ks-block-${type}`}
