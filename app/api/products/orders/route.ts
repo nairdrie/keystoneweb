@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     if (paymentMethod === 'etransfer' && paymentConfig?.etransfer_email) {
         response.paymentInstructions = {
             type: 'etransfer',
-            email: bookingSettings.etransfer_email,
+            email: paymentConfig?.etransfer_email,
             amount: (subtotalCents / 100).toFixed(2),
             currency: items[0]?.currency || 'CAD',
             reference: `ORDER-${order.id.slice(0, 8).toUpperCase()}`,
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
     sendOrderConfirmation(emailData).catch(err => console.error('Order customer email failed:', err));
 
     if (paymentConfig?.notification_email) {
-        sendOrderNotification(emailData, bookingSettings.notification_email)
+        sendOrderNotification(emailData, paymentConfig.notification_email)
             .catch(err => console.error('Order owner email failed:', err));
     }
 
