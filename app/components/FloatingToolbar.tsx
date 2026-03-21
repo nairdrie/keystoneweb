@@ -488,7 +488,7 @@ export default function FloatingToolbar({
                     {logoUrl ? (
                       <img src={logoUrl} alt="Site Logo" className="w-full h-full object-contain" />
                     ) : (
-                      <span className="text-[10px] font-bold text-slate-400">NO LOGO</span>
+                      <span className="text-[10px] font-bold text-slate-400 text-center leading-tight">NO<br/>LOGO</span>
                     )}
                   </div>
                   <button

@@ -170,7 +170,7 @@ function PricingContent() {
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl relative"
+          className="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl relative order-2 md:order-1"
         >
           <h3 className="text-2xl font-bold text-slate-900 mb-2">Basic</h3>
           <p className="text-slate-500 mb-6">Perfect for small businesses getting started.</p>
@@ -227,7 +227,7 @@ function PricingContent() {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
-          className="bg-slate-950 rounded-3xl p-8 border border-slate-800 shadow-2xl relative"
+          className="bg-slate-950 rounded-3xl p-8 border border-slate-800 shadow-2xl relative order-1 md:order-2"
         >
           <div className="absolute top-0 right-8 -translate-y-1/2 bg-red-600 outline outline-4 outline-white text-white px-4 py-1 rounded-full text-sm font-bold shadow-sm">
             Most Popular
