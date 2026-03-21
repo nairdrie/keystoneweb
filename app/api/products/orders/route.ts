@@ -69,12 +69,21 @@ export async function POST(request: NextRequest) {
         }
     }
 
-    // Get booking settings for e-transfer email + notification email
-    const { data: bookingSettings } = await supabase
-        .from('booking_settings')
+    // Get e-commerce settings for e-transfer email + notification email
+    // Falls back to booking_settings for backwards compatibility
+    const { data: ecomSettings } = await supabase
+        .from('ecommerce_settings')
         .select('etransfer_email, notification_email')
         .eq('site_id', siteId)
         .single();
+
+    const { data: bookingSettings } = !ecomSettings ? await supabase
+        .from('booking_settings')
+        .select('etransfer_email, notification_email')
+        .eq('site_id', siteId)
+        .single() : { data: null };
+
+    const paymentConfig = ecomSettings || bookingSettings;
 
     // Build response
     const response: any = {
@@ -82,10 +91,10 @@ export async function POST(request: NextRequest) {
         confirmationMessage: 'Thank you for your order!',
     };
 
-    if (paymentMethod === 'etransfer' && bookingSettings?.etransfer_email) {
+    if (paymentMethod === 'etransfer' && paymentConfig?.etransfer_email) {
         response.paymentInstructions = {
             type: 'etransfer',
-            email: bookingSettings.etransfer_email,
+            email: paymentConfig?.etransfer_email,
             amount: (subtotalCents / 100).toFixed(2),
             currency: items[0]?.currency || 'CAD',
             reference: `ORDER-${order.id.slice(0, 8).toUpperCase()}`,
@@ -108,13 +117,13 @@ export async function POST(request: NextRequest) {
         customerPhone,
         shippingAddress,
         paymentMethod,
-        etransferEmail: bookingSettings?.etransfer_email,
+        etransferEmail: paymentConfig?.etransfer_email,
     };
 
     sendOrderConfirmation(emailData).catch(err => console.error('Order customer email failed:', err));
 
-    if (bookingSettings?.notification_email) {
-        sendOrderNotification(emailData, bookingSettings.notification_email)
+    if (paymentConfig?.notification_email) {
+        sendOrderNotification(emailData, paymentConfig.notification_email)
             .catch(err => console.error('Order owner email failed:', err));
     }
 

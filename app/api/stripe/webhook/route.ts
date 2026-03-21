@@ -105,12 +105,20 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });
           }
 
-          // Fetch booking settings for notification email
-          const { data: bookingSettings } = await supabase
-            .from('booking_settings')
+          // Fetch ecommerce settings for notification email (fallback to booking_settings)
+          const { data: ecomSettings } = await supabase
+            .from('ecommerce_settings')
             .select('notification_email')
             .eq('site_id', siteId)
             .single();
+
+          const { data: bookingSettings } = !ecomSettings ? await supabase
+            .from('booking_settings')
+            .select('notification_email')
+            .eq('site_id', siteId)
+            .single() : { data: null };
+
+          const webhookPaymentConfig = ecomSettings || bookingSettings;
 
           // Send emails
           const emailData = {
@@ -127,8 +135,8 @@ export async function POST(request: NextRequest) {
 
           sendOrderConfirmation(emailData).catch(err => console.error('Stripe webhook customer email failed:', err));
 
-          if (bookingSettings?.notification_email) {
-            sendOrderNotification(emailData, bookingSettings.notification_email)
+          if (webhookPaymentConfig?.notification_email) {
+            sendOrderNotification(emailData, webhookPaymentConfig.notification_email)
               .catch(err => console.error('Stripe webhook owner email failed:', err));
           }
 

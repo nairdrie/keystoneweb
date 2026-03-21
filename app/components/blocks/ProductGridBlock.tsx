@@ -8,6 +8,8 @@ import {
     ImageIcon, Upload, GripVertical
 } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
+import StoreSettingsPanel from '../ecommerce/StoreSettingsPanel';
+import OrdersPanel from '../ecommerce/OrdersPanel';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -158,6 +160,16 @@ function ProductManager({ siteId, palette }: { siteId: string; palette: Record<s
                             />
                         )}
                     </div>
+                </div>
+
+                {/* Store Settings */}
+                <div className="mt-4">
+                    <StoreSettingsPanel siteId={siteId} />
+                </div>
+
+                {/* Orders */}
+                <div className="mt-4">
+                    <OrdersPanel siteId={siteId} />
                 </div>
             </div>
         </section>
