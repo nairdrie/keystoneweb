@@ -81,10 +81,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing from email' }, { status: 400 });
   }
 
-  // Skip emails from our own ops addresses (e.g. BCC'd replies)
-  if (fromEmail.toLowerCase().endsWith('@keystoneweb.ca')) {
-    console.log(`[resend-inbound] Skipping ops self-email from ${fromEmail}`);
-    return NextResponse.json({ received: true, skipped: 'ops_sender' });
+  const isOpsSender = fromEmail.toLowerCase().endsWith('@keystoneweb.ca');
+  if (isOpsSender) {
+    console.log(`[resend-inbound] Ops self-email detected from ${fromEmail} - will save to DB but skip notification.`);
   }
 
   const admin = createAdminClient();
@@ -199,16 +198,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Storage failed' }, { status: 500 });
   }
 
-  console.log(`[resend-inbound] New support request from ${fromEmail}: ${subject}`, log.join(' | '));
+  console.log(`[resend-inbound] New support request stored from ${fromEmail}: ${subject}`);
 
-  // Notify ops admins
-  const adminEmails = (process.env.OPS_ADMIN_EMAILS ?? '')
-    .split(',')
-    .map(e => e.trim())
-    .filter(Boolean);
+  // Notify ops admins only if not an ops sender
+  if (!isOpsSender) {
+    const adminEmails = (process.env.OPS_ADMIN_EMAILS ?? '')
+      .split(',')
+      .map(e => e.trim())
+      .filter(Boolean);
 
-  const bodyPreview = bodyText ? bodyText.slice(0, 300) : null;
-  await sendSupportRequestNotification({ fromName, fromEmail, subject, bodyPreview }, adminEmails);
+    const bodyPreview = bodyText ? bodyText.slice(0, 300) : null;
+    await sendSupportRequestNotification({ fromName, fromEmail, subject, bodyPreview }, adminEmails);
+  }
 
   return NextResponse.json({ received: true });
 }

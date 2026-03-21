@@ -101,7 +101,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (updateError) {
       console.error('[reply] DB update error:', updateError);
-      // Even if DB update fails, the email was sent, so we still return success but maybe warn
+    }
+
+    // Insert the reply as a threaded message in the DB so ops can see their own replies
+    const { error: insertError } = await db
+      .from('support_requests')
+      .insert({
+        from_email: fromEmail,
+        from_name: fromName,
+        subject: replySubject,
+        body_text: bodyText, // Just the direct core text locally to avoid huge quotes visually in ops panel
+        body_html: null,
+        thread_id: threadRoot,
+        status: 'in_progress',
+        priority: ticket.priority,
+      });
+
+    if (insertError) {
+      console.error('[reply] Failed to insert reply message to DB thread:', insertError);
     }
 
     return NextResponse.json(updatedTicket || ticket);
