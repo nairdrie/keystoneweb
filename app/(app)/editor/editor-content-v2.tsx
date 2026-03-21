@@ -880,9 +880,14 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   useEffect(() => {
     if (aiOnboardingBuilding && aiOnboardingDidStartRef.current && !aiBuilder.isLoading) {
       // Small delay so operations apply before revealing
-      const timer = setTimeout(() => setAiOnboardingBuilding(false), 300);
+      const timer = setTimeout(() => {
+        setAiOnboardingBuilding(false);
+        // Force an immediate save so the user doesn't lose the newly generated AI site
+        handleSaveDesign();
+      }, 300);
       return () => clearTimeout(timer);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aiOnboardingBuilding, aiBuilder.isLoading]);
 
   // Safety timeout: if the loading screen is stuck for 45 seconds, force-dismiss it
