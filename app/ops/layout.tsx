@@ -24,11 +24,18 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
     redirect('https://keystoneweb.ca');
   }
 
+  // Fetch count of open support requests
+  const { count } = await createAdminClient()
+    .from('support_requests')
+    .select('id', { count: 'exact', head: true })
+    .is('thread_id', null)
+    .eq('status', 'open');
+
   return (
     <html lang="en">
       <body className="antialiased">
         <div className="min-h-screen bg-gray-950 text-gray-100">
-          <OpsHeader userEmail={user.email} />
+          <OpsHeader userEmail={user.email} openSupportCount={count ?? 0} />
 
           <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
             {children}

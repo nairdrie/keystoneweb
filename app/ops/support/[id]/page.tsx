@@ -127,7 +127,7 @@ export default function SupportTicketPage() {
   }
 
   async function deleteTicket() {
-    if (!confirm('Are you sure you want to permanently delete this ticket? This cannot be undone.')) return;
+    if (!confirm('Are you sure you want to permanently delete this thread and all its messages? This cannot be undone.')) return;
     setSaving(true);
     try {
       const res = await fetch(`/api/ops/support/${id}`, {
@@ -349,7 +349,7 @@ export default function SupportTicketPage() {
             disabled={saving}
             className="rounded-md bg-red-900/30 px-4 py-1.5 text-sm font-medium text-red-400 hover:bg-red-900/50 transition-colors disabled:opacity-50"
           >
-            {saving ? 'Processing...' : 'Delete Ticket'}
+            {saving ? 'Processing...' : 'Delete Thread'}
           </button>
         </div>
       </div>

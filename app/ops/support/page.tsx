@@ -20,7 +20,7 @@ export default async function OpsSupportPage({
 }: {
   searchParams: Promise<{ status?: string; page?: string; q?: string; sort?: string }>;
 }) {
-  const { status = '', page: pageStr = '1', q: search = '', sort = 'newest' } = await searchParams;
+  const { status = 'open', page: pageStr = '1', q: search = '', sort = 'newest' } = await searchParams;
   const page = Math.max(parseInt(pageStr, 10) || 1, 1);
   const limit = 50;
   const offset = (page - 1) * limit;
@@ -38,7 +38,7 @@ export default async function OpsSupportPage({
     .order('created_at', { ascending: sort === 'oldest' })
     .range(offset, offset + limit - 1);
 
-  if (status) query = query.eq('status', status);
+  if (status && status !== 'all') query = query.eq('status', status);
 
   if (search) {
     const pattern = `%${search}%`;
@@ -71,7 +71,7 @@ export default async function OpsSupportPage({
   ]);
 
   const tabs = [
-    { label: 'All', value: '', count: null },
+    { label: 'All', value: 'all', count: null },
     { label: 'Open', value: 'open', count: openCount.count ?? 0 },
     { label: 'In Progress', value: 'in_progress', count: inProgressCount.count ?? 0 },
     { label: 'Resolved', value: 'resolved', count: resolvedCount.count ?? 0 },

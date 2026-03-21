@@ -7,14 +7,14 @@ import { Menu, X } from 'lucide-react';
 import Image from 'next/image';
 import KeystoneLogoImage from '@/assets/logo/keystone-logo.png';
 
-export default function OpsHeader({ userEmail }: { userEmail?: string }) {
+export default function OpsHeader({ userEmail, openSupportCount = 0 }: { userEmail?: string, openSupportCount?: number }) {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
 
   const navLinks = [
     { href: '/', label: 'Overview' },
     { href: '/users', label: 'Users' },
-    { href: '/support', label: 'Support' },
+    { href: '/support', label: 'Support', count: openSupportCount },
   ];
 
   return (
@@ -43,10 +43,15 @@ export default function OpsHeader({ userEmail }: { userEmail?: string }) {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`hover:text-white transition-colors ${pathname === link.href ? 'text-white font-medium' : ''
+                  className={`flex items-center gap-1.5 hover:text-white transition-colors ${pathname === link.href ? 'text-white font-medium' : ''
                     }`}
                 >
                   {link.label}
+                  {link.count !== undefined && link.count > 0 && (
+                    <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-500/20 px-1 text-[11px] font-bold text-amber-400">
+                      {link.count}
+                    </span>
+                  )}
                 </Link>
               ))}
             </nav>
@@ -77,12 +82,17 @@ export default function OpsHeader({ userEmail }: { userEmail?: string }) {
               key={link.href}
               href={link.href}
               onClick={() => setIsOpen(false)}
-              className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${pathname === link.href
+              className={`flex items-center justify-between px-3 py-2 rounded-md text-base font-medium transition-colors ${pathname === link.href
                 ? 'bg-gray-800 text-white'
                 : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                 }`}
             >
-              {link.label}
+              <span>{link.label}</span>
+              {link.count !== undefined && link.count > 0 && (
+                <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-500/20 px-1.5 text-xs font-bold text-amber-400">
+                  {link.count}
+                </span>
+              )}
             </Link>
           ))}
           {userEmail && (

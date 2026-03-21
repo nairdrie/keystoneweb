@@ -94,10 +94,21 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   const { id } = await params;
   const db = createAdminClient();
+  
+  // Find the root ID of this thread
+  const { data } = await db
+    .from('support_requests')
+    .select('thread_id')
+    .eq('id', id)
+    .single();
+    
+  const rootId = data?.thread_id ?? id;
+
+  // Delete the root ticket and all its replies
   const { error } = await db
     .from('support_requests')
     .delete()
-    .eq('id', id);
+    .or(`id.eq.${rootId},thread_id.eq.${rootId}`);
 
   if (error) {
     return NextResponse.json({ error: 'Delete failed' }, { status: 500 });
