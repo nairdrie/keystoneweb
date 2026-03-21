@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth/context';
 export default function SignInContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signIn } = useAuth();
+  const { signIn, signInWithApple } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -48,6 +48,18 @@ export default function SignInContent() {
       router.push('/editor');
     }
   };
+
+  const handleAppleSignIn = async () => {
+    setError('');
+    setLoading(true);
+    const { error } = await signInWithApple();
+    if (error) {
+      setError(error.message || 'Failed to sign in with Apple');
+      setLoading(false);
+    }
+    // On success, Supabase will handle the OAuth redirect
+  };
+
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-80px)] px-4">
@@ -96,6 +108,24 @@ export default function SignInContent() {
               className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 text-white font-bold rounded-lg transition-colors"
             >
               {loading ? 'Signing In...' : 'Sign In'}
+            </button>
+
+            <div className="relative flex items-center py-2">
+              <div className="flex-grow border-t border-white/20"></div>
+              <span className="flex-shrink-0 mx-4 text-slate-300 text-sm">Or</span>
+              <div className="flex-grow border-t border-white/20"></div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAppleSignIn}
+              disabled={loading}
+              className="w-full px-4 py-3 bg-black hover:bg-black/80 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-3 disabled:opacity-50"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.641-.026 2.669-1.48 3.633-2.925 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.484-4.628 2.597-4.697-2.002-3.09-5.143-3.167-6.155-3.167l-.001.002zM15.82 4.14C16.891 2.871 17.587 1.054 17.387-.1c-1.04.05-2.954.7-4.067 1.956-1.01 1.121-1.84 3.033-1.583 4.811 1.205.091 2.96-.64 4.084-2.527z" />
+              </svg>
+              Continue with Apple
             </button>
           </form>
 
