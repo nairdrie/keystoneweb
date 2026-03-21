@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { trackEvent } from '@/lib/analytics';
+import { sendWelcomeEmail } from '@/lib/email';
 
 export async function POST(request: Request) {
   const cookieStore = await cookies();
@@ -59,6 +60,16 @@ export async function POST(request: Request) {
     }
 
     trackEvent('user_signup', { userId: data.user?.id, metadata: { email } });
+
+    try {
+      await sendWelcomeEmail({
+        customerEmail: email,
+        customerName: name,
+        loginUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://keystoneweb.ca'}/login`
+      });
+    } catch (emailErr) {
+      console.error('Failed to send welcome email on signup:', emailErr);
+    }
 
     return NextResponse.json({
       success: true,

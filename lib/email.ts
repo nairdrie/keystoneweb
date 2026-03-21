@@ -47,7 +47,7 @@ export async function sendCustomerConfirmation(data: BookingEmailData) {
         }
 
         await resend.emails.send({
-            from: 'Keystone Web <bookings@keystoneweb.ca>',
+            from: 'Keystone Web Design <bookings@keystoneweb.ca>',
             to: data.customerEmail,
             subject: `Booking Confirmed — ${data.serviceName}`,
             html: `
@@ -98,7 +98,7 @@ export async function sendOwnerNotification(data: BookingEmailData, ownerEmail: 
         const refId = data.bookingId.slice(0, 8).toUpperCase();
 
         await resend.emails.send({
-            from: 'Keystone Web <bookings@keystoneweb.ca>',
+            from: 'Keystone Web Design <bookings@keystoneweb.ca>',
             to: ownerEmail,
             subject: `New Booking — ${data.serviceName} with ${data.customerName}`,
             html: `
@@ -185,7 +185,7 @@ export async function sendOrderConfirmation(data: OrderEmailData) {
         }
 
         await resend.emails.send({
-            from: 'Keystone Web <orders@keystoneweb.ca>',
+            from: 'Keystone Web Design <orders@keystoneweb.ca>',
             to: data.customerEmail,
             subject: `Order Confirmed — ${refId}`,
             html: `
@@ -219,7 +219,7 @@ export async function sendOrderNotification(data: OrderEmailData, ownerEmail: st
         const itemsSummary = data.items.map(i => `${i.qty}x ${i.name}`).join(', ');
 
         await resend.emails.send({
-            from: 'Keystone Web <orders@keystoneweb.ca>',
+            from: 'Keystone Web Design <orders@keystoneweb.ca>',
             to: ownerEmail,
             subject: `New Order — ${refId} from ${data.customerName}`,
             html: `
@@ -274,7 +274,7 @@ export async function sendSupportRequestNotification(data: {
             : '';
 
         await resend.emails.send({
-            from: 'Keystone Web <support@keystoneweb.ca>',
+            from: 'Keystone Web Design <support@keystoneweb.ca>',
             to: adminEmails,
             subject: `New Support Request — ${data.subject}`,
             html: `
@@ -324,7 +324,7 @@ interface ContactEmailData {
 export async function sendContactFormNotification(data: ContactEmailData, ownerEmail: string) {
     try {
         await resend.emails.send({
-            from: 'Keystone Web <contact@keystoneweb.ca>',
+            from: 'Keystone Web Design <contact@keystoneweb.ca>',
             to: ownerEmail,
             subject: `New Message — ${data.siteName}`,
             html: `
@@ -356,6 +356,183 @@ export async function sendContactFormNotification(data: ContactEmailData, ownerE
         return { success: true };
     } catch (error) {
         console.error('Failed to send contact notification email:', error);
+        return { success: false, error };
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Subscription Emails
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function sendSubscriptionPurchaseEmail(data: {
+    customerEmail: string;
+    customerName?: string;
+    planName: string;
+    loginUrl: string;
+}) {
+    try {
+        await resend.emails.send({
+            from: 'Keystone Web Design <noreply@keystoneweb.ca>',
+            to: data.customerEmail,
+            subject: `Subscription Confirmed — ${data.planName}`,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; background: #ffffff;">
+                    <!-- Header bar -->
+                    <div style="background: #fe4545; height: 4px; border-radius: 4px 4px 0 0;"></div>
+
+                    <!-- Body -->
+                    <div style="padding: 40px 32px;">
+                        <!-- Logo wordmark -->
+                        <img style="width:200px; margin-bottom:32px;" src="https://www.keystoneweb.ca/assets/logo/keystone-logo.png" alt="Keystone Web" />
+
+                        <!-- Heading -->
+                        <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #171717; letter-spacing: -0.02em;">Subscription Confirmed</h1>
+                        <p style="margin: 0 0 28px; font-size: 15px; color: #6b7280; line-height: 1.6;">
+                            Thanks for subscribing${data.customerName ? `, ${data.customerName}` : ''}! Your <strong>${data.planName}</strong> subscription is now active.
+                        </p>
+
+                        <!-- CTA Button -->
+                        <a href="${data.loginUrl}" style="display: inline-block; background: #fe4545; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 600; padding: 13px 28px; border-radius: 8px; letter-spacing: 0.01em;">
+                            Go to Dashboard →
+                        </a>
+
+                        <!-- Divider -->
+                        <div style="border-top: 1px solid #f3f4f6; margin: 32px 0;"></div>
+
+                        <!-- Security note -->
+                        <p style="margin: 0 0 8px; font-size: 13px; color: #9ca3af; line-height: 1.6;">
+                            If you have any questions or need help, just reply to this email to reach our support team.
+                        </p>
+                    </div>
+
+                    <!-- Footer -->
+                    <div style="padding: 16px 32px; background: #f9fafb; border-top: 1px solid #f3f4f6; border-radius: 0 0 4px 4px;">
+                        <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center;">
+                            Powered by <strong style="color: #6b7280;">Keystone Web Design</strong>
+                        </p>
+                    </div>
+                </div>
+            `,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send subscription purchase email:', error);
+        return { success: false, error };
+    }
+}
+
+export async function sendSubscriptionCancelledEmail(data: {
+    customerEmail: string;
+    customerName?: string;
+    planName: string;
+}) {
+    try {
+        await resend.emails.send({
+            from: 'Keystone Web Design <noreply@keystoneweb.ca>',
+            to: data.customerEmail,
+            subject: `Subscription Cancelled — ${data.planName}`,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; background: #ffffff;">
+                    <!-- Header bar -->
+                    <div style="background: #fe4545; height: 4px; border-radius: 4px 4px 0 0;"></div>
+
+                    <!-- Body -->
+                    <div style="padding: 40px 32px;">
+                        <!-- Logo wordmark -->
+                        <img style="width:200px; margin-bottom:32px;" src="https://www.keystoneweb.ca/assets/logo/keystone-logo.png" alt="Keystone Web" />
+
+                        <!-- Heading -->
+                        <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #171717; letter-spacing: -0.02em;">Subscription Cancelled</h1>
+                        <p style="margin: 0 0 28px; font-size: 15px; color: #6b7280; line-height: 1.6;">
+                            We've processed the cancellation of your <strong>${data.planName}</strong> plan. You'll retain access to your features until the end of your billing cycle.
+                        </p>
+
+                        <!-- CTA Button -->
+                        <a href="https://keystoneweb.ca/settings" style="display: inline-block; background: #fe4545; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 600; padding: 13px 28px; border-radius: 8px; letter-spacing: 0.01em;">
+                            Reactivate Subscription →
+                        </a>
+
+                        <!-- Divider -->
+                        <div style="border-top: 1px solid #f3f4f6; margin: 32px 0;"></div>
+
+                        <!-- Security note -->
+                        <p style="margin: 0 0 8px; font-size: 13px; color: #9ca3af; line-height: 1.6;">
+                            We're sorry to see you go. If you have a moment, we'd appreciate your feedback so we can improve. Just reply to this email.
+                        </p>
+                    </div>
+
+                    <!-- Footer -->
+                    <div style="padding: 16px 32px; background: #f9fafb; border-top: 1px solid #f3f4f6; border-radius: 0 0 4px 4px;">
+                        <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center;">
+                            Powered by <strong style="color: #6b7280;">Keystone Web Design</strong>
+                        </p>
+                    </div>
+                </div>
+            `,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send subscription cancelled email:', error);
+        return { success: false, error };
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Auth Emails
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function sendWelcomeEmail(data: {
+    customerEmail: string;
+    customerName?: string;
+    loginUrl: string;
+}) {
+    try {
+        await resend.emails.send({
+            from: 'Keystone Web Design <noreply@keystoneweb.ca>',
+            to: data.customerEmail,
+            subject: `Welcome to Keystone Web Design`,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; background: #ffffff;">
+                    <!-- Header bar -->
+                    <div style="background: #fe4545; height: 4px; border-radius: 4px 4px 0 0;"></div>
+
+                    <!-- Body -->
+                    <div style="padding: 40px 32px;">
+                        <!-- Logo wordmark -->
+                        <img style="width:200px; margin-bottom:32px;" src="https://www.keystoneweb.ca/assets/logo/keystone-logo.png" alt="Keystone Web" />
+
+                        <!-- Heading -->
+                        <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #171717; letter-spacing: -0.02em;">Welcome to Keystone!</h1>
+                        <p style="margin: 0 0 28px; font-size: 15px; color: #6b7280; line-height: 1.6;">
+                            Hi${data.customerName ? ` ${data.customerName}` : ''}, thanks for creating an account with us. We're thrilled to have you on board! You can now log in to the dashboard to start exploring your account.
+                        </p>
+
+                        <!-- CTA Button -->
+                        <a href="${data.loginUrl}" style="display: inline-block; background: #fe4545; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 600; padding: 13px 28px; border-radius: 8px; letter-spacing: 0.01em;">
+                            Log in to Dashboard →
+                        </a>
+
+                        <!-- Divider -->
+                        <div style="border-top: 1px solid #f3f4f6; margin: 32px 0;"></div>
+
+                        <!-- Security note -->
+                        <p style="margin: 0 0 8px; font-size: 13px; color: #9ca3af; line-height: 1.6;">
+                            If you have any questions or need help, just reply to this email to reach our support team.
+                        </p>
+                    </div>
+
+                    <!-- Footer -->
+                    <div style="padding: 16px 32px; background: #f9fafb; border-top: 1px solid #f3f4f6; border-radius: 0 0 4px 4px;">
+                        <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center;">
+                            Powered by <strong style="color: #6b7280;">Keystone Web Design</strong>
+                        </p>
+                    </div>
+                </div>
+            `,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send welcome email:', error);
         return { success: false, error };
     }
 }

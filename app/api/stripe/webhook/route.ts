@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
-import { sendOrderConfirmation, sendOrderNotification } from '@/lib/email';
+import { createAdminClient } from '@/lib/db/supabase-admin';
+import { sendOrderConfirmation, sendOrderNotification, sendSubscriptionPurchaseEmail, sendSubscriptionCancelledEmail } from '@/lib/email';
 import { completeDomainPurchase } from '@/app/api/domains/purchase/route';
 import Stripe from 'stripe';
 import { trackEvent } from '@/lib/analytics';
@@ -166,6 +167,22 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        try {
+          const adminClient = createAdminClient();
+          const { data: { user } } = await adminClient.auth.admin.getUserById(userId);
+          if (user?.email) {
+            const customerName = user.user_metadata?.full_name || user.user_metadata?.name || '';
+            await sendSubscriptionPurchaseEmail({
+              customerEmail: user.email,
+              customerName: customerName,
+              planName: planName || 'Unknown Plan',
+              loginUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://keystoneweb.ca'}/login`
+            });
+          }
+        } catch (err) {
+          console.error('Failed to send subscription purchase email:', err);
+        }
+
         trackEvent('subscription_upgrade', {
           userId,
           metadata: { plan: planName, customerId },
@@ -250,6 +267,23 @@ export async function POST(request: NextRequest) {
             userId: subRow?.user_id,
             metadata: { plan: planName, status },
           });
+
+          if (subRow?.user_id) {
+            try {
+              const adminClient = createAdminClient();
+              const { data: { user } } = await adminClient.auth.admin.getUserById(subRow.user_id);
+              if (user?.email) {
+                const customerName = user.user_metadata?.full_name || user.user_metadata?.name || '';
+                await sendSubscriptionCancelledEmail({
+                  customerEmail: user.email,
+                  customerName: customerName,
+                  planName: planName,
+                });
+              }
+            } catch (err) {
+              console.error('Failed to send subscription cancelled email:', err);
+            }
+          }
         }
 
         console.log(`✅ Subscription ${subscription.id} updated to status: ${status}, plan: ${planName}`);
