@@ -3,6 +3,7 @@ import EditorContent from '@/app/(app)/editor/editor-content-v2';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import ProductPageClient from '@/app/components/ecommerce/ProductPageWrapper';
+import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
 
 export const dynamic = 'force-dynamic';
 
@@ -96,6 +97,8 @@ export default async function CustomDomainProductDetailPage({
         }
 
         return (
+            <>
+            <SiteAnalyticsTracker siteId={site.id} />
             <EditorContent
                 isPublicView={true}
                 publicSiteData={{
@@ -135,6 +138,7 @@ export default async function CustomDomainProductDetailPage({
                     />
                 )}
             </EditorContent>
+            </>
         );
     } catch (error) {
         console.error('Error rendering product page:', error);

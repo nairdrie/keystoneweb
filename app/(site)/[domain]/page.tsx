@@ -3,6 +3,7 @@ import EditorContent from '@/app/(app)/editor/editor-content-v2';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import JsonLdScript from '@/app/components/JsonLdScript';
+import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
 import { BusinessProfile } from '@/lib/types/sites';
 
 export const dynamic = 'force-dynamic';
@@ -87,6 +88,7 @@ export default async function CustomDomainPage({
     // Render the published site via unified EditorContent (read-only mode)
     return (
       <>
+        <SiteAnalyticsTracker siteId={site.id} />
         {site.business_profile && (
           <JsonLdScript
             businessProfile={site.business_profile as BusinessProfile}
