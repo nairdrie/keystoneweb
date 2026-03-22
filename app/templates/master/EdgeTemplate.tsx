@@ -59,7 +59,7 @@ export function EdgeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             className="flex items-center gap-3 transition-opacity hover:opacity-90"
                         >
                             {siteContent.siteLogo ? (
-                                <img src={siteContent.siteLogo} alt="" className="w-8 h-8 object-contain" />
+                                <img src={siteContent.siteLogo} alt="" className="w-8 h-8 object-contain"  style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-8 h-8 border flex items-center justify-center font-mono font-bold text-sm" style={{ borderColor: pSecondary, color: pSecondary }}>
                                     {'//'}
@@ -136,7 +136,7 @@ export function EdgeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                     <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
                             {siteContent.siteLogo ? (
-                                <img src={siteContent.siteLogo} alt="" className="w-6 h-6 object-contain" />
+                                <img src={siteContent.siteLogo} alt="" className="w-6 h-6 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <span className="font-mono text-xs" style={{ color: pSecondary }}>{'// '}</span>
                             )}

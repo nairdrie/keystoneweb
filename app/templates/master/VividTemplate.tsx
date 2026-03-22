@@ -58,7 +58,7 @@ export function VividTemplate({ palette, isEditMode, children }: MasterTemplateP
                             className="flex items-center gap-3 transition-opacity hover:opacity-90"
                         >
                             {siteContent.siteLogo ? (
-                                <img src={siteContent.siteLogo} alt="" className="w-9 h-9 object-contain rounded-lg" />
+                                <img src={siteContent.siteLogo} alt="" className="w-9 h-9 object-contain rounded-lg"  style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-9 h-9 rounded-lg flex items-center justify-center font-black text-sm" style={{ backgroundColor: pSecondary, color: pPrimary }}>
                                     {(siteContent.siteTitle || 'V')[0]?.toUpperCase()}
@@ -136,7 +136,7 @@ export function VividTemplate({ palette, isEditMode, children }: MasterTemplateP
                     <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="flex items-center gap-3">
                             {siteContent.siteLogo ? (
-                                <img src={siteContent.siteLogo} alt="" className="w-8 h-8 object-contain rounded-lg" />
+                                <img src={siteContent.siteLogo} alt="" className="w-8 h-8 object-contain rounded-lg"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm" style={{ backgroundColor: pSecondary, color: pPrimary }}>
                                     {(siteContent.siteTitle || 'V')[0]?.toUpperCase()}

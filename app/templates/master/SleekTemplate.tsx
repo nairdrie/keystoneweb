@@ -62,7 +62,7 @@ export function SleekTemplate({ palette, isEditMode, children }: MasterTemplateP
                                     src={siteContent.siteLogo}
                                     alt={siteContent.siteTitle || 'Logo'}
                                     className="w-7 h-7 object-contain"
-                                />
+                                 style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-7 h-7 rounded-sm flex items-center justify-center font-bold text-xs text-white" style={{ backgroundColor: pPrimary }}>
                                     {(siteContent.siteTitle || 'S')[0]?.toUpperCase()}
@@ -142,7 +142,7 @@ export function SleekTemplate({ palette, isEditMode, children }: MasterTemplateP
                                 src={siteContent.siteLogo}
                                 alt={siteContent.siteTitle || 'Logo'}
                                 className="w-6 h-6 object-contain"
-                            />
+                             style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                         ) : (
                             <div className="w-6 h-6 rounded-sm flex items-center justify-center font-bold text-[10px] text-white" style={{ backgroundColor: pPrimary }}>
                                 {(siteContent.siteTitle || 'S')[0]?.toUpperCase()}

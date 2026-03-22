@@ -59,7 +59,7 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
                                 className="flex items-center gap-3 transition-opacity hover:opacity-90"
                             >
                                 {siteContent.siteLogo ? (
-                                    <img src={siteContent.siteLogo} alt="" className="w-8 h-8 object-contain rounded-md" />
+                                    <img src={siteContent.siteLogo} alt="" className="w-8 h-8 object-contain rounded-md"  style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
                                 ) : (
                                     <div className="w-8 h-8 rounded-md flex items-center justify-center font-black text-sm text-white" style={{ backgroundColor: pSecondary }}>
                                         {(siteContent.siteTitle || 'B')[0]?.toUpperCase()}
@@ -142,7 +142,7 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
                     <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
                             {siteContent.siteLogo ? (
-                                <img src={siteContent.siteLogo} alt="" className="w-6 h-6 object-contain rounded" />
+                                <img src={siteContent.siteLogo} alt="" className="w-6 h-6 object-contain rounded"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-6 h-6 rounded flex items-center justify-center text-xs font-black text-white" style={{ backgroundColor: pSecondary }}>
                                     {(siteContent.siteTitle || 'B')[0]?.toUpperCase()}

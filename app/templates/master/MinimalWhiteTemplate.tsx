@@ -65,7 +65,7 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
                                         src={siteContent.siteLogo}
                                         alt={siteContent.siteTitle || 'Logo'}
                                         className="w-8 h-8 object-contain"
-                                    />
+                                     style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
                                 ) : (
                                     <div className="w-8 h-8 rounded flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pPrimary }}>
                                         {(siteContent.siteTitle || 'S')[0]?.toUpperCase()}
@@ -152,7 +152,7 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
                                 src={siteContent.siteLogo}
                                 alt={siteContent.siteTitle || 'Logo'}
                                 className="w-8 h-8 object-contain"
-                            />
+                             style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                         ) : (
                             <div className="w-8 h-8 rounded flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pPrimary }}>
                                 {(siteContent.siteTitle || 'S')[0]?.toUpperCase()}

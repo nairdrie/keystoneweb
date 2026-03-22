@@ -96,13 +96,34 @@ export default function BlockSettingsModal({
     if (!isOpen) return null;
 
     const handleSave = () => {
-        onSaveCustomCss(localCss);
-        if (onUpdateBlockData && blockType === 'hero') {
-            onUpdateBlockData('bgType', bgType);
-            onUpdateBlockData('backgroundColor', bgColor);
-            onUpdateBlockData('bgImage', bgImage);
-            onUpdateBlockData('bgCarouselImages', bgCarouselImages);
-            onUpdateBlockData('bgCarouselTiming', bgCarouselTiming);
+        let updates: Record<string, any> = {};
+
+        if (localCss !== customCss) {
+            updates['__customCss'] = localCss;
+        }
+
+        if (blockType === 'hero') {
+            updates['bgType'] = bgType;
+            updates['backgroundColor'] = bgColor;
+            updates['bgImage'] = bgImage;
+            updates['bgCarouselImages'] = bgCarouselImages;
+            updates['bgCarouselTiming'] = bgCarouselTiming;
+        }
+
+        if (Object.keys(updates).length > 0 && context?.updateBlockDataBatch) {
+            context.updateBlockDataBatch(blockId, updates);
+        } else {
+            // Fallbacks for independent saves if batch is somehow unavailable
+            if (localCss !== customCss) {
+                onSaveCustomCss(localCss);
+            }
+            if (onUpdateBlockData && blockType === 'hero') {
+                onUpdateBlockData('bgType', bgType);
+                onUpdateBlockData('backgroundColor', bgColor);
+                onUpdateBlockData('bgImage', bgImage);
+                onUpdateBlockData('bgCarouselImages', bgCarouselImages);
+                onUpdateBlockData('bgCarouselTiming', bgCarouselTiming);
+            }
         }
         onClose();
     };

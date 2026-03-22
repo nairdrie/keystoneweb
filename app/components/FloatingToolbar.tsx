@@ -38,6 +38,8 @@ interface Site {
 interface FloatingToolbarProps {
   siteTitle: string;
   onSiteTitle: (title: string) => void;
+  siteContent?: any;
+  onUpdateSiteContent?: (key: string, value: any) => void;
   currentSiteId?: string;
   templateName?: string;
   templatePalettes?: Palette[];
@@ -103,6 +105,8 @@ function useIsLargeScreen() {
 export default function FloatingToolbar({
   siteTitle,
   onSiteTitle,
+  siteContent = {},
+  onUpdateSiteContent = () => {},
   currentSiteId,
   templateName,
   templatePalettes = [],
@@ -500,9 +504,44 @@ export default function FloatingToolbar({
                     {logoUrl ? 'Change Logo' : 'Upload Logo'}
                   </button>
                 </div>
-                <p className="mt-1.5 text-[10px] text-slate-400 italic">
+                <p className="mt-1.5 text-[10px] text-slate-400 italic mb-4">
                   Used in header, footer, and as favicon.
                 </p>
+
+                {/* Logo Height Controls */}
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-[10px] font-bold text-slate-500">Header Logo Height</label>
+                      <span className="text-[10px] text-slate-500 font-mono">{siteContent.headerLogoHeight || 'Auto'}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="20"
+                      max="120"
+                      step="4"
+                      value={siteContent.headerLogoHeight || 40}
+                      onChange={(e) => onUpdateSiteContent('headerLogoHeight', parseInt(e.target.value))}
+                      className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-[10px] font-bold text-slate-500">Footer Logo Height</label>
+                      <span className="text-[10px] text-slate-500 font-mono">{siteContent.footerLogoHeight || 'Auto'}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="20"
+                      max="120"
+                      step="4"
+                      value={siteContent.footerLogoHeight || 32}
+                      onChange={(e) => onUpdateSiteContent('footerLogoHeight', parseInt(e.target.value))}
+                      className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           )}

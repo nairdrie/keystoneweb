@@ -47,7 +47,8 @@ export interface EditorContextType {
   removeBlock?: (id: string) => void;
   moveBlock?: (id: string, direction: 'up' | 'down') => void;
   updateBlockData?: (id: string, key: string, value: any) => void;
-
+  updateBlockDataBatch?: (id: string, updates: Record<string, any>) => void;
+  isAiBuilderActive?: boolean;
   /** Whether we're in edit mode */
   isEditMode: boolean;
 

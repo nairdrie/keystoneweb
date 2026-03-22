@@ -68,7 +68,7 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             className="flex items-center gap-2.5 transition-opacity hover:opacity-90"
                         >
                             {siteContent.siteLogo ? (
-                                <img src={siteContent.siteLogo} alt="" className="w-8 h-8 object-contain rounded-full" />
+                                <img src={siteContent.siteLogo} alt="" className="w-8 h-8 object-contain rounded-full"  style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pPrimary }}>
                                     {(siteContent.siteTitle || 'A')[0]?.toUpperCase()}
@@ -152,7 +152,7 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
                     <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
                         <div className="flex items-center justify-center gap-2 mb-3">
                             {siteContent.siteLogo ? (
-                                <img src={siteContent.siteLogo} alt="" className="w-8 h-8 object-contain rounded-full" />
+                                <img src={siteContent.siteLogo} alt="" className="w-8 h-8 object-contain rounded-full"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: pPrimary }}>
                                     {(siteContent.siteTitle || 'A')[0]?.toUpperCase()}

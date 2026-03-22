@@ -58,7 +58,7 @@ export function LuxeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                         className="inline-flex flex-col items-center gap-2 transition-opacity hover:opacity-90"
                     >
                         {siteContent.siteLogo ? (
-                            <img src={siteContent.siteLogo} alt="" className="w-12 h-12 object-contain" />
+                            <img src={siteContent.siteLogo} alt="" className="w-12 h-12 object-contain"  style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
                         ) : (
                             <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white" style={{ backgroundColor: pSecondary }}>
                                 {(siteContent.siteTitle || 'L')[0]?.toUpperCase()}
@@ -138,7 +138,7 @@ export function LuxeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                 <div className="max-w-6xl mx-auto px-6 text-center">
                     <div className="flex flex-col items-center gap-4 mb-4">
                         {siteContent.siteLogo ? (
-                            <img src={siteContent.siteLogo} alt="" className="w-10 h-10 object-contain rounded-full" />
+                            <img src={siteContent.siteLogo} alt="" className="w-10 h-10 object-contain rounded-full"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                         ) : (
                             <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: pSecondary }}>
                                 {(siteContent.siteTitle || 'L')[0]?.toUpperCase()}

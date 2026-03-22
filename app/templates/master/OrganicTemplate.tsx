@@ -62,7 +62,7 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
                                     src={siteContent.siteLogo}
                                     alt={siteContent.siteTitle || 'Logo'}
                                     className="w-9 h-9 object-contain rounded-full"
-                                />
+                                 style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-9 h-9 rounded-full flex items-center justify-center font-serif font-bold text-sm text-white" style={{ backgroundColor: pSecondary }}>
                                     {(siteContent.siteTitle || 'O')[0]?.toUpperCase()}
@@ -144,7 +144,7 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
                                 src={siteContent.siteLogo}
                                 alt={siteContent.siteTitle || 'Logo'}
                                 className="w-8 h-8 object-contain rounded-full"
-                            />
+                             style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                         ) : (
                             <div className="w-8 h-8 rounded-full flex items-center justify-center font-serif font-bold text-[10px] text-white" style={{ backgroundColor: pSecondary }}>
                                 {(siteContent.siteTitle || 'O')[0]?.toUpperCase()}

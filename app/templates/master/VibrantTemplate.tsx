@@ -62,7 +62,7 @@ export function VibrantTemplate({ palette, isEditMode, children }: MasterTemplat
                                     src={siteContent.siteLogo}
                                     alt={siteContent.siteTitle || 'Logo'}
                                     className="w-9 h-9 object-contain rounded-xl"
-                                />
+                                 style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center font-bold text-sm text-white backdrop-blur-sm">
                                     {(siteContent.siteTitle || 'V')[0]?.toUpperCase()}
@@ -138,7 +138,7 @@ export function VibrantTemplate({ palette, isEditMode, children }: MasterTemplat
                     <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-8 text-center">
                         <div className="flex items-center justify-center gap-2 mb-3">
                             {siteContent.siteLogo ? (
-                                <img src={siteContent.siteLogo} alt="" className="w-7 h-7 object-contain rounded-lg" />
+                                <img src={siteContent.siteLogo} alt="" className="w-7 h-7 object-contain rounded-lg"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-xs font-bold text-white">
                                     {(siteContent.siteTitle || 'V')[0]?.toUpperCase()}

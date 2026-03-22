@@ -539,6 +539,33 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     setEditableContent((prev) => ({ ...prev, blocks: newBlocks }));
   };
 
+  const updateBlockDataBatch = (id: string, updates: Record<string, any>) => {
+    const currentBlocks: BlockData[] = Array.isArray(editableContentRef.current.blocks) ? editableContentRef.current.blocks : [];
+    const index = currentBlocks.findIndex(b => b.id === id);
+    if (index < 0) return;
+
+    let hasChanges = false;
+    const oldBlock = currentBlocks[index];
+    let newData = { ...oldBlock.data };
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (JSON.stringify(newData[key]) !== JSON.stringify(value)) {
+        newData[key] = value;
+        hasChanges = true;
+      }
+    }
+
+    if (!hasChanges) return;
+
+    const newBlock = { ...oldBlock, data: newData };
+    const newBlocks = [...currentBlocks];
+    newBlocks[index] = newBlock;
+
+    addChange('blocks', 'Updated Block Content (Batch)', JSON.stringify(currentBlocks), JSON.stringify(newBlocks));
+    
+    setEditableContent((prev) => ({ ...prev, blocks: newBlocks }));
+  };
+
   // Reconstruct state when History Undo/Redo is triggered
   useEffect(() => {
     const action = changesHook.lastAction;
@@ -963,6 +990,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
         <FloatingToolbar
           siteTitle={siteTitle}
           onSiteTitle={handleSiteTitleChange}
+          siteContent={siteContent}
+          onUpdateSiteContent={handleUpdateSiteContent}
           onSave={handleSaveDesign}
           saving={saving}
           publishing={false}
@@ -1135,6 +1164,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
               removeBlock,
               moveBlock,
               updateBlockData,
+              updateBlockDataBatch,
               addChange,
               isProUser,
             }}

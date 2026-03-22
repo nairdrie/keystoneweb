@@ -63,7 +63,7 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                                         src={siteContent.siteLogo}
                                         alt={siteContent.siteTitle || 'Logo'}
                                         className="w-9 h-9 object-contain"
-                                    />
+                                     style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
                                 ) : (
                                     <div
                                         className="w-9 h-9 rounded-xl flex items-center justify-center"
@@ -156,7 +156,7 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                                     src={siteContent.siteLogo}
                                     alt={siteContent.siteTitle || 'Logo'}
                                     className="w-6 h-6 object-contain"
-                                />
+                                 style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div
                                     className="w-6 h-6 rounded-lg flex items-center justify-center"
