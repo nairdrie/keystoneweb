@@ -2,17 +2,17 @@ import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
- * GET /api/bookings/services?siteId=...
- * Returns active services for a site (public) or all services (owner)
+ * GET /api/bookings/categories?siteId=...
+ * Returns categories for a site
  * 
- * POST /api/bookings/services
- * Create a new service (owner only)
+ * POST /api/bookings/categories
+ * Create a new category (owner only)
  * 
- * PUT /api/bookings/services
- * Update a service (owner only)
+ * PUT /api/bookings/categories
+ * Update a category (owner only)
  * 
- * DELETE /api/bookings/services?id=...
- * Delete a service (owner only)
+ * DELETE /api/bookings/categories?id=...
+ * Delete a category (owner only)
  */
 
 export async function GET(request: NextRequest) {
@@ -24,8 +24,8 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
 
     const { data, error } = await supabase
-        .from('booking_services')
-        .select('*, booking_categories(name)')
+        .from('booking_categories')
+        .select('*')
         .eq('site_id', siteId)
         .order('sort_order', { ascending: true });
 
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ services: data });
+    return NextResponse.json({ categories: data });
 }
 
 export async function POST(request: NextRequest) {
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { siteId, name, description, duration_minutes, price_cents, currency, category_id } = body;
+    const { siteId, name } = body;
 
     if (!siteId || !name) {
         return NextResponse.json({ error: 'Missing siteId or name' }, { status: 400 });
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     // Get max sort_order
     const { data: existing } = await supabase
-        .from('booking_services')
+        .from('booking_categories')
         .select('sort_order')
         .eq('site_id', siteId)
         .order('sort_order', { ascending: false })
@@ -68,25 +68,20 @@ export async function POST(request: NextRequest) {
     const nextOrder = (existing?.[0]?.sort_order ?? -1) + 1;
 
     const { data, error } = await supabase
-        .from('booking_services')
+        .from('booking_categories')
         .insert({
             site_id: siteId,
             name,
-            description: description || null,
-            duration_minutes: duration_minutes || 30,
-            price_cents: price_cents || 0,
-            currency: currency || 'CAD',
-            category_id: category_id || null,
             sort_order: nextOrder,
         })
-        .select('*, booking_categories(name)')
+        .select()
         .single();
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ service: data });
+    return NextResponse.json({ category: data });
 }
 
 export async function PUT(request: NextRequest) {
@@ -98,42 +93,35 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, name, description, duration_minutes, price_cents, currency, is_active, sort_order, category_id } = body;
+    const { id, name, sort_order } = body;
 
     if (!id) {
-        return NextResponse.json({ error: 'Missing service id' }, { status: 400 });
+        return NextResponse.json({ error: 'Missing category id' }, { status: 400 });
     }
 
     const updates: Record<string, any> = { updated_at: new Date().toISOString() };
     if (name !== undefined) updates.name = name;
-    if (description !== undefined) updates.description = description;
-    if (duration_minutes !== undefined) updates.duration_minutes = duration_minutes;
-    if (price_cents !== undefined) updates.price_cents = price_cents;
-    if (currency !== undefined) updates.currency = currency;
-    if (is_active !== undefined) updates.is_active = is_active;
     if (sort_order !== undefined) updates.sort_order = sort_order;
-    if (category_id !== undefined) updates.category_id = category_id;
 
     const { data, error } = await supabase
-        .from('booking_services')
+        .from('booking_categories')
         .update(updates)
         .eq('id', id)
-        .select('*, booking_categories(name)')
+        .select()
         .single();
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ service: data });
+    return NextResponse.json({ category: data });
 }
 
 export async function DELETE(request: NextRequest) {
-    const siteId = request.nextUrl.searchParams.get('siteId');
-    const serviceId = request.nextUrl.searchParams.get('id');
+    const categoryId = request.nextUrl.searchParams.get('id');
 
-    if (!serviceId) {
-        return NextResponse.json({ error: 'Missing service id' }, { status: 400 });
+    if (!categoryId) {
+        return NextResponse.json({ error: 'Missing category id' }, { status: 400 });
     }
 
     const supabase = await createClient();
@@ -144,9 +132,9 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { error } = await supabase
-        .from('booking_services')
+        .from('booking_categories')
         .delete()
-        .eq('id', serviceId);
+        .eq('id', categoryId);
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });

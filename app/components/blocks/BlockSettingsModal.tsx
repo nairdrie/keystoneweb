@@ -61,6 +61,11 @@ export default function BlockSettingsModal({
             { id: 'inline', label: 'Inline Row' },
             { id: 'grid', label: 'Logo Grid' },
             { id: 'marquee', label: 'Scrolling Marquee' }
+        ],
+        aboutImageText: [
+            { id: 'landscape', label: 'Landscape Image (4:3)' },
+            { id: 'square', label: 'Square Image (1:1)' },
+            { id: 'tall', label: 'Tall Image (3:4)' }
         ]
     };
 

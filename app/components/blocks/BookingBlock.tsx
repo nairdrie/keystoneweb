@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useEditorContext } from '@/lib/editor-context';
 import {
     Calendar, Clock, Plus, Trash2, Settings, ChevronLeft, ChevronRight,
-    Check, Loader2, User, Mail, Phone, MessageSquare, DollarSign
+    Check, Loader2, User, Mail, Phone, MessageSquare, DollarSign, LayoutTemplate
 } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -17,6 +17,14 @@ interface Service {
     price_cents: number;
     currency: string;
     is_active: boolean;
+    sort_order: number;
+    category_id?: string | null;
+    booking_categories?: { name: string } | null;
+}
+
+interface Category {
+    id: string;
+    name: string;
     sort_order: number;
 }
 
@@ -78,7 +86,8 @@ export default function BookingBlock({ id, data, isEditMode, palette, updateCont
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function BookingSetup({ siteId, palette }: { siteId: string; palette: Record<string, string> }) {
-    const [activeTab, setActiveTab] = useState<'services' | 'hours' | 'settings'>('services');
+    const [activeTab, setActiveTab] = useState<'categories' | 'services' | 'hours' | 'settings'>('services');
+    const [categories, setCategories] = useState<Category[]>([]);
     const [services, setServices] = useState<Service[]>([]);
     const [availability, setAvailability] = useState<AvailabilityDay[]>([]);
     const [settings, setSettings] = useState<BookingSettings | null>(null);
@@ -105,16 +114,19 @@ function BookingSetup({ siteId, palette }: { siteId: string; palette: Record<str
             }
 
             // Now fetch everything
-            const [svcRes, avRes, stRes] = await Promise.all([
+            const [catRes, svcRes, avRes, stRes] = await Promise.all([
+                fetch(`/api/bookings/categories?siteId=${siteId}`),
                 fetch(`/api/bookings/services?siteId=${siteId}`),
                 fetch(`/api/bookings/availability?siteId=${siteId}`),
                 fetch(`/api/bookings/settings?siteId=${siteId}`),
             ]);
 
+            const catData = await catRes.json();
             const svcData = await svcRes.json();
             const avData = await avRes.json();
             const stData = await stRes.json();
 
+            setCategories(catData.categories || []);
             setServices(svcData.services || []);
             setAvailability(avData.availability || []);
             setSettings(stData.settings || null);
@@ -132,6 +144,7 @@ function BookingSetup({ siteId, palette }: { siteId: string; palette: Record<str
     }
 
     const tabs = [
+        { id: 'categories' as const, label: 'Categories', icon: <LayoutTemplate className="w-4 h-4" /> },
         { id: 'services' as const, label: 'Services', icon: <DollarSign className="w-4 h-4" /> },
         { id: 'hours' as const, label: 'Hours', icon: <Clock className="w-4 h-4" /> },
         { id: 'settings' as const, label: 'Settings', icon: <Settings className="w-4 h-4" /> },
@@ -169,11 +182,19 @@ function BookingSetup({ siteId, palette }: { siteId: string; palette: Record<str
 
                     {/* Content */}
                     <div className="p-6">
+                        {activeTab === 'categories' && (
+                            <CategoriesEditor
+                                siteId={siteId}
+                                categories={categories}
+                                setCategories={setCategories}
+                            />
+                        )}
                         {activeTab === 'services' && (
                             <ServicesEditor
                                 siteId={siteId}
                                 services={services}
                                 setServices={setServices}
+                                categories={categories}
                             />
                         )}
                         {activeTab === 'hours' && (
@@ -197,18 +218,91 @@ function BookingSetup({ siteId, palette }: { siteId: string; palette: Record<str
     );
 }
 
+// ─── Categories Editor ──────────────────────────────────────────────────────────
+
+function CategoriesEditor({ siteId, categories, setCategories }: {
+    siteId: string;
+    categories: Category[];
+    setCategories: (c: Category[]) => void;
+}) {
+    const [adding, setAdding] = useState(false);
+    const [newName, setNewName] = useState('');
+
+    const handleAdd = async () => {
+        if (!newName.trim()) return;
+        setAdding(true);
+
+        const res = await fetch('/api/bookings/categories', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ siteId, name: newName }),
+        });
+
+        const data = await res.json();
+        if (data.category) {
+            setCategories([...categories, data.category]);
+            setNewName('');
+        }
+        setAdding(false);
+    };
+
+    const handleDelete = async (categoryId: string) => {
+        await fetch(`/api/bookings/categories?id=${categoryId}`, { method: 'DELETE' });
+        setCategories(categories.filter(c => c.id !== categoryId));
+    };
+
+    return (
+        <div className="space-y-4">
+            {categories.length === 0 && (
+                <p className="text-sm text-slate-400 text-center py-4">No categories yet. Add your first category below if you want to group your services.</p>
+            )}
+
+            {categories.map(category => (
+                <div key={category.id} className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 bg-white">
+                    <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-slate-900 text-sm">{category.name}</h4>
+                    </div>
+                    <button onClick={() => handleDelete(category.id)} className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600">
+                        <Trash2 className="w-4 h-4" />
+                    </button>
+                </div>
+            ))}
+
+            <div className="flex gap-2">
+                <input
+                    type="text"
+                    placeholder="Category name (e.g. Haircuts, Massages)"
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                    onClick={handleAdd}
+                    disabled={adding || !newName.trim()}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg disabled:opacity-40 transition-colors flex items-center gap-2"
+                >
+                    {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                    Add
+                </button>
+            </div>
+        </div>
+    );
+}
+
 // ─── Services Editor ────────────────────────────────────────────────────────────
 
-function ServicesEditor({ siteId, services, setServices }: {
+function ServicesEditor({ siteId, services, setServices, categories }: {
     siteId: string;
     services: Service[];
     setServices: (s: Service[]) => void;
+    categories: Category[];
 }) {
     const [adding, setAdding] = useState(false);
     const [newName, setNewName] = useState('');
     const [newDuration, setNewDuration] = useState(30);
     const [newPrice, setNewPrice] = useState('0');
     const [newDesc, setNewDesc] = useState('');
+    const [newCategory, setNewCategory] = useState('');
 
     const handleAdd = async () => {
         if (!newName.trim()) return;
@@ -223,6 +317,7 @@ function ServicesEditor({ siteId, services, setServices }: {
                 description: newDesc || null,
                 duration_minutes: newDuration,
                 price_cents: Math.round(parseFloat(newPrice) * 100),
+                category_id: newCategory || null
             }),
         });
 
@@ -233,6 +328,7 @@ function ServicesEditor({ siteId, services, setServices }: {
             setNewDuration(30);
             setNewPrice('0');
             setNewDesc('');
+            setNewCategory('');
         }
         setAdding(false);
     };
@@ -277,6 +373,9 @@ function ServicesEditor({ siteId, services, setServices }: {
                         </div>
                         {service.description && (
                             <p className="text-xs text-slate-500 mt-1">{service.description}</p>
+                        )}
+                        {service.booking_categories?.name && (
+                            <p className="text-[10px] uppercase font-bold text-blue-500 mt-2 tracking-wider">{service.booking_categories.name}</p>
                         )}
                     </div>
                     <button onClick={() => handleToggle(service)} className="text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600">
@@ -330,6 +429,21 @@ function ServicesEditor({ siteId, services, setServices }: {
                         />
                     </div>
                 </div>
+                {categories.length > 0 && (
+                    <div className="mt-3">
+                        <label className="text-xs font-medium text-slate-600 mb-1 block">Category</label>
+                        <select
+                            value={newCategory}
+                            onChange={e => setNewCategory(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">No Category</option>
+                            {categories.map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
                 <button
                     onClick={handleAdd}
                     disabled={adding || !newName.trim()}
@@ -579,6 +693,9 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
     const [calMonth, setCalMonth] = useState(new Date().getMonth());
     const [calYear, setCalYear] = useState(new Date().getFullYear());
 
+    // Filter states
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
     const pAccent = palette.accent || '#f3f4f6';
@@ -686,19 +803,58 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                 {step === 'service' && (
                     <div>
                         <h2 className="text-2xl font-bold text-slate-900 mb-6 text-center">Select a Service</h2>
+                        
+                        {/* Category Filters */}
+                        {(() => {
+                            const activeCategories = Array.from(new Set(services.filter(s => s.booking_categories?.name).map(s => s.booking_categories!.name)));
+                            if (activeCategories.length === 0) return null;
+                            return (
+                                <div className="flex overflow-x-auto gap-2 pb-4 mb-2 -mx-4 px-4 sm:mx-0 sm:px-0 hide-scrollbar" style={{ scrollbarWidth: 'none' }}>
+                                    <button
+                                        onClick={() => setSelectedCategory(null)}
+                                        className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                                            selectedCategory === null 
+                                                ? 'bg-slate-900 text-white shadow-md' 
+                                                : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                                        }`}
+                                        style={selectedCategory === null ? { backgroundColor: pPrimary } : {}}
+                                    >
+                                        All Services
+                                    </button>
+                                    {activeCategories.map(cat => (
+                                        <button
+                                            key={cat}
+                                            onClick={() => setSelectedCategory(cat)}
+                                            className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                                                selectedCategory === cat 
+                                                    ? 'bg-slate-900 text-white shadow-md' 
+                                                    : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+                                            }`}
+                                            style={selectedCategory === cat ? { backgroundColor: pPrimary } : {}}
+                                        >
+                                            {cat}
+                                        </button>
+                                    ))}
+                                </div>
+                            );
+                        })()}
+
                         <div className="space-y-3">
-                            {services.map(service => (
+                            {(selectedCategory ? services.filter(s => s.booking_categories?.name === selectedCategory) : services).map(service => (
                                 <button
                                     key={service.id}
                                     onClick={() => {
                                         setSelectedService(service);
                                         setStep('date');
                                     }}
-                                    className="w-full text-left p-4 rounded-xl border-2 border-slate-200 hover:border-slate-400 transition-all group"
+                                    className="w-full text-left p-4 rounded-xl border-2 border-slate-200 hover:border-slate-400 transition-all group bg-white"
                                 >
                                     <div className="flex items-start justify-between">
                                         <div>
                                             <h3 className="font-bold text-slate-900 group-hover:text-blue-700 transition-colors">{service.name}</h3>
+                                            {service.booking_categories?.name && !selectedCategory && (
+                                                <p className="text-[10px] uppercase font-bold text-slate-400 mt-1 tracking-wider">{service.booking_categories.name}</p>
+                                            )}
                                             {service.description && (
                                                 <p className="text-sm text-slate-500 mt-1">{service.description}</p>
                                             )}

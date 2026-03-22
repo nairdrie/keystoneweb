@@ -51,6 +51,9 @@ export default function AboutImageTextBlock({ id, data, isEditMode, palette, upd
 }
 
 function ImageContent({ data, isEditMode, updateContent, uploadImage }: any) {
+    const variant = data.variant || 'landscape';
+    const aspectClass = variant === 'tall' ? 'aspect-[3/4]' : variant === 'square' ? 'aspect-square' : 'aspect-[4/3]';
+
     return (
         <Reveal>
             <EditableImage
@@ -59,7 +62,7 @@ function ImageContent({ data, isEditMode, updateContent, uploadImage }: any) {
                 isEditMode={isEditMode}
                 onSave={(key, value) => updateContent(key, value)}
                 onUpload={uploadImage}
-                className="w-full h-96 rounded-lg shadow-xl object-cover bg-gray-300"
+                className={`w-full ${aspectClass} rounded-lg shadow-xl object-cover bg-gray-300`}
                 placeholder="Click to upload about image"
             />
         </Reveal>
