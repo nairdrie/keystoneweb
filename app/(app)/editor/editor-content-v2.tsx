@@ -117,6 +117,10 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   const [siteTitle, setSiteTitle] = useState('My Website');
   const [error, setError] = useState<string | null>(null);
   const initialSiteContentRef = useRef<Record<string, any>>({});
+  const siteRef = useRef<SiteData | null>(null);
+  useEffect(() => {
+    siteRef.current = site;
+  }, [site]);
 
   // Change tracking
   // Multi-page support
@@ -613,7 +617,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   };
 
   const handleSaveDesign = async () => {
-    if (!site?.id || isPublicView) return;
+    const currentSite = siteRef.current;
+    if (!currentSite?.id || isPublicView) return;
 
     try {
       setSaving(true);
@@ -639,10 +644,10 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          siteId: site.id,
+          siteId: currentSite.id,
           title: siteTitle,
           designData: siteDesignData,
-          selectedTemplateId: site.selectedTemplateId,
+          selectedTemplateId: currentSite.selectedTemplateId,
         }),
       });
 
@@ -800,18 +805,19 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   }, [selectedPaletteKey, handlePaletteChange, handleUpdateSiteContent]);
 
   const aiSetTemplate = useCallback((templateId: string) => {
-    if (!site?.id) return;
+    const currentSite = siteRef.current;
+    if (!currentSite?.id) return;
+    const prevTemplateId = currentSite.selectedTemplateId;
+
+    setSite(prev => prev ? { ...prev, selectedTemplateId: templateId } : prev);
     setTemplateComponent(null); // Show loading
     getTemplateComponent(templateId).then(comp => {
       if (comp) {
         setTemplateComponent(() => comp);
-        // Persist the change
-        const updatedSite = { ...site, selectedTemplateId: templateId };
-        setSite(updatedSite);
-        addChange('template', 'AI: Changed Template', site.selectedTemplateId, templateId);
+        addChange('template', 'AI: Changed Template', prevTemplateId, templateId);
       }
     });
-  }, [site, addChange]);
+  }, [addChange]);
 
   const aiCallbacks = useMemo(() => ({
     onAddBlock: aiAddBlock,
