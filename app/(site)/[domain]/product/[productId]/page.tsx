@@ -92,8 +92,17 @@ export default async function CustomDomainProductDetailPage({
         let paletteData: Record<string, string> = {};
         if (metadata) {
             const palettesObj = metadata.palettes || {};
-            const requestedPalette = mergedPublishData.__selectedPalette || 'default';
-            paletteData = palettesObj[requestedPalette] || palettesObj['default'] || {};
+            const requestedPalette = sitePublishData.__selectedPalette || 'default';
+            if (requestedPalette === 'custom') {
+                const defaultPalette = palettesObj['default'] || {};
+                paletteData = {
+                    primary: sitePublishData.__customPalette_primary || defaultPalette.primary || '',
+                    secondary: sitePublishData.__customPalette_secondary || defaultPalette.secondary || '',
+                    accent: sitePublishData.__customPalette_accent || defaultPalette.accent || '',
+                };
+            } else {
+                paletteData = palettesObj[requestedPalette] || palettesObj['default'] || {};
+            }
         }
 
         return (

@@ -182,7 +182,13 @@ export default function EditableText({
       ref={containerRef as any}
       className={`${className} cursor-text pointer-events-auto transition-colors`}
       style={mergedStyle}
-      onClick={() => setIsEditing(true)}
+      onClick={(e) => {
+        if (isEditMode) {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsEditing(true);
+        }
+      }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -197,18 +203,22 @@ export default function EditableText({
             onMouseDown={e => e.preventDefault()}
         >
           <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsEditing(true);
-          }}
-          className="inline-flex items-center justify-center w-7 h-7 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-md"
-          title={`Edit: ${contentKey}`}
-          onMouseDown={(e) => e.preventDefault()}
-        >
-          <Edit2 className="w-3 h-3" />
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsEditing(true);
+            }}
+            className="inline-flex items-center justify-center w-7 h-7 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-md"
+            title={`Edit: ${contentKey}`}
+            onMouseDown={(e) => e.preventDefault()}
+          >
+            <Edit2 className="w-3 h-3" />
           </button>
           <button
+            type="button"
             onClick={(e) => {
+              e.preventDefault();
               e.stopPropagation();
               setIsSettingsOpen(true);
             }}

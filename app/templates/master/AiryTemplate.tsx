@@ -137,7 +137,13 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
             </header>
 
             <main className="flex-1 w-full flex flex-col min-h-[50vh]">
-                {children || <BlockRenderer palette={palette} headerOffset={80} />}
+                {children ? (
+                    <div className="pt-[80px]">
+                        {children}
+                    </div>
+                ) : (
+                    <BlockRenderer palette={palette} headerOffset={80} />
+                )}
             </main>
 
             {/* Footer — soft rounded */}

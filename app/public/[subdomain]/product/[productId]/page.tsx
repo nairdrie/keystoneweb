@@ -92,7 +92,16 @@ export default async function ProductDetailPage({
         if (metadata) {
             const palettesObj = metadata.palettes || {};
             const requestedPalette = sitePublishData.__selectedPalette || 'default';
-            paletteData = palettesObj[requestedPalette] || palettesObj['default'] || {};
+            if (requestedPalette === 'custom') {
+                const defaultPalette = palettesObj['default'] || {};
+                paletteData = {
+                    primary: sitePublishData.__customPalette_primary || defaultPalette.primary || '',
+                    secondary: sitePublishData.__customPalette_secondary || defaultPalette.secondary || '',
+                    accent: sitePublishData.__customPalette_accent || defaultPalette.accent || '',
+                };
+            } else {
+                paletteData = palettesObj[requestedPalette] || palettesObj['default'] || {};
+            }
         }
 
         return (
