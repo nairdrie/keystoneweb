@@ -15,6 +15,8 @@ export interface NavItem {
   href: string;
   pageId?: string;
   blockId?: string;
+  /** Optional sub-items for dropdown menus */
+  children?: NavItem[];
 }
 
 export interface EditorContextType {

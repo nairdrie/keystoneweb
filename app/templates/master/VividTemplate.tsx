@@ -80,6 +80,7 @@ export function VividTemplate({ palette, isEditMode, children }: MasterTemplateP
                             <NavMenu
                                 className="flex items-center gap-6"
                                 itemClassName="text-sm font-medium text-white/80 hover:text-white transition-colors"
+                                submenuClassName="bg-white/15 backdrop-blur-xl border border-white/20 shadow-xl"
                             />
                             <HeaderLanguageSelector />
                             <HeaderCartIcon color="#ffffff" />

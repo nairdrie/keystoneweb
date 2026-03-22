@@ -83,6 +83,7 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             <NavMenu
                                 className="flex items-center gap-6"
                                 itemClassName="text-sm font-semibold text-white/80 hover:text-white transition-colors tracking-wide uppercase"
+                                submenuClassName="bg-white/10 backdrop-blur-xl border border-white/20 shadow-xl"
                             />
                             <HeaderLanguageSelector />
                             <HeaderCartIcon color="#ffffff" />

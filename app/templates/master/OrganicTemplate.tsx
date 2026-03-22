@@ -85,6 +85,7 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
                             <NavMenu
                                 className="flex items-center gap-6"
                                 itemClassName="text-sm font-medium text-gray-600 hover:text-amber-800 transition-colors"
+                                submenuClassName="bg-white/95 backdrop-blur-sm border border-amber-100 shadow-lg"
                             />
                             <HeaderLanguageSelector />
                             <HeaderCartIcon color={pPrimary} />

@@ -85,6 +85,7 @@ export function SleekTemplate({ palette, isEditMode, children }: MasterTemplateP
                             <NavMenu
                                 className="flex items-center gap-5"
                                 itemClassName="text-sm text-gray-400 hover:text-gray-900 transition-colors"
+                                submenuClassName="bg-white/95 backdrop-blur-md border border-gray-100 shadow-lg"
                             />
                             <HeaderLanguageSelector />
                             <HeaderCartIcon color={pPrimary} />

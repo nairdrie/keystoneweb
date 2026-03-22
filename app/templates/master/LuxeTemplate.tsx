@@ -85,6 +85,7 @@ export function LuxeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             <NavMenu
                                 className="flex items-center gap-8"
                                 itemClassName="text-xs font-medium tracking-[0.15em] uppercase text-gray-500 hover:text-gray-900 transition-colors"
+                                submenuClassName="bg-white border border-gray-100 shadow-lg"
                             />
                             <HeaderLanguageSelector />
                             <HeaderCartIcon color={pPrimary} />

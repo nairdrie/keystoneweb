@@ -82,6 +82,7 @@ export function EdgeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             <NavMenu
                                 className="flex items-center gap-6"
                                 itemClassName="text-sm font-medium text-gray-400 hover:text-white transition-colors"
+                                submenuClassName="bg-[#141a2e] border border-gray-700 shadow-xl"
                             />
                             <HeaderLanguageSelector />
                             <HeaderCartIcon color={pSecondary} />

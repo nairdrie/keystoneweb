@@ -93,6 +93,7 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                             <NavMenu
                                 className="flex items-center gap-7"
                                 itemClassName="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+                                submenuClassName="bg-white/95 backdrop-blur-xl border border-slate-200 shadow-xl"
                             />
                             <HeaderLanguageSelector />
                             <HeaderCartIcon color={pPrimary} />

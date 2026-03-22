@@ -139,6 +139,9 @@ export default function NavItemEditModal({
                             ) : (
                                 <p className="text-sm text-slate-500 italic">No blocks on this page yet.</p>
                             )}
+                            <p className="mt-2 text-xs text-slate-400">
+                                Tip: Use &quot;Custom URL&quot; to link to a section on another page, e.g. <code className="bg-slate-100 px-1 rounded">/about#block-id</code>
+                            </p>
                         </>
                     )}
 
@@ -150,8 +153,11 @@ export default function NavItemEditModal({
                                 value={customHref}
                                 onChange={(e) => setCustomHref(e.target.value)}
                                 className="w-full px-3 py-2 text-sm text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholder="https://... or /path"
+                                placeholder="https://... or /page#section"
                             />
+                            <p className="mt-2 text-xs text-slate-400">
+                                External URL, relative path, or path with anchor (e.g. <code className="bg-slate-100 px-1 rounded">/about#team</code>)
+                            </p>
                         </>
                     )}
                 </div>
