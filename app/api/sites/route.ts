@@ -349,7 +349,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { siteId, designData, userId, title } = body;
+    const { siteId, designData, userId, title, selectedTemplateId } = body;
 
     if (!siteId) {
       return NextResponse.json(
@@ -404,6 +404,10 @@ export async function PATCH(request: NextRequest) {
     // Map frontend 'title' to DB 'site_slug' column
     if (title) {
       updatePayload.site_slug = title;
+    }
+
+    if (selectedTemplateId) {
+      updatePayload.selected_template_id = selectedTemplateId;
     }
 
     const { data: updatedSite, error: updateError } = await supabase

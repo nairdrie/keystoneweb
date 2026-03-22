@@ -642,6 +642,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
           siteId: site.id,
           title: siteTitle,
           designData: siteDesignData,
+          selectedTemplateId: site.selectedTemplateId,
         }),
       });
 
