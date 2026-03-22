@@ -106,7 +106,7 @@ export default function FloatingToolbar({
   siteTitle,
   onSiteTitle,
   siteContent = {},
-  onUpdateSiteContent = () => {},
+  onUpdateSiteContent = () => { },
   currentSiteId,
   templateName,
   templatePalettes = [],
@@ -493,7 +493,7 @@ export default function FloatingToolbar({
                     {logoUrl ? (
                       <img src={logoUrl} alt="Site Logo" className="w-full h-full object-contain" />
                     ) : (
-                      <span className="text-[10px] font-bold text-slate-400 text-center leading-tight">NO<br/>LOGO</span>
+                      <span className="text-[10px] font-bold text-slate-400 text-center leading-tight">NO<br />LOGO</span>
                     )}
                   </div>
                   <button
@@ -518,7 +518,7 @@ export default function FloatingToolbar({
                     <input
                       type="range"
                       min="20"
-                      max="120"
+                      max="220"
                       step="4"
                       value={siteContent.headerLogoHeight || 40}
                       onChange={(e) => onUpdateSiteContent('headerLogoHeight', parseInt(e.target.value))}
@@ -534,7 +534,7 @@ export default function FloatingToolbar({
                     <input
                       type="range"
                       min="20"
-                      max="120"
+                      max="220"
                       step="4"
                       value={siteContent.footerLogoHeight || 32}
                       onChange={(e) => onUpdateSiteContent('footerLogoHeight', parseInt(e.target.value))}
@@ -665,15 +665,15 @@ export default function FloatingToolbar({
               <AIBuilderPanel
                 messages={aiMessages}
                 isLoading={aiIsLoading}
-                onSend={onAiSend || (() => {})}
-                onCancel={onAiCancel || (() => {})}
-                onClear={onAiClear || (() => {})}
+                onSend={onAiSend || (() => { })}
+                onCancel={onAiCancel || (() => { })}
+                onClear={onAiClear || (() => { })}
                 isPro={isProUser}
                 isBasic={isBasicUser}
                 isFree={isFreeUser}
                 remaining={aiRemaining}
                 showUpgradeModal={showAiUpgradeModal}
-                onDismissUpgradeModal={onDismissAiUpgradeModal || (() => {})}
+                onDismissUpgradeModal={onDismissAiUpgradeModal || (() => { })}
               />
             </div>
           )}
@@ -1181,7 +1181,7 @@ export default function FloatingToolbar({
           isOpen={showHistoryModal}
           onClose={() => setShowHistoryModal(false)}
           siteId={currentSiteId}
-          onRevert={onHistoryRevert || (() => {})}
+          onRevert={onHistoryRevert || (() => { })}
         />
       )}
 
