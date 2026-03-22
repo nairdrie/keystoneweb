@@ -535,7 +535,11 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     newBlocks[index] = newBlock;
 
     addChange('blocks', 'Updated Block Content', JSON.stringify(currentBlocks), JSON.stringify(newBlocks));
-    
+
+    // Immediately update ref so subsequent synchronous calls (e.g. EditableImage
+    // saving URL + settings + attribution in one handler) see the latest blocks.
+    editableContentRef.current = { ...editableContentRef.current, blocks: newBlocks };
+
     setEditableContent((prev) => ({ ...prev, blocks: newBlocks }));
   };
 
@@ -562,7 +566,9 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     newBlocks[index] = newBlock;
 
     addChange('blocks', 'Updated Block Content (Batch)', JSON.stringify(currentBlocks), JSON.stringify(newBlocks));
-    
+
+    editableContentRef.current = { ...editableContentRef.current, blocks: newBlocks };
+
     setEditableContent((prev) => ({ ...prev, blocks: newBlocks }));
   };
 
