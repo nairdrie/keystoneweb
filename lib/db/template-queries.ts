@@ -28,11 +28,26 @@ export interface TemplateMetadata {
 export async function getTemplateMetadata(
   templateId: string
 ): Promise<TemplateMetadata | null> {
-  const { data, error } = await supabase
+  // First try exact match
+  let { data, error } = await supabase
     .from('template_metadata')
     .select('*')
     .eq('template_id', templateId)
-    .single();
+    .maybeSingle();
+
+  if (!data) {
+    // If exact match not found (e.g. templateId is just "luxe" instead of "luxe_photographer"),
+    // fallback to the first template that starts with this style
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('template_metadata')
+      .select('*')
+      .ilike('template_id', `${templateId}\\_%`)
+      .limit(1)
+      .maybeSingle();
+      
+    data = fallbackData;
+    error = fallbackError;
+  }
 
   if (error) {
     console.error(`Error fetching template metadata for ${templateId}:`, error);
