@@ -2,13 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Code, Lock, Crown } from 'lucide-react';
+import { X, Code, Lock, Crown, Image as ImageIcon, Upload, Trash2 } from 'lucide-react';
+import { useEditorContext } from '@/lib/editor-context';
 
 interface BlockSettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
     blockId: string;
     blockType: string;
+    blockData?: any;
+    onUpdateBlockData?: (key: string, value: any) => void;
     customCss: string;
     onSaveCustomCss: (css: string) => void;
     isProUser: boolean;
@@ -19,23 +22,71 @@ export default function BlockSettingsModal({
     onClose,
     blockId,
     blockType,
+    blockData,
+    onUpdateBlockData,
     customCss,
     onSaveCustomCss,
     isProUser,
 }: BlockSettingsModalProps) {
+    const context = useEditorContext();
+    const { uploadImage } = context || {};
+
     const [localCss, setLocalCss] = useState(customCss);
+    const [activeTab, setActiveTab] = useState<'css' | 'background'>(blockType === 'cta' ? 'background' : 'css');
+    
+    // Background State
+    const [bgType, setBgType] = useState<string>(blockData?.bgType || 'color');
+    const [bgColor, setBgColor] = useState<string>(blockData?.backgroundColor || '');
+    const [bgImage, setBgImage] = useState<string>(blockData?.bgImage || '');
+    const [bgCarouselImages, setBgCarouselImages] = useState<string[]>(blockData?.bgCarouselImages || []);
+    const [bgCarouselTiming, setBgCarouselTiming] = useState<number>(blockData?.bgCarouselTiming || 5);
+    const [isUploading, setIsUploading] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
             setLocalCss(customCss);
+            setActiveTab(blockType === 'cta' ? 'background' : 'css');
+            setBgType(blockData?.bgType || 'color');
+            setBgColor(blockData?.backgroundColor || '');
+            setBgImage(blockData?.bgImage || '');
+            setBgCarouselImages(blockData?.bgCarouselImages || []);
+            setBgCarouselTiming(blockData?.bgCarouselTiming || 5);
         }
-    }, [isOpen, customCss]);
+    }, [isOpen, customCss, blockType, blockData]);
 
     if (!isOpen) return null;
 
     const handleSave = () => {
         onSaveCustomCss(localCss);
+        if (onUpdateBlockData && blockType === 'cta') {
+            onUpdateBlockData('bgType', bgType);
+            onUpdateBlockData('backgroundColor', bgColor);
+            onUpdateBlockData('bgImage', bgImage);
+            onUpdateBlockData('bgCarouselImages', bgCarouselImages);
+            onUpdateBlockData('bgCarouselTiming', bgCarouselTiming);
+        }
         onClose();
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isCarousel: boolean) => {
+        const file = e.target.files?.[0];
+        if (!file || !uploadImage) return;
+
+        setIsUploading(true);
+        try {
+            const url = await uploadImage(file, isCarousel ? 'bgCarouselImages' : 'bgImage');
+            if (isCarousel) {
+                setBgCarouselImages(prev => [...prev, url]);
+            } else {
+                setBgImage(url);
+            }
+        } catch (error) {
+            console.error('Image upload failed:', error);
+            alert('Failed to upload image. Please try again.');
+        } finally {
+            setIsUploading(false);
+            if (e.target) e.target.value = '';
+        }
     };
 
     const modal = (
@@ -61,8 +112,22 @@ export default function BlockSettingsModal({
 
                 {/* Tab bar */}
                 <div className="flex border-b border-slate-200 px-6">
+                    {blockType === 'cta' && (
+                        <button
+                            onClick={() => setActiveTab('background')}
+                            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                                activeTab === 'background' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+                            }`}
+                        >
+                            <ImageIcon className="w-4 h-4" />
+                            Background
+                        </button>
+                    )}
                     <button
-                        className="flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 border-blue-600 text-blue-600 transition-colors"
+                        onClick={() => setActiveTab('css')}
+                        className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                            activeTab === 'css' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+                        }`}
                     >
                         <Code className="w-4 h-4" />
                         Custom CSS
@@ -72,7 +137,128 @@ export default function BlockSettingsModal({
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6">
-                    {isProUser ? (
+                    {activeTab === 'background' ? (
+                        <div className="space-y-6">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Background Type</label>
+                                <select 
+                                    value={bgType}
+                                    onChange={(e) => setBgType(e.target.value)}
+                                    className="w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="color">Color / Gradient</option>
+                                    <option value="image">Single Image</option>
+                                    <option value="carousel">Image Carousel</option>
+                                </select>
+                            </div>
+
+                            {bgType === 'color' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">Background Color</label>
+                                    <div className="flex items-center gap-3">
+                                        <input 
+                                            type="color" 
+                                            value={bgColor || '#000000'} 
+                                            onChange={(e) => setBgColor(e.target.value)}
+                                            className="w-10 h-10 rounded cursor-pointer"
+                                        />
+                                        <input 
+                                            type="text" 
+                                            value={bgColor} 
+                                            onChange={(e) => setBgColor(e.target.value)}
+                                            placeholder="Default (Palette Secondary)"
+                                            className="flex-1 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        <button 
+                                            onClick={() => setBgColor('')}
+                                            className="px-3 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50"
+                                        >
+                                            Reset
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-slate-500 mt-2">Leave blank to use the site's default style.</p>
+                                </div>
+                            )}
+
+                            {bgType === 'image' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">Background Image</label>
+                                    {bgImage && (
+                                        <div className="relative w-full h-40 rounded-lg overflow-hidden border border-slate-200 mb-3 group">
+                                            <img src={bgImage} alt="Background" className="w-full h-full object-cover" />
+                                            <button 
+                                                onClick={() => setBgImage('')}
+                                                className="absolute top-2 right-2 bg-white/90 p-1.5 rounded-md hover:bg-red-50 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    )}
+                                    <label className="flex items-center justify-center w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 border-dashed rounded-lg p-4 cursor-pointer transition-colors">
+                                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, false)} disabled={isUploading} />
+                                        <div className="flex items-center gap-2 text-slate-600 font-medium">
+                                            {isUploading ? <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" /> : <Upload className="w-4 h-4" />}
+                                            {isUploading ? 'Uploading...' : 'Upload Image'}
+                                        </div>
+                                    </label>
+                                </div>
+                            )}
+
+                            {bgType === 'carousel' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">Carousel Images</label>
+                                    <div className="grid grid-cols-3 gap-3 mb-3">
+                                        {bgCarouselImages.map((img, i) => (
+                                            <div key={i} className="relative aspect-video rounded-lg overflow-hidden border border-slate-200 group">
+                                                <img src={img} alt={`Slide ${i}`} className="w-full h-full object-cover" />
+                                                <button 
+                                                    onClick={() => setBgCarouselImages(prev => prev.filter((_, idx) => idx !== i))}
+                                                    className="absolute top-1 right-1 bg-white/90 p-1 rounded-md hover:bg-red-50 hover:text-red-500 opacity-0 group-hover:opacity-100"
+                                                >
+                                                    <Trash2 className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <label className="flex items-center justify-center w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 border-dashed rounded-lg p-3 cursor-pointer transition-colors mb-6">
+                                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, true)} disabled={isUploading} />
+                                        <div className="flex items-center gap-2 text-sm text-slate-600 font-medium">
+                                            {isUploading ? <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" /> : <Upload className="w-4 h-4" />}
+                                            {isUploading ? 'Uploading...' : 'Add Image'}
+                                        </div>
+                                    </label>
+
+                                    <label className="block text-sm font-medium text-slate-700 mb-2">Transition Time: {bgCarouselTiming}s</label>
+                                    <input 
+                                        type="range" 
+                                        min="2" max="15" 
+                                        value={bgCarouselTiming} 
+                                        onChange={(e) => setBgCarouselTiming(parseInt(e.target.value))}
+                                        className="w-full accent-blue-600"
+                                    />
+                                    <div className="flex justify-between text-xs text-slate-500 mt-1">
+                                        <span>Faster (2s)</span>
+                                        <span>Slower (15s)</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                                <button
+                                    onClick={onClose}
+                                    className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSave}
+                                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-lg transition-colors"
+                                >
+                                    Save Options
+                                </button>
+                            </div>
+                        </div>
+                    ) : isProUser ? (
                         <div className="space-y-4">
                             <div>
                                 <p className="text-sm font-medium text-slate-700 mb-1">

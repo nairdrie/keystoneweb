@@ -200,6 +200,8 @@ export default function BlockRenderer({ palette, headerOffset }: { palette: Reco
                         <BlockWrapper
                             id={block.id}
                             type={block.type}
+                            data={block.data || {}}
+                            onUpdateBlockData={(key: string, value: any) => context?.updateBlockData?.(block.id, key, value)}
                             customCss={block.data?.__customCss || ''}
                             onUpdateCustomCss={(css) => context?.updateBlockData?.(block.id, '__customCss', css)}
                         >

@@ -11,11 +11,13 @@ interface BlockWrapperProps {
     id: string;
     type: string;
     children: ReactNode;
+    data?: any;
+    onUpdateBlockData?: (key: string, value: any) => void;
     customCss?: string;
     onUpdateCustomCss?: (css: string) => void;
 }
 
-export default function BlockWrapper({ id, type, children, customCss, onUpdateCustomCss }: BlockWrapperProps) {
+export default function BlockWrapper({ id, type, children, data, onUpdateBlockData, customCss, onUpdateCustomCss }: BlockWrapperProps) {
     const context = useEditorContext();
     const isEditMode = context?.isEditMode || false;
     const isProUser = context?.isProUser || false;
@@ -102,6 +104,8 @@ export default function BlockWrapper({ id, type, children, customCss, onUpdateCu
                 onClose={() => setSettingsOpen(false)}
                 blockId={id}
                 blockType={type}
+                blockData={data}
+                onUpdateBlockData={onUpdateBlockData}
                 customCss={customCss || ''}
                 onSaveCustomCss={(css) => onUpdateCustomCss?.(css)}
                 isProUser={isProUser}
