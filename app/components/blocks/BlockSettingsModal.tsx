@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Code, Lock, Crown, Image as ImageIcon, Upload, Trash2 } from 'lucide-react';
+import { X, Code, Lock, Crown, Image as ImageIcon, Upload, Trash2, LayoutTemplate } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 
 interface BlockSettingsModalProps {
@@ -31,8 +31,47 @@ export default function BlockSettingsModal({
     const context = useEditorContext();
     const { uploadImage } = context || {};
 
+    const VARIANTS: Record<string, { id: string, label: string }[]> = {
+        hero: [
+            { id: 'split', label: 'Split (Text / Image)' },
+            { id: 'centered', label: 'Centered Hero' },
+            { id: 'fullImage', label: 'Full Image Background' },
+            { id: 'minimal', label: 'Minimal / Clean' },
+            { id: 'video', label: 'Video Background' }
+        ],
+        testimonials: [
+            { id: 'cards', label: 'Multiple Cards' },
+            { id: 'single', label: 'Single Focus' }
+        ],
+        team: [
+            { id: 'grid', label: 'Simple Grid' },
+            { id: 'cards', label: 'Detailed Cards' },
+            { id: 'minimal', label: 'Minimalist' }
+        ],
+        stats: [
+            { id: 'banner', label: 'Horizontal Banner' },
+            { id: 'cards', label: 'Statistic Cards' }
+        ],
+        pricing: [
+            { id: 'cards', label: 'Pricing Cards' },
+            { id: 'comparison', label: 'Comparison Table' },
+            { id: 'simple', label: 'Simple List' }
+        ],
+        logoCloud: [
+            { id: 'inline', label: 'Inline Row' },
+            { id: 'grid', label: 'Logo Grid' },
+            { id: 'marquee', label: 'Scrolling Marquee' }
+        ]
+    };
+
+    const hasVariantSettings = !!VARIANTS[blockType];
+    const hasBackgroundSettings = blockType === 'hero';
+
+    type TabType = 'layout' | 'background' | 'css';
+    const defaultTab: TabType = hasVariantSettings ? 'layout' : (hasBackgroundSettings ? 'background' : 'css');
+
     const [localCss, setLocalCss] = useState(customCss);
-    const [activeTab, setActiveTab] = useState<'css' | 'background'>(blockType === 'cta' ? 'background' : 'css');
+    const [activeTab, setActiveTab] = useState<TabType>(defaultTab);
     
     // Background State
     const [bgType, setBgType] = useState<string>(blockData?.bgType || 'color');
@@ -45,20 +84,20 @@ export default function BlockSettingsModal({
     useEffect(() => {
         if (isOpen) {
             setLocalCss(customCss);
-            setActiveTab(blockType === 'cta' ? 'background' : 'css');
+            setActiveTab(defaultTab);
             setBgType(blockData?.bgType || 'color');
             setBgColor(blockData?.backgroundColor || '');
             setBgImage(blockData?.bgImage || '');
             setBgCarouselImages(blockData?.bgCarouselImages || []);
             setBgCarouselTiming(blockData?.bgCarouselTiming || 5);
         }
-    }, [isOpen, customCss, blockType, blockData]);
+    }, [isOpen, customCss, blockType, blockData, defaultTab]);
 
     if (!isOpen) return null;
 
     const handleSave = () => {
         onSaveCustomCss(localCss);
-        if (onUpdateBlockData && blockType === 'cta') {
+        if (onUpdateBlockData && blockType === 'hero') {
             onUpdateBlockData('bgType', bgType);
             onUpdateBlockData('backgroundColor', bgColor);
             onUpdateBlockData('bgImage', bgImage);
@@ -66,6 +105,12 @@ export default function BlockSettingsModal({
             onUpdateBlockData('bgCarouselTiming', bgCarouselTiming);
         }
         onClose();
+    };
+
+    const handleSelectVariant = (variantId: string) => {
+        if (onUpdateBlockData) {
+            onUpdateBlockData('variant', variantId);
+        }
     };
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isCarousel: boolean) => {
@@ -112,7 +157,18 @@ export default function BlockSettingsModal({
 
                 {/* Tab bar */}
                 <div className="flex border-b border-slate-200 px-6">
-                    {blockType === 'cta' && (
+                    {hasVariantSettings && (
+                        <button
+                            onClick={() => setActiveTab('layout')}
+                            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                                activeTab === 'layout' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+                            }`}
+                        >
+                            <LayoutTemplate className="w-4 h-4" />
+                            Layout
+                        </button>
+                    )}
+                    {hasBackgroundSettings && (
                         <button
                             onClick={() => setActiveTab('background')}
                             className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
@@ -137,7 +193,31 @@ export default function BlockSettingsModal({
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6">
-                    {activeTab === 'background' ? (
+                    {activeTab === 'layout' && hasVariantSettings ? (
+                        <div className="space-y-4">
+                            <p className="text-sm font-medium text-slate-700 mb-4">Select a Layout Variant</p>
+                            <div className="grid grid-cols-2 gap-3">
+                                {VARIANTS[blockType].map((variantOption) => {
+                                    const currentVariant = blockData?.variant || VARIANTS[blockType][0].id;
+                                    const isSelected = currentVariant === variantOption.id;
+                                    return (
+                                        <button
+                                            key={variantOption.id}
+                                            onClick={() => handleSelectVariant(variantOption.id)}
+                                            className={`p-4 border rounded-xl text-left transition-all ${
+                                                isSelected 
+                                                    ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600 shadow-sm' 
+                                                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            <div className="font-semibold text-sm text-slate-900">{variantOption.label}</div>
+                                            <div className="text-xs text-slate-500 mt-1 capitalize font-mono text-[10px]">{variantOption.id} Variant</div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ) : activeTab === 'background' && hasBackgroundSettings ? (
                         <div className="space-y-6">
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-2">Background Type</label>

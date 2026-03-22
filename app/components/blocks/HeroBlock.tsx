@@ -5,6 +5,7 @@ import EditableText from '@/app/components/EditableText';
 import EditableImage from '@/app/components/EditableImage';
 import EditableButton from '@/app/components/EditableButton';
 import Reveal from '@/app/components/Reveal';
+import { useState, useEffect } from 'react';
 
 export default function HeroBlock({ block, palette }: { block: BlockData, palette: Record<string, string> }) {
     const context = useEditorContext();
@@ -24,6 +25,19 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
     const imageUrl = block.data.image || '';
     const buttonText = block.data.buttonText !== undefined ? block.data.buttonText : 'Get a Free Quote';
     const videoUrl = block.data.videoUrl || '';
+
+    // Advanced Background Carousel State
+    const carouselImages: string[] = Array.isArray(block.data.bgCarouselImages) ? block.data.bgCarouselImages : [];
+    const carouselInterval = (block.data.bgCarouselTiming || 5) * 1000;
+    const [currentSlide, setCurrentSlide] = useState(0);
+
+    useEffect(() => {
+        if (block.data.bgType !== 'carousel' || carouselImages.length <= 1) return;
+        const interval = setInterval(() => {
+            setCurrentSlide(s => (s + 1) % carouselImages.length);
+        }, carouselInterval);
+        return () => clearInterval(interval);
+    }, [block.data.bgType, carouselImages.length, carouselInterval]);
 
     // Minimal variant — large typography, no image, clean background
     if (variant === 'minimal') {
@@ -153,14 +167,41 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
 
     // Centered variant — text-centered, no image, gradient background
     if (variant === 'centered') {
+        const bgType = block.data.bgType || 'color';
+        let customBgStyle: any = undefined;
+        let hasCustomMedia = false;
+        
+        if (bgType === 'color' && block.data.backgroundColor) {
+             customBgStyle = { backgroundColor: block.data.backgroundColor };
+        } else if (bgType === 'color') {
+             customBgStyle = { background: `linear-gradient(135deg, ${pPrimary} 0%, ${pSecondary} 100%)` };
+        } else {
+             customBgStyle = { backgroundColor: '#000' };
+             hasCustomMedia = true;
+        }
+
         return (
             <section
                 className="py-32 text-center relative overflow-hidden"
-                style={{
-                    background: `linear-gradient(135deg, ${pPrimary} 0%, ${pSecondary} 100%)`,
-                }}
+                style={customBgStyle}
             >
-                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, white 0%, transparent 60%)' }} />
+                {/* Media Backgrounds */}
+                {bgType === 'image' && block.data.bgImage && (
+                    <>
+                        <div className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${block.data.bgImage})` }} />
+                        <div className="absolute inset-0 z-0 bg-black/60" />
+                    </>
+                )}
+                {bgType === 'carousel' && carouselImages.length > 0 && (
+                    <>
+                        {carouselImages.map((img, i) => (
+                            <div key={i} className={`absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-opacity duration-1000 ${i === currentSlide ? 'opacity-100' : 'opacity-0'}`} style={{ backgroundImage: `url(${img})` }} />
+                        ))}
+                        <div className="absolute inset-0 z-0 bg-black/60" />
+                    </>
+                )}
+
+                {!hasCustomMedia && <div className="absolute inset-0 opacity-10 z-0" style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, white 0%, transparent 60%)' }} />}
                 <div className="max-w-4xl mx-auto px-4 relative z-10">
                     <Reveal>
                         <EditableText

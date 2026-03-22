@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import EditableText from '../EditableText';
 import EditableButton from '../EditableButton';
 import Reveal from '@/app/components/Reveal';
@@ -15,59 +15,20 @@ export default function CtaBlock({ id, data, isEditMode, palette, updateContent 
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
 
-    const bgType = data.bgType || 'color';
     // Allow overriding background color, default to secondary for high impact
     const bgColor = data.backgroundColor || pSecondary;
-    const hasMediaBg = bgType !== 'color' && ((bgType === 'image' && data.bgImage) || (bgType === 'carousel' && data.bgCarouselImages?.length > 0));
 
     // Auto-detect text color based on background if we were doing true contrast checking,
     // but for now we'll assume dark background means white text, light background means primary text
-    // If we have an image/carousel background, we always use white text because we apply a dark overlay.
-    const isDarkBg = hasMediaBg || bgColor === pSecondary || bgColor === pPrimary;
+    const isDarkBg = bgColor === pSecondary || bgColor === pPrimary;
     const textColor = isDarkBg ? '#ffffff' : pPrimary;
     const buttonBgColor = isDarkBg ? '#ffffff' : pSecondary;
     const buttonTextColor = isDarkBg ? pSecondary : '#ffffff';
 
-    // Carousel state
-    const carouselImages: string[] = Array.isArray(data.bgCarouselImages) ? data.bgCarouselImages : [];
-    const carouselInterval = (data.bgCarouselTiming || 5) * 1000;
-    const [currentSlide, setCurrentSlide] = useState(0);
-
-    useEffect(() => {
-        if (bgType !== 'carousel' || carouselImages.length <= 1) return;
-        const interval = setInterval(() => {
-            setCurrentSlide(s => (s + 1) % carouselImages.length);
-        }, carouselInterval);
-        return () => clearInterval(interval);
-    }, [bgType, carouselImages.length, carouselInterval]);
-
     return (
-        <section className="py-20 text-center relative overflow-hidden" style={{ backgroundColor: hasMediaBg ? '#000' : bgColor, color: textColor }}>
-            {/* Background Media */}
-            {bgType === 'image' && data.bgImage && (
-                <>
-                    <div 
-                        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" 
-                        style={{ backgroundImage: `url(${data.bgImage})` }} 
-                    />
-                    <div className="absolute inset-0 z-0 bg-black/60" />
-                </>
-            )}
-            {bgType === 'carousel' && carouselImages.length > 0 && (
-                <>
-                    {carouselImages.map((img, i) => (
-                        <div 
-                            key={i}
-                            className={`absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-opacity duration-1000 ${i === currentSlide ? 'opacity-100' : 'opacity-0'}`} 
-                            style={{ backgroundImage: `url(${img})` }} 
-                        />
-                    ))}
-                    <div className="absolute inset-0 z-0 bg-black/60" />
-                </>
-            )}
-
-            {data.showPattern && !hasMediaBg && (
-                <div className="absolute inset-0 opacity-10 z-0" style={{ backgroundImage: 'radial-gradient(circle at top right, white, transparent 70%)' }}></div>
+        <section className="py-20 text-center relative overflow-hidden" style={{ backgroundColor: bgColor, color: textColor }}>
+            {data.showPattern && (
+                <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at top right, white, transparent 70%)' }}></div>
             )}
             <div className="max-w-4xl mx-auto px-4 relative z-10">
                 <Reveal>
