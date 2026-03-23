@@ -92,6 +92,7 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                             <NavMenu
                                 className="flex items-center gap-6"
                                 itemClassName="text-sm font-semibold text-gray-700 hover:text-gray-900 transition-colors"
+                                submenuClassName="bg-white border border-gray-200 shadow-xl"
                             />
                             <HeaderLanguageSelector />
                             <HeaderCartIcon color={pPrimary} />

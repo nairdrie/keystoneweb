@@ -90,6 +90,7 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
                             <NavMenu
                                 className="flex items-center gap-7"
                                 itemClassName="text-sm text-slate-500 hover:text-slate-900 transition-colors font-medium"
+                                submenuClassName="bg-white border border-slate-100 shadow-lg"
                             />
                             <HeaderLanguageSelector />
                             <HeaderCartIcon color={pPrimary} />

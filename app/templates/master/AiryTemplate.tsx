@@ -91,6 +91,7 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             <NavMenu
                                 className="flex items-center gap-5"
                                 itemClassName="text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors"
+                                submenuClassName="bg-white/95 backdrop-blur-xl border border-gray-100 shadow-lg"
                             />
                             <HeaderLanguageSelector />
                             <HeaderCartIcon color={pPrimary} />

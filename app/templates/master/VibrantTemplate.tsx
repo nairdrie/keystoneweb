@@ -84,6 +84,7 @@ export function VibrantTemplate({ palette, isEditMode, children }: MasterTemplat
                             <NavMenu
                                 className="flex items-center gap-4"
                                 itemClassName="text-sm font-medium text-white/80 hover:text-white transition-colors px-3 py-1.5 rounded-full hover:bg-white/10"
+                                submenuClassName="bg-white/15 backdrop-blur-xl border border-white/20 shadow-xl"
                             />
                             <HeaderLanguageSelector />
                             <HeaderCartIcon color="#ffffff" />
