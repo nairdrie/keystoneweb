@@ -31,33 +31,59 @@ export async function sendCustomerConfirmation(data: BookingEmailData) {
         const priceStr = data.priceCents > 0 ? `$${(data.priceCents / 100).toFixed(2)} ${data.currency}` : 'Free';
         const refId = data.bookingId.slice(0, 8).toUpperCase();
 
+        // Determine header content and payment section based on payment method
+        let headerIcon = '✅';
+        let headerBg = '#dcfce7';
+        let headerTitle = 'Booking Confirmed';
+        let headerSubtitle = data.confirmationMessage || 'We look forward to seeing you!';
         let paymentSection = '';
-        if (data.paymentMethod === 'etransfer' && data.etransferEmail) {
-            paymentSection = `
+
+        if (data.paymentMethod === 'etransfer') {
+            headerIcon = '⏳';
+            headerBg = '#fef9c3';
+            headerTitle = 'Booking Received';
+            headerSubtitle = 'Your booking is pending — please send your e-transfer payment to confirm your appointment.';
+            if (data.etransferEmail) {
+                paymentSection = `
                 <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 16px; margin-top: 16px;">
-                    <h3 style="margin: 0 0 8px; color: #92400e; font-size: 14px;">💸 Payment via Interac e-Transfer</h3>
-                    <p style="margin: 0; color: #78350f; font-size: 14px;">
-                        Send <strong>${priceStr}</strong> to: <strong>${data.etransferEmail}</strong>
-                    </p>
-                    <p style="margin: 4px 0 0; color: #92400e; font-size: 12px;">
-                        Reference: <strong>${refId}</strong>
+                    <h3 style="margin: 0 0 10px; color: #92400e; font-size: 14px; font-weight: 700;">💸 Send Your e-Transfer Payment</h3>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                        <tr><td style="padding: 4px 0; color: #78350f;">Send to</td><td style="padding: 4px 0; text-align: right; font-weight: 700; color: #92400e;">${data.etransferEmail}</td></tr>
+                        <tr><td style="padding: 4px 0; color: #78350f;">Amount</td><td style="padding: 4px 0; text-align: right; font-weight: 700; color: #92400e;">${priceStr}</td></tr>
+                        <tr><td style="padding: 4px 0; color: #78350f;">Reference</td><td style="padding: 4px 0; text-align: right; font-weight: 700; font-family: monospace; color: #92400e;">${refId}</td></tr>
+                    </table>
+                    <p style="margin: 10px 0 0; color: #92400e; font-size: 13px; line-height: 1.5;">
+                        Once your payment is received, you will get a confirmation email with your booking details.
                     </p>
                 </div>
+                `;
+            }
+        } else if (data.paymentMethod === 'none') {
+            paymentSection = `
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px; margin-top: 16px;">
+                <p style="margin: 0; color: #166534; font-size: 14px;">
+                    💵 <strong>Payment due at appointment</strong> — please bring ${priceStr} to your appointment.
+                </p>
+            </div>
             `;
         }
+
+        const subject = data.paymentMethod === 'etransfer'
+            ? `Booking Pending — ${data.serviceName}`
+            : `Booking Confirmed — ${data.serviceName}`;
 
         await resend.emails.send({
             from: 'Keystone Web Design <bookings@keystoneweb.ca>',
             to: data.customerEmail,
-            subject: `Booking Confirmed — ${data.serviceName}`,
+            subject,
             html: `
                 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto;">
                     <div style="text-align: center; padding: 24px 0;">
-                        <div style="width: 48px; height: 48px; background: #dcfce7; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 24px;">✅</div>
-                        <h1 style="margin: 12px 0 4px; font-size: 22px; color: #111827;">Booking Confirmed</h1>
-                        <p style="margin: 0; color: #6b7280; font-size: 14px;">${data.confirmationMessage || 'We look forward to seeing you!'}</p>
+                        <div style="width: 48px; height: 48px; background: ${headerBg}; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 24px;">${headerIcon}</div>
+                        <h1 style="margin: 12px 0 4px; font-size: 22px; color: #111827;">${headerTitle}</h1>
+                        <p style="margin: 0; color: #6b7280; font-size: 14px;">${headerSubtitle}</p>
                     </div>
-                    
+
                     <div style="background: #f9fafb; border-radius: 8px; padding: 16px;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                             <tr><td style="padding: 6px 0; color: #6b7280;">Service</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.serviceName}</td></tr>
@@ -68,9 +94,9 @@ export async function sendCustomerConfirmation(data: BookingEmailData) {
                             <tr><td style="padding: 6px 0; color: #6b7280;">Ref #</td><td style="padding: 6px 0; text-align: right; font-weight: 600; font-family: monospace; color: #111827;">${refId}</td></tr>
                         </table>
                     </div>
-                    
+
                     ${paymentSection}
-                    
+
                     <p style="margin-top: 24px; font-size: 12px; color: #9ca3af; text-align: center;">
                         Powered by Keystone Web Design
                     </p>
@@ -97,18 +123,52 @@ export async function sendOwnerNotification(data: BookingEmailData, ownerEmail: 
         const priceStr = data.priceCents > 0 ? `$${(data.priceCents / 100).toFixed(2)} ${data.currency}` : 'Free';
         const refId = data.bookingId.slice(0, 8).toUpperCase();
 
+        const paymentMethodLabel = data.paymentMethod === 'etransfer' ? 'Interac e-Transfer'
+            : data.paymentMethod === 'stripe' ? 'Stripe (paid online)'
+            : 'Pay in person';
+
+        // Payment-specific action section for the owner
+        let actionSection = '';
+        if (data.paymentMethod === 'etransfer') {
+            actionSection = `
+            <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 16px; margin-top: 16px;">
+                <h3 style="margin: 0 0 8px; color: #92400e; font-size: 14px; font-weight: 700;">⚠️ Awaiting e-Transfer Payment</h3>
+                <p style="margin: 0 0 8px; color: #78350f; font-size: 14px; line-height: 1.5;">
+                    <strong>${data.customerName}</strong> has submitted a booking but payment has not yet been received.
+                    They have been instructed to send <strong>${priceStr}</strong> (Ref: <strong>${refId}</strong>) to your e-transfer address.
+                </p>
+                <p style="margin: 0; color: #92400e; font-size: 13px; line-height: 1.5;">
+                    Once you receive the e-transfer, log in to your dashboard and confirm the booking.
+                    This will send <strong>${data.customerName}</strong> their booking confirmation email.
+                </p>
+            </div>
+            `;
+        } else if (data.paymentMethod === 'none') {
+            actionSection = `
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px; margin-top: 16px;">
+                <p style="margin: 0; color: #166534; font-size: 14px;">
+                    💵 <strong>Collect payment in person</strong> — remember to collect <strong>${priceStr}</strong> at the time of the appointment.
+                </p>
+            </div>
+            `;
+        }
+
+        const subject = data.paymentMethod === 'etransfer'
+            ? `New Booking (Awaiting Payment) — ${data.serviceName} with ${data.customerName}`
+            : `New Booking — ${data.serviceName} with ${data.customerName}`;
+
         await resend.emails.send({
             from: 'Keystone Web Design <bookings@keystoneweb.ca>',
             to: ownerEmail,
-            subject: `New Booking — ${data.serviceName} with ${data.customerName}`,
+            subject,
             html: `
                 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto;">
                     <div style="text-align: center; padding: 24px 0;">
                         <div style="width: 48px; height: 48px; background: #dbeafe; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 24px;">📅</div>
                         <h1 style="margin: 12px 0 4px; font-size: 22px; color: #111827;">New Booking</h1>
-                        <p style="margin: 0; color: #6b7280; font-size: 14px;">You have a new appointment</p>
+                        <p style="margin: 0; color: #6b7280; font-size: 14px;">You have a new appointment request</p>
                     </div>
-                    
+
                     <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                             <tr><td style="padding: 6px 0; color: #6b7280;">Service</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.serviceName}</td></tr>
@@ -116,11 +176,11 @@ export async function sendOwnerNotification(data: BookingEmailData, ownerEmail: 
                             <tr><td style="padding: 6px 0; color: #6b7280;">Time</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.startTime}</td></tr>
                             <tr><td style="padding: 6px 0; color: #6b7280;">Duration</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.duration} min</td></tr>
                             <tr><td style="padding: 6px 0; color: #6b7280;">Price</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${priceStr}</td></tr>
-                            <tr><td style="padding: 6px 0; color: #6b7280;">Payment</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.paymentMethod === 'etransfer' ? 'e-Transfer' : data.paymentMethod === 'stripe' ? 'Stripe' : 'Pay in person'}</td></tr>
+                            <tr><td style="padding: 6px 0; color: #6b7280;">Payment</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${paymentMethodLabel}</td></tr>
                             <tr><td style="padding: 6px 0; color: #6b7280;">Ref #</td><td style="padding: 6px 0; text-align: right; font-weight: 600; font-family: monospace; color: #111827;">${refId}</td></tr>
                         </table>
                     </div>
-                    
+
                     <div style="background: #f0f9ff; border-radius: 8px; padding: 16px;">
                         <h3 style="margin: 0 0 8px; font-size: 14px; color: #0c4a6e;">Customer Details</h3>
                         <p style="margin: 2px 0; font-size: 14px; color: #111827;"><strong>${data.customerName}</strong></p>
@@ -128,7 +188,9 @@ export async function sendOwnerNotification(data: BookingEmailData, ownerEmail: 
                         ${data.customerPhone ? `<p style="margin: 2px 0; font-size: 14px; color: #111827;">📱 ${data.customerPhone}</p>` : ''}
                         ${data.notes ? `<p style="margin: 8px 0 0; font-size: 13px; color: #6b7280;"><em>Notes: ${data.notes}</em></p>` : ''}
                     </div>
-                    
+
+                    ${actionSection}
+
                     <p style="margin-top: 24px; font-size: 12px; color: #9ca3af; text-align: center;">
                         Powered by Keystone Web Design
                     </p>
@@ -139,6 +201,62 @@ export async function sendOwnerNotification(data: BookingEmailData, ownerEmail: 
         return { success: true };
     } catch (error) {
         console.error('Failed to send owner notification email:', error);
+        return { success: false, error };
+    }
+}
+
+/**
+ * Send payment confirmed / booking confirmed email to the customer
+ * Called when the owner marks an e-transfer booking as confirmed
+ */
+export async function sendCustomerPaymentConfirmed(data: BookingEmailData) {
+    try {
+        const dateFormatted = new Date(data.date + 'T12:00:00').toLocaleDateString('en-US', {
+            weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+        });
+
+        const priceStr = data.priceCents > 0 ? `$${(data.priceCents / 100).toFixed(2)} ${data.currency}` : 'Free';
+        const refId = data.bookingId.slice(0, 8).toUpperCase();
+
+        await resend.emails.send({
+            from: 'Keystone Web Design <bookings@keystoneweb.ca>',
+            to: data.customerEmail,
+            subject: `Booking Confirmed — ${data.serviceName}`,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto;">
+                    <div style="text-align: center; padding: 24px 0;">
+                        <div style="width: 48px; height: 48px; background: #dcfce7; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 24px;">✅</div>
+                        <h1 style="margin: 12px 0 4px; font-size: 22px; color: #111827;">Payment Received — Booking Confirmed</h1>
+                        <p style="margin: 0; color: #6b7280; font-size: 14px;">${data.confirmationMessage || 'Your payment has been received. We look forward to seeing you!'}</p>
+                    </div>
+
+                    <div style="background: #f9fafb; border-radius: 8px; padding: 16px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                            <tr><td style="padding: 6px 0; color: #6b7280;">Service</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.serviceName}</td></tr>
+                            <tr><td style="padding: 6px 0; color: #6b7280;">Date</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${dateFormatted}</td></tr>
+                            <tr><td style="padding: 6px 0; color: #6b7280;">Time</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.startTime}</td></tr>
+                            <tr><td style="padding: 6px 0; color: #6b7280;">Duration</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.duration} min</td></tr>
+                            <tr><td style="padding: 6px 0; color: #6b7280;">Amount Paid</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${priceStr}</td></tr>
+                            <tr><td style="padding: 6px 0; color: #6b7280;">Ref #</td><td style="padding: 6px 0; text-align: right; font-weight: 600; font-family: monospace; color: #111827;">${refId}</td></tr>
+                        </table>
+                    </div>
+
+                    <div style="background: #dcfce7; border-radius: 8px; padding: 14px; margin-top: 16px;">
+                        <p style="margin: 0; color: #166534; font-size: 14px; text-align: center;">
+                            ✓ Your e-transfer payment has been confirmed
+                        </p>
+                    </div>
+
+                    <p style="margin-top: 24px; font-size: 12px; color: #9ca3af; text-align: center;">
+                        Powered by Keystone Web Design
+                    </p>
+                </div>
+            `,
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send customer payment confirmed email:', error);
         return { success: false, error };
     }
 }
