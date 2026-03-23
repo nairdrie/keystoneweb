@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
-import { NavItem, BlockData } from '@/lib/editor-context';
+import { X, Loader2 } from 'lucide-react';
+import { NavItem, BlockData, useEditorContext } from '@/lib/editor-context';
 import { getBlockSlug } from '@/lib/block-utils';
 
 interface NavItemEditModalProps {
     item: NavItem;
     pages: Array<{ id: string; slug: string; title: string }>;
+    /** Blocks for the current (editor) page */
     blocks: BlockData[];
     onSave: (updated: NavItem) => void;
     onClose: () => void;
@@ -21,10 +22,13 @@ export default function NavItemEditModal({
     onSave,
     onClose,
 }: NavItemEditModalProps) {
+    const context = useEditorContext();
+    const siteId = context?.siteId;
+
     const [label, setLabel] = useState(item.label);
     const [linkType, setLinkType] = useState<'page' | 'section' | 'custom'>(item.linkType);
     const [pageId, setPageId] = useState(item.pageId || '');
-    // For section links, track the page the section lives on separately
+    // For section links: which page the section lives on (stored as pageId on the nav item)
     const [sectionPageId, setSectionPageId] = useState(
         item.linkType === 'section' ? (item.pageId || '') : ''
     );
@@ -33,7 +37,48 @@ export default function NavItemEditModal({
         item.linkType === 'custom' ? item.href : ''
     );
 
-    // Resolve href based on linkType
+    // Blocks for the selected section page (fetched when different page is chosen)
+    const [targetBlocks, setTargetBlocks] = useState<BlockData[]>(blocks);
+    const [isFetchingBlocks, setIsFetchingBlocks] = useState(false);
+
+    // When sectionPageId changes, fetch that page's blocks if needed
+    useEffect(() => {
+        if (linkType !== 'section') return;
+
+        if (!sectionPageId) {
+            // "Current page" selected — use the blocks prop as-is
+            setTargetBlocks(blocks);
+            return;
+        }
+
+        if (!siteId) {
+            setTargetBlocks([]);
+            return;
+        }
+
+        // Fetch the target page's design_data to get its blocks
+        setIsFetchingBlocks(true);
+        setBlockId(''); // reset block selection when page changes
+        fetch(`/api/pages?siteId=${siteId}`)
+            .then(r => r.json())
+            .then(data => {
+                const page = (data.pages || []).find((p: any) => p.id === sectionPageId);
+                const pageBlocks: BlockData[] = page?.design_data?.__blocks || [];
+                setTargetBlocks(pageBlocks);
+            })
+            .catch(() => setTargetBlocks([]))
+            .finally(() => setIsFetchingBlocks(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sectionPageId, linkType]);
+
+    // Also update targetBlocks when the blocks prop changes (current page)
+    useEffect(() => {
+        if (!sectionPageId && linkType === 'section') {
+            setTargetBlocks(blocks);
+        }
+    }, [blocks, sectionPageId, linkType]);
+
+    // Resolve href based on linkType — uses targetBlocks so the slug is always correct
     const resolveHref = (): string => {
         if (linkType === 'page') {
             const page = pages.find(p => p.id === pageId);
@@ -41,9 +86,9 @@ export default function NavItemEditModal({
         }
         if (linkType === 'section') {
             if (!blockId) return '#';
-            const blockIndex = blocks.findIndex(b => b.id === blockId);
+            const blockIndex = targetBlocks.findIndex(b => b.id === blockId);
             const hash = blockIndex !== -1
-                ? `#${getBlockSlug(blocks[blockIndex], blockIndex, blocks)}`
+                ? `#${getBlockSlug(targetBlocks[blockIndex], blockIndex, targetBlocks)}`
                 : `#${blockId}`;
             if (sectionPageId) {
                 const page = pages.find(p => p.id === sectionPageId);
@@ -66,6 +111,40 @@ export default function NavItemEditModal({
             pageId: linkType === 'page' ? pageId : linkType === 'section' ? sectionPageId || undefined : undefined,
             blockId: linkType === 'section' ? blockId : undefined,
         });
+    };
+
+    const renderBlockSelector = () => {
+        if (isFetchingBlocks) {
+            return (
+                <div className="flex items-center gap-2 py-2 text-sm text-slate-500">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading sections…
+                </div>
+            );
+        }
+        if (targetBlocks.length === 0) {
+            return <p className="text-sm text-slate-500 italic">No sections found on this page.</p>;
+        }
+        return (
+            <select
+                value={blockId}
+                onChange={(e) => setBlockId(e.target.value)}
+                className="w-full px-3 py-2 text-sm text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+                <option value="">Choose a section…</option>
+                {targetBlocks.map((b, i) => {
+                    const rawTitle = b.data?.title || b.data?.heading || '';
+                    const cleanTitle = rawTitle.replace(/<[^>]*>?/gm, '').trim();
+                    const typeName = b.type.charAt(0).toUpperCase() + b.type.slice(1);
+                    const optLabel = cleanTitle ? `${cleanTitle} (${typeName})` : `${typeName} Block`;
+                    return (
+                        <option key={b.id} value={b.id}>
+                            {optLabel}
+                        </option>
+                    );
+                })}
+            </select>
+        );
     };
 
     return createPortal(
@@ -139,7 +218,7 @@ export default function NavItemEditModal({
 
                     {linkType === 'section' && (
                         <>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Page (optional)</label>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Page</label>
                             <select
                                 value={sectionPageId}
                                 onChange={(e) => setSectionPageId(e.target.value)}
@@ -152,31 +231,10 @@ export default function NavItemEditModal({
                                     </option>
                                 ))}
                             </select>
-                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Select Section</label>
-                            {blocks.length > 0 ? (
-                                <select
-                                    value={blockId}
-                                    onChange={(e) => setBlockId(e.target.value)}
-                                    className="w-full px-3 py-2 text-sm text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                    <option value="">Choose a block...</option>
-                                    {blocks.map((b, i) => {
-                                        const rawTitle = b.data?.title || b.data?.heading || '';
-                                        const cleanTitle = rawTitle.replace(/<[^>]*>?/gm, '').trim();
-                                        const typeName = b.type.charAt(0).toUpperCase() + b.type.slice(1);
-                                        const label = cleanTitle ? `${cleanTitle} (${typeName} Block)` : `${typeName} Block`;
-                                        return (
-                                            <option key={b.id} value={b.id}>
-                                                {label}
-                                            </option>
-                                        );
-                                    })}
-                                </select>
-                            ) : (
-                                <p className="text-sm text-slate-500 italic">No blocks on this page yet.</p>
-                            )}
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Section</label>
+                            {renderBlockSelector()}
                             <p className="mt-2 text-xs text-slate-400">
-                                Select the page the section lives on. The link will route to <code className="bg-slate-100 px-1 rounded">/page#section</code> from anywhere.
+                                Link routes to <code className="bg-slate-100 px-1 rounded">/page#section</code> from any page.
                             </p>
                         </>
                     )}
