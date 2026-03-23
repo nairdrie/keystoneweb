@@ -3,12 +3,13 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
-import { NavItem } from '@/lib/editor-context';
+import { NavItem, BlockData } from '@/lib/editor-context';
+import { getBlockSlug } from '@/lib/block-utils';
 
 interface NavItemEditModalProps {
     item: NavItem;
     pages: Array<{ id: string; slug: string; title: string }>;
-    blocks: Array<{ id: string; type: string }>;
+    blocks: BlockData[];
     onSave: (updated: NavItem) => void;
     onClose: () => void;
 }
@@ -35,7 +36,12 @@ export default function NavItemEditModal({
             return page ? `/${page.slug}` : '#';
         }
         if (linkType === 'section') {
-            return blockId ? `#${blockId}` : '#';
+            if (!blockId) return '#';
+            const blockIndex = blocks.findIndex(b => b.id === blockId);
+            if (blockIndex !== -1) {
+                return `#${getBlockSlug(blocks[blockIndex], blockIndex, blocks)}`;
+            }
+            return `#${blockId}`;
         }
         return customHref || '#';
     };
@@ -130,11 +136,17 @@ export default function NavItemEditModal({
                                     className="w-full px-3 py-2 text-sm text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
                                     <option value="">Choose a block...</option>
-                                    {blocks.map((b) => (
-                                        <option key={b.id} value={b.id}>
-                                            {b.type.charAt(0).toUpperCase() + b.type.slice(1)} Block
-                                        </option>
-                                    ))}
+                                    {blocks.map((b, i) => {
+                                        const rawTitle = b.data?.title || b.data?.heading || '';
+                                        const cleanTitle = rawTitle.replace(/<[^>]*>?/gm, '').trim();
+                                        const typeName = b.type.charAt(0).toUpperCase() + b.type.slice(1);
+                                        const label = cleanTitle ? `${cleanTitle} (${typeName} Block)` : `${typeName} Block`;
+                                        return (
+                                            <option key={b.id} value={b.id}>
+                                                {label}
+                                            </option>
+                                        );
+                                    })}
                                 </select>
                             ) : (
                                 <p className="text-sm text-slate-500 italic">No blocks on this page yet.</p>

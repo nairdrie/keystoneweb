@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Plus, X, Pencil, ChevronDown, ChevronRight } from 'lucide-react';
 import { useEditorContext, NavItem } from '@/lib/editor-context';
 import NavItemEditModal from './NavItemEditModal';
+import { getBlockSlug } from '@/lib/block-utils';
 
 interface NavMenuProps {
     /** Additional CSS classes for the nav container */
@@ -40,6 +41,10 @@ export default function NavMenu({ className = '', itemClassName = '', submenuCla
             const slug = targetPage ? targetPage.slug : '';
             return slug === 'home' ? '/' : `/${slug}`;
         } else if (item.linkType === 'section') {
+            const blockIndex = blocks.findIndex(b => b.id === item.blockId);
+            if (blockIndex !== -1) {
+                return `#${getBlockSlug(blocks[blockIndex], blockIndex, blocks)}`;
+            }
             return `#${item.blockId}`;
         }
         return item.href;
@@ -282,7 +287,7 @@ export default function NavMenu({ className = '', itemClassName = '', submenuCla
                 <NavItemEditModal
                     item={editingItem}
                     pages={pages}
-                    blocks={blocks.map((b) => ({ id: b.id, type: b.type }))}
+                    blocks={blocks}
                     onSave={handleSaveItem}
                     onClose={() => { setEditingItem(null); setEditingParentId(null); }}
                 />

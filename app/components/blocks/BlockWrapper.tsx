@@ -6,6 +6,7 @@ import { ArrowUp, ArrowDown, Trash2, Settings } from 'lucide-react';
 import BlockSettingsModal from './BlockSettingsModal';
 import { motion } from 'framer-motion';
 import { staggerContainer } from '@/lib/motion';
+import { getBlockSlug } from '@/lib/block-utils';
 
 interface BlockWrapperProps {
     id: string;
@@ -23,7 +24,11 @@ export default function BlockWrapper({ id, type, children, data, onUpdateBlockDa
     const isProUser = context?.isProUser || false;
     const [settingsOpen, setSettingsOpen] = useState(false);
 
-    // Build scoped CSS: wrap all rules under #blockId selector
+    const blocks = context?.blocks || [];
+    const index = blocks.findIndex(b => b.id === id);
+    const slug = index !== -1 ? getBlockSlug(blocks[index], index, blocks) : id;
+
+    // Build scoped CSS: wrap all rules under [data-block-id="blockId"] selector
     const scopedCss = customCss
         ? customCss
             .split('}')
@@ -32,7 +37,7 @@ export default function BlockWrapper({ id, type, children, data, onUpdateBlockDa
                 const trimmed = rule.trim();
                 if (!trimmed) return '';
                 // Prefix each rule with the block's unique ID selector
-                return `#${id} ${trimmed}}`;
+                return `[data-block-id="${id}"] ${trimmed}}`;
             })
             .join('\n')
         : '';
@@ -49,7 +54,8 @@ export default function BlockWrapper({ id, type, children, data, onUpdateBlockDa
         return (
             <motion.div 
                 key={`${id}-view`}
-                id={id} 
+                id={slug} 
+                data-block-id={id}
                 {...animationProps}
                 className={`w-full ks-block ks-block-${type}`}
             >
@@ -62,7 +68,8 @@ export default function BlockWrapper({ id, type, children, data, onUpdateBlockDa
     return (
         <motion.div 
             key={`${id}-edit`}
-            id={id} 
+            id={slug} 
+            data-block-id={id}
             {...animationProps}
             className={`relative group w-full border-2 border-transparent hover:border-slate-300 transition-colors ks-block ks-block-${type}`}
         >
