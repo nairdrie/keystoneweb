@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Loader2 } from 'lucide-react';
 import { NavItem, BlockData, useEditorContext } from '@/lib/editor-context';
@@ -41,6 +41,9 @@ export default function NavItemEditModal({
     const [targetBlocks, setTargetBlocks] = useState<BlockData[]>(blocks);
     const [isFetchingBlocks, setIsFetchingBlocks] = useState(false);
 
+    // Track whether sectionPageId changed due to user interaction (not initial mount)
+    const isInitialMount = useRef(true);
+
     // When sectionPageId changes, fetch that page's blocks if needed
     useEffect(() => {
         if (linkType !== 'section') return;
@@ -48,17 +51,22 @@ export default function NavItemEditModal({
         if (!sectionPageId) {
             // "Current page" selected — use the blocks prop as-is
             setTargetBlocks(blocks);
+            if (!isInitialMount.current) setBlockId('');
+            isInitialMount.current = false;
             return;
         }
 
         if (!siteId) {
             setTargetBlocks([]);
+            isInitialMount.current = false;
             return;
         }
 
         // Fetch the target page's design_data to get its blocks
         setIsFetchingBlocks(true);
-        setBlockId(''); // reset block selection when page changes
+        if (!isInitialMount.current) setBlockId(''); // only reset when user changes page
+        isInitialMount.current = false;
+
         fetch(`/api/pages?siteId=${siteId}`)
             .then(r => r.json())
             .then(data => {
