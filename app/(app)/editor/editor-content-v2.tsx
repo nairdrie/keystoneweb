@@ -461,8 +461,23 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
         const oldItem = oldItems.find((o: NavItem) => o.id === item.id);
         if (oldItem && oldItem.href !== item.href) changes.push(`Updated link for "${item.label}"`);
       }
+      // Detect sub-item changes
+      const oldItem = oldItems.find((o: NavItem) => o.id === item.id);
+      if (oldItem) {
+        const oldChildren = oldItem.children || [];
+        const newChildren = item.children || [];
+        if (oldChildren.length < newChildren.length) {
+          const addedSubs = newChildren.filter(c => !oldChildren.some(oc => oc.id === c.id));
+          for (const sub of addedSubs) changes.push(`Added sub-item "${sub.label}" under "${item.label}"`);
+        } else if (oldChildren.length > newChildren.length) {
+          const removedSubs = oldChildren.filter(oc => !newChildren.some(c => c.id === oc.id));
+          for (const sub of removedSubs) changes.push(`Removed sub-item "${sub.label}" from "${item.label}"`);
+        } else if (JSON.stringify(oldChildren) !== JSON.stringify(newChildren)) {
+          changes.push(`Updated sub-items for "${item.label}"`);
+        }
+      }
     }
-    
+
     const summary = changes.length > 0 ? changes.join(', ') : 'Reordered menu';
     if (changes.length > 0 || oldItems.length !== items.length) {
       // Pass full items as rawTo for accurate restoration in undo/redo
