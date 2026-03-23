@@ -16,9 +16,10 @@ interface BlockWrapperProps {
     onUpdateBlockData?: (key: string, value: any) => void;
     customCss?: string;
     onUpdateCustomCss?: (css: string) => void;
+    palette?: Record<string, string>;
 }
 
-export default function BlockWrapper({ id, type, children, data, onUpdateBlockData, customCss, onUpdateCustomCss }: BlockWrapperProps) {
+export default function BlockWrapper({ id, type, children, data, onUpdateBlockData, customCss, onUpdateCustomCss, palette }: BlockWrapperProps) {
     const context = useEditorContext();
     const isEditMode = context?.isEditMode || false;
     const isProUser = context?.isProUser || false;
@@ -42,6 +43,15 @@ export default function BlockWrapper({ id, type, children, data, onUpdateBlockDa
             .join('\n')
         : '';
 
+    // Expose palette colors as CSS variables so custom CSS can use var(--primary) etc.
+    const paletteVars = palette
+        ? ({
+              '--primary': palette.primary,
+              '--secondary': palette.secondary,
+              '--accent': palette.accent,
+          } as React.CSSProperties)
+        : undefined;
+
     const animationProps = {
         variants: staggerContainer as any,
         initial: isEditMode ? "show" : "hidden",
@@ -52,11 +62,12 @@ export default function BlockWrapper({ id, type, children, data, onUpdateBlockDa
 
     if (!isEditMode) {
         return (
-            <motion.div 
+            <motion.div
                 key={`${id}-view`}
-                id={slug} 
+                id={slug}
                 data-block-id={id}
                 {...animationProps}
+                style={paletteVars}
                 className={`w-full ks-block ks-block-${type}`}
             >
                 {scopedCss && <style dangerouslySetInnerHTML={{ __html: scopedCss }} />}
@@ -66,11 +77,12 @@ export default function BlockWrapper({ id, type, children, data, onUpdateBlockDa
     }
 
     return (
-        <motion.div 
+        <motion.div
             key={`${id}-edit`}
-            id={slug} 
+            id={slug}
             data-block-id={id}
             {...animationProps}
+            style={paletteVars}
             className={`relative group w-full border-2 border-transparent hover:border-slate-300 transition-colors ks-block ks-block-${type}`}
         >
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white shadow-md border border-slate-200 rounded-md flex overflow-hidden z-[100]">
