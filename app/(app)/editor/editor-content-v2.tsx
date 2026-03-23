@@ -124,10 +124,10 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
 
   // Change tracking
   // Multi-page support
-  const pagesHook = usePages(site?.id || "");
+  const pageIdFromUrl = searchParams.get('pageId');
+  const pagesHook = usePages(site?.id || "", pageIdFromUrl);
   const { pages, currentPageId, setCurrentPageId, fetchPages, currentPage, updatePage, createPage, deletePage, loading: pagesLoading } = pagesHook;
   const changesHook = useChangeTracking();
-  const pageIdFromUrl = searchParams.get('pageId');
   const { addChange, clearChanges } = changesHook;
 
   // Warn user before leaving with unsaved changes

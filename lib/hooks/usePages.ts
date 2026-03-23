@@ -11,7 +11,7 @@ export interface Page {
   published_data?: Record<string, any>;
 }
 
-export function usePages(siteId: string) {
+export function usePages(siteId: string, initialPageId?: string | null) {
   const [pages, setPages] = useState<Page[]>([]);
   const [currentPageId, setCurrentPageId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -51,9 +51,13 @@ export function usePages(siteId: string) {
         }
       } else {
         setPages(fetchedPages);
-        // Set current page to first visible or first page
-        if (fetchedPages.length > 0) {
-          setCurrentPageId(fetchedPages[0].id);
+        // Prefer the initial page ID (from URL) if it exists in the fetched pages,
+        // otherwise fall back to the first page
+        const preferredId = initialPageId && fetchedPages.some((p: Page) => p.id === initialPageId)
+          ? initialPageId
+          : fetchedPages[0]?.id;
+        if (preferredId) {
+          setCurrentPageId(preferredId);
         }
       }
     } catch (err) {
@@ -62,7 +66,7 @@ export function usePages(siteId: string) {
     } finally {
       setLoading(false);
     }
-  }, [siteId]);
+  }, [siteId, initialPageId]);
 
   // Create new page
   const createPage = useCallback(
