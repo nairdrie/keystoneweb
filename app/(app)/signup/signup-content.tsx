@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth/context';
+import { supabase } from '@/lib/db/supabase';
 
 export default function SignUpContent() {
   const router = useRouter();
@@ -13,7 +14,7 @@ export default function SignUpContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [step, setStep] = useState<'email' | 'password'>('email');
+  const [step, setStep] = useState<'email' | 'password' | 'name'>('email');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -71,9 +72,33 @@ export default function SignUpContent() {
         return;
       }
 
-      // Success - redirect appropriately
+      // Move to name collection step
+      setStep('name');
+    } catch (err: any) {
+      setError(err.message || 'Failed to create account');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNameSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      if (name.trim()) {
+        const { error: updateError } = await supabase.auth.updateUser({
+          data: { name: name.trim() },
+        });
+        if (updateError) {
+          setError(updateError.message || 'Failed to save name');
+          return;
+        }
+      }
+
+      // Redirect appropriately
       if (aiOnboarding) {
-        // Return to onboarding to create site and run AI builder (now authenticated)
         router.push('/onboarding?resumeAi=true');
       } else if (siteId) {
         router.push(`/editor?siteId=${siteId}`);
@@ -81,7 +106,7 @@ export default function SignUpContent() {
         router.push('/editor');
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to create account');
+      setError(err.message || 'Failed to save name');
     } finally {
       setLoading(false);
     }
@@ -189,7 +214,7 @@ export default function SignUpContent() {
                 </Link>
               </p>
             </>
-          ) : (
+          ) : step === 'password' ? (
             <>
               <h1 className="text-3xl font-black text-white mb-2">Create Your Password</h1>
               <p className="text-slate-300 mb-8 text-sm">{email}</p>
@@ -202,19 +227,6 @@ export default function SignUpContent() {
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">Full Name</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    placeholder="John Doe"
-                    required
-                    autoFocus
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-slate-400 focus:outline-none focus:border-white/50 transition-colors"
-                  />
-                </div>
-
-                <div>
                   <label className="block text-sm font-medium text-white mb-2">Password</label>
                   <input
                     type="password"
@@ -222,6 +234,7 @@ export default function SignUpContent() {
                     onChange={e => setPassword(e.target.value)}
                     placeholder="••••••••"
                     required
+                    autoFocus
                     className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-slate-400 focus:outline-none focus:border-white/50 transition-colors"
                   />
                 </div>
@@ -244,6 +257,40 @@ export default function SignUpContent() {
               >
                 ← Back
               </button>
+            </>
+          ) : (
+            <>
+              <h1 className="text-3xl font-black text-white mb-2">What's Your Name?</h1>
+              <p className="text-slate-300 mb-8">So we know what to call you</p>
+
+              <form onSubmit={handleNameSubmit} className="space-y-6">
+                {error && (
+                  <div className="p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 text-sm">
+                    {error}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Full Name</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="John Doe"
+                    required
+                    autoFocus
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-slate-400 focus:outline-none focus:border-white/50 transition-colors"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-slate-600 text-white font-bold rounded-lg transition-colors"
+                >
+                  {loading ? 'Saving...' : 'Continue'}
+                </button>
+              </form>
             </>
           )}
         </div>

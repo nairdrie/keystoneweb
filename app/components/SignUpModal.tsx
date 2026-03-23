@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
+import { supabase } from '@/lib/db/supabase';
 
 interface SignUpModalProps {
   isOpen: boolean;
@@ -34,8 +35,6 @@ export default function SignUpModal({ isOpen, onClose, siteId, onSuccess, defaul
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
-  const [businessName, setBusinessName] = useState('');
-  const [phone, setPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [accountExists, setAccountExists] = useState(false);
@@ -126,12 +125,22 @@ export default function SignUpModal({ isOpen, onClose, siteId, onSuccess, defaul
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!name.trim()) {
+      setError('Please enter your name');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Profile information is optional, just proceed to editor
-      // Don't call onClose() here - let handleSignUpSuccess manage modal closure
-      // to avoid redirect to onboarding
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: { name: name.trim() },
+      });
+      if (updateError) {
+        setError(updateError.message || 'Failed to save name');
+        return;
+      }
       onSuccess?.();
     } catch (err) {
       setError('An unexpected error occurred');
@@ -380,11 +389,11 @@ export default function SignUpModal({ isOpen, onClose, siteId, onSuccess, defaul
           </form>
         )}
 
-        {/* Step 3: Profile */}
+        {/* Step 3: Name */}
         {step === 'profile' && (
           <form onSubmit={handleProfileSubmit} className="space-y-4">
             <p className="text-sm text-slate-600 mb-4">
-              Complete your profile (all fields are optional)
+              What should we call you?
             </p>
 
             <div>
@@ -396,36 +405,10 @@ export default function SignUpModal({ isOpen, onClose, siteId, onSuccess, defaul
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 disabled={loading}
+                autoFocus
+                required
                 className="w-full px-4 py-2 bg-slate-100 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent focus:bg-white disabled:opacity-50 text-slate-900 placeholder-slate-600"
                 placeholder="John Doe"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-900 mb-2">
-                Business Name
-              </label>
-              <input
-                type="text"
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-                disabled={loading}
-                className="w-full px-4 py-2 bg-slate-100 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent focus:bg-white disabled:opacity-50 text-slate-900 placeholder-slate-600"
-                placeholder="Acme Corporation"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-900 mb-2">
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                disabled={loading}
-                className="w-full px-4 py-2 bg-slate-100 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-transparent focus:bg-white disabled:opacity-50 text-slate-900 placeholder-slate-600"
-                placeholder="(555) 123-4567"
               />
             </div>
 
