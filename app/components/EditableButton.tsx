@@ -213,6 +213,7 @@ export default function EditableButton({
                         item={asNavItem}
                         pages={pages}
                         blocks={blocks}
+                        siteId={context?.siteId}
                         onSave={handleSave}
                         onClose={() => setIsEditing(false)}
                     />

@@ -294,6 +294,7 @@ export default function NavMenu({ className = '', itemClassName = '', submenuCla
                     item={editingItem}
                     pages={pages}
                     blocks={blocks}
+                    siteId={context?.siteId}
                     onSave={handleSaveItem}
                     onClose={() => { setEditingItem(null); setEditingParentId(null); }}
                 />

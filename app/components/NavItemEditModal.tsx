@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Loader2 } from 'lucide-react';
-import { NavItem, BlockData, useEditorContext } from '@/lib/editor-context';
+import { NavItem, BlockData } from '@/lib/editor-context';
 import { getBlockSlug } from '@/lib/block-utils';
 
 interface NavItemEditModalProps {
@@ -11,6 +11,8 @@ interface NavItemEditModalProps {
     pages: Array<{ id: string; slug: string; title: string }>;
     /** Blocks for the current (editor) page */
     blocks: BlockData[];
+    /** Site ID, used to fetch blocks for other pages */
+    siteId?: string;
     onSave: (updated: NavItem) => void;
     onClose: () => void;
 }
@@ -19,11 +21,10 @@ export default function NavItemEditModal({
     item,
     pages,
     blocks,
+    siteId,
     onSave,
     onClose,
 }: NavItemEditModalProps) {
-    const context = useEditorContext();
-    const siteId = context?.siteId;
 
     const [label, setLabel] = useState(item.label);
     const [linkType, setLinkType] = useState<'page' | 'section' | 'custom'>(item.linkType);
@@ -72,9 +73,11 @@ export default function NavItemEditModal({
             .then(data => {
                 const page = (data.pages || []).find((p: any) => p.id === sectionPageId);
                 const pageBlocks: BlockData[] = page?.design_data?.__blocks || [];
-                setTargetBlocks(pageBlocks);
+                // If API returned nothing, fall back to the passed blocks prop
+                // (covers the case where sectionPageId matches the current page)
+                setTargetBlocks(pageBlocks.length > 0 ? pageBlocks : blocks);
             })
-            .catch(() => setTargetBlocks([]))
+            .catch(() => setTargetBlocks(blocks))
             .finally(() => setIsFetchingBlocks(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sectionPageId, linkType]);
