@@ -193,7 +193,7 @@ export default function NavMenu({ className = '', itemClassName = '', submenuCla
                                         </Link>
                                     )}
                                     {isEditMode && (
-                                        <div className="ml-1 flex items-center gap-0.5 opacity-0 group-hover/navitem:opacity-100 transition-opacity">
+                                        <div className="ml-1 flex items-center gap-0.5">
                                             <button
                                                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditingItem(item); setEditingParentId(null); }}
                                                 className="p-0.5 hover:bg-blue-100 rounded-full"
@@ -233,7 +233,7 @@ export default function NavMenu({ className = '', itemClassName = '', submenuCla
                                                     {sub.label}
                                                 </Link>
                                                 {isEditMode && (
-                                                    <div className="ml-1 flex items-center gap-0.5 opacity-0 group-hover/subitem:opacity-100 transition-opacity">
+                                                    <div className="ml-1 flex items-center gap-0.5">
                                                         <button
                                                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditingItem(sub); setEditingParentId(item.id); }}
                                                             className="p-0.5 hover:bg-blue-100 rounded-full"
@@ -364,7 +364,7 @@ function DesktopNavItem({
             </Link>
 
             {isEditMode && (
-                <div className="ml-1 flex items-center gap-0.5 opacity-0 group-hover/navitem:opacity-100 transition-opacity">
+                <div className="ml-1 flex items-center gap-0.5 md:opacity-0 md:group-hover/navitem:opacity-100 transition-opacity">
                     <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(item, null); }}
                         className="p-0.5 hover:bg-blue-100 rounded-full"
@@ -408,7 +408,7 @@ function DesktopNavItem({
                                     {sub.label}
                                 </Link>
                                 {isEditMode && (
-                                    <div className="mr-2 flex items-center gap-0.5 opacity-0 group-hover/subitem:opacity-100 transition-opacity">
+                                    <div className="mr-2 flex items-center gap-0.5 md:opacity-0 md:group-hover/subitem:opacity-100 transition-opacity">
                                         <button
                                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(sub, item.id); }}
                                             className="p-0.5 hover:bg-blue-100 rounded-full"

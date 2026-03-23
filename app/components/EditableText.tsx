@@ -69,7 +69,7 @@ export default function EditableText({
 
   // Detect if we should show controls on the left based on screen position
   useEffect(() => {
-    if (isEditMode && containerRef.current && isHovered) {
+    if (isEditMode && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       const spaceOnRight = window.innerWidth - rect.right;
       // If less than 120px on right (slightly more for text since icons are far), flip controls to left
@@ -155,9 +155,11 @@ export default function EditableText({
             }
             if (e.key === 'Escape') handleCancel();
           }}
+          onBlur={handleSave}
         />
         <span className="absolute right-0 top-full mt-2 flex items-center gap-2 z-[100] whitespace-nowrap" style={{ display: 'flex' }}>
           <button
+            onMouseDown={(e) => e.preventDefault()}
             onClick={handleSave}
             className="p-2 bg-green-500 hover:bg-green-600 text-white rounded shadow-lg transition-colors flex items-center gap-1 text-sm font-bold"
             title="Save (Enter)"
@@ -165,6 +167,7 @@ export default function EditableText({
             <Check className="w-4 h-4" /> Save
           </button>
           <button
+            onMouseDown={(e) => e.preventDefault()}
             onClick={handleCancel}
             className="p-2 bg-red-500 hover:bg-red-600 text-white rounded shadow-lg transition-colors flex items-center gap-1 text-sm font-bold"
             title="Cancel (Esc)"
@@ -195,11 +198,11 @@ export default function EditableText({
       <span className={`relative inline-block ${isHovered ? 'bg-blue-100/50 outline outline-2 outline-blue-400 outline-offset-2 rounded-sm' : 'bg-blue-100/20 md:bg-transparent outline outline-1 outline-blue-300 md:outline-none outline-offset-2 rounded-sm'}`}>
         {renderFormattedText(displayText)}
 
-        {/* Desktop: Show pencil on hover only. Mobile: Don't show pencil at all */}
-        <span 
-            className={`absolute top-1/2 -translate-y-1/2 items-center gap-1 z-50 hidden md:flex transition-all ${isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'} ${
+        {/* Show pencil/settings always on mobile, hover-only on desktop */}
+        <span
+            className={`absolute top-1/2 -translate-y-1/2 items-center gap-1 z-50 flex transition-all opacity-100 scale-100 ${isHovered ? 'md:opacity-100 md:scale-100' : 'md:opacity-0 md:scale-90'} ${
                 controlsOnLeft ? '-left-14' : '-right-16'
-            }`} 
+            }`}
             onMouseDown={e => e.preventDefault()}
         >
           <button

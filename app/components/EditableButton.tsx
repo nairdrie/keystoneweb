@@ -173,9 +173,9 @@ export default function EditableButton({
                 >
                     {renderButtonContent()}
                     
-                    {/* Floating controls on hover */}
-                    <span 
-                        className={`absolute top-1/2 -translate-y-1/2 items-center gap-1 z-50 hidden md:flex opacity-0 group-hover/btn:opacity-100 transition-all scale-90 group-hover/btn:scale-100 ${
+                    {/* Floating controls: always visible on mobile, hover-only on desktop */}
+                    <span
+                        className={`absolute top-1/2 -translate-y-1/2 items-center gap-1 z-50 flex opacity-100 scale-100 md:opacity-0 md:scale-90 md:group-hover/btn:opacity-100 md:group-hover/btn:scale-100 transition-all ${
                             controlsOnLeft ? '-left-14' : '-right-16'
                         }`}
                         onClick={e => e.stopPropagation()}
@@ -202,10 +202,6 @@ export default function EditableButton({
                         </button>
                     </span>
                     
-                    {/* Mobile fallback indicator */}
-                    <span className="ml-2 md:hidden opacity-50">
-                        <Pencil className="w-3.5 h-3.5" />
-                    </span>
                 </div>
 
                 {isEditing && (
