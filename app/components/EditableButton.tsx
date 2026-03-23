@@ -208,7 +208,7 @@ export default function EditableButton({
                     <NavItemEditModal
                         item={asNavItem}
                         pages={pages}
-                        blocks={blocks.map(b => ({ id: b.id, type: b.type }))}
+                        blocks={blocks}
                         onSave={handleSave}
                         onClose={() => setIsEditing(false)}
                     />
