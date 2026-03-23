@@ -390,9 +390,9 @@ function DesktopNavItem({
             )}
 
             {/* Desktop dropdown submenu */}
-            {hasChildren && (open || isEditMode) && (
+            {hasChildren && open && (
                 <div
-                    className={`absolute top-full left-0 pt-2 z-[60] ${!open && !isEditMode ? 'hidden' : ''}`}
+                    className="absolute top-full left-0 pt-2 z-[60]"
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
                 >
