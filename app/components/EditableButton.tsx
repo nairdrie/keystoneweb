@@ -135,6 +135,10 @@ export default function EditableButton({
             }
         }
         if (currentLinkType === 'section' && currentBlockId) {
+            // Use the stored href if available (it's already been resolved to /page#section)
+            if (currentHref && currentHref !== '#' && !currentHref.startsWith('http')) {
+                return currentHref;
+            }
             return `#${currentBlockId}`;
         }
         return currentHref;

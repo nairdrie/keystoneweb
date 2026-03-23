@@ -41,11 +41,18 @@ export default function NavMenu({ className = '', itemClassName = '', submenuCla
             const slug = targetPage ? targetPage.slug : '';
             return slug === 'home' ? '/' : `/${slug}`;
         } else if (item.linkType === 'section') {
-            const blockIndex = blocks.findIndex(b => b.id === item.blockId);
-            if (blockIndex !== -1) {
-                return `#${getBlockSlug(blocks[blockIndex], blockIndex, blocks)}`;
+            // Build a hash from the blockId stored on the item
+            const hash = item.href?.startsWith('#') ? item.href : `#${item.blockId}`;
+            // If the section lives on a specific page, prefix with that page's path
+            if (item.pageId) {
+                const targetPage = pages.find(p => p.id === item.pageId);
+                if (targetPage) {
+                    const pageSlug = targetPage.slug === 'home' ? '' : `/${targetPage.slug}`;
+                    return `${pageSlug}${hash}`;
+                }
             }
-            return `#${item.blockId}`;
+            // Fallback: hash-only (section is on the current page)
+            return hash;
         }
         return item.href;
     };

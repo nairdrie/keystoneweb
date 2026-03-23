@@ -24,6 +24,10 @@ export default function NavItemEditModal({
     const [label, setLabel] = useState(item.label);
     const [linkType, setLinkType] = useState<'page' | 'section' | 'custom'>(item.linkType);
     const [pageId, setPageId] = useState(item.pageId || '');
+    // For section links, track the page the section lives on separately
+    const [sectionPageId, setSectionPageId] = useState(
+        item.linkType === 'section' ? (item.pageId || '') : ''
+    );
     const [blockId, setBlockId] = useState(item.blockId || '');
     const [customHref, setCustomHref] = useState(
         item.linkType === 'custom' ? item.href : ''
@@ -38,10 +42,17 @@ export default function NavItemEditModal({
         if (linkType === 'section') {
             if (!blockId) return '#';
             const blockIndex = blocks.findIndex(b => b.id === blockId);
-            if (blockIndex !== -1) {
-                return `#${getBlockSlug(blocks[blockIndex], blockIndex, blocks)}`;
+            const hash = blockIndex !== -1
+                ? `#${getBlockSlug(blocks[blockIndex], blockIndex, blocks)}`
+                : `#${blockId}`;
+            if (sectionPageId) {
+                const page = pages.find(p => p.id === sectionPageId);
+                if (page) {
+                    const slug = page.slug === 'home' ? '' : `/${page.slug}`;
+                    return `${slug}${hash}`;
+                }
             }
-            return `#${blockId}`;
+            return hash;
         }
         return customHref || '#';
     };
@@ -52,7 +63,7 @@ export default function NavItemEditModal({
             label,
             linkType,
             href: resolveHref(),
-            pageId: linkType === 'page' ? pageId : undefined,
+            pageId: linkType === 'page' ? pageId : linkType === 'section' ? sectionPageId || undefined : undefined,
             blockId: linkType === 'section' ? blockId : undefined,
         });
     };
@@ -128,6 +139,19 @@ export default function NavItemEditModal({
 
                     {linkType === 'section' && (
                         <>
+                            <label className="block text-sm font-semibold text-slate-700 mb-1.5">Page (optional)</label>
+                            <select
+                                value={sectionPageId}
+                                onChange={(e) => setSectionPageId(e.target.value)}
+                                className="w-full px-3 py-2 text-sm text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+                            >
+                                <option value="">Current page</option>
+                                {pages.map((p) => (
+                                    <option key={p.id} value={p.id}>
+                                        {p.title}
+                                    </option>
+                                ))}
+                            </select>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Select Section</label>
                             {blocks.length > 0 ? (
                                 <select
@@ -152,7 +176,7 @@ export default function NavItemEditModal({
                                 <p className="text-sm text-slate-500 italic">No blocks on this page yet.</p>
                             )}
                             <p className="mt-2 text-xs text-slate-400">
-                                Tip: Use &quot;Custom URL&quot; to link to a section on another page, e.g. <code className="bg-slate-100 px-1 rounded">/about#block-id</code>
+                                Select the page the section lives on. The link will route to <code className="bg-slate-100 px-1 rounded">/page#section</code> from anywhere.
                             </p>
                         </>
                     )}
