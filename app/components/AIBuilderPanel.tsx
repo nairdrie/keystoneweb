@@ -20,6 +20,39 @@ interface AIBuilderPanelProps {
   onDismissUpgradeModal?: () => void;
 }
 
+/** Returns the reset date tooltip string for the most urgent window. */
+function getResetTooltip(remaining: UsageRemaining | null | undefined, isFree: boolean): string | null {
+  if (!remaining || isFree) return null;
+
+  const candidates: Array<{ value: number; window: 'day' | 'week' | 'month' }> = [];
+  if (remaining.day   !== undefined) candidates.push({ value: remaining.day,   window: 'day' });
+  if (remaining.week  !== undefined) candidates.push({ value: remaining.week,  window: 'week' });
+  if (remaining.month !== undefined) candidates.push({ value: remaining.month, window: 'month' });
+
+  const urgent = candidates
+    .filter(c => c.value <= WARN_THRESHOLD)
+    .sort((a, b) => a.value - b.value)[0];
+
+  if (!urgent) return null;
+
+  const now = new Date();
+  const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+  if (urgent.window === 'day') {
+    const tomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+    return `Resets ${fmt(tomorrow)} at midnight UTC`;
+  }
+  if (urgent.window === 'week') {
+    const next = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return `Rolling 7-day window — resets by ${fmt(next)}`;
+  }
+  if (urgent.window === 'month') {
+    const firstOfNext = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+    return `Resets ${fmt(firstOfNext)}`;
+  }
+  return null;
+}
+
 /** Returns the most urgent low-quota warning string, or null if not close to any limit. */
 function getRemainingWarning(remaining: UsageRemaining | null | undefined, isFree: boolean): string | null {
   if (!remaining) return null;
@@ -220,12 +253,18 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
           const warning = getRemainingWarning(remaining, isFree);
           if (!warning) return null;
           const isOut = warning.startsWith('No');
+          const tooltip = getResetTooltip(remaining, isFree);
           return (
-            <div className={`shrink-0 mx-3 mb-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 ${
-              isOut
-                ? 'bg-red-50 text-red-600 border border-red-200'
-                : 'bg-amber-50 text-amber-700 border border-amber-200'
-            }`}>
+            <div
+              title={tooltip ?? undefined}
+              className={`shrink-0 mx-3 mb-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 ${
+                tooltip ? 'cursor-help' : ''
+              } ${
+                isOut
+                  ? 'bg-red-50 text-red-600 border border-red-200'
+                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+              }`}
+            >
               <span className="shrink-0">{isOut ? '⛔' : '⚠️'}</span>
               {warning}
             </div>
