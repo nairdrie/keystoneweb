@@ -57,9 +57,9 @@ export function SleekTemplate({ palette, isEditMode, children }: MasterTemplateP
                             aria-label="Home"
                             className="flex items-center gap-2 transition-opacity hover:opacity-90"
                         >
-                            {siteContent.siteLogo ? (
+                            {(siteContent.headerLogo || siteContent.siteLogo) ? (
                                 <img
-                                    src={siteContent.siteLogo}
+                                    src={siteContent.headerLogo || siteContent.siteLogo}
                                     alt={siteContent.siteTitle || 'Logo'}
                                     className="w-7 h-7 object-contain"
                                  style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
@@ -138,9 +138,9 @@ export function SleekTemplate({ palette, isEditMode, children }: MasterTemplateP
             <footer className="py-8 border-t border-gray-100">
                 <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        {siteContent.siteLogo ? (
+                        {(siteContent.footerLogo || siteContent.siteLogo) ? (
                             <img
-                                src={siteContent.siteLogo}
+                                src={siteContent.footerLogo || siteContent.siteLogo}
                                 alt={siteContent.siteTitle || 'Logo'}
                                 className="w-6 h-6 object-contain"
                              style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />

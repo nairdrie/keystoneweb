@@ -159,7 +159,7 @@ export default function FloatingToolbar({
   const [loadingSites, setLoadingSites] = useState(false);
   const [showChanges, setShowChanges] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
-  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [activeLogoModal, setActiveLogoModal] = useState<'shared' | 'header' | 'footer' | 'favicon' | null>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef<number>(0);
   const dragStartHeight = useRef<number>(0);
@@ -488,61 +488,204 @@ export default function FloatingToolbar({
 
               {/* Site Logo */}
               <div>
-                <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2">Site Logo</h3>
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-slate-100 rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
-                    {logoUrl ? (
-                      <img src={logoUrl} alt="Site Logo" className="w-full h-full object-contain" />
-                    ) : (
-                      <span className="text-[10px] font-bold text-slate-400 text-center leading-tight">NO<br />LOGO</span>
-                    )}
-                  </div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide">Site Logo</h3>
+                  {/* Shared / Separate toggle */}
                   <button
-                    onClick={() => setIsImageModalOpen(true)}
-                    className="flex-1 py-2 px-3 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-slate-700 hover:text-red-700 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2"
+                    onClick={() => onUpdateSiteContent('logoShared', siteContent.logoShared === false ? true : false)}
+                    className={`flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-md border transition-all ${siteContent.logoShared === false
+                      ? 'border-blue-400 bg-blue-50 text-blue-700'
+                      : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                    }`}
+                    title={siteContent.logoShared === false ? 'Using separate configs — click to share one logo' : 'Click to configure header, footer & favicon separately'}
                   >
-                    <Pencil className="w-3.5 h-3.5" />
-                    {logoUrl ? 'Change Logo' : 'Upload Logo'}
+                    {siteContent.logoShared === false ? 'Separate' : 'Shared'}
                   </button>
                 </div>
-                <p className="mt-1.5 text-[10px] text-slate-400 italic mb-4">
-                  Used in header, footer, and as favicon.
-                </p>
 
-                {/* Logo Height Controls */}
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <label className="text-[10px] font-bold text-slate-500">Header Logo Height</label>
-                      <span className="text-[10px] text-slate-500 font-mono">{siteContent.headerLogoHeight || 'Auto'}</span>
+                {siteContent.logoShared === false ? (
+                  /* ── Separate configurations ── */
+                  <div className="space-y-4">
+                    {/* Header Logo */}
+                    <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Header</p>
+                      <div className="flex items-center gap-2">
+                        <div className="w-10 h-10 bg-white rounded border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                          {(siteContent.headerLogo || logoUrl) ? (
+                            <img src={siteContent.headerLogo || logoUrl} alt="" className="w-full h-full object-contain" />
+                          ) : (
+                            <span className="text-[8px] font-bold text-slate-400 text-center leading-tight">NO<br />LOGO</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => setActiveLogoModal('header')}
+                          className="flex-1 py-1.5 px-2 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-slate-700 hover:text-red-700 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          {siteContent.headerLogo ? 'Change' : 'Upload'}
+                        </button>
+                        {siteContent.headerLogo && (
+                          <button
+                            onClick={() => onUpdateSiteContent('headerLogo', '')}
+                            className="py-1.5 px-2 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-slate-400 hover:text-red-600 text-[10px] rounded-lg transition-all"
+                            title="Remove header logo (falls back to shared logo)"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-[10px] font-bold text-slate-500">Height</label>
+                          <span className="text-[10px] text-slate-500 font-mono">{siteContent.headerLogoHeight || 'Auto'}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="20"
+                          max="220"
+                          step="4"
+                          value={siteContent.headerLogoHeight || 40}
+                          onChange={(e) => onUpdateSiteContent('headerLogoHeight', parseInt(e.target.value))}
+                          className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
                     </div>
-                    <input
-                      type="range"
-                      min="20"
-                      max="220"
-                      step="4"
-                      value={siteContent.headerLogoHeight || 40}
-                      onChange={(e) => onUpdateSiteContent('headerLogoHeight', parseInt(e.target.value))}
-                      className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                    />
-                  </div>
 
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <label className="text-[10px] font-bold text-slate-500">Footer Logo Height</label>
-                      <span className="text-[10px] text-slate-500 font-mono">{siteContent.footerLogoHeight || 'Auto'}</span>
+                    {/* Footer Logo */}
+                    <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Footer</p>
+                      <div className="flex items-center gap-2">
+                        <div className="w-10 h-10 bg-white rounded border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                          {(siteContent.footerLogo || logoUrl) ? (
+                            <img src={siteContent.footerLogo || logoUrl} alt="" className="w-full h-full object-contain" />
+                          ) : (
+                            <span className="text-[8px] font-bold text-slate-400 text-center leading-tight">NO<br />LOGO</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => setActiveLogoModal('footer')}
+                          className="flex-1 py-1.5 px-2 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-slate-700 hover:text-red-700 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          {siteContent.footerLogo ? 'Change' : 'Upload'}
+                        </button>
+                        {siteContent.footerLogo && (
+                          <button
+                            onClick={() => onUpdateSiteContent('footerLogo', '')}
+                            className="py-1.5 px-2 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-slate-400 hover:text-red-600 text-[10px] rounded-lg transition-all"
+                            title="Remove footer logo (falls back to shared logo)"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-[10px] font-bold text-slate-500">Height</label>
+                          <span className="text-[10px] text-slate-500 font-mono">{siteContent.footerLogoHeight || 'Auto'}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="20"
+                          max="220"
+                          step="4"
+                          value={siteContent.footerLogoHeight || 32}
+                          onChange={(e) => onUpdateSiteContent('footerLogoHeight', parseInt(e.target.value))}
+                          className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
                     </div>
-                    <input
-                      type="range"
-                      min="20"
-                      max="220"
-                      step="4"
-                      value={siteContent.footerLogoHeight || 32}
-                      onChange={(e) => onUpdateSiteContent('footerLogoHeight', parseInt(e.target.value))}
-                      className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                    />
+
+                    {/* Favicon */}
+                    <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Favicon</p>
+                      <div className="flex items-center gap-2">
+                        <div className="w-10 h-10 bg-white rounded border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                          {(siteContent.faviconLogo || logoUrl) ? (
+                            <img src={siteContent.faviconLogo || logoUrl} alt="" className="w-full h-full object-contain" />
+                          ) : (
+                            <span className="text-[8px] font-bold text-slate-400 text-center leading-tight">NO<br />LOGO</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => setActiveLogoModal('favicon')}
+                          className="flex-1 py-1.5 px-2 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-slate-700 hover:text-red-700 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5"
+                        >
+                          <Pencil className="w-3 h-3" />
+                          {siteContent.faviconLogo ? 'Change' : 'Upload'}
+                        </button>
+                        {siteContent.faviconLogo && (
+                          <button
+                            onClick={() => onUpdateSiteContent('faviconLogo', '')}
+                            className="py-1.5 px-2 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-slate-400 hover:text-red-600 text-[10px] rounded-lg transition-all"
+                            title="Remove favicon (falls back to shared logo)"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-slate-400 italic">Shown as the browser tab icon.</p>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  /* ── Shared configuration ── */
+                  <>
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-slate-100 rounded-lg border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                        {logoUrl ? (
+                          <img src={logoUrl} alt="Site Logo" className="w-full h-full object-contain" />
+                        ) : (
+                          <span className="text-[10px] font-bold text-slate-400 text-center leading-tight">NO<br />LOGO</span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => setActiveLogoModal('shared')}
+                        className="flex-1 py-2 px-3 bg-white border border-slate-200 hover:border-red-400 hover:bg-red-50 text-slate-700 hover:text-red-700 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        {logoUrl ? 'Change Logo' : 'Upload Logo'}
+                      </button>
+                    </div>
+                    <p className="mt-1.5 text-[10px] text-slate-400 italic mb-4">
+                      Used in header, footer, and as favicon.
+                    </p>
+
+                    {/* Logo Height Controls */}
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-[10px] font-bold text-slate-500">Header Logo Height</label>
+                          <span className="text-[10px] text-slate-500 font-mono">{siteContent.headerLogoHeight || 'Auto'}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="20"
+                          max="220"
+                          step="4"
+                          value={siteContent.headerLogoHeight || 40}
+                          onChange={(e) => onUpdateSiteContent('headerLogoHeight', parseInt(e.target.value))}
+                          className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-[10px] font-bold text-slate-500">Footer Logo Height</label>
+                          <span className="text-[10px] text-slate-500 font-mono">{siteContent.footerLogoHeight || 'Auto'}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="20"
+                          max="220"
+                          step="4"
+                          value={siteContent.footerLogoHeight || 32}
+                          onChange={(e) => onUpdateSiteContent('footerLogoHeight', parseInt(e.target.value))}
+                          className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -1208,18 +1351,64 @@ export default function FloatingToolbar({
         />
       )}
 
+      {/* Shared logo modal */}
       <ImageEditorModal
-        isOpen={isImageModalOpen}
-        onClose={() => setIsImageModalOpen(false)}
+        isOpen={activeLogoModal === 'shared'}
+        onClose={() => setActiveLogoModal(null)}
         currentImageUrl={logoUrl}
         siteCategory={siteCategory}
         siteId={currentSiteId || ''}
         onSave={(url) => {
           onLogoChange?.(url);
-          setIsImageModalOpen(false);
+          setActiveLogoModal(null);
         }}
         onUpload={uploadImage || (async () => '')}
         contentKey="siteLogo"
+        allowUnsplash={false}
+      />
+      {/* Header logo modal */}
+      <ImageEditorModal
+        isOpen={activeLogoModal === 'header'}
+        onClose={() => setActiveLogoModal(null)}
+        currentImageUrl={siteContent.headerLogo || logoUrl}
+        siteCategory={siteCategory}
+        siteId={currentSiteId || ''}
+        onSave={(url) => {
+          onUpdateSiteContent('headerLogo', url);
+          setActiveLogoModal(null);
+        }}
+        onUpload={uploadImage || (async () => '')}
+        contentKey="headerLogo"
+        allowUnsplash={false}
+      />
+      {/* Footer logo modal */}
+      <ImageEditorModal
+        isOpen={activeLogoModal === 'footer'}
+        onClose={() => setActiveLogoModal(null)}
+        currentImageUrl={siteContent.footerLogo || logoUrl}
+        siteCategory={siteCategory}
+        siteId={currentSiteId || ''}
+        onSave={(url) => {
+          onUpdateSiteContent('footerLogo', url);
+          setActiveLogoModal(null);
+        }}
+        onUpload={uploadImage || (async () => '')}
+        contentKey="footerLogo"
+        allowUnsplash={false}
+      />
+      {/* Favicon logo modal */}
+      <ImageEditorModal
+        isOpen={activeLogoModal === 'favicon'}
+        onClose={() => setActiveLogoModal(null)}
+        currentImageUrl={siteContent.faviconLogo || logoUrl}
+        siteCategory={siteCategory}
+        siteId={currentSiteId || ''}
+        onSave={(url) => {
+          onUpdateSiteContent('faviconLogo', url);
+          setActiveLogoModal(null);
+        }}
+        onUpload={uploadImage || (async () => '')}
+        contentKey="faviconLogo"
         allowUnsplash={false}
       />
     </>

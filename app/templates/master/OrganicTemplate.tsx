@@ -57,9 +57,9 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
                             aria-label="Home"
                             className="flex items-center gap-3 transition-opacity hover:opacity-90"
                         >
-                            {siteContent.siteLogo ? (
+                            {(siteContent.headerLogo || siteContent.siteLogo) ? (
                                 <img
-                                    src={siteContent.siteLogo}
+                                    src={siteContent.headerLogo || siteContent.siteLogo}
                                     alt={siteContent.siteTitle || 'Logo'}
                                     className="w-9 h-9 object-contain rounded-full"
                                  style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
@@ -140,9 +140,9 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
             <footer className="py-16 border-t" style={{ borderColor: `${pSecondary}33` }}>
                 <div className="max-w-6xl mx-auto px-6 text-center">
                     <div className="flex items-center justify-center gap-3 mb-3">
-                        {siteContent.siteLogo ? (
+                        {(siteContent.footerLogo || siteContent.siteLogo) ? (
                             <img
-                                src={siteContent.siteLogo}
+                                src={siteContent.footerLogo || siteContent.siteLogo}
                                 alt={siteContent.siteTitle || 'Logo'}
                                 className="w-8 h-8 object-contain rounded-full"
                              style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />

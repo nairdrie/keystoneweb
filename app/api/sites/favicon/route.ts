@@ -18,12 +18,13 @@ export async function GET(request: NextRequest) {
       .eq('id', siteId)
       .single();
 
-    if (error || !site?.published_data?.siteLogo) {
+    const faviconUrl = site?.published_data?.faviconLogo || site?.published_data?.siteLogo;
+    if (error || !faviconUrl) {
       // Fallback to a default transparent pixel or a generic icon if no logo
       return new NextResponse(null, { status: 404 });
     }
 
-    const logoUrl = site.published_data.siteLogo;
+    const logoUrl = faviconUrl;
 
     // Fetch the actual image
     const imageRes = await fetch(logoUrl);
