@@ -55,18 +55,24 @@ export default async function CustomDomainDynamicPage({
             );
         }
 
-        // Fetch all pages for navigation links
+        // Fetch all pages for navigation links (include published_data to detect product blocks site-wide)
         const { data: allPages } = await supabase
             .from('pages')
-            .select('id, slug, title')
+            .select('id, slug, title, published_data')
             .eq('site_id', site.id);
 
         const pagePublishData = routePage.published_data || {};
         const sitePublishData = site.published_data || {};
+
+        const hasProductBlock = (allPages || []).some((p: any) =>
+            (p.published_data?.blocks || []).some((b: any) => b.type === 'productGrid')
+        );
+
         const mergedPublishData = {
             ...sitePublishData,
             ...pagePublishData,
-            __pages: allPages || []
+            __pages: (allPages || []).map(({ id, slug, title }: any) => ({ id, slug, title })),
+            __hasProductBlock: hasProductBlock,
         };
 
         const TemplateComp = await getTemplateComponent(site.selected_template_id);

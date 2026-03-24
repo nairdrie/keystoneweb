@@ -1167,7 +1167,12 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
           <EditorProvider
             value={{
               content: editableContent,
-              siteContent,
+              siteContent: {
+                ...siteContent,
+                __hasProductBlock: pages.some(p =>
+                  (p.design_data?.blocks || []).some((b: any) => b.type === 'productGrid')
+                ),
+              },
               updateSiteContent: handleUpdateSiteContent,
               navItems,
               updateNavItems: handleUpdateNavItems,
