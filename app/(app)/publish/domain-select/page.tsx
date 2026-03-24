@@ -257,8 +257,9 @@ function DomainSelectContent() {
 
     try {
       const baseDomain = process.env.NEXT_PUBLIC_PUBLISHED_DOMAIN_BASE || 'kswd.ca';
+      const siteIdParam = siteId ? `&siteId=${siteId}` : '';
       const res = await fetch(
-        `/api/domains/check-availability?subdomain=${domainToCheck}&baseDomain=${baseDomain}`,
+        `/api/domains/check-availability?subdomain=${domainToCheck}&baseDomain=${baseDomain}${siteIdParam}`,
         { credentials: 'include' }
       );
 
@@ -274,7 +275,7 @@ function DomainSelectContent() {
     } finally {
       setChecking(false);
     }
-  }, []);
+  }, [siteId]);
 
   useEffect(() => {
     if (activeTab !== 'subdomain') return;

@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const subdomain = searchParams.get('subdomain');
     const baseDomain = searchParams.get('baseDomain') || 'kswd.ca';
+    const siteId = searchParams.get('siteId');
 
     if (!subdomain) {
       return NextResponse.json(
@@ -45,11 +46,20 @@ export async function GET(request: NextRequest) {
     const { data: existing, error } = await supabase
       .from('sites')
       .select('id')
-      .eq('published_domain', subdomain) // <-- THIS SHOULD BE subdomain, not fullDomain!
+      .eq('published_domain', subdomain)
       .single();
 
     // If no error and data exists, subdomain is taken
     if (!error && existing) {
+      // If it belongs to the current site, treat it as the active domain
+      if (siteId && existing.id === siteId) {
+        return NextResponse.json({
+          available: true,
+          subdomain,
+          fullDomain,
+          message: 'Currently active — this is your domain.',
+        });
+      }
       return NextResponse.json({
         available: false,
         subdomain,
