@@ -479,7 +479,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     }
 
     const summary = changes.length > 0 ? changes.join(', ') : 'Reordered menu';
-    if (changes.length > 0 || oldItems.length !== items.length) {
+    if (changes.length > 0 || JSON.stringify(oldItems) !== JSON.stringify(items)) {
       // Pass full items as rawTo for accurate restoration in undo/redo
       addChange('siteContent:navItems', 'Navigation Menu', JSON.stringify(oldItems), JSON.stringify(items));
     }
