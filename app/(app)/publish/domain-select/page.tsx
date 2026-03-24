@@ -24,6 +24,7 @@ import {
   ShoppingCart,
   Sparkles,
   HelpCircle,
+  Link2,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 
@@ -56,8 +57,86 @@ interface DnsInstructions {
   note: string;
 }
 
+interface OwnedDomain {
+  id: string;
+  domain: string;
+  site_id: string | null;
+  status: string;
+  is_free_with_pro: boolean;
+  expires_at: string | null;
+  auto_renew: boolean;
+}
+
 type DomainTab = 'subdomain' | 'custom';
 type CustomMode = 'search' | 'external';
+
+// ─── URL → Root Domain Extraction ────────────────────────────────────────────
+
+function extractRootDomain(input: string): string {
+  let cleaned = input.trim();
+  // Strip protocol
+  cleaned = cleaned.replace(/^https?:\/\//i, '');
+  // Strip www. prefix
+  cleaned = cleaned.replace(/^www\./i, '');
+  // Strip trailing slashes and paths
+  cleaned = cleaned.replace(/\/.*$/, '');
+  // Strip port
+  cleaned = cleaned.replace(/:\d+$/, '');
+  return cleaned.toLowerCase();
+}
+
+// ─── Registrar-Specific DNS Guides ───────────────────────────────────────────
+
+const REGISTRAR_GUIDES = [
+  {
+    name: 'GoDaddy',
+    steps: [
+      'Log in to your GoDaddy account and go to "My Products".',
+      'Find your domain and click "DNS" or "Manage DNS".',
+      'Under "Records", click "Add" to add each record below.',
+      'For the A record: Select Type "A", enter "@" in the Name field, paste the IP address in the Value field.',
+      'For the CNAME record: Select Type "CNAME", enter "www" in the Name field, paste the target in the Value field.',
+      'For the TXT record: Select Type "TXT", enter "@" in the Name field, paste the verification value in the Value/Data field.',
+      'Click "Save" for each record. Changes may take a few minutes.',
+    ],
+  },
+  {
+    name: 'Namecheap',
+    steps: [
+      'Log in to Namecheap and go to "Domain List" in the sidebar.',
+      'Click "Manage" next to your domain, then go to the "Advanced DNS" tab.',
+      'Click "Add New Record" for each record below.',
+      'For the A record: Select Type "A Record", enter "@" as Host, paste the IP address as Value.',
+      'For the CNAME record: Select Type "CNAME Record", enter "www" as Host, paste the target as Value.',
+      'For the TXT record: Select Type "TXT Record", enter "@" as Host, paste the verification value as Value.',
+      'Click the green checkmark to save each record.',
+    ],
+  },
+  {
+    name: 'Cloudflare',
+    steps: [
+      'Log in to Cloudflare and select your domain from the dashboard.',
+      'Go to "DNS" > "Records" in the left sidebar.',
+      'Click "Add Record" for each record below.',
+      'For the A record: Select Type "A", enter "@" in Name, paste the IP address in Content. Set Proxy status to "DNS only" (grey cloud).',
+      'For the CNAME record: Select Type "CNAME", enter "www" in Name, paste the target in Content. Set Proxy status to "DNS only" (grey cloud).',
+      'For the TXT record: Select Type "TXT", enter "@" in Name, paste the verification value in Content.',
+      'Click "Save" for each record. Changes propagate within minutes.',
+    ],
+  },
+  {
+    name: 'Google Domains / Squarespace',
+    steps: [
+      'Log in to Google Domains (now Squarespace Domains) and select your domain.',
+      'Go to "DNS" in the left sidebar, then scroll to "Custom records".',
+      'Click "Manage custom records".',
+      'For the A record: Leave Host name blank (or enter "@"), select Type "A", paste the IP address in Data.',
+      'For the CNAME record: Enter "www" as Host name, select Type "CNAME", paste the target in Data.',
+      'For the TXT record: Leave Host name blank (or enter "@"), select Type "TXT", paste the verification value in Data.',
+      'Click "Save" after adding all records.',
+    ],
+  },
+];
 
 // ─── Loading Messages ────────────────────────────────────────────────────────
 
@@ -214,6 +293,12 @@ function DomainSelectContent() {
   const [dnsVerified, setDnsVerified] = useState(false);
   const [dnsChecks, setDnsChecks] = useState<{ cname: boolean; txt: boolean } | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [expandedRegistrar, setExpandedRegistrar] = useState<string | null>(null);
+
+  // Owned domains state
+  const [ownedDomains, setOwnedDomains] = useState<OwnedDomain[]>([]);
+  const [loadingOwnedDomains, setLoadingOwnedDomains] = useState(false);
+  const [externalMode, setExternalMode] = useState<'owned' | 'import'>('import');
 
   const isPro = userPlan?.toLowerCase().includes('pro');
 
@@ -233,6 +318,27 @@ function DomainSelectContent() {
       })
       .catch(console.error)
       .finally(() => setLoadingPlan(false));
+  }, [user, authLoading]);
+
+  // Fetch owned domains (unallocated ones for the dropdown)
+  useEffect(() => {
+    if (authLoading || !user) return;
+
+    setLoadingOwnedDomains(true);
+    fetch('/api/domains/owned', { credentials: 'include' })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.domains) {
+          setOwnedDomains(data.domains);
+          // If user has unallocated domains, default to the owned tab
+          const unallocated = data.domains.filter((d: OwnedDomain) => !d.site_id);
+          if (unallocated.length > 0) {
+            setExternalMode('owned');
+          }
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoadingOwnedDomains(false));
   }, [user, authLoading]);
 
   // Auth verification
@@ -336,7 +442,8 @@ function DomainSelectContent() {
   // ─── Custom Domain Search ───────────────────────────────────────────────
 
   const handleDomainSearch = async () => {
-    if (!searchQuery.trim() || searchQuery.trim().length < 2) return;
+    const cleanedQuery = extractRootDomain(searchQuery);
+    if (!cleanedQuery || cleanedQuery.length < 2) return;
 
     setSearching(true);
     setError(null);
@@ -348,7 +455,7 @@ function DomainSelectContent() {
 
     try {
       const res = await fetch(
-        `/api/domains/search?query=${encodeURIComponent(searchQuery.trim())}`,
+        `/api/domains/search?query=${encodeURIComponent(cleanedQuery)}`,
         { credentials: 'include' }
       );
 
@@ -425,8 +532,39 @@ function DomainSelectContent() {
 
   // ─── Link External Domain ──────────────────────────────────────────────
 
+  // ─── Assign Owned Domain to Site ────────────────────────────────────────
+  const handleAssignOwnedDomain = async (domain: string) => {
+    if (!siteId) return;
+
+    setLinking(true);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/domains/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ siteId, domain }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to assign domain');
+      }
+
+      setSuccess(true);
+      setPublishedUrl(`https://${domain}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to assign domain');
+      console.error(err);
+    } finally {
+      setLinking(false);
+    }
+  };
+
   const handleLinkExternal = async () => {
-    if (!externalDomain.trim() || !siteId) return;
+    const cleaned = extractRootDomain(externalDomain);
+    if (!cleaned || !siteId) return;
 
     setLinking(true);
     setError(null);
@@ -437,7 +575,7 @@ function DomainSelectContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ siteId, domain: externalDomain.trim().toLowerCase() }),
+        body: JSON.stringify({ siteId, domain: cleaned }),
       });
 
       if (!res.ok) {
@@ -991,7 +1129,80 @@ function DomainSelectContent() {
                 {/* ──── External Domain ─────────────────────────────── */}
                 {customMode === 'external' && (
                   <div className="space-y-4">
-                    {!dnsInstructions ? (
+                    {/* Owned Domains Section (if any are unallocated) */}
+                    {(() => {
+                      const unallocated = ownedDomains.filter((d) => !d.site_id && d.status === 'completed');
+                      if (unallocated.length === 0 && !loadingOwnedDomains) {
+                        // Skip directly to import mode, no toggle needed
+                      }
+                      return (unallocated.length > 0 || loadingOwnedDomains) ? (
+                        <>
+                          {/* Mode toggle for owned vs import */}
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setExternalMode('owned')}
+                              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold border-2 transition-all ${externalMode === 'owned'
+                                ? 'border-red-600 bg-red-50 text-red-700'
+                                : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                              }`}
+                            >
+                              <Link2 className="w-4 h-4" />
+                              Use an Owned Domain
+                            </button>
+                            <button
+                              onClick={() => setExternalMode('import')}
+                              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold border-2 transition-all ${externalMode === 'import'
+                                ? 'border-red-600 bg-red-50 text-red-700'
+                                : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                              }`}
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                              Import from Other Provider
+                            </button>
+                          </div>
+
+                          {/* Owned domains dropdown */}
+                          {externalMode === 'owned' && (
+                            <div className="space-y-3">
+                              <p className="text-sm text-slate-600">
+                                Select one of your owned domains to connect to this site.
+                              </p>
+                              {loadingOwnedDomains ? (
+                                <div className="flex items-center gap-2 p-4 bg-slate-50 rounded-lg">
+                                  <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                                  <span className="text-sm text-slate-500">Loading your domains...</span>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  {unallocated.map((d) => (
+                                    <button
+                                      key={d.id}
+                                      onClick={() => handleAssignOwnedDomain(d.domain)}
+                                      disabled={linking}
+                                      className="w-full flex items-center justify-between p-3 rounded-lg border-2 border-slate-200 hover:border-red-300 bg-white transition-all text-left"
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <Globe className="w-4 h-4 text-slate-500" />
+                                        <span className="font-mono font-semibold text-sm text-slate-900">{d.domain}</span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs text-green-700 font-medium">
+                                          {d.is_free_with_pro ? 'Included with Pro' : 'Purchased'}
+                                        </span>
+                                        <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                                      </div>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      ) : null;
+                    })()}
+
+                    {/* Import from Other Provider */}
+                    {(externalMode === 'import' || ownedDomains.filter((d) => !d.site_id && d.status === 'completed').length === 0) && !dnsInstructions ? (
                       <>
                         <div>
                           <label className="block text-sm font-semibold text-slate-900 mb-2">
@@ -1000,18 +1211,18 @@ function DomainSelectContent() {
                           <input
                             type="text"
                             value={externalDomain}
-                            onChange={(e) => setExternalDomain(e.target.value.toLowerCase())}
-                            placeholder="e.g., mybusiness.com"
+                            onChange={(e) => setExternalDomain(e.target.value)}
+                            placeholder="e.g., mybusiness.com or https://mybusiness.com"
                             className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-slate-900 font-medium placeholder-slate-400 focus:ring-2 focus:ring-red-600 focus:border-transparent"
                           />
                           <p className="text-xs text-slate-500 mt-1.5">
-                            Enter the domain you&apos;ve purchased from another registrar.
+                            Enter the domain you&apos;ve purchased from another registrar. You can paste a full URL &mdash; we&apos;ll extract the domain automatically.
                           </p>
                         </div>
 
                         <button
                           onClick={handleLinkExternal}
-                          disabled={linking || !externalDomain.trim() || !externalDomain.includes('.')}
+                          disabled={linking || !extractRootDomain(externalDomain) || !extractRootDomain(externalDomain).includes('.')}
                           className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                           {linking ? (
@@ -1027,15 +1238,18 @@ function DomainSelectContent() {
                           )}
                         </button>
                       </>
-                    ) : (
-                      /* ──── DNS Instructions ────────────────────────── */
+                    ) : dnsInstructions ? (
+                      /* ──── DNS Instructions (Improved) ─────────────────── */
                       <div className="space-y-4">
                         <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                           <h3 className="text-sm font-bold text-blue-900 mb-1">
                             Configure Your DNS Records
                           </h3>
                           <p className="text-xs text-blue-700">
-                            Log into your domain registrar and add the following DNS records. {dnsInstructions.note}
+                            Log into your domain registrar (where you bought your domain) and add the following 3 DNS records. You&apos;ll need to find the &quot;DNS Settings&quot;, &quot;DNS Management&quot;, or &quot;DNS Records&quot; section — each registrar calls it something slightly different.
+                          </p>
+                          <p className="text-xs text-blue-600 mt-1">
+                            {dnsInstructions.note}
                           </p>
                         </div>
 
@@ -1043,36 +1257,123 @@ function DomainSelectContent() {
                           {dnsInstructions.records.map((record, i) => (
                             <div
                               key={i}
-                              className="border border-slate-200 rounded-lg p-3 bg-slate-50"
+                              className="border border-slate-200 rounded-lg overflow-hidden bg-white"
                             >
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-slate-200 text-slate-700">
+                              {/* Record header */}
+                              <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 border-b border-slate-200">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-slate-800 text-white">
                                   {record.type}
                                 </span>
-                                <button
-                                  onClick={() => copyToClipboard(record.value, `${record.type}-${i}`)}
-                                  className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1"
-                                >
-                                  {copiedField === `${record.type}-${i}` ? (
-                                    <><CheckCircle2 className="w-3 h-3 text-green-600" /> Copied</>
-                                  ) : (
-                                    <><Copy className="w-3 h-3" /> Copy value</>
-                                  )}
-                                </button>
+                                <span className="text-xs text-slate-600 flex-1">{record.description}</span>
                               </div>
-                              <div className="grid grid-cols-2 gap-2 text-xs">
-                                <div>
-                                  <span className="text-slate-500 block">Name / Host</span>
-                                  <span className="font-mono font-semibold text-slate-900">{record.name}</span>
+
+                              {/* Record fields with individual copy buttons */}
+                              <div className="p-3 space-y-2">
+                                {/* Type field */}
+                                <div className="flex items-center justify-between p-2 bg-slate-50 rounded-md">
+                                  <div>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Type</span>
+                                    <span className="font-mono font-semibold text-sm text-slate-900">{record.type}</span>
+                                  </div>
+                                  <button
+                                    onClick={() => copyToClipboard(record.type, `type-${i}`)}
+                                    className="p-1.5 rounded-md hover:bg-slate-200 transition-colors"
+                                    title="Copy type"
+                                  >
+                                    {copiedField === `type-${i}` ? (
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                                    ) : (
+                                      <Copy className="w-3.5 h-3.5 text-slate-400" />
+                                    )}
+                                  </button>
                                 </div>
-                                <div>
-                                  <span className="text-slate-500 block">Value / Points to</span>
-                                  <span className="font-mono font-semibold text-slate-900 break-all">{record.value}</span>
+
+                                {/* Name/Host field */}
+                                <div className="flex items-center justify-between p-2 bg-slate-50 rounded-md">
+                                  <div>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Name / Host</span>
+                                    <span className="font-mono font-semibold text-sm text-slate-900">{record.name}</span>
+                                  </div>
+                                  <button
+                                    onClick={() => copyToClipboard(record.name, `name-${i}`)}
+                                    className="p-1.5 rounded-md hover:bg-slate-200 transition-colors"
+                                    title="Copy name"
+                                  >
+                                    {copiedField === `name-${i}` ? (
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                                    ) : (
+                                      <Copy className="w-3.5 h-3.5 text-slate-400" />
+                                    )}
+                                  </button>
+                                </div>
+
+                                {/* Value field */}
+                                <div className="flex items-center justify-between p-2 bg-slate-50 rounded-md">
+                                  <div className="flex-1 min-w-0">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Value / Points to</span>
+                                    <span className="font-mono font-semibold text-sm text-slate-900 break-all">{record.value}</span>
+                                  </div>
+                                  <button
+                                    onClick={() => copyToClipboard(record.value, `value-${i}`)}
+                                    className="p-1.5 rounded-md hover:bg-slate-200 transition-colors flex-shrink-0 ml-2"
+                                    title="Copy value"
+                                  >
+                                    {copiedField === `value-${i}` ? (
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                                    ) : (
+                                      <Copy className="w-3.5 h-3.5 text-slate-400" />
+                                    )}
+                                  </button>
                                 </div>
                               </div>
-                              <p className="text-xs text-slate-500 mt-1.5">{record.description}</p>
                             </div>
                           ))}
+                        </div>
+
+                        {/* What are these records? Explainer */}
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                          <div className="flex items-start gap-2">
+                            <HelpCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                            <div className="text-xs text-amber-800 space-y-1">
+                              <p><strong>A Record</strong> — Points your root domain (e.g., mybusiness.com) to the Vercel server IP address (<code className="bg-amber-100 px-1 rounded">76.76.21.21</code>) that hosts your site.</p>
+                              <p><strong>CNAME Record</strong> — Points the <code className="bg-amber-100 px-1 rounded">www</code> version of your domain to our servers so both www and non-www work.</p>
+                              <p><strong>TXT Record</strong> — A verification token that proves you own this domain. It doesn&apos;t affect your website or email &mdash; it&apos;s just a text string we check to confirm ownership.</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Registrar-Specific Guides */}
+                        <div>
+                          <h4 className="text-sm font-semibold text-slate-800 mb-2">Step-by-step for your registrar</h4>
+                          <div className="space-y-1">
+                            {REGISTRAR_GUIDES.map((registrar) => (
+                              <div key={registrar.name} className="border border-slate-200 rounded-lg overflow-hidden">
+                                <button
+                                  onClick={() => setExpandedRegistrar(expandedRegistrar === registrar.name ? null : registrar.name)}
+                                  className="w-full flex items-center justify-between p-3 text-left hover:bg-slate-50 transition-colors"
+                                >
+                                  <span className="text-sm font-semibold text-slate-700">{registrar.name}</span>
+                                  {expandedRegistrar === registrar.name ? (
+                                    <ChevronUp className="w-4 h-4 text-slate-400" />
+                                  ) : (
+                                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                                  )}
+                                </button>
+                                {expandedRegistrar === registrar.name && (
+                                  <div className="px-3 pb-3 border-t border-slate-100">
+                                    <ol className="list-decimal list-inside space-y-1.5 mt-2">
+                                      {registrar.steps.map((step, idx) => (
+                                        <li key={idx} className="text-xs text-slate-600 leading-relaxed">{step}</li>
+                                      ))}
+                                    </ol>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          <p className="text-xs text-slate-500 mt-2">
+                            Don&apos;t see your registrar? The general process is the same: find DNS settings, add the 3 records above.
+                          </p>
                         </div>
 
                         {/* DNS Verification Status */}
@@ -1130,7 +1431,7 @@ function DomainSelectContent() {
                           Start over with a different domain
                         </button>
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 )}
 

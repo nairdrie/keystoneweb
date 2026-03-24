@@ -144,12 +144,17 @@ export async function completeDomainPurchase(
   );
 
   if (result.success) {
+    const expiresAt = new Date();
+    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+
     await supabase
       .from('domain_purchases')
       .update({
         vercel_order_id: result.orderId,
         status: 'completed',
         updated_at: new Date().toISOString(),
+        expires_at: expiresAt.toISOString(),
+        auto_renew: true,
       })
       .eq('id', purchaseId);
 
@@ -272,6 +277,9 @@ export async function POST(request: NextRequest) {
     const claimedAt = new Date().toISOString();
 
     // Record the free domain purchase, linking it to the active subscription
+    const expiresAt = new Date();
+    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+
     await supabase.from('domain_purchases').insert({
       user_id: user.id,
       site_id: siteId,
@@ -281,6 +289,8 @@ export async function POST(request: NextRequest) {
       is_free_with_pro: true,
       status: 'completed',
       stripe_subscription_id: subscription?.stripe_subscription_id ?? null,
+      expires_at: expiresAt.toISOString(),
+      auto_renew: true,
     });
 
     // Flag the subscription so refund-review logic (webhook) knows a digital good was delivered
