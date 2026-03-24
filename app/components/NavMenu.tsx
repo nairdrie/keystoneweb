@@ -400,7 +400,7 @@ function SortableMobileItem({
                     <span
                         {...attributes}
                         {...listeners}
-                        className="cursor-grab active:cursor-grabbing touch-none p-0.5 mr-0.5 opacity-0 group-hover/navitem:opacity-100 transition-opacity flex-shrink-0"
+                        className="cursor-grab active:cursor-grabbing touch-none p-0.5 mr-0.5 flex-shrink-0"
                         title="Drag to reorder"
                     >
                         <GripVertical className="w-3.5 h-3.5 text-gray-400" />
@@ -437,7 +437,7 @@ function SortableMobileItem({
                     </Link>
                 )}
                 {isEditMode && (
-                    <div className="ml-1 flex items-center gap-0.5 opacity-0 group-hover/navitem:opacity-100 transition-opacity">
+                    <div className="ml-1 flex items-center gap-0.5">
                         <button
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(item, null); }}
                             className="p-0.5 hover:bg-blue-100 rounded-full"
@@ -581,13 +581,13 @@ function SortableSubItemRow({
         <span
             ref={setNodeRef}
             style={style}
-            className="relative group/subitem flex items-center"
+            className="relative flex items-center"
         >
             {isEditMode && (
                 <span
                     {...attributes}
                     {...listeners}
-                    className="cursor-grab active:cursor-grabbing touch-none p-0.5 mr-0.5 opacity-0 group-hover/subitem:opacity-100 transition-opacity flex-shrink-0"
+                    className="cursor-grab active:cursor-grabbing touch-none p-0.5 mr-0.5 flex-shrink-0"
                     title="Drag to reorder"
                 >
                     <GripVertical className="w-3 h-3 text-gray-400" />
@@ -602,7 +602,7 @@ function SortableSubItemRow({
                 {sub.label}
             </Link>
             {isEditMode && (
-                <div className="ml-1 flex items-center gap-0.5 opacity-0 group-hover/subitem:opacity-100 transition-opacity">
+                <div className="ml-1 flex items-center gap-0.5">
                     <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(sub, parentId); }}
                         className="p-0.5 hover:bg-blue-100 rounded-full"
