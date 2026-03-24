@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Sparkles, Trash2, Square, RotateCcw } from 'lucide-react';
+import { Send, Loader2, Sparkles, Trash2, Square, RotateCcw, Info } from 'lucide-react';
 import { AIMessage, UsageRemaining } from '@/lib/hooks/useAIBuilder';
 
 const WARN_THRESHOLD = 3; // show remaining badge when this many or fewer left
@@ -22,37 +22,67 @@ interface AIBuilderPanelProps {
   onDismissUpgradeModal?: () => void;
 }
 
-/** Returns the reset date tooltip string for the most urgent window. */
-function getResetTooltip(remaining: UsageRemaining | null | undefined, isFree: boolean): string | null {
-  if (!remaining || isFree) return null;
+const ET_TZ = 'America/New_York';
 
+/** Convert an ET date string ("YYYY-MM-DD") to the UTC Date at midnight ET, DST-aware. */
+function etMidnightAsUTC(etDateStr: string): Date {
+  const noonUTC = new Date(etDateStr + 'T12:00:00Z');
+  const etHour = parseInt(
+    new Intl.DateTimeFormat('en-US', { timeZone: ET_TZ, hour: '2-digit', hour12: false }).format(noonUTC),
+    10
+  );
+  const offsetHours = etHour - 12; // −5 EST or −4 EDT
+  return new Date(new Date(etDateStr + 'T00:00:00Z').getTime() - offsetHours * 3_600_000);
+}
+
+/** Return the next reset Date for a given window (day/week/month). */
+function getNextReset(window: 'day' | 'week' | 'month'): Date {
+  const now = new Date();
+  const todayET = now.toLocaleDateString('en-CA', { timeZone: ET_TZ }); // "YYYY-MM-DD"
+  const [y, m, d] = todayET.split('-').map(Number);
+
+  if (window === 'day') {
+    // Tomorrow at midnight ET
+    const tomorrowUTC = new Date(Date.UTC(y, m - 1, d + 1));
+    return etMidnightAsUTC(tomorrowUTC.toLocaleDateString('en-CA', { timeZone: ET_TZ }));
+  }
+  if (window === 'week') {
+    // Next Sunday at midnight ET
+    const etWeekday = new Intl.DateTimeFormat('en-US', { timeZone: ET_TZ, weekday: 'long' }).format(now);
+    const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dowIndex = DOW.indexOf(etWeekday);
+    const daysUntilSunday = dowIndex === 0 ? 7 : 7 - dowIndex;
+    const nextSundayUTC = new Date(Date.UTC(y, m - 1, d + daysUntilSunday));
+    return etMidnightAsUTC(nextSundayUTC.toLocaleDateString('en-CA', { timeZone: ET_TZ }));
+  }
+  // month: 1st of next month at midnight ET
+  const firstNextUTC = new Date(Date.UTC(y, m, 1)); // m is 1-based, JS month is 0-based → m = next month
+  return etMidnightAsUTC(firstNextUTC.toLocaleDateString('en-CA', { timeZone: ET_TZ }));
+}
+
+/** Format a Date as a human-readable ET string, e.g. "Sun, Mar 29 at 12:00 AM EDT". */
+function formatReset(date: Date): string {
+  return date.toLocaleString('en-US', {
+    timeZone: ET_TZ,
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZoneName: 'short',
+  });
+}
+
+/** Return the most urgent low-quota window type, or null. */
+function getUrgentWindow(remaining: UsageRemaining | null | undefined, isFree: boolean): 'day' | 'week' | 'month' | null {
+  if (!remaining || isFree) return null;
   const candidates: Array<{ value: number; window: 'day' | 'week' | 'month' }> = [];
   if (remaining.day   !== undefined) candidates.push({ value: remaining.day,   window: 'day' });
   if (remaining.week  !== undefined) candidates.push({ value: remaining.week,  window: 'week' });
   if (remaining.month !== undefined) candidates.push({ value: remaining.month, window: 'month' });
-
-  const urgent = candidates
-    .filter(c => c.value <= WARN_THRESHOLD)
-    .sort((a, b) => a.value - b.value)[0];
-
-  if (!urgent) return null;
-
-  const now = new Date();
-  const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-
-  if (urgent.window === 'day') {
-    const tomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
-    return `Resets ${fmt(tomorrow)} at midnight UTC`;
-  }
-  if (urgent.window === 'week') {
-    const next = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    return `Rolling 7-day window — resets by ${fmt(next)}`;
-  }
-  if (urgent.window === 'month') {
-    const firstOfNext = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
-    return `Resets ${fmt(firstOfNext)}`;
-  }
-  return null;
+  const urgent = candidates.filter(c => c.value <= WARN_THRESHOLD).sort((a, b) => a.value - b.value)[0];
+  return urgent?.window ?? null;
 }
 
 /** Returns the most urgent low-quota warning string, or null if not close to any limit. */
@@ -94,6 +124,7 @@ const QUICK_PROMPTS = [
 
 export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, onClear, onUndo, canUndo = false, isPro, isBasic = false, isFree = false, remaining, showUpgradeModal = false, onDismissUpgradeModal }: AIBuilderPanelProps) {
   const [input, setInput] = useState('');
+  const [showUsageModal, setShowUsageModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -275,21 +306,76 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
           const warning = getRemainingWarning(remaining, isFree);
           if (!warning) return null;
           const isOut = warning.startsWith('No');
-          const tooltip = getResetTooltip(remaining, isFree);
+          const urgentWindow = getUrgentWindow(remaining, isFree);
+          const resetDate = urgentWindow ? getNextReset(urgentWindow) : null;
+
           return (
-            <div
-              title={tooltip ?? undefined}
-              className={`shrink-0 mx-3 mb-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 ${
-                tooltip ? 'cursor-help' : ''
-              } ${
-                isOut
-                  ? 'bg-red-50 text-red-600 border border-red-200'
-                  : 'bg-amber-50 text-amber-700 border border-amber-200'
-              }`}
-            >
-              <span className="shrink-0">{isOut ? '⛔' : '⚠️'}</span>
-              {warning}
-            </div>
+            <>
+              <button
+                onClick={() => setShowUsageModal(true)}
+                className={`shrink-0 mx-3 mb-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 w-[calc(100%-1.5rem)] text-left transition-opacity hover:opacity-80 ${
+                  isOut
+                    ? 'bg-red-50 text-red-600 border border-red-200'
+                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                }`}
+              >
+                <span className="shrink-0">{isOut ? '⛔' : '⚠️'}</span>
+                <span className="flex-1">{warning}</span>
+                <Info className="w-3 h-3 shrink-0 opacity-60" />
+              </button>
+
+              {showUsageModal && (
+                <div
+                  className="fixed inset-0 bg-black/60 flex items-center justify-center z-[10000] p-4"
+                  onClick={() => setShowUsageModal(false)}
+                >
+                  <div
+                    className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mx-auto mb-3">
+                      <Sparkles className="w-5 h-5 text-white" />
+                    </div>
+                    <h2 className="text-lg font-black text-slate-900 text-center mb-3">AI Builder Usage</h2>
+
+                    <div className={`rounded-xl p-3 text-center mb-4 ${isOut ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}`}>
+                      <p className={`text-sm font-semibold ${isOut ? 'text-red-700' : 'text-amber-800'}`}>{warning}</p>
+                      {resetDate && (
+                        <p className="text-xs text-slate-500 mt-1">
+                          Resets {formatReset(resetDate)}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="bg-slate-50 rounded-xl p-3 text-left mb-4 text-xs text-slate-600 space-y-1.5">
+                      <p className="font-semibold text-slate-700">How AI Builder works</p>
+                      <p>Each prompt you send uses 1 credit. Credits refill on a fixed schedule — not a rolling window.</p>
+                      {isFree && <p className="text-slate-500 pt-0.5">Free accounts get 4 prompts total. Subscribe to unlock daily, weekly, and monthly limits.</p>}
+                      {!isFree && (
+                        <ul className="pt-0.5 space-y-0.5 text-slate-500">
+                          <li>Daily resets at midnight ET</li>
+                          <li>Weekly resets every Sunday at midnight ET</li>
+                          <li>Monthly resets on the 1st at midnight ET</li>
+                        </ul>
+                      )}
+                    </div>
+
+                    <a
+                      href="/pricing"
+                      className="block w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold text-sm text-center hover:brightness-110 transition-all shadow mb-2"
+                    >
+                      {isFree || isBasic ? 'Upgrade for More Prompts' : 'View Plans'}
+                    </a>
+                    <button
+                      onClick={() => setShowUsageModal(false)}
+                      className="w-full py-2 text-sm text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           );
         })()}
 
