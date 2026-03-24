@@ -14,8 +14,9 @@ import TranslationsPanel from './TranslationsPanel';
 import ImageEditorModal from './ImageEditorModal';
 import EditHistoryModal from './EditHistoryModal';
 import AnalyticsPanel from './AnalyticsPanel';
+import DoctorPanel from './DoctorPanel';
 import { AIMessage, UsageRemaining } from '@/lib/hooks/useAIBuilder';
-import { Type, User, Globe, Languages, BarChart3 } from 'lucide-react';
+import { Type, User, Globe, Languages, BarChart3, Stethoscope } from 'lucide-react';
 import ProfileDropdown from './ProfileDropdown';
 
 interface Palette {
@@ -741,6 +742,26 @@ export default function FloatingToolbar({
                 isPublished={isPublished}
                 isProUser={isProUser}
               />
+            </div>
+          )}
+        </div>
+
+        {/* Prepublish Doctor Section */}
+        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+          <button
+            onClick={() => toggleSection('doctor')}
+            className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-rose-50 to-orange-50 hover:from-rose-100 hover:to-orange-100 transition-colors"
+          >
+            <span className="text-xs font-bold text-rose-700 uppercase tracking-wide flex items-center gap-1.5">
+              <Stethoscope className="w-3.5 h-3.5" />
+              Prepublish Doctor
+            </span>
+            <ChevronDown className={`w-4 h-4 text-rose-500 transition-transform ${openSections.includes('doctor') ? 'rotate-180' : ''}`} />
+          </button>
+
+          {openSections.includes('doctor') && (
+            <div className="border-t border-slate-200">
+              <DoctorPanel siteId={currentSiteId} />
             </div>
           )}
         </div>
