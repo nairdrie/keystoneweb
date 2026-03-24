@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Sparkles, Trash2, Square } from 'lucide-react';
+import { Send, Loader2, Sparkles, Trash2, Square, RotateCcw } from 'lucide-react';
 import { AIMessage, UsageRemaining } from '@/lib/hooks/useAIBuilder';
 
 const WARN_THRESHOLD = 3; // show remaining badge when this many or fewer left
@@ -12,12 +12,47 @@ interface AIBuilderPanelProps {
   onSend: (message: string) => void;
   onCancel: () => void;
   onClear: () => void;
+  onUndo?: () => void;
+  canUndo?: boolean;
   isPro: boolean;
   isBasic?: boolean;
   isFree?: boolean;
   remaining?: UsageRemaining | null;
   showUpgradeModal?: boolean;
   onDismissUpgradeModal?: () => void;
+}
+
+/** Returns the reset date tooltip string for the most urgent window. */
+function getResetTooltip(remaining: UsageRemaining | null | undefined, isFree: boolean): string | null {
+  if (!remaining || isFree) return null;
+
+  const candidates: Array<{ value: number; window: 'day' | 'week' | 'month' }> = [];
+  if (remaining.day   !== undefined) candidates.push({ value: remaining.day,   window: 'day' });
+  if (remaining.week  !== undefined) candidates.push({ value: remaining.week,  window: 'week' });
+  if (remaining.month !== undefined) candidates.push({ value: remaining.month, window: 'month' });
+
+  const urgent = candidates
+    .filter(c => c.value <= WARN_THRESHOLD)
+    .sort((a, b) => a.value - b.value)[0];
+
+  if (!urgent) return null;
+
+  const now = new Date();
+  const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+  if (urgent.window === 'day') {
+    const tomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+    return `Resets ${fmt(tomorrow)} at midnight UTC`;
+  }
+  if (urgent.window === 'week') {
+    const next = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return `Rolling 7-day window — resets by ${fmt(next)}`;
+  }
+  if (urgent.window === 'month') {
+    const firstOfNext = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+    return `Resets ${fmt(firstOfNext)}`;
+  }
+  return null;
 }
 
 /** Returns the most urgent low-quota warning string, or null if not close to any limit. */
@@ -57,7 +92,7 @@ const QUICK_PROMPTS = [
   'Change the color scheme to something modern and dark',
 ];
 
-export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, onClear, isPro, isBasic = false, isFree = false, remaining, showUpgradeModal = false, onDismissUpgradeModal }: AIBuilderPanelProps) {
+export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, onClear, onUndo, canUndo = false, isPro, isBasic = false, isFree = false, remaining, showUpgradeModal = false, onDismissUpgradeModal }: AIBuilderPanelProps) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -181,27 +216,47 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
             </div>
           )}
 
-          {messages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div
-                className={`max-w-[85%] px-3 py-2 rounded-xl text-[12px] leading-relaxed ${msg.role === 'user'
-                  ? 'bg-violet-600 text-white rounded-br-sm'
-                  : msg.isError
-                    ? 'bg-red-50 text-red-700 border border-red-200 rounded-bl-sm'
-                    : 'bg-slate-100 text-slate-800 rounded-bl-sm'
-                  }`}
-              >
-                {msg.content}
-                {msg.operations && msg.operations.length > 0 && (
-                  <div className="mt-1.5 pt-1.5 border-t border-slate-200/50">
-                    <span className="text-[10px] text-slate-500 font-medium">
-                      {msg.operations.length} change{msg.operations.length !== 1 ? 's' : ''} applied
-                    </span>
-                  </div>
+          {(() => {
+            // Find the index of the last assistant message that has operations
+            let lastOpMsgIdx = -1;
+            for (let i = messages.length - 1; i >= 0; i--) {
+              if (messages[i].role === 'assistant' && messages[i].operations?.length) {
+                lastOpMsgIdx = i;
+                break;
+              }
+            }
+            return messages.map((msg, idx) => (
+              <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                <div
+                  className={`max-w-[85%] px-3 py-2 rounded-xl text-[12px] leading-relaxed ${msg.role === 'user'
+                    ? 'bg-violet-600 text-white rounded-br-sm'
+                    : msg.isError
+                      ? 'bg-red-50 text-red-700 border border-red-200 rounded-bl-sm'
+                      : 'bg-slate-100 text-slate-800 rounded-bl-sm'
+                    }`}
+                >
+                  {msg.content}
+                  {msg.operations && msg.operations.length > 0 && (
+                    <div className="mt-1.5 pt-1.5 border-t border-slate-200/50">
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        {msg.operations.length} change{msg.operations.length !== 1 ? 's' : ''} applied
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {idx === lastOpMsgIdx && onUndo && (
+                  <button
+                    onClick={onUndo}
+                    disabled={!canUndo}
+                    className="mt-1 flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium text-slate-500 hover:text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors rounded"
+                  >
+                    <RotateCcw className="w-2.5 h-2.5" />
+                    Undo
+                  </button>
                 )}
               </div>
-            </div>
-          ))}
+            ));
+          })()}
 
           {isLoading && (
             <div className="flex justify-start">
@@ -220,12 +275,18 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
           const warning = getRemainingWarning(remaining, isFree);
           if (!warning) return null;
           const isOut = warning.startsWith('No');
+          const tooltip = getResetTooltip(remaining, isFree);
           return (
-            <div className={`shrink-0 mx-3 mb-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 ${
-              isOut
-                ? 'bg-red-50 text-red-600 border border-red-200'
-                : 'bg-amber-50 text-amber-700 border border-amber-200'
-            }`}>
+            <div
+              title={tooltip ?? undefined}
+              className={`shrink-0 mx-3 mb-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 ${
+                tooltip ? 'cursor-help' : ''
+              } ${
+                isOut
+                  ? 'bg-red-50 text-red-600 border border-red-200'
+                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+              }`}
+            >
               <span className="shrink-0">{isOut ? '⛔' : '⚠️'}</span>
               {warning}
             </div>

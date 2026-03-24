@@ -668,6 +668,8 @@ export default function FloatingToolbar({
                 onSend={onAiSend || (() => { })}
                 onCancel={onAiCancel || (() => { })}
                 onClear={onAiClear || (() => { })}
+                onUndo={onUndo}
+                canUndo={canUndo}
                 isPro={isProUser}
                 isBasic={isBasicUser}
                 isFree={isFreeUser}

@@ -66,13 +66,13 @@ export default function BlockWrapper({ id, type, children, data, onUpdateBlockDa
     }
 
     return (
-        <motion.div 
+        <motion.div
             key={`${id}-edit`}
-            id={slug} 
-            data-block-id={id}
+            id={slug}
             {...animationProps}
             className={`relative group w-full border-2 border-transparent hover:border-slate-300 transition-colors ks-block ks-block-${type}`}
         >
+            {/* Editor controls are intentionally outside data-block-id so block __customCss cannot affect them */}
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white shadow-md border border-slate-200 rounded-md flex overflow-hidden z-[100]">
                 <button
                     onClick={() => setSettingsOpen(true)}
@@ -103,8 +103,10 @@ export default function BlockWrapper({ id, type, children, data, onUpdateBlockDa
                     <Trash2 className="w-4 h-4" />
                 </button>
             </div>
-            {scopedCss && <style dangerouslySetInnerHTML={{ __html: scopedCss }} />}
-            {children}
+            <div data-block-id={id}>
+                {scopedCss && <style dangerouslySetInnerHTML={{ __html: scopedCss }} />}
+                {children}
+            </div>
 
             <BlockSettingsModal
                 isOpen={settingsOpen}
