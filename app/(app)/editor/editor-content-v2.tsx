@@ -53,7 +53,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     return (
       <CartProvider siteId={publicSiteData?.id || ''}>
         {/* Dynamic favicon for published site */}
-        {pubDesign.siteLogo && (
+        {(pubDesign.faviconLogo || pubDesign.siteLogo) && (
           <link rel="icon" href={`/api/sites/favicon?siteId=${publicSiteData?.id}`} />
         )}
         <EditorProvider

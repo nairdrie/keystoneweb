@@ -68,8 +68,8 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                             aria-label="Home"
                             className="flex items-center gap-3 transition-opacity hover:opacity-90"
                         >
-                            {siteContent.siteLogo ? (
-                                <img src={siteContent.siteLogo} alt="" className="w-10 h-10 object-contain"  style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
+                            {(siteContent.headerLogo || siteContent.siteLogo) ? (
+                                <img src={siteContent.headerLogo || siteContent.siteLogo} alt="" className="w-10 h-10 object-contain"  style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-10 h-10 rounded flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pPrimary }}>
                                     {(siteContent.siteTitle || 'C')[0]?.toUpperCase()}
@@ -146,8 +146,8 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                 <div className="max-w-7xl mx-auto px-4 py-12">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="flex items-center gap-3">
-                            {siteContent.siteLogo ? (
-                                <img src={siteContent.siteLogo} alt="" className="w-10 h-10 object-contain rounded"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
+                            {(siteContent.footerLogo || siteContent.siteLogo) ? (
+                                <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-10 h-10 object-contain rounded"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-10 h-10 rounded flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pSecondary }}>
                                     {(siteContent.siteTitle || 'C')[0]?.toUpperCase()}

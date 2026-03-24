@@ -58,9 +58,9 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                                 aria-label="Home"
                                 className="flex items-center gap-3 transition-opacity hover:opacity-90"
                             >
-                                {siteContent.siteLogo ? (
+                                {(siteContent.headerLogo || siteContent.siteLogo) ? (
                                     <img
-                                        src={siteContent.siteLogo}
+                                        src={siteContent.headerLogo || siteContent.siteLogo}
                                         alt={siteContent.siteTitle || 'Logo'}
                                         className="w-9 h-9 object-contain"
                                      style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
@@ -152,9 +152,9 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                 <div className="max-w-7xl mx-auto px-6">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
-                            {siteContent.siteLogo ? (
+                            {(siteContent.footerLogo || siteContent.siteLogo) ? (
                                 <img
-                                    src={siteContent.siteLogo}
+                                    src={siteContent.footerLogo || siteContent.siteLogo}
                                     alt={siteContent.siteTitle || 'Logo'}
                                     className="w-6 h-6 object-contain"
                                  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
