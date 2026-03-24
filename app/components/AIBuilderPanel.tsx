@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Send, Loader2, Sparkles, Trash2, Square, RotateCcw, Info } from 'lucide-react';
 import { AIMessage, UsageRemaining } from '@/lib/hooks/useAIBuilder';
 
@@ -41,23 +42,25 @@ function getNextReset(window: 'day' | 'week' | 'month'): Date {
   const todayET = now.toLocaleDateString('en-CA', { timeZone: ET_TZ }); // "YYYY-MM-DD"
   const [y, m, d] = todayET.split('-').map(Number);
 
+  // IMPORTANT: use Date.UTC + toISOString() to get the date string for arithmetic.
+  // Do NOT pass back through toLocaleDateString(...ET_TZ) — that re-converts the
+  // UTC-midnight Date to ET, which shifts it back a day (since midnight UTC = ~7pm ET).
+
   if (window === 'day') {
-    // Tomorrow at midnight ET
-    const tomorrowUTC = new Date(Date.UTC(y, m - 1, d + 1));
-    return etMidnightAsUTC(tomorrowUTC.toLocaleDateString('en-CA', { timeZone: ET_TZ }));
+    const str = new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
+    return etMidnightAsUTC(str);
   }
   if (window === 'week') {
-    // Next Sunday at midnight ET
     const etWeekday = new Intl.DateTimeFormat('en-US', { timeZone: ET_TZ, weekday: 'long' }).format(now);
     const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const dowIndex = DOW.indexOf(etWeekday);
     const daysUntilSunday = dowIndex === 0 ? 7 : 7 - dowIndex;
-    const nextSundayUTC = new Date(Date.UTC(y, m - 1, d + daysUntilSunday));
-    return etMidnightAsUTC(nextSundayUTC.toLocaleDateString('en-CA', { timeZone: ET_TZ }));
+    const str = new Date(Date.UTC(y, m - 1, d + daysUntilSunday)).toISOString().slice(0, 10);
+    return etMidnightAsUTC(str);
   }
-  // month: 1st of next month at midnight ET
-  const firstNextUTC = new Date(Date.UTC(y, m, 1)); // m is 1-based, JS month is 0-based → m = next month
-  return etMidnightAsUTC(firstNextUTC.toLocaleDateString('en-CA', { timeZone: ET_TZ }));
+  // month: 1st of next month
+  const str = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10); // m is 1-based → 0-based next month
+  return etMidnightAsUTC(str);
 }
 
 /** Format a Date as a human-readable ET string, e.g. "Sun, Mar 29 at 12:00 AM EDT". */
@@ -324,41 +327,29 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
                 <Info className="w-3 h-3 shrink-0 opacity-60" />
               </button>
 
-              {showUsageModal && (
+              {showUsageModal && createPortal(
                 <div
                   className="fixed inset-0 bg-black/60 flex items-center justify-center z-[10000] p-4"
                   onClick={() => setShowUsageModal(false)}
                 >
                   <div
-                    className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95"
+                    className="bg-white rounded-2xl shadow-2xl max-w-xs w-full p-5 animate-in fade-in zoom-in-95"
                     onClick={e => e.stopPropagation()}
                   >
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mx-auto mb-3">
-                      <Sparkles className="w-5 h-5 text-white" />
-                    </div>
-                    <h2 className="text-lg font-black text-slate-900 text-center mb-3">AI Builder Usage</h2>
+                    <h2 className="text-base font-black text-slate-900 text-center mb-3">AI Builder Usage</h2>
 
-                    <div className={`rounded-xl p-3 text-center mb-4 ${isOut ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}`}>
+                    <div className={`rounded-xl p-3 text-center mb-3 ${isOut ? 'bg-red-50 border border-red-100' : 'bg-amber-50 border border-amber-100'}`}>
                       <p className={`text-sm font-semibold ${isOut ? 'text-red-700' : 'text-amber-800'}`}>{warning}</p>
                       {resetDate && (
-                        <p className="text-xs text-slate-500 mt-1">
-                          Resets {formatReset(resetDate)}
-                        </p>
+                        <p className="text-[11px] text-slate-500 mt-1">Resets {formatReset(resetDate)}</p>
                       )}
                     </div>
 
-                    <div className="bg-slate-50 rounded-xl p-3 text-left mb-4 text-xs text-slate-600 space-y-1.5">
-                      <p className="font-semibold text-slate-700">How AI Builder works</p>
-                      <p>Each prompt you send uses 1 credit. Credits refill on a fixed schedule — not a rolling window.</p>
-                      {isFree && <p className="text-slate-500 pt-0.5">Free accounts get 4 prompts total. Subscribe to unlock daily, weekly, and monthly limits.</p>}
-                      {!isFree && (
-                        <ul className="pt-0.5 space-y-0.5 text-slate-500">
-                          <li>Daily resets at midnight ET</li>
-                          <li>Weekly resets every Sunday at midnight ET</li>
-                          <li>Monthly resets on the 1st at midnight ET</li>
-                        </ul>
-                      )}
-                    </div>
+                    <p className="text-[11px] text-slate-500 text-center mb-3">
+                      {isFree
+                        ? 'Free accounts get 4 prompts total.'
+                        : 'Resets nightly at midnight, Sundays, and the 1st of each month — Eastern Time.'}
+                    </p>
 
                     <a
                       href="/pricing"
@@ -368,12 +359,13 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
                     </a>
                     <button
                       onClick={() => setShowUsageModal(false)}
-                      className="w-full py-2 text-sm text-slate-400 hover:text-slate-600 transition-colors"
+                      className="w-full py-1.5 text-sm text-slate-400 hover:text-slate-600 transition-colors"
                     >
                       Close
                     </button>
                   </div>
-                </div>
+                </div>,
+                document.body
               )}
             </>
           );
