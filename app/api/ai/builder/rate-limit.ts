@@ -42,17 +42,55 @@ const cancelRateLimitMap    = new Map<string, number[]>();
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
+// All windows are fixed-boundary Eastern Time:
+//   day   → midnight ET today
+//   week  → midnight ET on the most recent Sunday (Sunday–Saturday week)
+//   month → midnight ET on the 1st of this month
+
+/** Convert an ET date string ("YYYY-MM-DD") to the UTC Date at midnight ET, handling DST. */
+function etMidnightAsUTC(etDateStr: string): Date {
+  // Sample at noon UTC on that date — safely in the middle of the day so DST transitions
+  // (which happen at 2am) don't cause off-by-one errors.
+  const noonUTC = new Date(etDateStr + 'T12:00:00Z');
+  const etHour = parseInt(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      hour: '2-digit',
+      hour12: false,
+    }).format(noonUTC),
+    10
+  );
+  // etHour at UTC noon is 7 in EST (UTC−5) or 8 in EDT (UTC−4),
+  // so the offset from UTC is (etHour − 12), e.g. −5 or −4.
+  const offsetHours = etHour - 12;
+  const utcMidnight = new Date(etDateStr + 'T00:00:00Z');
+  return new Date(utcMidnight.getTime() - offsetHours * 3_600_000);
+}
+
 function windowStarts(): { day: Date; week: Date; month: Date } {
   const now = new Date();
 
-  const day = new Date(now);
-  day.setUTCHours(0, 0, 0, 0);
+  // Today's date in Eastern time as "YYYY-MM-DD"
+  const todayET = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const [y, m, d] = todayET.split('-').map(Number);
 
-  const week = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  // Daily: today at midnight ET
+  const day = etMidnightAsUTC(todayET);
 
-  const month = new Date(now);
-  month.setUTCDate(1);
-  month.setUTCHours(0, 0, 0, 0);
+  // Weekly: last Sunday (or today if it's Sunday) at midnight ET
+  const etWeekday = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'long',
+  }).format(now);
+  const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dowIndex = DOW.indexOf(etWeekday); // 0 = Sunday
+  const sundayUTC = new Date(Date.UTC(y, m - 1, d - dowIndex));
+  const sundayET = sundayUTC.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const week = etMidnightAsUTC(sundayET);
+
+  // Monthly: 1st of this month at midnight ET
+  const firstOfMonthET = `${todayET.slice(0, 7)}-01`;
+  const month = etMidnightAsUTC(firstOfMonthET);
 
   return { day, week, month };
 }
