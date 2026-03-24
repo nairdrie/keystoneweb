@@ -65,6 +65,10 @@ export default function NavMenu({ className = '', itemClassName = '', submenuCla
             return slug === 'home' ? '/' : `/${slug}`;
         } else if (item.linkType === 'section') {
             if (item.pageId) {
+                if (isEditor) {
+                    const hash = item.href?.includes('#') ? `#${item.href.split('#')[1]}` : '';
+                    return `/editor?siteId=${context?.siteId}&pageId=${item.pageId}${hash}`;
+                }
                 return item.href || `#${item.blockId}`;
             }
             const blockIndex = blocks.findIndex(b => b.id === item.blockId);
