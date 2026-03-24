@@ -35,6 +35,9 @@ export default function EditableText({
   const [controlsOnLeft, setControlsOnLeft] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLElement>(null);
+  const isEditingRef = useRef(false);
+  const displayTextRef = useRef(displayText);
+  const blurSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Parse dynamic styles if present
   let parsedStyles: Record<string, any> = {};
@@ -52,6 +55,10 @@ export default function EditableText({
     ...(parsedStyles.color ? { color: parsedStyles.color } : {})
   };
 
+  // Keep refs in sync
+  useEffect(() => { isEditingRef.current = isEditing; }, [isEditing]);
+  useEffect(() => { displayTextRef.current = displayText; }, [displayText]);
+
   // Sync tempValue when content/defaultValue changes externally (undo/redo, page switch)
   useEffect(() => {
     if (!isEditing) {
@@ -68,21 +75,44 @@ export default function EditableText({
   }, [isEditing]);
 
   // Detect if we should show controls on the left based on screen position
+  // Runs on mount and whenever edit mode changes so it also works on mobile (no hover events)
+  useEffect(() => {
+    if (isEditMode && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceOnRight = window.innerWidth - rect.right;
+      setControlsOnLeft(spaceOnRight < 120);
+    }
+  }, [isEditMode]);
+
+  // Also update position when hovered (desktop fine-grained update)
   useEffect(() => {
     if (isEditMode && containerRef.current && isHovered) {
       const rect = containerRef.current.getBoundingClientRect();
       const spaceOnRight = window.innerWidth - rect.right;
-      // If less than 120px on right (slightly more for text since icons are far), flip controls to left
-      if (spaceOnRight < 120) {
-        setControlsOnLeft(true);
-      } else {
-        setControlsOnLeft(false);
-      }
+      setControlsOnLeft(spaceOnRight < 120);
     }
   }, [isEditMode, isHovered]);
 
+  // Listen for another EditableText starting to edit — close this one if open
+  useEffect(() => {
+    const handleOtherEditStart = (e: Event) => {
+      const key = (e as CustomEvent<{ key: string }>).detail?.key;
+      if (key !== contentKey && isEditingRef.current) {
+        // Auto-save and close
+        if (blurSaveTimeout.current) clearTimeout(blurSaveTimeout.current);
+        const current = inputRef.current?.value ?? displayTextRef.current;
+        if (current !== displayTextRef.current) {
+          onSave(contentKey, current);
+        }
+        setIsEditing(false);
+      }
+    };
+    window.addEventListener('ks:editstart', handleOtherEditStart);
+    return () => window.removeEventListener('ks:editstart', handleOtherEditStart);
+  }, [contentKey, onSave]);
+
   const handleSave = () => {
-    // Always save if value differs from what was displayed — allow empty strings
+    if (blurSaveTimeout.current) clearTimeout(blurSaveTimeout.current);
     if (tempValue !== displayText) {
       onSave(contentKey, tempValue);
     }
@@ -90,15 +120,22 @@ export default function EditableText({
   };
 
   const handleCancel = () => {
+    if (blurSaveTimeout.current) clearTimeout(blurSaveTimeout.current);
     setTempValue(displayText);
     setIsEditing(false);
+  };
+
+  const startEditing = () => {
+    // Notify all other EditableText instances to close
+    window.dispatchEvent(new CustomEvent('ks:editstart', { detail: { key: contentKey } }));
+    setIsEditing(true);
   };
 
   // Helper to parse {{text}} into highlighted spans and \n into <br/>
   const renderFormattedText = (text: string) => {
     // Split by literal \n string or actual newline character
     const lines = text.split(/\n|\\n/g);
-    
+
     return lines.map((line, lineIdx) => {
       // For each line, handle the {{highlight}} syntax
       const parts = line.split(/(\{\{.*?\}\})/g);
@@ -155,9 +192,15 @@ export default function EditableText({
             }
             if (e.key === 'Escape') handleCancel();
           }}
+          onBlur={() => {
+            // Auto-save when focus leaves the textarea (e.g. clicking elsewhere)
+            // Use a short delay so Save/Cancel button clicks can cancel this first
+            blurSaveTimeout.current = setTimeout(handleSave, 150);
+          }}
         />
         <span className="absolute right-0 top-full mt-2 flex items-center gap-2 z-[100] whitespace-nowrap" style={{ display: 'flex' }}>
           <button
+            onMouseDown={(e) => e.preventDefault()} // Prevent textarea blur
             onClick={handleSave}
             className="p-2 bg-green-500 hover:bg-green-600 text-white rounded shadow-lg transition-colors flex items-center gap-1 text-sm font-bold"
             title="Save (Enter)"
@@ -165,6 +208,7 @@ export default function EditableText({
             <Check className="w-4 h-4" /> Save
           </button>
           <button
+            onMouseDown={(e) => e.preventDefault()} // Prevent textarea blur
             onClick={handleCancel}
             className="p-2 bg-red-500 hover:bg-red-600 text-white rounded shadow-lg transition-colors flex items-center gap-1 text-sm font-bold"
             title="Cancel (Esc)"
@@ -176,7 +220,7 @@ export default function EditableText({
     );
   }
 
-  // Edit mode, not currently editing: show text with pencil icon on hover
+  // Edit mode, not currently editing: show text with pencil icon on hover (desktop) or always (mobile)
   return (
     <Component
       ref={containerRef as any}
@@ -186,7 +230,7 @@ export default function EditableText({
         if (isEditMode) {
           e.preventDefault();
           e.stopPropagation();
-          setIsEditing(true);
+          startEditing();
         }
       }}
       onMouseEnter={() => setIsHovered(true)}
@@ -195,11 +239,11 @@ export default function EditableText({
       <span className={`relative inline-block ${isHovered ? 'bg-blue-100/50 outline outline-2 outline-blue-400 outline-offset-2 rounded-sm' : 'bg-blue-100/20 md:bg-transparent outline outline-1 outline-blue-300 md:outline-none outline-offset-2 rounded-sm'}`}>
         {renderFormattedText(displayText)}
 
-        {/* Desktop: Show pencil on hover only. Mobile: Don't show pencil at all */}
-        <span 
-            className={`absolute top-1/2 -translate-y-1/2 items-center gap-1 z-50 hidden md:flex transition-all ${isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'} ${
+        {/* Desktop: show on hover. Mobile (hover:none): always visible */}
+        <span
+            className={`absolute top-1/2 -translate-y-1/2 items-center gap-1 z-50 flex transition-all ${isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'} [@media(hover:none)]:opacity-100 [@media(hover:none)]:scale-100 ${
                 controlsOnLeft ? '-left-14' : '-right-16'
-            }`} 
+            }`}
             onMouseDown={e => e.preventDefault()}
         >
           <button
@@ -207,7 +251,7 @@ export default function EditableText({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              setIsEditing(true);
+              startEditing();
             }}
             className="inline-flex items-center justify-center w-7 h-7 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-md"
             title={`Edit: ${contentKey}`}
