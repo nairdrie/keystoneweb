@@ -215,31 +215,86 @@ function checkButtonsAndLinks(data: DiagnosticData): DiagnosticResult[] {
     let totalButtons = 0;
     let unconfiguredButtons = 0;
 
+    const isUnconfiguredHref = (href: string | undefined) => !href || href === '#' || href === '';
+
     // Check a single object (block.data or an array item) for *Link keys and ctaUrl
     const checkLinkObject = (obj: any, idPrefix: string, pageName: string, blockType: string, pageSlug: string, itemLabel?: string) => {
+        const seenLinkKeys = new Set<string>();
+
         for (const key of Object.keys(obj)) {
-            if (key.endsWith('Link') && typeof obj[key] === 'object' && obj[key]) {
+            if (!key.endsWith('Link') || key.endsWith('Icon')) continue;
+            seenLinkKeys.add(key);
+
+            const link = obj[key];
+
+            // null or missing link data — button exists but was never configured
+            if (link === null || link === undefined) {
                 totalButtons++;
-                const link = obj[key];
-                const isUnconfigured = !link.href || link.href === '#' || link.href === '';
-                if (isUnconfigured && link.linkType !== 'section') {
+                unconfiguredButtons++;
+                const labelKey = key.replace(/Link$/, '');
+                const label = obj[labelKey] || itemLabel || 'Unnamed button';
+                results.push({
+                    id: `button-${idPrefix}-${key}`,
+                    category: 'Buttons & Links',
+                    label: `Unconfigured button: "${label}"`,
+                    severity: 'error',
+                    message: `Button "${label}" on page "${pageName}" in ${blockType} block has no link destination.`,
+                    page: pageSlug,
+                    blockType,
+                });
+                continue;
+            }
+
+            if (typeof link !== 'object') continue;
+
+            totalButtons++;
+            const unconfigured = isUnconfiguredHref(link.href);
+            if (unconfigured && link.linkType !== 'section') {
+                unconfiguredButtons++;
+                const labelKey = key.replace(/Link$/, '');
+                const label = obj[labelKey] || itemLabel || 'Unnamed button';
+                results.push({
+                    id: `button-${idPrefix}-${key}`,
+                    category: 'Buttons & Links',
+                    label: `Unconfigured button: "${label}"`,
+                    severity: 'error',
+                    message: `Button "${label}" on page "${pageName}" in ${blockType} block has no link destination.`,
+                    page: pageSlug,
+                    blockType,
+                });
+            }
+        }
+
+        // Detect button text keys whose *Link sibling is entirely absent (never saved)
+        for (const key of Object.keys(obj)) {
+            if (key.endsWith('Link') || key.endsWith('Icon')) continue;
+            const linkKey = `${key}Link`;
+            if (seenLinkKeys.has(linkKey) || !(linkKey in obj)) {
+                // Only flag if the linkKey is truly absent AND the value looks like a button label
+                // (non-empty string with a plausible button-label key name)
+                if (
+                    !(linkKey in obj) &&
+                    typeof obj[key] === 'string' &&
+                    obj[key].trim() !== '' &&
+                    /button|cta|action|link/i.test(key)
+                ) {
+                    totalButtons++;
                     unconfiguredButtons++;
-                    const labelKey = key.replace(/Link$/, '');
-                    const label = obj[labelKey] || itemLabel || 'Unnamed button';
                     results.push({
-                        id: `button-${idPrefix}-${key}`,
+                        id: `button-${idPrefix}-${key}-missing`,
                         category: 'Buttons & Links',
-                        label: `Unconfigured button: "${label}"`,
+                        label: `Unconfigured button: "${obj[key]}"`,
                         severity: 'error',
-                        message: `Button "${label}" on page "${pageName}" in ${blockType} block has no link destination.`,
+                        message: `Button "${obj[key]}" on page "${pageName}" in ${blockType} block has no link destination.`,
                         page: pageSlug,
                         blockType,
                     });
                 }
             }
         }
+
         // Check ctaUrl on objects that have ctaText
-        if (obj.ctaText && (!obj.ctaUrl || obj.ctaUrl === '#' || obj.ctaUrl === '')) {
+        if (obj.ctaText && isUnconfiguredHref(obj.ctaUrl)) {
             totalButtons++;
             unconfiguredButtons++;
             results.push({
