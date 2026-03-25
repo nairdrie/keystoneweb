@@ -144,7 +144,7 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
                             <img
                                 src={siteContent.siteLogo}
                                 alt={siteContent.siteTitle || 'Logo'}
-                                className="w-8 h-8 object-contain rounded-full"
+                                className="w-8 h-8 object-contain"
                              style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                         ) : (
                             <div className="w-8 h-8 rounded-full flex items-center justify-center font-serif font-bold text-[10px] text-white" style={{ backgroundColor: pSecondary }}>
