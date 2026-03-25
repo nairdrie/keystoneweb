@@ -100,6 +100,44 @@ export async function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
+    // ── /admin and /design shortcuts ──────────────────────────────────────────
+    // Visiting mysite.kswd.ca/admin or /design redirects to keystoneweb.ca/admin?siteId=...
+    const isAdminPath = pathname === '/admin' || pathname.startsWith('/admin/');
+    const isDesignPath = pathname === '/design';
+    if (isAdminPath || isDesignPath) {
+      const appRoot = process.env.NEXT_PUBLIC_APP_URL || 'https://keystoneweb.ca';
+
+      // Look up the siteId from the published_domain
+      let siteId: string | null = null;
+      try {
+        const supabase = createServerClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          {
+            cookies: {
+              getAll() { return request.cookies.getAll(); },
+              setAll() {},
+            },
+          }
+        );
+        const { data } = await supabase
+          .from('sites')
+          .select('id')
+          .eq('published_domain', subdomain)
+          .single();
+        siteId = data?.id ?? null;
+      } catch {
+        // Non-blocking — redirect without siteId if lookup fails
+      }
+
+      const destination = isDesignPath ? '/design' : pathname;
+      const destUrl = new URL(`${appRoot}${destination}`);
+      if (siteId) destUrl.searchParams.set('siteId', siteId);
+
+      console.log(`[Middleware] Subdomain admin/design redirect → ${destUrl.toString()}`);
+      return NextResponse.redirect(destUrl);
+    }
+
     // Rewrite internally to the public route
     const rewriteUrl = request.nextUrl.clone();
     rewriteUrl.pathname = `/public/${subdomain}${pathname}`;

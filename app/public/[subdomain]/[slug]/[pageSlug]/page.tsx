@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/db/supabase-server';
 import EditorContent from '@/app/(app)/editor/editor-content-v2';
+import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import {
@@ -129,23 +130,26 @@ export default async function PublicSiteTranslatedPage({
         }
 
         return (
-            <EditorContent
-                isPublicView={true}
-                publicSiteData={{
-                    id: site.id,
-                    userId: null,
-                    selectedTemplateId: site.selected_template_id,
-                    businessType: '',
-                    category: '',
-                    designData: mergedPublishData,
-                    isPublished: true,
-                    createdAt: '',
-                    updatedAt: '',
-                }}
-                precomputedPalette={paletteData}
-            >
-                {TemplateComp && <TemplateComp palette={paletteData} isEditMode={false} />}
-            </EditorContent>
+            <>
+                <SiteAnalyticsTracker siteId={site.id} />
+                <EditorContent
+                    isPublicView={true}
+                    publicSiteData={{
+                        id: site.id,
+                        userId: null,
+                        selectedTemplateId: site.selected_template_id,
+                        businessType: '',
+                        category: '',
+                        designData: mergedPublishData,
+                        isPublished: true,
+                        createdAt: '',
+                        updatedAt: '',
+                    }}
+                    precomputedPalette={paletteData}
+                >
+                    {TemplateComp && <TemplateComp palette={paletteData} isEditMode={false} />}
+                </EditorContent>
+            </>
         );
     } catch (error) {
         console.error('Error rendering translated page:', error);

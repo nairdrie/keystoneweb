@@ -29,7 +29,7 @@ export function VibrantTemplate({ palette, isEditMode, children }: MasterTemplat
     const updateSiteContent = context?.updateSiteContent || (() => { });
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const pathname = usePathname();
-    const isEditor = pathname?.startsWith('/editor');
+    const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const pPrimary = palette.primary || '#e11d48';
     const pSecondary = palette.secondary || '#f97316';

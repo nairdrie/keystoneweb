@@ -65,7 +65,7 @@ export default function EditableButton({
     const [controlsOnLeft, setControlsOnLeft] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const pathname = usePathname();
-    const isEditor = pathname?.startsWith('/editor');
+    const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const pages = context?.pages || [];
     const blocks = context?.blocks || [];
@@ -126,7 +126,7 @@ export default function EditableButton({
         if (context && currentLinkType === 'page' && currentPageId) {
             if (isEditor) {
                 // In editor, navigate to the page within the editor
-                return `/editor?siteId=${context.siteId}&pageId=${currentPageId}`;
+                return `/design?siteId=${context.siteId}&pageId=${currentPageId}`;
             } else {
                 // Public site, navigate using standard slug
                 const targetPage = pages.find(p => p.id === currentPageId);

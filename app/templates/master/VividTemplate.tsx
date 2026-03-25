@@ -29,7 +29,7 @@ export function VividTemplate({ palette, isEditMode, children }: MasterTemplateP
     const updateSiteContent = context?.updateSiteContent || (() => { });
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const pathname = usePathname();
-    const isEditor = pathname?.startsWith('/editor');
+    const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const pPrimary = palette.primary || '#7c3aed';
     const pSecondary = palette.secondary || '#f59e0b';

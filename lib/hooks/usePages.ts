@@ -14,12 +14,12 @@ export interface Page {
 export function usePages(siteId: string, initialPageId?: string | null) {
   const [pages, setPages] = useState<Page[]>([]);
   const [currentPageId, setCurrentPageId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch pages for site
   const fetchPages = useCallback(async () => {
-    if (!siteId) return;
+    if (!siteId) return; // Stay loading=true until a real siteId triggers a fetch
 
     try {
       setLoading(true);

@@ -207,6 +207,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   // Use a ref to prevent re-fetching on tab-switch (Supabase auth token refresh
   // fires onAuthStateChange which creates a new user object reference)
   const hasFetchedSiteRef = useRef<string | null>(null);
+  const hasFetchedPagesRef = useRef<string | null>(null);
   useEffect(() => {
     if (authLoading) return;
 
@@ -235,9 +236,12 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
 
     loadTemplateComponent(site.selectedTemplateId, site.designData?.__selectedPalette);
   }, [site?.selectedTemplateId]);
-  // Fetch pages when site loads
+  // Fetch pages when site loads (guard prevents re-fetch when fetchPages identity
+  // changes due to pageIdFromUrl updating after URL is written with the page id)
   useEffect(() => {
     if (!site?.id) return;
+    if (hasFetchedPagesRef.current === site.id) return;
+    hasFetchedPagesRef.current = site.id;
     fetchPages();
   }, [site?.id, fetchPages]);
 
@@ -1005,7 +1009,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
   return (
     <CartProvider siteId={siteId || ''}>
       <div
-        className={`fixed inset-0 flex flex-col overflow-hidden transition-[margin] duration-300 ease-out ${sidebarOpen ? 'lg:ml-[20rem]' : ''}`}
+        className={`fixed inset-0 flex flex-col overflow-hidden transition-[margin] duration-300 ease-out ${sidebarOpen ? 'lg:ml-[22rem]' : ''}`}
       >
         {/* Floating Toolbar / Sidebar */}
         <FloatingToolbar

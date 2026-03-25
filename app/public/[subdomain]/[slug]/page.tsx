@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/db/supabase-server';
 import EditorContent from '@/app/(app)/editor/editor-content-v2';
+import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import LanguageSelector from '@/app/components/LanguageSelector';
@@ -226,6 +227,7 @@ async function renderPage(
 
     return (
         <>
+            <SiteAnalyticsTracker siteId={site.id} />
             {site.business_profile && (
                 <JsonLdScript
                     businessProfile={site.business_profile as BusinessProfile}

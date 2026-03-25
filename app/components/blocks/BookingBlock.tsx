@@ -83,7 +83,24 @@ export default function BookingBlock({ id, data, isEditMode, palette, updateCont
     }
 
     if (isEditMode) {
-        return <BookingSetup siteId={siteId} palette={palette} />;
+        return (
+            <div className="py-12 px-6 flex flex-col items-center justify-center text-center gap-4 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+                    <Calendar className="w-6 h-6 text-slate-400" />
+                </div>
+                <div>
+                    <div className="font-bold text-slate-800 mb-1">Manage Services in Admin</div>
+                    <div className="text-sm text-slate-500 mb-4">Add and edit your services, hours, and booking settings from your Admin Dashboard.</div>
+                    <button
+                        onClick={() => window.open(`/admin/booking?siteId=${siteId}`, '_blank')}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold rounded-lg transition-colors"
+                    >
+                        <Calendar className="w-4 h-4" />
+                        Manage Services
+                    </button>
+                </div>
+            </div>
+        );
     }
 
     return <BookingFlow siteId={siteId} palette={palette} />;
@@ -93,7 +110,7 @@ export default function BookingBlock({ id, data, isEditMode, palette, updateCont
 // EDITOR: Booking Setup
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function BookingSetup({ siteId, palette }: { siteId: string; palette: Record<string, string> }) {
+export function BookingSetup({ siteId, palette }: { siteId: string; palette: Record<string, string> }) {
     const [activeTab, setActiveTab] = useState<'categories' | 'services' | 'hours' | 'settings'>('services');
     const [categories, setCategories] = useState<Category[]>([]);
     const [services, setServices] = useState<Service[]>([]);

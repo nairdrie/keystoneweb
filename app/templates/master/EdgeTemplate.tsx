@@ -29,7 +29,7 @@ export function EdgeTemplate({ palette, isEditMode, children }: MasterTemplatePr
     const updateSiteContent = context?.updateSiteContent || (() => { });
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const pathname = usePathname();
-    const isEditor = pathname?.startsWith('/editor');
+    const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const pPrimary = palette.primary || '#0f172a';
     const pSecondary = palette.secondary || '#22d3ee';

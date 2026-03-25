@@ -25,6 +25,7 @@ export default function SignInContent() {
 
   const siteId = searchParams.get('siteId');
   const aiOnboarding = searchParams.get('aiOnboarding');
+  const returnTo = searchParams.get('returnTo');
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,12 +41,14 @@ export default function SignInContent() {
     }
 
     // Success - redirect appropriately
-    if (aiOnboarding) {
+    if (returnTo) {
+      router.push(decodeURIComponent(returnTo));
+    } else if (aiOnboarding) {
       router.push('/onboarding?resumeAi=true');
     } else if (siteId) {
-      router.push(`/editor?siteId=${siteId}`);
+      router.push(`/design?siteId=${siteId}`);
     } else {
-      router.push('/editor');
+      router.push('/design');
     }
   };
 

@@ -43,7 +43,7 @@ export default function NavMenu({ className = '', itemClassName = '', submenuCla
     const blocks = context?.blocks || [];
 
     const pathname = usePathname();
-    const isEditor = pathname?.startsWith('/editor');
+    const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const [editingItem, setEditingItem] = useState<NavItem | null>(null);
     const [editingParentId, setEditingParentId] = useState<string | null>(null);
@@ -58,7 +58,7 @@ export default function NavMenu({ className = '', itemClassName = '', submenuCla
     const resolveHref = (item: NavItem): string => {
         if (item.linkType === 'page') {
             if (isEditor) {
-                return `/editor?siteId=${context?.siteId}&pageId=${item.pageId}`;
+                return `/design?siteId=${context?.siteId}&pageId=${item.pageId}`;
             }
             const targetPage = pages.find(p => p.id === item.pageId);
             const slug = targetPage ? targetPage.slug : '';
@@ -67,7 +67,7 @@ export default function NavMenu({ className = '', itemClassName = '', submenuCla
             if (item.pageId) {
                 if (isEditor) {
                     const hash = item.href?.includes('#') ? `#${item.href.split('#')[1]}` : '';
-                    return `/editor?siteId=${context?.siteId}&pageId=${item.pageId}${hash}`;
+                    return `/design?siteId=${context?.siteId}&pageId=${item.pageId}${hash}`;
                 }
                 return item.href || `#${item.blockId}`;
             }

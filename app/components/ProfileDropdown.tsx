@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { User, Settings, LogOut } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import { useRouter } from 'next/navigation';
 
 interface ProfileDropdownProps {
   onSettingsClick?: (e: React.MouseEvent) => void;
+  buttonClassName?: string;
 }
 
-export default function ProfileDropdown({ onSettingsClick }: ProfileDropdownProps) {
+export default function ProfileDropdown({ onSettingsClick, buttonClassName }: ProfileDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { user, signOut } = useAuth();
@@ -49,21 +50,53 @@ export default function ProfileDropdown({ onSettingsClick }: ProfileDropdownProp
     router.push('/');
   };
 
+  const userDisplayName = (user.user_metadata?.full_name || user.user_metadata?.name || user.email) as string;
+  const userAvatarUrl = user.user_metadata?.avatar_url as string | undefined;
+  const [avatarErrored, setAvatarErrored] = useState(false);
+  const handleAvatarError = useCallback(() => setAvatarErrored(true), []);
+
   return (
     <div className="relative z-[9999]" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-full transition-colors flex-shrink-0"
-        title="Profile"
+        className={buttonClassName ?? "w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-full transition-colors flex-shrink-0 overflow-hidden"}
+        title={userDisplayName}
       >
-        <User className="w-5 h-5" />
+        {userAvatarUrl && !avatarErrored ? (
+          <img
+            src={userAvatarUrl}
+            alt={userDisplayName}
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+            onError={handleAvatarError}
+          />
+        ) : (
+          <User className="w-5 h-5" />
+        )}
       </button>
 
       {isOpen && (
         <div className="absolute top-full right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl w-64 overflow-hidden animate-in fade-in slide-in-from-top-2">
-          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
-            <div className="text-xs text-slate-500 font-medium mb-0.5">Signed in as</div>
-            <div className="text-sm text-slate-900 font-bold truncate">{user.email}</div>
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-slate-200 flex items-center justify-center">
+              {userAvatarUrl && !avatarErrored ? (
+                <img
+                  src={userAvatarUrl}
+                  alt={userDisplayName}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                  onError={handleAvatarError}
+                />
+              ) : (
+                <User className="w-4 h-4 text-slate-500" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm text-slate-900 font-bold truncate">{userDisplayName}</div>
+              {userDisplayName !== user.email && (
+                <div className="text-xs text-slate-500 truncate">{user.email}</div>
+              )}
+            </div>
           </div>
           <div className="p-2 space-y-1">
             <button

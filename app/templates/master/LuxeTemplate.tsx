@@ -29,7 +29,7 @@ export function LuxeTemplate({ palette, isEditMode, children }: MasterTemplatePr
     const updateSiteContent = context?.updateSiteContent || (() => { });
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const pathname = usePathname();
-    const isEditor = pathname?.startsWith('/editor');
+    const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const pPrimary = palette.primary || '#1c1917';
     const pSecondary = palette.secondary || '#b45309';

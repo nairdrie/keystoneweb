@@ -31,7 +31,7 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
     const updateSiteContent = context?.updateSiteContent || (() => { });
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const pathname = usePathname();
-    const isEditor = pathname?.startsWith('/editor');
+    const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const pPrimary = palette.primary || '#374151';
     const pSecondary = palette.secondary || '#10b981';

@@ -29,7 +29,7 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
     const updateSiteContent = context?.updateSiteContent || (() => { });
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const pathname = usePathname();
-    const isEditor = pathname?.startsWith('/editor');
+    const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const pPrimary = palette.primary || '#0369a1';
     const pSecondary = palette.secondary || '#0ea5e9';

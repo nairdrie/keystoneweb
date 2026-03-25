@@ -46,7 +46,24 @@ export default function ProductGridBlock({ id, data, isEditMode, palette, update
     }
 
     if (isEditMode) {
-        return <ProductManager siteId={siteId} palette={palette} />;
+        return (
+            <div className="py-12 px-6 flex flex-col items-center justify-center text-center gap-4 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+                    <ShoppingCart className="w-6 h-6 text-slate-400" />
+                </div>
+                <div>
+                    <div className="font-bold text-slate-800 mb-1">Manage Products in Admin</div>
+                    <div className="text-sm text-slate-500 mb-4">Add, edit, and manage your products and store settings from your Admin Dashboard.</div>
+                    <button
+                        onClick={() => window.open(`/admin/ecommerce?siteId=${siteId}`, '_blank')}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold rounded-lg transition-colors"
+                    >
+                        <Package className="w-4 h-4" />
+                        Manage Products
+                    </button>
+                </div>
+            </div>
+        );
     }
 
     return <ProductGrid siteId={siteId} palette={palette} />;
@@ -56,7 +73,7 @@ export default function ProductGridBlock({ id, data, isEditMode, palette, update
 // EDITOR: Product Manager
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function ProductManager({ siteId, palette }: { siteId: string; palette: Record<string, string> }) {
+export function ProductManager({ siteId, palette }: { siteId: string; palette: Record<string, string> }) {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAdd, setShowAdd] = useState(false);
@@ -414,7 +431,7 @@ function ProductGrid({ siteId, palette }: { siteId: string; palette: Record<stri
     const cart = useCart();
     const router = useRouter();
     const pathname = usePathname();
-    const isEditor = pathname?.startsWith('/editor');
+    const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const pSecondary = palette.secondary || '#dc2626';
 

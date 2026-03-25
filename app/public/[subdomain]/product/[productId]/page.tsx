@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/db/supabase-server';
 import EditorContent from '@/app/(app)/editor/editor-content-v2';
+import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import ProductPageClient from '@/app/components/ecommerce/ProductPageWrapper';
@@ -105,6 +106,8 @@ export default async function ProductDetailPage({
         }
 
         return (
+            <>
+            <SiteAnalyticsTracker siteId={site.id} />
             <EditorContent
                 isPublicView={true}
                 publicSiteData={{
@@ -144,6 +147,7 @@ export default async function ProductDetailPage({
                     />
                 )}
             </EditorContent>
+            </>
         );
     } catch (error) {
         console.error('Error rendering product page:', error);

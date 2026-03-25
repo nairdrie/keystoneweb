@@ -2,21 +2,19 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Copy, Check as CheckIcon, Link, History } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Copy, Check as CheckIcon, Link, History, Paintbrush, LayoutDashboard, X } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
 import AlertModal from './ui/AlertModal';
 import FontPickerModal from './FontPickerModal';
 import AIBuilderPanel from './AIBuilderPanel';
-import SEOPanel from './SEOPanel';
 import TranslationsPanel from './TranslationsPanel';
 import ImageEditorModal from './ImageEditorModal';
 import EditHistoryModal from './EditHistoryModal';
-import AnalyticsPanel from './AnalyticsPanel';
 import DoctorPanel from './DoctorPanel';
 import { AIMessage, UsageRemaining } from '@/lib/hooks/useAIBuilder';
-import { Type, User, Globe, Languages, BarChart3, Stethoscope } from 'lucide-react';
+import { Type, User, Languages, Stethoscope } from 'lucide-react';
 import ProfileDropdown from './ProfileDropdown';
 
 interface Palette {
@@ -169,7 +167,7 @@ export default function FloatingToolbar({
   const [isPublishingUpdates, setIsPublishingUpdates] = useState(false);
   const isFullyDeployed = isSynced && changes.length === 0;
 
-  const [openSections, setOpenSections] = useState<string[]>(['general']);
+  const [openSections, setOpenSections] = useState<string[]>([]);
   const [fontPickerState, setFontPickerState] = useState<{ isOpen: boolean, type: 'title' | 'body' }>({ isOpen: false, type: 'title' });
   const aiBuilderSectionRef = useRef<HTMLDivElement>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -180,6 +178,8 @@ export default function FloatingToolbar({
   const [isGeneratingTransfer, setIsGeneratingTransfer] = useState(false);
   const [transferUrl, setTransferUrl] = useState<string | null>(null);
   const [copiedTransfer, setCopiedTransfer] = useState(false);
+  const [isRenamingSite, setIsRenamingSite] = useState(false);
+  const [siteTitleDraft, setSiteTitleDraft] = useState('');
 
   const toggleSection = (section: string) => {
     setOpenSections(prev => prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]);
@@ -408,100 +408,130 @@ export default function FloatingToolbar({
 
   const panelContent = (
     <div className="flex flex-col h-full max-h-full">
+
+      {/* ── Site Info Header (non-scrollable) ── */}
+      <div className="shrink-0 px-4 py-3 border-b border-slate-200 bg-slate-50 space-y-3" style={{ overflow: 'visible' }}>
+
+        {/* Currently Editing + Rename + Site Switcher */}
+        <div style={{ overflow: 'visible' }}>
+          <div className="bg-white border border-slate-200 rounded-lg p-3 flex items-center justify-between">
+            <div className="min-w-0 flex-1">
+              {isRenamingSite ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    autoFocus
+                    value={siteTitleDraft}
+                    onChange={(e) => setSiteTitleDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { onSiteTitle(siteTitleDraft); setIsRenamingSite(false); }
+                      if (e.key === 'Escape') setIsRenamingSite(false);
+                    }}
+                    className="text-sm font-semibold text-slate-900 bg-white border border-slate-300 rounded px-2 py-0.5 focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none w-full"
+                    placeholder="Site name"
+                  />
+                  <button
+                    onClick={() => { onSiteTitle(siteTitleDraft); setIsRenamingSite(false); }}
+                    className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors flex-shrink-0"
+                  >
+                    <CheckIcon className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setIsRenamingSite(false)}
+                    className="p-1 text-slate-400 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="font-bold text-sm text-slate-900 truncate">{siteTitle || 'Untitled Site'}</div>
+                  <button
+                    onClick={() => { setSiteTitleDraft(siteTitle); setIsRenamingSite(true); }}
+                    className="flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
+                  >
+                    <Pencil className="w-2.5 h-2.5" />
+                    Rename
+                  </button>
+                </div>
+              )}
+              {templateName && !isRenamingSite && (
+                <div className="text-[10px] text-slate-500 mt-0.5">{templateName}</div>
+              )}
+            </div>
+            {user && !isRenamingSite && (
+              <button
+                onClick={() => setShowSiteSwitcher(!showSiteSwitcher)}
+                className="ml-2 p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-200 rounded-lg transition-colors flex-shrink-0"
+                title="Switch or create sites"
+              >
+                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showSiteSwitcher ? 'rotate-180' : ''}`} />
+              </button>
+            )}
+          </div>
+
+          {/* Site Switcher Dropdown */}
+          {user && showSiteSwitcher && (
+            <div className="relative">
+              <div className="absolute left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 z-[9999] animate-in fade-in slide-in-from-top-2">
+                <div className="max-h-60 overflow-y-auto outline-none p-2 space-y-1">
+                  {userSites.length > 0 ? (
+                    <>
+                      <div className="px-3 py-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Your Sites</div>
+                      {userSites.map((site) => (
+                        <button
+                          key={site.id}
+                          onClick={() => {
+                            setShowSiteSwitcher(false);
+                            router.push(`/design?siteId=${site.id}`);
+                          }}
+                          className={`w-full text-left px-3 py-2.5 rounded-lg transition-all text-sm flex items-center justify-between group ${currentSiteId === site.id
+                            ? 'bg-red-50 text-red-900 font-semibold border border-red-100'
+                            : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                            }`}
+                        >
+                          <span className="truncate pr-4">{site.siteSlug || `Site ${site.id.slice(0, 8)}`}</span>
+                          {currentSiteId === site.id && (
+                            <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                          )}
+                        </button>
+                      ))}
+                      <div className="h-px bg-slate-100 my-2 mx-1" />
+                    </>
+                  ) : (
+                    <div className="px-3 py-4 text-sm text-slate-500 text-center">No other sites found</div>
+                  )}
+                  <button
+                    onClick={() => {
+                      setShowSiteSwitcher(false);
+                      router.push('/onboarding');
+                    }}
+                    className="w-full text-left px-3 py-2.5 rounded-lg transition-all text-sm flex items-center gap-2 text-red-600 hover:bg-red-50 font-medium mt-1"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create New Site
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Scrollable Accordions */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
 
-        {/* General Section */}
+        {/* Logos Section */}
         <div className="border border-slate-200 rounded-lg bg-white shadow-sm" style={{ overflow: 'visible' }}>
           <button
             onClick={() => toggleSection('general')}
             className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors rounded-t-lg"
           >
-            <span className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-2">General</span>
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-2">Logo</span>
             <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('general') ? 'rotate-180' : ''}`} />
           </button>
 
           {openSections.includes('general') && (
             <div className="p-4 border-t border-slate-200 space-y-6" style={{ overflow: 'visible' }}>
-              {/* Currently Editing Display */}
-              <div>
-                <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2">Currently Editing</h3>
-                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center justify-between">
-                  <div className="min-w-0">
-                    <div className="font-bold text-sm text-slate-900 truncate">{siteTitle || 'Untitled Site'}</div>
-                    {templateName && (
-                      <div className="text-[10px] text-slate-500 mt-0.5">{templateName}</div>
-                    )}
-                  </div>
-                  {user && (
-                    <button
-                      onClick={() => setShowSiteSwitcher(!showSiteSwitcher)}
-                      className="ml-2 p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-200 rounded-lg transition-colors flex-shrink-0"
-                      title="Switch or create sites"
-                    >
-                      <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showSiteSwitcher ? 'rotate-180' : ''}`} />
-                    </button>
-                  )}
-                </div>
-
-                {/* Site Switcher Dropdown - positioned relative to the section, not clipped */}
-                {user && showSiteSwitcher && (
-                  <div className="relative">
-                    <div className="absolute left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 z-[9999] animate-in fade-in slide-in-from-top-2">
-                      <div className="max-h-60 overflow-y-auto outline-none p-2 space-y-1">
-                        {userSites.length > 0 ? (
-                          <>
-                            <div className="px-3 py-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Your Sites</div>
-                            {userSites.map((site) => (
-                              <button
-                                key={site.id}
-                                onClick={() => {
-                                  setShowSiteSwitcher(false);
-                                  router.push(`/editor?siteId=${site.id}`);
-                                }}
-                                className={`w-full text-left px-3 py-2.5 rounded-lg transition-all text-sm flex items-center justify-between group ${currentSiteId === site.id
-                                  ? 'bg-red-50 text-red-900 font-semibold border border-red-100'
-                                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-                                  }`}
-                              >
-                                <span className="truncate pr-4">{site.siteSlug || `Site ${site.id.slice(0, 8)}`}</span>
-                                {currentSiteId === site.id && (
-                                  <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                                )}
-                              </button>
-                            ))}
-                            <div className="h-px bg-slate-100 my-2 mx-1" />
-                          </>
-                        ) : (
-                          <div className="px-3 py-4 text-sm text-slate-500 text-center">No other sites found</div>
-                        )}
-                        <button
-                          onClick={() => {
-                            setShowSiteSwitcher(false);
-                            router.push('/onboarding');
-                          }}
-                          className="w-full text-left px-3 py-2.5 rounded-lg transition-all text-sm flex items-center gap-2 text-red-600 hover:bg-red-50 font-medium mt-1"
-                        >
-                          <Plus className="w-4 h-4" />
-                          Create New Site
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Rename Site */}
-              <div>
-                <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2">Rename Site</h3>
-                <input
-                  type="text"
-                  value={siteTitle}
-                  onChange={(e) => onSiteTitle(e.target.value)}
-                  className="w-full text-sm font-medium text-slate-900 bg-white border border-slate-200 rounded-lg px-3 py-2 focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none placeholder-slate-400 transition-all"
-                  placeholder="My Awesome Website"
-                />
-              </div>
 
               {/* Site Logo */}
               <div>
@@ -842,26 +872,6 @@ export default function FloatingToolbar({
           )}
         </div>
 
-        {/* SEO Section */}
-        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
-          <button
-            onClick={() => toggleSection('seo')}
-            className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 transition-colors"
-          >
-            <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide flex items-center gap-1.5">
-              <Globe className="w-3.5 h-3.5" />
-              SEO
-            </span>
-            <ChevronDown className={`w-4 h-4 text-emerald-500 transition-transform ${openSections.includes('seo') ? 'rotate-180' : ''}`} />
-          </button>
-
-          {openSections.includes('seo') && (
-            <div className="border-t border-slate-200">
-              <SEOPanel siteId={currentSiteId} />
-            </div>
-          )}
-        </div>
-
         {/* Translations Section */}
         <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
           <button
@@ -878,30 +888,6 @@ export default function FloatingToolbar({
           {openSections.includes('translations') && (
             <div className="border-t border-slate-200">
               <TranslationsPanel siteId={currentSiteId} />
-            </div>
-          )}
-        </div>
-
-        {/* Analytics Section */}
-        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
-          <button
-            onClick={() => toggleSection('analytics')}
-            className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-sky-50 to-violet-50 hover:from-sky-100 hover:to-violet-100 transition-colors"
-          >
-            <span className="text-xs font-bold text-sky-700 uppercase tracking-wide flex items-center gap-1.5">
-              <BarChart3 className="w-3.5 h-3.5" />
-              Analytics
-            </span>
-            <ChevronDown className={`w-4 h-4 text-sky-500 transition-transform ${openSections.includes('analytics') ? 'rotate-180' : ''}`} />
-          </button>
-
-          {openSections.includes('analytics') && (
-            <div className="border-t border-slate-200">
-              <AnalyticsPanel
-                siteId={currentSiteId}
-                isPublished={isPublished}
-                isProUser={isProUser}
-              />
             </div>
           )}
         </div>
@@ -1179,34 +1165,68 @@ export default function FloatingToolbar({
           <div
             ref={drawerRef}
             className={`fixed top-[var(--impersonation-height,0px)] left-0 bottom-0 z-[9999] bg-white shadow-2xl border-r border-slate-200 overflow-y-auto transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
-            style={{ width: '20rem' }}
+            style={{ width: '22rem' }}
           >
             {/* Sidebar Header */}
-            <div className="sticky top-0 bg-white border-b border-slate-200 px-4 h-12 flex items-center justify-between z-10 shrink-0">
-              <div
-                onClick={(e) => {
-                  if (changes.length > 0) {
-                    e.preventDefault();
-                    setAlertConfig({
-                      isOpen: true,
-                      title: 'Unsaved Changes',
-                      message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
-                      type: 'warning',
-                      onConfirm: () => router.push('/'),
-                      confirmLabel: 'Leave',
-                      cancelLabel: 'Stay'
-                    });
-                  } else {
-                    router.push('/');
-                  }
-                }}
-                className="cursor-pointer"
-              >
-                <KeystoneLogo href={undefined} size="md" showText={false} />
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-3 h-12 flex items-center justify-between z-10 shrink-0">
+              <div className="flex items-center gap-2">
+                <div
+                  onClick={(e) => {
+                    if (changes.length > 0) {
+                      e.preventDefault();
+                      setAlertConfig({
+                        isOpen: true,
+                        title: 'Unsaved Changes',
+                        message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
+                        type: 'warning',
+                        onConfirm: () => router.push('/'),
+                        confirmLabel: 'Leave',
+                        cancelLabel: 'Stay'
+                      });
+                    } else {
+                      router.push('/');
+                    }
+                  }}
+                  className="cursor-pointer shrink-0"
+                >
+                  <KeystoneLogo href={undefined} size="md" showText={false} />
+                </div>
+
+                {/* Design / Admin switcher */}
+                <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-full">
+                  <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white shadow-sm text-slate-800 select-none">
+                    <Paintbrush className="w-3 h-3" />
+                    Design
+                  </span>
+                  <button
+                    onClick={() => {
+                      const dest = `/admin/analytics${currentSiteId ? `?siteId=${currentSiteId}` : ''}`;
+                      if (changes.length > 0) {
+                        setAlertConfig({
+                          isOpen: true,
+                          title: 'Unsaved Changes',
+                          message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
+                          type: 'warning',
+                          onConfirm: () => router.push(dest),
+                          confirmLabel: 'Leave',
+                          cancelLabel: 'Stay',
+                        });
+                      } else {
+                        router.push(dest);
+                      }
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold text-slate-500 hover:text-slate-800 hover:bg-white/70 transition-colors"
+                  >
+                    <LayoutDashboard className="w-3 h-3" />
+                    Admin
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <ProfileDropdown onSettingsClick={(e) => {
+                <ProfileDropdown
+                  buttonClassName="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-full transition-colors flex-shrink-0 overflow-hidden"
+                  onSettingsClick={(e) => {
                   if (changes.length > 0) {
                     e.preventDefault();
                     setAlertConfig({

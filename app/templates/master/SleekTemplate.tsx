@@ -29,7 +29,7 @@ export function SleekTemplate({ palette, isEditMode, children }: MasterTemplateP
     const updateSiteContent = context?.updateSiteContent || (() => { });
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const pathname = usePathname();
-    const isEditor = pathname?.startsWith('/editor');
+    const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const pPrimary = palette.primary || '#111111';
     const pSecondary = palette.secondary || '#6366f1';

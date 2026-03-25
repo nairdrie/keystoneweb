@@ -29,7 +29,7 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
     const updateSiteContent = context?.updateSiteContent || (() => { });
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const pathname = usePathname();
-    const isEditor = pathname?.startsWith('/editor');
+    const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const pPrimary = palette.primary || '#78350f';
     const pSecondary = palette.secondary || '#d97706';
