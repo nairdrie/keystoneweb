@@ -175,6 +175,7 @@ export default function FloatingToolbar({
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [siteCustomDomain, setSiteCustomDomain] = useState<string | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [isGeneratingTransfer, setIsGeneratingTransfer] = useState(false);
   const [transferUrl, setTransferUrl] = useState<string | null>(null);
@@ -295,6 +296,22 @@ export default function FloatingToolbar({
       setShowPublishModal(false);
       await executePublishRoute();
     }, 500);
+  };
+
+  // Fetch site custom domain when delete confirm is shown
+  const handleShowDeleteConfirm = async () => {
+    setShowDeleteConfirm(true);
+    if (currentSiteId) {
+      try {
+        const res = await fetch(`/api/sites?id=${currentSiteId}`, { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setSiteCustomDomain(data.customDomain || null);
+        }
+      } catch {
+        // Non-blocking
+      }
+    }
   };
 
   const handleDeleteSite = async () => {
@@ -991,7 +1008,7 @@ export default function FloatingToolbar({
                   <h3 className="text-[10px] font-bold uppercase text-red-500 tracking-wide mb-2">Danger Zone</h3>
                   {!showDeleteConfirm ? (
                     <button
-                      onClick={() => setShowDeleteConfirm(true)}
+                      onClick={handleShowDeleteConfirm}
                       className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-semibold text-xs rounded-lg transition-colors"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -1002,6 +1019,19 @@ export default function FloatingToolbar({
                       <p className="text-xs text-red-700 font-medium">
                         This action cannot be undone. This will permanently delete your site, all its pages, and all associated data.
                       </p>
+
+                      {/* Domain ownership notice */}
+                      {siteCustomDomain && (
+                        <div className="p-2 bg-blue-50 border border-blue-200 rounded-md">
+                          <p className="text-xs text-blue-800 font-medium">
+                            Your domain <strong className="font-mono">{siteCustomDomain}</strong> is still yours.
+                          </p>
+                          <p className="text-[10px] text-blue-600 mt-0.5">
+                            It will remain in your account until your current billing cycle ends. You can reassign it to another site from your Account Settings.
+                          </p>
+                        </div>
+                      )}
+
                       <p className="text-xs text-red-600">
                         Type <strong>{siteTitle || 'delete'}</strong> to confirm:
                       </p>
@@ -1014,7 +1044,7 @@ export default function FloatingToolbar({
                       />
                       <div className="flex gap-2">
                         <button
-                          onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); }}
+                          onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); setSiteCustomDomain(null); }}
                           className="flex-1 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors"
                         >
                           Cancel

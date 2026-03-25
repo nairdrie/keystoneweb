@@ -22,6 +22,7 @@ interface SiteData {
   publishedData?: Record<string, any>;
   isPublished: boolean;
   publishedDomain?: string;
+  customDomain?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -39,6 +40,7 @@ function mapSupabaseToSiteData(row: any): SiteData {
     publishedData: row.published_data || {},
     isPublished: row.is_published || false,
     publishedDomain: row.published_domain,
+    customDomain: row.custom_domain,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -481,7 +483,7 @@ export async function DELETE(request: NextRequest) {
     // Verify ownership
     const { data: site, error: fetchError } = await supabase
       .from('sites')
-      .select('id, user_id, published_domain')
+      .select('id, user_id, published_domain, custom_domain')
       .eq('id', siteId)
       .single();
 
@@ -495,6 +497,15 @@ export async function DELETE(request: NextRequest) {
 
     // Use admin client to bypass RLS for cascading deletes
     const admin = createAdminClient();
+
+    // Unlink any purchased domains from this site (preserve domain ownership)
+    // The domain_purchases record stays — it just becomes unallocated (site_id = null)
+    if (site.custom_domain) {
+      await admin
+        .from('domain_purchases')
+        .update({ site_id: null })
+        .eq('site_id', siteId);
+    }
 
     // Delete pages first (foreign key constraint)
     await admin.from('pages').delete().eq('site_id', siteId);
@@ -515,7 +526,11 @@ export async function DELETE(request: NextRequest) {
 
     trackEvent('site_delete', { userId: user.id, siteId });
 
-    return NextResponse.json({ message: 'Site deleted successfully' });
+    // Return domain info so the frontend can show the ownership notice
+    return NextResponse.json({
+      message: 'Site deleted successfully',
+      domainRetained: site.custom_domain || null,
+    });
   } catch (error) {
     console.error('Error deleting site:', error);
     return NextResponse.json({ error: 'Failed to delete site' }, { status: 500 });

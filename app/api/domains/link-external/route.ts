@@ -132,22 +132,22 @@ export async function POST(request: NextRequest) {
       dnsInstructions: {
         records: [
           {
-            type: 'CNAME',
-            name: 'www',
-            value: 'sites.kswd.ca',
-            description: 'Points your domain to Keystoneweb servers',
-          },
-          {
             type: 'A',
             name: '@',
             value: '76.76.21.21',
-            description: 'Points your root domain to Keystoneweb (Vercel)',
+            description: 'Points your root domain (e.g., yourdomain.com) to our hosting server',
+          },
+          {
+            type: 'CNAME',
+            name: 'www',
+            value: 'sites.kswd.ca',
+            description: 'Points the www version of your domain (e.g., www.yourdomain.com) to our servers',
           },
           {
             type: 'TXT',
             name: '@',
             value: verificationToken,
-            description: 'Verifies you own this domain',
+            description: 'Proves you own this domain — a text-only record that doesn\'t affect your site or email',
           },
         ],
         note: 'DNS changes can take up to 48 hours to propagate, but usually take effect within a few minutes.',
