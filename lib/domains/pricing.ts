@@ -1,4 +1,10 @@
 /**
+ * Maximum wholesale price (USD) Keystone will absorb for a free Pro domain.
+ * Applies to both new registrations and transfers.
+ */
+export const FREE_DOMAIN_MAX_USD = 20;
+
+/**
  * Calculate Keystone's selling price for a domain.
  * Takes Vercel's wholesale price, adds 10%, rounds up to the next .99.
  *

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
+import { FREE_DOMAIN_MAX_USD } from '@/lib/domains/pricing';
 
 const VERCEL_API_TOKEN = process.env.VERCEL_API_TOKEN;
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID;
@@ -21,7 +22,8 @@ async function buyDomainFromVercel(
   userId: string,
   email: string,
   businessName: string | null,
-  supabase: Awaited<ReturnType<typeof createClient>>
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  maxPriceUsd?: number,
 ): Promise<{ success: boolean; orderId?: string; error?: string; status?: number }> {
   const teamParam = VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : '';
 
@@ -44,6 +46,14 @@ async function buyDomainFromVercel(
 
   if (isNaN(expectedPrice) || expectedPrice <= 0) {
     return { success: false, error: 'Unable to determine domain price.', status: 502 };
+  }
+
+  if (maxPriceUsd !== undefined && expectedPrice > maxPriceUsd) {
+    return {
+      success: false,
+      error: `This domain costs $${expectedPrice.toFixed(2)}/yr, which exceeds the $${maxPriceUsd} limit included with Pro. Choose a domain under $${maxPriceUsd}/yr or purchase it at the full price.`,
+      status: 400,
+    };
   }
 
   // Purchase from Vercel
@@ -257,14 +267,15 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single();
 
-    // Purchase from Vercel (free with Pro)
+    // Purchase from Vercel (free with Pro — enforce $20 max)
     const result = await buyDomainFromVercel(
       domain,
       siteId,
       user.id,
       userProfile?.email || user.email || '',
       userProfile?.business_name,
-      supabase
+      supabase,
+      FREE_DOMAIN_MAX_USD,
     );
 
     if (!result.success) {

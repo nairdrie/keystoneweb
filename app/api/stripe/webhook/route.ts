@@ -3,6 +3,7 @@ import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { sendOrderConfirmation, sendOrderNotification, sendSubscriptionPurchaseEmail, sendSubscriptionCancelledEmail } from '@/lib/email';
 import { completeDomainPurchase } from '@/app/api/domains/purchase/route';
+import { initiateVercelTransfer } from '@/app/api/domains/transfer/route';
 import Stripe from 'stripe';
 import { trackEvent } from '@/lib/analytics';
 
@@ -74,6 +75,64 @@ export async function POST(request: NextRequest) {
           } else {
             console.error(`❌ Domain purchase failed for ${domain}:`, result.error);
             // The purchase record is already marked as 'failed' by completeDomainPurchase
+          }
+
+          break;
+        }
+
+        // ── Domain Transfer Payment ─────────────────────────────────
+        if (session.metadata?.type === 'domain_transfer') {
+          const { domainPurchaseId, domain, userId, transferPrice, freeCreditApplied } = session.metadata;
+
+          if (!domainPurchaseId || !domain || !userId || !transferPrice) {
+            console.error('Missing domain transfer metadata in checkout session');
+            return NextResponse.json({ error: 'Invalid session metadata' }, { status: 400 });
+          }
+
+          console.log(`Processing paid domain transfer: ${domain} for user ${userId}`);
+
+          // Retrieve stored auth code and contact info from the purchase record
+          const { data: purchase } = await supabase
+            .from('domain_purchases')
+            .select('transfer_auth_code, contact_first_name, contact_last_name, contact_email, contact_phone, contact_address1, contact_city, contact_state, contact_zip, contact_country')
+            .eq('id', domainPurchaseId)
+            .single();
+
+          if (!purchase?.transfer_auth_code) {
+            console.error(`Missing auth code for transfer ${domainPurchaseId}`);
+            break;
+          }
+
+          const result = await initiateVercelTransfer(
+            domainPurchaseId,
+            domain,
+            purchase.transfer_auth_code,
+            {
+              firstName: purchase.contact_first_name,
+              lastName: purchase.contact_last_name,
+              email: purchase.contact_email,
+              phone: purchase.contact_phone,
+              address1: purchase.contact_address1,
+              city: purchase.contact_city,
+              state: purchase.contact_state,
+              zip: purchase.contact_zip,
+              country: purchase.contact_country,
+            },
+            parseFloat(transferPrice),
+          );
+
+          if (result.success) {
+            console.log(`✅ Domain transfer initiated for ${domain}`);
+
+            // If free credit was applied, mark it as claimed
+            if (freeCreditApplied === 'true') {
+              await supabase
+                .from('user_subscriptions')
+                .update({ free_domain_claimed: true, free_domain_claimed_at: new Date().toISOString() })
+                .eq('user_id', userId);
+            }
+          } else {
+            console.error(`❌ Domain transfer failed for ${domain}:`, result.error);
           }
 
           break;

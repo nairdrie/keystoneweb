@@ -67,6 +67,28 @@ interface OwnedDomain {
   auto_renew: boolean;
 }
 
+interface TransferPriceData {
+  domain: string;
+  transferPrice: number;
+  freeDomainUsed: boolean;
+  isFreeEligible: boolean;
+  userOwesUsd: number;
+  userOwesCents: number;
+  freeCredit: number;
+}
+
+interface TransferContact {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  address1: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+}
+
 type DomainTab = 'subdomain' | 'custom';
 type CustomMode = 'search' | 'external';
 
@@ -255,9 +277,10 @@ function DomainSelectContent() {
   const siteId = searchParams.get('siteId');
   const sessionId = searchParams.get('session_id');
   const currentDomain = searchParams.get('currentDomain');
+  const transferInitiatedParam = searchParams.get('transfer_initiated') === 'true';
 
   // Shared state
-  const [activeTab, setActiveTab] = useState<DomainTab>('subdomain');
+  const [activeTab, setActiveTab] = useState<DomainTab>(transferInitiatedParam ? 'custom' : 'subdomain');
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -273,7 +296,7 @@ function DomainSelectContent() {
   const [checking, setChecking] = useState(false);
 
   // Custom domain state
-  const [customMode, setCustomMode] = useState<CustomMode>('search');
+  const [customMode, setCustomMode] = useState<CustomMode>(transferInitiatedParam ? 'external' : 'search');
   const [searchQuery, setSearchQuery] = useState('');
   const [recommendedResults, setRecommendedResults] = useState<DomainSearchResult[]>([]);
   const [otherResults, setOtherResults] = useState<DomainSearchResult[]>([]);
@@ -298,7 +321,22 @@ function DomainSelectContent() {
   // Owned domains state
   const [ownedDomains, setOwnedDomains] = useState<OwnedDomain[]>([]);
   const [loadingOwnedDomains, setLoadingOwnedDomains] = useState(false);
-  const [externalMode, setExternalMode] = useState<'owned' | 'import'>('import');
+  const [externalMode, setExternalMode] = useState<'owned' | 'import' | 'transfer'>(
+    transferInitiatedParam ? 'transfer' : 'import'
+  );
+
+  // Transfer state
+  const [transferDomain, setTransferDomain] = useState('');
+  const [transferPriceData, setTransferPriceData] = useState<TransferPriceData | null>(null);
+  const [transferPriceLoading, setTransferPriceLoading] = useState(false);
+  const [transferAuthCode, setTransferAuthCode] = useState('');
+  const [transferContact, setTransferContact] = useState<TransferContact>({
+    firstName: '', lastName: '', email: '', phone: '',
+    address1: '', city: '', state: '', zip: '', country: 'CA',
+  });
+  const [showTransferContact, setShowTransferContact] = useState(false);
+  const [transferring, setTransferring] = useState(false);
+  const [transferInitiated, setTransferInitiated] = useState(transferInitiatedParam);
 
   const isPro = userPlan?.toLowerCase().includes('pro');
 
@@ -591,6 +629,77 @@ function DomainSelectContent() {
       console.error(err);
     } finally {
       setLinking(false);
+    }
+  };
+
+  // ─── Transfer Domain ────────────────────────────────────────────────────
+
+  const fetchTransferPrice = useCallback(async (domain: string) => {
+    setTransferPriceData(null);
+    if (!domain || !domain.includes('.')) return;
+    setTransferPriceLoading(true);
+    try {
+      const res = await fetch(
+        `/api/domains/transfer-price?domain=${encodeURIComponent(domain)}`,
+        { credentials: 'include' }
+      );
+      if (!res.ok) return;
+      const data: TransferPriceData = await res.json();
+      setTransferPriceData(data);
+    } catch {
+      // silent — price just won't show
+    } finally {
+      setTransferPriceLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (externalMode !== 'transfer') return;
+    const cleaned = extractRootDomain(transferDomain);
+    const timer = setTimeout(() => {
+      if (cleaned && cleaned.includes('.')) fetchTransferPrice(cleaned);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [transferDomain, externalMode, fetchTransferPrice]);
+
+  const handleInitiateTransfer = async () => {
+    const cleaned = extractRootDomain(transferDomain);
+    if (!cleaned || !siteId || !transferAuthCode.trim()) return;
+
+    setTransferring(true);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/domains/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          siteId,
+          domain: cleaned,
+          authCode: transferAuthCode.trim(),
+          contact: transferContact,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.error || 'Failed to initiate transfer');
+      }
+
+      if (result.url) {
+        // Redirect to Stripe for paid transfers
+        window.location.href = result.url;
+        return;
+      }
+
+      // Free transfer — show pending state
+      setTransferInitiated(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to initiate transfer');
+    } finally {
+      setTransferring(false);
     }
   };
 
@@ -1138,8 +1247,8 @@ function DomainSelectContent() {
                       }
                       return (unallocated.length > 0 || loadingOwnedDomains) ? (
                         <>
-                          {/* Mode toggle for owned vs import */}
-                          <div className="flex gap-2">
+                          {/* Mode toggle for owned / import / transfer */}
+                          <div className="flex gap-2 flex-wrap">
                             <button
                               onClick={() => setExternalMode('owned')}
                               className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold border-2 transition-all ${externalMode === 'owned'
@@ -1158,7 +1267,17 @@ function DomainSelectContent() {
                               }`}
                             >
                               <ExternalLink className="w-4 h-4" />
-                              Import from Other Provider
+                              Connect via DNS
+                            </button>
+                            <button
+                              onClick={() => setExternalMode('transfer')}
+                              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold border-2 transition-all ${externalMode === 'transfer'
+                                ? 'border-red-600 bg-red-50 text-red-700'
+                                : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                              }`}
+                            >
+                              <ArrowRight className="w-4 h-4" />
+                              Transfer to Keystone
                             </button>
                           </div>
 
@@ -1202,8 +1321,34 @@ function DomainSelectContent() {
                       ) : null;
                     })()}
 
+                    {/* When no owned domains: show the import/transfer toggle */}
+                    {ownedDomains.filter((d) => !d.site_id && d.status === 'completed').length === 0 && !loadingOwnedDomains && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setExternalMode('import')}
+                          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold border-2 transition-all ${externalMode === 'import'
+                            ? 'border-red-600 bg-red-50 text-red-700'
+                            : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                          }`}
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          Connect via DNS
+                        </button>
+                        <button
+                          onClick={() => setExternalMode('transfer')}
+                          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold border-2 transition-all ${externalMode === 'transfer'
+                            ? 'border-red-600 bg-red-50 text-red-700'
+                            : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                          }`}
+                        >
+                          <ArrowRight className="w-4 h-4" />
+                          Transfer to Keystone
+                        </button>
+                      </div>
+                    )}
+
                     {/* Import from Other Provider */}
-                    {(externalMode === 'import' || ownedDomains.filter((d) => !d.site_id && d.status === 'completed').length === 0) && !dnsInstructions ? (
+                    {(externalMode === 'import' || (ownedDomains.filter((d) => !d.site_id && d.status === 'completed').length === 0 && externalMode !== 'transfer')) && !dnsInstructions ? (
                       <>
                         <div>
                           <label className="block text-sm font-semibold text-slate-900 mb-2">
@@ -1433,6 +1578,170 @@ function DomainSelectContent() {
                         </button>
                       </div>
                     ) : null}
+
+                    {/* ──── Transfer to Keystone ────────────────────── */}
+                    {externalMode === 'transfer' && (
+                      <div className="space-y-4">
+                        {transferInitiated ? (
+                          <div className="p-5 bg-green-50 border border-green-200 rounded-lg text-center space-y-2">
+                            <CheckCircle2 className="w-8 h-8 text-green-600 mx-auto" />
+                            <h3 className="font-bold text-green-900">Transfer Initiated!</h3>
+                            <p className="text-sm text-green-800">
+                              Watch for an approval email from your current registrar — you&apos;ll need to confirm the transfer there. This typically takes <strong>5–7 days</strong> to complete.
+                            </p>
+                            <p className="text-xs text-green-700 mt-1">
+                              Once approved, your domain will automatically point to your Keystone site.
+                            </p>
+                          </div>
+                        ) : (
+                          <>
+                            {/* Pre-transfer checklist */}
+                            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                              <h3 className="text-sm font-bold text-amber-900 mb-2">Before you begin</h3>
+                              <ol className="space-y-1.5 text-xs text-amber-800 list-decimal list-inside">
+                                <li>Log into your current registrar and <strong>unlock</strong> the domain (sometimes called &quot;disable domain lock&quot;)</li>
+                                <li>Get your <strong>EPP / Authorization code</strong> from your registrar (usually under domain settings)</li>
+                                <li>Make sure DNSSEC is <strong>disabled</strong> at your current registrar</li>
+                                <li>Domain must be <strong>at least 60 days old</strong> (ICANN requirement)</li>
+                              </ol>
+                            </div>
+
+                            {/* Domain input + live price */}
+                            <div>
+                              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                                Domain to Transfer
+                              </label>
+                              <input
+                                type="text"
+                                value={transferDomain}
+                                onChange={(e) => setTransferDomain(e.target.value)}
+                                placeholder="e.g., mybusiness.com"
+                                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg text-slate-900 font-medium placeholder-slate-400 focus:ring-2 focus:ring-red-600 focus:border-transparent"
+                              />
+                              {/* Pricing feedback */}
+                              <div className="mt-2 min-h-[20px]">
+                                {transferPriceLoading && (
+                                  <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    Checking transfer price…
+                                  </div>
+                                )}
+                                {!transferPriceLoading && transferPriceData && (
+                                  <div className="flex items-center gap-2">
+                                    {transferPriceData.isFreeEligible ? (
+                                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
+                                        <Check className="w-3 h-3" />
+                                        Included with Pro
+                                      </span>
+                                    ) : transferPriceData.userOwesUsd > 0 && !transferPriceData.freeDomainUsed ? (
+                                      <span className="text-xs text-slate-700">
+                                        <span className="font-bold">${transferPriceData.userOwesUsd.toFixed(2)} USD</span>
+                                        <span className="text-slate-500 ml-1">
+                                          (${transferPriceData.transferPrice.toFixed(2)} transfer − ${transferPriceData.freeCredit} Pro credit)
+                                        </span>
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs font-bold text-slate-800">
+                                        ${transferPriceData.userOwesUsd.toFixed(2)} USD/yr
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* EPP code */}
+                            <div>
+                              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                                EPP / Authorization Code
+                              </label>
+                              <input
+                                type="text"
+                                value={transferAuthCode}
+                                onChange={(e) => setTransferAuthCode(e.target.value)}
+                                placeholder="Paste your EPP code here"
+                                className="w-full px-4 py-2.5 border border-slate-300 rounded-lg font-mono text-slate-900 text-sm placeholder-slate-400 focus:ring-2 focus:ring-red-600 focus:border-transparent"
+                              />
+                              <p className="text-xs text-slate-500 mt-1">
+                                Get this from your current registrar under domain settings.
+                              </p>
+                            </div>
+
+                            {/* Contact info (collapsible) */}
+                            <div>
+                              <button
+                                onClick={() => setShowTransferContact(!showTransferContact)}
+                                className="flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900 transition-colors"
+                              >
+                                {showTransferContact ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                Registrant Contact Info
+                                <span className="text-xs font-normal text-slate-500">(required by ICANN)</span>
+                              </button>
+                              {showTransferContact && (
+                                <div className="mt-3 grid grid-cols-2 gap-3">
+                                  {(
+                                    [
+                                      { key: 'firstName', label: 'First Name', placeholder: 'Jane' },
+                                      { key: 'lastName', label: 'Last Name', placeholder: 'Smith' },
+                                      { key: 'email', label: 'Email', placeholder: 'jane@example.com', full: true },
+                                      { key: 'phone', label: 'Phone (E.164)', placeholder: '+1.4165551234', full: true },
+                                      { key: 'address1', label: 'Address', placeholder: '123 Main St', full: true },
+                                      { key: 'city', label: 'City', placeholder: 'Toronto' },
+                                      { key: 'state', label: 'Province / State', placeholder: 'ON' },
+                                      { key: 'zip', label: 'Postal Code', placeholder: 'M5V 3A8' },
+                                      { key: 'country', label: 'Country Code', placeholder: 'CA' },
+                                    ] as Array<{ key: keyof TransferContact; label: string; placeholder: string; full?: boolean }>
+                                  ).map(({ key, label, placeholder, full }) => (
+                                    <div key={key} className={full ? 'col-span-2' : ''}>
+                                      <label className="block text-xs font-semibold text-slate-600 mb-1">{label}</label>
+                                      <input
+                                        type="text"
+                                        value={transferContact[key]}
+                                        onChange={(e) => setTransferContact((c) => ({ ...c, [key]: e.target.value }))}
+                                        placeholder={placeholder}
+                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-red-600 focus:border-transparent"
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Transfer note */}
+                            <p className="text-xs text-slate-500">
+                              Transfers take <strong>5–7 days</strong> to complete. You&apos;ll receive an approval email from your current registrar — you must click confirm there to complete the transfer.
+                            </p>
+
+                            {/* Submit */}
+                            <button
+                              onClick={handleInitiateTransfer}
+                              disabled={
+                                transferring ||
+                                !extractRootDomain(transferDomain).includes('.') ||
+                                !transferAuthCode.trim()
+                              }
+                              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                              {transferring ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  Initiating Transfer…
+                                </>
+                              ) : (
+                                <>
+                                  <ArrowRight className="w-4 h-4" />
+                                  {transferPriceData?.userOwesUsd === 0
+                                    ? 'Initiate Transfer — Free with Pro'
+                                    : transferPriceData
+                                      ? `Initiate Transfer — $${transferPriceData.userOwesUsd.toFixed(2)}`
+                                      : 'Initiate Transfer'}
+                                </>
+                              )}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
