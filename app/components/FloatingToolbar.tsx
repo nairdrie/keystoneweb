@@ -1276,25 +1276,57 @@ export default function FloatingToolbar({
                 className="z-[100] sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between rounded-t-3xl cursor-grab active:cursor-grabbing group"
                 onMouseDown={handleDragStart}
               >
-                <div
-                  className="cursor-pointer"
-                  onClick={() => {
-                    if (changes.length > 0) {
-                      setAlertConfig({
-                        isOpen: true,
-                        title: 'Unsaved Changes',
-                        message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
-                        type: 'warning',
-                        onConfirm: () => router.push('/'),
-                        confirmLabel: 'Leave',
-                        cancelLabel: 'Stay'
-                      });
-                    } else {
-                      router.push('/');
-                    }
-                  }}
-                >
-                  <KeystoneLogo href={undefined} size="lg" showText={false} />
+                <div className="flex items-center gap-2">
+                  <div
+                    className="cursor-pointer shrink-0"
+                    onClick={() => {
+                      if (changes.length > 0) {
+                        setAlertConfig({
+                          isOpen: true,
+                          title: 'Unsaved Changes',
+                          message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
+                          type: 'warning',
+                          onConfirm: () => router.push('/'),
+                          confirmLabel: 'Leave',
+                          cancelLabel: 'Stay'
+                        });
+                      } else {
+                        router.push('/');
+                      }
+                    }}
+                  >
+                    <KeystoneLogo href={undefined} size="lg" showText={false} />
+                  </div>
+
+                  {/* Design / Admin switcher */}
+                  <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-full">
+                    <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white shadow-sm text-slate-800 select-none">
+                      <Paintbrush className="w-3 h-3" />
+                      Design
+                    </span>
+                    <button
+                      onClick={() => {
+                        const dest = `/admin/analytics${currentSiteId ? `?siteId=${currentSiteId}` : ''}`;
+                        if (changes.length > 0) {
+                          setAlertConfig({
+                            isOpen: true,
+                            title: 'Unsaved Changes',
+                            message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
+                            type: 'warning',
+                            onConfirm: () => router.push(dest),
+                            confirmLabel: 'Leave',
+                            cancelLabel: 'Stay',
+                          });
+                        } else {
+                          router.push(dest);
+                        }
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold text-slate-500 hover:text-slate-800 hover:bg-white/70 transition-colors"
+                    >
+                      <LayoutDashboard className="w-3 h-3" />
+                      Admin
+                    </button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <ProfileDropdown onSettingsClick={(e) => {
