@@ -215,48 +215,66 @@ function checkButtonsAndLinks(data: DiagnosticData): DiagnosticResult[] {
     let totalButtons = 0;
     let unconfiguredButtons = 0;
 
-    for (const page of data.pages) {
-        const blocks = page.design_data?.blocks || page.design_data?.__blocks || [];
-        for (const block of blocks) {
-            const bd = block.data || {};
-            // Check EditableButton link data (keys ending in "Link")
-            for (const key of Object.keys(bd)) {
-                if (key.endsWith('Link') && typeof bd[key] === 'object' && bd[key]) {
-                    totalButtons++;
-                    const link = bd[key];
-                    const isUnconfigured = !link.href || link.href === '#' || link.href === '';
-                    if (isUnconfigured && link.linkType !== 'section') {
-                        unconfiguredButtons++;
-                        // Find the label key (strip "Link" suffix)
-                        const labelKey = key.replace(/Link$/, '');
-                        const label = bd[labelKey] || 'Unnamed button';
-                        results.push({
-                            id: `button-${page.id}-${block.id}-${key}`,
-                            category: 'Buttons & Links',
-                            label: `Unconfigured button: "${label}"`,
-                            severity: 'error',
-                            message: `Button "${label}" on page "${page.title || page.slug}" in ${block.type} block has no link destination.`,
-                            page: page.slug,
-                            blockType: block.type,
-                        });
-                    }
+    // Check a single object (block.data or an array item) for *Link keys and ctaUrl
+    const checkLinkObject = (obj: any, idPrefix: string, pageName: string, blockType: string, pageSlug: string, itemLabel?: string) => {
+        for (const key of Object.keys(obj)) {
+            if (key.endsWith('Link') && typeof obj[key] === 'object' && obj[key]) {
+                totalButtons++;
+                const link = obj[key];
+                const isUnconfigured = !link.href || link.href === '#' || link.href === '';
+                if (isUnconfigured && link.linkType !== 'section') {
+                    unconfiguredButtons++;
+                    const labelKey = key.replace(/Link$/, '');
+                    const label = obj[labelKey] || itemLabel || 'Unnamed button';
+                    results.push({
+                        id: `button-${idPrefix}-${key}`,
+                        category: 'Buttons & Links',
+                        label: `Unconfigured button: "${label}"`,
+                        severity: 'error',
+                        message: `Button "${label}" on page "${pageName}" in ${blockType} block has no link destination.`,
+                        page: pageSlug,
+                        blockType,
+                    });
                 }
             }
-            // Check ctaUrl on blocks that have ctaText
-            if (bd.ctaText && (!bd.ctaUrl || bd.ctaUrl === '#' || bd.ctaUrl === '')) {
-                totalButtons++;
-                unconfiguredButtons++;
-                results.push({
-                    id: `cta-${page.id}-${block.id}`,
-                    category: 'Buttons & Links',
-                    label: `Unconfigured CTA: "${bd.ctaText}"`,
-                    severity: 'error',
-                    message: `CTA button "${bd.ctaText}" on page "${page.title || page.slug}" in ${block.type} block has no URL.`,
-                    page: page.slug,
-                    blockType: block.type,
-                });
-            } else if (bd.ctaText && bd.ctaUrl) {
-                totalButtons++;
+        }
+        // Check ctaUrl on objects that have ctaText
+        if (obj.ctaText && (!obj.ctaUrl || obj.ctaUrl === '#' || obj.ctaUrl === '')) {
+            totalButtons++;
+            unconfiguredButtons++;
+            results.push({
+                id: `cta-${idPrefix}`,
+                category: 'Buttons & Links',
+                label: `Unconfigured CTA: "${obj.ctaText}"`,
+                severity: 'error',
+                message: `CTA button "${obj.ctaText}" on page "${pageName}" in ${blockType} block has no URL.`,
+                page: pageSlug,
+                blockType,
+            });
+        } else if (obj.ctaText && obj.ctaUrl) {
+            totalButtons++;
+        }
+    };
+
+    for (const page of data.pages) {
+        const blocks = page.design_data?.blocks || page.design_data?.__blocks || [];
+        const pageName = page.title || page.slug;
+        for (const block of blocks) {
+            const bd = block.data || {};
+            const blockPrefix = `${page.id}-${block.id}`;
+
+            // Check top-level keys
+            checkLinkObject(bd, blockPrefix, pageName, block.type, page.slug);
+
+            // Check one level deep into arrays (e.g. PricingBlock tiers)
+            for (const key of Object.keys(bd)) {
+                if (Array.isArray(bd[key])) {
+                    bd[key].forEach((item: any, index: number) => {
+                        if (item && typeof item === 'object' && !Array.isArray(item)) {
+                            checkLinkObject(item, `${blockPrefix}-${key}-${index}`, pageName, block.type, page.slug, item.name || item.label || item.title);
+                        }
+                    });
+                }
             }
         }
     }
