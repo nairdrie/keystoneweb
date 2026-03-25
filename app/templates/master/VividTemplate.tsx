@@ -137,7 +137,7 @@ export function VividTemplate({ palette, isEditMode, children }: MasterTemplateP
                     <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="flex items-center gap-3">
                             {(siteContent.footerLogo || siteContent.siteLogo) ? (
-                                <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-8 h-8 object-contain rounded-lg"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
+                                <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-8 h-8 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm" style={{ backgroundColor: pSecondary, color: pPrimary }}>
                                     {(siteContent.siteTitle || 'V')[0]?.toUpperCase()}

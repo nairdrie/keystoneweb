@@ -139,7 +139,7 @@ export function LuxeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                 <div className="max-w-6xl mx-auto px-6 text-center">
                     <div className="flex flex-col items-center gap-4 mb-4">
                         {(siteContent.footerLogo || siteContent.siteLogo) ? (
-                            <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-10 h-10 object-contain rounded-full"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
+                            <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-10 h-10 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                         ) : (
                             <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: pSecondary }}>
                                 {(siteContent.siteTitle || 'L')[0]?.toUpperCase()}

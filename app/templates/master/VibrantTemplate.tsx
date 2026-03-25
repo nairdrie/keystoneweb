@@ -139,7 +139,7 @@ export function VibrantTemplate({ palette, isEditMode, children }: MasterTemplat
                     <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-8 text-center">
                         <div className="flex items-center justify-center gap-2 mb-3">
                             {(siteContent.footerLogo || siteContent.siteLogo) ? (
-                                <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-7 h-7 object-contain rounded-lg"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
+                                <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-7 h-7 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-xs font-bold text-white">
                                     {(siteContent.siteTitle || 'V')[0]?.toUpperCase()}

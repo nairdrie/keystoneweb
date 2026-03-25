@@ -153,7 +153,7 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
                     <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
                         <div className="flex items-center justify-center gap-2 mb-3">
                             {(siteContent.footerLogo || siteContent.siteLogo) ? (
-                                <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-8 h-8 object-contain rounded-full"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
+                                <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-8 h-8 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: pPrimary }}>
                                     {(siteContent.siteTitle || 'A')[0]?.toUpperCase()}
