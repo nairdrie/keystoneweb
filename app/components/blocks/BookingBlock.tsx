@@ -548,6 +548,17 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
         if (data.service) setServices(services.map(s => s.id === service.id ? data.service : s));
     };
 
+    const handleStatusToggle = async (service: Service) => {
+        const newStatus = service.status === 'draft' ? 'published' : 'draft';
+        const res = await fetch('/api/bookings/services', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: service.id, status: newStatus }),
+        });
+        const data = await res.json();
+        if (data.service) setServices(services.map(s => s.id === service.id ? data.service : s));
+    };
+
     const inputCls = 'w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500';
 
     const draftServices = services.filter(s => s.status === 'draft');
@@ -634,6 +645,10 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
                         <button onClick={() => editingId === service.id ? (setEditingId(null), setEditState(null)) : startEdit(service)}
                             className="p-1 hover:bg-blue-50 rounded text-blue-400 hover:text-blue-600">
                             <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleStatusToggle(service)}
+                            className={`text-xs px-2 py-1 rounded border font-medium transition-colors ${service.status === 'draft' ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-slate-200 text-slate-500 hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700'}`}>
+                            {service.status === 'draft' ? 'Publish' : 'Draft'}
                         </button>
                         <button onClick={() => handleToggle(service)} className="text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600">
                             {service.is_active ? 'Disable' : 'Enable'}
