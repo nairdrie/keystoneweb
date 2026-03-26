@@ -5,7 +5,7 @@ import { useEditorContext } from '@/lib/editor-context';
 import {
     Calendar, Clock, Plus, Trash2, Settings, ChevronLeft, ChevronRight,
     Check, Loader2, User, Mail, Phone, MessageSquare, DollarSign, LayoutTemplate,
-    Edit2, Search, X, CreditCard, Package
+    Edit2, Search, X, CreditCard, Package, Star, Send
 } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -28,6 +28,9 @@ interface Service {
     category_id?: string | null;
     booking_categories?: { name: string } | null;
     options?: ServiceOption[] | null;
+    is_featured: boolean;
+    compare_at_price_cents?: number | null;
+    status: string;
 }
 
 interface Category {
@@ -389,7 +392,7 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
     const [adding, setAdding] = useState(false);
     // Track which service is being edited
     const [editingId, setEditingId] = useState<string | null>(null);
-    type EditState = { name: string; desc: string; duration: number; price: string; category: string; options: ServiceOption[] };
+    type EditState = { name: string; desc: string; duration: number; price: string; category: string; options: ServiceOption[]; isFeatured: boolean; compareAtPrice: string };
     const [editState, setEditState] = useState<EditState | null>(null);
     const [newName, setNewName] = useState('');
     const [newDuration, setNewDuration] = useState(30);
@@ -397,6 +400,9 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
     const [newDesc, setNewDesc] = useState('');
     const [newCategory, setNewCategory] = useState('');
     const [newOptions, setNewOptions] = useState<ServiceOption[]>([]);
+    const [newIsFeatured, setNewIsFeatured] = useState(false);
+    const [newCompareAtPrice, setNewCompareAtPrice] = useState('');
+    const [publishing, setPublishing] = useState(false);
 
     const startEdit = (service: Service) => {
         setEditingId(service.id);
@@ -407,6 +413,8 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
             price: (service.price_cents / 100).toFixed(2),
             category: service.category_id || '',
             options: service.options || [],
+            isFeatured: service.is_featured,
+            compareAtPrice: service.compare_at_price_cents ? (service.compare_at_price_cents / 100).toFixed(2) : '',
         });
     };
 
@@ -423,6 +431,8 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
                 price_cents: Math.round(parseFloat(editState.price) * 100),
                 category_id: editState.category || null,
                 options: editState.options.length > 0 ? editState.options : null,
+                is_featured: editState.isFeatured,
+                compare_at_price_cents: editState.compareAtPrice ? Math.round(parseFloat(editState.compareAtPrice) * 100) : null,
             }),
         });
         const data = await res.json();
@@ -445,14 +455,27 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
                 price_cents: Math.round(parseFloat(newPrice) * 100),
                 category_id: newCategory || null,
                 options: newOptions.length > 0 ? newOptions : null,
+                is_featured: newIsFeatured,
+                compare_at_price_cents: newCompareAtPrice ? Math.round(parseFloat(newCompareAtPrice) * 100) : null,
             }),
         });
         const data = await res.json();
         if (data.service) {
             setServices([...services, data.service]);
-            setNewName(''); setNewDuration(30); setNewPrice('0'); setNewDesc(''); setNewCategory(''); setNewOptions([]);
+            setNewName(''); setNewDuration(30); setNewPrice('0'); setNewDesc(''); setNewCategory(''); setNewOptions([]); setNewIsFeatured(false); setNewCompareAtPrice('');
         }
         setAdding(false);
+    };
+
+    const handlePublishAll = async () => {
+        setPublishing(true);
+        const res = await fetch('/api/bookings/services', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ siteId, publishAll: true }),
+        });
+        if (res.ok) setServices(services.map(s => s.status === 'draft' ? { ...s, status: 'published' } : s));
+        setPublishing(false);
     };
 
     const handleDelete = async (serviceId: string) => {
@@ -472,19 +495,36 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
 
     const inputCls = 'w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500';
 
+    const draftCount = services.filter(s => s.status === 'draft').length;
+
     return (
         <div className="space-y-4">
+            {draftCount > 0 && (
+                <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-sm text-amber-800 font-medium">
+                        {draftCount} service{draftCount !== 1 ? 's' : ''} not yet published
+                    </p>
+                    <button onClick={handlePublishAll} disabled={publishing}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg disabled:opacity-50 transition-colors">
+                        {publishing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                        Publish All
+                    </button>
+                </div>
+            )}
             {services.length === 0 && (
                 <p className="text-sm text-slate-400 text-center py-4">No services yet. Add your first service below.</p>
             )}
 
             {services.map(service => (
-                <div key={service.id} className={`rounded-lg border ${service.is_active ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50 opacity-60'}`}>
+                <div key={service.id} className={`rounded-lg border ${service.status === 'draft' ? 'border-amber-200 bg-amber-50/30' : service.is_active ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50 opacity-60'}`}>
                     {/* Row header */}
                     <div className="flex items-start gap-3 p-3">
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                                 <h4 className="font-semibold text-slate-900 text-sm">{service.name}</h4>
+                                {service.status === 'draft' && (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded border border-amber-200">Draft</span>
+                                )}
                                 <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">{service.duration_minutes} min</span>
                                 {service.price_cents > 0 && (
                                     <span className="text-xs font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
@@ -494,6 +534,11 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
                                 {service.options && service.options.length > 0 && (
                                     <span className="text-xs px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full flex items-center gap-1">
                                         <Package className="w-3 h-3" />{service.options.length} options
+                                    </span>
+                                )}
+                                {service.is_featured && (
+                                    <span className="text-xs px-2 py-0.5 bg-amber-50 text-amber-600 rounded-full flex items-center gap-1 border border-amber-200">
+                                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" /> Featured
                                     </span>
                                 )}
                             </div>
@@ -543,6 +588,31 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
                                 </select>
                             )}
                             <ServiceOptionsEditor options={editState.options} onChange={opts => setEditState({ ...editState, options: opts })} />
+                            {/* Featured toggle */}
+                            <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-white">
+                                <div className="flex items-center gap-2">
+                                    <Star className="w-4 h-4 text-amber-400" />
+                                    <div>
+                                        <p className="text-xs font-semibold text-slate-700">Featured</p>
+                                        <p className="text-[11px] text-slate-400">Pins to top of list with a highlight</p>
+                                    </div>
+                                </div>
+                                <button type="button"
+                                    onClick={() => setEditState({ ...editState, isFeatured: !editState.isFeatured })}
+                                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${editState.isFeatured ? 'bg-amber-400' : 'bg-slate-200'}`}>
+                                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${editState.isFeatured ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                                </button>
+                            </div>
+                            {editState.isFeatured && (
+                                <div>
+                                    <label className="text-xs font-medium text-slate-600 mb-1 block">Compare-at Price (original / was $)</label>
+                                    <input type="number" step="0.01" min="0" placeholder="e.g. 120.00"
+                                        value={editState.compareAtPrice}
+                                        onChange={e => setEditState({ ...editState, compareAtPrice: e.target.value })}
+                                        className={inputCls} />
+                                    <p className="text-[11px] text-slate-400 mt-1">Shown as a strikethrough next to the sale price. Leave blank to hide.</p>
+                                </div>
+                            )}
                             <div className="flex gap-2 pt-1">
                                 <button onClick={() => handleSaveEdit(service.id)}
                                     className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg flex items-center justify-center gap-2">
@@ -585,6 +655,31 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
                     </select>
                 )}
                 <ServiceOptionsEditor options={newOptions} onChange={setNewOptions} />
+                {/* Featured toggle */}
+                <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-white">
+                    <div className="flex items-center gap-2">
+                        <Star className="w-4 h-4 text-amber-400" />
+                        <div>
+                            <p className="text-xs font-semibold text-slate-700">Featured</p>
+                            <p className="text-[11px] text-slate-400">Pins to top of list with a highlight</p>
+                        </div>
+                    </div>
+                    <button type="button"
+                        onClick={() => setNewIsFeatured(v => !v)}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${newIsFeatured ? 'bg-amber-400' : 'bg-slate-200'}`}>
+                        <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${newIsFeatured ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                    </button>
+                </div>
+                {newIsFeatured && (
+                    <div>
+                        <label className="text-xs font-medium text-slate-600 mb-1 block">Compare-at Price (original / was $)</label>
+                        <input type="number" step="0.01" min="0" placeholder="e.g. 120.00"
+                            value={newCompareAtPrice}
+                            onChange={e => setNewCompareAtPrice(e.target.value)}
+                            className={inputCls} />
+                        <p className="text-[11px] text-slate-400 mt-1">Shown as a strikethrough next to the sale price. Leave blank to hide.</p>
+                    </div>
+                )}
                 <button onClick={handleAdd} disabled={adding || !newName.trim()}
                     className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg disabled:opacity-40 transition-colors flex items-center justify-center gap-2">
                     {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
@@ -873,7 +968,7 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
             ]);
             const svcData = await svcRes.json();
             const stData = await stRes.json();
-            setServices((svcData.services || []).filter((s: Service) => s.is_active));
+            setServices((svcData.services || []).filter((s: Service) => s.is_active && s.status === 'published'));
             setSettings(stData.settings || null);
             setLoading(false);
         })();
@@ -1004,12 +1099,14 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                     const activeCategories = Array.from(new Set(
                         services.filter(s => s.booking_categories?.name).map(s => s.booking_categories!.name)
                     ));
-                    const filtered = services.filter(s => {
-                        const catMatch = !selectedCategory || s.booking_categories?.name === selectedCategory;
-                        const q = searchQuery.toLowerCase();
-                        const textMatch = !q || s.name.toLowerCase().includes(q) || s.description?.toLowerCase().includes(q);
-                        return catMatch && textMatch;
-                    });
+                    const filtered = services
+                        .filter(s => {
+                            const catMatch = !selectedCategory || s.booking_categories?.name === selectedCategory;
+                            const q = searchQuery.toLowerCase();
+                            const textMatch = !q || s.name.toLowerCase().includes(q) || s.description?.toLowerCase().includes(q);
+                            return catMatch && textMatch;
+                        })
+                        .sort((a, b) => (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0));
                     return (
                         <div>
                             <h2 className="text-2xl font-bold text-slate-900 mb-4 text-center">Select a Service</h2>
@@ -1069,7 +1166,12 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                                                 setStep('date');
                                             }
                                         }}
-                                        className="w-full text-left p-4 rounded-xl border-2 border-slate-200 hover:border-slate-400 transition-all group bg-white">
+                                        className={`w-full text-left p-4 rounded-xl border-2 transition-all group bg-white ${service.is_featured ? 'border-amber-300 hover:border-amber-400 shadow-sm' : 'border-slate-200 hover:border-slate-400'}`}>
+                                        {service.is_featured && (
+                                            <div className="flex items-center gap-1 text-[11px] font-bold text-amber-600 uppercase tracking-wider mb-2">
+                                                <Star className="w-3 h-3 fill-amber-400 text-amber-400" /> Featured
+                                            </div>
+                                        )}
                                         <div className="flex items-start justify-between">
                                             <div>
                                                 <h3 className="font-bold text-slate-900 group-hover:text-blue-700 transition-colors">{service.name}</h3>
@@ -1091,9 +1193,14 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                                                 </div>
                                             </div>
                                             {service.price_cents > 0 && (
-                                                <span className="text-lg font-bold shrink-0 ml-3" style={{ color: pSecondary }}>
-                                                    {service.options && service.options.length > 0 ? `from $${Math.min(...service.options.map(o => o.price_cents)) / 100}` : `$${(service.price_cents / 100).toFixed(2)}`}
-                                                </span>
+                                                <div className="text-right shrink-0 ml-3">
+                                                    <span className="text-lg font-bold" style={{ color: pSecondary }}>
+                                                        {service.options && service.options.length > 0 ? `from $${Math.min(...service.options.map(o => o.price_cents)) / 100}` : `$${(service.price_cents / 100).toFixed(2)}`}
+                                                    </span>
+                                                    {service.is_featured && service.compare_at_price_cents && service.compare_at_price_cents > service.price_cents && (
+                                                        <div className="text-sm text-slate-400 line-through">${(service.compare_at_price_cents / 100).toFixed(2)}</div>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
                                     </button>

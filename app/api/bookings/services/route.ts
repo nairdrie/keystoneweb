@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { siteId, name, description, duration_minutes, price_cents, currency, category_id } = body;
+    const { siteId, name, description, duration_minutes, price_cents, currency, category_id, is_featured, compare_at_price_cents } = body;
 
     if (!siteId || !name) {
         return NextResponse.json({ error: 'Missing siteId or name' }, { status: 400 });
@@ -77,6 +77,8 @@ export async function POST(request: NextRequest) {
             price_cents: price_cents || 0,
             currency: currency || 'CAD',
             category_id: category_id || null,
+            is_featured: is_featured ?? false,
+            compare_at_price_cents: compare_at_price_cents ?? null,
             sort_order: nextOrder,
         })
         .select('*, booking_categories(name)')
@@ -98,7 +100,22 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, name, description, duration_minutes, price_cents, currency, is_active, sort_order, category_id } = body;
+    const { id, name, description, duration_minutes, price_cents, currency, is_active, sort_order, category_id, is_featured, compare_at_price_cents, status, siteId: bodySiteId, publishAll } = body;
+
+    // Bulk publish all drafts for a site
+    if (bodySiteId && publishAll === true) {
+        const { data: site } = await supabase.from('sites').select('user_id').eq('id', bodySiteId).single();
+        if (!site || site.user_id !== user.id) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+        const { error: pubError } = await supabase
+            .from('booking_services')
+            .update({ status: 'published', updated_at: new Date().toISOString() })
+            .eq('site_id', bodySiteId)
+            .eq('status', 'draft');
+        if (pubError) return NextResponse.json({ error: pubError.message }, { status: 500 });
+        return NextResponse.json({ success: true });
+    }
 
     if (!id) {
         return NextResponse.json({ error: 'Missing service id' }, { status: 400 });
@@ -113,6 +130,9 @@ export async function PUT(request: NextRequest) {
     if (is_active !== undefined) updates.is_active = is_active;
     if (sort_order !== undefined) updates.sort_order = sort_order;
     if (category_id !== undefined) updates.category_id = category_id;
+    if (is_featured !== undefined) updates.is_featured = is_featured;
+    if (compare_at_price_cents !== undefined) updates.compare_at_price_cents = compare_at_price_cents;
+    if (status !== undefined) updates.status = status;
 
     const { data, error } = await supabase
         .from('booking_services')

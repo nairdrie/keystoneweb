@@ -104,7 +104,22 @@ export async function PUT(request: NextRequest) {
     }
 
     const updates: Record<string, any> = { updated_at: new Date().toISOString() };
-    const allowedFields = ['name', 'description', 'price_cents', 'compare_at_cents', 'currency', 'images', 'variants', 'inventory_count', 'is_active', 'sort_order'];
+    // Bulk publish all drafts for a site
+    if (fields.siteId && fields.publishAll === true) {
+        const { data: site } = await supabase.from('sites').select('user_id').eq('id', fields.siteId).single();
+        if (!site || site.user_id !== user.id) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+        const { error: pubError } = await supabase
+            .from('products')
+            .update({ status: 'published', updated_at: new Date().toISOString() })
+            .eq('site_id', fields.siteId)
+            .eq('status', 'draft');
+        if (pubError) return NextResponse.json({ error: pubError.message }, { status: 500 });
+        return NextResponse.json({ success: true });
+    }
+
+    const allowedFields = ['name', 'description', 'price_cents', 'compare_at_cents', 'currency', 'images', 'variants', 'inventory_count', 'is_active', 'sort_order', 'status'];
 
     for (const key of allowedFields) {
         if (fields[key] !== undefined) updates[key] = fields[key];

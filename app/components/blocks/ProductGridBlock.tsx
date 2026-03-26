@@ -5,7 +5,7 @@ import { useEditorContext } from '@/lib/editor-context';
 import { useCart } from '../ecommerce/CartProvider';
 import {
     Package, Plus, Trash2, Loader2, ShoppingCart, X,
-    ImageIcon, Upload, GripVertical
+    ImageIcon, Upload, GripVertical, Send
 } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import StoreSettingsPanel from '../ecommerce/StoreSettingsPanel';
@@ -25,6 +25,7 @@ interface Product {
     inventory_count: number;
     is_active: boolean;
     sort_order: number;
+    status: string;
 }
 
 interface ProductGridBlockProps {
@@ -77,6 +78,7 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAdd, setShowAdd] = useState(false);
+    const [publishing, setPublishing] = useState(false);
 
     useEffect(() => {
         (async () => {
@@ -98,6 +100,17 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
         setProducts(products.filter(p => p.id !== productId));
     };
 
+    const handlePublishAll = async () => {
+        setPublishing(true);
+        const res = await fetch('/api/products', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ siteId, publishAll: true }),
+        });
+        if (res.ok) setProducts(products.map(p => p.status === 'draft' ? { ...p, status: 'published' } : p));
+        setPublishing(false);
+    };
+
     const handleToggle = async (product: Product) => {
         const res = await fetch('/api/products', {
             method: 'PUT',
@@ -117,11 +130,22 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
             <div className="max-w-2xl mx-auto">
                 <div className="bg-white border-2 border-blue-200 rounded-2xl shadow-sm overflow-hidden">
                     <div className="bg-blue-50 px-6 py-4 border-b border-blue-200">
-                        <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                            <Package className="w-5 h-5 text-blue-600" />
-                            Product Catalog
-                        </h3>
-                        <p className="text-sm text-slate-500 mt-1">{products.length} product{products.length !== 1 ? 's' : ''}</p>
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                    <Package className="w-5 h-5 text-blue-600" />
+                                    Product Catalog
+                                </h3>
+                                <p className="text-sm text-slate-500 mt-1">{products.length} product{products.length !== 1 ? 's' : ''}{products.some(p => p.status === 'draft') ? ` · ${products.filter(p => p.status === 'draft').length} draft` : ''}</p>
+                            </div>
+                            {products.some(p => p.status === 'draft') && (
+                                <button onClick={handlePublishAll} disabled={publishing}
+                                    className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg disabled:opacity-50 transition-colors">
+                                    {publishing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                                    Publish Drafts
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     <div className="p-6 space-y-3">
@@ -130,7 +154,7 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                         )}
 
                         {products.map(product => (
-                            <div key={product.id} className={`flex items-center gap-3 p-3 rounded-lg border ${product.is_active ? 'border-slate-200' : 'border-slate-100 bg-slate-50 opacity-60'}`}>
+                            <div key={product.id} className={`flex items-center gap-3 p-3 rounded-lg border ${product.status === 'draft' ? 'border-amber-200 bg-amber-50/40' : product.is_active ? 'border-slate-200' : 'border-slate-100 bg-slate-50 opacity-60'}`}>
                                 {product.images?.[0] ? (
                                     <img src={product.images[0]} alt={product.name} className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
                                 ) : (
@@ -139,7 +163,12 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                                     </div>
                                 )}
                                 <div className="flex-1 min-w-0">
-                                    <h4 className="font-semibold text-slate-900 text-sm truncate">{product.name}</h4>
+                                    <div className="flex items-center gap-2">
+                                        <h4 className="font-semibold text-slate-900 text-sm truncate">{product.name}</h4>
+                                        {product.status === 'draft' && (
+                                            <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded border border-amber-200">Draft</span>
+                                        )}
+                                    </div>
                                     <div className="flex items-center gap-2 mt-0.5">
                                         <span className="text-sm font-bold text-green-700">${(product.price_cents / 100).toFixed(2)}</span>
                                         {product.compare_at_cents && (
