@@ -204,7 +204,7 @@ export default function SettingsPage() {
                             </div>
 
                             <div className="p-6 bg-slate-50/50">
-                                {subscription ? (
+                                {subscription && subscription.subscription_status && subscription.subscription_status !== 'inactive' ? (
                                     <div className="space-y-6">
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
@@ -213,7 +213,7 @@ export default function SettingsPage() {
                                             </div>
                                             <div>
                                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Started As Of</p>
-                                                <p className="font-medium text-slate-700">{new Date(subscription.subscription_started_at).toLocaleDateString()}</p>
+                                                <p className="font-medium text-slate-700">{subscription.subscription_started_at ? new Date(subscription.subscription_started_at).toLocaleDateString() : '—'}</p>
                                             </div>
                                         </div>
 
