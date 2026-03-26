@@ -341,6 +341,21 @@ function CategoriesEditor({ siteId, categories, setCategories }: {
 
 // ─── Services Editor ────────────────────────────────────────────────────────────
 
+// ─── Sortable Option Row ─────────────────────────────────────────────────────────
+
+function SortableOptionRow({ id, children }: { id: string; children: React.ReactNode }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+    return (
+        <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
+            className="flex items-center gap-2 text-sm">
+            <button {...listeners} {...attributes} className="p-0.5 text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing touch-none">
+                <GripVertical className="w-3.5 h-3.5" />
+            </button>
+            {children}
+        </div>
+    );
+}
+
 // ─── Service Options Editor ─────────────────────────────────────────────────────
 
 function ServiceOptionsEditor({ options, onChange }: {
@@ -362,17 +377,34 @@ function ServiceOptionsEditor({ options, onChange }: {
         setNewOptPrice('');
     };
 
+    const optSensors = useSensors(
+        useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+        useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    );
+
+    const handleOptDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+        const oldIndex = options.findIndex(o => o.id === active.id);
+        const newIndex = options.findIndex(o => o.id === over.id);
+        if (oldIndex !== -1 && newIndex !== -1) onChange(arrayMove(options, oldIndex, newIndex));
+    };
+
     return (
         <div className="mt-3 border-t border-slate-100 pt-3 space-y-2">
             <p className="text-xs font-semibold text-slate-600 flex items-center gap-1"><Package className="w-3 h-3" /> Booking Options (variants)</p>
             <p className="text-[11px] text-slate-400">Add named packages with separate pricing (e.g. Single, 5-Pack). Leave empty to use the base price above.</p>
-            {options.map((opt, i) => (
-                <div key={opt.id} className="flex items-center gap-2 text-sm">
-                    <span className="flex-1 truncate text-slate-700">{opt.name}</span>
-                    <span className="text-green-700 font-semibold">${(opt.price_cents / 100).toFixed(2)}</span>
-                    <button onClick={() => onChange(options.filter((_, j) => j !== i))} className="p-0.5 text-red-400 hover:text-red-600"><X className="w-3.5 h-3.5" /></button>
-                </div>
-            ))}
+            <DndContext sensors={optSensors} collisionDetection={closestCenter} onDragEnd={handleOptDragEnd}>
+                <SortableContext items={options.map(o => o.id)} strategy={verticalListSortingStrategy}>
+                    {options.map((opt, i) => (
+                        <SortableOptionRow key={opt.id} id={opt.id}>
+                            <span className="flex-1 truncate text-slate-700">{opt.name}</span>
+                            <span className="text-green-700 font-semibold">${(opt.price_cents / 100).toFixed(2)}</span>
+                            <button onClick={() => onChange(options.filter((_, j) => j !== i))} className="p-0.5 text-red-400 hover:text-red-600"><X className="w-3.5 h-3.5" /></button>
+                        </SortableOptionRow>
+                    ))}
+                </SortableContext>
+            </DndContext>
             <div className="flex gap-2">
                 <input type="text" placeholder="Option name (e.g. 5-Pack)" value={newOptName}
                     onChange={e => setNewOptName(e.target.value)}
