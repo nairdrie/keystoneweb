@@ -998,7 +998,7 @@ function DomainSelectContent() {
                           ) : (
                             <Search className="w-4 h-4" />
                           )}
-                          Search
+                          <span className="hidden sm:inline">Search</span>
                         </button>
                       </div>
                       <p className="text-xs text-slate-500 mt-1.5">
