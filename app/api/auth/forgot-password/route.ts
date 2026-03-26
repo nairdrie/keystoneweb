@@ -1,29 +1,14 @@
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-
-  const supabase = createServerClient(
+  // resetPasswordForEmail is unauthenticated — no session cookies needed.
+  // Using a cookie-free client avoids stale/expired auth cookies in the request
+  // (e.g. from a Gmail in-app browser after sign-out) causing internal refresh
+  // failures that pollute the client and make this call error incorrectly.
+  const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // Handle errors silently
-          }
-        },
-      },
-    }
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
   );
 
   try {
