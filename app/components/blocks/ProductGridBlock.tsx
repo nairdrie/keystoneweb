@@ -79,6 +79,7 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
     const [loading, setLoading] = useState(true);
     const [showAdd, setShowAdd] = useState(false);
     const [publishing, setPublishing] = useState(false);
+    const [showDraftModal, setShowDraftModal] = useState(false);
 
     useEffect(() => {
         (async () => {
@@ -136,15 +137,49 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                                     <Package className="w-5 h-5 text-blue-600" />
                                     Product Catalog
                                 </h3>
-                                <p className="text-sm text-slate-500 mt-1">{products.length} product{products.length !== 1 ? 's' : ''}{products.some(p => p.status === 'draft') ? ` · ${products.filter(p => p.status === 'draft').length} draft` : ''}</p>
+                                <p className="text-sm text-slate-500 mt-1">{products.length} product{products.length !== 1 ? 's' : ''}</p>
                             </div>
-                            {products.some(p => p.status === 'draft') && (
-                                <button onClick={handlePublishAll} disabled={publishing}
-                                    className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg disabled:opacity-50 transition-colors">
+                            <div className="flex items-center gap-2 shrink-0">
+                                {/* Draft count badge + popover */}
+                                <div className="relative">
+                                    {(() => {
+                                        const draftProducts = products.filter(p => p.status === 'draft');
+                                        const dc = draftProducts.length;
+                                        return (
+                                            <>
+                                                <button
+                                                    onClick={() => dc > 0 && setShowDraftModal(v => !v)}
+                                                    className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${dc > 0 ? 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 cursor-pointer' : 'bg-slate-50 border-slate-200 text-slate-400 cursor-default'}`}
+                                                >
+                                                    <span className={`w-1.5 h-1.5 rounded-full ${dc > 0 ? 'bg-amber-400' : 'bg-slate-300'}`} />
+                                                    {dc} draft{dc !== 1 ? 's' : ''}
+                                                </button>
+                                                {showDraftModal && dc > 0 && (
+                                                    <>
+                                                        <div className="fixed inset-0 z-40" onClick={() => setShowDraftModal(false)} />
+                                                        <div className="absolute top-full right-0 mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-lg p-3 w-56">
+                                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Not yet live</p>
+                                                            <div className="space-y-1.5">
+                                                                {draftProducts.map(p => (
+                                                                    <div key={p.id} className="flex items-center gap-2 text-sm text-slate-700">
+                                                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                                                        <span className="truncate">{p.name}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                                <button onClick={handlePublishAll} disabled={publishing || !products.some(p => p.status === 'draft')}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                                     {publishing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                                     Publish Drafts
                                 </button>
-                            )}
+                            </div>
                         </div>
                     </div>
 

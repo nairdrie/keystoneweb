@@ -403,6 +403,7 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
     const [newIsFeatured, setNewIsFeatured] = useState(false);
     const [newCompareAtPrice, setNewCompareAtPrice] = useState('');
     const [publishing, setPublishing] = useState(false);
+    const [showDraftModal, setShowDraftModal] = useState(false);
 
     const startEdit = (service: Service) => {
         setEditingId(service.id);
@@ -495,22 +496,44 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
 
     const inputCls = 'w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500';
 
-    const draftCount = services.filter(s => s.status === 'draft').length;
+    const draftServices = services.filter(s => s.status === 'draft');
+    const draftCount = draftServices.length;
 
     return (
         <div className="space-y-4">
-            {draftCount > 0 && (
-                <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <p className="text-sm text-amber-800 font-medium">
-                        {draftCount} service{draftCount !== 1 ? 's' : ''} not yet published
-                    </p>
-                    <button onClick={handlePublishAll} disabled={publishing}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg disabled:opacity-50 transition-colors">
-                        {publishing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                        Publish All
+            {/* Publish toolbar */}
+            <div className="flex items-center justify-between gap-3">
+                <div className="relative">
+                    <button
+                        onClick={() => draftCount > 0 && setShowDraftModal(v => !v)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${draftCount > 0 ? 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 cursor-pointer' : 'bg-slate-50 border-slate-200 text-slate-400 cursor-default'}`}
+                    >
+                        <span className={`w-1.5 h-1.5 rounded-full ${draftCount > 0 ? 'bg-amber-400' : 'bg-slate-300'}`} />
+                        {draftCount} draft{draftCount !== 1 ? 's' : ''}
                     </button>
+                    {showDraftModal && draftCount > 0 && (
+                        <>
+                            <div className="fixed inset-0 z-40" onClick={() => setShowDraftModal(false)} />
+                            <div className="absolute top-full left-0 mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-lg p-3 w-56">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Not yet live</p>
+                                <div className="space-y-1.5">
+                                    {draftServices.map(s => (
+                                        <div key={s.id} className="flex items-center gap-2 text-sm text-slate-700">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                            <span className="truncate">{s.name}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
-            )}
+                <button onClick={handlePublishAll} disabled={publishing || draftCount === 0}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                    {publishing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                    Publish All
+                </button>
+            </div>
             {services.length === 0 && (
                 <p className="text-sm text-slate-400 text-center py-4">No services yet. Add your first service below.</p>
             )}
