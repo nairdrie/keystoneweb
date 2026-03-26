@@ -5,37 +5,9 @@ import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import JsonLdScript from '@/app/components/JsonLdScript';
 import { BusinessProfile } from '@/lib/types/sites';
-import type { Metadata } from 'next';
 import { fetchTranslationsConfig } from '@/lib/translations/resolve';
 
 export const dynamic = 'force-dynamic'; // Always fetch fresh data
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ subdomain: string }>;
-}): Promise<Metadata> {
-  const { subdomain } = await params;
-  const supabase = await createClient();
-
-  const { data: site } = await supabase
-    .from('sites')
-    .select('published_data, business_profile')
-    .eq('published_domain', subdomain)
-    .eq('is_published', true)
-    .single();
-
-  const publishedData = site?.published_data || {};
-  const businessProfile = site?.business_profile as BusinessProfile | null;
-
-  const title = publishedData.siteTitle || publishedData.title || `${subdomain}.kswd.ca`;
-  const description = publishedData.tagline || publishedData.description || 'A site built with Keystone Web.';
-
-  return {
-    title,
-    description,
-  };
-}
 
 export default async function PublicSitePage({
   params,

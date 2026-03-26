@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
-import { ChevronDown, Plus, Paintbrush, LayoutDashboard, ExternalLink, Pencil, Check, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2 } from 'lucide-react';
+import { ChevronDown, Plus, Paintbrush, LayoutDashboard, ExternalLink, Pencil, Check, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu } from 'lucide-react';
 import KeystoneLogo from '@/app/components/KeystoneLogo';
 import ProfileDropdown from '@/app/components/ProfileDropdown';
 import AlertModal from '@/app/components/ui/AlertModal';
@@ -45,6 +45,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [userSites, setUserSites] = useState<Site[]>([]);
   const [isProUser, setIsProUser] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   const hasFetchedRef = useRef<string | null>(null);
 
@@ -189,9 +190,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         </div>
 
         {/* ── Hero / Site Header ── */}
-        <div className="flex-none bg-white border-b border-slate-200 px-6 pt-5 pb-4">
+        <div className="flex-none bg-white border-b border-slate-200 px-4 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-4">
           {/* Site name row */}
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start justify-between gap-2 sm:gap-4">
             <div className="min-w-0">
               {isRenaming ? (
                 <div className="flex items-center gap-2">
@@ -200,7 +201,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                     value={renameDraft}
                     onChange={e => setRenameDraft(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') setIsRenaming(false); }}
-                    className="text-2xl font-black text-slate-900 bg-white border border-slate-300 rounded-lg px-3 py-1 focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none w-64 sm:w-80"
+                    className="text-xl sm:text-2xl font-black text-slate-900 bg-white border border-slate-300 rounded-lg px-3 py-1 focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none w-48 sm:w-80"
                     placeholder="Site name"
                   />
                   <button onClick={handleSaveTitle} disabled={saving} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors shrink-0">
@@ -212,15 +213,15 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                 </div>
               ) : (
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-2xl font-black text-slate-900 tracking-tight truncate">
-                    {siteTitle || 'Untitled Site'} <span className="text-slate-400 font-light">Dashboard</span>
+                  <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight truncate">
+                    {siteTitle || 'Untitled Site'} <span className="text-slate-400 font-light hidden sm:inline">Dashboard</span>
                   </h1>
                   <button
                     onClick={() => { setRenameDraft(siteTitle); setIsRenaming(true); }}
                     className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors shrink-0 mt-0.5"
                   >
                     <Pencil className="w-3 h-3" />
-                    Rename
+                    <span className="hidden sm:inline">Rename</span>
                   </button>
                 </div>
               )}
@@ -319,26 +320,72 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           </div>
         </div>
 
-        {/* ── Tabs ── */}
-        <div className="flex-none bg-white border-b border-slate-200 px-4 py-2 flex gap-1.5 overflow-x-auto">
-          {TABS.map(tab => {
-            const Icon = tab.icon;
-            const isActive = activeTabId === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => navigateTab(tab.path)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
-                  isActive
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                {tab.label}
-              </button>
-            );
-          })}
+        {/* ── Tabs (desktop) / Hamburger (mobile) ── */}
+        <div className="flex-none bg-white border-b border-slate-200">
+          {/* Mobile: current tab + hamburger */}
+          <div className="sm:hidden flex items-center justify-between px-4 py-2">
+            {(() => {
+              const activeTab = TABS.find(t => t.id === activeTabId);
+              const Icon = activeTab?.icon;
+              return (
+                <span className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                  {Icon && <Icon className="w-3.5 h-3.5" />}
+                  {activeTab?.label}
+                </span>
+              );
+            })()}
+            <button
+              onClick={() => setShowMobileMenu(v => !v)}
+              className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+              aria-label="Toggle navigation menu"
+            >
+              {showMobileMenu ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+            </button>
+          </div>
+
+          {/* Mobile dropdown menu */}
+          {showMobileMenu && (
+            <div className="sm:hidden border-t border-slate-100 px-2 pb-2 space-y-0.5">
+              {TABS.map(tab => {
+                const Icon = tab.icon;
+                const isActive = activeTabId === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => { navigateTab(tab.path); setShowMobileMenu(false); }}
+                    className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                      isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Desktop: regular tabs */}
+          <div className="hidden sm:flex gap-1.5 px-4 py-2">
+            {TABS.map(tab => {
+              const Icon = tab.icon;
+              const isActive = activeTabId === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => navigateTab(tab.path)}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
+                    isActive
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* ── Tab Content ── */}
