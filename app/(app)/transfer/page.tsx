@@ -159,7 +159,7 @@ function TransferContent() {
           </div>
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Site Transfer</h1>
           <p className="text-slate-600 mb-6">
-            <strong>{transfer.senderName || transfer.senderEmail}</strong> wants to transfer the site <strong>&ldquo;{transfer.siteName}&rdquo;</strong> to you.
+            <strong>{transfer.senderName || transfer.senderEmail}</strong> wants to transfer the site <strong>&ldquo;{transfer.siteName}&rdquo;</strong> to <strong>{user.email}</strong>.
           </p>
 
           <div className="bg-slate-50 rounded-lg p-4 mb-6 text-left">
@@ -170,6 +170,10 @@ function TransferContent() {
             <div className="flex justify-between text-sm mb-2">
               <span className="text-slate-500">From</span>
               <span className="font-semibold text-slate-900">{transfer.senderEmail}</span>
+            </div>
+            <div className="flex justify-between text-sm mb-2">
+              <span className="text-slate-500">To</span>
+              <span className="font-semibold text-slate-900">{user.email}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-slate-500">Expires</span>
