@@ -1,5 +1,6 @@
 import React from 'react';
 import EditableText from '../EditableText';
+import EditableButton from '../EditableButton';
 import { Plus, X } from 'lucide-react';
 import Reveal from '@/app/components/Reveal';
 
@@ -139,37 +140,18 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
                 )}
 
                 {/* Optional CTA Link */}
-                {(data.ctaText || data.ctaUrl || isEditMode) && (
+                {(data.ctaText || isEditMode) && (
                     <Reveal className="text-center mt-12">
-                        {isEditMode ? (
-                            <div className="inline-flex flex-col items-center gap-2">
-                                <EditableText
-                                    as="span"
-                                    contentKey="ctaText"
-                                    content={data.ctaText}
-                                    defaultValue="See All Services →"
-                                    isEditMode={isEditMode}
-                                    onSave={(key, value) => updateContent(key, value)}
-                                    className="text-lg font-semibold cursor-text"
-                                    style={{ color: pSecondary }}
-                                />
-                                <input
-                                    type="text"
-                                    value={data.ctaUrl || ''}
-                                    onChange={(e) => updateContent('ctaUrl', e.target.value)}
-                                    placeholder="Link URL (e.g. /services)"
-                                    className="text-xs text-slate-900 placeholder:text-slate-400 bg-slate-50 border border-slate-200 rounded px-2 py-1 w-64 text-center focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                />
-                            </div>
-                        ) : data.ctaText && data.ctaUrl ? (
-                            <a
-                                href={data.ctaUrl}
-                                className="text-lg font-semibold hover:underline transition-colors"
-                                style={{ color: pSecondary }}
-                            >
-                                {data.ctaText}
-                            </a>
-                        ) : null}
+                        <EditableButton
+                            contentKey="ctaText"
+                            label={data.ctaText}
+                            linkData={data.ctaTextLink}
+                            defaultLabel="See All Services →"
+                            isEditMode={isEditMode}
+                            onSave={(key, value) => updateContent(key, value)}
+                            className="text-lg font-semibold hover:underline transition-colors"
+                            style={{ color: pSecondary }}
+                        />
                     </Reveal>
                 )}
             </div>

@@ -892,7 +892,7 @@ export default function FloatingToolbar({
           )}
         </div>
 
-        {/* Prepublish Doctor Section */}
+        {/* Health Check Section */}
         <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
           <button
             onClick={() => toggleSection('doctor')}
@@ -900,7 +900,7 @@ export default function FloatingToolbar({
           >
             <span className="text-xs font-bold text-rose-700 uppercase tracking-wide flex items-center gap-1.5">
               <Stethoscope className="w-3.5 h-3.5" />
-              Prepublish Doctor
+              Health Check
             </span>
             <ChevronDown className={`w-4 h-4 text-rose-500 transition-transform ${openSections.includes('doctor') ? 'rotate-180' : ''}`} />
           </button>

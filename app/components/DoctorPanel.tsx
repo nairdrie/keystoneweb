@@ -17,6 +17,7 @@ interface DiagnosticResult {
     message: string;
     page?: string;
     blockType?: string;
+    link?: string;
 }
 
 interface DiagnosticData {
@@ -39,7 +40,7 @@ function checkSiteBasics(data: DiagnosticData): DiagnosticResult[] {
     const results: DiagnosticResult[] = [];
     const dd = data.site.design_data || {};
 
-    if (!dd.title && !dd.__siteTitle) {
+    if (!dd.siteTitle && !dd.title && !dd.__siteTitle) {
         results.push({
             id: 'site-title',
             category: 'Site Setup',
@@ -83,6 +84,7 @@ function checkSiteBasics(data: DiagnosticData): DiagnosticResult[] {
             label: 'SEO title',
             severity: 'warning',
             message: 'No SEO title set. Search engines will use your site title as a fallback.',
+            link: '/admin/seo',
         });
     } else {
         results.push({
@@ -101,6 +103,7 @@ function checkSiteBasics(data: DiagnosticData): DiagnosticResult[] {
             label: 'SEO description',
             severity: 'warning',
             message: 'No meta description set. This helps search engines understand your site.',
+            link: '/admin/seo',
         });
     } else {
         results.push({
@@ -293,8 +296,8 @@ function checkButtonsAndLinks(data: DiagnosticData): DiagnosticResult[] {
             }
         }
 
-        // Check ctaUrl on objects that have ctaText
-        if (obj.ctaText && isUnconfiguredHref(obj.ctaUrl)) {
+        // Check ctaUrl on objects that have ctaText (skip if using EditableButton pattern via ctaTextLink)
+        if (obj.ctaText && isUnconfiguredHref(obj.ctaUrl) && !('ctaTextLink' in obj)) {
             totalButtons++;
             unconfiguredButtons++;
             results.push({
@@ -306,7 +309,7 @@ function checkButtonsAndLinks(data: DiagnosticData): DiagnosticResult[] {
                 page: pageSlug,
                 blockType,
             });
-        } else if (obj.ctaText && obj.ctaUrl) {
+        } else if (obj.ctaText && (obj.ctaUrl || 'ctaTextLink' in obj)) {
             totalButtons++;
         }
     };
@@ -701,7 +704,7 @@ export default function DoctorPanel({ siteId }: DoctorPanelProps) {
     return (
         <div className="p-4 space-y-4">
             <div className="text-sm text-slate-600">
-                Run a full diagnostic check on your site before publishing. This will scan every page for missing configurations, broken links, and incomplete setups.
+                Run a full health check on your site before publishing. This will scan every page for missing configurations, broken links, and incomplete setups.
             </div>
 
             <button
@@ -718,7 +721,7 @@ export default function DoctorPanel({ siteId }: DoctorPanelProps) {
                 ) : (
                     <>
                         <RefreshCw className="w-4 h-4" />
-                        {results ? 'Re-run Diagnostics' : 'Run Diagnostics'}
+                        {results ? 'Re-run Health Check' : 'Run Health Check'}
                     </>
                 )}
             </button>
@@ -815,6 +818,15 @@ export default function DoctorPanel({ siteId }: DoctorPanelProps) {
                                                         <div className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
                                                             {item.message}
                                                         </div>
+                                                        {item.link && item.severity !== 'pass' && (
+                                                            <a
+                                                                href={item.link}
+                                                                className="inline-flex items-center gap-1 text-[11px] text-violet-600 hover:text-violet-800 font-medium mt-1"
+                                                            >
+                                                                Fix this
+                                                                <ExternalLink className="w-3 h-3" />
+                                                            </a>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ))}
