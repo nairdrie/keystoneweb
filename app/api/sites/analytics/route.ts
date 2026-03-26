@@ -47,13 +47,18 @@ export async function GET(req: NextRequest) {
     since.setDate(since.getDate() - days);
 
     // Fetch raw visits for the period
-    const { data: visits } = await admin
+    const { data: visits, error: visitsError } = await admin
       .from('site_visits')
       .select('visitor_hash, page_path, referrer_source, device_type, browser, os, duration_ms, session_id, created_at')
       .eq('site_id', siteId)
       .gte('created_at', since.toISOString())
       .order('created_at', { ascending: false })
       .limit(10000);
+
+    if (visitsError) {
+      console.error('[analytics] Query failed:', visitsError.message, visitsError.details);
+      return NextResponse.json({ error: 'Failed to fetch analytics' }, { status: 500 });
+    }
 
     const rows = visits || [];
 

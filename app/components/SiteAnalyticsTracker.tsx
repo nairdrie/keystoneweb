@@ -49,7 +49,11 @@ export default function SiteAnalyticsTracker({ siteId }: { siteId: string }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
       keepalive: true,
-    }).catch(() => {}); // fire-and-forget
+    })
+      .then((res) => {
+        if (!res.ok) console.warn('[ks-analytics] Track failed:', res.status);
+      })
+      .catch(() => {}); // fire-and-forget
 
     // Send duration on page unload via beacon
     const sendDuration = () => {

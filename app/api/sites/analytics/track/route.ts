@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     const os = detectOS(ua);
 
     const admin = createAdminClient();
-    await admin.from('site_visits').insert({
+    const { error: insertError } = await admin.from('site_visits').insert({
       site_id: siteId,
       visitor_hash: visitorHash,
       page_path: pagePath || '/',
@@ -48,6 +48,11 @@ export async function POST(req: NextRequest) {
       session_id: sessionId || null,
       duration_ms: durationMs || null,
     });
+
+    if (insertError) {
+      console.error('[analytics/track] Insert failed:', insertError.message, insertError.details);
+      return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {
