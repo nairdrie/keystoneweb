@@ -20,8 +20,8 @@ export async function generateMetadata({
 
   const publishedData = site?.published_data || {};
 
-  const title = publishedData.siteTitle || publishedData.title || `${subdomain}.kswd.ca`;
-  const description = publishedData.tagline || publishedData.description || 'A site built with Keystone Web.';
+  const title = publishedData.seoTitle || publishedData.siteTitle || publishedData.title || `${subdomain}.kswd.ca`;
+  const description = publishedData.seoDescription || publishedData.tagline || publishedData.description || 'A site built with Keystone Web.';
 
   return { title, description };
 }

@@ -29,9 +29,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  return NextResponse.json({ 
+  return NextResponse.json({
     businessProfile: site.business_profile || null,
-    socialLinks: (site.design_data as any)?.socialLinks || null
+    socialLinks: (site.design_data as any)?.socialLinks || null,
+    seoTitle: (site.design_data as any)?.seoTitle || '',
+    seoDescription: (site.design_data as any)?.seoDescription || '',
   });
 }
 
@@ -44,7 +46,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { siteId, businessProfile, socialLinks } = body;
+  const { siteId, businessProfile, socialLinks, seoTitle, seoDescription } = body;
 
   if (!siteId) {
     return NextResponse.json({ error: 'siteId is required' }, { status: 400 });
@@ -65,10 +67,12 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  // Merge socialLinks into existing design_data
+  // Merge seoTitle, seoDescription, and socialLinks into existing design_data
   const updatedDesignData = {
     ...(site.design_data as any || {}),
-    socialLinks: socialLinks || (site.design_data as any)?.socialLinks || {}
+    socialLinks: socialLinks || (site.design_data as any)?.socialLinks || {},
+    ...(seoTitle !== undefined ? { seoTitle } : {}),
+    ...(seoDescription !== undefined ? { seoDescription } : {}),
   };
 
   const { error: updateError } = await supabase
