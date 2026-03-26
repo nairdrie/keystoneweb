@@ -15,6 +15,7 @@ export default function OpsHeader({ userEmail, openSupportCount = 0 }: { userEma
     { href: '/', label: 'Overview' },
     { href: '/users', label: 'Users' },
     { href: '/support', label: 'Support', count: openSupportCount },
+    { href: '/scraper', label: 'Scraper' },
   ];
 
   return (
