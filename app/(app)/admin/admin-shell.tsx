@@ -289,24 +289,15 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             {/* Action buttons */}
             <div className="flex items-center gap-2 shrink-0">
               {liveUrl ? (
-                <>
-                  <a
-                    href={liveUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-bold rounded-lg transition-colors"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">View Live</span>
-                  </a>
-                  <button
-                    onClick={() => router.push(`/design?siteId=${siteId}`)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-bold rounded-lg transition-colors hover:brightness-110"
-                    style={{ backgroundColor: 'var(--brand-primary, #dc2626)' }}
-                  >
-                    Publish Update
-                  </button>
-                </>
+                <a
+                  href={liveUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-bold rounded-lg transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">View Live</span>
+                </a>
               ) : (
                 <button
                   onClick={() => router.push(`/design?siteId=${siteId}`)}

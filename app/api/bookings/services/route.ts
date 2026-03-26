@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { siteId, name, description, duration_minutes, price_cents, currency, category_id, is_featured, compare_at_price_cents } = body;
+    const { siteId, name, description, duration_minutes, price_cents, currency, category_id, is_featured, compare_at_price_cents, options } = body;
 
     if (!siteId || !name) {
         return NextResponse.json({ error: 'Missing siteId or name' }, { status: 400 });
@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
             category_id: category_id || null,
             is_featured: is_featured ?? false,
             compare_at_price_cents: compare_at_price_cents ?? null,
+            options: options ?? null,
             sort_order: nextOrder,
         })
         .select('*, booking_categories(name)')
@@ -100,7 +101,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, name, description, duration_minutes, price_cents, currency, is_active, sort_order, category_id, is_featured, compare_at_price_cents, status, siteId: bodySiteId, publishAll } = body;
+    const { id, name, description, duration_minutes, price_cents, currency, is_active, sort_order, category_id, is_featured, compare_at_price_cents, options, status, siteId: bodySiteId, publishAll } = body;
 
     // Bulk publish all drafts for a site
     if (bodySiteId && publishAll === true) {
@@ -132,6 +133,7 @@ export async function PUT(request: NextRequest) {
     if (category_id !== undefined) updates.category_id = category_id;
     if (is_featured !== undefined) updates.is_featured = is_featured;
     if (compare_at_price_cents !== undefined) updates.compare_at_price_cents = compare_at_price_cents;
+    if (options !== undefined) updates.options = options;
     if (status !== undefined) updates.status = status;
 
     const { data, error } = await supabase

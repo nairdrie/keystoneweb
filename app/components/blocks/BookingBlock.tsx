@@ -5,8 +5,16 @@ import { useEditorContext } from '@/lib/editor-context';
 import {
     Calendar, Clock, Plus, Trash2, Settings, ChevronLeft, ChevronRight,
     Check, Loader2, User, Mail, Phone, MessageSquare, DollarSign, LayoutTemplate,
-    Edit2, Search, X, CreditCard, Package, Star, Send
+    Edit2, Search, X, CreditCard, Package, Star, Send, GripVertical
 } from 'lucide-react';
+import {
+    DndContext, closestCenter, MouseSensor, TouchSensor, useSensor, useSensors,
+    type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+    SortableContext, useSortable, arrayMove, verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -381,6 +389,28 @@ function ServiceOptionsEditor({ options, onChange }: {
     );
 }
 
+// ─── Sortable Service Row ────────────────────────────────────────────────────────
+
+function SortableServiceRow({ id, children }: {
+    id: string;
+    children: (dragProps: { listeners: any; attributes: any }) => React.ReactNode;
+}) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+    return (
+        <div
+            ref={setNodeRef}
+            style={{
+                transform: CSS.Transform.toString(transform),
+                transition,
+                opacity: isDragging ? 0.4 : 1,
+                zIndex: isDragging ? 10 : undefined,
+            }}
+        >
+            {children({ listeners, attributes })}
+        </div>
+    );
+}
+
 // ─── Services Editor ────────────────────────────────────────────────────────────
 
 function ServicesEditor({ siteId, services, setServices, categories }: {
@@ -404,6 +434,30 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
     const [newCompareAtPrice, setNewCompareAtPrice] = useState('');
     const [publishing, setPublishing] = useState(false);
     const [showDraftModal, setShowDraftModal] = useState(false);
+
+    const sensors = useSensors(
+        useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+        useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    );
+
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+        const oldIndex = services.findIndex(s => s.id === active.id);
+        const newIndex = services.findIndex(s => s.id === over.id);
+        if (oldIndex === -1 || newIndex === -1) return;
+        const reordered = arrayMove(services, oldIndex, newIndex);
+        setServices(reordered);
+        await Promise.all(
+            reordered.map((s, i) =>
+                fetch('/api/bookings/services', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: s.id, sort_order: i }),
+                })
+            )
+        );
+    };
 
     const startEdit = (service: Service) => {
         setEditingId(service.id);
@@ -538,10 +592,17 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
                 <p className="text-sm text-slate-400 text-center py-4">No services yet. Add your first service below.</p>
             )}
 
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={services.map(s => s.id)} strategy={verticalListSortingStrategy}>
             {services.map(service => (
-                <div key={service.id} className={`rounded-lg border ${service.status === 'draft' ? 'border-amber-200 bg-amber-50/30' : service.is_active ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50 opacity-60'}`}>
+                <SortableServiceRow key={service.id} id={service.id}>
+                {({ listeners, attributes }) => (
+                <div className={`rounded-lg border ${service.status === 'draft' ? 'border-amber-200 bg-amber-50/30' : service.is_active ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50 opacity-60'}`}>
                     {/* Row header */}
                     <div className="flex items-start gap-3 p-3">
+                        <button {...listeners} {...attributes} className="mt-0.5 p-0.5 text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing touch-none">
+                            <GripVertical className="w-4 h-4" />
+                        </button>
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                                 <h4 className="font-semibold text-slate-900 text-sm">{service.name}</h4>
@@ -649,7 +710,11 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
                         </div>
                     )}
                 </div>
+                )}
+                </SortableServiceRow>
             ))}
+                </SortableContext>
+            </DndContext>
 
             {/* Add new service */}
             <div className="border-2 border-dashed border-slate-200 rounded-lg p-4 space-y-3">
