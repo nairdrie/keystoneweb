@@ -77,6 +77,7 @@ function checkSiteBasics(data: DiagnosticData): DiagnosticResult[] {
     }
 
     // SEO checks
+    const seoLink = `/admin/seo?siteId=${data.site.id}`;
     if (!dd.seoTitle && !dd.__seoTitle) {
         results.push({
             id: 'seo-title',
@@ -84,7 +85,7 @@ function checkSiteBasics(data: DiagnosticData): DiagnosticResult[] {
             label: 'SEO title',
             severity: 'warning',
             message: 'No SEO title set. Search engines will use your site title as a fallback.',
-            link: '/admin/seo',
+            link: seoLink,
         });
     } else {
         results.push({
@@ -103,7 +104,7 @@ function checkSiteBasics(data: DiagnosticData): DiagnosticResult[] {
             label: 'SEO description',
             severity: 'warning',
             message: 'No meta description set. This helps search engines understand your site.',
-            link: '/admin/seo',
+            link: seoLink,
         });
     } else {
         results.push({
@@ -341,7 +342,6 @@ function checkButtonsAndLinks(data: DiagnosticData): DiagnosticResult[] {
     const dd = data.site.design_data || {};
     const navItems = dd.__navItems || [];
     const pageIds = new Set(data.pages.map((p: any) => p.id));
-    const pageSlugs = new Set(data.pages.map((p: any) => p.slug));
 
     const checkNavItem = (item: any) => {
         if (item.linkType === 'page' && item.pageId && !pageIds.has(item.pageId)) {
@@ -641,11 +641,11 @@ const SEVERITY_ORDER: Record<Severity, number> = { error: 0, warning: 1, pass: 2
 function SeverityIcon({ severity }: { severity: Severity }) {
     switch (severity) {
         case 'error':
-            return <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />;
+            return <XCircle className="w-4 h-4 text-red-500 shrink-0" />;
         case 'warning':
-            return <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />;
+            return <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />;
         case 'pass':
-            return <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />;
+            return <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />;
     }
 }
 

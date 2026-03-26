@@ -141,7 +141,7 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
 
                 {/* Optional CTA Link */}
                 {(data.ctaText || isEditMode) && (
-                    <Reveal className="text-center mt-12">
+                    <Reveal className="flex justify-center mt-12">
                         <EditableButton
                             contentKey="ctaText"
                             label={data.ctaText}
