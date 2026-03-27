@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Copy, Check as CheckIcon, Link, History, Paintbrush, LayoutDashboard, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
@@ -175,9 +175,11 @@ export default function FloatingToolbar({
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [siteCustomDomain, setSiteCustomDomain] = useState<string | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [isGeneratingTransfer, setIsGeneratingTransfer] = useState(false);
-  const [transferUrl, setTransferUrl] = useState<string | null>(null);
-  const [copiedTransfer, setCopiedTransfer] = useState(false);
+  const [transferEmail, setTransferEmail] = useState('');
+  const [transferIncludeDomain, setTransferIncludeDomain] = useState(false);
+  const [isSendingTransfer, setIsSendingTransfer] = useState(false);
+  const [transferSent, setTransferSent] = useState(false);
+  const [transferError, setTransferError] = useState<string | null>(null);
   const [isRenamingSite, setIsRenamingSite] = useState(false);
   const [siteTitleDraft, setSiteTitleDraft] = useState('');
 
@@ -339,47 +341,31 @@ export default function FloatingToolbar({
     }
   };
 
-  const handleGenerateTransferLink = async () => {
-    if (!currentSiteId) return;
-    setIsGeneratingTransfer(true);
-    setTransferUrl(null);
+  const handleSendTransfer = async () => {
+    if (!currentSiteId || !transferEmail.trim()) return;
+    setIsSendingTransfer(true);
+    setTransferError(null);
     try {
       const res = await fetch('/api/sites/transfer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ siteId: currentSiteId }),
+        body: JSON.stringify({
+          siteId: currentSiteId,
+          recipientEmail: transferEmail.trim(),
+          includeDomain: transferIncludeDomain,
+        }),
       });
       if (res.ok) {
-        const data = await res.json();
-        setTransferUrl(data.transferUrl);
+        setTransferSent(true);
       } else {
         const data = await res.json();
-        setAlertConfig({ isOpen: true, title: 'Transfer Failed', message: data.error || 'Failed to generate transfer link.', type: 'error' });
+        setTransferError(data.error || 'Failed to send transfer.');
       }
     } catch {
-      setAlertConfig({ isOpen: true, title: 'Transfer Failed', message: 'An unexpected error occurred.', type: 'error' });
+      setTransferError('An unexpected error occurred.');
     } finally {
-      setIsGeneratingTransfer(false);
-    }
-  };
-
-  const handleCopyTransferUrl = async () => {
-    if (!transferUrl) return;
-    try {
-      await navigator.clipboard.writeText(transferUrl);
-      setCopiedTransfer(true);
-      setTimeout(() => setCopiedTransfer(false), 2000);
-    } catch {
-      // Fallback
-      const input = document.createElement('input');
-      input.value = transferUrl;
-      document.body.appendChild(input);
-      input.select();
-      document.execCommand('copy');
-      document.body.removeChild(input);
-      setCopiedTransfer(true);
-      setTimeout(() => setCopiedTransfer(false), 2000);
+      setIsSendingTransfer(false);
     }
   };
 
@@ -947,40 +933,51 @@ export default function FloatingToolbar({
                 {/* Transfer Site */}
                 <div>
                   <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2">Transfer Site</h3>
-                  <p className="text-xs text-slate-500 mb-3">Generate a link to transfer ownership of this site to someone else. The link expires in 7 days.</p>
+                  <p className="text-xs text-slate-500 mb-3">Send this site to someone else. They'll receive an email with a link to claim it. The link expires in 7 days.</p>
 
-                  {!transferUrl ? (
-                    <button
-                      onClick={handleGenerateTransferLink}
-                      disabled={isGeneratingTransfer}
-                      className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-semibold text-xs rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      <Share2 className="w-3.5 h-3.5" />
-                      {isGeneratingTransfer ? 'Generating...' : 'Generate Transfer Link'}
-                    </button>
+                  {transferSent ? (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-center space-y-2">
+                      <p className="text-xs text-green-800 font-semibold">Transfer email sent!</p>
+                      <p className="text-[10px] text-green-700">An email has been sent to <strong>{transferEmail}</strong>. They'll have 7 days to claim it.</p>
+                      <button
+                        onClick={() => { setTransferSent(false); setTransferEmail(''); setTransferIncludeDomain(false); setTransferError(null); }}
+                        className="text-[10px] text-green-700 underline hover:no-underline"
+                      >
+                        Send to someone else
+                      </button>
+                    </div>
                   ) : (
                     <div className="space-y-2">
-                      <div className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-200 rounded-lg">
-                        <Link className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                        <span className="text-[10px] text-slate-600 truncate flex-1">{transferUrl}</span>
-                        <button
-                          onClick={handleCopyTransferUrl}
-                          className="p-1 hover:bg-slate-200 rounded transition-colors flex-shrink-0"
-                          title="Copy link"
-                        >
-                          {copiedTransfer ? (
-                            <CheckIcon className="w-3.5 h-3.5 text-green-600" />
-                          ) : (
-                            <Copy className="w-3.5 h-3.5 text-slate-500" />
-                          )}
-                        </button>
-                      </div>
+                      <input
+                        type="email"
+                        value={transferEmail}
+                        onChange={(e) => setTransferEmail(e.target.value)}
+                        placeholder="recipient@example.com"
+                        className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 placeholder-slate-400"
+                      />
+                      {siteCustomDomain && (
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={transferIncludeDomain}
+                            onChange={(e) => setTransferIncludeDomain(e.target.checked)}
+                            className="w-3.5 h-3.5 accent-blue-600"
+                          />
+                          <span className="text-[11px] text-slate-600">
+                            Include domain <span className="font-mono text-slate-700">{siteCustomDomain}</span>
+                          </span>
+                        </label>
+                      )}
+                      {transferError && (
+                        <p className="text-[10px] text-red-600">{transferError}</p>
+                      )}
                       <button
-                        onClick={handleGenerateTransferLink}
-                        disabled={isGeneratingTransfer}
-                        className="w-full text-xs text-slate-500 hover:text-slate-700 font-medium transition-colors disabled:opacity-50"
+                        onClick={handleSendTransfer}
+                        disabled={isSendingTransfer || !transferEmail.trim()}
+                        className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 font-semibold text-xs rounded-lg transition-colors disabled:opacity-50"
                       >
-                        Generate new link (invalidates previous)
+                        <Share2 className="w-3.5 h-3.5" />
+                        {isSendingTransfer ? 'Sending...' : 'Send Transfer Email'}
                       </button>
                     </div>
                   )}
