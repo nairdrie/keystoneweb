@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
-import { getPlanByName, calculateOverageCost, type PlanConfig } from '@/lib/plans';
+import { getPlanByName, calculateOverageCost } from '@/lib/plans';
 
 /**
  * GET /api/user/usage
@@ -49,27 +49,8 @@ export async function GET(request: NextRequest) {
 
     const siteIds = userSites?.map(s => s.id) || [];
 
-    let totalVisitors = 0;
-    let totalViews = 0;
-
-    if (siteIds.length > 0) {
-      // Sum up usage from site_usage_daily for the current period
-      const { data: usageRows } = await supabase
-        .from('site_usage_daily')
-        .select('unique_visitors, total_views')
-        .in('site_id', siteIds)
-        .gte('date', periodStart.toISOString().split('T')[0])
-        .lte('date', periodEnd.toISOString().split('T')[0]);
-
-      if (usageRows) {
-        for (const row of usageRows) {
-          totalVisitors += row.unique_visitors;
-          totalViews += row.total_views;
-        }
-      }
-    }
-
-    // Check monthly rollup too (might have more accurate data)
+    // Read totals from the pre-aggregated monthly rollup (populated by the daily cron).
+    // site_usage_daily is the source for that rollup, so summing it again would be redundant.
     const { data: monthlyUsage } = await supabase
       .from('user_usage_monthly')
       .select('total_visitors, total_views, overage_visitors, overage_reported')
@@ -77,11 +58,8 @@ export async function GET(request: NextRequest) {
       .eq('period_start', periodStart.toISOString().split('T')[0])
       .single();
 
-    // Use whichever is higher (daily sum or monthly rollup)
-    if (monthlyUsage && monthlyUsage.total_visitors > totalVisitors) {
-      totalVisitors = monthlyUsage.total_visitors;
-      totalViews = monthlyUsage.total_views;
-    }
+    const totalVisitors = monthlyUsage?.total_visitors ?? 0;
+    const totalViews = monthlyUsage?.total_views ?? 0;
 
     const overageVisitors = Math.max(0, totalVisitors - visitorLimit);
     const overageCost = plan ? calculateOverageCost(plan, totalVisitors) : 0;
