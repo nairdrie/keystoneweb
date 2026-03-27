@@ -20,7 +20,7 @@ export default function OpsHeader({
   const pathname = usePathname();
 
   const navLinks = [
-    ...(isAdmin ? [{ href: '/', label: 'Overview' }] : []),
+    { href: '/', label: 'Overview' },
     ...(isAdmin ? [{ href: '/users', label: 'Users' }] : []),
     { href: '/support', label: 'Support', count: openSupportCount },
     ...(isAdmin ? [{ href: '/agents', label: 'Agents' }] : []),
