@@ -484,6 +484,54 @@ export async function sendContactFormNotification(data: ContactEmailData, ownerE
     }
 }
 
+/**
+ * Send a reply from the site owner (or AI) back to a contact form submitter.
+ * `fromAddress` should be a verified Resend sender (e.g. contact@keystoneweb.ca).
+ */
+export async function sendContactReplyEmail(data: {
+    toEmail: string;
+    toName: string;
+    fromAddress: string;   // verified sender address
+    fromName: string;      // display name, e.g. business name
+    replyText: string;
+    originalMessage: string;
+    submissionId: string;  // used as a thread reference token
+}) {
+    try {
+        const { data: sent, error } = await resend.emails.send({
+            from: `${data.fromName} <${data.fromAddress}>`,
+            to: data.toEmail,
+            replyTo: data.fromAddress,
+            subject: `Re: Your message to ${data.fromName}`,
+            html: `
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;">
+                    <div style="background:#f9fafb;border-left:4px solid #dc2626;padding:16px 20px;border-radius:0 8px 8px 0;margin-bottom:24px;">
+                        <p style="margin:0;font-size:15px;color:#111827;line-height:1.6;">${data.replyText.replace(/\n/g, '<br>')}</p>
+                    </div>
+                    <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+                    <p style="font-size:12px;color:#9ca3af;margin:0 0 8px;">Your original message:</p>
+                    <blockquote style="margin:0;padding:12px 16px;background:#f3f4f6;border-radius:6px;font-size:13px;color:#6b7280;line-height:1.6;">
+                        ${data.originalMessage.replace(/\n/g, '<br>')}
+                    </blockquote>
+                    <p style="margin-top:24px;font-size:11px;color:#d1d5db;text-align:center;">
+                        ref:${data.submissionId}
+                    </p>
+                </div>
+            `,
+        });
+
+        if (error) {
+            console.error('Failed to send contact reply email:', error);
+            return { success: false, error };
+        }
+
+        return { success: true, messageId: sent?.id };
+    } catch (error) {
+        console.error('Failed to send contact reply email:', error);
+        return { success: false, error };
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // Subscription Emails
 // ═══════════════════════════════════════════════════════════════════════════════
