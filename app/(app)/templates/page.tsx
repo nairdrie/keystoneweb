@@ -1,119 +1,213 @@
-import { getAllTemplateMetadata } from '@/lib/db/template-queries';
+'use client';
+
+import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Header from '../../components/Header';
+import MarketingFooter from '../../components/MarketingFooter';
 
-export default async function TemplatesPage() {
-    const templates = await getAllTemplateMetadata();
+const TEMPLATES = [
+  {
+    id: 'luxe',
+    name: 'Luxe',
+    tagline: 'Refined. Elegant. Unforgettable.',
+    description: 'Centered logo, serif typography, and warm gold accents. Built for brands that want to make a lasting first impression.',
+    bestFor: ['Salons & Spas', 'Photographers', 'Boutiques', 'Fine Dining'],
+    accent: '#c9a96e',
+    bg: 'from-stone-900 to-stone-800',
+    badge: 'bg-amber-100 text-amber-800',
+  },
+  {
+    id: 'vivid',
+    name: 'Vivid',
+    tagline: 'Bold. Energetic. In your face.',
+    description: 'Chunky sans-serif, punchy headlines, and unapologetic color. Perfect when you want your brand to own the room.',
+    bestFor: ['Fitness Studios', 'Food & Drink', 'Creative Agencies', 'Retail'],
+    accent: '#f97316',
+    bg: 'from-orange-600 to-red-600',
+    badge: 'bg-orange-100 text-orange-800',
+  },
+  {
+    id: 'airy',
+    name: 'Airy',
+    tagline: 'Light. Spacious. Breathable.',
+    description: 'Floating navigation, generous whitespace, and rounded soft elements. Ideal for brands that lead with calm confidence.',
+    bestFor: ['Wellness Coaches', 'Yoga & Pilates', 'Consultants', 'Portfolios'],
+    accent: '#38bdf8',
+    bg: 'from-sky-400 to-blue-500',
+    badge: 'bg-sky-100 text-sky-800',
+  },
+  {
+    id: 'edge',
+    name: 'Edge',
+    tagline: 'Dark. Sharp. Relentless.',
+    description: 'A dark canvas with neon accents and angular layouts. Commands attention and signals that you mean serious business.',
+    bestFor: ['Tech & Software', 'Music & Events', 'Automotive', 'Modern Retail'],
+    accent: '#a855f7',
+    bg: 'from-slate-950 to-purple-950',
+    badge: 'bg-purple-100 text-purple-800',
+  },
+  {
+    id: 'classic',
+    name: 'Classic',
+    tagline: 'Structured. Trusted. Timeless.',
+    description: 'Utility bar, traditional navigation, and a clean grid layout. The template people trust when trust is everything.',
+    bestFor: ['Trades & Contractors', 'Law & Finance', 'Healthcare', 'Real Estate'],
+    accent: '#1e40af',
+    bg: 'from-blue-900 to-slate-900',
+    badge: 'bg-blue-100 text-blue-800',
+  },
+  {
+    id: 'organic',
+    name: 'Organic',
+    tagline: 'Warm. Natural. Human.',
+    description: 'Earthy tones, rounded shapes, and a tactile warmth that makes visitors feel at home immediately.',
+    bestFor: ['Restaurants & Cafes', 'Home Services', 'Landscaping', 'Health Food'],
+    accent: '#65a30d',
+    bg: 'from-lime-700 to-emerald-800',
+    badge: 'bg-lime-100 text-lime-800',
+  },
+  {
+    id: 'sleek',
+    name: 'Sleek',
+    tagline: 'Minimal. Precise. Powerful.',
+    description: 'Ultra-minimal layout, bold oversized typography, and a monochrome palette with a single deliberate accent color.',
+    bestFor: ['Consultants', 'Architects', 'Designers', 'Professional Services'],
+    accent: '#0f172a',
+    bg: 'from-slate-800 to-slate-700',
+    badge: 'bg-slate-100 text-slate-800',
+  },
+  {
+    id: 'vibrant',
+    name: 'Vibrant',
+    tagline: 'Playful. Gradient. Dynamic.',
+    description: 'Gradient headers, rounded cards, and a high-energy layout that keeps visitors engaged and clicking.',
+    bestFor: ['E-Commerce', 'Events & Activities', 'Kids & Family', 'Food Delivery'],
+    accent: '#ec4899',
+    bg: 'from-pink-500 to-violet-600',
+    badge: 'bg-pink-100 text-pink-800',
+  },
+];
 
-    // Group templates by business type for display
-    const groupedTemplates = templates.reduce((acc, template) => {
-        const type = template.business_type || 'Other';
-        if (!acc[type]) acc[type] = [];
-        acc[type].push(template);
-        return acc;
-    }, {} as Record<string, typeof templates>);
+export default function TemplatesPage() {
+  return (
+    <main className="min-h-screen bg-white">
+      <Header />
 
-    return (
-        <main className="min-h-screen bg-slate-50">
-            <Header />
+      {/* Hero */}
+      <section className="pt-32 pb-16 px-4 bg-white border-b border-slate-200">
+        <div className="max-w-4xl mx-auto text-center">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 text-slate-700 font-bold text-sm mb-6 border border-slate-200"
+          >
+            8 Premium Designs
+          </motion.div>
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="text-5xl md:text-6xl font-black text-slate-900 mb-6 tracking-tight"
+          >
+            A Template for Every<br />
+            <span className="text-red-600">Kind of Business</span>
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="text-lg text-slate-600 max-w-2xl mx-auto"
+          >
+            Eight distinct design personalities. Each one fully customizable with your colors, content,
+            and brand. Pick your starting point — the AI handles the rest.
+          </motion.p>
+        </div>
+      </section>
 
-            {/* Hero Section */}
-            <section className="pt-32 pb-16 px-4 bg-white border-b border-slate-200">
-                <div className="max-w-4xl mx-auto text-center">
-                    <h1 className="text-4xl md:text-5xl font-black text-slate-900 mb-6">
-                        Website Templates for Every Business
-                    </h1>
-                    <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-                        Browse our collection of professionally designed, mobile-responsive templates. Choose a starting point and customize it perfectly to fit your brand.
-                    </p>
+      {/* Templates Grid */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-slate-50">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10">
+          {TEMPLATES.map((template, i) => (
+            <motion.div
+              key={template.id}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-60px' }}
+              transition={{ duration: 0.5, delay: (i % 2) * 0.1 }}
+              className="group bg-white rounded-3xl border border-slate-200 overflow-hidden hover:border-red-300 hover:shadow-2xl transition-all duration-300"
+            >
+              {/* Screenshot placeholder */}
+              <div className={`relative aspect-[16/9] bg-gradient-to-br ${template.bg} flex items-center justify-center overflow-hidden`}>
+                {/* Placeholder — swap for real <Image> when screenshots are ready */}
+                <div className="text-center">
+                  <div className="text-white/20 text-7xl font-black mb-2">{template.name[0]}</div>
+                  <div className="text-white/40 text-xs font-medium uppercase tracking-widest">Screenshot coming soon</div>
                 </div>
-            </section>
-
-            {/* Templates Grid */}
-            <section className="py-16 px-4 sm:px-6 lg:px-8">
-                <div className="max-w-7xl mx-auto space-y-20">
-
-                    {Object.entries(groupedTemplates).map(([type, items]) => (
-                        <div key={type}>
-                            <div className="flex items-center justify-between mb-8">
-                                <h2 className="text-2xl font-bold text-slate-900 capitalize">{type} Templates</h2>
-                                <span className="text-sm font-medium text-slate-500">{items.length} designs</span>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-                                {items.map((template) => (
-                                    <div key={template.template_id} className="group flex flex-col bg-white rounded-2xl overflow-hidden border border-slate-200 hover:border-red-300 hover:shadow-xl transition-all duration-300">
-                                        {/* Thumbnail Image */}
-                                        <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
-                                            <img
-                                                src={template.thumbnail_url || `https://images.unsplash.com/photo-1460925895917-aeb19be489c7?w=600&h=450&fit=crop&q=80&t=${encodeURIComponent(template.template_id)}`}
-                                                alt={template.name}
-                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                                loading="lazy"
-                                            />
-                                            {/* Overlay CTA */}
-                                            <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/40 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                                <Link
-                                                    href="/onboarding"
-                                                    className="px-6 py-2 bg-white text-slate-900 font-bold rounded-full hover:scale-105 transition-transform shadow-lg"
-                                                >
-                                                    Use Template
-                                                </Link>
-                                            </div>
-                                        </div>
-
-                                        {/* Meta Data */}
-                                        <div className="p-6 flex flex-col flex-grow">
-                                            <div className="flex items-start justify-between mb-2">
-                                                <h3 className="text-lg font-bold text-slate-900">{template.name}</h3>
-                                                <span className="px-2.5 py-1 bg-slate-100 text-slate-600 text-xs font-semibold rounded-md border border-slate-200">
-                                                    {template.category}
-                                                </span>
-                                            </div>
-                                            <p className="text-slate-500 text-sm mb-4 line-clamp-2">
-                                                {template.description || "A clean, modern layout designed to convert visitors into customers."}
-                                            </p>
-
-                                            {/* Color Palette Preview */}
-                                            <div className="mt-auto">
-                                                <div className="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wide">Included Colors</div>
-                                                <div className="flex gap-2">
-                                                    {Object.entries(template.palettes || {}).map(([key, palette], idx) => {
-                                                        // Only show up to 3 palette previews
-                                                        if (idx > 3) return null;
-                                                        const mainColor = (palette as any).primary || (palette as any).background || '#ccc';
-                                                        return (
-                                                            <div
-                                                                key={key}
-                                                                className="w-5 h-5 rounded-full border border-slate-200 shadow-sm"
-                                                                style={{ backgroundColor: mainColor }}
-                                                                title={key}
-                                                            />
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
-
-                </div>
-            </section>
-
-            {/* Footer CTA */}
-            <section className="py-20 bg-red-600 text-center px-4">
-                <h2 className="text-3xl font-black text-white mb-6">Found the perfect design?</h2>
-                <Link
+                {/* Hover overlay */}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  <Link
                     href="/onboarding"
-                    className="inline-block px-8 py-4 rounded-full bg-white text-red-600 font-bold text-lg hover:bg-red-50 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1"
-                >
-                    Start Building Now
-                </Link>
-            </section>
+                    className="px-6 py-3 bg-white text-slate-900 font-bold rounded-full hover:scale-105 transition-transform shadow-xl"
+                  >
+                    Use {template.name}
+                  </Link>
+                </div>
+              </div>
 
-        </main>
-    );
+              {/* Info */}
+              <div className="p-8">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-900">{template.name}</h2>
+                    <p className="text-sm font-semibold text-slate-400 mt-0.5">{template.tagline}</p>
+                  </div>
+                  <div
+                    className="w-8 h-8 rounded-full border-2 border-white shadow-md flex-shrink-0 mt-1"
+                    style={{ backgroundColor: template.accent }}
+                  />
+                </div>
+
+                <p className="text-slate-600 text-sm leading-relaxed mb-5">{template.description}</p>
+
+                <div>
+                  <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Best for</div>
+                  <div className="flex flex-wrap gap-2">
+                    {template.bestFor.map((tag) => (
+                      <span key={tag} className={`px-2.5 py-1 rounded-md text-xs font-semibold ${template.badge}`}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* Footer CTA */}
+      <section className="py-24 bg-red-600 text-center px-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+        >
+          <h2 className="text-4xl font-black text-white mb-4">Found your style?</h2>
+          <p className="text-red-100 text-lg mb-10 max-w-xl mx-auto">
+            Every template is a starting point. The AI customizes it to your brand in seconds.
+          </p>
+          <Link
+            href="/onboarding"
+            className="inline-block px-10 py-5 rounded-full bg-white text-red-600 font-bold text-lg hover:bg-red-50 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1"
+          >
+            Start Building Free
+          </Link>
+        </motion.div>
+      </section>
+
+      <MarketingFooter />
+    </main>
+  );
 }

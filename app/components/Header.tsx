@@ -35,12 +35,24 @@ export default function Header() {
             </button>
 
             <div className={`absolute top-full left-1/2 -translate-x-1/2 pt-2 transition-all duration-200 ${isDropdownOpen ? 'opacity-100 translate-y-0 visible' : 'opacity-0 translate-y-2 invisible'}`}>
-              <div className="bg-white border border-slate-200 rounded-xl shadow-xl w-48 overflow-hidden">
-                <Link href="/industries/ecommerce" className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 hover:text-red-600 font-medium transition-colors border-b border-slate-100">
-                  E-Commerce
-                </Link>
-                <Link href="/industries/trades" className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 hover:text-red-600 font-medium transition-colors">
+              <div className="bg-white border border-slate-200 rounded-xl shadow-xl w-56 overflow-hidden">
+                <Link href="/industries/trades" className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 hover:text-red-600 font-medium transition-colors border-b border-slate-100">
                   Trades & Home Services
+                </Link>
+                <Link href="/industries/ecommerce" className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 hover:text-red-600 font-medium transition-colors border-b border-slate-100">
+                  E-Commerce & Retail
+                </Link>
+                <Link href="/industries/health-wellness" className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 hover:text-red-600 font-medium transition-colors border-b border-slate-100">
+                  Health & Wellness
+                </Link>
+                <Link href="/industries/food-hospitality" className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 hover:text-red-600 font-medium transition-colors border-b border-slate-100">
+                  Food & Hospitality
+                </Link>
+                <Link href="/industries/professional-services" className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 hover:text-red-600 font-medium transition-colors border-b border-slate-100">
+                  Professional Services
+                </Link>
+                <Link href="/industries/creative-portfolio" className="block px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 hover:text-red-600 font-medium transition-colors">
+                  Creative & Portfolio
                 </Link>
               </div>
             </div>
@@ -117,19 +129,23 @@ export default function Header() {
             <div className="py-2">
               <div className="text-sm text-slate-900 font-bold mb-2">Industries</div>
               <div className="pl-4 space-y-2 border-l-2 border-slate-100">
-                <Link
-                  href="/industries/ecommerce"
-                  className="block text-sm text-slate-600 hover:text-slate-900 py-1"
-                  onClick={() => setIsOpen(false)}
-                >
-                  E-Commerce
+                <Link href="/industries/trades" className="block text-sm text-slate-600 hover:text-slate-900 py-1" onClick={() => setIsOpen(false)}>
+                  Trades & Home Services
                 </Link>
-                <Link
-                  href="/industries/trades"
-                  className="block text-sm text-slate-600 hover:text-slate-900 py-1"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Trades & Services
+                <Link href="/industries/ecommerce" className="block text-sm text-slate-600 hover:text-slate-900 py-1" onClick={() => setIsOpen(false)}>
+                  E-Commerce & Retail
+                </Link>
+                <Link href="/industries/health-wellness" className="block text-sm text-slate-600 hover:text-slate-900 py-1" onClick={() => setIsOpen(false)}>
+                  Health & Wellness
+                </Link>
+                <Link href="/industries/food-hospitality" className="block text-sm text-slate-600 hover:text-slate-900 py-1" onClick={() => setIsOpen(false)}>
+                  Food & Hospitality
+                </Link>
+                <Link href="/industries/professional-services" className="block text-sm text-slate-600 hover:text-slate-900 py-1" onClick={() => setIsOpen(false)}>
+                  Professional Services
+                </Link>
+                <Link href="/industries/creative-portfolio" className="block text-sm text-slate-600 hover:text-slate-900 py-1" onClick={() => setIsOpen(false)}>
+                  Creative & Portfolio
                 </Link>
               </div>
             </div>

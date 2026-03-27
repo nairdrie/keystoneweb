@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Header from '@/app/components/Header';
+import MarketingFooter from '@/app/components/MarketingFooter';
 
 const EFFECTIVE_DATE = 'March 27, 2026';
 const COMPANY = 'Keystone Web Design';
@@ -175,11 +176,13 @@ export default function TermsOfServicePage() {
 
         </div>
 
-        <div className="mt-16 pt-8 border-t border-slate-100 text-xs text-slate-400">
-          &copy; {new Date().getFullYear()} {COMPANY}. All rights reserved.{' '}
+        <div className="mt-16 pt-8 border-t border-slate-100 text-xs text-slate-400 flex gap-4">
+          <Link href="/privacy" className="hover:text-slate-600 underline">Privacy Policy</Link>
           <Link href="/" className="hover:text-slate-600 underline">Home</Link>
         </div>
       </div>
+
+      <MarketingFooter />
     </main>
   );
 }

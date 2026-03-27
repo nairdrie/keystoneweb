@@ -2,44 +2,44 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Hammer, CalendarCheck, ShieldCheck, MapPin, Image as ImageIcon, ListChecks, PhoneCall, Star } from 'lucide-react';
+import { Utensils, CalendarCheck, Image as ImageIcon, Globe, MessageSquare, Sparkles, MapPin, Star } from 'lucide-react';
 import Header from '../../../components/Header';
 import MarketingFooter from '../../../components/MarketingFooter';
 
 const FEATURES = [
   {
-    title: 'Online Booking',
-    description: 'Let customers schedule jobs, request estimates, and pick time slots — 24/7, without a phone call.',
-    icon: <CalendarCheck className="w-6 h-6 text-amber-600" />,
+    title: 'Beautiful Food Photography',
+    description: 'Gallery blocks and hero images that make your dishes, drinks, and space look incredible on every screen.',
+    icon: <ImageIcon className="w-6 h-6 text-amber-500" />,
   },
   {
-    title: 'One-Tap Calling',
-    description: 'Mobile-first design puts your phone number front and centre. Emergency calls happen in a single tap.',
-    icon: <PhoneCall className="w-6 h-6 text-red-500" />,
+    title: 'Online Reservations',
+    description: 'Accept table bookings and event reservations directly on your site. Fill seats without relying on third-party apps.',
+    icon: <CalendarCheck className="w-6 h-6 text-emerald-600" />,
   },
   {
-    title: 'Local SEO Built-In',
-    description: 'Structured data, Google Maps integration, and local keyword tools help you rank in your service area.',
-    icon: <MapPin className="w-6 h-6 text-emerald-600" />,
+    title: 'Menu Builder',
+    description: 'Publish your full menu with sections, descriptions, and pricing — easy to update any time without a developer.',
+    icon: <Utensils className="w-6 h-6 text-red-500" />,
   },
   {
-    title: 'Reviews & Trust Signals',
-    description: 'Showcase your 5-star Google reviews directly on your site. Win jobs before you even pick up the phone.',
+    title: 'Local SEO & Maps',
+    description: 'Get found when locals search "best restaurant near me." Built-in Google Maps and local SEO tools do the work for you.',
+    icon: <MapPin className="w-6 h-6 text-blue-500" />,
+  },
+  {
+    title: 'Reviews & Testimonials',
+    description: 'Showcase your best reviews from Google and other platforms to give hungry visitors the confidence to book.',
     icon: <Star className="w-6 h-6 text-yellow-500" />,
   },
   {
-    title: 'Project Galleries',
-    description: 'Before-and-after photo carousels show the quality of your work. Let the results speak for themselves.',
-    icon: <ImageIcon className="w-6 h-6 text-blue-500" />,
-  },
-  {
-    title: 'Services & Pricing Menus',
-    description: 'Clearly list your specializations, service areas, and pricing tiers so the right customers find you.',
-    icon: <ListChecks className="w-6 h-6 text-indigo-500" />,
+    title: 'AI-Generated Copy',
+    description: 'Describe your concept and the AI writes your about section, taglines, and menu descriptions in your brand voice.',
+    icon: <Sparkles className="w-6 h-6 text-violet-500" />,
   },
 ];
 
-export default function TradesIndustryPage() {
+export default function FoodHospitalityIndustryPage() {
   return (
     <main className="min-h-screen bg-white">
       <Header />
@@ -51,10 +51,10 @@ export default function TradesIndustryPage() {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-50 text-amber-700 font-bold text-sm mb-6 border border-amber-200 shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-50 text-amber-800 font-bold text-sm mb-6 border border-amber-200 shadow-sm"
           >
-            <Hammer className="w-4 h-4" />
-            Built for Plumbers, Electricians & Contractors
+            <Utensils className="w-4 h-4" />
+            Restaurants, Cafes & Catering
           </motion.div>
 
           <motion.h1
@@ -63,9 +63,9 @@ export default function TradesIndustryPage() {
             transition={{ duration: 0.6, ease: 'easeOut', delay: 0.1 }}
             className="text-5xl md:text-7xl font-black tracking-tight mb-6 leading-tight text-slate-900"
           >
-            More Jobs,
+            Make Them Hungry
             <br />
-            <span className="text-amber-600">Less Chasing.</span>
+            <span className="text-amber-600">Before They Arrive.</span>
           </motion.h1>
 
           <motion.p
@@ -74,27 +74,34 @@ export default function TradesIndustryPage() {
             transition={{ duration: 0.6, ease: 'easeOut', delay: 0.2 }}
             className="text-lg md:text-xl text-slate-600 mb-12 max-w-2xl mx-auto leading-relaxed"
           >
-            Your trade business needs a website that works as hard as you do. Look professional online,
-            rank higher locally, and fill your calendar — all without touching a line of code.
+            Your food deserves a website that does it justice. Build a stunning online presence that shows off your
+            menu, accepts reservations, and keeps your tables full — starting today.
           </motion.p>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: 'easeOut', delay: 0.3 }}
+            className="flex flex-col sm:flex-row gap-4 justify-center"
           >
             <Link
               href="/onboarding"
               className="inline-block px-8 py-4 rounded-full bg-amber-600 hover:bg-amber-700 text-white font-bold text-lg transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1"
             >
-              Get Your Site Live Today
+              Build My Restaurant Site
+            </Link>
+            <Link
+              href="/templates"
+              className="inline-block px-8 py-4 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-900 font-bold text-lg transition-all"
+            >
+              Browse Templates
             </Link>
           </motion.div>
         </div>
       </section>
 
       {/* Features */}
-      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-slate-50 border-t border-slate-200">
+      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-amber-50 border-t border-amber-100">
         <div className="mx-auto max-w-6xl">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -103,9 +110,9 @@ export default function TradesIndustryPage() {
             transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl font-black text-slate-900 mb-4">Tools of the Trade</h2>
+            <h2 className="text-4xl font-black text-slate-900 mb-4">Built for Hospitality</h2>
             <p className="text-slate-600 max-w-2xl mx-auto text-lg">
-              Everything the modern contractor needs to win work online.
+              Everything a restaurant, café, or caterer needs to turn their website into their best front-of-house staff member.
             </p>
           </motion.div>
 
@@ -117,7 +124,7 @@ export default function TradesIndustryPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-50px' }}
                 transition={{ duration: 0.5, delay: i * 0.1 }}
-                className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200 hover:border-amber-300 hover:shadow-lg transition-all duration-300"
+                className="bg-white rounded-2xl p-8 shadow-sm border border-amber-100 hover:border-amber-300 hover:shadow-lg transition-all duration-300"
               >
                 <div className="mb-5 w-12 h-12 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center">
                   {feature.icon}
@@ -140,27 +147,27 @@ export default function TradesIndustryPage() {
             transition={{ duration: 0.6 }}
             className="text-center mb-14"
           >
-            <h2 className="text-4xl font-black text-slate-900 mb-4">Templates Built for Your Trade</h2>
+            <h2 className="text-4xl font-black text-slate-900 mb-4">Templates That Whet the Appetite</h2>
             <p className="text-slate-600 max-w-xl mx-auto text-lg">
-              Two distinct looks, both designed to convert homeowners into booked customers.
+              Warm, inviting designs that make visitors feel the ambiance before they walk through the door.
             </p>
           </motion.div>
 
           <div className="grid md:grid-cols-2 gap-8">
             {[
               {
-                name: 'Classic',
-                tagline: 'Structured. Trusted. Timeless.',
-                description: 'The utility-bar layout and traditional nav signal reliability — exactly what a homeowner wants before handing you their keys.',
-                accent: 'from-blue-900 to-slate-900',
-                badge: 'bg-blue-100 text-blue-800',
-              },
-              {
                 name: 'Organic',
                 tagline: 'Warm. Natural. Human.',
-                description: 'Earthy tones and rounded shapes give your business a personal, approachable feel that stands out from the competition.',
+                description: 'Earthy tones and natural textures create an inviting atmosphere that pairs beautifully with food photography.',
                 accent: 'from-lime-700 to-emerald-800',
                 badge: 'bg-lime-100 text-lime-800',
+              },
+              {
+                name: 'Vivid',
+                tagline: 'Bold. Energetic. In your face.',
+                description: 'Saturated colors and strong typography that make your brand impossible to forget — perfect for casual dining and fast-casual.',
+                accent: 'from-orange-600 to-red-600',
+                badge: 'bg-orange-100 text-orange-800',
               },
             ].map((tmpl, i) => (
               <motion.div
@@ -171,7 +178,6 @@ export default function TradesIndustryPage() {
                 transition={{ duration: 0.5, delay: i * 0.15 }}
                 className="group bg-white rounded-3xl border border-slate-200 overflow-hidden hover:border-amber-300 hover:shadow-xl transition-all duration-300"
               >
-                {/* Screenshot placeholder */}
                 <div className={`relative aspect-video bg-gradient-to-br ${tmpl.accent} flex items-center justify-center`}>
                   <div className="text-center">
                     <div className="text-white/20 text-6xl font-black">{tmpl.name[0]}</div>
@@ -210,15 +216,15 @@ export default function TradesIndustryPage() {
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <h2 className="text-4xl font-black text-white mb-4">Stop losing jobs to competitors with better websites.</h2>
+          <h2 className="text-4xl font-black text-white mb-4">Your next regular customer is online right now.</h2>
           <p className="text-xl text-slate-400 mb-10 max-w-xl mx-auto">
-            Launch in minutes. Look like the best in your area from day one.
+            Give them a reason to choose you. Launch in minutes, starting at $15/month.
           </p>
           <Link
             href="/onboarding"
             className="inline-block px-10 py-5 rounded-full bg-amber-500 text-slate-900 font-bold text-lg hover:bg-amber-400 transition-all shadow-2xl hover:shadow-amber-500/30"
           >
-            Build My Trade Website
+            Get My Site Live
           </Link>
         </motion.div>
       </section>
