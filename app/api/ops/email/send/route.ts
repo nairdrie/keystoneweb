@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       from: `${senderLabel} <${fromEmail}>`,
       to: Array.isArray(to) ? to : [to],
       subject,
-      reply_to: reply_to || fromEmail,
+      replyTo: reply_to || fromEmail,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1f2937;">
           ${body.replace(/\n/g, '<br/>')}
