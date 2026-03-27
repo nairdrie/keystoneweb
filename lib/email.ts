@@ -17,6 +17,7 @@ interface BookingEmailData {
     paymentMethod: string;
     etransferEmail?: string;
     confirmationMessage?: string;
+    cancelUrl?: string;
 }
 
 /**
@@ -97,7 +98,12 @@ export async function sendCustomerConfirmation(data: BookingEmailData) {
 
                     ${paymentSection}
 
-                    <p style="margin-top: 24px; font-size: 12px; color: #9ca3af; text-align: center;">
+                    ${data.cancelUrl ? `
+                    <p style="margin-top: 20px; font-size: 12px; color: #9ca3af; text-align: center;">
+                        Need to cancel? <a href="${data.cancelUrl}" style="color: #6b7280; text-decoration: underline;">Cancel this booking</a>
+                    </p>` : ''}
+
+                    <p style="margin-top: 8px; font-size: 12px; color: #9ca3af; text-align: center;">
                         Powered by Keystone Web Design
                     </p>
                 </div>
@@ -651,6 +657,224 @@ export async function sendWelcomeEmail(data: {
         return { success: true };
     } catch (error) {
         console.error('Failed to send welcome email:', error);
+        return { success: false, error };
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Cancellation Emails
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface BookingCancellationData {
+    serviceName: string;
+    date: string;       // YYYY-MM-DD
+    startTime: string;  // display format e.g. "9:00 AM"
+    customerName: string;
+    customerEmail: string;
+    bookingId: string;
+    cancellationReason?: string;
+    cancelledBy: 'customer' | 'merchant';
+}
+
+/**
+ * Notify the customer that their booking has been cancelled
+ */
+export async function sendBookingCancellationToCustomer(data: BookingCancellationData) {
+    try {
+        const dateFormatted = new Date(data.date + 'T12:00:00').toLocaleDateString('en-US', {
+            weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+        });
+        const refId = data.bookingId.slice(0, 8).toUpperCase();
+        const initiator = data.cancelledBy === 'customer' ? 'You cancelled' : 'Your booking was cancelled';
+        const reasonSection = data.cancellationReason
+            ? `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px;margin-top:16px;">
+                <p style="margin:0;font-size:14px;color:#991b1b;"><strong>Reason:</strong> ${data.cancellationReason}</p>
+               </div>`
+            : '';
+
+        await resend.emails.send({
+            from: 'Keystone Web Design <bookings@keystoneweb.ca>',
+            to: data.customerEmail,
+            subject: `Booking Cancelled — ${data.serviceName}`,
+            html: `
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
+                    <div style="text-align:center;padding:24px 0;">
+                        <div style="width:48px;height:48px;background:#fee2e2;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">❌</div>
+                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">Booking Cancelled</h1>
+                        <p style="margin:0;color:#6b7280;font-size:14px;">${initiator} your appointment for ${data.serviceName}.</p>
+                    </div>
+                    <div style="background:#f9fafb;border-radius:8px;padding:16px;">
+                        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                            <tr><td style="padding:6px 0;color:#6b7280;">Service</td><td style="padding:6px 0;text-align:right;font-weight:600;color:#111827;">${data.serviceName}</td></tr>
+                            <tr><td style="padding:6px 0;color:#6b7280;">Date</td><td style="padding:6px 0;text-align:right;font-weight:600;color:#111827;">${dateFormatted}</td></tr>
+                            <tr><td style="padding:6px 0;color:#6b7280;">Time</td><td style="padding:6px 0;text-align:right;font-weight:600;color:#111827;">${data.startTime}</td></tr>
+                            <tr><td style="padding:6px 0;color:#6b7280;">Ref #</td><td style="padding:6px 0;text-align:right;font-weight:600;font-family:monospace;color:#111827;">${refId}</td></tr>
+                        </table>
+                    </div>
+                    ${reasonSection}
+                    <p style="margin-top:24px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
+                </div>
+            `,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send booking cancellation email to customer:', error);
+        return { success: false, error };
+    }
+}
+
+/**
+ * Notify the business owner that a booking was cancelled
+ */
+export async function sendBookingCancellationToOwner(data: BookingCancellationData, ownerEmail: string) {
+    try {
+        const dateFormatted = new Date(data.date + 'T12:00:00').toLocaleDateString('en-US', {
+            weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+        });
+        const refId = data.bookingId.slice(0, 8).toUpperCase();
+        const initiatorLabel = data.cancelledBy === 'customer' ? 'Customer cancelled' : 'You cancelled';
+        const reasonSection = data.cancellationReason
+            ? `<p style="margin:8px 0 0;font-size:13px;color:#6b7280;"><strong>Reason:</strong> ${data.cancellationReason}</p>`
+            : '';
+
+        await resend.emails.send({
+            from: 'Keystone Web Design <bookings@keystoneweb.ca>',
+            to: ownerEmail,
+            subject: `Booking Cancelled — ${data.serviceName} with ${data.customerName}`,
+            html: `
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
+                    <div style="text-align:center;padding:24px 0;">
+                        <div style="width:48px;height:48px;background:#fee2e2;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">❌</div>
+                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">Booking Cancelled</h1>
+                        <p style="margin:0;color:#6b7280;font-size:14px;">${initiatorLabel} — ${data.serviceName} with ${data.customerName}</p>
+                    </div>
+                    <div style="background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:16px;">
+                        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                            <tr><td style="padding:6px 0;color:#6b7280;">Service</td><td style="padding:6px 0;text-align:right;font-weight:600;color:#111827;">${data.serviceName}</td></tr>
+                            <tr><td style="padding:6px 0;color:#6b7280;">Date</td><td style="padding:6px 0;text-align:right;font-weight:600;color:#111827;">${dateFormatted}</td></tr>
+                            <tr><td style="padding:6px 0;color:#6b7280;">Time</td><td style="padding:6px 0;text-align:right;font-weight:600;color:#111827;">${data.startTime}</td></tr>
+                            <tr><td style="padding:6px 0;color:#6b7280;">Ref #</td><td style="padding:6px 0;text-align:right;font-weight:600;font-family:monospace;color:#111827;">${refId}</td></tr>
+                        </table>
+                    </div>
+                    <div style="background:#f0f9ff;border-radius:8px;padding:16px;">
+                        <h3 style="margin:0 0 8px;font-size:14px;color:#0c4a6e;">Customer Details</h3>
+                        <p style="margin:2px 0;font-size:14px;color:#111827;"><strong>${data.customerName}</strong></p>
+                        <p style="margin:2px 0;font-size:14px;color:#111827;">📧 ${data.customerEmail}</p>
+                        ${reasonSection}
+                    </div>
+                    <p style="margin-top:24px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
+                </div>
+            `,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send booking cancellation email to owner:', error);
+        return { success: false, error };
+    }
+}
+
+interface OrderCancellationData {
+    orderId: string;
+    items: Array<{ name: string; price_cents: number; qty: number; variants?: Record<string, string> }>;
+    subtotalCents: number;
+    currency: string;
+    customerName: string;
+    customerEmail: string;
+    cancellationReason?: string;
+}
+
+/**
+ * Notify the customer that their order has been cancelled (and refunded if applicable)
+ */
+export async function sendOrderCancellationToCustomer(data: OrderCancellationData & { refunded: boolean }) {
+    try {
+        const refId = `ORDER-${data.orderId.slice(0, 8).toUpperCase()}`;
+        const total = `$${(data.subtotalCents / 100).toFixed(2)} ${data.currency}`;
+        const itemsHtml = data.items.map(item => {
+            const varStr = item.variants ? Object.values(item.variants).join(', ') : '';
+            return `<tr>
+                <td style="padding:6px 0;color:#111827;font-size:14px;">${item.name}${varStr ? ` <span style="color:#6b7280">(${varStr})</span>` : ''}</td>
+                <td style="padding:6px 0;text-align:center;color:#6b7280;font-size:14px;">x${item.qty}</td>
+                <td style="padding:6px 0;text-align:right;font-weight:600;color:#111827;font-size:14px;">$${(item.price_cents * item.qty / 100).toFixed(2)}</td>
+            </tr>`;
+        }).join('');
+
+        const reasonSection = data.cancellationReason
+            ? `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px;margin-top:16px;">
+                <p style="margin:0;font-size:14px;color:#991b1b;"><strong>Reason:</strong> ${data.cancellationReason}</p>
+               </div>`
+            : '';
+        const refundSection = data.refunded
+            ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px;margin-top:16px;">
+                <p style="margin:0;color:#166534;font-size:14px;">💳 <strong>A refund of ${total} has been issued</strong> to your original payment method. It may take 5–10 business days to appear.</p>
+               </div>`
+            : '';
+
+        await resend.emails.send({
+            from: 'Keystone Web Design <orders@keystoneweb.ca>',
+            to: data.customerEmail,
+            subject: `Order Cancelled — ${refId}`,
+            html: `
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
+                    <div style="text-align:center;padding:24px 0;">
+                        <div style="width:48px;height:48px;background:#fee2e2;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">❌</div>
+                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">Order Cancelled</h1>
+                        <p style="margin:0;color:#6b7280;font-size:14px;">Your order ${refId} has been cancelled.</p>
+                    </div>
+                    <div style="background:#f9fafb;border-radius:8px;padding:16px;">
+                        <table style="width:100%;border-collapse:collapse;">${itemsHtml}
+                            <tr><td colspan="2" style="padding:8px 0 4px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:14px;">Total</td><td style="padding:8px 0 4px;border-top:1px solid #e5e7eb;text-align:right;font-weight:700;color:#111827;font-size:16px;">${total}</td></tr>
+                        </table>
+                    </div>
+                    ${reasonSection}
+                    ${refundSection}
+                    <p style="margin-top:16px;font-size:12px;color:#9ca3af;text-align:center;">Ref: ${refId}</p>
+                    <p style="margin-top:8px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
+                </div>`,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send order cancellation email to customer:', error);
+        return { success: false, error };
+    }
+}
+
+/**
+ * Notify the business owner that they cancelled an order
+ */
+export async function sendOrderCancellationToOwner(data: OrderCancellationData & { refunded: boolean }, ownerEmail: string) {
+    try {
+        const refId = `ORDER-${data.orderId.slice(0, 8).toUpperCase()}`;
+        const total = `$${(data.subtotalCents / 100).toFixed(2)} ${data.currency}`;
+        const itemsSummary = data.items.map(i => `${i.qty}x ${i.name}`).join(', ');
+
+        await resend.emails.send({
+            from: 'Keystone Web Design <orders@keystoneweb.ca>',
+            to: ownerEmail,
+            subject: `Order Cancelled — ${refId} for ${data.customerName}`,
+            html: `
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
+                    <div style="text-align:center;padding:24px 0;">
+                        <div style="width:48px;height:48px;background:#fee2e2;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">❌</div>
+                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">Order Cancelled</h1>
+                        <p style="margin:0;color:#6b7280;font-size:14px;">${refId} — ${total}</p>
+                    </div>
+                    <div style="background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:16px;">
+                        <p style="margin:0;font-size:14px;color:#111827;"><strong>Items:</strong> ${itemsSummary}</p>
+                        ${data.cancellationReason ? `<p style="margin:8px 0 0;font-size:14px;color:#111827;"><strong>Reason:</strong> ${data.cancellationReason}</p>` : ''}
+                        ${data.refunded ? `<p style="margin:8px 0 0;font-size:14px;color:#166534;"><strong>Refund:</strong> ${total} refunded to customer's card</p>` : ''}
+                    </div>
+                    <div style="background:#f0f9ff;border-radius:8px;padding:16px;">
+                        <h3 style="margin:0 0 8px;font-size:14px;color:#0c4a6e;">Customer</h3>
+                        <p style="margin:2px 0;font-size:14px;color:#111827;"><strong>${data.customerName}</strong></p>
+                        <p style="margin:2px 0;font-size:14px;color:#111827;">📧 ${data.customerEmail}</p>
+                    </div>
+                    <p style="margin-top:24px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
+                </div>`,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send order cancellation email to owner:', error);
         return { success: false, error };
     }
 }

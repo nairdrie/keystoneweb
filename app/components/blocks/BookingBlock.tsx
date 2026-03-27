@@ -64,6 +64,7 @@ interface BookingSettings {
     etransfer_email: string | null;
     confirmation_message: string | null;
     notification_email: string | null;
+    cancellation_notice_hours: number;
 }
 
 interface Slot {
@@ -1134,6 +1135,30 @@ function SettingsEditor({ siteId, settings, setSettings }: {
                     )}
                 </div>
             )}
+
+            {/* Cancellation Policy */}
+            <div>
+                <label className="text-sm font-medium text-slate-700 block mb-1">Customer Self-Cancellation</label>
+                <select
+                    value={local.cancellation_notice_hours ?? 24}
+                    onChange={e => setLocal({ ...local, cancellation_notice_hours: parseInt(e.target.value) })}
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+                >
+                    <option value={0}>Disabled (customers cannot cancel online)</option>
+                    <option value={2}>2 hours notice required</option>
+                    <option value={4}>4 hours notice required</option>
+                    <option value={8}>8 hours notice required</option>
+                    <option value={12}>12 hours notice required</option>
+                    <option value={24}>24 hours notice required</option>
+                    <option value={48}>48 hours notice required</option>
+                    <option value={72}>72 hours notice required</option>
+                </select>
+                <p className="text-xs text-slate-400 mt-1">
+                    {(local.cancellation_notice_hours ?? 24) === 0
+                        ? 'Customers cannot cancel via email link — contact you directly.'
+                        : `Customers can cancel via link in their confirmation email up to ${local.cancellation_notice_hours ?? 24} hrs before their appointment.`}
+                </p>
+            </div>
 
             <button onClick={handleSave} disabled={saving}
                 className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2">

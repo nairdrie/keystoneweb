@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
-import { sendOrderConfirmation, sendOrderNotification } from '@/lib/email';
+import { sendOrderConfirmation, sendOrderNotification, sendOrderCancellationToCustomer, sendOrderCancellationToOwner } from '@/lib/email';
+import Stripe from 'stripe';
 
 /**
  * POST /api/products/orders — Create order (public checkout)
@@ -176,15 +177,46 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { orderId, status, payment_status } = body;
+    const { orderId, status, payment_status, cancellationReason } = body;
 
     if (!orderId) {
         return NextResponse.json({ error: 'Missing orderId' }, { status: 400 });
     }
 
+    // Fetch the existing order before updating
+    const { data: existingOrder, error: fetchError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+    if (fetchError || !existingOrder) {
+        return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+
     const updates: Record<string, any> = { updated_at: new Date().toISOString() };
     if (status) updates.status = status;
     if (payment_status) updates.payment_status = payment_status;
+    if (cancellationReason) updates.cancellation_reason = cancellationReason;
+
+    const isBeingCancelled = status === 'cancelled' && existingOrder.status !== 'cancelled';
+
+    // Attempt Stripe refund before updating if order was paid via Stripe
+    let refunded = false;
+    if (isBeingCancelled && existingOrder.payment_status === 'paid' && existingOrder.stripe_payment_id) {
+        try {
+            const stripeKey = process.env.STRIPE_SECRET_KEY;
+            if (stripeKey) {
+                const stripe = new Stripe(stripeKey);
+                await stripe.refunds.create({ payment_intent: existingOrder.stripe_payment_id });
+                refunded = true;
+                updates.payment_status = 'unpaid'; // reflect refund in DB
+            }
+        } catch (err) {
+            console.error('Stripe refund failed:', err);
+            // Don't block the cancellation — log and continue
+        }
+    }
 
     const { data, error } = await supabase
         .from('orders')
@@ -197,5 +229,58 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ order: data });
+    // Restore inventory for cancelled orders
+    if (isBeingCancelled && existingOrder.items?.length) {
+        for (const item of existingOrder.items) {
+            if (item.productId) {
+                const { data: product } = await supabase
+                    .from('products')
+                    .select('inventory_count')
+                    .eq('id', item.productId)
+                    .single();
+                if (product) {
+                    await supabase
+                        .from('products')
+                        .update({ inventory_count: product.inventory_count + item.qty })
+                        .eq('id', item.productId);
+                }
+            }
+        }
+    }
+
+    // Send cancellation emails
+    if (isBeingCancelled) {
+        const { data: ecomSettings } = await supabase
+            .from('ecommerce_settings')
+            .select('notification_email')
+            .eq('site_id', existingOrder.site_id)
+            .single();
+        const { data: bookingSettings } = !ecomSettings ? await supabase
+            .from('booking_settings')
+            .select('notification_email')
+            .eq('site_id', existingOrder.site_id)
+            .single() : { data: null };
+        const notificationEmail = (ecomSettings || bookingSettings)?.notification_email;
+
+        const emailData = {
+            orderId: existingOrder.id,
+            items: existingOrder.items,
+            subtotalCents: existingOrder.subtotal_cents,
+            currency: existingOrder.items[0]?.currency || 'CAD',
+            customerName: existingOrder.customer_name,
+            customerEmail: existingOrder.customer_email,
+            cancellationReason: cancellationReason || undefined,
+            refunded,
+        };
+
+        sendOrderCancellationToCustomer(emailData)
+            .catch(err => console.error('Order cancellation customer email failed:', err));
+
+        if (notificationEmail) {
+            sendOrderCancellationToOwner(emailData, notificationEmail)
+                .catch(err => console.error('Order cancellation owner email failed:', err));
+        }
+    }
+
+    return NextResponse.json({ order: data, refunded });
 }
