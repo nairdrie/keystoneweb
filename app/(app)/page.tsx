@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Sparkles, MapPin, Smartphone, PenTool, TrendingUp, CircleDollarSign, Infinity } from 'lucide-react';
 import Header from '../components/Header';
+import MarketingFooter from '../components/MarketingFooter';
 import mapleLeaf from '../../assets/maple-leaf.png';
 import AnimatedGridPattern from '../components/AnimatedGridPattern';
 
@@ -256,11 +257,7 @@ export default function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 py-12 px-4 sm:px-6 lg:px-8 text-center text-slate-700 text-sm bg-white">
-        <p className="flex items-center justify-center gap-2">
-          Proudly Canadian <Image src={mapleLeaf} alt="Maple Leaf" className="w-5 h-5 object-contain" />
-        </p>
-      </footer>
+      <MarketingFooter />
     </main>
   );
 }
