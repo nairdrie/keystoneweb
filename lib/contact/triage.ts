@@ -1,69 +1,63 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/db/supabase-admin';
 import Anthropic from '@anthropic-ai/sdk';
 import { sendContactReplyEmail } from '@/lib/email';
+import { SupabaseClient } from '@supabase/supabase-js';
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-// Only callable internally (from /api/contact POST) or by ops admins
-function assertInternal(request: NextRequest): boolean {
-  const secret = process.env.INTERNAL_API_SECRET;
-  if (!secret) return false; // secret must be set
-  return request.headers.get('x-internal-secret') === secret;
-}
+const AUTO_SEND_THRESHOLD = 0.85;
 
 /**
- * POST /api/contact/[id]/triage
- *
- * Runs AI triage on a stored contact submission:
- *  1. Classifies the message and scores confidence
- *  2. Generates a draft reply using the site's business context
- *  3. Auto-sends the reply if confidence >= AUTO_SEND_THRESHOLD and not spam
- *
- * Called fire-and-forget from /api/contact after inserting the submission.
+ * Run AI triage on a stored contact_submission.
+ * Classifies the message, generates a draft reply, and auto-sends if confident.
+ * Safe to call fire-and-forget — all errors are caught internally.
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  if (!assertInternal(request)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  const { id } = await params;
-  const db = createAdminClient();
-
-  // Load the submission
+export async function triageContactSubmission(
+  submissionId: string,
+  db: SupabaseClient
+): Promise<void> {
+  // Load submission + site context
   const { data: submission, error: fetchErr } = await db
     .from('contact_submissions')
     .select('*, sites(siteSlug, design_data, published_data, user_id)')
-    .eq('id', id)
+    .eq('id', submissionId)
     .single();
 
   if (fetchErr || !submission) {
-    return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
+    console.error('[triage] Submission not found:', submissionId, fetchErr);
+    return;
   }
 
-  // Don't re-triage
-  if (submission.status !== 'new') {
-    return NextResponse.json({ skipped: true });
-  }
+  if (submission.status !== 'new') return; // already processed
 
   const site = (submission as any).sites;
-
-  // Build business context from the site's published/design data
   const designData = site?.design_data ?? site?.published_data ?? {};
-  const businessName = designData?.businessName || designData?.siteTitle || site?.siteSlug || 'Our Business';
-  const businessDescription = designData?.tagline || designData?.description || designData?.aboutText || '';
-  const services: string[] = designData?.services?.map((s: any) => s?.name || s?.title).filter(Boolean) ?? [];
-  const faq: string[] = designData?.faq?.map((f: any) => `Q: ${f?.question} A: ${f?.answer}`).filter(Boolean) ?? [];
+  const businessName =
+    designData?.businessName || designData?.siteTitle || site?.siteSlug || 'Our Business';
+  const businessDescription =
+    designData?.tagline || designData?.description || designData?.aboutText || '';
+  const services: string[] =
+    designData?.services?.map((s: any) => s?.name || s?.title).filter(Boolean) ?? [];
+  const faq: string[] =
+    designData?.faq?.map((f: any) => `Q: ${f?.question} A: ${f?.answer}`).filter(Boolean) ?? [];
 
   const businessContext = [
     `Business name: ${businessName}`,
     businessDescription ? `Description: ${businessDescription}` : '',
     services.length ? `Services: ${services.join(', ')}` : '',
     faq.length ? `FAQ:\n${faq.join('\n')}` : '',
-  ].filter(Boolean).join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const apiKey = process.env.AI_BUILDER_API_KEY;
+  if (!apiKey) {
+    console.error('[triage] AI_BUILDER_API_KEY is not set');
+    await db
+      .from('contact_submissions')
+      .update({ status: 'needs_review', ai_summary: 'AI triage skipped — API key not configured.' })
+      .eq('id', submissionId);
+    return;
+  }
+
+  const anthropic = new Anthropic({ apiKey });
 
   const systemPrompt = `You are a helpful assistant managing contact form messages for a small business.
 Business context:
@@ -100,16 +94,17 @@ Respond with valid JSON only, no markdown fences:
     const response = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 512,
+      system: systemPrompt,
       messages: [
         {
           role: 'user',
           content: `Contact form message from ${submission.sender_name} <${submission.sender_email}>:\n\n${submission.message}`,
         },
       ],
-      system: systemPrompt,
     });
 
-    const raw = response.content[0]?.type === 'text' ? response.content[0].text.trim() : '';
+    const raw =
+      response.content[0]?.type === 'text' ? response.content[0].text.trim() : '';
     const parsed = JSON.parse(raw);
     classification = parsed.classification ?? 'other';
     confidence = Math.min(1, Math.max(0, Number(parsed.confidence) || 0));
@@ -117,17 +112,18 @@ Respond with valid JSON only, no markdown fences:
     draftReply = parsed.draft_reply ?? null;
   } catch (err) {
     console.error('[triage] AI call failed:', err);
-    // Store partial result so the ticket still appears in the inbox
-    await db.from('contact_submissions').update({
-      ai_classification: 'other',
-      ai_confidence: 0,
-      ai_summary: 'AI triage failed — please review manually.',
-      status: 'needs_review',
-    }).eq('id', id);
-    return NextResponse.json({ error: 'AI triage failed' }, { status: 500 });
+    await db
+      .from('contact_submissions')
+      .update({
+        ai_classification: 'other',
+        ai_confidence: 0,
+        ai_summary: 'AI triage failed — please review manually.',
+        status: 'needs_review',
+      })
+      .eq('id', submissionId);
+    return;
   }
 
-  const AUTO_SEND_THRESHOLD = 0.85;
   const isSpam = classification === 'spam';
   const shouldAutoSend = !isSpam && confidence >= AUTO_SEND_THRESHOLD && draftReply;
 
@@ -135,16 +131,14 @@ Respond with valid JSON only, no markdown fences:
   let replyResendId: string | null = null;
 
   if (shouldAutoSend && draftReply) {
-    // Get the owner's "from" address (default to contact@keystoneweb.ca for now)
-    const fromAddress = 'contact@keystoneweb.ca';
     const result = await sendContactReplyEmail({
       toEmail: submission.sender_email,
       toName: submission.sender_name,
-      fromAddress,
+      fromAddress: 'contact@keystoneweb.ca',
       fromName: businessName,
       replyText: draftReply,
       originalMessage: submission.message,
-      submissionId: id,
+      submissionId,
     });
     if (result.success) {
       autoSent = true;
@@ -152,23 +146,18 @@ Respond with valid JSON only, no markdown fences:
     }
   }
 
-  const newStatus: string = isSpam
-    ? 'spam'
-    : autoSent
-    ? 'ai_handled'
-    : confidence >= 0.5
-    ? 'needs_review'
-    : 'needs_review';
+  const newStatus = isSpam ? 'spam' : autoSent ? 'ai_handled' : 'needs_review';
 
-  await db.from('contact_submissions').update({
-    ai_classification: classification,
-    ai_confidence: confidence,
-    ai_summary: summary,
-    ai_draft_reply: draftReply,
-    ai_auto_sent: autoSent,
-    reply_resend_id: replyResendId,
-    status: newStatus,
-  }).eq('id', id);
-
-  return NextResponse.json({ classification, confidence, autoSent, status: newStatus });
+  await db
+    .from('contact_submissions')
+    .update({
+      ai_classification: classification,
+      ai_confidence: confidence,
+      ai_summary: summary,
+      ai_draft_reply: draftReply,
+      ai_auto_sent: autoSent,
+      reply_resend_id: replyResendId,
+      status: newStatus,
+    })
+    .eq('id', submissionId);
 }

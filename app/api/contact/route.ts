@@ -2,6 +2,7 @@ import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendContactFormNotification } from '@/lib/email';
+import { triageContactSubmission } from '@/lib/contact/triage';
 
 export async function POST(request: NextRequest) {
     const supabase = await createClient();
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
 
         if (insertError || !submission) {
             console.error('Failed to persist contact submission:', insertError);
-            // Don't fail the user-facing request — still attempt email delivery below
+            // Non-fatal — still attempt email delivery below
         }
 
         // 2. Get site owner's notification email
@@ -86,13 +87,10 @@ export async function POST(request: NextRequest) {
             throw result.error;
         }
 
-        // 4. Fire AI triage async — don't await, don't block the response
+        // 4. Fire AI triage in the background — non-blocking, non-fatal
         if (submission?.id) {
-            fetch(`${request.nextUrl.origin}/api/contact/${submission.id}/triage`, {
-                method: 'POST',
-                headers: { 'x-internal-secret': process.env.INTERNAL_API_SECRET ?? '' },
-            }).catch(() => {
-                // Best-effort — triage failure is non-fatal
+            triageContactSubmission(submission.id, admin).catch(err => {
+                console.error('[contact] Triage error (non-fatal):', err);
             });
         }
 
