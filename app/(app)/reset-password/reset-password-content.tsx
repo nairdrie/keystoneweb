@@ -15,10 +15,11 @@ export default function ResetPasswordContent() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    // The server-side /auth/callback route already exchanged the code for a
-    // session, so we just need to check if the user is authenticated.
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
+    // The server-side /auth/callback route already exchanged the code for a session.
+    // Use getSession() (reads from local cookies, no network round-trip) rather than
+    // getUser() (validates remotely) so this works reliably on slow mobile connections.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
         setReady(true);
       }
     });

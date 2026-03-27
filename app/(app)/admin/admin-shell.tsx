@@ -8,7 +8,7 @@ import KeystoneLogo from '@/app/components/KeystoneLogo';
 import ProfileDropdown from '@/app/components/ProfileDropdown';
 import AlertModal from '@/app/components/ui/AlertModal';
 import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
-import { AdminContext, AdminSiteData } from './admin-context';
+import { AdminContext, AdminSiteData, UsageData, UsagePlan, SiteUsageBreakdown } from './admin-context';
 
 interface Site {
   id: string;
@@ -48,6 +48,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [inboxUnread, setInboxUnread] = useState(0);
+  const [usage, setUsage] = useState<UsageData | null>(null);
+  const [usagePlan, setUsagePlan] = useState<UsagePlan | null>(null);
+  const [siteBreakdown, setSiteBreakdown] = useState<SiteUsageBreakdown[]>([]);
 
   const hasFetchedRef = useRef<string | null>(null);
 
@@ -87,6 +90,21 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       .then(d => {
         if (d?.subscription?.subscription_status === 'active') {
           if (d.subscription.subscription_plan?.toLowerCase().includes('pro')) setIsProUser(true);
+        }
+      })
+      .catch(() => {});
+  }, [user]);
+
+  // Usage data fetch
+  useEffect(() => {
+    if (!user) return;
+    fetch('/api/user/usage', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.hasSubscription && d.usage) {
+          setUsage(d.usage);
+          setUsagePlan(d.plan);
+          setSiteBreakdown(d.siteBreakdown || []);
         }
       })
       .catch(() => {});
@@ -167,7 +185,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const liveUrl = site.publishedDomain ? `https://${site.publishedDomain}.kswd.ca` : null;
 
   return (
-    <AdminContext.Provider value={{ siteId, site, siteTitle, setSiteTitle, isProUser, palette }}>
+    <AdminContext.Provider value={{ siteId, site, siteTitle, setSiteTitle, isProUser, palette, usage, usagePlan, siteBreakdown }}>
       <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-50">
 
         {/* ── Top Bar ── */}

@@ -47,19 +47,26 @@ export async function POST(request: NextRequest) {
     // Check acceptor's subscription status
     const { data: subscription } = await admin
       .from('user_subscriptions')
-      .select('subscription_status')
+      .select('subscription_status, subscription_plan')
       .eq('user_id', user.id)
       .single();
 
     const isPaid = subscription?.subscription_status === 'active';
+    const isPro = isPaid && subscription?.subscription_plan?.toLowerCase().includes('pro');
 
-    // Transfer ownership: update the site's user_id, remove custom domain,
-    // and potentially unpublish if they haven't paid
-    const updateData: any = {
+    // Transfer ownership: update the site's user_id
+    // Keep custom_domain only if includeDomain is true AND recipient is on Pro
+    const updateData: Record<string, unknown> = {
       user_id: user.id,
-      custom_domain: null,
       updated_at: new Date().toISOString(),
     };
+
+    if (transfer.include_domain && isPro) {
+      // Keep the custom domain active — recipient is Pro
+    } else {
+      // Remove custom domain: recipient is Basic/unpaid or domain wasn't included
+      updateData.custom_domain = null;
+    }
 
     if (!isPaid) {
       updateData.is_published = false;
@@ -75,6 +82,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to transfer site' }, { status: 500 });
     }
 
+    // Transfer domain ownership if include_domain is true
+    if (transfer.include_domain) {
+      await admin
+        .from('domain_purchases')
+        .update({ user_id: user.id })
+        .eq('site_id', transfer.site_id)
+        .eq('user_id', transfer.from_user_id);
+    }
+
     // Mark the transfer as accepted
     await admin
       .from('site_transfers')
@@ -88,12 +104,16 @@ export async function POST(request: NextRequest) {
     trackEvent('site_transfer_accepted', {
       userId: user.id,
       siteId: transfer.site_id,
-      metadata: { fromUserId: transfer.from_user_id },
+      metadata: {
+        fromUserId: transfer.from_user_id,
+        includeDomain: transfer.include_domain,
+      },
     });
 
     return NextResponse.json({
       message: 'Site transferred successfully',
       siteId: transfer.site_id,
+      isPaid,
     });
   } catch (error) {
     console.error('Error accepting transfer:', error);

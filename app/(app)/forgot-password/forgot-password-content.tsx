@@ -14,6 +14,12 @@ export default function ForgotPasswordContent() {
   useEffect(() => {
     const emailParam = searchParams.get('email');
     if (emailParam) setEmail(decodeURIComponent(emailParam));
+
+    // Redirected here from /auth/callback when a reset link failed (e.g. expired,
+    // already used, or opened in a different browser than where the request was made).
+    if (searchParams.get('error') === 'link_expired') {
+      setError('That reset link has expired or was already used. Please request a new one.');
+    }
   }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
