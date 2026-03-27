@@ -22,6 +22,14 @@ interface ServiceOption {
     id: string;
     name: string;
     price_cents: number;
+    price_type?: 'override' | 'addon'; // 'override' replaces base price; 'addon' adds to it
+    addon_id?: string;                  // set when option was added from the reusable addon library
+}
+
+interface Addon {
+    id: string;
+    name: string;
+    price_cents: number;
 }
 
 interface Service {
@@ -359,23 +367,83 @@ function SortableOptionRow({ id, children }: { id: string; children: React.React
 
 // ─── Service Options Editor ─────────────────────────────────────────────────────
 
-function ServiceOptionsEditor({ options, onChange }: {
+function ServiceOptionsEditor({ options, onChange, siteId, addons, onAddonCreated }: {
     options: ServiceOption[];
     onChange: (opts: ServiceOption[]) => void;
+    siteId: string;
+    addons: Addon[];
+    onAddonCreated: (addon: Addon) => void;
 }) {
     const [newOptName, setNewOptName] = useState('');
     const [newOptPrice, setNewOptPrice] = useState('');
+    const [newOptType, setNewOptType] = useState<'override' | 'addon'>('override');
+    // For addon mode: 'new' means create new, or an addon id to reuse existing
+    const [addonSource, setAddonSource] = useState<'new' | string>('new');
+    const [saving, setSaving] = useState(false);
 
-    const addOption = () => {
-        if (!newOptName.trim() || !newOptPrice) return;
-        const opt: ServiceOption = {
-            id: crypto.randomUUID(),
-            name: newOptName.trim(),
-            price_cents: Math.round(parseFloat(newOptPrice) * 100),
-        };
-        onChange([...options, opt]);
-        setNewOptName('');
-        setNewOptPrice('');
+    // When user picks an existing addon from dropdown, populate name+price
+    const handleAddonSourceChange = (val: string) => {
+        setAddonSource(val);
+        if (val !== 'new') {
+            const existing = addons.find(a => a.id === val);
+            if (existing) {
+                setNewOptName(existing.name);
+                setNewOptPrice((existing.price_cents / 100).toFixed(2));
+            }
+        } else {
+            setNewOptName('');
+            setNewOptPrice('');
+        }
+    };
+
+    const addOption = async () => {
+        if (newOptType === 'override') {
+            if (!newOptName.trim() || !newOptPrice) return;
+            const opt: ServiceOption = {
+                id: crypto.randomUUID(),
+                name: newOptName.trim(),
+                price_cents: Math.round(parseFloat(newOptPrice) * 100),
+                price_type: 'override',
+            };
+            onChange([...options, opt]);
+            setNewOptName('');
+            setNewOptPrice('');
+        } else {
+            // addon type
+            if (!newOptName.trim() || !newOptPrice) return;
+            setSaving(true);
+            let addonId: string;
+            if (addonSource === 'new') {
+                // Save to the reusable addon library
+                const res = await fetch('/api/bookings/addons', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        siteId,
+                        name: newOptName.trim(),
+                        price_cents: Math.round(parseFloat(newOptPrice) * 100),
+                    }),
+                });
+                const data = await res.json();
+                if (!data.addon) { setSaving(false); return; }
+                addonId = data.addon.id;
+                onAddonCreated(data.addon);
+            } else {
+                addonId = addonSource;
+            }
+            const opt: ServiceOption = {
+                id: crypto.randomUUID(),
+                name: newOptName.trim(),
+                price_cents: Math.round(parseFloat(newOptPrice) * 100),
+                price_type: 'addon',
+                addon_id: addonId,
+            };
+            onChange([...options, opt]);
+            setNewOptName('');
+            setNewOptPrice('');
+            setAddonSource('new');
+            setSaving(false);
+        }
     };
 
     const optSensors = useSensors(
@@ -394,28 +462,58 @@ function ServiceOptionsEditor({ options, onChange }: {
     return (
         <div className="mt-3 border-t border-slate-100 pt-3 space-y-2">
             <p className="text-xs font-semibold text-slate-600 flex items-center gap-1"><Package className="w-3 h-3" /> Booking Options (variants)</p>
-            <p className="text-[11px] text-slate-400">Add named packages with separate pricing (e.g. Single, 5-Pack). Leave empty to use the base price above.</p>
+            <p className="text-[11px] text-slate-400">Add named variants. <strong>Override</strong> replaces the base price; <strong>Add-on</strong> is charged on top of the base price.</p>
             <DndContext sensors={optSensors} collisionDetection={closestCenter} onDragEnd={handleOptDragEnd}>
                 <SortableContext items={options.map(o => o.id)} strategy={verticalListSortingStrategy}>
                     {options.map((opt, i) => (
                         <SortableOptionRow key={opt.id} id={opt.id}>
                             <span className="flex-1 truncate text-slate-700">{opt.name}</span>
-                            <span className="text-green-700 font-semibold">${(opt.price_cents / 100).toFixed(2)}</span>
+                            {opt.price_type === 'addon'
+                                ? <span className="text-blue-600 font-semibold text-[11px]">+${(opt.price_cents / 100).toFixed(2)} add-on</span>
+                                : <span className="text-green-700 font-semibold">${(opt.price_cents / 100).toFixed(2)}</span>
+                            }
                             <button onClick={() => onChange(options.filter((_, j) => j !== i))} className="p-0.5 text-red-400 hover:text-red-600"><X className="w-3.5 h-3.5" /></button>
                         </SortableOptionRow>
                     ))}
                 </SortableContext>
             </DndContext>
+            {/* Price type toggle */}
+            <div className="flex gap-1 p-1 bg-slate-100 rounded-lg w-fit">
+                <button
+                    type="button"
+                    onClick={() => { setNewOptType('override'); setAddonSource('new'); }}
+                    className={`px-3 py-1 text-[11px] font-semibold rounded-md transition-colors ${newOptType === 'override' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}>
+                    Override price
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setNewOptType('addon')}
+                    className={`px-3 py-1 text-[11px] font-semibold rounded-md transition-colors ${newOptType === 'addon' ? 'bg-white shadow text-blue-700' : 'text-slate-500 hover:text-slate-700'}`}>
+                    Add-on
+                </button>
+            </div>
+            {/* For addon type: select existing or create new */}
+            {newOptType === 'addon' && addons.length > 0 && (
+                <select
+                    value={addonSource}
+                    onChange={e => handleAddonSourceChange(e.target.value)}
+                    className="w-full px-2 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    <option value="new">+ Create new add-on</option>
+                    {addons.map(a => (
+                        <option key={a.id} value={a.id}>{a.name} (${(a.price_cents / 100).toFixed(2)})</option>
+                    ))}
+                </select>
+            )}
             <div className="flex gap-2">
-                <input type="text" placeholder="Option name (e.g. 5-Pack)" value={newOptName}
+                <input type="text" placeholder={newOptType === 'addon' ? 'Add-on name (e.g. Rush fee)' : 'Option name (e.g. 5-Pack)'} value={newOptName}
                     onChange={e => setNewOptName(e.target.value)}
                     className="flex-1 px-2 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                <input type="number" placeholder="Price $" value={newOptPrice} min="0" step="0.01"
+                <input type="number" placeholder={newOptType === 'addon' ? '+$ add-on' : 'Price $'} value={newOptPrice} min="0" step="0.01"
                     onChange={e => setNewOptPrice(e.target.value)}
-                    className="w-24 px-2 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                <button onClick={addOption} disabled={!newOptName.trim() || !newOptPrice}
+                    className="w-28 px-2 py-1.5 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                <button onClick={addOption} disabled={!newOptName.trim() || !newOptPrice || saving}
                     className="px-2 py-1.5 bg-slate-600 hover:bg-slate-700 text-white text-xs rounded disabled:opacity-40">
-                    <Plus className="w-3.5 h-3.5" />
+                    {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
                 </button>
             </div>
         </div>
@@ -463,6 +561,13 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
     const [newDesc, setNewDesc] = useState('');
     const [newCategory, setNewCategory] = useState('');
     const [newOptions, setNewOptions] = useState<ServiceOption[]>([]);
+    const [addons, setAddons] = useState<Addon[]>([]);
+
+    useEffect(() => {
+        fetch(`/api/bookings/addons?siteId=${siteId}`)
+            .then(r => r.json())
+            .then(d => setAddons(d.addons || []));
+    }, [siteId]);
     const [newIsFeatured, setNewIsFeatured] = useState(false);
     const [newCompareAtPrice, setNewCompareAtPrice] = useState('');
     const [publishing, setPublishing] = useState(false);
@@ -805,7 +910,7 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
                                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
                             )}
-                            <ServiceOptionsEditor options={editState.options} onChange={opts => setEditState({ ...editState, options: opts })} />
+                            <ServiceOptionsEditor options={editState.options} onChange={opts => setEditState({ ...editState, options: opts })} siteId={siteId} addons={addons} onAddonCreated={a => setAddons(prev => [...prev, a])} />
                             {/* Featured toggle */}
                             <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-white">
                                 <div className="flex items-center gap-2">
@@ -876,7 +981,7 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
                         {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                 )}
-                <ServiceOptionsEditor options={newOptions} onChange={setNewOptions} />
+                <ServiceOptionsEditor options={newOptions} onChange={setNewOptions} siteId={siteId} addons={addons} onAddonCreated={a => setAddons(prev => [...prev, a])} />
                 {/* Featured toggle */}
                 <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-white">
                     <div className="flex items-center gap-2">
@@ -1240,8 +1345,12 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
         })();
     }, [selectedDate, selectedService, siteId]);
 
-    // Effective price: selected option price or base service price
-    const effectivePriceCents = selectedOption?.price_cents ?? selectedService?.price_cents ?? 0;
+    // Effective price: addon options add to the base price; override options replace it
+    const effectivePriceCents = selectedOption
+        ? (selectedOption.price_type === 'addon'
+            ? (selectedService?.price_cents ?? 0) + selectedOption.price_cents
+            : selectedOption.price_cents)
+        : (selectedService?.price_cents ?? 0);
 
     const handleSubmit = async () => {
         if (!selectedService || !selectedDate || !selectedSlot) return;
@@ -1441,7 +1550,9 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                                             {service.price_cents > 0 && (
                                                 <div className="text-right shrink-0 ml-3">
                                                     <span className="text-lg font-bold" style={{ color: pSecondary }}>
-                                                        {service.options && service.options.length > 0 ? `from $${Math.min(...service.options.map(o => o.price_cents)) / 100}` : `$${(service.price_cents / 100).toFixed(2)}`}
+                                                        {service.options && service.options.length > 0
+                                                            ? `from $${(Math.min(...service.options.map(o => o.price_type === 'addon' ? service.price_cents + o.price_cents : o.price_cents)) / 100).toFixed(2)}`
+                                                            : `$${(service.price_cents / 100).toFixed(2)}`}
                                                     </span>
                                                     {service.is_featured && service.compare_at_price_cents && service.compare_at_price_cents > service.price_cents && (
                                                         <div className="text-sm text-slate-400 line-through">${(service.compare_at_price_cents / 100).toFixed(2)}</div>
@@ -1465,19 +1576,29 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                         <h2 className="text-2xl font-bold text-slate-900 mb-2 text-center">Choose an Option</h2>
                         <p className="text-sm text-slate-500 mb-6 text-center">for {selectedService.name}</p>
                         <div className="space-y-3">
-                            {(selectedService.options || []).map(opt => (
-                                <button key={opt.id}
-                                    onClick={() => { setSelectedOption(opt); setStep('date'); }}
-                                    className="w-full text-left p-4 rounded-xl border-2 border-slate-200 hover:border-slate-400 transition-all group bg-white flex items-center justify-between">
-                                    <div>
-                                        <h3 className="font-bold text-slate-900 group-hover:text-blue-700 transition-colors">{opt.name}</h3>
-                                        <span className="text-xs text-slate-500 mt-0.5 flex items-center gap-1"><Clock className="w-3 h-3" /> {selectedService.duration_minutes} min</span>
-                                    </div>
-                                    <span className="text-lg font-bold shrink-0 ml-3" style={{ color: pSecondary }}>
-                                        ${(opt.price_cents / 100).toFixed(2)}
-                                    </span>
-                                </button>
-                            ))}
+                            {(selectedService.options || []).map(opt => {
+                                const totalCents = opt.price_type === 'addon'
+                                    ? selectedService.price_cents + opt.price_cents
+                                    : opt.price_cents;
+                                return (
+                                    <button key={opt.id}
+                                        onClick={() => { setSelectedOption(opt); setStep('date'); }}
+                                        className="w-full text-left p-4 rounded-xl border-2 border-slate-200 hover:border-slate-400 transition-all group bg-white flex items-center justify-between">
+                                        <div>
+                                            <h3 className="font-bold text-slate-900 group-hover:text-blue-700 transition-colors">{opt.name}</h3>
+                                            <span className="text-xs text-slate-500 mt-0.5 flex items-center gap-1"><Clock className="w-3 h-3" /> {selectedService.duration_minutes} min</span>
+                                            {opt.price_type === 'addon' && (
+                                                <span className="text-[11px] text-blue-500 mt-0.5 block">
+                                                    base ${(selectedService.price_cents / 100).toFixed(2)} + ${(opt.price_cents / 100).toFixed(2)} add-on
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span className="text-lg font-bold shrink-0 ml-3" style={{ color: pSecondary }}>
+                                            ${(totalCents / 100).toFixed(2)}
+                                        </span>
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
                 )}
