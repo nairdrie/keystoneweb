@@ -7,6 +7,7 @@ import {
   Monitor, Smartphone, Tablet, Globe,
   MousePointerClick, LogOut, Crown, Lock,
   TrendingUp, TrendingDown, Minus,
+  Gauge, AlertTriangle, Zap,
 } from 'lucide-react';
 import { useAdminContext } from '../admin-context';
 
@@ -83,6 +84,161 @@ const formatDuration = (ms: number): string => {
   const remaining = seconds % 60;
   return `${minutes}m ${remaining}s`;
 };
+
+function UsageLimitsPanel() {
+  const { usage, usagePlan, siteBreakdown } = useAdminContext();
+
+  if (!usage || !usagePlan) return null;
+
+  const fmt = (n: number) => n.toLocaleString('en-US');
+  const pct = usage.usagePercent;
+  const isOverLimit = usage.overageVisitors > 0;
+  const isNearLimit = pct >= 80 && !isOverLimit;
+
+  const barColor = isOverLimit
+    ? 'bg-red-500'
+    : isNearLimit
+      ? 'bg-amber-500'
+      : 'bg-emerald-500';
+
+  const barWidth = Math.min(pct, 100);
+
+  return (
+    <div className="space-y-4">
+      {/* Usage overview card */}
+      <div className="bg-white border border-slate-200 rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Gauge className="w-4 h-4 text-slate-500" />
+            <h3 className="text-sm font-bold text-slate-900">Usage & Limits</h3>
+          </div>
+          <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">
+            {new Date(usage.periodStart).toLocaleDateString('en-US', { month: 'short' })} billing period
+          </span>
+        </div>
+
+        {/* Visitor usage bar */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-medium text-slate-600">Monthly Visitors</span>
+            <span className="text-xs font-bold text-slate-900">
+              {fmt(usage.totalVisitors)} / {fmt(usage.visitorLimit)}
+            </span>
+          </div>
+          <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+              style={{ width: `${barWidth}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between mt-1">
+            <span className="text-[10px] text-slate-400">
+              Day {usage.dayOfMonth} of {usage.daysInMonth}
+            </span>
+            <span className="text-[10px] text-slate-400">
+              {pct}% used
+            </span>
+          </div>
+        </div>
+
+        {/* Status badges */}
+        {isOverLimit && (
+          <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-lg mb-3">
+            <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+            <div>
+              <p className="text-xs font-bold text-red-800">
+                {fmt(usage.overageVisitors)} visitors over your plan limit
+              </p>
+              <p className="text-[10px] text-red-600 mt-0.5">
+                Estimated overage charge: <strong>${usage.overageCost.toFixed(2)}</strong> this month
+              </p>
+            </div>
+          </div>
+        )}
+
+        {isNearLimit && (
+          <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-100 rounded-lg mb-3">
+            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+            <p className="text-xs font-medium text-amber-800">
+              Approaching your visitor limit ({pct}% used). Overages billed at ${usagePlan.overagePerThousand.toFixed(2)}/1,000 visitors.
+            </p>
+          </div>
+        )}
+
+        {!isOverLimit && !isNearLimit && (
+          <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-lg mb-3">
+            <Zap className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            <p className="text-xs font-medium text-emerald-800">
+              Usage is within your plan limits.
+            </p>
+          </div>
+        )}
+
+        {/* Quick stats grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+          <div className="text-center p-2.5 bg-slate-50 rounded-lg">
+            <p className="text-lg font-black text-slate-900 leading-none">{fmt(usage.totalVisitors)}</p>
+            <p className="text-[10px] text-slate-500 mt-1 font-medium">Visitors</p>
+          </div>
+          <div className="text-center p-2.5 bg-slate-50 rounded-lg">
+            <p className="text-lg font-black text-slate-900 leading-none">{fmt(usage.totalViews)}</p>
+            <p className="text-[10px] text-slate-500 mt-1 font-medium">Page Views</p>
+          </div>
+          <div className="text-center p-2.5 bg-slate-50 rounded-lg">
+            <p className="text-lg font-black text-slate-900 leading-none">{fmt(usage.projectedVisitors)}</p>
+            <p className="text-[10px] text-slate-500 mt-1 font-medium">Projected</p>
+          </div>
+          <div className="text-center p-2.5 bg-slate-50 rounded-lg">
+            <p className={`text-lg font-black leading-none ${usage.projectedOverageCost > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+              ${usage.projectedOverageCost.toFixed(2)}
+            </p>
+            <p className="text-[10px] text-slate-500 mt-1 font-medium">Proj. Overage</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Per-site breakdown */}
+      {siteBreakdown.length > 1 && (
+        <div className="bg-white border border-slate-200 rounded-xl p-5">
+          <h3 className="text-sm font-bold text-slate-900 mb-3">Usage by Site</h3>
+          <div className="space-y-2">
+            {siteBreakdown.map((site) => {
+              const sitePct = usage.visitorLimit > 0
+                ? Math.round((site.visitors / usage.visitorLimit) * 100)
+                : 0;
+              return (
+                <div key={site.siteId} className="flex items-center gap-3">
+                  <span className="text-xs font-medium text-slate-700 truncate flex-1">{site.slug}</span>
+                  <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden shrink-0">
+                    <div
+                      className="h-full bg-violet-400 rounded-full"
+                      style={{ width: `${Math.min(sitePct, 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-bold text-slate-900 tabular-nums w-16 text-right">
+                    {fmt(site.visitors)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Plan info */}
+      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-slate-700">{usagePlan.name} Plan</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">
+              {fmt(usagePlan.visitorLimit)} visitors/mo · {usagePlan.storageLimitMb >= 1024 ? `${(usagePlan.storageLimitMb / 1024).toFixed(0)} GB` : `${usagePlan.storageLimitMb} MB`} storage · ${usagePlan.overagePerThousand.toFixed(2)}/1k overage
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminAnalyticsPage() {
   const { siteId, site, isProUser } = useAdminContext();
@@ -181,6 +337,9 @@ export default function AdminAnalyticsPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
+      {/* Usage & Limits Panel */}
+      <UsageLimitsPanel />
+
       {/* Header row */}
       <div className="flex items-center justify-between">
         <h2 className="text-base font-bold text-slate-900">Analytics</h2>

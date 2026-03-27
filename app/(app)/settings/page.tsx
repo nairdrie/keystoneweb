@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/context';
 import { useRouter } from 'next/navigation';
 import KeystoneLogo from '@/app/components/KeystoneLogo';
-import { ArrowLeft, CreditCard, ExternalLink, Loader2, User, History, Globe, Link2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, CreditCard, ExternalLink, Loader2, User, History, Globe, Link2, AlertCircle, CheckCircle2, Lock } from 'lucide-react';
 
 interface SubscriptionData {
     subscription_status: string;
@@ -124,6 +124,8 @@ export default function SettingsPage() {
     const completedDomains = domains.filter((d) => d.status === 'completed');
     const allocatedDomains = completedDomains.filter((d) => d.site_id);
     const unallocatedDomains = completedDomains.filter((d) => !d.site_id);
+    const isPro = subscription?.subscription_status === 'active' &&
+        subscription?.subscription_plan?.toLowerCase().includes('pro');
 
     return (
         <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
@@ -204,7 +206,7 @@ export default function SettingsPage() {
                             </div>
 
                             <div className="p-6 bg-slate-50/50">
-                                {subscription ? (
+                                {subscription && subscription.subscription_status && subscription.subscription_status !== 'inactive' ? (
                                     <div className="space-y-6">
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
@@ -213,7 +215,7 @@ export default function SettingsPage() {
                                             </div>
                                             <div>
                                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Started As Of</p>
-                                                <p className="font-medium text-slate-700">{new Date(subscription.subscription_started_at).toLocaleDateString()}</p>
+                                                <p className="font-medium text-slate-700">{subscription.subscription_started_at ? new Date(subscription.subscription_started_at).toLocaleDateString() : '—'}</p>
                                             </div>
                                         </div>
 
@@ -286,23 +288,32 @@ export default function SettingsPage() {
                                     </div>
                                 ) : (
                                     <div className="space-y-3">
-                                        {completedDomains.map((domain) => (
+                                        {completedDomains.map((domain) => {
+                                            const isParked = !isPro;
+                                            return (
                                             <div
                                                 key={domain.id}
-                                                className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white border border-slate-200 rounded-xl gap-3"
+                                                className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white border rounded-xl gap-3 ${isParked ? 'border-slate-300 opacity-80' : 'border-slate-200'}`}
                                             >
                                                 <div className="flex items-start gap-3">
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${domain.site_id ? 'bg-green-100' : 'bg-amber-100'}`}>
-                                                        {domain.site_id ? (
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isParked ? 'bg-slate-100' : domain.site_id ? 'bg-green-100' : 'bg-amber-100'}`}>
+                                                        {isParked ? (
+                                                            <Lock className="w-4 h-4 text-slate-400" />
+                                                        ) : domain.site_id ? (
                                                             <Link2 className="w-4 h-4 text-green-600" />
                                                         ) : (
                                                             <AlertCircle className="w-4 h-4 text-amber-600" />
                                                         )}
                                                     </div>
                                                     <div>
-                                                        <p className="font-mono font-semibold text-slate-900">{domain.domain}</p>
+                                                        <p className={`font-mono font-semibold ${isParked ? 'text-slate-400' : 'text-slate-900'}`}>{domain.domain}</p>
                                                         <div className="flex flex-wrap items-center gap-2 mt-1">
-                                                            {domain.site_id ? (
+                                                            {isParked ? (
+                                                                <span className="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
+                                                                    <Lock className="w-3 h-3" />
+                                                                    Parked — Requires Pro
+                                                                </span>
+                                                            ) : domain.site_id ? (
                                                                 <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
                                                                     <CheckCircle2 className="w-3 h-3" />
                                                                     Linked to {domain.site_name || 'a site'}
@@ -326,30 +337,49 @@ export default function SettingsPage() {
                                                     </div>
                                                 </div>
 
-                                                <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                                                    {domain.expires_at && (
-                                                        <p className="text-xs text-slate-500">
-                                                            {domain.auto_renew ? 'Renews' : 'Expires'}: {new Date(domain.expires_at).toLocaleDateString()}
-                                                        </p>
-                                                    )}
-                                                    {!domain.expires_at && (
-                                                        <p className="text-xs text-slate-500">
-                                                            Registered: {new Date(domain.created_at).toLocaleDateString()}
-                                                        </p>
-                                                    )}
-                                                    {domain.auto_renew && !domain.cancelled_at && (
-                                                        <span className="inline-flex items-center text-[10px] text-green-600 font-medium">
-                                                            Auto-renew on
-                                                        </span>
-                                                    )}
-                                                    {domain.cancelled_at && (
-                                                        <span className="inline-flex items-center text-[10px] text-red-600 font-medium">
-                                                            Cancelled
-                                                        </span>
+                                                <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                                                    {isParked ? (
+                                                        <>
+                                                            {domain.expires_at && (
+                                                                <p className="text-xs text-slate-400">
+                                                                    Expires: {new Date(domain.expires_at).toLocaleDateString()}
+                                                                </p>
+                                                            )}
+                                                            <button
+                                                                onClick={() => router.push('/pricing')}
+                                                                className="text-xs font-semibold px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                                                            >
+                                                                Upgrade to Activate
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            {domain.expires_at && (
+                                                                <p className="text-xs text-slate-500">
+                                                                    {domain.auto_renew ? 'Renews' : 'Expires'}: {new Date(domain.expires_at).toLocaleDateString()}
+                                                                </p>
+                                                            )}
+                                                            {!domain.expires_at && (
+                                                                <p className="text-xs text-slate-500">
+                                                                    Registered: {new Date(domain.created_at).toLocaleDateString()}
+                                                                </p>
+                                                            )}
+                                                            {domain.auto_renew && !domain.cancelled_at && (
+                                                                <span className="inline-flex items-center text-[10px] text-green-600 font-medium">
+                                                                    Auto-renew on
+                                                                </span>
+                                                            )}
+                                                            {domain.cancelled_at && (
+                                                                <span className="inline-flex items-center text-[10px] text-red-600 font-medium">
+                                                                    Cancelled
+                                                                </span>
+                                                            )}
+                                                        </>
                                                     )}
                                                 </div>
                                             </div>
-                                        ))}
+                                            );
+                                        })}
 
                                         {/* Summary */}
                                         <div className="pt-3 border-t border-slate-100">

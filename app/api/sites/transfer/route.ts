@@ -3,8 +3,9 @@ import { randomBytes } from 'crypto';
 import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { trackEvent } from '@/lib/analytics';
+import { sendSiteTransferEmail } from '@/lib/email';
 
-// POST - Generate a transfer link for a site
+// POST - Initiate a site transfer by emailing the recipient
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -14,28 +15,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { siteId } = await request.json();
+    const { siteId, recipientEmail, includeDomain } = await request.json();
+
     if (!siteId) {
       return NextResponse.json({ error: 'Site ID is required' }, { status: 400 });
     }
+    if (!recipientEmail || !recipientEmail.includes('@')) {
+      return NextResponse.json({ error: 'A valid recipient email is required' }, { status: 400 });
+    }
+    if (recipientEmail.toLowerCase() === user.email?.toLowerCase()) {
+      return NextResponse.json({ error: 'You cannot transfer a site to yourself' }, { status: 400 });
+    }
 
-    // Verify ownership
+    // Verify ownership and fetch site info
     const { data: site, error: fetchError } = await supabase
       .from('sites')
-      .select('id, user_id, site_slug')
+      .select('id, user_id, site_slug, custom_domain')
       .eq('id', siteId)
       .single();
 
     if (fetchError || !site) {
       return NextResponse.json({ error: 'Site not found' }, { status: 404 });
     }
-
     if (site.user_id !== user.id) {
       return NextResponse.json({ error: 'Forbidden: You can only transfer your own sites' }, { status: 403 });
     }
 
-    // Cancel any existing pending transfers for this site
     const admin = createAdminClient();
+
+    // Cancel any existing pending transfers for this site
     await admin
       .from('site_transfers')
       .update({ status: 'cancelled' })
@@ -44,6 +52,28 @@ export async function POST(request: NextRequest) {
 
     // Generate a secure token
     const token = randomBytes(32).toString('hex');
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://keystoneweb.ca';
+    const transferUrl = `${baseUrl}/transfer?token=${token}`;
+
+    // Check if recipient already has a Keystone account
+    const { data: recipientUser } = await admin
+      .from('users')
+      .select('id')
+      .eq('email', recipientEmail.toLowerCase())
+      .maybeSingle();
+
+    let recipientHasPaidPlan = false;
+    if (recipientUser) {
+      const { data: recipientSub } = await admin
+        .from('user_subscriptions')
+        .select('subscription_status')
+        .eq('user_id', recipientUser.id)
+        .maybeSingle();
+      recipientHasPaidPlan = recipientSub?.subscription_status === 'active';
+    }
+
+    // Resolve domain name to include
+    const domainName = includeDomain ? (site.custom_domain || null) : null;
 
     // Create the transfer record
     const { error: insertError } = await admin.from('site_transfers').insert({
@@ -51,6 +81,8 @@ export async function POST(request: NextRequest) {
       from_user_id: user.id,
       token,
       status: 'pending',
+      recipient_email: recipientEmail.toLowerCase(),
+      include_domain: !!includeDomain,
     });
 
     if (insertError) {
@@ -58,16 +90,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create transfer' }, { status: 500 });
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://keystoneweb.ca';
-    const transferUrl = `${baseUrl}/transfer?token=${token}`;
+    // Fetch sender display name
+    const { data: sender } = await admin
+      .from('users')
+      .select('business_name')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    // Send the transfer email
+    await sendSiteTransferEmail({
+      recipientEmail: recipientEmail.toLowerCase(),
+      senderName: sender?.business_name || '',
+      senderEmail: user.email!,
+      siteName: site.site_slug,
+      transferUrl,
+      includeDomain: !!includeDomain,
+      domainName,
+      recipientHasAccount: !!recipientUser,
+      recipientHasPaidPlan,
+    });
 
     trackEvent('site_transfer_created', {
       userId: user.id,
       siteId,
-      metadata: { siteName: site.site_slug },
+      metadata: { siteName: site.site_slug, recipientEmail, includeDomain: !!includeDomain },
     });
 
-    return NextResponse.json({ transferUrl, token });
+    return NextResponse.json({ success: true, message: 'Transfer email sent' });
   } catch (error) {
     console.error('Error creating transfer:', error);
     return NextResponse.json({ error: 'Failed to create transfer' }, { status: 500 });
@@ -86,7 +135,7 @@ export async function GET(request: NextRequest) {
 
     const { data: transfer, error } = await admin
       .from('site_transfers')
-      .select('id, site_id, from_user_id, status, created_at, expires_at')
+      .select('id, site_id, from_user_id, status, created_at, expires_at, include_domain, recipient_email')
       .eq('token', token)
       .single();
 
@@ -102,10 +151,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Transfer link has expired' }, { status: 410 });
     }
 
-    // Fetch site name and sender info
+    // Fetch site info
     const { data: site } = await admin
       .from('sites')
-      .select('site_slug')
+      .select('site_slug, custom_domain')
       .eq('id', transfer.site_id)
       .single();
 
@@ -122,6 +171,9 @@ export async function GET(request: NextRequest) {
       senderEmail: sender?.email || 'Unknown',
       senderName: sender?.business_name || null,
       expiresAt: transfer.expires_at,
+      includeDomain: transfer.include_domain,
+      domainName: transfer.include_domain ? (site?.custom_domain || null) : null,
+      recipientEmail: transfer.recipient_email || null,
     });
   } catch (error) {
     console.error('Error fetching transfer:', error);

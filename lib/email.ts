@@ -662,6 +662,134 @@ export async function sendWelcomeEmail(data: {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
+// Site Transfer Emails
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function sendSiteTransferEmail(data: {
+    recipientEmail: string;
+    senderName: string;
+    senderEmail: string;
+    siteName: string;
+    transferUrl: string;
+    includeDomain: boolean;
+    domainName: string | null;
+    recipientHasAccount: boolean;
+    recipientHasPaidPlan: boolean;
+}) {
+    try {
+        const domainRow = data.includeDomain && data.domainName
+            ? `<tr><td style="padding: 6px 0; color: #6b7280;">Domain</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827; font-family: monospace;">${data.domainName}</td></tr>`
+            : '';
+
+        let instructionsHtml = '';
+        if (!data.recipientHasAccount) {
+            instructionsHtml = `
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 16px; margin-top: 16px;">
+                    <h3 style="margin: 0 0 8px; color: #166534; font-size: 14px; font-weight: 700;">New to Keystone?</h3>
+                    <p style="margin: 0; color: #166534; font-size: 13px; line-height: 1.6;">
+                        Clicking the button below will guide you through creating your Keystone account and choosing a plan. You'll be publishing in minutes.
+                    </p>
+                    ${data.includeDomain && data.domainName ? `
+                    <p style="margin: 10px 0 0; color: #166534; font-size: 13px; line-height: 1.6;">
+                        <strong>Pro tip:</strong> Choose the <strong>Pro plan</strong> to keep <em>${data.domainName}</em> active and live on your new site.
+                    </p>` : ''}
+                </div>
+            `;
+        } else if (!data.recipientHasPaidPlan) {
+            instructionsHtml = `
+                <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 16px; margin-top: 16px;">
+                    <h3 style="margin: 0 0 8px; color: #92400e; font-size: 14px; font-weight: 700;">Choose a plan to go live</h3>
+                    <p style="margin: 0; color: #92400e; font-size: 13px; line-height: 1.6;">
+                        You'll be asked to choose a plan after accepting — this gets your new site published.
+                        ${data.includeDomain && data.domainName
+                            ? ` Upgrade to <strong>Pro</strong> to activate <em>${data.domainName}</em> with your site.`
+                            : ''}
+                    </p>
+                </div>
+            `;
+        } else {
+            instructionsHtml = `
+                <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin-top: 16px;">
+                    <p style="margin: 0; color: #1e40af; font-size: 13px; line-height: 1.6;">
+                        You already have an active Keystone plan. Once you accept, the site will be added to your account immediately.
+                    </p>
+                </div>
+            `;
+        }
+
+        const subject = data.recipientHasAccount
+            ? `${data.senderName || data.senderEmail} is transferring a site to you on Keystone`
+            : `Your new site is ready — ${data.senderName || data.senderEmail} sent it to you`;
+
+        await resend.emails.send({
+            from: 'Keystone Web Design <noreply@keystoneweb.ca>',
+            to: data.recipientEmail,
+            subject,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; background: #ffffff;">
+                    <!-- Red top bar -->
+                    <div style="background: #fe4545; height: 4px; border-radius: 4px 4px 0 0;"></div>
+
+                    <!-- Body -->
+                    <div style="padding: 40px 32px;">
+                        <!-- Logo -->
+                        <img style="width:180px; margin-bottom:32px;" src="https://www.keystoneweb.ca/assets/logo/keystone-logo.png" alt="Keystone Web" />
+
+                        <!-- Heading -->
+                        <h1 style="margin: 0 0 8px; font-size: 22px; font-weight: 700; color: #171717; letter-spacing: -0.02em;">
+                            ${data.recipientHasAccount ? 'A site is being transferred to you' : 'Your new site is ready to claim'}
+                        </h1>
+                        <p style="margin: 0 0 24px; font-size: 15px; color: #6b7280; line-height: 1.6;">
+                            <strong style="color: #111827;">${data.senderName || data.senderEmail}</strong> is transferring their Keystone site to you.
+                        </p>
+
+                        <!-- Transfer details -->
+                        <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 8px;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                                <tr><td style="padding: 6px 0; color: #6b7280;">Site</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.siteName}</td></tr>
+                                <tr><td style="padding: 6px 0; color: #6b7280;">From</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.senderEmail}</td></tr>
+                                ${domainRow}
+                            </table>
+                        </div>
+
+                        ${instructionsHtml}
+
+                        <!-- CTA -->
+                        <div style="margin-top: 28px; text-align: center;">
+                            <a href="${data.transferUrl}" style="display: inline-block; background: #fe4545; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 600; padding: 14px 32px; border-radius: 8px; letter-spacing: 0.01em;">
+                                Claim Your Site →
+                            </a>
+                        </div>
+
+                        <!-- Expiry note -->
+                        <p style="margin-top: 20px; font-size: 12px; color: #9ca3af; text-align: center;">
+                            This link expires in 7 days. If you didn't expect this, you can safely ignore this email.
+                        </p>
+
+                        <div style="border-top: 1px solid #f3f4f6; margin: 28px 0 0;"></div>
+                        <p style="margin: 16px 0 0; font-size: 12px; color: #9ca3af; line-height: 1.6;">
+                            Questions? Reply to this email or visit <a href="https://keystoneweb.ca" style="color: #6b7280;">keystoneweb.ca</a>.
+                        </p>
+                    </div>
+
+                    <!-- Footer -->
+                    <div style="padding: 16px 32px; background: #f9fafb; border-top: 1px solid #f3f4f6; border-radius: 0 0 4px 4px;">
+                        <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center;">
+                            Powered by <strong style="color: #6b7280;">Keystone Web Design</strong>
+                        </p>
+                    </div>
+                </div>
+            `,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send site transfer email:', error);
+        return { success: false, error };
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Cancellation Emails
 // ═══════════════════════════════════════════════════════════════════════════════
 

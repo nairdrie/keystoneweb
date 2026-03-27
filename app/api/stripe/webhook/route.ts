@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/db/supabase-admin';
 import { sendOrderConfirmation, sendOrderNotification, sendSubscriptionPurchaseEmail, sendSubscriptionCancelledEmail } from '@/lib/email';
 import { completeDomainPurchase } from '@/app/api/domains/purchase/route';
 import { initiateVercelTransfer } from '@/app/api/domains/transfer/route';
+import { getPlanByName } from '@/lib/plans';
 import Stripe from 'stripe';
 import { trackEvent } from '@/lib/analytics';
 
@@ -214,6 +215,9 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Invalid session metadata' }, { status: 400 });
         }
 
+        // Look up plan config for visitor/storage limits
+        const planConfig = getPlanByName(planName);
+
         // Upsert subscription info in user_subscriptions DB
         const { error } = await supabase
           .from('user_subscriptions')
@@ -225,6 +229,10 @@ export async function POST(request: NextRequest) {
             stripe_subscription_id: session.subscription as string,
             subscription_started_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
+            ...(planConfig ? {
+              visitor_limit: planConfig.visitorLimit,
+              storage_limit_mb: planConfig.storageLimitMb,
+            } : {}),
           }, { onConflict: 'user_id' }); // If a user manages to buy again, update their existing row
 
         if (error) {
