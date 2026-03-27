@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Check, Loader2 } from 'lucide-react';
+import { Check, Loader2, ChevronDown } from 'lucide-react';
 import Header from '../../components/Header';
 
 
@@ -39,6 +39,7 @@ function PricingContent() {
   const [error, setError] = useState<string | null>(null);
   const [activePlan, setActivePlan] = useState<string | null>(null);
   const [isYearly, setIsYearly] = useState(true);
+  const [faqOpen, setFaqOpen] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/user/subscription', { credentials: 'include' })
@@ -100,6 +101,8 @@ function PricingContent() {
       setLoading(false);
     }
   };
+
+  const toggleFaq = (id: string) => setFaqOpen(faqOpen === id ? null : id);
 
   return (
     <section className="pt-40 pb-20 px-4 sm:px-6 lg:px-8 relative z-10">
@@ -172,8 +175,8 @@ function PricingContent() {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="bg-white rounded-3xl p-8 border border-slate-200 shadow-xl relative order-2 md:order-1"
         >
-          <h3 className="text-2xl font-bold text-slate-900 mb-2">Basic</h3>
-          <p className="text-slate-500 mb-6">Perfect for small businesses getting started.</p>
+          <h3 className="text-2xl font-bold text-slate-900 mb-1">Basic</h3>
+          <p className="text-slate-500 mb-6">Ideal for local shops and new businesses.</p>
           <div className="mb-8">
             <div className="flex items-end gap-2 flex-wrap">
               <span className="text-5xl font-black text-slate-900">
@@ -195,7 +198,9 @@ function PricingContent() {
               'Access to all Premium Templates',
               'Drag-and-Drop Visual Editor',
               'AI Builder (3 prompts/day)',
-              'Email Support'
+              'Up to 10,000 monthly visitors',
+              '1 GB media storage',
+              'Email Support',
             ].map((feature) => (
               <li key={feature} className="flex items-center gap-3 text-slate-700">
                 <Check className="w-5 h-5 text-red-500 shrink-0" />
@@ -203,6 +208,13 @@ function PricingContent() {
               </li>
             ))}
           </ul>
+
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-6">
+            <p className="text-sm font-semibold text-emerald-800 mb-1">Worry-Free Scaling</p>
+            <p className="text-xs text-emerald-700">
+              If traffic spikes, your site never goes down. Just <strong>$1.00 per 1,000 extra visitors</strong>, billed automatically at the end of the month.
+            </p>
+          </div>
 
           <button
             onClick={() => handleCheckout('Basic', isYearly ? STRIPE_PRICES.basic.yearly : STRIPE_PRICES.basic.monthly)}
@@ -233,11 +245,11 @@ function PricingContent() {
             Most Popular
           </div>
 
-          <h3 className="text-2xl font-bold text-white mb-2">Pro</h3>
+          <h3 className="text-2xl font-bold text-white mb-1">Pro</h3>
           <p className="text-slate-300 mb-6 font-medium">
             {isPublishFlow
               ? 'Everything you need to grow your business online.'
-              : 'For serious business owners who want to scale.'}
+              : 'Built for growing businesses with high traffic.'}
           </p>
           <div className="mb-8">
             <div className="flex items-end gap-2 flex-wrap">
@@ -260,6 +272,8 @@ function PricingContent() {
               'Increased AI Builder Limits',
               'Unlimited Sites',
               'Free Custom Domain Included',
+              'Up to 50,000 monthly visitors',
+              '5 GB media storage',
               '24/7 Priority Email Support',
               'Advanced Analytics',
               'Custom CSS Injection',
@@ -270,6 +284,13 @@ function PricingContent() {
               </li>
             ))}
           </ul>
+
+          <div className="bg-emerald-900/40 border border-emerald-700/50 rounded-xl p-4 mb-6">
+            <p className="text-sm font-semibold text-emerald-300 mb-1">Worry-Free Scaling</p>
+            <p className="text-xs text-emerald-200/80">
+              If traffic spikes, your site never goes down. Just <strong>$0.50 per 1,000 extra visitors</strong>, billed automatically at the end of the month.
+            </p>
+          </div>
 
           <button
             onClick={() => handleCheckout('Pro', isYearly ? STRIPE_PRICES.pro.yearly : STRIPE_PRICES.pro.monthly)}
@@ -289,6 +310,63 @@ function PricingContent() {
           </button>
         </motion.div>
       </div>
+
+      {/* Fair Use FAQ Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.5 }}
+        className="max-w-3xl mx-auto mt-20"
+      >
+        <h2 className="text-2xl font-black text-slate-900 text-center mb-8">
+          Frequently Asked Questions
+        </h2>
+
+        <div className="space-y-3">
+          {[
+            {
+              id: 'fair-use',
+              q: 'What happens if I go over my visitor limit?',
+              a: 'We don\'t believe in punishing success. If your business goes viral, we keep your site lightning-fast and online. You will only ever be charged a few cents for the extra traffic your site generates, billed automatically at the end of the month. Basic plans pay $1.00 per 1,000 extra visitors, Pro plans pay $0.50 per 1,000.',
+            },
+            {
+              id: 'what-counts',
+              q: 'What counts as a "visitor"?',
+              a: 'A visitor is a unique person who views your website in a given month. If the same person visits your site 10 times, that still counts as 1 visitor. Page views (how many pages they look at) are tracked separately and do not count toward your limit.',
+            },
+            {
+              id: 'storage',
+              q: 'What counts toward media storage?',
+              a: 'Media storage includes photos, logos, and any files you upload through the editor. Your site\'s code and text content don\'t count. Basic gets 1 GB (plenty for dozens of high-quality photos), and Pro gets 5 GB.',
+            },
+            {
+              id: 'billing',
+              q: 'How does overage billing work?',
+              a: 'At the end of each billing cycle, we calculate how many visitors you had above your plan\'s included amount. The overage charge is bundled into your regular invoice alongside your base subscription fee — one clean charge to your card on file. You can track your usage in real-time from your admin dashboard.',
+            },
+            {
+              id: 'no-surprise',
+              q: 'Will I get a surprise bill?',
+              a: 'No surprises. Your admin dashboard shows real-time visitor counts and projected overage costs so you always know where you stand. For most small businesses, you\'ll never exceed your plan limits. Even if you do, the overage charges are designed to be very small — a few dollars at most.',
+            },
+          ].map(({ id, q, a }) => (
+            <div key={id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+              <button
+                onClick={() => toggleFaq(id)}
+                className="w-full flex items-center justify-between px-6 py-4 text-left"
+              >
+                <span className="text-sm font-bold text-slate-900">{q}</span>
+                <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 ml-4 transition-transform ${faqOpen === id ? 'rotate-180' : ''}`} />
+              </button>
+              {faqOpen === id && (
+                <div className="px-6 pb-5">
+                  <p className="text-sm text-slate-600 leading-relaxed">{a}</p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </motion.div>
     </section>
   );
 }
