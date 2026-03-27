@@ -26,10 +26,11 @@ CREATE INDEX IF NOT EXISTS user_usage_monthly_user_period
 
 ALTER TABLE public.user_usage_monthly ENABLE ROW LEVEL SECURITY;
 
--- ─── Extend user_subscriptions with metered billing fields ───────────────────
+-- ─── Extend user_subscriptions with plan limit fields ────────────────────────
+-- Overage reporting uses Stripe Billing Meters (SDK v20+), so no subscription
+-- item ID is needed — usage is reported via event_name + stripe_customer_id.
 
 ALTER TABLE public.user_subscriptions
-  ADD COLUMN IF NOT EXISTS stripe_metered_item_id text,          -- subscription item for the metered (overage) price
   ADD COLUMN IF NOT EXISTS visitor_limit integer DEFAULT 10000,  -- plan visitor limit
   ADD COLUMN IF NOT EXISTS storage_limit_mb integer DEFAULT 1024; -- plan storage limit in MB
 

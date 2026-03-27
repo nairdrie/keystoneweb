@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     // ── Step 2: Roll up per-user monthly totals ──────────────────────────────
     const { data: activeSubscriptions } = await supabase
       .from('user_subscriptions')
-      .select('user_id, subscription_plan, visitor_limit, stripe_metered_item_id, stripe_subscription_id')
+      .select('user_id, subscription_plan, visitor_limit, stripe_customer_id, stripe_subscription_id')
       .eq('subscription_status', 'active');
 
     if (activeSubscriptions && activeSubscriptions.length > 0) {
@@ -125,21 +125,22 @@ export async function POST(request: NextRequest) {
         usersProcessed++;
 
         // ── Step 3: Report overage to Stripe ─────────────────────────────
-        // We report the TOTAL overage units (visitors above limit) for the current period.
-        // Stripe's metered billing uses "set" action to replace the running total.
-        if (overageVisitors > 0 && sub.stripe_metered_item_id && sub.stripe_subscription_id) {
+        // Uses the Billing Meter Events API (Stripe SDK v20+).
+        // The meter event_name must match a Billing Meter created in Stripe Dashboard.
+        // Meter aggregation should be set to "sum" so daily reports accumulate correctly.
+        if (overageVisitors > 0 && sub.stripe_customer_id) {
           try {
             const stripe = getStripeClient();
+            const meterEventName = process.env.STRIPE_OVERAGE_METER_EVENT_NAME || 'visitor_overage';
 
-            // Report in units of 1 visitor (price is set per-unit in Stripe)
-            await stripe.subscriptionItems.createUsageRecord(
-              sub.stripe_metered_item_id,
-              {
-                quantity: overageVisitors,
-                action: 'set',
-                timestamp: Math.floor(now.getTime() / 1000),
-              }
-            );
+            await stripe.billing.meterEvents.create({
+              event_name: meterEventName,
+              payload: {
+                stripe_customer_id: sub.stripe_customer_id,
+                value: String(overageVisitors),
+              },
+              timestamp: Math.floor(now.getTime() / 1000),
+            });
 
             // Mark as reported
             await supabase

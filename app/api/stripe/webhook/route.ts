@@ -214,26 +214,8 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Invalid session metadata' }, { status: 400 });
         }
 
-        // Look up plan config for limits and metered item ID
+        // Look up plan config for visitor/storage limits
         const planConfig = getPlanByName(planName);
-
-        // Retrieve the full subscription to find the metered subscription item
-        let stripeMeteredItemId: string | null = null;
-        if (session.subscription) {
-          try {
-            const stripe = getStripeClient();
-            const sub = await stripe.subscriptions.retrieve(session.subscription as string);
-            // The metered item is the one whose price has usage_type === 'metered'
-            const meteredItem = sub.items.data.find(
-              (item) => item.price.recurring?.usage_type === 'metered'
-            );
-            if (meteredItem) {
-              stripeMeteredItemId = meteredItem.id;
-            }
-          } catch (e) {
-            console.error('Failed to retrieve subscription for metered item:', e);
-          }
-        }
 
         // Upsert subscription info in user_subscriptions DB
         const { error } = await supabase
@@ -246,7 +228,6 @@ export async function POST(request: NextRequest) {
             stripe_subscription_id: session.subscription as string,
             subscription_started_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            ...(stripeMeteredItemId ? { stripe_metered_item_id: stripeMeteredItemId } : {}),
             ...(planConfig ? {
               visitor_limit: planConfig.visitorLimit,
               storage_limit_mb: planConfig.storageLimitMb,
