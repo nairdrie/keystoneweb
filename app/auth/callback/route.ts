@@ -24,9 +24,10 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/forgot-password?error=link_expired`);
   }
 
-  // --- Path 2: PKCE code flow (Supabase default for server-side resetPasswordForEmail).
-  //     This can fail on mobile when the email link opens in an in-app browser that
-  //     doesn't share the code_verifier cookie with the browser that made the request.
+  // --- Path 2: PKCE code flow (Supabase default for server-side resetPasswordForEmail,
+  //     and for OAuth providers like Google/Apple).
+  //     Doing the exchange server-side avoids the mobile issue where the code_verifier
+  //     stored in localStorage is lost when the OAuth flow opens an external browser.
   const code = searchParams.get('code');
 
   if (code) {
@@ -38,8 +39,13 @@ export async function GET(request: Request) {
     }
 
     console.error('Auth callback code exchange error:', error);
-    return NextResponse.redirect(`${origin}/forgot-password?error=link_expired`);
+    // If next points to a password-reset page, treat as an expired link; otherwise
+    // send the user back to sign-in with a generic error.
+    if (next.startsWith('/forgot-password') || next.startsWith('/reset-password')) {
+      return NextResponse.redirect(`${origin}/forgot-password?error=link_expired`);
+    }
+    return NextResponse.redirect(`${origin}/signin?error=auth_failed`);
   }
 
-  return NextResponse.redirect(`${origin}/forgot-password?error=link_expired`);
+  return NextResponse.redirect(`${origin}/signin?error=auth_failed`);
 }
