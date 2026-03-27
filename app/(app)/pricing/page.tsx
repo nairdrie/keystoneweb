@@ -201,12 +201,17 @@ function PricingContent() {
               'Up to 10,000 monthly visitors',
               '1 GB media storage',
               'Email Support',
+              'Keystone subdomain (yoursite.kswd.ca)',
             ].map((feature) => (
               <li key={feature} className="flex items-center gap-3 text-slate-700">
                 <Check className="w-5 h-5 text-red-500 shrink-0" />
                 {feature}
               </li>
             ))}
+            <li className="flex items-center gap-3 text-slate-400 line-through text-sm">
+              <Check className="w-5 h-5 text-slate-300 shrink-0" />
+              Custom domain (Pro required)
+            </li>
           </ul>
 
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-6">
@@ -271,7 +276,7 @@ function PricingContent() {
               'Everything in Basic',
               'Increased AI Builder Limits',
               'Unlimited Sites',
-              'Free Custom Domain Included',
+              'Custom Domain Support + Free Domain Included',
               'Up to 50,000 monthly visitors',
               '5 GB media storage',
               '24/7 Priority Email Support',
@@ -348,6 +353,11 @@ function PricingContent() {
               id: 'no-surprise',
               q: 'Will I get a surprise bill?',
               a: 'No surprises. Your admin dashboard shows real-time visitor counts and projected overage costs so you always know where you stand. For most small businesses, you\'ll never exceed your plan limits. Even if you do, the overage charges are designed to be very small — a few dollars at most.',
+            },
+            {
+              id: 'custom-domain',
+              q: 'Can I use my own domain name?',
+              a: 'Custom domain support is a Pro feature. On Basic, your site is published on a Keystone subdomain (yoursite.kswd.ca). Upgrading to Pro unlocks full custom domain support and includes one free domain registration.',
             },
           ].map(({ id, q, a }) => (
             <div key={id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
