@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
+import { getPlanByName } from '@/lib/plans';
 import Stripe from 'stripe';
 
 // Initialize Stripe only when API key is available
@@ -12,7 +13,7 @@ const getStripeClient = () => {
 
 interface CheckoutRequest {
   siteId?: string;
-  priceId: string; // Stripe Price ID for the selected plan
+  priceId: string; // Stripe Price ID for the selected plan (base recurring)
   planName: string; // e.g., 'Basic', 'Pro'
 }
 
@@ -114,15 +115,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ url: portalSession.url });
     }
 
+    // Determine whether the selected price is yearly based on the priceId
+    const plan = getPlanByName(planName);
+    const isYearly = plan ? priceId === plan.stripe.yearly : false;
+    const meteredPriceId = plan
+      ? (isYearly ? plan.stripe.meteredYearly : plan.stripe.meteredMonthly)
+      : '';
+
+    // Build line items: base recurring + metered overage (if configured)
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
+      { price: priceId, quantity: 1 },
+    ];
+
+    if (meteredPriceId) {
+      lineItems.push({ price: meteredPriceId });
+    }
+
     // No existing subscription — create a new Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
+      line_items: lineItems,
       mode: 'subscription',
       allow_promotion_codes: true,
       success_url: siteId
