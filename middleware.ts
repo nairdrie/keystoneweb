@@ -43,6 +43,8 @@ export async function middleware(request: NextRequest) {
 
     // We need to validate the session to check the email
     let userEmail: string | null = null;
+    let userId: string | null = null;
+    let isAgent = false;
     const opsCheckResponse = NextResponse.next();
 
     try {
@@ -64,11 +66,24 @@ export async function middleware(request: NextRequest) {
       );
       const { data: { user } } = await supabase.auth.getUser();
       userEmail = user?.email?.toLowerCase() ?? null;
+      userId = user?.id ?? null;
+
+      // If not a hardcoded admin, check if they have the agent flag in the DB
+      if (userEmail && !adminEmails.includes(userEmail) && userId) {
+        const { data: profile } = await supabase
+          .from('users')
+          .select('is_agent')
+          .eq('id', userId)
+          .single();
+        isAgent = profile?.is_agent ?? false;
+      }
     } catch {
       // Auth error → treat as not authenticated
     }
 
-    if (!userEmail || !adminEmails.includes(userEmail)) {
+    const isAdmin = userEmail ? adminEmails.includes(userEmail) : false;
+
+    if (!userEmail || (!isAdmin && !isAgent)) {
       console.log(`[Middleware] Ops access denied for: ${userEmail ?? 'unauthenticated'}`);
       return NextResponse.redirect(new URL('https://keystoneweb.ca'));
     }
