@@ -30,6 +30,7 @@ interface OwnedDomain {
 export default function SettingsPage() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
+    const [avatarErrored, setAvatarErrored] = useState(false);
     const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
     const [loadingSub, setLoadingSub] = useState(true);
     const [generatingPortal, setGeneratingPortal] = useState(false);
@@ -155,8 +156,18 @@ export default function SettingsPage() {
 
                     {/* User Profile Card */}
                     <div className="md:col-span-1 border border-slate-200 bg-white rounded-2xl shadow-sm p-6 mb-6 md:mb-0 h-fit">
-                        <div className="w-16 h-16 bg-red-100 text-red-700 rounded-full flex items-center justify-center mb-4 mx-auto md:mx-0">
-                            <User className="w-8 h-8" />
+                        <div className="w-16 h-16 bg-red-100 text-red-700 rounded-full flex items-center justify-center mb-4 mx-auto md:mx-0 overflow-hidden">
+                            {user.user_metadata?.avatar_url && !avatarErrored ? (
+                                <img
+                                    src={user.user_metadata.avatar_url}
+                                    alt={user.user_metadata?.full_name || user.user_metadata?.name || user.email || ''}
+                                    className="w-full h-full object-cover"
+                                    referrerPolicy="no-referrer"
+                                    onError={() => setAvatarErrored(true)}
+                                />
+                            ) : (
+                                <User className="w-8 h-8" />
+                            )}
                         </div>
                         <h2 className="text-xl font-bold text-center md:text-left">{user.email?.split('@')[0]}</h2>
                         <p className="text-slate-500 text-sm mb-6 text-center md:text-left">{user.email}</p>
