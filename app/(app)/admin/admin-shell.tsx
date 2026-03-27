@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
-import { ChevronDown, Plus, Paintbrush, LayoutDashboard, ExternalLink, Pencil, Check, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu } from 'lucide-react';
+import { ChevronDown, Plus, Paintbrush, LayoutDashboard, ExternalLink, Pencil, Check, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail } from 'lucide-react';
 import KeystoneLogo from '@/app/components/KeystoneLogo';
 import ProfileDropdown from '@/app/components/ProfileDropdown';
 import AlertModal from '@/app/components/ui/AlertModal';
@@ -25,6 +25,7 @@ const TABS = [
   { id: 'seo', label: 'SEO', icon: Globe, path: '/admin/seo' },
   { id: 'ecommerce', label: 'Ecommerce', icon: ShoppingBag, path: '/admin/ecommerce' },
   { id: 'booking', label: 'Booking', icon: Calendar, path: '/admin/booking' },
+  { id: 'inbox', label: 'Inbox', icon: Mail, path: '/admin/inbox' },
 ];
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
@@ -46,6 +47,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [isProUser, setIsProUser] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [inboxUnread, setInboxUnread] = useState(0);
 
   const hasFetchedRef = useRef<string | null>(null);
 
@@ -113,6 +115,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       const data = await res.json();
       setSite(data);
       setSiteTitle(data.siteSlug || data.designData?.siteTitle || 'My Website');
+      // Fetch inbox unread count
+      fetch(`/api/contact/inbox?siteId=${id}`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d?.unread != null) setInboxUnread(d.unread); })
+        .catch(() => {});
     } catch {
       router.push('/onboarding');
     } finally {
@@ -340,6 +347,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
               {TABS.map(tab => {
                 const Icon = tab.icon;
                 const isActive = activeTabId === tab.id;
+                const badge = tab.id === 'inbox' && inboxUnread > 0 ? inboxUnread : null;
                 return (
                   <button
                     key={tab.id}
@@ -350,6 +358,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                   >
                     <Icon className="w-4 h-4" />
                     {tab.label}
+                    {badge !== null && (
+                      <span className="ml-auto min-w-[20px] h-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-black px-1">
+                        {badge > 99 ? '99+' : badge}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -361,6 +374,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             {TABS.map(tab => {
               const Icon = tab.icon;
               const isActive = activeTabId === tab.id;
+              const badge = tab.id === 'inbox' && inboxUnread > 0 ? inboxUnread : null;
               return (
                 <button
                   key={tab.id}
@@ -373,6 +387,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                 >
                   <Icon className="w-3.5 h-3.5" />
                   {tab.label}
+                  {badge !== null && (
+                    <span className="ml-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-black px-1">
+                      {badge > 99 ? '99+' : badge}
+                    </span>
+                  )}
                 </button>
               );
             })}

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendContactFormNotification } from '@/lib/email';
 
@@ -9,7 +10,6 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const { siteId, name, email, phone, message } = body;
 
-        // Validation
         if (!siteId || !name || !email || !message) {
             return NextResponse.json(
                 { error: 'Missing required fields: name, email, message' },
@@ -17,7 +17,28 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // 1. Get the site owner's notification email (prefer booking settings, fallback to site owner email)
+        const admin = createAdminClient();
+
+        // 1. Persist the submission immediately
+        const { data: submission, error: insertError } = await admin
+            .from('contact_submissions')
+            .insert({
+                site_id: siteId,
+                sender_name: name,
+                sender_email: email,
+                sender_phone: phone ?? null,
+                message,
+                status: 'new',
+            })
+            .select('id')
+            .single();
+
+        if (insertError || !submission) {
+            console.error('Failed to persist contact submission:', insertError);
+            // Don't fail the user-facing request — still attempt email delivery below
+        }
+
+        // 2. Get site owner's notification email
         const { data: settings } = await supabase
             .from('booking_settings')
             .select('notification_email')
@@ -26,7 +47,6 @@ export async function POST(request: NextRequest) {
 
         let ownerEmail = settings?.notification_email;
 
-        // Fallback: Get the actual site owner's email
         if (!ownerEmail) {
             const { data: site } = await supabase
                 .from('sites')
@@ -36,9 +56,7 @@ export async function POST(request: NextRequest) {
 
             if (site?.user_id) {
                 const { data: user } = await supabase.auth.admin.getUserById(site.user_id);
-                if (user?.user?.email) {
-                    ownerEmail = user.user.email;
-                }
+                if (user?.user?.email) ownerEmail = user.user.email;
             }
         }
 
@@ -50,7 +68,6 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Get site details for the email subject
         const { data: siteDetails } = await supabase
             .from('sites')
             .select('siteSlug')
@@ -59,19 +76,24 @@ export async function POST(request: NextRequest) {
 
         const siteName = siteDetails?.siteSlug || 'Your Website';
 
-        // 2. Send the email via Resend
-        const emailData = {
-            siteName,
-            customerName: name,
-            customerEmail: email,
-            customerPhone: phone,
-            message,
-        };
-
-        const result = await sendContactFormNotification(emailData, ownerEmail);
+        // 3. Send email notification to owner (existing behaviour)
+        const result = await sendContactFormNotification(
+            { siteName, customerName: name, customerEmail: email, customerPhone: phone, message },
+            ownerEmail
+        );
 
         if (!result.success) {
             throw result.error;
+        }
+
+        // 4. Fire AI triage async — don't await, don't block the response
+        if (submission?.id) {
+            fetch(`${request.nextUrl.origin}/api/contact/${submission.id}/triage`, {
+                method: 'POST',
+                headers: { 'x-internal-secret': process.env.INTERNAL_API_SECRET ?? '' },
+            }).catch(() => {
+                // Best-effort — triage failure is non-fatal
+            });
         }
 
         return NextResponse.json({ success: true, message: 'Message sent successfully' });
