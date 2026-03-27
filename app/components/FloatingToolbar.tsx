@@ -1270,10 +1270,10 @@ export default function FloatingToolbar({
             >
               {/* White Header with Logo - Draggable */}
               <div
-                className="z-[100] sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between rounded-t-3xl cursor-grab active:cursor-grabbing group"
+                className="z-[100] sticky top-0 bg-white border-b border-slate-200 px-3 py-3 flex items-center justify-between rounded-t-3xl cursor-grab active:cursor-grabbing group"
                 onMouseDown={handleDragStart}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   <div
                     className="cursor-pointer shrink-0"
                     onClick={() => {
@@ -1292,7 +1292,7 @@ export default function FloatingToolbar({
                       }
                     }}
                   >
-                    <KeystoneLogo href={undefined} size="lg" showText={false} />
+                    <KeystoneLogo href={undefined} size="sm" showText={false} />
                   </div>
 
                   {/* Design / Admin switcher */}
