@@ -7,15 +7,25 @@ import { Menu, X } from 'lucide-react';
 import Image from 'next/image';
 import KeystoneLogoImage from '@/assets/logo/keystone-logo.png';
 
-export default function OpsHeader({ userEmail, openSupportCount = 0 }: { userEmail?: string, openSupportCount?: number }) {
+export default function OpsHeader({
+  userEmail,
+  openSupportCount = 0,
+  isAdmin = false,
+}: {
+  userEmail?: string;
+  openSupportCount?: number;
+  isAdmin?: boolean;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
 
   const navLinks = [
     { href: '/', label: 'Overview' },
-    { href: '/users', label: 'Users' },
+    ...(isAdmin ? [{ href: '/users', label: 'Users' }] : []),
     { href: '/support', label: 'Support', count: openSupportCount },
-    { href: '/scraper', label: 'Scraper' },
+    ...(isAdmin ? [{ href: '/agents', label: 'Agents' }] : []),
+    { href: '/email', label: 'Email' },
+    ...(isAdmin ? [{ href: '/scraper', label: 'Scraper' }] : []),
   ];
 
   return (
@@ -44,8 +54,9 @@ export default function OpsHeader({ userEmail, openSupportCount = 0 }: { userEma
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`flex items-center gap-1.5 hover:text-white transition-colors ${pathname === link.href ? 'text-white font-medium' : ''
-                    }`}
+                  className={`flex items-center gap-1.5 hover:text-white transition-colors ${
+                    pathname === link.href ? 'text-white font-medium' : ''
+                  }`}
                 >
                   {link.label}
                   {link.count !== undefined && link.count > 0 && (
@@ -61,6 +72,11 @@ export default function OpsHeader({ userEmail, openSupportCount = 0 }: { userEma
           <div className="flex items-center gap-4">
             {userEmail && (
               <span className="hidden sm:inline text-xs text-gray-500 font-mono">{userEmail}</span>
+            )}
+            {!isAdmin && (
+              <span className="hidden sm:inline text-xs text-violet-400 bg-violet-400/10 px-2 py-0.5 rounded font-medium">
+                Agent
+              </span>
             )}
 
             {/* Hamburger Button */}
@@ -83,10 +99,11 @@ export default function OpsHeader({ userEmail, openSupportCount = 0 }: { userEma
               key={link.href}
               href={link.href}
               onClick={() => setIsOpen(false)}
-              className={`flex items-center justify-between px-3 py-2 rounded-md text-base font-medium transition-colors ${pathname === link.href
-                ? 'bg-gray-800 text-white'
-                : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                }`}
+              className={`flex items-center justify-between px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                pathname === link.href
+                  ? 'bg-gray-800 text-white'
+                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+              }`}
             >
               <span>{link.label}</span>
               {link.count !== undefined && link.count > 0 && (
@@ -99,6 +116,9 @@ export default function OpsHeader({ userEmail, openSupportCount = 0 }: { userEma
           {userEmail && (
             <div className="pt-4 pb-2 border-t border-gray-800">
               <div className="px-3 text-xs text-gray-500 font-mono truncate">{userEmail}</div>
+              {!isAdmin && (
+                <div className="px-3 mt-1 text-xs text-violet-400">Agent</div>
+              )}
             </div>
           )}
         </div>

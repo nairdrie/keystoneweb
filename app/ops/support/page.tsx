@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/db/supabase-admin';
+import { createClient } from '@/lib/db/supabase-server';
 import Link from 'next/link';
 
 const STATUS_STYLES: Record<string, string> = {
@@ -25,6 +26,26 @@ export default async function OpsSupportPage({
   const limit = 50;
   const offset = (page - 1) * limit;
 
+  // Determine if the current user is an admin or an agent with a scoped email
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
+    .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+
+  const isAdmin = adminEmails.includes(user?.email?.toLowerCase() ?? '');
+  let agentContactEmail: string | null = null;
+
+  if (!isAdmin && user) {
+    const db = createAdminClient();
+    const { data: profile } = await db
+      .from('users')
+      .select('agent_contact_email')
+      .eq('id', user.id)
+      .single();
+    agentContactEmail = profile?.agent_contact_email ?? null;
+  }
+
   const db = createAdminClient();
 
   // Only show root messages (not threaded replies)
@@ -37,6 +58,11 @@ export default async function OpsSupportPage({
     .is('thread_id', null)
     .order('created_at', { ascending: sort === 'oldest' })
     .range(offset, offset + limit - 1);
+
+  // Agents only see threads addressed to their contact email
+  if (!isAdmin && agentContactEmail) {
+    query = query.eq('from_email', agentContactEmail);
+  }
 
   if (status && status !== 'all') query = query.eq('status', status);
 
@@ -62,12 +88,24 @@ export default async function OpsSupportPage({
     }
   }
 
-  // Counts per status for tabs (root messages only)
+  // Counts per status for tabs — scoped the same way
+  function scopedCount(s: string) {
+    let q = db
+      .from('support_requests')
+      .select('id', { count: 'exact', head: true })
+      .is('thread_id', null)
+      .eq('status', s);
+    if (!isAdmin && agentContactEmail) {
+      q = q.eq('from_email', agentContactEmail);
+    }
+    return q;
+  }
+
   const [openCount, inProgressCount, resolvedCount, closedCount] = await Promise.all([
-    db.from('support_requests').select('id', { count: 'exact', head: true }).is('thread_id', null).eq('status', 'open'),
-    db.from('support_requests').select('id', { count: 'exact', head: true }).is('thread_id', null).eq('status', 'in_progress'),
-    db.from('support_requests').select('id', { count: 'exact', head: true }).is('thread_id', null).eq('status', 'resolved'),
-    db.from('support_requests').select('id', { count: 'exact', head: true }).is('thread_id', null).eq('status', 'closed'),
+    scopedCount('open'),
+    scopedCount('in_progress'),
+    scopedCount('resolved'),
+    scopedCount('closed'),
   ]);
 
   const tabs = [
@@ -80,7 +118,6 @@ export default async function OpsSupportPage({
 
   const totalPages = Math.ceil((count ?? 0) / limit);
 
-  // Build URL helper preserving current params
   function buildUrl(overrides: Record<string, string>) {
     const p = new URLSearchParams();
     const merged = { status, q: search, sort, page: String(page), ...overrides };
@@ -89,7 +126,6 @@ export default async function OpsSupportPage({
         if (v) p.set(k, v);
       }
     }
-    // Clean defaults
     if (p.get('page') === '1') p.delete('page');
     if (p.get('sort') === 'newest') p.delete('sort');
     const qs = p.toString();
@@ -99,7 +135,14 @@ export default async function OpsSupportPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Support Requests</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-white">Support Requests</h1>
+          {!isAdmin && agentContactEmail && (
+            <p className="mt-1 text-xs text-violet-400">
+              Showing threads for <span className="font-mono">{agentContactEmail}</span>
+            </p>
+          )}
+        </div>
         <span className="text-sm text-gray-500">{count ?? 0} conversations</span>
       </div>
 
