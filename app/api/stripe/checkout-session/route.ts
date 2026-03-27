@@ -115,12 +115,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ url: portalSession.url });
     }
 
-    // Determine whether the selected price is yearly based on the priceId
+    // Get metered price for overage billing (single price per plan, works for both intervals)
     const plan = getPlanByName(planName);
-    const isYearly = plan ? priceId === plan.stripe.yearly : false;
-    const meteredPriceId = plan
-      ? (isYearly ? plan.stripe.meteredYearly : plan.stripe.meteredMonthly)
-      : '';
+    const meteredPriceId = plan?.stripe.metered || '';
 
     // Build line items: base recurring + metered overage (if configured)
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [

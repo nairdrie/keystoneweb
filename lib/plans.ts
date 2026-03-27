@@ -1,8 +1,14 @@
 /**
  * Plan definitions: limits, pricing, and Stripe price IDs.
  *
- * Metered prices are usage-based prices attached alongside the base recurring
- * price on each Stripe subscription. They track overage visitors.
+ * Each plan has a single metered price for overage billing. The metered price
+ * is set to $0.001/unit (Basic) or $0.0005/unit (Pro) where 1 unit = 1 visitor.
+ * This means 1,000 overage visitors = $1.00 (Basic) or $0.50 (Pro).
+ *
+ * In Stripe Dashboard, create one metered price per product:
+ *   - Usage-based, metered, per-unit
+ *   - Aggregate usage: "Last value during period" (we use action: 'set')
+ *   - Basic: $0.001/unit, Pro: $0.0005/unit
  */
 
 export interface PlanConfig {
@@ -15,8 +21,7 @@ export interface PlanConfig {
   stripe: {
     monthly: string;
     yearly: string;
-    meteredMonthly: string;    // metered price ID for overage (monthly sub)
-    meteredYearly: string;     // metered price ID for overage (yearly sub)
+    metered: string;           // single metered price ID for overage (works for both billing intervals)
   };
   features: string[];
 }
@@ -32,9 +37,8 @@ export const PLANS: Record<string, PlanConfig> = {
     stripe: {
       monthly: 'price_1TCZSU9e8C5naDN47tc8rB74',
       yearly: 'price_1TCZSm9e8C5naDN4d8Zctb6D',
-      // TODO: Replace with real Stripe metered price IDs after creating them in dashboard
-      meteredMonthly: process.env.STRIPE_BASIC_METERED_MONTHLY || '',
-      meteredYearly: process.env.STRIPE_BASIC_METERED_YEARLY || '',
+      // Create in Stripe Dashboard: Usage-based, $0.001/unit, metered, "last value during period"
+      metered: process.env.STRIPE_BASIC_METERED_PRICE || '',
     },
     features: [
       'Unlimited Site Pages',
@@ -56,8 +60,8 @@ export const PLANS: Record<string, PlanConfig> = {
     stripe: {
       monthly: 'price_1TCZRk9e8C5naDN44O78PCfh',
       yearly: 'price_1TCZRS9e8C5naDN4LtllOW7G',
-      meteredMonthly: process.env.STRIPE_PRO_METERED_MONTHLY || '',
-      meteredYearly: process.env.STRIPE_PRO_METERED_YEARLY || '',
+      // Create in Stripe Dashboard: Usage-based, $0.0005/unit, metered, "last value during period"
+      metered: process.env.STRIPE_PRO_METERED_PRICE || '',
     },
     features: [
       'Everything in Basic',
