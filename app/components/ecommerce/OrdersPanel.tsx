@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
     Package, Loader2, ChevronDown, ChevronRight, Clock,
-    CheckCircle2, Truck, XCircle, DollarSign, Mail, Phone, MapPin
+    CheckCircle2, Truck, XCircle, DollarSign, Mail, Phone, MapPin, AlertTriangle
 } from 'lucide-react';
 
 interface Order {
@@ -46,6 +46,10 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
     const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
     const [updatingId, setUpdatingId] = useState<string | null>(null);
     const [filterStatus, setFilterStatus] = useState<string>('all');
+    // Cancel reason modal
+    const [cancelTarget, setCancelTarget] = useState<string | null>(null);
+    const [cancelReason, setCancelReason] = useState('');
+    const [cancelling, setCancelling] = useState(false);
 
     useEffect(() => {
         if (!expanded) return;
@@ -65,7 +69,7 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
         }
     };
 
-    const updateOrder = async (orderId: string, updates: { status?: string; payment_status?: string }) => {
+    const updateOrder = async (orderId: string, updates: { status?: string; payment_status?: string; cancellationReason?: string }) => {
         setUpdatingId(orderId);
         try {
             const res = await fetch('/api/products/orders', {
@@ -84,11 +88,59 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
         }
     };
 
+    const handleCancelConfirm = async () => {
+        if (!cancelTarget) return;
+        setCancelling(true);
+        await updateOrder(cancelTarget, { status: 'cancelled', cancellationReason: cancelReason || undefined });
+        setCancelling(false);
+        setCancelTarget(null);
+        setCancelReason('');
+    };
+
     const filteredOrders = filterStatus === 'all'
         ? orders
         : orders.filter(o => o.status === filterStatus);
 
     return (
+        <>
+        {/* Cancel / Refund reason modal */}
+        {cancelTarget && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                        <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                        <h3 className="text-sm font-bold text-slate-900">Cancel Order</h3>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-3">
+                        A cancellation email will be sent to the customer. If this order was paid by card, a Stripe refund will be issued automatically.
+                    </p>
+                    <textarea
+                        value={cancelReason}
+                        onChange={e => setCancelReason(e.target.value)}
+                        placeholder="Reason (optional)"
+                        rows={3}
+                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-red-400 mb-3"
+                    />
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => { setCancelTarget(null); setCancelReason(''); }}
+                            className="flex-1 px-3 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200"
+                        >
+                            Keep Order
+                        </button>
+                        <button
+                            onClick={handleCancelConfirm}
+                            disabled={cancelling}
+                            className="flex-1 px-3 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-1"
+                        >
+                            {cancelling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                            Confirm Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         <div className="border-2 border-slate-200 rounded-xl overflow-hidden">
             <button
                 onClick={() => setExpanded(!expanded)}
@@ -248,11 +300,11 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
                                                         )}
                                                         {order.status !== 'cancelled' && order.status !== 'completed' && (
                                                             <button
-                                                                onClick={() => updateOrder(order.id, { status: 'cancelled' })}
+                                                                onClick={() => setCancelTarget(order.id)}
                                                                 disabled={updatingId === order.id}
                                                                 className="px-2.5 py-1.5 text-xs font-medium bg-red-100 text-red-600 rounded-lg hover:bg-red-200 disabled:opacity-50"
                                                             >
-                                                                Cancel
+                                                                Cancel / Refund
                                                             </button>
                                                         )}
                                                     </div>
@@ -271,5 +323,6 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
                 </div>
             )}
         </div>
+        </>
     );
 }

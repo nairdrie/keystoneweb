@@ -148,12 +148,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid session metadata' }, { status: 400 });
           }
 
-          // Update order status to paid
+          // Update order status to paid, store payment_intent for future refunds
           const { data: order, error } = await supabase
             .from('orders')
             .update({
               status: 'confirmed',
               payment_status: 'paid',
+              stripe_payment_id: session.payment_intent as string ?? null,
               updated_at: new Date().toISOString()
             })
             .eq('id', orderId)
