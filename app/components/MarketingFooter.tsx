@@ -13,11 +13,8 @@ export default function MarketingFooter() {
             <Image src={mapleLeaf} alt="Maple Leaf" className="w-4 h-4 object-contain" />
           </div>
 
-          {/* Nav Links */}
-          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-600">
-            <Link href="/templates" className="hover:text-slate-900 transition-colors">Templates</Link>
-            <Link href="/pricing" className="hover:text-slate-900 transition-colors">Pricing</Link>
-            <Link href="/about" className="hover:text-slate-900 transition-colors">About</Link>
+          <div className="text-xs text-slate-400 md:text-center">
+            &copy; {new Date().getFullYear()} Keystone Web Design. All rights reserved.
           </div>
 
           {/* Legal Links */}
@@ -27,9 +24,6 @@ export default function MarketingFooter() {
           </div>
         </div>
 
-        <div className="mt-8 pt-8 border-t border-slate-100 text-xs text-slate-400 text-center">
-          &copy; {new Date().getFullYear()} Keystone Web Design. All rights reserved.
-        </div>
       </div>
     </footer>
   );

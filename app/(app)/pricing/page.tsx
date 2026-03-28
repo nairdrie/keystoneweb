@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Check, Loader2, ChevronDown } from 'lucide-react';
 import Header from '../../components/Header';
+import MarketingFooter from '@/app/components/MarketingFooter';
 
 
 const STRIPE_PRICES = {
@@ -392,6 +393,7 @@ export default function PricingPage() {
       <Suspense fallback={<div className="pt-40 text-center">Loading...</div>}>
         <PricingContent />
       </Suspense>
+      <MarketingFooter />
     </main>
   );
 }
