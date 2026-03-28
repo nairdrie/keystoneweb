@@ -834,52 +834,74 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
                 {({ listeners, attributes }) => (
                 <div className={`rounded-lg border ${service.status === 'draft' ? 'border-amber-200 bg-amber-50/30' : service.is_active ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50 opacity-60'}`}>
                     {/* Row header */}
-                    <div className="flex items-start gap-3 p-3">
-                        <button {...listeners} {...attributes} className="mt-0.5 p-0.5 text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing touch-none">
-                            <GripVertical className="w-4 h-4" />
-                        </button>
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="font-semibold text-slate-900 text-sm">{service.name}</h4>
-                                {service.status === 'draft' && (
-                                    <span className="text-[10px] font-bold px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded border border-amber-200">Draft</span>
-                                )}
-                                <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">{service.duration_minutes} min</span>
-                                {service.price_cents > 0 && (
-                                    <span className="text-xs font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
-                                        ${(service.price_cents / 100).toFixed(2)} {service.currency}
-                                    </span>
-                                )}
-                                {service.options && service.options.length > 0 && (
-                                    <span className="text-xs px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full flex items-center gap-1">
-                                        <Package className="w-3 h-3" />{service.options.length} options
-                                    </span>
-                                )}
-                                {service.is_featured && (
-                                    <span className="text-xs px-2 py-0.5 bg-amber-50 text-amber-600 rounded-full flex items-center gap-1 border border-amber-200">
-                                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" /> Featured
-                                    </span>
+                    <div className="p-3">
+                        <div className="flex items-start gap-3">
+                            <button {...listeners} {...attributes} className="mt-0.5 p-0.5 text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing touch-none">
+                                <GripVertical className="w-4 h-4" />
+                            </button>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <h4 className="font-semibold text-slate-900 text-sm">{service.name}</h4>
+                                    {service.status === 'draft' && (
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded border border-amber-200">Draft</span>
+                                    )}
+                                    <span className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full">{service.duration_minutes} min</span>
+                                    {service.price_cents > 0 && (
+                                        <span className="text-xs font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+                                            ${(service.price_cents / 100).toFixed(2)} {service.currency}
+                                        </span>
+                                    )}
+                                    {service.options && service.options.length > 0 && (
+                                        <span className="text-xs px-2 py-0.5 bg-purple-50 text-purple-600 rounded-full flex items-center gap-1">
+                                            <Package className="w-3 h-3" />{service.options.length} options
+                                        </span>
+                                    )}
+                                    {service.is_featured && (
+                                        <span className="text-xs px-2 py-0.5 bg-amber-50 text-amber-600 rounded-full flex items-center gap-1 border border-amber-200">
+                                            <Star className="w-3 h-3 fill-amber-400 text-amber-400" /> Featured
+                                        </span>
+                                    )}
+                                </div>
+                                {service.description && <p className="text-xs text-slate-500 mt-1">{service.description}</p>}
+                                {service.booking_categories?.name && (
+                                    <p className="text-[10px] uppercase font-bold text-blue-500 mt-1 tracking-wider">{service.booking_categories.name}</p>
                                 )}
                             </div>
-                            {service.description && <p className="text-xs text-slate-500 mt-1">{service.description}</p>}
-                            {service.booking_categories?.name && (
-                                <p className="text-[10px] uppercase font-bold text-blue-500 mt-1 tracking-wider">{service.booking_categories.name}</p>
-                            )}
+                            {/* Desktop action buttons */}
+                            <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0">
+                                <button onClick={() => editingId === service.id ? (setEditingId(null), setEditState(null)) : startEdit(service)}
+                                    className="p-1 hover:bg-blue-50 rounded text-blue-400 hover:text-blue-600">
+                                    <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button onClick={() => handleStatusToggle(service)}
+                                    className={`text-xs px-2 py-1 rounded border font-medium transition-colors ${service.status === 'draft' ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-slate-200 text-slate-500 hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700'}`}>
+                                    {service.status === 'draft' ? 'Publish' : 'Draft'}
+                                </button>
+                                <button onClick={() => handleToggle(service)} className="text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600">
+                                    {service.is_active ? 'Disable' : 'Enable'}
+                                </button>
+                                <button onClick={() => handleDelete(service.id)} className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600">
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
                         </div>
-                        <button onClick={() => editingId === service.id ? (setEditingId(null), setEditState(null)) : startEdit(service)}
-                            className="p-1 hover:bg-blue-50 rounded text-blue-400 hover:text-blue-600">
-                            <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleStatusToggle(service)}
-                            className={`text-xs px-2 py-1 rounded border font-medium transition-colors ${service.status === 'draft' ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-slate-200 text-slate-500 hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700'}`}>
-                            {service.status === 'draft' ? 'Publish' : 'Draft'}
-                        </button>
-                        <button onClick={() => handleToggle(service)} className="text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600">
-                            {service.is_active ? 'Disable' : 'Enable'}
-                        </button>
-                        <button onClick={() => handleDelete(service.id)} className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600">
-                            <Trash2 className="w-4 h-4" />
-                        </button>
+                        {/* Mobile action buttons */}
+                        <div className="flex items-center gap-1.5 mt-2 sm:hidden pl-7">
+                            <button onClick={() => editingId === service.id ? (setEditingId(null), setEditState(null)) : startEdit(service)}
+                                className="p-1 hover:bg-blue-50 rounded text-blue-400 hover:text-blue-600">
+                                <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleStatusToggle(service)}
+                                className={`text-xs px-2 py-1 rounded border font-medium transition-colors ${service.status === 'draft' ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-slate-200 text-slate-500 hover:bg-amber-50 hover:border-amber-200 hover:text-amber-700'}`}>
+                                {service.status === 'draft' ? 'Publish' : 'Draft'}
+                            </button>
+                            <button onClick={() => handleToggle(service)} className="text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600">
+                                {service.is_active ? 'Disable' : 'Enable'}
+                            </button>
+                            <button onClick={() => handleDelete(service.id)} className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600">
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
                     {/* Inline edit form */}
                     {editingId === service.id && editState && (
@@ -1052,8 +1074,8 @@ function HoursEditor({ siteId, availability, setAvailability }: {
     return (
         <div className="space-y-3">
             {days.map(day => (
-                <div key={day.day_of_week} className={`flex items-center gap-3 p-3 rounded-lg border ${day.is_active ? 'border-slate-200' : 'border-slate-100 bg-slate-50'}`}>
-                    <label className="flex items-center gap-2 cursor-pointer min-w-[100px]">
+                <div key={day.day_of_week} className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 rounded-lg border ${day.is_active ? 'border-slate-200' : 'border-slate-100 bg-slate-50'}`}>
+                    <label className="flex items-center gap-2 cursor-pointer sm:min-w-[100px]">
                         <input
                             type="checkbox"
                             checked={day.is_active}
