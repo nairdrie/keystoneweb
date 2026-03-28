@@ -12,6 +12,8 @@ export type CsvImportType = 'services' | 'products';
 
 interface ImportResult {
     imported: number;
+    modified: number;
+    already_exists: number;
     skipped: number;
     errors: { row: number; name: string; error: string }[];
     mapping: Record<string, string | null>;
@@ -29,7 +31,8 @@ interface CsvImportModalProps {
 
 const SERVICES_TEMPLATE_HEADERS = [
     'name', 'description', 'price', 'compare_at_price',
-    'duration_minutes', 'currency', 'is_featured', 'status', 'options',
+    'duration_minutes', 'currency', 'is_featured', 'status',
+    'category', 'options', 'options_required',
 ];
 
 const SERVICES_TEMPLATE_ROWS = [
@@ -37,19 +40,33 @@ const SERVICES_TEMPLATE_ROWS = [
         'Deep Tissue Massage',
         'A therapeutic massage targeting deep muscle layers to relieve tension.',
         '90.00', '110.00', '60', 'CAD', 'true', 'published',
-        'Single Session:90.00 | 3-Pack:250.00 | 5-Pack:400.00',
+        'Massage',
+        'Single Session:90.00:override | 3-Pack:250.00:override | Aromatherapy Add-on:15.00:addon',
+        'required',
     ],
     [
         'Swedish Relaxation Massage',
         'A gentle full-body massage promoting relaxation and circulation.',
         '75.00', '', '45', 'CAD', 'false', 'published',
+        'Massage',
         '',
+        'optional',
+    ],
+    [
+        'Signature Facial',
+        'A deep-cleansing facial customized for your skin type.',
+        '95.00', '120.00', '60', 'CAD', 'true', 'published',
+        'Skin Care',
+        'Standard:95.00:override | Premium:130.00:override | Eye Treatment Add-on:20.00:addon',
+        'required',
     ],
     [
         'Hot Stone Therapy',
         'Smooth heated stones placed on key points to ease tension.',
         '120.00', '140.00', '75', 'CAD', 'false', 'draft',
-        'Standard:120.00 | Premium Add-on:150.00',
+        'Massage',
+        '',
+        'optional',
     ],
 ];
 
@@ -222,7 +239,7 @@ export default function CsvImportModal({ siteId, type, onClose, onImported }: Cs
             }
 
             setResult(data);
-            if (data.imported > 0) {
+            if (data.imported > 0 || data.modified > 0) {
                 onImported();
             }
         } catch (err: any) {
@@ -292,9 +309,17 @@ export default function CsvImportModal({ siteId, type, onClose, onImported }: Cs
                                 ))}
                             </div>
                             {type === 'services' && (
-                                <p className="text-[10px] text-blue-600 mt-1.5">
-                                    <strong>options:</strong> use <span className="font-mono">"Name:Price | Name2:Price2"</span> or JSON array
-                                </p>
+                                <div className="mt-1.5 space-y-0.5">
+                                    <p className="text-[10px] text-blue-600">
+                                        <strong>options:</strong> <span className="font-mono">"Name:Price:override | Add-on:Price:addon"</span> — type is <span className="font-mono">override</span> (replaces base price) or <span className="font-mono">addon</span> (adds to it)
+                                    </p>
+                                    <p className="text-[10px] text-blue-600">
+                                        <strong>options_required:</strong> <span className="font-mono">required</span> or <span className="font-mono">optional</span>
+                                    </p>
+                                    <p className="text-[10px] text-blue-600">
+                                        <strong>category:</strong> category name — created automatically if it doesn't exist
+                                    </p>
+                                </div>
                             )}
                             {type === 'products' && (
                                 <p className="text-[10px] text-blue-600 mt-1.5">
@@ -372,24 +397,32 @@ export default function CsvImportModal({ siteId, type, onClose, onImported }: Cs
                     {result && (
                         <div className="space-y-3">
                             {/* Summary */}
-                            <div className={`rounded-xl p-4 border ${result.imported > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+                            <div className={`rounded-xl p-4 border ${(result.imported > 0 || result.modified > 0) ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
                                 <div className="flex items-center gap-2 mb-2">
-                                    <CheckCircle2 className={`w-5 h-5 ${result.imported > 0 ? 'text-emerald-500' : 'text-amber-500'}`} />
-                                    <span className={`text-sm font-bold ${result.imported > 0 ? 'text-emerald-800' : 'text-amber-800'}`}>
+                                    <CheckCircle2 className={`w-5 h-5 ${(result.imported > 0 || result.modified > 0) ? 'text-emerald-500' : 'text-amber-500'}`} />
+                                    <span className={`text-sm font-bold ${(result.imported > 0 || result.modified > 0) ? 'text-emerald-800' : 'text-amber-800'}`}>
                                         Import complete
                                     </span>
                                 </div>
-                                <div className="grid grid-cols-3 gap-2">
+                                <div className="grid grid-cols-5 gap-1.5">
                                     <div className="bg-white rounded-lg p-2 text-center border border-emerald-200">
-                                        <div className="text-lg font-bold text-emerald-700">{result.imported}</div>
+                                        <div className="text-base font-bold text-emerald-700">{result.imported}</div>
                                         <div className="text-[10px] text-slate-500">Imported</div>
                                     </div>
+                                    <div className="bg-white rounded-lg p-2 text-center border border-blue-200">
+                                        <div className="text-base font-bold text-blue-700">{result.modified}</div>
+                                        <div className="text-[10px] text-slate-500">Updated</div>
+                                    </div>
                                     <div className="bg-white rounded-lg p-2 text-center border border-slate-200">
-                                        <div className="text-lg font-bold text-slate-500">{result.skipped}</div>
+                                        <div className="text-base font-bold text-slate-400">{result.already_exists}</div>
+                                        <div className="text-[10px] text-slate-500">Unchanged</div>
+                                    </div>
+                                    <div className="bg-white rounded-lg p-2 text-center border border-slate-200">
+                                        <div className="text-base font-bold text-slate-400">{result.skipped}</div>
                                         <div className="text-[10px] text-slate-500">Skipped</div>
                                     </div>
                                     <div className="bg-white rounded-lg p-2 text-center border border-slate-200">
-                                        <div className={`text-lg font-bold ${result.errors.length > 0 ? 'text-red-600' : 'text-slate-500'}`}>{result.errors.length}</div>
+                                        <div className={`text-base font-bold ${result.errors.length > 0 ? 'text-red-600' : 'text-slate-400'}`}>{result.errors.length}</div>
                                         <div className="text-[10px] text-slate-500">Errors</div>
                                     </div>
                                 </div>

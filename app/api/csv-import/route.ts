@@ -23,7 +23,6 @@ function parseCsvLine(line: string): string[] {
 }
 
 function parseCsv(text: string): { headers: string[]; rows: string[][] } {
-    // Normalize line endings
     const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
     const nonEmpty = lines.filter(l => l.trim().length > 0);
     if (nonEmpty.length < 1) return { headers: [], rows: [] };
@@ -47,6 +46,8 @@ interface ColumnMapping {
     duration_minutes: string | null;
     is_featured: string | null;
     options: string | null;
+    options_required: string | null;
+    category: string | null;
     // Products specific
     variants: string | null;
     inventory_count: string | null;
@@ -60,8 +61,6 @@ async function mapColumnsWithAI(
     importType: ImportType,
 ): Promise<ColumnMapping> {
     const apiKey = process.env.AI_BUILDER_API_KEY;
-
-    // Fallback: fuzzy matching without AI
     const fallback = fuzzyMapColumns(headers, importType);
     if (!apiKey) return fallback;
 
@@ -69,26 +68,32 @@ async function mapColumnsWithAI(
         ? `Fields to map (services/bookings):
 - name (REQUIRED): The service name
 - description: A description of the service
-- price: Price in dollars (e.g. "45.00" or "45")
+- price: Price in dollars (e.g. "45.00")
 - compare_at_price: Original/strikethrough price in dollars
 - duration_minutes: Duration in minutes (e.g. "30", "60")
 - currency: Currency code (e.g. "CAD", "USD")
-- is_featured: Whether to feature this service ("true"/"false"/"yes"/"no"/"1"/"0")
+- is_featured: Whether to feature this service ("true"/"false"/"yes"/"no")
 - status: Publication status ("draft" or "published")
-- options: Service variants/packages as JSON array or "Name:Price | Name2:Price2" format`
+- options: Service variants/packages (e.g. "Name:Price:override | Add-on:Price:addon")
+- options_required: Whether customers must select an option ("required"/"optional"/"true"/"false")
+- category: Service category name (e.g. "Massage", "Skin Care")`
         : `Fields to map (products):
 - name (REQUIRED): The product name
 - description: A description of the product
-- price: Price in dollars (e.g. "29.99" or "30")
+- price: Price in dollars (e.g. "29.99")
 - compare_at_price: Original/compare-at price in dollars
 - currency: Currency code (e.g. "CAD", "USD")
 - inventory_count: Stock quantity (-1 for unlimited)
 - status: Publication status ("draft" or "published")
-- variants: Product variants as JSON array or "Size:S,M,L | Color:Red,Blue" format`;
+- variants: Product variants (e.g. "Size:S,M,L | Color:Red,Blue")`;
 
     const sampleText = sampleRows.slice(0, 3).map((row, i) =>
         `Row ${i + 1}: ${JSON.stringify(Object.fromEntries(headers.map((h, j) => [h, row[j] ?? ''])))}`
     ).join('\n');
+
+    const exampleFormat = importType === 'services'
+        ? `{"name": "Service Name", "description": "Desc", "price": "Price", "compare_at_price": null, "currency": null, "status": null, "duration_minutes": null, "is_featured": null, "options": null, "options_required": null, "category": null, "variants": null, "inventory_count": null}`
+        : `{"name": "Product Name", "description": "Desc", "price": "Price", "compare_at_price": null, "currency": null, "status": null, "duration_minutes": null, "is_featured": null, "options": null, "options_required": null, "category": null, "variants": null, "inventory_count": null}`;
 
     const prompt = `You are mapping CSV columns for a data import. The user is importing ${importType}.
 
@@ -101,10 +106,9 @@ ${fieldDescriptions}
 
 Return ONLY a JSON object mapping our field names to the user's CSV column names.
 If a field has no matching column, use null.
-Be smart about fuzzy matches (e.g. "Product Name" → "name", "Price $" → "price", "Duration (min)" → "duration_minutes", "Sale Price" → "compare_at_price", "Featured?" → "is_featured").
+Be smart about fuzzy matches (e.g. "Service Name" → "name", "Price $" → "price", "Duration (min)" → "duration_minutes", "Sale Price" → "compare_at_price", "Featured?" → "is_featured", "Required?" → "options_required", "Category" → "category").
 
-Example response format:
-{"name": "Product Name", "description": "Desc", "price": "Price ($)", "compare_at_price": null, "currency": null, "status": null, "duration_minutes": null, "is_featured": null, "options": null, "variants": null, "inventory_count": null}`;
+Example: ${exampleFormat}`;
 
     try {
         const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -128,30 +132,29 @@ Example response format:
 
         const data = await res.json();
         const text: string = data.content?.[0]?.text || '';
-
-        // Extract JSON from the response
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         if (!jsonMatch) return fallback;
 
         const parsed = JSON.parse(jsonMatch[0]);
-
-        // Validate the mapping: ensure all returned column names exist in headers
         const headerSet = new Set(headers);
-        const validated: ColumnMapping = {
-            name: parsed.name && headerSet.has(parsed.name) ? parsed.name : fallback.name,
-            description: parsed.description && headerSet.has(parsed.description) ? parsed.description : fallback.description,
-            price: parsed.price && headerSet.has(parsed.price) ? parsed.price : fallback.price,
-            compare_at_price: parsed.compare_at_price && headerSet.has(parsed.compare_at_price) ? parsed.compare_at_price : fallback.compare_at_price,
-            currency: parsed.currency && headerSet.has(parsed.currency) ? parsed.currency : fallback.currency,
-            status: parsed.status && headerSet.has(parsed.status) ? parsed.status : fallback.status,
-            duration_minutes: parsed.duration_minutes && headerSet.has(parsed.duration_minutes) ? parsed.duration_minutes : fallback.duration_minutes,
-            is_featured: parsed.is_featured && headerSet.has(parsed.is_featured) ? parsed.is_featured : fallback.is_featured,
-            options: parsed.options && headerSet.has(parsed.options) ? parsed.options : fallback.options,
-            variants: parsed.variants && headerSet.has(parsed.variants) ? parsed.variants : fallback.variants,
-            inventory_count: parsed.inventory_count && headerSet.has(parsed.inventory_count) ? parsed.inventory_count : fallback.inventory_count,
-        };
+        const pick = (val: any, fb: string | null) =>
+            val && headerSet.has(val) ? val : fb;
 
-        return validated;
+        return {
+            name:             pick(parsed.name,             fallback.name),
+            description:      pick(parsed.description,      fallback.description),
+            price:            pick(parsed.price,            fallback.price),
+            compare_at_price: pick(parsed.compare_at_price, fallback.compare_at_price),
+            currency:         pick(parsed.currency,         fallback.currency),
+            status:           pick(parsed.status,           fallback.status),
+            duration_minutes: pick(parsed.duration_minutes, fallback.duration_minutes),
+            is_featured:      pick(parsed.is_featured,      fallback.is_featured),
+            options:          pick(parsed.options,          fallback.options),
+            options_required: pick(parsed.options_required, fallback.options_required),
+            category:         pick(parsed.category,         fallback.category),
+            variants:         pick(parsed.variants,         fallback.variants),
+            inventory_count:  pick(parsed.inventory_count,  fallback.inventory_count),
+        };
     } catch (err) {
         console.error('AI column mapping error, using fuzzy fallback:', err);
         return fallback;
@@ -167,7 +170,6 @@ function fuzzyMapColumns(headers: string[], importType: ImportType): ColumnMappi
             const match = headers.find(h => norm(h) === norm(key));
             if (match) return match;
         }
-        // Partial match
         for (const key of keys) {
             const match = headers.find(h => norm(h).includes(norm(key)) || norm(key).includes(norm(h)));
             if (match) return match;
@@ -176,17 +178,19 @@ function fuzzyMapColumns(headers: string[], importType: ImportType): ColumnMappi
     };
 
     return {
-        name: find('name', 'title', 'service name', 'product name', 'item name'),
-        description: find('description', 'desc', 'details', 'about', 'summary'),
-        price: find('price', 'cost', 'amount', 'rate', 'fee', 'price cad', 'price usd', 'price $'),
+        name:             find('name', 'title', 'service name', 'product name', 'item name'),
+        description:      find('description', 'desc', 'details', 'about', 'summary'),
+        price:            find('price', 'cost', 'amount', 'rate', 'fee', 'price cad', 'price usd', 'price $'),
         compare_at_price: find('compare at price', 'compare_at_price', 'original price', 'was price', 'regular price', 'sale price', 'msrp'),
-        currency: find('currency', 'cur', 'ccy'),
-        status: find('status', 'state', 'published', 'active'),
+        currency:         find('currency', 'cur', 'ccy'),
+        status:           find('status', 'state', 'published', 'active'),
         duration_minutes: find('duration', 'duration_minutes', 'duration minutes', 'length', 'time', 'minutes', 'mins'),
-        is_featured: find('featured', 'is_featured', 'is featured', 'highlight', 'promoted', 'star'),
-        options: importType === 'services' ? find('options', 'variants', 'packages', 'tiers', 'add ons', 'addons') : null,
-        variants: importType === 'products' ? find('variants', 'options', 'variations') : null,
-        inventory_count: importType === 'products' ? find('inventory', 'stock', 'quantity', 'qty', 'inventory_count', 'count') : null,
+        is_featured:      find('featured', 'is_featured', 'is featured', 'highlight', 'promoted', 'star'),
+        options:          importType === 'services' ? find('options', 'packages', 'tiers', 'add ons', 'addons') : null,
+        options_required: importType === 'services' ? find('options_required', 'required', 'option required', 'mandatory', 'option type') : null,
+        category:         importType === 'services' ? find('category', 'cat', 'group', 'type', 'service type', 'service category') : null,
+        variants:         importType === 'products' ? find('variants', 'options', 'variations') : null,
+        inventory_count:  importType === 'products' ? find('inventory', 'stock', 'quantity', 'qty', 'inventory_count', 'count') : null,
     };
 }
 
@@ -206,44 +210,84 @@ function parseBool(val: string | undefined): boolean {
     return v === 'true' || v === 'yes' || v === '1' || v === 'y' || v === 'x';
 }
 
+function parseOptionsRequired(val: string | undefined): boolean {
+    if (!val) return true; // default: required
+    const v = val.trim().toLowerCase();
+    // Explicitly optional
+    if (v === 'false' || v === 'no' || v === '0' || v === 'n' || v === 'optional') return false;
+    // Explicitly required
+    return true;
+}
+
+/**
+ * Parse service options from CSV value.
+ * Supported formats:
+ *   - JSON array: [{"name":"...","price_cents":5000,"price_type":"override"}]
+ *   - Pipe-separated: "Single Session:50.00 | Add-on:20.00:addon | Package:100:override"
+ *     Each segment: "Name:Price" (default override) or "Name:Price:type" (override|addon)
+ */
 function parseOptions(val: string | undefined): any[] | null {
     if (!val || val.trim() === '') return null;
     const trimmed = val.trim();
 
-    // Try JSON first
     if (trimmed.startsWith('[')) {
         try {
             const parsed = JSON.parse(trimmed);
-            if (Array.isArray(parsed)) return parsed;
+            if (Array.isArray(parsed)) {
+                // Ensure each option has an id
+                return parsed.map(o => ({
+                    id: o.id || crypto.randomUUID(),
+                    name: o.name || '',
+                    price_cents: typeof o.price_cents === 'number' ? o.price_cents : (parsePriceCents(String(o.price ?? '')) ?? 0),
+                    price_type: (o.price_type === 'addon' ? 'addon' : 'override') as 'override' | 'addon',
+                    ...(o.addon_id ? { addon_id: o.addon_id } : {}),
+                }));
+            }
         } catch { /* fall through */ }
     }
 
-    // Try "Name:Price | Name2:Price2" format
-    // e.g. "Single Session:50.00 | 5-Pack:200.00"
     const parts = trimmed.split(/\s*\|\s*/);
     const result: any[] = [];
+
     for (const part of parts) {
-        const colonIdx = part.lastIndexOf(':');
-        if (colonIdx === -1) {
-            // No price, just a name
+        if (!part.trim()) continue;
+
+        // Split by colon, then determine if last segment is a type keyword
+        const segments = part.split(':');
+        let priceType: 'override' | 'addon' = 'override';
+
+        if (segments.length >= 2) {
+            const lastSeg = segments[segments.length - 1].trim().toLowerCase();
+            if (lastSeg === 'override' || lastSeg === 'addon') {
+                priceType = lastSeg as 'override' | 'addon';
+                segments.pop();
+            }
+        }
+
+        if (segments.length === 0) continue;
+
+        // Last remaining segment is the price; everything before is the name
+        const priceStr = segments.pop()?.trim() || '';
+        const name = segments.join(':').trim();
+
+        // If there's no name (only one segment total), treat the whole thing as a name with price 0
+        if (!name) {
             result.push({
                 id: crypto.randomUUID(),
-                name: part.trim(),
+                name: priceStr,
                 price_cents: 0,
-                price_type: 'override' as const,
+                price_type: priceType,
             });
         } else {
-            const name = part.slice(0, colonIdx).trim();
-            const priceStr = part.slice(colonIdx + 1).trim();
-            const price = parsePriceCents(priceStr) ?? 0;
             result.push({
                 id: crypto.randomUUID(),
                 name,
-                price_cents: price,
-                price_type: 'override' as const,
+                price_cents: parsePriceCents(priceStr) ?? 0,
+                price_type: priceType,
             });
         }
     }
+
     return result.length > 0 ? result : null;
 }
 
@@ -251,7 +295,6 @@ function parseVariants(val: string | undefined): any[] | null {
     if (!val || val.trim() === '') return null;
     const trimmed = val.trim();
 
-    // Try JSON first
     if (trimmed.startsWith('[')) {
         try {
             const parsed = JSON.parse(trimmed);
@@ -259,7 +302,6 @@ function parseVariants(val: string | undefined): any[] | null {
         } catch { /* fall through */ }
     }
 
-    // Try "Size:S,M,L | Color:Red,Blue" format
     const parts = trimmed.split(/\s*\|\s*/);
     const result: any[] = [];
     for (const part of parts) {
@@ -267,9 +309,7 @@ function parseVariants(val: string | undefined): any[] | null {
         if (colonIdx === -1) continue;
         const name = part.slice(0, colonIdx).trim();
         const options = part.slice(colonIdx + 1).split(',').map(o => o.trim()).filter(Boolean);
-        if (name && options.length > 0) {
-            result.push({ name, options });
-        }
+        if (name && options.length > 0) result.push({ name, options });
     }
     return result.length > 0 ? result : null;
 }
@@ -278,6 +318,82 @@ function parseStatus(val: string | undefined): 'draft' | 'published' {
     if (!val) return 'draft';
     const v = val.trim().toLowerCase();
     return v === 'published' || v === 'live' || v === 'active' || v === 'true' || v === '1' ? 'published' : 'draft';
+}
+
+// ─── Category Resolution ──────────────────────────────────────────────────────
+
+/**
+ * Load existing categories for a site, then for each name in the import:
+ * - Case-insensitively match an existing category → return its id
+ * - Otherwise create a new category → return its id
+ * Returns a map from lowercase category name → category_id.
+ */
+async function resolveCategoryIds(
+    siteId: string,
+    categoryNames: string[],
+    supabase: any,
+): Promise<Map<string, string>> {
+    const uniqueNames = [...new Set(categoryNames.map(n => n.trim()).filter(Boolean))];
+    if (uniqueNames.length === 0) return new Map();
+
+    // Load existing categories
+    const { data: existing } = await supabase
+        .from('booking_categories')
+        .select('id, name, sort_order')
+        .eq('site_id', siteId);
+
+    const categoryMap = new Map<string, string>(); // lowercase → id
+    let maxOrder = -1;
+
+    for (const cat of (existing || [])) {
+        categoryMap.set(cat.name.toLowerCase(), cat.id);
+        if (cat.sort_order > maxOrder) maxOrder = cat.sort_order;
+    }
+
+    // Create missing categories
+    for (const name of uniqueNames) {
+        const key = name.toLowerCase();
+        if (!categoryMap.has(key)) {
+            maxOrder++;
+            const { data: newCat } = await supabase
+                .from('booking_categories')
+                .insert({ site_id: siteId, name, sort_order: maxOrder })
+                .select('id')
+                .single();
+            if (newCat?.id) categoryMap.set(key, newCat.id);
+        }
+    }
+
+    return categoryMap;
+}
+
+// ─── Duplicate Detection Helpers ─────────────────────────────────────────────
+
+function serviceIsIdentical(existing: any, incoming: any): boolean {
+    return (
+        existing.description === incoming.description &&
+        existing.price_cents === incoming.price_cents &&
+        existing.compare_at_price_cents === incoming.compare_at_price_cents &&
+        existing.duration_minutes === incoming.duration_minutes &&
+        existing.currency === incoming.currency &&
+        existing.is_featured === incoming.is_featured &&
+        existing.status === incoming.status &&
+        existing.category_id === incoming.category_id &&
+        existing.options_required === incoming.options_required &&
+        JSON.stringify(existing.options) === JSON.stringify(incoming.options)
+    );
+}
+
+function productIsIdentical(existing: any, incoming: any): boolean {
+    return (
+        existing.description === incoming.description &&
+        existing.price_cents === incoming.price_cents &&
+        existing.compare_at_cents === incoming.compare_at_cents &&
+        existing.currency === incoming.currency &&
+        existing.status === incoming.status &&
+        existing.inventory_count === incoming.inventory_count &&
+        JSON.stringify(existing.variants) === JSON.stringify(incoming.variants)
+    );
 }
 
 // ─── Main POST Handler ────────────────────────────────────────────────────────
@@ -291,7 +407,6 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Parse multipart form data
         let formData: FormData;
         try {
             formData = await req.formData();
@@ -313,30 +428,24 @@ export async function POST(req: NextRequest) {
 
         // ── File Validation ──────────────────────────────────────────────────
 
-        // Check file extension
-        const fileName = file.name.toLowerCase();
-        if (!fileName.endsWith('.csv')) {
+        if (!file.name.toLowerCase().endsWith('.csv')) {
             return NextResponse.json({ error: 'File must be a CSV (.csv extension required)' }, { status: 400 });
         }
 
-        // Check MIME type (allow text/csv, text/plain, application/csv, application/vnd.ms-excel)
         const allowedMimeTypes = ['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel', 'application/octet-stream'];
         if (file.type && !allowedMimeTypes.includes(file.type)) {
             return NextResponse.json({ error: `Invalid file type "${file.type}". Please upload a CSV file.` }, { status: 400 });
         }
 
-        // Check file size (max 2MB)
-        const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+        const MAX_FILE_SIZE = 2 * 1024 * 1024;
         if (file.size > MAX_FILE_SIZE) {
             return NextResponse.json({
                 error: `File is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size is 2MB.`
             }, { status: 400 });
         }
 
-        // Read file content
         const text = await file.text();
 
-        // Check it actually looks like CSV (not binary)
         // eslint-disable-next-line no-control-regex
         if (/[\x00-\x08\x0E-\x1F]/.test(text.slice(0, 1000))) {
             return NextResponse.json({ error: 'File does not appear to be a valid CSV text file.' }, { status: 400 });
@@ -349,12 +458,10 @@ export async function POST(req: NextRequest) {
         if (headers.length === 0) {
             return NextResponse.json({ error: 'CSV file is empty or could not be parsed.' }, { status: 400 });
         }
-
         if (rows.length === 0) {
             return NextResponse.json({ error: 'CSV has headers but no data rows.' }, { status: 400 });
         }
 
-        // Max 500 rows
         const MAX_ROWS = 500;
         if (rows.length > MAX_ROWS) {
             return NextResponse.json({
@@ -381,111 +488,172 @@ export async function POST(req: NextRequest) {
             }, { status: 400 });
         }
 
-        // ── Get current sort_order offset ────────────────────────────────────
+        // ── Column Index Helpers ─────────────────────────────────────────────
+
+        const colIdx = (colName: string | null) => colName ? headers.indexOf(colName) : -1;
+
+        const nameIdx        = colIdx(mapping.name);
+        const descIdx        = colIdx(mapping.description);
+        const priceIdx       = colIdx(mapping.price);
+        const compareIdx     = colIdx(mapping.compare_at_price);
+        const currencyIdx    = colIdx(mapping.currency);
+        const statusIdx      = colIdx(mapping.status);
+
+        // Services
+        const durIdx         = colIdx(mapping.duration_minutes);
+        const featIdx        = colIdx(mapping.is_featured);
+        const optsIdx        = colIdx(mapping.options);
+        const optsReqIdx     = colIdx(mapping.options_required);
+        const catIdx         = colIdx(mapping.category);
+
+        // Products
+        const varIdx         = colIdx(mapping.variants);
+        const invIdx         = colIdx(mapping.inventory_count);
+
+        // ── Pre-load Existing Items (for duplicate detection) ────────────────
 
         const table = importType === 'services' ? 'booking_services' : 'products';
         const { data: existingItems } = await supabase
             .from(table)
-            .select('sort_order')
-            .eq('site_id', siteId)
-            .order('sort_order', { ascending: false })
-            .limit(1);
-        let sortOffset = (existingItems?.[0]?.sort_order ?? -1) + 1;
+            .select(importType === 'services'
+                ? 'id, name, description, price_cents, compare_at_price_cents, duration_minutes, currency, is_featured, status, options, options_required, category_id, sort_order'
+                : 'id, name, description, price_cents, compare_at_cents, currency, status, variants, inventory_count, sort_order'
+            )
+            .eq('site_id', siteId);
 
-        // ── Process Rows ─────────────────────────────────────────────────────
+        // Map lowercase name → existing record
+        const existingByName = new Map<string, any>();
+        let maxSortOrder = -1;
+        for (const item of (existingItems || [])) {
+            existingByName.set(item.name.toLowerCase(), item);
+            if (item.sort_order > maxSortOrder) maxSortOrder = item.sort_order;
+        }
+        let nextSortOrder = maxSortOrder + 1;
 
-        const colIdx = (colName: string | null) =>
-            colName ? headers.indexOf(colName) : -1;
+        // ── Resolve Categories (services only) ───────────────────────────────
 
-        const nameIdx = colIdx(mapping.name);
-        const descIdx = colIdx(mapping.description);
-        const priceIdx = colIdx(mapping.price);
-        const compareIdx = colIdx(mapping.compare_at_price);
-        const currencyIdx = colIdx(mapping.currency);
-        const statusIdx = colIdx(mapping.status);
+        let categoryMap = new Map<string, string>();
+        if (importType === 'services' && catIdx >= 0) {
+            const catNames = rows
+                .map(r => r[catIdx]?.trim())
+                .filter((n): n is string => Boolean(n));
+            categoryMap = await resolveCategoryIds(siteId, catNames, supabase);
+        }
 
-        const imported: any[] = [];
-        const errors: { row: number; name: string; error: string }[] = [];
-        const skipped: number[] = [];
+        // ── Process Rows (in CSV order) ──────────────────────────────────────
+
+        const imported:      { row: number; name: string }[] = [];
+        const modified:      { row: number; name: string }[] = [];
+        const alreadyExists: { row: number; name: string }[] = [];
+        const skipped:       { row: number; reason: string }[] = [];
+        const errors:        { row: number; name: string; error: string }[] = [];
 
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
-            const rowNum = i + 2; // 1-indexed, +1 for header
+            const rowNum = i + 2; // 1-indexed + header row
 
             const name = nameIdx >= 0 ? row[nameIdx]?.trim() : undefined;
             if (!name) {
-                skipped.push(rowNum);
+                skipped.push({ row: rowNum, reason: 'Empty name' });
                 continue;
             }
 
-            const description = descIdx >= 0 ? row[descIdx]?.trim() || null : null;
-            const priceCents = priceIdx >= 0 ? (parsePriceCents(row[priceIdx]) ?? 0) : 0;
-            const compareAtCents = compareIdx >= 0 ? parsePriceCents(row[compareIdx]) : null;
-            const currency = currencyIdx >= 0 && row[currencyIdx]?.trim() ? row[currencyIdx].trim().toUpperCase() : 'CAD';
-            const status = statusIdx >= 0 ? parseStatus(row[statusIdx]) : 'draft';
+            const description    = descIdx >= 0     ? row[descIdx]?.trim() || null : null;
+            const priceCents     = priceIdx >= 0    ? (parsePriceCents(row[priceIdx]) ?? 0) : 0;
+            const compareAtCents = compareIdx >= 0  ? parsePriceCents(row[compareIdx]) : null;
+            const currency       = currencyIdx >= 0 && row[currencyIdx]?.trim() ? row[currencyIdx].trim().toUpperCase() : 'CAD';
+            const status         = statusIdx >= 0   ? parseStatus(row[statusIdx]) : 'draft';
+
+            const existingItem = existingByName.get(name.toLowerCase());
 
             try {
                 if (importType === 'services') {
-                    const durIdx = colIdx(mapping.duration_minutes);
-                    const featIdx = colIdx(mapping.is_featured);
-                    const optsIdx = colIdx(mapping.options);
+                    const durationMinutes  = durIdx >= 0     ? (parseInt(row[durIdx] || '30') || 30) : 30;
+                    const isFeatured       = featIdx >= 0    ? parseBool(row[featIdx]) : false;
+                    const options          = optsIdx >= 0    ? parseOptions(row[optsIdx]) : null;
+                    const optionsRequired  = optsReqIdx >= 0 ? parseOptionsRequired(row[optsReqIdx]) : true;
+                    const catName          = catIdx >= 0     ? row[catIdx]?.trim() || null : null;
+                    const categoryId       = catName ? (categoryMap.get(catName.toLowerCase()) ?? null) : null;
 
-                    const durationMinutes = durIdx >= 0 ? (parseInt(row[durIdx] || '30') || 30) : 30;
-                    const isFeatured = featIdx >= 0 ? parseBool(row[featIdx]) : false;
-                    const options = optsIdx >= 0 ? parseOptions(row[optsIdx]) : null;
+                    const incoming = {
+                        description,
+                        price_cents: priceCents,
+                        compare_at_price_cents: compareAtCents,
+                        duration_minutes: durationMinutes,
+                        currency,
+                        is_featured: isFeatured,
+                        status,
+                        category_id: categoryId,
+                        options_required: optionsRequired,
+                        options,
+                    };
 
-                    const { data, error } = await supabase
-                        .from('booking_services')
-                        .insert({
-                            site_id: siteId,
-                            name,
-                            description,
-                            duration_minutes: durationMinutes,
-                            price_cents: priceCents,
-                            currency,
-                            is_featured: isFeatured,
-                            compare_at_price_cents: compareAtCents,
-                            options,
-                            status,
-                            sort_order: sortOffset++,
-                        })
-                        .select('id, name')
-                        .single();
-
-                    if (error) throw new Error(error.message);
-                    imported.push(data);
+                    if (existingItem) {
+                        if (serviceIsIdentical(existingItem, incoming)) {
+                            alreadyExists.push({ row: rowNum, name });
+                        } else {
+                            const { error } = await supabase
+                                .from('booking_services')
+                                .update({ ...incoming, updated_at: new Date().toISOString() })
+                                .eq('id', existingItem.id);
+                            if (error) throw new Error(error.message);
+                            modified.push({ row: rowNum, name });
+                        }
+                    } else {
+                        const { error } = await supabase
+                            .from('booking_services')
+                            .insert({
+                                site_id: siteId,
+                                name,
+                                sort_order: nextSortOrder++,
+                                ...incoming,
+                            });
+                        if (error) throw new Error(error.message);
+                        imported.push({ row: rowNum, name });
+                    }
                 } else {
-                    const varIdx = colIdx(mapping.variants);
-                    const invIdx = colIdx(mapping.inventory_count);
-
-                    const variants = varIdx >= 0 ? parseVariants(row[varIdx]) : null;
+                    const variants       = varIdx >= 0 ? parseVariants(row[varIdx]) : null;
                     const inventoryCount = invIdx >= 0
                         ? (row[invIdx]?.trim() === '' ? -1 : (parseInt(row[invIdx] || '-1') ?? -1))
                         : -1;
 
-                    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                    const incoming = {
+                        description,
+                        price_cents: priceCents,
+                        compare_at_cents: compareAtCents,
+                        currency,
+                        status,
+                        variants: variants || [],
+                        inventory_count: inventoryCount,
+                    };
 
-                    const { data, error } = await supabase
-                        .from('products')
-                        .insert({
-                            site_id: siteId,
-                            name,
-                            description,
-                            price_cents: priceCents,
-                            compare_at_cents: compareAtCents,
-                            currency,
-                            variants: variants || [],
-                            inventory_count: inventoryCount,
-                            images: [],
-                            slug,
-                            status,
-                            sort_order: sortOffset++,
-                        })
-                        .select('id, name')
-                        .single();
-
-                    if (error) throw new Error(error.message);
-                    imported.push(data);
+                    if (existingItem) {
+                        if (productIsIdentical(existingItem, incoming)) {
+                            alreadyExists.push({ row: rowNum, name });
+                        } else {
+                            const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                            const { error } = await supabase
+                                .from('products')
+                                .update({ ...incoming, slug, updated_at: new Date().toISOString() })
+                                .eq('id', existingItem.id);
+                            if (error) throw new Error(error.message);
+                            modified.push({ row: rowNum, name });
+                        }
+                    } else {
+                        const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+                        const { error } = await supabase
+                            .from('products')
+                            .insert({
+                                site_id: siteId,
+                                name,
+                                slug,
+                                images: [],
+                                sort_order: nextSortOrder++,
+                                ...incoming,
+                            });
+                        if (error) throw new Error(error.message);
+                        imported.push({ row: rowNum, name });
+                    }
                 }
             } catch (err: any) {
                 errors.push({ row: rowNum, name, error: err.message || 'Unknown error' });
@@ -494,6 +662,8 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
             imported: imported.length,
+            modified: modified.length,
+            already_exists: alreadyExists.length,
             skipped: skipped.length,
             errors,
             mapping,

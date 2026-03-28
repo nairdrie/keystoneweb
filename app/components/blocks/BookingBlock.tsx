@@ -1283,6 +1283,8 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
     const [submitting, setSubmitting] = useState(false);
     const [confirmation, setConfirmation] = useState<any>(null);
     const [settings, setSettings] = useState<BookingSettings | null>(null);
+    const [availability, setAvailability] = useState<AvailabilityDay[]>([]);
+    const [blockedDates, setBlockedDates] = useState<string[]>([]);
 
     // Payment method selection (shown in form step)
     const [chosenPaymentMethod, setChosenPaymentMethod] = useState<'none' | 'etransfer' | 'stripe'>('none');
@@ -1302,17 +1304,21 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
     const pSecondary = palette.secondary || '#dc2626';
     const pAccent = palette.accent || '#f3f4f6';
 
-    // Load services
+    // Load services, settings, and availability
     useEffect(() => {
         (async () => {
-            const [svcRes, stRes] = await Promise.all([
+            const [svcRes, stRes, avRes] = await Promise.all([
                 fetch(`/api/bookings/services?siteId=${siteId}`),
                 fetch(`/api/bookings/settings?siteId=${siteId}`),
+                fetch(`/api/bookings/availability?siteId=${siteId}`),
             ]);
             const svcData = await svcRes.json();
             const stData = await stRes.json();
+            const avData = await avRes.json();
             setServices((svcData.services || []).filter((s: Service) => s.is_active && s.status === 'published'));
             setSettings(stData.settings || null);
+            setAvailability(avData.availability || []);
+            setBlockedDates((avData.blockedDates || []).map((b: any) => b.blocked_date as string));
             setLoading(false);
         })();
     }, [siteId]);
@@ -1616,6 +1622,8 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                             year={calYear}
                             selectedDate={selectedDate}
                             maxAdvanceDays={settings?.max_advance_days || 60}
+                            availability={availability}
+                            blockedDates={blockedDates}
                             onSelect={(date) => {
                                 setSelectedDate(date);
                                 setStep('time');
@@ -1763,11 +1771,13 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
 
 // ─── Mini Calendar ──────────────────────────────────────────────────────────────
 
-function MiniCalendar({ month, year, selectedDate, maxAdvanceDays, onSelect, onChangeMonth, accentColor }: {
+function MiniCalendar({ month, year, selectedDate, maxAdvanceDays, availability, blockedDates, onSelect, onChangeMonth, accentColor }: {
     month: number;
     year: number;
     selectedDate: string | null;
     maxAdvanceDays: number;
+    availability: AvailabilityDay[];
+    blockedDates: string[];
     onSelect: (date: string) => void;
     onChangeMonth: (m: number, y: number) => void;
     accentColor: string;
@@ -1776,6 +1786,15 @@ function MiniCalendar({ month, year, selectedDate, maxAdvanceDays, onSelect, onC
     today.setHours(0, 0, 0, 0);
     const maxDate = new Date(today);
     maxDate.setDate(maxDate.getDate() + maxAdvanceDays);
+
+    // Build a set of active day-of-week values (0=Sun…6=Sat) for fast lookup.
+    // If availability hasn't loaded yet (empty array), treat all days as open so
+    // the calendar is still usable while data is fetching.
+    const activeDays = availability.length > 0
+        ? new Set(availability.filter(a => a.is_active).map(a => a.day_of_week))
+        : null; // null = no restriction applied
+
+    const blockedSet = new Set(blockedDates);
 
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -1817,18 +1836,27 @@ function MiniCalendar({ month, year, selectedDate, maxAdvanceDays, onSelect, onC
                     const isTooFar = dateObj > maxDate;
                     const isSelected = dateStr === selectedDate;
                     const isToday = dateObj.getTime() === today.getTime();
-                    const disabled = isPast || isTooFar;
+                    const isClosed = activeDays !== null && !activeDays.has(dateObj.getDay());
+                    const isBlocked = blockedSet.has(dateStr);
+                    const disabled = isPast || isTooFar || isClosed || isBlocked;
 
                     return (
                         <button
                             key={dateStr}
                             disabled={disabled}
                             onClick={() => onSelect(dateStr)}
-                            className={`py-2 text-sm rounded-lg transition-all ${isSelected ? 'text-white font-bold shadow-md' :
-                                disabled ? 'text-slate-300 cursor-not-allowed' :
-                                    isToday ? 'font-bold text-slate-900 bg-slate-100 hover:bg-slate-200' :
-                                        'text-slate-700 hover:bg-slate-100'
-                                }`}
+                            title={isClosed ? 'Closed' : isBlocked ? 'Not available' : undefined}
+                            className={`py-2 text-sm rounded-lg transition-all ${
+                                isSelected
+                                    ? 'text-white font-bold shadow-md'
+                                    : isPast || isTooFar
+                                        ? 'text-slate-300 cursor-not-allowed'
+                                        : isClosed || isBlocked
+                                            ? 'text-slate-300 line-through cursor-not-allowed'
+                                            : isToday
+                                                ? 'font-bold text-slate-900 bg-slate-100 hover:bg-slate-200'
+                                                : 'text-slate-700 hover:bg-slate-100'
+                            }`}
                             style={isSelected ? { backgroundColor: accentColor } : {}}
                         >
                             {day}
