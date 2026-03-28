@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { siteId, name, description, duration_minutes, price_cents, currency, category_id, is_featured, compare_at_price_cents, options } = body;
+    const { siteId, name, description, duration_minutes, price_cents, currency, category_id, is_featured, compare_at_price_cents, options, options_required } = body;
 
     if (!siteId || !name) {
         return NextResponse.json({ error: 'Missing siteId or name' }, { status: 400 });
@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
             is_featured: is_featured ?? false,
             compare_at_price_cents: compare_at_price_cents ?? null,
             options: options ?? null,
+            options_required: options_required !== undefined ? options_required : true,
             sort_order: nextOrder,
         })
         .select('*, booking_categories(name)')
@@ -101,7 +102,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, name, description, duration_minutes, price_cents, currency, is_active, sort_order, category_id, is_featured, compare_at_price_cents, options, status, siteId: bodySiteId, publishAll } = body;
+    const { id, name, description, duration_minutes, price_cents, currency, is_active, sort_order, category_id, is_featured, compare_at_price_cents, options, options_required, status, siteId: bodySiteId, publishAll } = body;
 
     // Bulk publish all drafts for a site
     if (bodySiteId && publishAll === true) {
@@ -134,6 +135,7 @@ export async function PUT(request: NextRequest) {
     if (is_featured !== undefined) updates.is_featured = is_featured;
     if (compare_at_price_cents !== undefined) updates.compare_at_price_cents = compare_at_price_cents;
     if (options !== undefined) updates.options = options;
+    if (options_required !== undefined) updates.options_required = options_required;
     if (status !== undefined) updates.status = status;
 
     const { data, error } = await supabase
