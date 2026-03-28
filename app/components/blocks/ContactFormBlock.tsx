@@ -101,7 +101,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
             }
 
             setSuccess(true);
-            setForm({ name: '', email: '', phone: '', message: '' });
+            setForm({ name: '', email: '', phone: '', message: '', _hp: '' });
         } catch (err: any) {
             console.error('Contact form error:', err);
             setError(err.message || 'Something went wrong. Please try again.');
