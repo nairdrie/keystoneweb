@@ -44,6 +44,7 @@ interface Service {
     category_id?: string | null;
     booking_categories?: { name: string } | null;
     options?: ServiceOption[] | null;
+    options_required?: boolean | null;
     is_featured: boolean;
     compare_at_price_cents?: number | null;
     status: string;
@@ -553,7 +554,7 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
     const [adding, setAdding] = useState(false);
     // Track which service is being edited
     const [editingId, setEditingId] = useState<string | null>(null);
-    type EditState = { name: string; desc: string; duration: number; price: string; category: string; options: ServiceOption[]; isFeatured: boolean; compareAtPrice: string };
+    type EditState = { name: string; desc: string; duration: number; price: string; category: string; options: ServiceOption[]; optionsRequired: boolean; isFeatured: boolean; compareAtPrice: string };
     const [editState, setEditState] = useState<EditState | null>(null);
     const [newName, setNewName] = useState('');
     const [newDuration, setNewDuration] = useState(30);
@@ -561,6 +562,7 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
     const [newDesc, setNewDesc] = useState('');
     const [newCategory, setNewCategory] = useState('');
     const [newOptions, setNewOptions] = useState<ServiceOption[]>([]);
+    const [newOptionsRequired, setNewOptionsRequired] = useState(true);
     const [addons, setAddons] = useState<Addon[]>([]);
 
     useEffect(() => {
@@ -610,6 +612,7 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
             price: (service.price_cents / 100).toFixed(2),
             category: service.category_id || '',
             options: service.options || [],
+            optionsRequired: service.options_required !== false,
             isFeatured: service.is_featured,
             compareAtPrice: service.compare_at_price_cents ? (service.compare_at_price_cents / 100).toFixed(2) : '',
         });
@@ -628,6 +631,7 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
                 price_cents: Math.round(parseFloat(editState.price) * 100),
                 category_id: editState.category || null,
                 options: editState.options.length > 0 ? editState.options : null,
+                options_required: editState.optionsRequired,
                 is_featured: editState.isFeatured,
                 compare_at_price_cents: editState.compareAtPrice ? Math.round(parseFloat(editState.compareAtPrice) * 100) : null,
             }),
@@ -652,6 +656,7 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
                 price_cents: Math.round(parseFloat(newPrice) * 100),
                 category_id: newCategory || null,
                 options: newOptions.length > 0 ? newOptions : null,
+                options_required: newOptionsRequired,
                 is_featured: newIsFeatured,
                 compare_at_price_cents: newCompareAtPrice ? Math.round(parseFloat(newCompareAtPrice) * 100) : null,
             }),
@@ -659,7 +664,7 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
         const data = await res.json();
         if (data.service) {
             setServices([...services, data.service]);
-            setNewName(''); setNewDuration(30); setNewPrice('0'); setNewDesc(''); setNewCategory(''); setNewOptions([]); setNewIsFeatured(false); setNewCompareAtPrice('');
+            setNewName(''); setNewDuration(30); setNewPrice('0'); setNewDesc(''); setNewCategory(''); setNewOptions([]); setNewOptionsRequired(true); setNewIsFeatured(false); setNewCompareAtPrice('');
         }
         setAdding(false);
     };
@@ -933,6 +938,19 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
                                 </select>
                             )}
                             <ServiceOptionsEditor options={editState.options} onChange={opts => setEditState({ ...editState, options: opts })} siteId={siteId} addons={addons} onAddonCreated={a => setAddons(prev => [...prev, a])} />
+                            {editState.options.length > 0 && (
+                                <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-white">
+                                    <div>
+                                        <p className="text-xs font-semibold text-slate-700">Variant Selection</p>
+                                        <p className="text-[11px] text-slate-400">{editState.optionsRequired ? 'Customer must choose an option' : 'Optional — customer can skip'}</p>
+                                    </div>
+                                    <button type="button"
+                                        onClick={() => setEditState({ ...editState, optionsRequired: !editState.optionsRequired })}
+                                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${editState.optionsRequired ? 'bg-blue-600' : 'bg-slate-200'}`}>
+                                        <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${editState.optionsRequired ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                                    </button>
+                                </div>
+                            )}
                             {/* Featured toggle */}
                             <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-white">
                                 <div className="flex items-center gap-2">
@@ -1004,6 +1022,19 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
                     </select>
                 )}
                 <ServiceOptionsEditor options={newOptions} onChange={setNewOptions} siteId={siteId} addons={addons} onAddonCreated={a => setAddons(prev => [...prev, a])} />
+                {newOptions.length > 0 && (
+                    <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-white">
+                        <div>
+                            <p className="text-xs font-semibold text-slate-700">Variant Selection</p>
+                            <p className="text-[11px] text-slate-400">{newOptionsRequired ? 'Customer must choose an option' : 'Optional — customer can skip'}</p>
+                        </div>
+                        <button type="button"
+                            onClick={() => setNewOptionsRequired(v => !v)}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${newOptionsRequired ? 'bg-blue-600' : 'bg-slate-200'}`}>
+                            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${newOptionsRequired ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                        </button>
+                    </div>
+                )}
                 {/* Featured toggle */}
                 <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-white">
                     <div className="flex items-center gap-2">
@@ -1572,7 +1603,7 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                                             {service.price_cents > 0 && (
                                                 <div className="text-right shrink-0 ml-3">
                                                     <span className="text-lg font-bold" style={{ color: pSecondary }}>
-                                                        {service.options && service.options.length > 0
+                                                        {service.options && service.options.length > 0 && service.options_required !== false
                                                             ? `from $${(Math.min(...service.options.map(o => o.price_type === 'addon' ? service.price_cents + o.price_cents : o.price_cents)) / 100).toFixed(2)}`
                                                             : `$${(service.price_cents / 100).toFixed(2)}`}
                                                     </span>
@@ -1621,6 +1652,13 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                                     </button>
                                 );
                             })}
+                            {selectedService.options_required === false && (
+                                <button
+                                    onClick={() => { setSelectedOption(null); setStep('date'); }}
+                                    className="w-full mt-1 py-3 text-sm text-slate-400 hover:text-slate-600 border-2 border-dashed border-slate-200 hover:border-slate-300 rounded-xl transition-all">
+                                    No thanks, skip
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
