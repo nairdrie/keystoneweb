@@ -30,10 +30,10 @@ export async function POST(
 
   const db = createAdminClient();
 
-  // Load submission + verify ownership
+  // Fetch submission (no join to avoid PostgREST schema-cache issues)
   const { data: submission, error: fetchErr } = await db
     .from('contact_submissions')
-    .select('*, sites(siteSlug, user_id, design_data)')
+    .select('*')
     .eq('id', id)
     .single();
 
@@ -41,8 +41,14 @@ export async function POST(
     return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
   }
 
-  const site = (submission as any).sites;
-  if (site?.user_id !== user.id) {
+  // Verify ownership via separate sites query
+  const { data: site } = await db
+    .from('sites')
+    .select('siteSlug, user_id, design_data')
+    .eq('id', submission.site_id)
+    .single();
+
+  if (!site || site.user_id !== user.id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

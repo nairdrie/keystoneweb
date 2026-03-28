@@ -6,14 +6,23 @@ type Params = { params: Promise<{ id: string }> };
 
 async function getAuthorizedSubmission(id: string, userId: string) {
   const db = createAdminClient();
+
+  // Fetch submission without join to avoid PostgREST schema-cache issues
   const { data: submission, error } = await db
     .from('contact_submissions')
-    .select('*, sites(siteSlug, user_id, design_data)')
+    .select('*')
     .eq('id', id)
     .single();
 
   if (error || !submission) return { submission: null, db, error: 'Submission not found' };
-  const site = (submission as any).sites;
+
+  // Verify ownership via separate sites query
+  const { data: site } = await db
+    .from('sites')
+    .select('user_id')
+    .eq('id', submission.site_id)
+    .single();
+
   if (site?.user_id !== userId) return { submission: null, db, error: 'Forbidden' };
 
   return { submission, db, error: null };
