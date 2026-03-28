@@ -37,21 +37,47 @@ export default function LanguageSelector({
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  // On mount: if the user has a stored language preference that differs from the
+  // current URL, redirect to the language-prefixed version.
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('preferredLanguage');
+      if (!stored || stored === defaultLanguage) return;
+      // Only redirect if this is a valid configured language
+      if (!languages.some((l) => l.code === stored)) return;
+
+      const currentPath = window.location.pathname;
+      const langPrefixMatch = currentPath.match(/^\/([a-z]{2})(\/.*)?$/);
+      const alreadyHasLang = langPrefixMatch && languages.some((l) => l.code === langPrefixMatch[1]);
+
+      if (!alreadyHasLang) {
+        const basePath = langPrefixMatch ? (langPrefixMatch[2] || '') : currentPath;
+        window.location.replace(`/${stored}${basePath}`);
+      }
+    } catch {
+      // localStorage may be unavailable (private browsing, etc.)
+    }
+  }, [defaultLanguage, languages]);
+
   if (languages.length < 2) return null;
 
   const current = languages.find((l) => l.code === currentLanguage) || languages[0];
 
   const handleSelect = (code: string) => {
     setIsOpen(false);
+    try {
+      localStorage.setItem('preferredLanguage', code);
+    } catch {
+      // localStorage may be unavailable
+    }
     // Navigate to the language route
-    // Default language goes to /, others go to /code
     const currentPath = window.location.pathname;
     // Strip existing language prefix if present
     const langPrefixMatch = currentPath.match(/^\/([a-z]{2})(\/.*)?$/);
     const basePath = langPrefixMatch ? (langPrefixMatch[2] || '/') : currentPath;
 
     if (code === defaultLanguage) {
-      window.location.href = basePath;
+      window.location.href = basePath || '/';
     } else {
       window.location.href = `/${code}${basePath === '/' ? '' : basePath}`;
     }
