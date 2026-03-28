@@ -440,38 +440,58 @@ interface ContactEmailData {
     customerEmail: string;
     customerPhone?: string;
     message: string;
+    submissionId?: string;
+    siteId?: string;
 }
 
 /**
  * Send new contact form notification email to the business owner
  */
 export async function sendContactFormNotification(data: ContactEmailData, ownerEmail: string) {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.keystoneweb.ca';
+    const replyLink = data.submissionId && data.siteId
+        ? `${baseUrl}/admin/inbox/${data.submissionId}?siteId=${data.siteId}`
+        : null;
+
     try {
         await resend.emails.send({
             from: 'Keystone Web Design <contact@keystoneweb.ca>',
             to: ownerEmail,
             subject: `New Message — ${data.siteName}`,
             html: `
-                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto;">
-                    <div style="text-align: center; padding: 24px 0;">
-                         <div style="width: 48px; height: 48px; background: #e0e7ff; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 24px;">💬</div>
-                        <h1 style="margin: 12px 0 4px; font-size: 22px; color: #111827;">New Message</h1>
-                        <p style="margin: 0; color: #6b7280; font-size: 14px;">Someone reached out from your website</p>
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px 0;">
+                    <!-- Keystone branding -->
+                    <div style="text-align: center; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb; margin-bottom: 24px;">
+                        <img style="width: 180px;" src="https://www.keystoneweb.ca/assets/logo/keystone-logo.png" alt="Keystone Web" />
                     </div>
-                    
+
+                    <div style="text-align: center; padding-bottom: 20px;">
+                        <h1 style="margin: 0 0 4px; font-size: 22px; color: #111827;">New Message</h1>
+                        <p style="margin: 0; color: #6b7280; font-size: 14px;">Someone reached out from <strong>${data.siteName}</strong></p>
+                    </div>
+
                     <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
                         <p style="margin: 0; font-size: 15px; color: #111827; white-space: pre-wrap; line-height: 1.5;">${data.message}</p>
                     </div>
-                    
-                    <div style="background: #f0f9ff; border-radius: 8px; padding: 16px;">
+
+                    <div style="background: #f0f9ff; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
                         <h3 style="margin: 0 0 8px; font-size: 14px; color: #0c4a6e;">Contact Details</h3>
                         <p style="margin: 2px 0; font-size: 14px; color: #111827;"><strong>${data.customerName}</strong></p>
                         <p style="margin: 2px 0; font-size: 14px; color: #111827;">📧 <a href="mailto:${data.customerEmail}" style="color: #0284c7;">${data.customerEmail}</a></p>
                         ${data.customerPhone ? `<p style="margin: 2px 0; font-size: 14px; color: #111827;">📱 <a href="tel:${data.customerPhone}" style="color: #0284c7;">${data.customerPhone}</a></p>` : ''}
                     </div>
-                    
+
+                    ${replyLink ? `
+                    <div style="text-align: center; margin-bottom: 24px;">
+                        <a href="${replyLink}" style="display: inline-block; background: #111827; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 28px; border-radius: 8px;">
+                            View &amp; Reply in Inbox
+                        </a>
+                        <p style="margin: 8px 0 0; font-size: 12px; color: #9ca3af;">Review the message, see AI analysis, and send a reply</p>
+                    </div>
+                    ` : ''}
+
                     <p style="margin-top: 24px; font-size: 12px; color: #9ca3af; text-align: center;">
-                        Powered by Keystone Web Design
+                        Powered by <a href="https://www.keystoneweb.ca" style="color: #9ca3af;">Keystone Web Design</a>
                     </p>
                 </div>
             `,

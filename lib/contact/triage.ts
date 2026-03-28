@@ -81,10 +81,10 @@ export async function triageContactSubmission(
   submissionId: string,
   db: SupabaseClient
 ): Promise<void> {
-  // Load submission + site context
+  // Load submission (no join — avoids PostgREST schema-cache failures)
   const { data: submission, error: fetchErr } = await db
     .from('contact_submissions')
-    .select('*, sites(siteSlug, design_data, published_data, user_id)')
+    .select('*')
     .eq('id', submissionId)
     .single();
 
@@ -111,7 +111,13 @@ export async function triageContactSubmission(
     return;
   }
 
-  const site = (submission as any).sites;
+  // Load site context separately
+  const { data: site } = await db
+    .from('sites')
+    .select('siteSlug, design_data, published_data, user_id')
+    .eq('id', submission.site_id)
+    .single();
+
   const designData = site?.design_data ?? site?.published_data ?? {};
   const businessName =
     designData?.businessName || designData?.siteTitle || site?.siteSlug || 'Our Business';

@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
 
         // 3. Send email notification to owner (existing behaviour)
         const result = await sendContactFormNotification(
-            { siteName, customerName: name, customerEmail: email, customerPhone: phone, message },
+            { siteName, customerName: name, customerEmail: email, customerPhone: phone, message, submissionId: submission?.id, siteId },
             ownerEmail
         );
 

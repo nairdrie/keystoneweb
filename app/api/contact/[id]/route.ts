@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { createClient } from '@/lib/db/supabase-server';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 type Params = { params: Promise<{ id: string }> };
 
-async function getAuthorizedSubmission(id: string, userId: string) {
+async function getAuthorizedSubmission(id: string, userId: string, supabase: SupabaseClient) {
   const db = createAdminClient();
 
-  // Fetch submission without join to avoid PostgREST schema-cache issues
+  // Fetch submission via admin client (bypasses RLS on contact_submissions)
   const { data: submission, error } = await db
     .from('contact_submissions')
     .select('*')
@@ -16,14 +17,14 @@ async function getAuthorizedSubmission(id: string, userId: string) {
 
   if (error || !submission) return { submission: null, db, error: 'Submission not found' };
 
-  // Verify ownership via separate sites query
-  const { data: site } = await db
+  // Verify ownership via auth client (same pattern as working inbox route)
+  const { data: site } = await supabase
     .from('sites')
     .select('user_id')
     .eq('id', submission.site_id)
     .single();
 
-  if (site?.user_id !== userId) return { submission: null, db, error: 'Forbidden' };
+  if (!site || site.user_id !== userId) return { submission: null, db, error: 'Forbidden' };
 
   return { submission, db, error: null };
 }
@@ -38,15 +39,13 @@ export async function GET(_req: NextRequest, { params }: Params) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
-  const { submission, error } = await getAuthorizedSubmission(id, user.id);
+  const { submission, error } = await getAuthorizedSubmission(id, user.id, supabase);
 
   if (!submission) {
     return NextResponse.json({ error }, { status: error === 'Forbidden' ? 403 : 404 });
   }
 
-  // Strip the joined sites relation from the response
-  const { sites: _sites, ...rest } = submission as any;
-  return NextResponse.json({ submission: rest });
+  return NextResponse.json({ submission });
 }
 
 /**
@@ -59,7 +58,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
-  const { submission, db, error } = await getAuthorizedSubmission(id, user.id);
+  const { submission, db, error } = await getAuthorizedSubmission(id, user.id, supabase);
 
   if (!submission) {
     return NextResponse.json({ error }, { status: error === 'Forbidden' ? 403 : 404 });
@@ -89,7 +88,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
-  const { submission, db, error } = await getAuthorizedSubmission(id, user.id);
+  const { submission, db, error } = await getAuthorizedSubmission(id, user.id, supabase);
 
   if (!submission) {
     return NextResponse.json({ error }, { status: error === 'Forbidden' ? 403 : 404 });
