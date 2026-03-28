@@ -107,7 +107,7 @@ export default function InboxDetailPage({ params }: { params: Promise<{ id: stri
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ replyText }),
+        body: JSON.stringify({ replyText, siteId }),
       });
       if (!res.ok) {
         const err = await res.json();

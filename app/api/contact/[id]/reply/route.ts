@@ -22,38 +22,44 @@ export async function POST(
   }
 
   const { id } = await params;
-  const { replyText } = await request.json();
+  const { replyText, siteId } = await request.json();
 
   if (!replyText?.trim()) {
     return NextResponse.json({ error: 'replyText is required' }, { status: 400 });
   }
-
-  const db = createAdminClient();
-
-  // Fetch submission via admin client (bypasses RLS on contact_submissions)
-  const { data: submission, error: fetchErr } = await db
-    .from('contact_submissions')
-    .select('*')
-    .eq('id', id)
-    .single();
-
-  if (fetchErr || !submission) {
-    return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
+  if (!siteId) {
+    return NextResponse.json({ error: 'siteId is required' }, { status: 400 });
   }
 
-  // Verify ownership via auth client (same pattern as inbox route)
+  // Verify ownership via auth client using siteId from the request
+  // (same pattern as the working inbox route — auth client + siteId from URL)
   const { data: site } = await supabase
     .from('sites')
-    .select('siteSlug, user_id, design_data')
-    .eq('id', submission.site_id)
+    .select('site_slug, user_id, design_data')
+    .eq('id', siteId)
     .single();
 
   if (!site || site.user_id !== user.id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const db = createAdminClient();
+
+  // Fetch submission via admin client (bypasses RLS on contact_submissions)
+  // Cross-check that it belongs to the verified site
+  const { data: submission, error: fetchErr } = await db
+    .from('contact_submissions')
+    .select('*')
+    .eq('id', id)
+    .eq('site_id', siteId)
+    .single();
+
+  if (fetchErr || !submission) {
+    return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
+  }
+
   const designData = site?.design_data ?? {};
-  const businessName = designData?.businessName || designData?.siteTitle || site?.siteSlug || 'Our Business';
+  const businessName = designData?.businessName || designData?.siteTitle || site?.site_slug || 'Our Business';
 
   const result = await sendContactReplyEmail({
     toEmail: submission.sender_email,
