@@ -30,7 +30,7 @@ export async function POST(
 
   const db = createAdminClient();
 
-  // Fetch submission (no join to avoid PostgREST schema-cache issues)
+  // Fetch submission via admin client (bypasses RLS on contact_submissions)
   const { data: submission, error: fetchErr } = await db
     .from('contact_submissions')
     .select('*')
@@ -41,8 +41,8 @@ export async function POST(
     return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
   }
 
-  // Verify ownership via separate sites query
-  const { data: site } = await db
+  // Verify ownership via auth client (same pattern as inbox route)
+  const { data: site } = await supabase
     .from('sites')
     .select('siteSlug, user_id, design_data')
     .eq('id', submission.site_id)
