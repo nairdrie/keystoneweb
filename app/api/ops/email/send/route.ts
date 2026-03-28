@@ -38,6 +38,16 @@ async function getOpsUser() {
   return { user, isAdmin: false, agentContactEmail: profile.agent_contact_email };
 }
 
+/** Derive a display name from an email address, e.g. "nick.smith@gmail.com" → "Nick Smith" */
+function nameFromEmail(email: string): string {
+  const username = email.split('@')[0];
+  return username
+    .split(/[._-]/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 export async function POST(request: Request) {
   try {
     const { user, isAdmin, agentContactEmail } = await getOpsUser();
@@ -71,6 +81,8 @@ export async function POST(request: Request) {
     const resend = new Resend(process.env.RESEND_API_KEY);
 
     const senderLabel = isAdmin ? 'Keystone Operations' : 'Keystone';
+    const senderName = nameFromEmail(user.email ?? fromEmail);
+    const logoUrl = 'https://keystoneweb.ca/assets/logo/keystone-logo.png';
 
     const { data, error } = await resend.emails.send({
       from: `${senderLabel} <${fromEmail}>`,
@@ -78,20 +90,39 @@ export async function POST(request: Request) {
       subject,
       replyTo: reply_to || fromEmail,
       html: `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1f2937;">
-          ${body.replace(/\n/g, '<br/>')}
-          <hr style="margin: 32px 0; border: none; border-top: 1px solid #e5e7eb;" />
-          <p style="font-size: 12px; color: #9ca3af; margin: 0;">
-            This email was sent from ${fromEmail}. Reply to this message to respond.
-          </p>
+        <div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f2937;">
+          <div style="margin: 0 0 24px 0;">${body.replace(/\n/g, '<br/>')}</div>
+          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+            <p style="margin: 0; font-size: 14px; font-weight: 600; color: #111827;">${senderName}</p>
+            <p style="margin: 2px 0 0 0; font-size: 13px; color: #6b7280;">${fromEmail}</p>
+            <div style="margin-top: 10px;">
+              <img src="${logoUrl}" alt="Keystone Web Design" style="height: 36px; width: auto;" />
+            </div>
+          </div>
         </div>
       `,
-      text: body,
+      text: `${body}\n\n--\n${senderName}\n${fromEmail}\nKeystone Web Design`,
     });
 
     if (error) {
       console.error('[ops/email/send]', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Log the sent email so agents can see replies in their inbox
+    try {
+      const db = createAdminClient();
+      const toEmail = Array.isArray(to) ? to[0] : to;
+      await db.from('ops_sent_emails').insert({
+        sent_by_user_id: user.id,
+        from_email: fromEmail,
+        to_email: toEmail.toLowerCase().trim(),
+        subject,
+        resend_id: data?.id ?? null,
+      });
+    } catch (logErr) {
+      // Non-fatal — email was sent successfully, just log the error
+      console.error('[ops/email/send] Failed to log sent email:', logErr);
     }
 
     console.log(`[ops/email/send] Sent by ${user.email} from ${fromEmail} to ${to}: ${data?.id}`);
