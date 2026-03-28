@@ -50,7 +50,10 @@ export async function POST(request: Request) {
 
     // Validate the "from" address
     const fromEmail = (from_email || 'ops@keystoneweb.ca').toLowerCase().trim();
-    if (!ALLOWED_FROM_EMAILS.includes(fromEmail)) {
+    const normalizedAgentEmail = agentContactEmail?.toLowerCase().trim() ?? null;
+    const isAgentOwnEmail = !isAdmin && normalizedAgentEmail && fromEmail === normalizedAgentEmail;
+
+    if (!ALLOWED_FROM_EMAILS.includes(fromEmail) && !isAgentOwnEmail) {
       return NextResponse.json(
         { error: `from_email must be one of: ${ALLOWED_FROM_EMAILS.join(', ')}` },
         { status: 400 }
@@ -58,7 +61,7 @@ export async function POST(request: Request) {
     }
 
     // Agents can only send from their own contact email
-    if (!isAdmin && agentContactEmail && fromEmail !== agentContactEmail) {
+    if (!isAdmin && normalizedAgentEmail && fromEmail !== normalizedAgentEmail) {
       return NextResponse.json(
         { error: `As an agent you can only send from ${agentContactEmail}` },
         { status: 403 }
@@ -109,8 +112,13 @@ export async function POST(request: Request) {
 // GET — return allowed sender addresses
 export async function GET() {
   try {
-    await getOpsUser();
-    return NextResponse.json({ from_emails: ALLOWED_FROM_EMAILS });
+    const { isAdmin, agentContactEmail } = await getOpsUser();
+    const fromEmails = isAdmin
+      ? ALLOWED_FROM_EMAILS
+      : agentContactEmail
+        ? [agentContactEmail]
+        : ALLOWED_FROM_EMAILS;
+    return NextResponse.json({ from_emails: fromEmails });
   } catch (err: any) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
