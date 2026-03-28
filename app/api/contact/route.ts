@@ -3,19 +3,58 @@ import { createAdminClient } from '@/lib/db/supabase-admin';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendContactFormNotification } from '@/lib/email';
 import { triageContactSubmission } from '@/lib/contact/triage';
+import { isContactRateLimited, getRateLimitResetSecs } from '@/lib/contact/rate-limit';
+
+const MAX_MESSAGE_LENGTH = 2000;
+const MAX_NAME_LENGTH = 100;
+const MAX_EMAIL_LENGTH = 254;
 
 export async function POST(request: NextRequest) {
     const supabase = await createClient();
 
+    // IP-based rate limiting — extract IP from headers
+    const forwarded = request.headers.get('x-forwarded-for');
+    const ip = forwarded ? forwarded.split(',')[0].trim() : request.headers.get('x-real-ip') ?? 'unknown';
+
+    if (isContactRateLimited(ip)) {
+        const resetSecs = getRateLimitResetSecs(ip);
+        return NextResponse.json(
+            { error: `Too many messages. Please wait ${Math.ceil(resetSecs / 60)} minute(s) before trying again.` },
+            { status: 429 }
+        );
+    }
+
     try {
         const body = await request.json();
-        const { siteId, name, email, phone, message } = body;
+        const { siteId, name, email, phone, message, _hp } = body;
+
+        // Honeypot: bots fill hidden fields; humans leave them blank
+        if (_hp) {
+            return NextResponse.json({ success: true, message: 'Message sent successfully' });
+        }
 
         if (!siteId || !name || !email || !message) {
             return NextResponse.json(
                 { error: 'Missing required fields: name, email, message' },
                 { status: 400 }
             );
+        }
+
+        // Field length validation
+        if (name.length > MAX_NAME_LENGTH) {
+            return NextResponse.json({ error: 'Name is too long.' }, { status: 400 });
+        }
+        if (email.length > MAX_EMAIL_LENGTH) {
+            return NextResponse.json({ error: 'Email address is too long.' }, { status: 400 });
+        }
+        if (message.length > MAX_MESSAGE_LENGTH) {
+            return NextResponse.json(
+                { error: `Message must be ${MAX_MESSAGE_LENGTH} characters or fewer.` },
+                { status: 400 }
+            );
+        }
+        if (message.trim().length < 5) {
+            return NextResponse.json({ error: 'Message is too short.' }, { status: 400 });
         }
 
         const admin = createAdminClient();

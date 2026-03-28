@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Bot, User, Send, Loader2, Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Bot, User, Send, Loader2, Sparkles, CheckCircle, AlertCircle, Trash2, ShieldAlert, Clock } from 'lucide-react';
 
 interface Submission {
   id: string;
@@ -49,20 +49,19 @@ export default function InboxDetailPage({ params }: { params: Promise<{ id: stri
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [actioning, setActioning] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        // We can fetch a single submission via the inbox route with a large limit,
-        // or we can use a dedicated endpoint. For now, fetch all and find:
-        const res = await fetch(`/api/contact/inbox?siteId=${siteId}`, { credentials: 'include' });
+        const res = await fetch(`/api/contact/${id}?siteId=${siteId}`, { credentials: 'include' });
         if (!res.ok) return;
         const data = await res.json();
-        const found = data.submissions?.find((s: Submission) => s.id === id);
+        const found: Submission = data.submission;
         if (found) {
           setSubmission(found);
-          // Pre-fill reply box with AI draft if status is needs_review
           if (found.status === 'needs_review' && found.ai_draft_reply) {
             setReplyText(found.ai_draft_reply);
           }
@@ -97,6 +96,40 @@ export default function InboxDetailPage({ params }: { params: Promise<{ id: stri
     }
   }
 
+  async function handleMarkSpam() {
+    if (!submission) return;
+    setActioning(true);
+    try {
+      await fetch(`/api/contact/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ status: 'spam' }),
+      });
+      router.push(`/admin/inbox?siteId=${siteId}`);
+    } finally {
+      setActioning(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    setActioning(true);
+    try {
+      await fetch(`/api/contact/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      router.push(`/admin/inbox?siteId=${siteId}`);
+    } finally {
+      setActioning(false);
+      setConfirmDelete(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -115,17 +148,55 @@ export default function InboxDetailPage({ params }: { params: Promise<{ id: stri
 
   const canReply = submission.status !== 'replied' && submission.status !== 'spam';
   const alreadyReplied = submission.status === 'replied' || sent;
+  const aiPending = submission.status === 'new' && !submission.ai_classification;
 
   return (
     <div className="max-w-2xl mx-auto p-4 sm:p-6 space-y-5">
-      {/* Back */}
-      <button
-        onClick={() => router.push(`/admin/inbox?siteId=${siteId}`)}
-        className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition-colors"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Back to Inbox
-      </button>
+      {/* Back + actions row */}
+      <div className="flex items-center justify-between gap-3">
+        <button
+          onClick={() => router.push(`/admin/inbox?siteId=${siteId}`)}
+          className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Inbox
+        </button>
+
+        {submission.status !== 'replied' && (
+          <div className="flex items-center gap-2">
+            {submission.status !== 'spam' && (
+              <button
+                onClick={handleMarkSpam}
+                disabled={actioning}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 disabled:opacity-50 transition-colors"
+              >
+                <ShieldAlert className="w-3.5 h-3.5" />
+                Mark as Spam
+              </button>
+            )}
+            <button
+              onClick={handleDelete}
+              disabled={actioning}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border disabled:opacity-50 transition-colors ${
+                confirmDelete
+                  ? 'bg-red-600 text-white border-red-600 hover:bg-red-700'
+                  : 'text-slate-600 bg-white border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200'
+              }`}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {confirmDelete ? 'Confirm Delete' : 'Delete'}
+            </button>
+            {confirmDelete && (
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="text-xs text-slate-400 hover:text-slate-600"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Message card */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -156,6 +227,14 @@ export default function InboxDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       </div>
 
+      {/* AI pending indicator */}
+      {aiPending && (
+        <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+          <Clock className="w-4 h-4 animate-pulse" />
+          AI analysis is processing — check back in a moment.
+        </div>
+      )}
+
       {/* AI triage panel */}
       {(submission.ai_classification || submission.ai_summary) && (
         <div className="bg-violet-50 border border-violet-100 rounded-xl px-5 py-4 space-y-2">
@@ -173,7 +252,7 @@ export default function InboxDetailPage({ params }: { params: Promise<{ id: stri
           )}
           {submission.ai_classification && (
             <p className="text-xs text-violet-600 font-medium">
-              Category: {submission.ai_classification.replace('_', ' ')}
+              Category: {submission.ai_classification.replace(/_/g, ' ')}
             </p>
           )}
           {submission.ai_auto_sent && (

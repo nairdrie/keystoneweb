@@ -16,7 +16,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
     const context = useEditorContext();
     const siteId = context?.siteId;
 
-    const [form, setForm] = useState({ name: '', email: '', phone: '', message: '' });
+    const [form, setForm] = useState({ name: '', email: '', phone: '', message: '', _hp: '' });
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -88,7 +88,11 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     siteId,
-                    ...form
+                    name: form.name,
+                    email: form.email,
+                    phone: form.phone,
+                    message: form.message,
+                    _hp: form._hp,
                 }),
             });
 
@@ -97,7 +101,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
             }
 
             setSuccess(true);
-            setForm({ name: '', email: '', phone: '', message: '' });
+            setForm({ name: '', email: '', phone: '', message: '', _hp: '' });
         } catch (err: any) {
             console.error('Contact form error:', err);
             setError(err.message || 'Something went wrong. Please try again.');
@@ -258,6 +262,19 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                     </div>
                 ) : (
                     <form onSubmit={handleSubmit} className="bg-white shadow-xl shadow-slate-200/50 border border-slate-100 rounded-2xl p-6 md:p-10 space-y-6">
+                        {/* Honeypot: hidden from users, bots fill it in */}
+                        <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }}>
+                            <label htmlFor="_hp">Leave this field blank</label>
+                            <input
+                                id="_hp"
+                                type="text"
+                                name="_hp"
+                                tabIndex={-1}
+                                autoComplete="off"
+                                value={form._hp}
+                                onChange={(e) => setForm({ ...form, _hp: e.target.value })}
+                            />
+                        </div>
 
                         {error && (
                             <div className="p-4 bg-red-50 text-red-700 border border-red-200 rounded-xl text-sm font-medium">
@@ -317,7 +334,12 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-semibold text-slate-700 block">Message</label>
+                            <div className="flex items-center justify-between">
+                                <label className="text-sm font-semibold text-slate-700 block">Message</label>
+                                <span className={`text-xs ${form.message.length > 1800 ? 'text-red-500' : 'text-slate-400'}`}>
+                                    {form.message.length}/2000
+                                </span>
+                            </div>
                             <div className="relative">
                                 <div className="absolute top-3 left-3 pointer-events-none text-slate-400">
                                     <MessageSquare className="h-5 w-5" />
@@ -326,6 +348,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                                     required
                                     value={form.message}
                                     onChange={(e) => setForm({ ...form, message: e.target.value })}
+                                    maxLength={2000}
                                     className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200 rounded-xl outline-none transition-all resize-none"
                                     rows={5}
                                     placeholder="How can we help you?"
