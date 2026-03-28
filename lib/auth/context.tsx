@@ -85,21 +85,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await supabase.auth.getUser();
 
         if (userError || !validUser) {
-          // Only clear the session for definitive server-side auth rejections
-          // (HTTP 401 = token invalid/revoked, 403 = user banned/disabled).
-          // Transient errors like network failures or rate-limits (429) must NOT
-          // nuke a valid session — this would log users out on flaky connections
-          // and, critically, would clear a brand-new OAuth session (Google/Apple)
-          // before the user ever sees the app.
-          const status = (userError as any)?.status;
-          if (status !== 401 && status !== 403) {
-            // Transient or unknown error — trust the local session
-            setSession(initialSession);
-            setUser(initialSession.user ?? null);
-            return;
-          }
-
-          // Definitively invalid session — clear cookies to stop refresh spam
+          // Session cookie is stale (deleted user, revoked token, etc.).
+          // Nuke it to stop the refresh-token spam.
           console.warn(
             '[Auth] Stale session detected, clearing:',
             userError?.message
@@ -177,10 +164,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
+      // Use the canonical app URL so the redirect_to always matches the
+      // whitelisted URL in the Supabase dashboard. window.location.origin
+      // can produce a www. variant that Supabase doesn't recognise, causing
+      // it to fall back to the site root and bypass /auth/callback entirely.
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=/complete-profile`,
+          redirectTo: `${appUrl}/auth/callback?next=/complete-profile`,
         },
       });
       return { error };
@@ -191,10 +183,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithApple = async () => {
     try {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=/complete-profile`,
+          redirectTo: `${appUrl}/auth/callback?next=/complete-profile`,
         },
       });
       return { error };
