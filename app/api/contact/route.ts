@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
         if (!ownerEmail) {
             const { data: site } = await supabase
                 .from('sites')
-                .select('user_id, siteSlug')
+                .select('user_id, site_slug')
                 .eq('id', siteId)
                 .single();
 
@@ -110,11 +110,11 @@ export async function POST(request: NextRequest) {
 
         const { data: siteDetails } = await supabase
             .from('sites')
-            .select('siteSlug')
+            .select('site_slug')
             .eq('id', siteId)
             .single();
 
-        const siteName = siteDetails?.siteSlug || 'Your Website';
+        const siteName = siteDetails?.site_slug || 'Your Website';
 
         // 3. Send email notification to owner (existing behaviour)
         const result = await sendContactFormNotification(

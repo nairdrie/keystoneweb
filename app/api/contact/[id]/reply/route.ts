@@ -35,7 +35,7 @@ export async function POST(
   // (same pattern as the working inbox route — auth client + siteId from URL)
   const { data: site } = await supabase
     .from('sites')
-    .select('siteSlug, user_id, design_data')
+    .select('site_slug, user_id, design_data')
     .eq('id', siteId)
     .single();
 
@@ -59,7 +59,7 @@ export async function POST(
   }
 
   const designData = site?.design_data ?? {};
-  const businessName = designData?.businessName || designData?.siteTitle || site?.siteSlug || 'Our Business';
+  const businessName = designData?.businessName || designData?.siteTitle || site?.site_slug || 'Our Business';
 
   const result = await sendContactReplyEmail({
     toEmail: submission.sender_email,

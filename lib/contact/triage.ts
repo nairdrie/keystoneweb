@@ -1,4 +1,3 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { sendContactReplyEmail } from '@/lib/email';
 import { SupabaseClient } from '@supabase/supabase-js';
 
@@ -114,13 +113,13 @@ export async function triageContactSubmission(
   // Load site context separately
   const { data: site } = await db
     .from('sites')
-    .select('siteSlug, design_data, published_data, user_id')
+    .select('site_slug, design_data, published_data, user_id')
     .eq('id', submission.site_id)
     .single();
 
   const designData = site?.design_data ?? site?.published_data ?? {};
   const businessName =
-    designData?.businessName || designData?.siteTitle || site?.siteSlug || 'Our Business';
+    designData?.businessName || designData?.siteTitle || site?.site_slug || 'Our Business';
   const businessDescription =
     designData?.tagline || designData?.description || designData?.aboutText || '';
   const services: string[] =
@@ -146,8 +145,6 @@ export async function triageContactSubmission(
       .eq('id', submissionId);
     return;
   }
-
-  const anthropic = new Anthropic({ apiKey });
 
   const systemPrompt = `You are a helpful assistant managing contact form messages for a small business.
 Business context:
@@ -181,21 +178,34 @@ Respond with valid JSON only, no markdown fences:
   let draftReply: string | null = null;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 512,
-      system: systemPrompt,
-      messages: [
-        {
-          role: 'user',
-          // Truncate to 1500 chars max to cap token usage; real messages are shorter
-      content: `Contact form message from ${submission.sender_name} <${submission.sender_email}>:\n\n${submission.message.slice(0, 1500)}`,
-        },
-      ],
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 512,
+        system: systemPrompt,
+        messages: [
+          {
+            role: 'user',
+            // Truncate to 1500 chars max to cap token usage; real messages are shorter
+            content: `Contact form message from ${submission.sender_name} <${submission.sender_email}>:\n\n${submission.message.slice(0, 1500)}`,
+          },
+        ],
+      }),
     });
 
-    const raw =
-      response.content[0]?.type === 'text' ? response.content[0].text.trim() : '';
+    if (!res.ok) {
+      const errBody = await res.text();
+      throw new Error(`Anthropic API error ${res.status}: ${errBody}`);
+    }
+
+    const data = await res.json();
+    const raw: string = data.content?.[0]?.text?.trim() ?? '';
     const parsed = JSON.parse(raw);
     classification = parsed.classification ?? 'other';
     confidence = Math.min(1, Math.max(0, Number(parsed.confidence) || 0));
