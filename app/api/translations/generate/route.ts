@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     // Get all pages
     const { data: pages } = await supabase
       .from('pages')
-      .select('id, slug, title, display_name, design_data')
+      .select('id, slug, title, display_name, design_data, translations')
       .eq('site_id', siteId)
       .order('nav_order', { ascending: true });
 
@@ -165,7 +165,7 @@ function extractTranslatableContent(designData: Record<string, any>): Record<str
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i];
     if (!block?.data) continue;
-    extractBlockStrings(block.data, `blocks[${i}]`, result);
+    extractBlockStrings(block.data, `blocks[${i}].data`, result);
   }
 
   return result;

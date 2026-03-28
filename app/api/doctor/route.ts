@@ -71,6 +71,8 @@ export async function GET(request: NextRequest) {
             design_data: site.design_data,
             is_published: site.is_published,
             stripe_account_id: site.stripe_account_id,
+            translations_config: site.translations_config || null,
+            translations: site.translations || null,
         },
         pages: pages || [],
         bookingSettings: bookingSettings || null,
