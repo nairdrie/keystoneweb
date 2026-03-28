@@ -216,7 +216,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
 
                         <div className="pt-3 border-t border-blue-100">
                             <div className="flex items-center justify-between mb-1">
-                                <label className="text-xs font-semibold text-slate-600 block">Where to receive messages (Business Email)</label>
+                                <label className="text-xs font-semibold text-slate-600 block">Where to receive message notifications (Business Email)</label>
                                 {isSavingEmail && <Loader2 className="w-3 h-3 animate-spin text-blue-600" />}
                             </div>
                             <input
