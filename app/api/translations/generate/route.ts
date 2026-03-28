@@ -160,8 +160,8 @@ function extractTranslatableContent(designData: Record<string, any>): Record<str
     }
   }
 
-  // Walk through blocks
-  const blocks = designData.__blocks || [];
+  // Walk through blocks (stored as 'blocks' in design_data)
+  const blocks = designData.blocks || designData.__blocks || [];
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i];
     if (!block?.data) continue;
@@ -224,12 +224,6 @@ function setNestedValue(obj: any, path: string, value: any) {
     .replace(/\[(\d+)\]/g, '.$1')
     .split('.')
     .filter(Boolean);
-
-  // For block paths, map back to __blocks
-  if (segments[0] === 'blocks') {
-    segments[0] = '__blocks';
-    // The block index is segments[1], then we need to go into .data
-  }
 
   let current = obj;
   for (let i = 0; i < segments.length - 1; i++) {
