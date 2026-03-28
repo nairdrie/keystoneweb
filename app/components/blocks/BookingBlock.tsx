@@ -7,6 +7,7 @@ import {
     Check, Loader2, User, Mail, Phone, MessageSquare, DollarSign, LayoutTemplate,
     Edit2, Search, X, CreditCard, Package, Star, Send, GripVertical, Upload
 } from 'lucide-react';
+import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
 import {
     DndContext, closestCenter, MouseSensor, TouchSensor, useSensor, useSensors,
     type DragEndEvent,
@@ -574,10 +575,7 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
     const [newCompareAtPrice, setNewCompareAtPrice] = useState('');
     const [publishing, setPublishing] = useState(false);
     const [showDraftModal, setShowDraftModal] = useState(false);
-    const [importing, setImporting] = useState(false);
-    const [importError, setImportError] = useState<string | null>(null);
-    const [importCount, setImportCount] = useState<number | null>(null);
-    const csvInputRef = useRef<HTMLInputElement>(null);
+    const [showImportModal, setShowImportModal] = useState(false);
 
     const sensors = useSensors(
         useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
@@ -680,61 +678,10 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
         setPublishing(false);
     };
 
-    const handleImportCsv = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setImporting(true);
-        setImportError(null);
-        setImportCount(null);
-
-        try {
-            const text = await file.text();
-            const lines = text.trim().split('\n');
-            if (lines.length < 2) { setImportError('CSV is empty or missing data rows.'); setImporting(false); return; }
-
-            const header = parseCsvLine(lines[0]);
-            const idx = (col: string) => header.findIndex((h: string) => h.trim().toLowerCase() === col);
-            const iName = idx('name'), iDesc = idx('description'), iDur = idx('duration_minutes');
-            const iPrice = idx('price'), iCur = idx('currency');
-            const iFeat = idx('is_featured'), iCmp = idx('compare_at_price');
-
-            if (iName === -1) { setImportError('CSV must have a "name" column.'); setImporting(false); return; }
-
-            const dataRows = lines.slice(1).map(l => parseCsvLine(l)).filter(r => r[iName]?.trim());
-            let created = 0;
-            for (const row of dataRows) {
-                const name = row[iName]?.trim();
-                if (!name) continue;
-                const price = iPrice !== -1 ? parseFloat(row[iPrice] || '0') || 0 : 0;
-                const compareAt = iCmp !== -1 && row[iCmp]?.trim() ? parseFloat(row[iCmp]) || null : null;
-                await fetch('/api/bookings/services', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        siteId,
-                        name,
-                        description: iDesc !== -1 ? row[iDesc]?.trim() || null : null,
-                        duration_minutes: iDur !== -1 ? parseInt(row[iDur] || '30') || 30 : 30,
-                        price_cents: Math.round(price * 100),
-                        currency: iCur !== -1 && row[iCur]?.trim() ? row[iCur].trim() : 'CAD',
-                        is_featured: iFeat !== -1 ? row[iFeat]?.trim().toLowerCase() === 'true' : false,
-                        compare_at_price_cents: compareAt !== null ? Math.round(compareAt * 100) : null,
-                    }),
-                });
-                created++;
-            }
-
-            // Refresh services list
-            const svcRes = await fetch(`/api/bookings/services?siteId=${siteId}`);
-            const svcData = await svcRes.json();
-            setServices(svcData.services || []);
-            setImportCount(created);
-        } catch (err: any) {
-            setImportError(err.message || 'Import failed.');
-        } finally {
-            setImporting(false);
-            if (csvInputRef.current) csvInputRef.current.value = '';
-        }
+    const handleCsvImported = async () => {
+        const svcRes = await fetch(`/api/bookings/services?siteId=${siteId}`);
+        const svcData = await svcRes.json();
+        setServices(svcData.services || []);
     };
 
     const handleDelete = async (serviceId: string) => {
@@ -798,19 +745,11 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
                     )}
                 </div>
                 <div className="flex items-center gap-2">
-                    <input
-                        ref={csvInputRef}
-                        type="file"
-                        accept=".csv,text/csv"
-                        className="hidden"
-                        onChange={handleImportCsv}
-                    />
                     <button
-                        onClick={() => csvInputRef.current?.click()}
-                        disabled={importing}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors border border-slate-200"
+                        onClick={() => setShowImportModal(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors border border-slate-200"
                     >
-                        {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                        <Upload className="w-3.5 h-3.5" />
                         Import CSV
                     </button>
                     <button onClick={handlePublishAll} disabled={publishing || draftCount === 0}
@@ -820,13 +759,13 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
                     </button>
                 </div>
             </div>
-            {importError && (
-                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{importError}</p>
-            )}
-            {importCount !== null && (
-                <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                    Imported {importCount} service{importCount !== 1 ? 's' : ''} successfully.
-                </p>
+            {showImportModal && (
+                <CsvImportModal
+                    siteId={siteId}
+                    type="services"
+                    onClose={() => setShowImportModal(false)}
+                    onImported={handleCsvImported}
+                />
             )}
             {services.length === 0 && (
                 <p className="text-sm text-slate-400 text-center py-4">No services yet. Add your first service below.</p>

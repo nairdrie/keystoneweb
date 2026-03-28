@@ -7,6 +7,7 @@ import {
     Package, Plus, Trash2, Loader2, ShoppingCart, X,
     ImageIcon, Upload, GripVertical, Send
 } from 'lucide-react';
+import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
 import { useRouter, usePathname } from 'next/navigation';
 import StoreSettingsPanel from '../ecommerce/StoreSettingsPanel';
 import OrdersPanel from '../ecommerce/OrdersPanel';
@@ -80,6 +81,7 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
     const [showAdd, setShowAdd] = useState(false);
     const [publishing, setPublishing] = useState(false);
     const [showDraftModal, setShowDraftModal] = useState(false);
+    const [showImportModal, setShowImportModal] = useState(false);
 
     useEffect(() => {
         (async () => {
@@ -112,6 +114,14 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
         setPublishing(false);
     };
 
+    const handleCsvImported = async () => {
+        const res = await fetch(`/api/products?siteId=${siteId}`);
+        if (res.ok) {
+            const data = await res.json();
+            setProducts(data.products || []);
+        }
+    };
+
     const handleToggle = async (product: Product) => {
         const res = await fetch('/api/products', {
             method: 'PUT',
@@ -140,6 +150,13 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                                 <p className="text-sm text-slate-500 mt-1">{products.length} product{products.length !== 1 ? 's' : ''}</p>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                    onClick={() => setShowImportModal(true)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg transition-colors"
+                                >
+                                    <Upload className="w-3.5 h-3.5" />
+                                    Import CSV
+                                </button>
                                 {/* Draft count badge + popover */}
                                 <div className="relative">
                                     {(() => {
@@ -242,6 +259,15 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                         )}
                     </div>
                 </div>
+
+                {showImportModal && (
+                    <CsvImportModal
+                        siteId={siteId}
+                        type="products"
+                        onClose={() => setShowImportModal(false)}
+                        onImported={handleCsvImported}
+                    />
+                )}
 
                 {/* Store Settings */}
                 <div className="mt-4">

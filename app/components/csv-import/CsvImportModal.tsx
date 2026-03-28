@@ -1,0 +1,498 @@
+'use client';
+
+import { useState, useRef, useCallback } from 'react';
+import {
+    X, Upload, Download, FileText, CheckCircle2, AlertTriangle,
+    Loader2, ChevronDown, ChevronRight, Sparkles, Info,
+} from 'lucide-react';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type CsvImportType = 'services' | 'products';
+
+interface ImportResult {
+    imported: number;
+    skipped: number;
+    errors: { row: number; name: string; error: string }[];
+    mapping: Record<string, string | null>;
+    total: number;
+}
+
+interface CsvImportModalProps {
+    siteId: string;
+    type: CsvImportType;
+    onClose: () => void;
+    onImported: () => void;
+}
+
+// ─── CSV Templates ────────────────────────────────────────────────────────────
+
+const SERVICES_TEMPLATE_HEADERS = [
+    'name', 'description', 'price', 'compare_at_price',
+    'duration_minutes', 'currency', 'is_featured', 'status', 'options',
+];
+
+const SERVICES_TEMPLATE_ROWS = [
+    [
+        'Deep Tissue Massage',
+        'A therapeutic massage targeting deep muscle layers to relieve tension.',
+        '90.00', '110.00', '60', 'CAD', 'true', 'published',
+        'Single Session:90.00 | 3-Pack:250.00 | 5-Pack:400.00',
+    ],
+    [
+        'Swedish Relaxation Massage',
+        'A gentle full-body massage promoting relaxation and circulation.',
+        '75.00', '', '45', 'CAD', 'false', 'published',
+        '',
+    ],
+    [
+        'Hot Stone Therapy',
+        'Smooth heated stones placed on key points to ease tension.',
+        '120.00', '140.00', '75', 'CAD', 'false', 'draft',
+        'Standard:120.00 | Premium Add-on:150.00',
+    ],
+];
+
+const PRODUCTS_TEMPLATE_HEADERS = [
+    'name', 'description', 'price', 'compare_at_price',
+    'currency', 'inventory_count', 'status', 'variants',
+];
+
+const PRODUCTS_TEMPLATE_ROWS = [
+    [
+        'Classic Logo T-Shirt',
+        'Soft 100% cotton tee with embroidered logo.',
+        '35.00', '45.00', 'CAD', '150', 'published',
+        'Size:XS,S,M,L,XL,2XL | Color:Black,White,Navy',
+    ],
+    [
+        'Branded Water Bottle',
+        'BPA-free 750ml insulated bottle. Keeps drinks cold 24hrs.',
+        '28.00', '', 'CAD', '75', 'published',
+        'Color:Black,Silver,Rose Gold',
+    ],
+    [
+        'Gift Card',
+        'Give the gift of choice. Redeemable in-store and online.',
+        '50.00', '', 'CAD', '-1', 'draft',
+        '',
+    ],
+];
+
+function generateTemplateCSV(type: CsvImportType): string {
+    const headers = type === 'services' ? SERVICES_TEMPLATE_HEADERS : PRODUCTS_TEMPLATE_HEADERS;
+    const rows = type === 'services' ? SERVICES_TEMPLATE_ROWS : PRODUCTS_TEMPLATE_ROWS;
+
+    const escapeCsvValue = (val: string) => {
+        if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+            return `"${val.replace(/"/g, '""')}"`;
+        }
+        return val;
+    };
+
+    const lines = [
+        headers.join(','),
+        ...rows.map(row => row.map(escapeCsvValue).join(',')),
+    ];
+
+    return lines.join('\n');
+}
+
+function downloadTemplate(type: CsvImportType) {
+    const csv = generateTemplateCSV(type);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = type === 'services' ? 'services-import-template.csv' : 'products-import-template.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+// ─── File Validation (client-side pre-check) ──────────────────────────────────
+
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+const MAX_ROWS_PREVIEW = 500;
+
+function validateFile(file: File): string | null {
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+        return 'File must have a .csv extension.';
+    }
+    if (file.size === 0) {
+        return 'File is empty.';
+    }
+    if (file.size > MAX_FILE_SIZE) {
+        return `File is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is 2MB.`;
+    }
+    return null;
+}
+
+async function previewCsvRows(file: File): Promise<{ rowCount: number; headers: string[] } | null> {
+    try {
+        const text = await file.text();
+        const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
+        if (lines.length < 2) return null;
+        const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
+        return { rowCount: lines.length - 1, headers };
+    } catch {
+        return null;
+    }
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export default function CsvImportModal({ siteId, type, onClose, onImported }: CsvImportModalProps) {
+    const [dragOver, setDragOver] = useState(false);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [fileError, setFileError] = useState<string | null>(null);
+    const [preview, setPreview] = useState<{ rowCount: number; headers: string[] } | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const [result, setResult] = useState<ImportResult | null>(null);
+    const [showErrorDetails, setShowErrorDetails] = useState(false);
+    const [showMappingDetails, setShowMappingDetails] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const typeLabel = type === 'services' ? 'Services' : 'Products';
+    const itemLabel = type === 'services' ? 'service' : 'product';
+
+    const handleFile = useCallback(async (file: File) => {
+        setResult(null);
+        setFileError(null);
+        setPreview(null);
+
+        const err = validateFile(file);
+        if (err) {
+            setFileError(err);
+            setSelectedFile(null);
+            return;
+        }
+
+        setSelectedFile(file);
+        const p = await previewCsvRows(file);
+        if (!p) {
+            setFileError('Could not read CSV. Make sure the file is not empty and is valid UTF-8.');
+            setSelectedFile(null);
+            return;
+        }
+        if (p.rowCount > MAX_ROWS_PREVIEW) {
+            setFileError(`CSV has ${p.rowCount} rows. Maximum allowed is ${MAX_ROWS_PREVIEW}. Please split it into smaller files.`);
+            setSelectedFile(null);
+            return;
+        }
+        setPreview(p);
+    }, []);
+
+    const handleDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        setDragOver(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) handleFile(file);
+    }, [handleFile]);
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) handleFile(file);
+        e.target.value = '';
+    };
+
+    const handleImport = async () => {
+        if (!selectedFile) return;
+        setUploading(true);
+        setResult(null);
+        setFileError(null);
+
+        try {
+            const form = new FormData();
+            form.append('file', selectedFile);
+            form.append('type', type);
+            form.append('siteId', siteId);
+
+            const res = await fetch('/api/csv-import', {
+                method: 'POST',
+                body: form,
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                setFileError(data.error || 'Import failed. Please try again.');
+                return;
+            }
+
+            setResult(data);
+            if (data.imported > 0) {
+                onImported();
+            }
+        } catch (err: any) {
+            setFileError(err.message || 'Network error. Please try again.');
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleReset = () => {
+        setSelectedFile(null);
+        setPreview(null);
+        setResult(null);
+        setFileError(null);
+        setShowErrorDetails(false);
+        setShowMappingDetails(false);
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0">
+                    <div>
+                        <h2 className="text-base font-bold text-slate-900">Import {typeLabel} from CSV</h2>
+                        <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-purple-500" />
+                            AI will auto-map your columns — flexible format accepted
+                        </p>
+                    </div>
+                    <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition-colors">
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-5">
+
+                    {/* Template Download */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                        <div className="flex items-start justify-between gap-3">
+                            <div>
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <FileText className="w-4 h-4 text-blue-600" />
+                                    <span className="text-sm font-semibold text-blue-900">Start with the template</span>
+                                </div>
+                                <p className="text-xs text-blue-700 leading-relaxed">
+                                    Download our pre-filled template with example data. Your own CSV doesn't need to match exactly — AI will figure it out.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => downloadTemplate(type)}
+                                className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-colors whitespace-nowrap"
+                            >
+                                <Download className="w-3.5 h-3.5" />
+                                Download
+                            </button>
+                        </div>
+
+                        {/* Field reference */}
+                        <div className="mt-3 pt-3 border-t border-blue-200">
+                            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-1.5">Supported fields</p>
+                            <div className="flex flex-wrap gap-1">
+                                {(type === 'services' ? SERVICES_TEMPLATE_HEADERS : PRODUCTS_TEMPLATE_HEADERS).map(h => (
+                                    <span key={h} className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-mono">{h}</span>
+                                ))}
+                            </div>
+                            {type === 'services' && (
+                                <p className="text-[10px] text-blue-600 mt-1.5">
+                                    <strong>options:</strong> use <span className="font-mono">"Name:Price | Name2:Price2"</span> or JSON array
+                                </p>
+                            )}
+                            {type === 'products' && (
+                                <p className="text-[10px] text-blue-600 mt-1.5">
+                                    <strong>variants:</strong> use <span className="font-mono">"Size:S,M,L | Color:Red,Blue"</span> or JSON array
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* File Upload */}
+                    {!result && (
+                        <>
+                            <div
+                                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                                onDragLeave={() => setDragOver(false)}
+                                onDrop={handleDrop}
+                                onClick={() => fileInputRef.current?.click()}
+                                className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${dragOver ? 'border-blue-400 bg-blue-50' : selectedFile ? 'border-emerald-400 bg-emerald-50' : 'border-slate-300 hover:border-slate-400 bg-slate-50 hover:bg-slate-100'}`}
+                            >
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept=".csv,text/csv"
+                                    className="hidden"
+                                    onChange={handleInputChange}
+                                />
+                                {selectedFile ? (
+                                    <div className="space-y-1">
+                                        <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
+                                        <p className="text-sm font-semibold text-emerald-700">{selectedFile.name}</p>
+                                        <p className="text-xs text-emerald-600">
+                                            {(selectedFile.size / 1024).toFixed(1)}KB
+                                            {preview && ` · ${preview.rowCount} row${preview.rowCount !== 1 ? 's' : ''} · ${preview.headers.length} columns`}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-1">
+                                        <Upload className="w-8 h-8 text-slate-400 mx-auto" />
+                                        <p className="text-sm font-semibold text-slate-700">Drop your CSV here</p>
+                                        <p className="text-xs text-slate-500">or click to browse · max 2MB · 500 rows</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Detected columns preview */}
+                            {preview && (
+                                <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5">
+                                    <div className="flex items-center gap-1.5 mb-1.5">
+                                        <Info className="w-3.5 h-3.5 text-slate-500" />
+                                        <span className="text-xs font-semibold text-slate-600">Detected columns</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                        {preview.headers.map(h => (
+                                            <span key={h} className="text-[10px] px-1.5 py-0.5 bg-white border border-slate-200 text-slate-600 rounded font-mono">{h}</span>
+                                        ))}
+                                    </div>
+                                    <p className="text-[10px] text-slate-500 mt-1.5 flex items-center gap-1">
+                                        <Sparkles className="w-3 h-3 text-purple-400" />
+                                        AI will map these to the correct fields automatically
+                                    </p>
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {/* Error */}
+                    {fileError && (
+                        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                            <p className="text-sm text-red-700">{fileError}</p>
+                        </div>
+                    )}
+
+                    {/* Import Result */}
+                    {result && (
+                        <div className="space-y-3">
+                            {/* Summary */}
+                            <div className={`rounded-xl p-4 border ${result.imported > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <CheckCircle2 className={`w-5 h-5 ${result.imported > 0 ? 'text-emerald-500' : 'text-amber-500'}`} />
+                                    <span className={`text-sm font-bold ${result.imported > 0 ? 'text-emerald-800' : 'text-amber-800'}`}>
+                                        Import complete
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <div className="bg-white rounded-lg p-2 text-center border border-emerald-200">
+                                        <div className="text-lg font-bold text-emerald-700">{result.imported}</div>
+                                        <div className="text-[10px] text-slate-500">Imported</div>
+                                    </div>
+                                    <div className="bg-white rounded-lg p-2 text-center border border-slate-200">
+                                        <div className="text-lg font-bold text-slate-500">{result.skipped}</div>
+                                        <div className="text-[10px] text-slate-500">Skipped</div>
+                                    </div>
+                                    <div className="bg-white rounded-lg p-2 text-center border border-slate-200">
+                                        <div className={`text-lg font-bold ${result.errors.length > 0 ? 'text-red-600' : 'text-slate-500'}`}>{result.errors.length}</div>
+                                        <div className="text-[10px] text-slate-500">Errors</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Column mapping accordion */}
+                            <button
+                                onClick={() => setShowMappingDetails(v => !v)}
+                                className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                            >
+                                <span className="flex items-center gap-1.5">
+                                    <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                                    AI column mapping used
+                                </span>
+                                {showMappingDetails ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                            </button>
+                            {showMappingDetails && (
+                                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1">
+                                    {Object.entries(result.mapping).filter(([, v]) => v !== null).map(([field, col]) => (
+                                        <div key={field} className="flex items-center gap-2 text-xs">
+                                            <span className="font-mono text-slate-500 w-32 shrink-0">{field}</span>
+                                            <span className="text-slate-400">←</span>
+                                            <span className="font-mono text-slate-700">{col}</span>
+                                        </div>
+                                    ))}
+                                    {Object.entries(result.mapping).filter(([, v]) => v === null).length > 0 && (
+                                        <div className="pt-1 border-t border-slate-200 mt-1">
+                                            <p className="text-[10px] text-slate-400">Not found: {Object.entries(result.mapping).filter(([, v]) => v === null).map(([f]) => f).join(', ')}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Errors accordion */}
+                            {result.errors.length > 0 && (
+                                <>
+                                    <button
+                                        onClick={() => setShowErrorDetails(v => !v)}
+                                        className="w-full flex items-center justify-between px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors"
+                                    >
+                                        <span className="flex items-center gap-1.5">
+                                            <AlertTriangle className="w-3.5 h-3.5" />
+                                            {result.errors.length} row{result.errors.length !== 1 ? 's' : ''} had errors
+                                        </span>
+                                        {showErrorDetails ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                                    </button>
+                                    {showErrorDetails && (
+                                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 space-y-1 max-h-40 overflow-y-auto">
+                                            {result.errors.map(e => (
+                                                <div key={e.row} className="text-xs text-red-700">
+                                                    <span className="font-semibold">Row {e.row}</span>
+                                                    {e.name && <span className="text-red-500"> ({e.name})</span>}
+                                                    <span className="text-red-500">: {e.error}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 shrink-0 flex items-center justify-between gap-3">
+                    {result ? (
+                        <>
+                            <button onClick={handleReset} className="text-sm text-slate-600 hover:text-slate-900 font-medium transition-colors">
+                                Import another file
+                            </button>
+                            <button
+                                onClick={onClose}
+                                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold rounded-lg transition-colors"
+                            >
+                                Done
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button onClick={onClose} className="text-sm text-slate-600 hover:text-slate-900 font-medium transition-colors">
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleImport}
+                                disabled={!selectedFile || uploading}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                            >
+                                {uploading ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Importing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Upload className="w-4 h-4" />
+                                        Import {typeLabel}
+                                    </>
+                                )}
+                            </button>
+                        </>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
