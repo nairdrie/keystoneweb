@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   const cookieStore = await cookies();
+  const pendingCookies: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
 
   // Create server-side Supabase client
   const supabase = createServerClient(
@@ -15,19 +16,21 @@ export async function POST(request: Request) {
           return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
-          const domain =
-            process.env.NODE_ENV === 'production' ? '.keystoneweb.ca' : undefined;
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, { ...options, domain })
-            );
-          } catch {
-            // Handle errors silently
-          }
+          pendingCookies.push(...cookiesToSet);
         },
       },
     }
   );
+
+  function jsonWithPendingCookies(body: unknown, init?: ResponseInit) {
+    const response = NextResponse.json(body, init);
+    const domain =
+      process.env.NODE_ENV === 'production' ? '.keystoneweb.ca' : undefined;
+    pendingCookies.forEach(({ name, value, options }) => {
+      response.cookies.set(name, value, { ...(options as any), domain });
+    });
+    return response;
+  }
 
   try {
     const { email, password } = await request.json();
@@ -52,7 +55,7 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({
+    return jsonWithPendingCookies({
       success: true,
       user: data.user,
     });
