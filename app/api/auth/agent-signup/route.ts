@@ -12,6 +12,7 @@ const COOKIE_DOMAIN =
 // and marks the invite as accepted.
 export async function POST(request: Request) {
   const cookieStore = await cookies();
+  const pendingCookies: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,15 +21,19 @@ export async function POST(request: Request) {
       cookies: {
         getAll() { return cookieStore.getAll(); },
         setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, { ...options, domain: COOKIE_DOMAIN })
-            );
-          } catch {}
+          pendingCookies.push(...cookiesToSet);
         },
       },
     }
   );
+
+  function jsonWithPendingCookies(body: unknown, init?: ResponseInit) {
+    const response = NextResponse.json(body, init);
+    pendingCookies.forEach(({ name, value, options }) => {
+      response.cookies.set(name, value, { ...(options as any), domain: COOKIE_DOMAIN });
+    });
+    return response;
+  }
 
   try {
     const { token, password, name } = await request.json();
@@ -99,7 +104,7 @@ export async function POST(request: Request) {
       .update({ accepted_at: new Date().toISOString() })
       .eq('id', invite.id);
 
-    return NextResponse.json({ success: true });
+    return jsonWithPendingCookies({ success: true });
   } catch (err: any) {
     console.error('[agent-signup]', err);
     return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });
