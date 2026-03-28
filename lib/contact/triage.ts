@@ -206,7 +206,9 @@ Respond with valid JSON only, no markdown fences:
 
     const data = await res.json();
     const raw: string = data.content?.[0]?.text?.trim() ?? '';
-    const parsed = JSON.parse(raw);
+    // Strip markdown code fences the model sometimes adds despite instructions
+    const json = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+    const parsed = JSON.parse(json);
     classification = parsed.classification ?? 'other';
     confidence = Math.min(1, Math.max(0, Number(parsed.confidence) || 0));
     summary = parsed.summary ?? '';
