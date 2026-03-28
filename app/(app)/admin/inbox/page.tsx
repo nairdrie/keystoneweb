@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, RefreshCw, Inbox, Bot, User, CheckCircle, Ban } from 'lucide-react';
+import { Mail, RefreshCw, Inbox, Bot, User, Sparkles } from 'lucide-react';
 import { useAdminContext } from '../admin-context';
 
 interface Submission {
@@ -63,6 +63,8 @@ export default function AdminInboxPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
+  const [aiRepliesEnabled, setAiRepliesEnabled] = useState(true);
+  const [savingAi, setSavingAi] = useState(false);
 
   const fetchSubmissions = useCallback(async () => {
     if (!siteId) return;
@@ -88,6 +90,31 @@ export default function AdminInboxPage() {
     setPage(1);
   }, [statusFilter]);
 
+  // Load AI replies setting
+  useEffect(() => {
+    if (!siteId) return;
+    fetch(`/api/contact/settings?siteId=${siteId}`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setAiRepliesEnabled(d.ai_replies_enabled); });
+  }, [siteId]);
+
+  async function toggleAiReplies() {
+    if (!siteId) return;
+    const next = !aiRepliesEnabled;
+    setAiRepliesEnabled(next);
+    setSavingAi(true);
+    try {
+      await fetch('/api/contact/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ siteId, ai_replies_enabled: next }),
+      });
+    } finally {
+      setSavingAi(false);
+    }
+  }
+
   if (!siteId) return null;
 
   const totalPages = Math.ceil(total / 40);
@@ -103,13 +130,29 @@ export default function AdminInboxPage() {
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">{total} total message{total !== 1 ? 's' : ''}</p>
         </div>
-        <button
-          onClick={fetchSubmissions}
-          className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-          aria-label="Refresh"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
+        <div className="flex items-center gap-2">
+          {/* AI auto-reply toggle */}
+          <button
+            onClick={toggleAiReplies}
+            disabled={savingAi}
+            title={aiRepliesEnabled ? 'AI auto-replies on — click to disable' : 'AI auto-replies off — click to enable'}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all disabled:opacity-50 ${
+              aiRepliesEnabled
+                ? 'bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100'
+                : 'bg-slate-100 text-slate-400 border-slate-200 hover:bg-slate-200'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            {aiRepliesEnabled ? 'AI replies on' : 'AI replies off'}
+          </button>
+          <button
+            onClick={fetchSubmissions}
+            className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+            aria-label="Refresh"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {/* Filter tabs */}

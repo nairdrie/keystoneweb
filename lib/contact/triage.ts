@@ -113,7 +113,7 @@ export async function triageContactSubmission(
   // Load site context separately
   const { data: site } = await db
     .from('sites')
-    .select('site_slug, design_data, published_data, user_id')
+    .select('site_slug, design_data, published_data, user_id, contact_ai_replies_enabled')
     .eq('id', submission.site_id)
     .single();
 
@@ -226,7 +226,9 @@ Respond with valid JSON only, no markdown fences:
   }
 
   const isSpam = classification === 'spam';
-  const shouldAutoSend = !isSpam && confidence >= AUTO_SEND_THRESHOLD && draftReply;
+  // Respect the per-site AI auto-reply toggle (default true if column not yet migrated)
+  const aiRepliesEnabled = site?.contact_ai_replies_enabled !== false;
+  const shouldAutoSend = !isSpam && aiRepliesEnabled && confidence >= AUTO_SEND_THRESHOLD && draftReply;
 
   let autoSent = false;
   let replyResendId: string | null = null;
