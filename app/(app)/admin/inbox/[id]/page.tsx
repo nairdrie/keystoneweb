@@ -52,14 +52,20 @@ export default function InboxDetailPage({ params }: { params: Promise<{ id: stri
   const [actioning, setActioning] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  async function fetchSubmission() {
+    const res = await fetch(`/api/contact/${id}?siteId=${siteId}`, { credentials: 'include' });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.submission as Submission | null;
+  }
+
   useEffect(() => {
+    let cancelled = false;
     async function load() {
       setLoading(true);
       try {
-        const res = await fetch(`/api/contact/${id}?siteId=${siteId}`, { credentials: 'include' });
-        if (!res.ok) return;
-        const data = await res.json();
-        const found: Submission = data.submission;
+        const found = await fetchSubmission();
+        if (cancelled) return;
         if (found) {
           setSubmission(found);
           if (found.status === 'needs_review' && found.ai_draft_reply) {
@@ -67,11 +73,30 @@ export default function InboxDetailPage({ params }: { params: Promise<{ id: stri
           }
         }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     if (siteId) load();
+    return () => { cancelled = true; };
   }, [id, siteId]);
+
+  // Poll while AI analysis is pending (status=new, no classification yet)
+  useEffect(() => {
+    const aiPending = submission?.status === 'new' && !submission?.ai_classification;
+    if (!aiPending || !siteId) return;
+
+    const interval = setInterval(async () => {
+      const updated = await fetchSubmission();
+      if (updated && (updated.status !== 'new' || updated.ai_classification)) {
+        setSubmission(updated);
+        if (updated.status === 'needs_review' && updated.ai_draft_reply) {
+          setReplyText(updated.ai_draft_reply);
+        }
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [submission?.status, submission?.ai_classification, id, siteId]);
 
   async function handleSend() {
     if (!replyText.trim() || !submission) return;
