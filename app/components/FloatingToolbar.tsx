@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, MousePointerClick, Layers, Palette, Wand2, Rocket } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
@@ -16,6 +16,7 @@ import DoctorPanel from './DoctorPanel';
 import { AIMessage, UsageRemaining } from '@/lib/hooks/useAIBuilder';
 import { Type, User, Languages, Stethoscope } from 'lucide-react';
 import ProfileDropdown from './ProfileDropdown';
+import WalkthroughModal, { WalkthroughStep } from './WalkthroughModal';
 
 interface Palette {
   name: string;
@@ -182,6 +183,57 @@ export default function FloatingToolbar({
   const [transferError, setTransferError] = useState<string | null>(null);
   const [isRenamingSite, setIsRenamingSite] = useState(false);
   const [siteTitleDraft, setSiteTitleDraft] = useState('');
+  const [showWalkthrough, setShowWalkthrough] = useState(false);
+  const [walkthroughStep, setWalkthroughStep] = useState(0);
+
+  const DESIGNER_WALKTHROUGH_KEY = 'ks_seen_designer_walkthrough';
+
+  const designerSteps: WalkthroughStep[] = [
+    {
+      icon: <MousePointerClick className="w-7 h-7" />,
+      title: 'Click anything to edit',
+      description: 'Click directly on any text, image, or button in your site preview to edit it inline — no menus needed.',
+    },
+    {
+      icon: <Layers className="w-7 h-7" />,
+      title: 'Add & rearrange sections',
+      description: 'Hover over a section to reveal controls for moving, duplicating, or removing it. Use the "+" button to add new sections.',
+    },
+    {
+      icon: <Palette className="w-7 h-7" />,
+      title: 'Colors & fonts',
+      description: 'Open the Design panel to pick a color palette and choose fonts that match your brand.',
+    },
+    {
+      icon: <Wand2 className="w-7 h-7" />,
+      title: 'AI Builder',
+      description: 'Stuck on wording? Open the AI Builder panel to generate headlines, copy, and descriptions in seconds.',
+    },
+    {
+      icon: <Rocket className="w-7 h-7" />,
+      title: 'Save & Publish',
+      description: 'Hit Save to keep your progress, then Publish when you\'re ready for the world to see your site.',
+    },
+  ];
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !localStorage.getItem(DESIGNER_WALKTHROUGH_KEY)) {
+      setShowWalkthrough(true);
+    }
+  }, []);
+
+  function handleCloseWalkthrough() {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(DESIGNER_WALKTHROUGH_KEY, '1');
+    }
+    setShowWalkthrough(false);
+    setWalkthroughStep(0);
+  }
+
+  function openWalkthrough() {
+    setWalkthroughStep(0);
+    setShowWalkthrough(true);
+  }
 
   const toggleSection = (section: string) => {
     setOpenSections(prev => prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]);
@@ -1221,6 +1273,14 @@ export default function FloatingToolbar({
               </div>
 
               <div className="flex items-center gap-2">
+                <button
+                  onClick={openWalkthrough}
+                  className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                  title="Show walkthrough"
+                  aria-label="Show walkthrough"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </button>
                 <ProfileDropdown
                   buttonClassName="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-full transition-colors flex-shrink-0 overflow-hidden"
                   onSettingsClick={(e) => {
@@ -1326,6 +1386,14 @@ export default function FloatingToolbar({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={openWalkthrough}
+                    className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                    title="Show walkthrough"
+                    aria-label="Show walkthrough"
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                  </button>
                   <ProfileDropdown onSettingsClick={(e) => {
                     if (changes.length > 0) {
                       e.preventDefault();
@@ -1489,6 +1557,16 @@ export default function FloatingToolbar({
         onUpload={uploadImage || (async () => '')}
         contentKey="faviconLogo"
         allowUnsplash={false}
+      />
+
+      <WalkthroughModal
+        isOpen={showWalkthrough}
+        onClose={handleCloseWalkthrough}
+        steps={designerSteps}
+        currentStep={walkthroughStep}
+        onNext={() => setWalkthroughStep(s => Math.min(s + 1, designerSteps.length - 1))}
+        onPrev={() => setWalkthroughStep(s => Math.max(s - 1, 0))}
+        title="Design Studio Guide"
       />
     </>
   );
