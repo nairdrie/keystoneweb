@@ -28,20 +28,80 @@ const defaultAuthContext: AuthContextType = {
 
 const AuthContext = createContext<AuthContextType>(defaultAuthContext);
 
+/**
+ * Clear all Supabase auth cookies directly from the browser.
+ * This is a last-resort fallback for when signOut({ scope: 'local' }) alone
+ * doesn't stop the auto-refresh loop (e.g. the client is stuck retrying 429s).
+ * Cookies set by @supabase/ssr's createBrowserClient are NOT httpOnly, so
+ * document.cookie can clear them.
+ */
+function clearSupabaseAuthCookies() {
+  if (typeof document === 'undefined') return;
+  const projectId = process.env.NEXT_PUBLIC_SUPABASE_URL?.match(
+    /https:\/\/([^.]+)\./
+  )?.[1];
+  if (!projectId) return;
+
+  const prefix = `sb-${projectId}-auth-token`;
+  const domains = [window.location.hostname, '.keystoneweb.ca', ''];
+
+  document.cookie.split(';').forEach((c) => {
+    const name = c.split('=')[0].trim();
+    if (name.startsWith(prefix)) {
+      // Delete cookie for every plausible domain/path combination
+      domains.forEach((domain) => {
+        const domainPart = domain ? `; domain=${domain}` : '';
+        document.cookie = `${name}=; Max-Age=0; path=/${domainPart}`;
+      });
+    }
+  });
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
+    // Flag to prevent onAuthStateChange from reacting to our own signOut calls
+    // during stale-session cleanup (signOut fires SIGNED_OUT which would recurse).
+    let isCleaningUp = false;
+
     const getInitialSession = async () => {
       try {
         const {
           data: { session: initialSession },
         } = await supabase.auth.getSession();
+
+        if (!initialSession) {
+          // No local session — nothing to validate.
+          return;
+        }
+
+        // A local session exists (cookie present). Validate it against the
+        // server to catch deleted/revoked accounts BEFORE the auto-refresh
+        // loop burns through the rate limit.
+        const { data: { user: validUser }, error: userError } =
+          await supabase.auth.getUser();
+
+        if (userError || !validUser) {
+          // Session cookie is stale (deleted user, revoked token, etc.).
+          // Nuke it to stop the refresh-token spam.
+          console.warn(
+            '[Auth] Stale session detected, clearing:',
+            userError?.message
+          );
+          isCleaningUp = true;
+          await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+          clearSupabaseAuthCookies();
+          isCleaningUp = false;
+          setSession(null);
+          setUser(null);
+          return;
+        }
+
         setSession(initialSession);
-        setUser(initialSession?.user ?? null);
+        setUser(validUser);
       } catch (error) {
         console.error('Error fetching session:', error);
       } finally {
@@ -58,17 +118,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
+      // Skip events triggered by our own cleanup to avoid recursion
+      if (isCleaningUp) return;
+
       setSession(session);
       setUser(session?.user ?? null);
 
       // When a token refresh fails (e.g. user was deleted, token revoked),
-      // Supabase fires SIGNED_OUT but leaves the stale cookie in place.
-      // Perform a local-only sign out to clear cookies and stop the client
-      // from continuously retrying the dead refresh token.
+      // Supabase fires SIGNED_OUT but may leave the stale cookie in place.
+      // Clear cookies directly to stop the auto-refresh loop.
       if (event === 'SIGNED_OUT' && !session) {
-        supabase.auth.signOut({ scope: 'local' }).catch(() => {
-          // Best-effort cleanup — ignore errors
-        });
+        clearSupabaseAuthCookies();
       }
     });
 
