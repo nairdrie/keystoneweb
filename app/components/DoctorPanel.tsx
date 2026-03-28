@@ -26,6 +26,12 @@ interface DiagnosticData {
         design_data: any;
         is_published: boolean;
         stripe_account_id?: string;
+        translations_config?: {
+            enabled: boolean;
+            defaultLanguage: string;
+            languages: { code: string; name: string; autoTranslate: boolean }[];
+        } | null;
+        translations?: Record<string, any> | null;
     };
     pages: any[];
     bookingSettings: any;
@@ -622,11 +628,58 @@ function checkContactBlock(data: DiagnosticData): DiagnosticResult[] {
     return results;
 }
 
+function checkTranslations(data: DiagnosticData): DiagnosticResult[] {
+    const results: DiagnosticResult[] = [];
+    const config = data.site.translations_config;
+
+    if (!config?.enabled || !config.languages?.length) return [];
+
+    const nonDefaultLanguages = config.languages.filter((l) => l.code !== config.defaultLanguage);
+    if (nonDefaultLanguages.length === 0) return [];
+
+    const siteTranslations = data.site.translations || {};
+
+    for (const lang of nonDefaultLanguages) {
+        const missingSiteTranslation = !siteTranslations[lang.code];
+        const pagesWithMissingTranslation = data.pages.filter((page) => {
+            const pageTrans = page.translations || {};
+            return !pageTrans[lang.code];
+        });
+
+        if (missingSiteTranslation || pagesWithMissingTranslation.length > 0) {
+            const missingParts: string[] = [];
+            if (missingSiteTranslation) missingParts.push('site content');
+            if (pagesWithMissingTranslation.length > 0) {
+                const names = pagesWithMissingTranslation.map((p: any) => p.title || p.slug).join(', ');
+                missingParts.push(`pages: ${names}`);
+            }
+            results.push({
+                id: `translation-missing-${lang.code}`,
+                category: 'Translations',
+                label: `Missing ${lang.name} translation`,
+                severity: 'warning',
+                message: `No translation has been generated for ${lang.name} (${lang.code}). Missing: ${missingParts.join('; ')}. Use "Generate Draft Translation" in the Translations panel.`,
+            });
+        } else {
+            results.push({
+                id: `translation-ok-${lang.code}`,
+                category: 'Translations',
+                label: `${lang.name} translation`,
+                severity: 'pass',
+                message: `${lang.name} translation is available for all pages.`,
+            });
+        }
+    }
+
+    return results;
+}
+
 function runAllChecks(data: DiagnosticData): DiagnosticResult[] {
     return [
         ...checkSiteBasics(data),
         ...checkPages(data),
         ...checkButtonsAndLinks(data),
+        ...checkTranslations(data),
         ...checkBooking(data),
         ...checkEcommerce(data),
         ...checkContactForm(data),
