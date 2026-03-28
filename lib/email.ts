@@ -18,6 +18,7 @@ interface BookingEmailData {
     etransferEmail?: string;
     confirmationMessage?: string;
     cancelUrl?: string;
+    dashboardUrl?: string;
 }
 
 /**
@@ -136,6 +137,13 @@ export async function sendOwnerNotification(data: BookingEmailData, ownerEmail: 
         // Payment-specific action section for the owner
         let actionSection = '';
         if (data.paymentMethod === 'etransfer') {
+            const dashboardBtn = data.dashboardUrl
+                ? `<div style="margin-top: 12px; text-align: center;">
+                    <a href="${data.dashboardUrl}" style="display: inline-block; background: #92400e; color: #fff; font-size: 13px; font-weight: 700; text-decoration: none; padding: 9px 20px; border-radius: 6px;">
+                        Go to Booking Dashboard →
+                    </a>
+                   </div>`
+                : '';
             actionSection = `
             <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 16px; margin-top: 16px;">
                 <h3 style="margin: 0 0 8px; color: #92400e; font-size: 14px; font-weight: 700;">⚠️ Awaiting e-Transfer Payment</h3>
@@ -147,6 +155,7 @@ export async function sendOwnerNotification(data: BookingEmailData, ownerEmail: 
                     Once you receive the e-transfer, log in to your dashboard and confirm the booking.
                     This will send <strong>${data.customerName}</strong> their booking confirmation email.
                 </p>
+                ${dashboardBtn}
             </div>
             `;
         } else if (data.paymentMethod === 'none') {
@@ -233,7 +242,6 @@ export async function sendCustomerPaymentConfirmed(data: BookingEmailData) {
                     <div style="text-align: center; padding: 24px 0;">
                         <div style="width: 48px; height: 48px; background: #dcfce7; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 24px;">✅</div>
                         <h1 style="margin: 12px 0 4px; font-size: 22px; color: #111827;">Payment Received — Booking Confirmed</h1>
-                        <p style="margin: 0; color: #6b7280; font-size: 14px;">${data.confirmationMessage || 'Your payment has been received. We look forward to seeing you!'}</p>
                     </div>
 
                     <div style="background: #f9fafb; border-radius: 8px; padding: 16px;">

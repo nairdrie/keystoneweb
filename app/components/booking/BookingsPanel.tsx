@@ -41,7 +41,7 @@ interface BookingsPanelProps {
 export default function BookingsPanel({ siteId }: BookingsPanelProps) {
     const [bookings, setBookings] = useState<Booking[]>([]);
     const [loading, setLoading] = useState(true);
-    const [expanded, setExpanded] = useState(false);
+    const [expanded, setExpanded] = useState(true);
     const [expandedBooking, setExpandedBooking] = useState<string | null>(null);
     const [updatingId, setUpdatingId] = useState<string | null>(null);
     const [filterStatus, setFilterStatus] = useState<string>('upcoming');

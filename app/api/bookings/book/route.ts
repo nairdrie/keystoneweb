@@ -148,25 +148,27 @@ export async function POST(request: NextRequest) {
         return `${displayHour}:${mm.toString().padStart(2, '0')} ${period}`;
     };
 
-    // Build cancel URL if self-cancellation is enabled
+    // Resolve site domain for cancel URL and dashboard link
+    const { data: siteInfo } = await supabase
+        .from('sites')
+        .select('custom_domain, published_domain')
+        .eq('id', siteId)
+        .single();
+
+    const siteDomain = siteInfo?.custom_domain
+        ? siteInfo.custom_domain
+        : siteInfo?.published_domain
+        ? `${siteInfo.published_domain}.kswd.ca`
+        : null;
+
     let cancelUrl: string | undefined;
-    if ((settings?.cancellation_notice_hours ?? 24) > 0 && booking.cancellation_token) {
-        const { data: siteInfo } = await supabase
-            .from('sites')
-            .select('custom_domain, published_domain')
-            .eq('id', siteId)
-            .single();
-        if (siteInfo) {
-            const domain = siteInfo.custom_domain
-                ? siteInfo.custom_domain
-                : siteInfo.published_domain
-                ? `${siteInfo.published_domain}.kswd.ca`
-                : null;
-            if (domain) {
-                cancelUrl = `https://${domain}/booking/cancel?token=${booking.cancellation_token}`;
-            }
-        }
+    if ((settings?.cancellation_notice_hours ?? 24) > 0 && booking.cancellation_token && siteDomain) {
+        cancelUrl = `https://${siteDomain}/booking/cancel?token=${booking.cancellation_token}`;
     }
+
+    const dashboardUrl = siteDomain
+        ? `https://${siteDomain}/admin/booking`
+        : undefined;
 
     const emailData = {
         serviceName: service.name,
@@ -184,6 +186,7 @@ export async function POST(request: NextRequest) {
         etransferEmail: settings?.etransfer_email,
         confirmationMessage: settings?.confirmation_message,
         cancelUrl,
+        dashboardUrl,
     };
 
     // Fire-and-forget: don't block the response
