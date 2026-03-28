@@ -3,11 +3,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
-import { ChevronDown, Plus, Paintbrush, LayoutDashboard, ExternalLink, Pencil, Check, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail } from 'lucide-react';
+import { ChevronDown, Plus, Paintbrush, LayoutDashboard, ExternalLink, Pencil, Check, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, HelpCircle, TrendingUp, Search, Package, CalendarDays, MessageSquare } from 'lucide-react';
 import KeystoneLogo from '@/app/components/KeystoneLogo';
 import ProfileDropdown from '@/app/components/ProfileDropdown';
 import AlertModal from '@/app/components/ui/AlertModal';
 import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
+import WalkthroughModal, { WalkthroughStep } from '@/app/components/WalkthroughModal';
 import { AdminContext, AdminSiteData, UsageData, UsagePlan, SiteUsageBreakdown } from './admin-context';
 
 interface Site {
@@ -53,6 +54,57 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [siteBreakdown, setSiteBreakdown] = useState<SiteUsageBreakdown[]>([]);
 
   const hasFetchedRef = useRef<string | null>(null);
+  const [showWalkthrough, setShowWalkthrough] = useState(false);
+  const [walkthroughStep, setWalkthroughStep] = useState(0);
+
+  const ADMIN_WALKTHROUGH_KEY = 'ks_seen_admin_walkthrough';
+
+  const adminSteps: WalkthroughStep[] = [
+    {
+      icon: <TrendingUp className="w-7 h-7" />,
+      title: 'Analytics',
+      description: 'See how many visitors your site gets, where they come from, and which pages they view most.',
+    },
+    {
+      icon: <Search className="w-7 h-7" />,
+      title: 'SEO',
+      description: 'Update your page titles, meta descriptions, and social previews to rank better in search results.',
+    },
+    {
+      icon: <Package className="w-7 h-7" />,
+      title: 'Ecommerce',
+      description: 'Set up your online store, manage products, and track orders — all from one place.',
+    },
+    {
+      icon: <CalendarDays className="w-7 h-7" />,
+      title: 'Booking',
+      description: 'Enable appointment booking so customers can schedule time with you directly from your site.',
+    },
+    {
+      icon: <MessageSquare className="w-7 h-7" />,
+      title: 'Inbox',
+      description: 'Read and reply to messages sent through your site\'s contact form.',
+    },
+  ];
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !localStorage.getItem(ADMIN_WALKTHROUGH_KEY)) {
+      setShowWalkthrough(true);
+    }
+  }, []);
+
+  function handleCloseWalkthrough() {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(ADMIN_WALKTHROUGH_KEY, '1');
+    }
+    setShowWalkthrough(false);
+    setWalkthroughStep(0);
+  }
+
+  function openWalkthrough() {
+    setWalkthroughStep(0);
+    setShowWalkthrough(true);
+  }
 
   const palette = { primary: '#dc2626', secondary: '#1e293b', accent: '#f1f5f9' };
 
@@ -211,6 +263,14 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             </div>
           </div>
 
+          <button
+            onClick={openWalkthrough}
+            className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+            title="Show walkthrough"
+            aria-label="Show walkthrough"
+          >
+            <HelpCircle className="w-4 h-4" />
+          </button>
           <ProfileDropdown buttonClassName="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-full transition-colors flex-shrink-0 overflow-hidden" />
         </div>
 
@@ -427,6 +487,16 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           message={alertConfig.message}
           type={alertConfig.type}
           onClose={() => setAlertConfig(p => ({ ...p, isOpen: false }))}
+        />
+
+        <WalkthroughModal
+          isOpen={showWalkthrough}
+          onClose={handleCloseWalkthrough}
+          steps={adminSteps}
+          currentStep={walkthroughStep}
+          onNext={() => setWalkthroughStep(s => Math.min(s + 1, adminSteps.length - 1))}
+          onPrev={() => setWalkthroughStep(s => Math.max(s - 1, 0))}
+          title="Dashboard Guide"
         />
       </div>
     </AdminContext.Provider>
