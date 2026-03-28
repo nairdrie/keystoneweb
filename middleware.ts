@@ -260,7 +260,12 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Match all routes except static files, api routes, and icons
-    '/((?!_next/static|_next/image|assets|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)).*)',
+    // Match all routes except static files, assets, icons, and the auth callback.
+    // The auth/callback route sets its own session cookies and must not be
+    // interrupted by middleware attempting to refresh stale tokens — a
+    // refresh_token_not_found error there causes Supabase to emit Set-Cookie
+    // headers that clear the cookies, which races with (and can overwrite) the
+    // new session cookies the callback just set.
+    '/((?!_next/static|_next/image|assets|favicon.ico|auth/callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)).*)',
   ],
 };

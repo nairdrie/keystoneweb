@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/db/supabase-server';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { EmailOtpType } from '@supabase/supabase-js';
 
@@ -12,40 +13,73 @@ export async function GET(request: Request) {
   const token_hash = searchParams.get('token_hash');
   const type = searchParams.get('type') as EmailOtpType | null;
 
-  if (token_hash && type) {
-    const supabase = await createClient();
-    const { error } = await supabase.auth.verifyOtp({ token_hash, type });
-
-    if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
-    }
-
-    console.error('Auth callback token_hash verification error:', error);
-    return NextResponse.redirect(`${origin}/forgot-password?error=link_expired`);
-  }
-
   // --- Path 2: PKCE code flow (Supabase default for server-side resetPasswordForEmail,
   //     and for OAuth providers like Google/Apple).
-  //     Doing the exchange server-side avoids the mobile issue where the code_verifier
-  //     stored in localStorage is lost when the OAuth flow opens an external browser.
   const code = searchParams.get('code');
 
-  if (code) {
-    const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-    if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
-    }
-
-    console.error('Auth callback code exchange error:', error);
-    // If next points to a password-reset page, treat as an expired link; otherwise
-    // send the user back to sign-in with a generic error.
-    if (next.startsWith('/forgot-password') || next.startsWith('/reset-password')) {
-      return NextResponse.redirect(`${origin}/forgot-password?error=link_expired`);
-    }
+  if (!token_hash && !code) {
     return NextResponse.redirect(`${origin}/signin?error=auth_failed`);
   }
 
-  return NextResponse.redirect(`${origin}/signin?error=auth_failed`);
+  // Collect cookies that Supabase wants to set, then apply them directly to the
+  // redirect response. If we used cookieStore.set() (next/headers) instead, those
+  // mutations would NOT be carried over to a NextResponse.redirect() — the two are
+  // separate response objects — so the session cookies would never reach the browser
+  // and getSession() on the next page would always return null.
+  const cookieStore = await cookies();
+  const pendingCookies: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
+  const cookieDomain =
+    process.env.NODE_ENV === 'production' ? '.keystoneweb.ca' : undefined;
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          pendingCookies.push(...cookiesToSet);
+        },
+      },
+    }
+  );
+
+  let redirectUrl: string;
+
+  if (token_hash && type) {
+    const { error } = await supabase.auth.verifyOtp({ token_hash, type });
+
+    if (!error) {
+      redirectUrl = `${origin}${next}`;
+    } else {
+      console.error('Auth callback token_hash verification error:', error);
+      redirectUrl = `${origin}/forgot-password?error=link_expired`;
+    }
+  } else {
+    // code is guaranteed non-null here
+    const { error } = await supabase.auth.exchangeCodeForSession(code!);
+
+    if (!error) {
+      redirectUrl = `${origin}${next}`;
+    } else {
+      console.error('Auth callback code exchange error:', error);
+      if (next.startsWith('/forgot-password') || next.startsWith('/reset-password')) {
+        redirectUrl = `${origin}/forgot-password?error=link_expired`;
+      } else {
+        redirectUrl = `${origin}/signin?error=auth_failed`;
+      }
+    }
+  }
+
+  const response = NextResponse.redirect(redirectUrl);
+
+  // Apply the session cookies directly to the redirect response so the browser
+  // receives them and getSession() works on the destination page.
+  pendingCookies.forEach(({ name, value, options }) => {
+    response.cookies.set(name, value, { ...(options as any), domain: cookieDomain });
+  });
+
+  return response;
 }
