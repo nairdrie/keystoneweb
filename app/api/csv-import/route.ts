@@ -513,13 +513,11 @@ export async function POST(req: NextRequest) {
         // ── Pre-load Existing Items (for duplicate detection) ────────────────
 
         const table = importType === 'services' ? 'booking_services' : 'products';
-        const { data: existingItems } = await supabase
+        const { data: existingItemsRaw } = await supabase
             .from(table)
-            .select(importType === 'services'
-                ? 'id, name, description, price_cents, compare_at_price_cents, duration_minutes, currency, is_featured, status, options, options_required, category_id, sort_order'
-                : 'id, name, description, price_cents, compare_at_cents, currency, status, variants, inventory_count, sort_order'
-            )
+            .select('*')
             .eq('site_id', siteId);
+        const existingItems = (existingItemsRaw || []) as any[];
 
         // Map lowercase name → existing record
         const existingByName = new Map<string, any>();
