@@ -219,6 +219,25 @@ export async function middleware(request: NextRequest) {
 
     if (error) {
       console.log('[Middleware] Auth error or session expired:', error.message);
+
+      // If the session is invalid (e.g. user was deleted, token revoked),
+      // clear all Supabase auth cookies so the browser stops spamming
+      // refresh_token requests on every subsequent request.
+      const supabaseProjectId = process.env.NEXT_PUBLIC_SUPABASE_URL?.match(
+        /https:\/\/([^.]+)\./
+      )?.[1];
+      if (supabaseProjectId) {
+        const authCookiePrefix = `sb-${supabaseProjectId}-auth-token`;
+        request.cookies.getAll().forEach(({ name }) => {
+          if (name.startsWith(authCookiePrefix)) {
+            response.cookies.set(name, '', {
+              maxAge: 0,
+              path: '/',
+              domain: COOKIE_DOMAIN,
+            });
+          }
+        });
+      }
     }
 
     if (user) {

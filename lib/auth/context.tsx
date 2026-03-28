@@ -57,9 +57,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth state changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+
+      // When a token refresh fails (e.g. user was deleted, token revoked),
+      // Supabase fires SIGNED_OUT but leaves the stale cookie in place.
+      // Perform a local-only sign out to clear cookies and stop the client
+      // from continuously retrying the dead refresh token.
+      if (event === 'SIGNED_OUT' && !session) {
+        supabase.auth.signOut({ scope: 'local' }).catch(() => {
+          // Best-effort cleanup — ignore errors
+        });
+      }
     });
 
     return () => {

@@ -15,14 +15,29 @@ export default function ResetPasswordContent() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    // The server-side /auth/callback route already exchanged the code for a session.
-    // Use getSession() (reads from local cookies, no network round-trip) rather than
-    // getUser() (validates remotely) so this works reliably on slow mobile connections.
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
+    // The server-side /auth/callback route already exchanged the code for a session
+    // and set fresh cookies. However, if the browser has a stale cookie from a
+    // deleted account, getSession() alone may read that stale cookie and still
+    // return null (or an invalid session). Use getUser() to validate the session
+    // against the server — this confirms the recovery session from the callback
+    // is genuinely valid.
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
         setReady(true);
       }
     });
+
+    // Also listen for PASSWORD_RECOVERY events in case the session arrives
+    // slightly after the initial check (e.g. token refresh completing).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' && session) {
+        setReady(true);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
