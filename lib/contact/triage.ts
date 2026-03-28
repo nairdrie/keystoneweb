@@ -4,6 +4,74 @@ import { SupabaseClient } from '@supabase/supabase-js';
 
 const AUTO_SEND_THRESHOLD = 0.85;
 
+// ---------------------------------------------------------------------------
+// Pre-screening: detect obvious spam/gibberish without calling the AI.
+// Returns true if the message should be marked spam immediately.
+// ---------------------------------------------------------------------------
+
+const SPAM_KEYWORDS = [
+  // SEO/marketing solicitation
+  'seo', 'search engine', 'google ranking', 'backlink', 'link building',
+  'digital marketing agency', 'web traffic', 'social media followers',
+  // Financial scams
+  'crypto', 'bitcoin', 'investment opportunity', 'wire transfer', 'western union',
+  'make money', 'earn $', 'earn money', 'passive income',
+  // Generic spam phrases
+  'click here', 'limited time offer', 'act now', 'free trial',
+  'buy now', 'order now', 'best price', 'lowest price',
+  'unsub', 'unsubscribe',
+];
+
+/**
+ * Measure character-level entropy as a rough gibberish detector.
+ * Real language text has higher entropy (more varied characters) than
+ * repeated or random keyboard-mash strings.
+ */
+function charEntropy(str: string): number {
+  const freq: Record<string, number> = {};
+  for (const c of str) freq[c] = (freq[c] ?? 0) + 1;
+  const len = str.length;
+  return Object.values(freq).reduce((sum, f) => {
+    const p = f / len;
+    return sum - p * Math.log2(p);
+  }, 0);
+}
+
+function isObviousSpam(message: string, name: string): boolean {
+  const lower = message.toLowerCase();
+
+  // Very short messages that are just gibberish characters (< 15 chars with low entropy)
+  if (message.trim().length < 15) return true;
+
+  // Gibberish detection: low character entropy relative to length
+  // Normal English text ~3.5–4.5 bits; keyboard mash is < 2.5
+  const entropy = charEntropy(message.toLowerCase().replace(/\s/g, ''));
+  if (message.length > 10 && entropy < 2.5) return true;
+
+  // Very high ratio of repeated characters (aaaaaaa, fjfjfjfj, etc.)
+  const uniqueChars = new Set(message.toLowerCase().replace(/\s/g, '')).size;
+  const totalChars = message.replace(/\s/g, '').length;
+  if (totalChars > 10 && uniqueChars / totalChars < 0.15) return true;
+
+  // Spam keyword check (whole-word match for short keywords to reduce false positives)
+  for (const kw of SPAM_KEYWORDS) {
+    if (lower.includes(kw)) return true;
+  }
+
+  // Excessive URLs
+  const urlCount = (message.match(/https?:\/\//g) ?? []).length;
+  if (urlCount >= 3) return true;
+
+  // Excessive ALL CAPS (>70% of alpha chars)
+  const alpha = message.replace(/[^a-zA-Z]/g, '');
+  if (alpha.length > 10) {
+    const upperRatio = (alpha.match(/[A-Z]/g) ?? []).length / alpha.length;
+    if (upperRatio > 0.7) return true;
+  }
+
+  return false;
+}
+
 /**
  * Run AI triage on a stored contact_submission.
  * Classifies the message, generates a draft reply, and auto-sends if confident.
@@ -26,6 +94,22 @@ export async function triageContactSubmission(
   }
 
   if (submission.status !== 'new') return; // already processed
+
+  // Pre-screen: skip AI entirely for obvious spam/gibberish
+  if (isObviousSpam(submission.message, submission.sender_name)) {
+    await db
+      .from('contact_submissions')
+      .update({
+        ai_classification: 'spam',
+        ai_confidence: 0,
+        ai_summary: 'Pre-screened as spam (gibberish or known spam pattern).',
+        ai_draft_reply: null,
+        ai_auto_sent: false,
+        status: 'spam',
+      })
+      .eq('id', submissionId);
+    return;
+  }
 
   const site = (submission as any).sites;
   const designData = site?.design_data ?? site?.published_data ?? {};
@@ -70,7 +154,7 @@ Your job:
 4. Write a one-sentence summary for the business owner's inbox
 
 Rules:
-- If it's spam (marketing pitch, unrelated solicitation, gibberish), set classification=spam and confidence=0
+- If it's spam (marketing pitch, unrelated solicitation, gibberish, random characters, nonsense, no real question or request), set classification=spam and confidence=0
 - If it's a booking inquiry and you can provide helpful info about services/availability, confidence can be 0.7–0.9
 - If it needs specific info you don't have (custom quotes, personal details), confidence should be ≤ 0.5
 - Replies should be warm, concise (2–4 sentences max), and signed as ${businessName}
@@ -98,7 +182,8 @@ Respond with valid JSON only, no markdown fences:
       messages: [
         {
           role: 'user',
-          content: `Contact form message from ${submission.sender_name} <${submission.sender_email}>:\n\n${submission.message}`,
+          // Truncate to 1500 chars max to cap token usage; real messages are shorter
+      content: `Contact form message from ${submission.sender_name} <${submission.sender_email}>:\n\n${submission.message.slice(0, 1500)}`,
         },
       ],
     });
