@@ -41,9 +41,18 @@ export default function NavMenu({ className = '', itemClassName = '', submenuCla
     const updateNavItems = context?.updateNavItems;
     const pages = context?.pages || [];
     const blocks = context?.blocks || [];
+    const siteContent = context?.siteContent;
 
     const pathname = usePathname();
     const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
+
+    // Language prefix for published multilingual sites
+    const currentLanguage = siteContent?.__currentLanguage as string | undefined;
+    const translationsConfig = siteContent?.__translationsConfig as { enabled?: boolean; defaultLanguage?: string } | undefined;
+    const defaultLanguage = translationsConfig?.defaultLanguage || 'en';
+    const langPrefix = (!isEditor && translationsConfig?.enabled && currentLanguage && currentLanguage !== defaultLanguage)
+        ? `/${currentLanguage}`
+        : '';
 
     const [editingItem, setEditingItem] = useState<NavItem | null>(null);
     const [editingParentId, setEditingParentId] = useState<string | null>(null);
@@ -62,7 +71,8 @@ export default function NavMenu({ className = '', itemClassName = '', submenuCla
             }
             const targetPage = pages.find(p => p.id === item.pageId);
             const slug = targetPage ? targetPage.slug : '';
-            return slug === 'home' ? '/' : `/${slug}`;
+            const basePath = slug === 'home' ? '/' : `/${slug}`;
+            return langPrefix ? `${langPrefix}${basePath === '/' ? '' : basePath}` : basePath;
         } else if (item.linkType === 'section') {
             if (item.pageId) {
                 if (isEditor) {
@@ -84,7 +94,8 @@ export default function NavMenu({ className = '', itemClassName = '', submenuCla
         if (isEditMode || item.linkType !== 'page') return false;
         const targetPage = pages.find(p => p.id === item.pageId);
         const slug = targetPage?.slug || '';
-        const itemPath = slug === 'home' ? '/' : `/${slug}`;
+        const basePath = slug === 'home' ? '/' : `/${slug}`;
+        const itemPath = langPrefix ? `${langPrefix}${basePath === '/' ? '' : basePath}` : basePath;
         const normalizedPathname = pathname === '' ? '/' : pathname;
         return normalizedPathname === itemPath;
     };
