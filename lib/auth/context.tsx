@@ -85,8 +85,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await supabase.auth.getUser();
 
         if (userError || !validUser) {
-          // Session cookie is stale (deleted user, revoked token, etc.).
-          // Nuke it to stop the refresh-token spam.
+          // Only clear the session for definitive server-side auth rejections
+          // (HTTP 401 = token invalid/revoked, 403 = user banned/disabled).
+          // Transient errors like network failures or rate-limits (429) must NOT
+          // nuke a valid session — this would log users out on flaky connections
+          // and, critically, would clear a brand-new OAuth session (Google/Apple)
+          // before the user ever sees the app.
+          const status = (userError as any)?.status;
+          if (status !== 401 && status !== 403) {
+            // Transient or unknown error — trust the local session
+            setSession(initialSession);
+            setUser(initialSession.user ?? null);
+            return;
+          }
+
+          // Definitively invalid session — clear cookies to stop refresh spam
           console.warn(
             '[Auth] Stale session detected, clearing:',
             userError?.message
