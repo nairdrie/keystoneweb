@@ -33,6 +33,8 @@ export interface SiteData {
   publishedData?: Record<string, any>;
   isPublished: boolean;
   publishedDomain?: string;
+  customDomain?: string;
+  pendingCustomDomain?: string;
   siteSlug?: string;
   createdAt: string;
   updatedAt: string;
@@ -1046,6 +1048,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
           currentSiteId={siteId || undefined}
           isPublished={site?.isPublished || false}
           publishedDomain={site?.publishedDomain}
+          customDomain={site?.customDomain}
+          pendingCustomDomain={site?.pendingCustomDomain}
           isSynced={isSynced}
           isOpen={sidebarOpen}
           onOpenChange={setSidebarOpen}

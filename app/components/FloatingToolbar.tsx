@@ -66,6 +66,8 @@ interface FloatingToolbarProps {
   canRedo?: boolean;
   isPublished?: boolean;
   publishedDomain?: string;
+  customDomain?: string;
+  pendingCustomDomain?: string;
   isSynced?: boolean;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
@@ -133,6 +135,8 @@ export default function FloatingToolbar({
   canRedo = false,
   isPublished = false,
   publishedDomain,
+  customDomain,
+  pendingCustomDomain,
   isSynced = false,
   isOpen,
   onOpenChange,
@@ -1158,8 +1162,15 @@ export default function FloatingToolbar({
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <a href={`https://${publishedDomain}.kswd.ca`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-slate-500 hover:text-slate-900 border-b border-slate-300 transition-colors truncate max-w-[120px]">{publishedDomain}.kswd.ca</a>
-                  <button onClick={() => router.push(`/publish/domain-select?session_id=existing&siteId=${currentSiteId}&currentDomain=${publishedDomain}`)} className="p-1 hover:bg-slate-100 rounded text-slate-400" title="Change URL"><Pencil className="w-3 h-3" /></button>
+                  {customDomain ? (
+                    <a href={`https://${customDomain}`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-slate-500 hover:text-slate-900 border-b border-slate-300 transition-colors truncate max-w-[120px]">{customDomain}</a>
+                  ) : (
+                    <a href={`https://${publishedDomain}.kswd.ca`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-slate-500 hover:text-slate-900 border-b border-slate-300 transition-colors truncate max-w-[120px]">{publishedDomain}.kswd.ca</a>
+                  )}
+                  {pendingCustomDomain && (
+                    <span className="text-[9px] text-amber-600 font-medium" title={`${pendingCustomDomain} — pending verification`}>⏳</span>
+                  )}
+                  <button onClick={() => router.push(`/publish/domain-select?session_id=existing&siteId=${currentSiteId}&currentDomain=${publishedDomain}`)} className="p-1 hover:bg-slate-100 rounded text-slate-400" title="Domain settings"><Pencil className="w-3 h-3" /></button>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -1167,7 +1178,7 @@ export default function FloatingToolbar({
                 {!isFullyDeployed ? (
                   <button onClick={handlePublish} disabled={publishing || isPublishingUpdates} className="flex-[1.2] py-1.5 text-white font-semibold text-xs rounded transition-colors hover:brightness-110" style={{ backgroundColor: 'var(--brand-primary)' }}>{(publishing || isPublishingUpdates) ? 'Publishing...' : 'Publish'}</button>
                 ) : (
-                  <a href={`https://${publishedDomain}.kswd.ca`} target="_blank" rel="noopener noreferrer" className="flex-[1.2] flex items-center justify-center py-1.5 text-white font-semibold text-xs rounded transition-colors hover:brightness-110" style={{ backgroundColor: 'var(--brand-primary)' }}>View Live</a>
+                  <a href={customDomain ? `https://${customDomain}` : `https://${publishedDomain}.kswd.ca`} target="_blank" rel="noopener noreferrer" className="flex-[1.2] flex items-center justify-center py-1.5 text-white font-semibold text-xs rounded transition-colors hover:brightness-110" style={{ backgroundColor: 'var(--brand-primary)' }}>View Live</a>
                 )}
               </div>
             </div>

@@ -37,6 +37,7 @@ CREATE TABLE public.sites (
   category character varying NOT NULL,
   site_slug character varying UNIQUE,
   custom_domain character varying UNIQUE,
+  pending_custom_domain character varying UNIQUE,
   design_data jsonb DEFAULT '{}'::jsonb,
   created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
   updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,

@@ -28,10 +28,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get site with custom domain
+    // Get site with custom domain (check both pending and active)
     const { data: site, error: siteError } = await supabase
       .from('sites')
-      .select('id, user_id, custom_domain')
+      .select('id, user_id, custom_domain, pending_custom_domain')
       .eq('id', siteId)
       .single();
 
@@ -42,14 +42,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!site.custom_domain) {
+    // Prefer verifying the pending domain; fall back to active custom_domain
+    const domain = site.pending_custom_domain || site.custom_domain;
+
+    if (!domain) {
       return NextResponse.json(
         { error: 'No custom domain configured for this site' },
         { status: 400 }
       );
     }
-
-    const domain = site.custom_domain;
     const verificationToken = `kswd-verify-${siteId.slice(0, 8)}`;
 
     const checks = {
@@ -85,6 +86,17 @@ export async function POST(request: NextRequest) {
         .from('dns_records')
         .update({ verified_at: new Date().toISOString() })
         .eq('site_id', siteId);
+
+      // Promote pending domain to active custom_domain
+      if (site.pending_custom_domain) {
+        await supabase
+          .from('sites')
+          .update({
+            custom_domain: site.pending_custom_domain,
+            pending_custom_domain: null,
+          })
+          .eq('id', siteId);
+      }
     }
 
     return NextResponse.json({
@@ -92,7 +104,7 @@ export async function POST(request: NextRequest) {
       domain,
       checks,
       message: verified
-        ? 'DNS records verified! Your custom domain is active.'
+        ? 'DNS records verified! Your custom domain is now active.'
         : 'DNS records not yet detected. This can take up to 48 hours after making changes.',
     });
   } catch (error) {
