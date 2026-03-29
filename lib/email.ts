@@ -41,21 +41,21 @@ export async function sendCustomerConfirmation(data: BookingEmailData) {
         let paymentSection = '';
 
         if (data.paymentMethod === 'etransfer') {
-            headerIcon = '⏳';
-            headerBg = '#fef9c3';
-            headerTitle = 'Booking Received';
-            headerSubtitle = 'Your booking is pending — please send your e-transfer payment to confirm your appointment.';
+            headerIcon = '📅';
+            headerBg = '#eff6ff';
+            headerTitle = 'Appointment Request Received';
+            headerSubtitle = 'Your appointment time is being held. Complete the step below to confirm it.';
             if (data.etransferEmail) {
                 paymentSection = `
                 <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 16px; margin-top: 16px;">
-                    <h3 style="margin: 0 0 10px; color: #92400e; font-size: 14px; font-weight: 700;">💸 Send Your e-Transfer Payment</h3>
-                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                        <tr><td style="padding: 4px 0; color: #78350f;">Send to</td><td style="padding: 4px 0; text-align: right; font-weight: 700; color: #92400e;">${data.etransferEmail}</td></tr>
-                        <tr><td style="padding: 4px 0; color: #78350f;">Amount</td><td style="padding: 4px 0; text-align: right; font-weight: 700; color: #92400e;">${priceStr}</td></tr>
-                        <tr><td style="padding: 4px 0; color: #78350f;">Reference</td><td style="padding: 4px 0; text-align: right; font-weight: 700; font-family: monospace; color: #92400e;">${refId}</td></tr>
-                    </table>
+                    <p style="margin: 0 0 8px; color: #92400e; font-size: 14px; font-weight: 700;">One step left to confirm your appointment</p>
+                    <p style="margin: 0; color: #78350f; font-size: 14px; line-height: 1.6;">
+                        Please send an Interac e-Transfer of <strong>${priceStr}</strong> to
+                        <strong>${data.etransferEmail}</strong> and include
+                        <strong>${refId}</strong> in the message field so we can match it to your booking.
+                    </p>
                     <p style="margin: 10px 0 0; color: #92400e; font-size: 13px; line-height: 1.5;">
-                        Once your payment is received, you will get a confirmation email with your booking details.
+                        Once received, we'll send you a confirmation email.
                     </p>
                 </div>
                 `;
@@ -71,13 +71,18 @@ export async function sendCustomerConfirmation(data: BookingEmailData) {
         }
 
         const subject = data.paymentMethod === 'etransfer'
-            ? `Booking Pending — ${data.serviceName}`
+            ? `Appointment Request: ${data.serviceName} on ${new Date(data.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
             : `Booking Confirmed — ${data.serviceName}`;
+
+        const plainText = data.paymentMethod === 'etransfer'
+            ? `Appointment Request Received\n\nYour appointment time for ${data.serviceName} on ${dateFormatted} at ${data.startTime} is being held.\n\nTo confirm it, please send an Interac e-Transfer of ${priceStr} to ${data.etransferEmail ?? 'your service provider'} with reference ${refId} in the message field.\n\nOnce received, we'll send a confirmation email.${data.cancelUrl ? `\n\nNeed to cancel? ${data.cancelUrl}` : ''}`
+            : `Booking Confirmed\n\n${data.serviceName}\n${dateFormatted} at ${data.startTime}\n${data.duration} min — ${priceStr}${data.cancelUrl ? `\n\nNeed to cancel? ${data.cancelUrl}` : ''}`;
 
         await resend.emails.send({
             from: 'Keystone Web Design <bookings@keystoneweb.ca>',
             to: data.customerEmail,
             subject,
+            text: plainText,
             html: `
                 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto;">
                     <div style="text-align: center; padding: 24px 0;">
