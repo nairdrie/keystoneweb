@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import Link from 'next/link';
 import { Heart, CalendarCheck, Star, Image as ImageIcon, MessageSquare, Sparkles, Globe, ShieldCheck } from 'lucide-react';
 import Header from '../../../components/Header';
@@ -159,15 +160,15 @@ export default function HealthWellnessIndustryPage() {
                 name: 'Luxe',
                 tagline: 'Refined. Elegant. Unforgettable.',
                 description: 'Serif typography, warm gold tones, and a centered layout that signals premium quality to every visitor.',
-                accent: 'from-stone-900 to-stone-800',
                 badge: 'bg-amber-100 text-amber-800',
+                image: '/templates/1.png',
               },
               {
                 name: 'Airy',
                 tagline: 'Light. Spacious. Breathable.',
                 description: 'Soft whites, open layouts, and calming proportions that put your services and imagery front and centre.',
-                accent: 'from-sky-400 to-blue-500',
                 badge: 'bg-sky-100 text-sky-800',
+                image: '/templates/3.png',
               },
             ].map((tmpl, i) => (
               <motion.div
@@ -178,11 +179,13 @@ export default function HealthWellnessIndustryPage() {
                 transition={{ duration: 0.5, delay: i * 0.15 }}
                 className="group bg-white rounded-3xl border border-slate-200 overflow-hidden hover:border-pink-300 hover:shadow-xl transition-all duration-300"
               >
-                <div className={`relative aspect-video bg-gradient-to-br ${tmpl.accent} flex items-center justify-center`}>
-                  <div className="text-center">
-                    <div className="text-white/20 text-6xl font-black">{tmpl.name[0]}</div>
-                    <div className="text-white/40 text-xs font-medium uppercase tracking-widest mt-1">Screenshot coming soon</div>
-                  </div>
+                <div className="relative aspect-video overflow-hidden">
+                  <Image
+                    src={tmpl.image}
+                    alt={`${tmpl.name} template preview`}
+                    fill
+                    className="object-cover"
+                  />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
                     <Link href="/onboarding" className="px-5 py-2.5 bg-white text-slate-900 font-bold rounded-full shadow-lg hover:scale-105 transition-transform">
                       Use {tmpl.name}

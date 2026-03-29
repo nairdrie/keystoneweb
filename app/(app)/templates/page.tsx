@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import Link from 'next/link';
 import Header from '../../components/Header';
 import MarketingFooter from '../../components/MarketingFooter';
@@ -13,8 +14,8 @@ const TEMPLATES = [
     description: 'Centered logo, serif typography, and warm gold accents. Built for brands that want to make a lasting first impression.',
     bestFor: ['Salons & Spas', 'Photographers', 'Boutiques', 'Fine Dining'],
     accent: '#c9a96e',
-    bg: 'from-stone-900 to-stone-800',
     badge: 'bg-amber-100 text-amber-800',
+    image: '/templates/1.png',
   },
   {
     id: 'vivid',
@@ -23,8 +24,8 @@ const TEMPLATES = [
     description: 'Chunky sans-serif, punchy headlines, and unapologetic color. Perfect when you want your brand to own the room.',
     bestFor: ['Fitness Studios', 'Food & Drink', 'Creative Agencies', 'Retail'],
     accent: '#f97316',
-    bg: 'from-orange-600 to-red-600',
     badge: 'bg-orange-100 text-orange-800',
+    image: '/templates/2.png',
   },
   {
     id: 'airy',
@@ -33,8 +34,8 @@ const TEMPLATES = [
     description: 'Floating navigation, generous whitespace, and rounded soft elements. Ideal for brands that lead with calm confidence.',
     bestFor: ['Wellness Coaches', 'Yoga & Pilates', 'Consultants', 'Portfolios'],
     accent: '#38bdf8',
-    bg: 'from-sky-400 to-blue-500',
     badge: 'bg-sky-100 text-sky-800',
+    image: '/templates/3.png',
   },
   {
     id: 'edge',
@@ -43,8 +44,8 @@ const TEMPLATES = [
     description: 'A dark canvas with neon accents and angular layouts. Commands attention and signals that you mean serious business.',
     bestFor: ['Tech & Software', 'Music & Events', 'Automotive', 'Modern Retail'],
     accent: '#a855f7',
-    bg: 'from-slate-950 to-purple-950',
     badge: 'bg-purple-100 text-purple-800',
+    image: '/templates/4.png',
   },
   {
     id: 'classic',
@@ -53,8 +54,8 @@ const TEMPLATES = [
     description: 'Utility bar, traditional navigation, and a clean grid layout. The template people trust when trust is everything.',
     bestFor: ['Trades & Contractors', 'Law & Finance', 'Healthcare', 'Real Estate'],
     accent: '#1e40af',
-    bg: 'from-blue-900 to-slate-900',
     badge: 'bg-blue-100 text-blue-800',
+    image: '/templates/5.png',
   },
   {
     id: 'organic',
@@ -63,8 +64,8 @@ const TEMPLATES = [
     description: 'Earthy tones, rounded shapes, and a tactile warmth that makes visitors feel at home immediately.',
     bestFor: ['Restaurants & Cafes', 'Home Services', 'Landscaping', 'Health Food'],
     accent: '#65a30d',
-    bg: 'from-lime-700 to-emerald-800',
     badge: 'bg-lime-100 text-lime-800',
+    image: '/templates/6.png',
   },
   {
     id: 'sleek',
@@ -73,8 +74,8 @@ const TEMPLATES = [
     description: 'Ultra-minimal layout, bold oversized typography, and a monochrome palette with a single deliberate accent color.',
     bestFor: ['Consultants', 'Architects', 'Designers', 'Professional Services'],
     accent: '#0f172a',
-    bg: 'from-slate-800 to-slate-700',
     badge: 'bg-slate-100 text-slate-800',
+    image: '/templates/7.png',
   },
   {
     id: 'vibrant',
@@ -83,8 +84,8 @@ const TEMPLATES = [
     description: 'Gradient headers, rounded cards, and a high-energy layout that keeps visitors engaged and clicking.',
     bestFor: ['E-Commerce', 'Events & Activities', 'Kids & Family', 'Food Delivery'],
     accent: '#ec4899',
-    bg: 'from-pink-500 to-violet-600',
     badge: 'bg-pink-100 text-pink-800',
+    image: '/templates/8.png',
   },
 ];
 
@@ -137,13 +138,14 @@ export default function TemplatesPage() {
               transition={{ duration: 0.5, delay: (i % 2) * 0.1 }}
               className="group bg-white rounded-3xl border border-slate-200 overflow-hidden hover:border-red-300 hover:shadow-2xl transition-all duration-300"
             >
-              {/* Screenshot placeholder */}
-              <div className={`relative aspect-[16/9] bg-gradient-to-br ${template.bg} flex items-center justify-center overflow-hidden`}>
-                {/* Placeholder — swap for real <Image> when screenshots are ready */}
-                <div className="text-center">
-                  <div className="text-white/20 text-7xl font-black mb-2">{template.name[0]}</div>
-                  <div className="text-white/40 text-xs font-medium uppercase tracking-widest">Screenshot coming soon</div>
-                </div>
+              {/* Template preview image */}
+              <div className="relative aspect-[16/9] overflow-hidden">
+                <Image
+                  src={template.image}
+                  alt={`${template.name} template preview`}
+                  fill
+                  className="object-cover"
+                />
                 {/* Hover overlay */}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
                   <Link

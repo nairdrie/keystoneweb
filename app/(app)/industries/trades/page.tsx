@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import Link from 'next/link';
 import { Hammer, CalendarCheck, ShieldCheck, MapPin, Image as ImageIcon, ListChecks, PhoneCall, Star } from 'lucide-react';
 import Header from '../../../components/Header';
@@ -152,15 +153,15 @@ export default function TradesIndustryPage() {
                 name: 'Classic',
                 tagline: 'Structured. Trusted. Timeless.',
                 description: 'The utility-bar layout and traditional nav signal reliability — exactly what a homeowner wants before handing you their keys.',
-                accent: 'from-blue-900 to-slate-900',
                 badge: 'bg-blue-100 text-blue-800',
+                image: '/templates/5.png',
               },
               {
                 name: 'Organic',
                 tagline: 'Warm. Natural. Human.',
                 description: 'Earthy tones and rounded shapes give your business a personal, approachable feel that stands out from the competition.',
-                accent: 'from-lime-700 to-emerald-800',
                 badge: 'bg-lime-100 text-lime-800',
+                image: '/templates/6.png',
               },
             ].map((tmpl, i) => (
               <motion.div
@@ -171,12 +172,13 @@ export default function TradesIndustryPage() {
                 transition={{ duration: 0.5, delay: i * 0.15 }}
                 className="group bg-white rounded-3xl border border-slate-200 overflow-hidden hover:border-amber-300 hover:shadow-xl transition-all duration-300"
               >
-                {/* Screenshot placeholder */}
-                <div className={`relative aspect-video bg-gradient-to-br ${tmpl.accent} flex items-center justify-center`}>
-                  <div className="text-center">
-                    <div className="text-white/20 text-6xl font-black">{tmpl.name[0]}</div>
-                    <div className="text-white/40 text-xs font-medium uppercase tracking-widest mt-1">Screenshot coming soon</div>
-                  </div>
+                <div className="relative aspect-video overflow-hidden">
+                  <Image
+                    src={tmpl.image}
+                    alt={`${tmpl.name} template preview`}
+                    fill
+                    className="object-cover"
+                  />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
                     <Link href="/onboarding" className="px-5 py-2.5 bg-white text-slate-900 font-bold rounded-full shadow-lg hover:scale-105 transition-transform">
                       Use {tmpl.name}
