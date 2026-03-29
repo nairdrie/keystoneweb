@@ -331,11 +331,20 @@ function extractJSON(raw: string): { operations: any[]; message: string } {
     if (result && typeof result === 'object') return result;
   } catch { /* continue */ }
 
-  // Strategy 2: Strip markdown code fences
+  // Strategy 2a: Strip complete markdown code fences (opening + closing)
   const fenceMatch = cleaned.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
   if (fenceMatch) {
     try {
       const result = JSON.parse(fenceMatch[1].trim());
+      if (result && typeof result === 'object') return result;
+    } catch { /* continue */ }
+  }
+
+  // Strategy 2b: Strip a leading fence with no closing fence (model wrapped but truncated)
+  const leadingFenceMatch = cleaned.match(/^```(?:json)?\s*\n?([\s\S]+)/);
+  if (leadingFenceMatch) {
+    try {
+      const result = JSON.parse(leadingFenceMatch[1].replace(/\n?```\s*$/, '').trim());
       if (result && typeof result === 'object') return result;
     } catch { /* continue */ }
   }

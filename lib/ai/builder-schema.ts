@@ -232,7 +232,7 @@ AVAILABLE COLOR PALETTES: ${availablePalettes.length > 0 ? availablePalettes.joi
 
 POPULAR GOOGLE FONTS you can suggest: Inter, Roboto, Open Sans, Lato, Montserrat, Poppins, Raleway, Oswald, Playfair Display, Merriweather, Source Sans Pro, Nunito, Ubuntu, Rubik, Work Sans, DM Sans, Outfit, Space Grotesk, Crimson Text, Libre Baskerville
 
-RESPONSE FORMAT (strict JSON, no markdown fences):
+RESPONSE FORMAT: Output ONLY raw JSON. Do NOT wrap in markdown code fences (no \`\`\`json or \`\`\`). Do NOT include any text before or after the JSON object. Your entire response must be valid JSON starting with { and ending with }:
 {
   "operations": [
     { "op": "setTemplate", "templateId": "vivid" },
