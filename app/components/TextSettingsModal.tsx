@@ -55,6 +55,19 @@ export default function TextSettingsModal({
         }
     }, [isOpen]); // Only sync when the modal opens
 
+    // Preload all fonts when the modal opens so previews render correctly
+    useEffect(() => {
+        if (!isOpen) return;
+        const linkId = 'font-picker-preview-styles';
+        if (document.getElementById(linkId)) return;
+        const families = POPULAR_FONTS.map(f => `family=${f.replace(/ /g, '+')}`).join('&');
+        const link = document.createElement('link');
+        link.id = linkId;
+        link.rel = 'stylesheet';
+        link.href = `https://fonts.googleapis.com/css2?${families}&display=swap`;
+        document.head.appendChild(link);
+    }, [isOpen]);
+
     if (!isOpen) return null;
 
     const handleSave = () => {

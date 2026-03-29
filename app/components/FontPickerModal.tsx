@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, X, Type } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
@@ -37,6 +37,18 @@ export default function FontPickerModal({
     title
 }: FontPickerModalProps) {
     const [searchQuery, setSearchQuery] = useState('');
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const linkId = 'font-picker-preview-styles';
+        if (document.getElementById(linkId)) return;
+        const families = POPULAR_FONTS.map(f => `family=${f.replace(/ /g, '+')}`).join('&');
+        const link = document.createElement('link');
+        link.id = linkId;
+        link.rel = 'stylesheet';
+        link.href = `https://fonts.googleapis.com/css2?${families}&display=swap`;
+        document.head.appendChild(link);
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
