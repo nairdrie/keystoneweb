@@ -67,13 +67,13 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             aria-label="Home"
                             className="flex items-center gap-2.5 transition-opacity hover:opacity-90"
                         >
-                            {(siteContent.headerLogo || siteContent.siteLogo) ? (
+                            {siteContent.showHeaderLogo !== false && ((siteContent.headerLogo || siteContent.siteLogo) ? (
                                 <img src={siteContent.headerLogo || siteContent.siteLogo} alt="" className="w-8 h-8 object-contain rounded-full"  style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pPrimary }}>
                                     {(siteContent.siteTitle || 'A')[0]?.toUpperCase()}
                                 </div>
-                            )}
+                            ))}
                             <EditableText
                                 as="div"
                                 contentKey="siteTitle"
@@ -152,13 +152,13 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
                 <div className="max-w-6xl mx-auto px-6">
                     <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
                         <div className="flex items-center justify-center gap-2 mb-3">
-                            {(siteContent.footerLogo || siteContent.siteLogo) ? (
+                            {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
                                 <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-8 h-8 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: pPrimary }}>
                                     {(siteContent.siteTitle || 'A')[0]?.toUpperCase()}
                                 </div>
-                            )}
+                            ))}
                             <span className="font-bold text-sm" style={{ color: pPrimary }}>{siteContent.siteTitle || 'Airy Studio'}</span>
                         </div>
                         <p className="text-xs text-gray-400">

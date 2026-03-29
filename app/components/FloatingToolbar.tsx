@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, MousePointerClick, Layers, Palette, Wand2, Rocket } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, MousePointerClick, Layers, Palette, Wand2, Rocket, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
@@ -593,7 +593,17 @@ export default function FloatingToolbar({
                   <div className="space-y-4">
                     {/* Header Logo */}
                     <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Header</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Header</p>
+                        <button
+                          onClick={() => onUpdateSiteContent('showHeaderLogo', siteContent.showHeaderLogo === false ? true : false)}
+                          className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border transition-all ${siteContent.showHeaderLogo === false ? 'border-slate-200 bg-white text-slate-400' : 'border-blue-300 bg-blue-50 text-blue-700'}`}
+                          title={siteContent.showHeaderLogo === false ? 'Logo hidden — click to show' : 'Logo visible — click to hide'}
+                        >
+                          {siteContent.showHeaderLogo === false ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                          {siteContent.showHeaderLogo === false ? 'Hidden' : 'Visible'}
+                        </button>
+                      </div>
                       <div className="flex items-center gap-2">
                         <div className="w-10 h-10 bg-white rounded border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
                           {(siteContent.headerLogo || logoUrl) ? (
@@ -638,7 +648,17 @@ export default function FloatingToolbar({
 
                     {/* Footer Logo */}
                     <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Footer</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Footer</p>
+                        <button
+                          onClick={() => onUpdateSiteContent('showFooterLogo', siteContent.showFooterLogo === false ? true : false)}
+                          className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border transition-all ${siteContent.showFooterLogo === false ? 'border-slate-200 bg-white text-slate-400' : 'border-blue-300 bg-blue-50 text-blue-700'}`}
+                          title={siteContent.showFooterLogo === false ? 'Logo hidden — click to show' : 'Logo visible — click to hide'}
+                        >
+                          {siteContent.showFooterLogo === false ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                          {siteContent.showFooterLogo === false ? 'Hidden' : 'Visible'}
+                        </button>
+                      </div>
                       <div className="flex items-center gap-2">
                         <div className="w-10 h-10 bg-white rounded border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
                           {(siteContent.footerLogo || logoUrl) ? (
@@ -767,6 +787,29 @@ export default function FloatingToolbar({
                           onChange={(e) => onUpdateSiteContent('footerLogoHeight', parseInt(e.target.value))}
                           className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
                         />
+                      </div>
+                    </div>
+
+                    {/* Visibility Toggles */}
+                    <div className="pt-1 space-y-2">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Visibility</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => onUpdateSiteContent('showHeaderLogo', siteContent.showHeaderLogo === false ? true : false)}
+                          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md border text-[10px] font-bold transition-all ${siteContent.showHeaderLogo === false ? 'border-slate-200 bg-white text-slate-400' : 'border-blue-300 bg-blue-50 text-blue-700'}`}
+                          title={siteContent.showHeaderLogo === false ? 'Logo hidden in header — click to show' : 'Logo visible in header — click to hide'}
+                        >
+                          {siteContent.showHeaderLogo === false ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                          Header
+                        </button>
+                        <button
+                          onClick={() => onUpdateSiteContent('showFooterLogo', siteContent.showFooterLogo === false ? true : false)}
+                          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-md border text-[10px] font-bold transition-all ${siteContent.showFooterLogo === false ? 'border-slate-200 bg-white text-slate-400' : 'border-blue-300 bg-blue-50 text-blue-700'}`}
+                          title={siteContent.showFooterLogo === false ? 'Logo hidden in footer — click to show' : 'Logo visible in footer — click to hide'}
+                        >
+                          {siteContent.showFooterLogo === false ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                          Footer
+                        </button>
                       </div>
                     </div>
                   </>

@@ -52,7 +52,8 @@ export default function EditableText({
     ...style,
     ...(parsedStyles.fontFamily ? { fontFamily: `"${parsedStyles.fontFamily}", sans-serif` } : {}),
     ...(parsedStyles.fontSize ? { fontSize: parsedStyles.fontSize } : {}),
-    ...(parsedStyles.color ? { color: parsedStyles.color } : {})
+    ...(parsedStyles.color ? { color: parsedStyles.color } : {}),
+    ...(parsedStyles.fontWeight ? { fontWeight: parsedStyles.fontWeight } : {})
   };
 
   // Keep refs in sync

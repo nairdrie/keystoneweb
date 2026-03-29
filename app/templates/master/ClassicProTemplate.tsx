@@ -58,13 +58,13 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
                                 aria-label="Home"
                                 className="flex items-center gap-3 transition-opacity hover:opacity-90"
                             >
-                                {(siteContent.headerLogo || siteContent.siteLogo) ? (
+                                {siteContent.showHeaderLogo !== false && ((siteContent.headerLogo || siteContent.siteLogo) ? (
                                     <img src={siteContent.headerLogo || siteContent.siteLogo} alt="" className="w-8 h-8 object-contain rounded-md"  style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
                                 ) : (
                                     <div className="w-8 h-8 rounded-md flex items-center justify-center font-black text-sm text-white" style={{ backgroundColor: pSecondary }}>
                                         {(siteContent.siteTitle || 'B')[0]?.toUpperCase()}
                                     </div>
-                                )}
+                                ))}
                                 <EditableText
                                     as="div"
                                     contentKey="siteTitle"
@@ -142,13 +142,13 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
                 <div className="max-w-7xl mx-auto px-4">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
-                            {(siteContent.footerLogo || siteContent.siteLogo) ? (
+                            {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
                                 <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-6 h-6 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-6 h-6 rounded flex items-center justify-center text-xs font-black text-white" style={{ backgroundColor: pSecondary }}>
                                     {(siteContent.siteTitle || 'B')[0]?.toUpperCase()}
                                 </div>
-                            )}
+                            ))}
                             <span className="font-bold text-sm">{siteContent.siteTitle || 'Your Business'}</span>
                         </div>
                         <p className="text-sm text-white/50">

@@ -26,6 +26,7 @@ interface TextStyles {
     fontFamily?: string;
     fontSize?: string; // e.g. '16px', '1.5rem', 'text-sm'
     color?: string;    // hex or 'red-500'
+    fontWeight?: string; // e.g. '400', '700'
 }
 
 interface TextSettingsModalProps {
@@ -44,7 +45,7 @@ export default function TextSettingsModal({
     title = "Text Settings"
 }: TextSettingsModalProps) {
     const [styles, setStyles] = useState<TextStyles>(initialStyles || {});
-    const [activeTab, setActiveTab] = useState<'font' | 'size' | 'color'>('font');
+    const [activeTab, setActiveTab] = useState<'font' | 'size' | 'weight' | 'color'>('font');
     const [searchQuery, setSearchQuery] = useState('');
 
     // Reset local state when opened with new initialStyles
@@ -76,6 +77,7 @@ export default function TextSettingsModal({
         if (styles.fontFamily) cleanedStyles.fontFamily = styles.fontFamily;
         if (styles.fontSize) cleanedStyles.fontSize = styles.fontSize;
         if (styles.color) cleanedStyles.color = styles.color;
+        if (styles.fontWeight) cleanedStyles.fontWeight = styles.fontWeight;
 
         onSave(cleanedStyles);
         onClose();
@@ -120,6 +122,12 @@ export default function TextSettingsModal({
                         onClick={() => setActiveTab('size')}
                     >
                         Size Range
+                    </button>
+                    <button
+                        className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'weight' ? 'border-red-500 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                        onClick={() => setActiveTab('weight')}
+                    >
+                        Weight
                     </button>
                     <button
                         className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'color' ? 'border-red-500 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
@@ -239,6 +247,38 @@ export default function TextSettingsModal({
                                     ))}
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* WEIGHT TAB */}
+                    {activeTab === 'weight' && (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-2">
+                                {[
+                                    { label: 'Thin', value: '100' },
+                                    { label: 'Extra Light', value: '200' },
+                                    { label: 'Light', value: '300' },
+                                    { label: 'Regular', value: '400' },
+                                    { label: 'Medium', value: '500' },
+                                    { label: 'Semi Bold', value: '600' },
+                                    { label: 'Bold', value: '700' },
+                                    { label: 'Extra Bold', value: '800' },
+                                    { label: 'Black', value: '900' },
+                                ].map(w => (
+                                    <button
+                                        key={w.value}
+                                        onClick={() => setStyles({ ...styles, fontWeight: styles.fontWeight === w.value ? undefined : w.value })}
+                                        className={`flex items-center justify-between px-4 py-3 rounded-lg border transition-all ${styles.fontWeight === w.value
+                                            ? 'bg-red-50 border-red-500 text-red-900 shadow-[0_0_0_2px_rgba(239,68,68,0.2)]'
+                                            : 'bg-white border-slate-200 hover:border-slate-400 hover:shadow-sm text-slate-700'
+                                        }`}
+                                    >
+                                        <span className="text-sm" style={{ fontWeight: w.value }}>{w.label}</span>
+                                        <span className="text-[10px] text-slate-400 font-mono">{w.value}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-[10px] text-slate-500">Click the active weight again to reset to default.</p>
                         </div>
                     )}
 

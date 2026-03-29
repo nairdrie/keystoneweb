@@ -57,7 +57,7 @@ export function VibrantTemplate({ palette, isEditMode, children }: MasterTemplat
                             aria-label="Home"
                             className="flex items-center gap-2.5 transition-opacity hover:opacity-90"
                         >
-                            {siteContent.siteLogo ? (
+                            {siteContent.showHeaderLogo !== false && (siteContent.siteLogo ? (
                                 <img
                                     src={siteContent.siteLogo}
                                     alt={siteContent.siteTitle || 'Logo'}
@@ -67,7 +67,7 @@ export function VibrantTemplate({ palette, isEditMode, children }: MasterTemplat
                                 <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center font-bold text-sm text-white backdrop-blur-sm">
                                     {(siteContent.siteTitle || 'V')[0]?.toUpperCase()}
                                 </div>
-                            )}
+                            ))}
                             <EditableText
                                 as="div"
                                 contentKey="siteTitle"
@@ -138,13 +138,13 @@ export function VibrantTemplate({ palette, isEditMode, children }: MasterTemplat
                 <div className="max-w-6xl mx-auto px-4">
                     <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-8 text-center">
                         <div className="flex items-center justify-center gap-2 mb-3">
-                            {(siteContent.footerLogo || siteContent.siteLogo) ? (
+                            {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
                                 <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-7 h-7 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-xs font-bold text-white">
                                     {(siteContent.siteTitle || 'V')[0]?.toUpperCase()}
                                 </div>
-                            )}
+                            ))}
                             <span className="font-bold text-white">{siteContent.siteTitle || 'Vibrant Co'}</span>
                         </div>
                         <p className="text-sm text-white/50">
