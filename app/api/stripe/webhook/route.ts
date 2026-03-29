@@ -166,6 +166,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });
           }
 
+          // Fetch site name for customer emails
+          const { data: webhookSiteInfo } = await supabase
+            .from('sites')
+            .select('title, site_slug')
+            .eq('id', siteId)
+            .single();
+          const webhookSiteName = webhookSiteInfo?.title || webhookSiteInfo?.site_slug || undefined;
+
           // Fetch ecommerce settings for notification email (fallback to booking_settings)
           const { data: ecomSettings } = await supabase
             .from('ecommerce_settings')
@@ -192,6 +200,7 @@ export async function POST(request: NextRequest) {
             customerPhone: order.customer_phone,
             shippingAddress: order.shipping_address,
             paymentMethod: 'stripe',
+            siteName: webhookSiteName,
           };
 
           sendOrderConfirmation(emailData).catch(err => console.error('Stripe webhook customer email failed:', err));

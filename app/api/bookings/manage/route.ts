@@ -110,6 +110,17 @@ export async function PUT(request: NextRequest) {
         return `${displayHour}:${mm.toString().padStart(2, '0')} ${period}`;
     };
 
+    // Fetch site name for customer-facing emails
+    let siteName: string | undefined;
+    if (existingBooking?.site_id) {
+        const { data: siteInfo } = await supabase
+            .from('sites')
+            .select('title, site_slug')
+            .eq('id', existingBooking.site_id)
+            .single();
+        siteName = siteInfo?.title || siteInfo?.site_slug || undefined;
+    }
+
     // Send customer confirmation email when an e-transfer booking is confirmed
     // (was pending, now confirmed — owner has received the e-transfer)
     const isBeingConfirmed = status === 'confirmed' && existingBooking?.status !== 'confirmed';
@@ -139,6 +150,7 @@ export async function PUT(request: NextRequest) {
                 bookingId: existingBooking.id,
                 paymentMethod: existingBooking.payment_method,
                 confirmationMessage: settings?.confirmation_message,
+                siteName,
             }).catch(err => console.error('Customer payment confirmed email failed:', err));
         }
     }
@@ -164,6 +176,7 @@ export async function PUT(request: NextRequest) {
             bookingId: existingBooking.id,
             cancellationReason: cancellationReason || undefined,
             cancelledBy: 'merchant' as const,
+            siteName,
         };
 
         if (existingBooking.customer_email) {

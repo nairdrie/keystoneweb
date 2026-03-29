@@ -70,6 +70,14 @@ export async function POST(request: NextRequest) {
         }
     }
 
+    // Get site name for customer emails
+    const { data: siteInfo } = await supabase
+        .from('sites')
+        .select('title, site_slug')
+        .eq('id', siteId)
+        .single();
+    const siteName = siteInfo?.title || siteInfo?.site_slug || undefined;
+
     // Get e-commerce settings for e-transfer email + notification email
     // Falls back to booking_settings for backwards compatibility
     const { data: ecomSettings } = await supabase
@@ -119,6 +127,7 @@ export async function POST(request: NextRequest) {
         shippingAddress,
         paymentMethod,
         etransferEmail: paymentConfig?.etransfer_email,
+        siteName,
     };
 
     sendOrderConfirmation(emailData).catch(err => console.error('Order customer email failed:', err));
@@ -250,6 +259,13 @@ export async function PUT(request: NextRequest) {
 
     // Send cancellation emails
     if (isBeingCancelled) {
+        const { data: cancelSiteInfo } = await supabase
+            .from('sites')
+            .select('title, site_slug')
+            .eq('id', existingOrder.site_id)
+            .single();
+        const cancelSiteName = cancelSiteInfo?.title || cancelSiteInfo?.site_slug || undefined;
+
         const { data: ecomSettings } = await supabase
             .from('ecommerce_settings')
             .select('notification_email')
@@ -271,6 +287,7 @@ export async function PUT(request: NextRequest) {
             customerEmail: existingOrder.customer_email,
             cancellationReason: cancellationReason || undefined,
             refunded,
+            siteName: cancelSiteName,
         };
 
         sendOrderCancellationToCustomer(emailData)

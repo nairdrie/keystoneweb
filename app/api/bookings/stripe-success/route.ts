@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     // Get site's connected Stripe account to verify the session
     const { data: site } = await supabase
         .from('sites')
-        .select('stripe_account_id, site_slug, published_domain')
+        .select('stripe_account_id, site_slug, published_domain, title')
         .eq('id', siteId)
         .single();
 
@@ -144,6 +144,8 @@ export async function GET(request: NextRequest) {
         ? `${service.name} — ${selectedOptionName}`
         : service.name;
 
+    const siteName = site.title || site.site_slug || undefined;
+
     const emailData = {
         serviceName,
         date,
@@ -159,6 +161,7 @@ export async function GET(request: NextRequest) {
         paymentMethod: 'stripe' as const,
         etransferEmail: undefined,
         confirmationMessage: settings?.confirmation_message,
+        siteName,
     };
 
     sendCustomerConfirmation(emailData).catch(err => console.error('Customer email failed:', err));

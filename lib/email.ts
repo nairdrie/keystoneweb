@@ -19,6 +19,7 @@ interface BookingEmailData {
     confirmationMessage?: string;
     cancelUrl?: string;
     dashboardUrl?: string;
+    siteName?: string;
 }
 
 /**
@@ -79,7 +80,7 @@ export async function sendCustomerConfirmation(data: BookingEmailData) {
             : `Booking Confirmed\n\n${data.serviceName}\n${dateFormatted} at ${data.startTime}\n${data.duration} min — ${priceStr}${data.cancelUrl ? `\n\nNeed to cancel? ${data.cancelUrl}` : ''}`;
 
         await resend.emails.send({
-            from: 'Keystone Web Design <bookings@keystoneweb.ca>',
+            from: `${data.siteName || 'Keystone Web Design'} <bookings@keystoneweb.ca>`,
             to: data.customerEmail,
             subject,
             text: plainText,
@@ -239,7 +240,7 @@ export async function sendCustomerPaymentConfirmed(data: BookingEmailData) {
         const refId = data.bookingId.slice(0, 8).toUpperCase();
 
         await resend.emails.send({
-            from: 'Keystone Web Design <bookings@keystoneweb.ca>',
+            from: `${data.siteName || 'Keystone Web Design'} <bookings@keystoneweb.ca>`,
             to: data.customerEmail,
             subject: `Booking Confirmed — ${data.serviceName}`,
             html: `
@@ -295,6 +296,7 @@ interface OrderEmailData {
     shippingAddress?: { line1?: string; city?: string; province?: string; postal?: string };
     paymentMethod: string;
     etransferEmail?: string;
+    siteName?: string;
 }
 
 export async function sendOrderConfirmation(data: OrderEmailData) {
@@ -322,7 +324,7 @@ export async function sendOrderConfirmation(data: OrderEmailData) {
         }
 
         await resend.emails.send({
-            from: 'Keystone Web Design <orders@keystoneweb.ca>',
+            from: `${data.siteName || 'Keystone Web Design'} <orders@keystoneweb.ca>`,
             to: data.customerEmail,
             subject: `Order Confirmed — ${refId}`,
             html: `
@@ -883,6 +885,7 @@ interface BookingCancellationData {
     bookingId: string;
     cancellationReason?: string;
     cancelledBy: 'customer' | 'merchant';
+    siteName?: string;
 }
 
 /**
@@ -902,7 +905,7 @@ export async function sendBookingCancellationToCustomer(data: BookingCancellatio
             : '';
 
         await resend.emails.send({
-            from: 'Keystone Web Design <bookings@keystoneweb.ca>',
+            from: `${data.siteName || 'Keystone Web Design'} <bookings@keystoneweb.ca>`,
             to: data.customerEmail,
             subject: `Booking Cancelled — ${data.serviceName}`,
             html: `
@@ -990,6 +993,7 @@ interface OrderCancellationData {
     customerName: string;
     customerEmail: string;
     cancellationReason?: string;
+    siteName?: string;
 }
 
 /**
@@ -1020,7 +1024,7 @@ export async function sendOrderCancellationToCustomer(data: OrderCancellationDat
             : '';
 
         await resend.emails.send({
-            from: 'Keystone Web Design <orders@keystoneweb.ca>',
+            from: `${data.siteName || 'Keystone Web Design'} <orders@keystoneweb.ca>`,
             to: data.customerEmail,
             subject: `Order Cancelled — ${refId}`,
             html: `
