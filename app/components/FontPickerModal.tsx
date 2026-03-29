@@ -1,15 +1,24 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, X, Type } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
 const POPULAR_FONTS = [
-    'Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat',
-    'Poppins', 'Source Sans Pro', 'Oswald', 'Raleway', 'Playfair Display',
-    'Merriweather', 'Nunito', 'Rubik', 'Noto Sans', 'Work Sans',
-    'Lora', 'Quicksand', 'PT Sans', 'Ubuntu', 'Mukta',
-    'Nanum Gothic', 'Karla', 'Inconsolata', 'Fira Sans', 'Barlow',
-    'Manrope', 'Hind', 'Cabin', 'Josefin Sans', 'Dosis'
+    // Modern sans-serifs
+    'Inter', 'Roboto', 'Poppins', 'Montserrat', 'Raleway',
+    'Nunito', 'DM Sans', 'Plus Jakarta Sans', 'Space Grotesk', 'Barlow',
+    // Bold & condensed display
+    'Oswald', 'Bebas Neue', 'Anton', 'Fjalla One', 'Teko',
+    'Righteous', 'Russo One', 'Exo 2', 'Alfa Slab One', 'Ultra',
+    // Serif & editorial
+    'Abril Fatface', 'Playfair Display', 'Merriweather', 'Lora', 'Cormorant Garamond',
+    'Libre Baskerville', 'Bitter', 'EB Garamond', 'Spectral', 'Crimson Text',
+    // Playful & expressive
+    'Pacifico', 'Fredoka One', 'Baloo 2', 'Comfortaa', 'Lilita One',
+    'Permanent Marker', 'Caveat', 'Patrick Hand', 'Varela Round', 'Boogaloo',
+    // Script & flowing
+    'Dancing Script', 'Lobster', 'Sacramento', 'Great Vibes', 'Satisfy',
+    'Cookie', 'Yellowtail', 'Allura', 'Alex Brush', 'Parisienne',
 ];
 
 interface FontPickerModalProps {
@@ -28,6 +37,18 @@ export default function FontPickerModal({
     title
 }: FontPickerModalProps) {
     const [searchQuery, setSearchQuery] = useState('');
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const linkId = 'font-picker-preview-styles';
+        if (document.getElementById(linkId)) return;
+        const families = POPULAR_FONTS.map(f => `family=${f.replace(/ /g, '+')}`).join('&');
+        const link = document.createElement('link');
+        link.id = linkId;
+        link.rel = 'stylesheet';
+        link.href = `https://fonts.googleapis.com/css2?${families}&display=swap`;
+        document.head.appendChild(link);
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
