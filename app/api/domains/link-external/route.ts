@@ -69,25 +69,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check domain isn't already linked to another site
-    const { data: existingDomain } = await supabase
+    // Check domain isn't already linked to another site (active or pending)
+    const { data: existingActive } = await supabase
       .from('sites')
       .select('id')
       .eq('custom_domain', domain)
       .neq('id', siteId)
       .single();
 
-    if (existingDomain) {
+    const { data: existingPending } = await supabase
+      .from('sites')
+      .select('id')
+      .eq('pending_custom_domain', domain)
+      .neq('id', siteId)
+      .single();
+
+    if (existingActive || existingPending) {
       return NextResponse.json(
         { error: 'This domain is already linked to another site' },
         { status: 409 }
       );
     }
 
-    // Update site with custom domain (pending verification)
+    // Store as pending until DNS is verified — custom_domain stays unchanged
     const { error: updateError } = await supabase
       .from('sites')
-      .update({ custom_domain: domain })
+      .update({ pending_custom_domain: domain })
       .eq('id', siteId);
 
     if (updateError) {

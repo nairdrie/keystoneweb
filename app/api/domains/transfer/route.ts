@@ -109,6 +109,20 @@ export async function initiateVercelTransfer(
     })
     .eq('id', purchaseId);
 
+  // Set pending_custom_domain on the site (not active yet — transfer takes 5-7 days)
+  const { data: purchase } = await supabase
+    .from('domain_purchases')
+    .select('site_id')
+    .eq('id', purchaseId)
+    .single();
+
+  if (purchase?.site_id) {
+    await supabase
+      .from('sites')
+      .update({ pending_custom_domain: domain })
+      .eq('id', purchase.site_id);
+  }
+
   return { success: true, transferId };
 }
 

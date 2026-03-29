@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
-import { ChevronDown, Plus, Paintbrush, LayoutDashboard, ExternalLink, Pencil, Check, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, HelpCircle, TrendingUp, Search, Package, CalendarDays, MessageSquare } from 'lucide-react';
+import { ChevronDown, Plus, Paintbrush, LayoutDashboard, ExternalLink, Pencil, Check, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, HelpCircle, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2 } from 'lucide-react';
 import KeystoneLogo from '@/app/components/KeystoneLogo';
 import ProfileDropdown from '@/app/components/ProfileDropdown';
 import AlertModal from '@/app/components/ui/AlertModal';
@@ -26,6 +26,7 @@ const TABS = [
   { id: 'seo', label: 'SEO', icon: Globe, path: '/admin/seo' },
   { id: 'ecommerce', label: 'Ecommerce', icon: ShoppingBag, path: '/admin/ecommerce' },
   { id: 'booking', label: 'Booking', icon: Calendar, path: '/admin/booking' },
+  { id: 'domains', label: 'Domains', icon: Link2, path: '/admin/domains' },
   { id: 'inbox', label: 'Inbox', icon: Mail, path: '/admin/inbox' },
 ];
 
@@ -79,6 +80,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       icon: <CalendarDays className="w-7 h-7" />,
       title: 'Booking',
       description: 'Enable appointment booking so customers can schedule time with you directly from your site.',
+    },
+    {
+      icon: <Link2 className="w-7 h-7" />,
+      title: 'Domains',
+      description: 'Manage your custom domain, check DNS status, and configure domain settings for this site.',
     },
     {
       icon: <MessageSquare className="w-7 h-7" />,
@@ -234,7 +240,12 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   if (!site) return null;
 
   const activeTabId = TABS.find(t => pathname.startsWith(t.path))?.id ?? 'analytics';
-  const liveUrl = site.publishedDomain ? `https://${site.publishedDomain}.kswd.ca` : null;
+  const liveUrl = site.customDomain
+    ? `https://${site.customDomain}`
+    : site.publishedDomain
+    ? `https://${site.publishedDomain}.kswd.ca`
+    : null;
+  const displayDomain = site.customDomain || (site.publishedDomain ? `${site.publishedDomain}.kswd.ca` : null);
 
   return (
     <AdminContext.Provider value={{ siteId, site, siteTitle, setSiteTitle, isProUser, palette, usage, usagePlan, siteBreakdown }}>
@@ -316,7 +327,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                 <div className="flex items-center gap-2 mt-1">
                   {liveUrl ? (
                     <a href={liveUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-slate-400 hover:text-slate-700 transition-colors">
-                      {site.publishedDomain}.kswd.ca ↗
+                      {displayDomain} ↗
                     </a>
                   ) : (
                     <span className="text-xs text-slate-400">Not yet published</span>

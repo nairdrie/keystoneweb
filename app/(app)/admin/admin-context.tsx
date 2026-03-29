@@ -11,6 +11,8 @@ export interface AdminSiteData {
   publishedData?: Record<string, any>;
   isPublished: boolean;
   publishedDomain?: string;
+  customDomain?: string;
+  pendingCustomDomain?: string;
   siteSlug?: string;
   createdAt: string;
   updatedAt: string;

@@ -1348,7 +1348,7 @@ function DomainSelectContent() {
                     )}
 
                     {/* Import from Other Provider */}
-                    {(externalMode === 'import' || (ownedDomains.filter((d) => !d.site_id && d.status === 'completed').length === 0 && externalMode !== 'transfer')) && !dnsInstructions ? (
+                    {externalMode === 'import' && !dnsInstructions ? (
                       <>
                         <div>
                           <label className="block text-sm font-semibold text-slate-900 mb-2">
@@ -1384,7 +1384,7 @@ function DomainSelectContent() {
                           )}
                         </button>
                       </>
-                    ) : dnsInstructions ? (
+                    ) : externalMode === 'import' && dnsInstructions ? (
                       /* ──── DNS Instructions (Improved) ─────────────────── */
                       <div className="space-y-4">
                         <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
