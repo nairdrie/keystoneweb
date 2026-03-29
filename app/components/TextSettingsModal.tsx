@@ -5,12 +5,21 @@ import { X, Type, Search } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
 const POPULAR_FONTS = [
-    'Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat',
-    'Poppins', 'Source Sans Pro', 'Oswald', 'Raleway', 'Playfair Display',
-    'Merriweather', 'Nunito', 'Rubik', 'Noto Sans', 'Work Sans',
-    'Lora', 'Quicksand', 'PT Sans', 'Ubuntu', 'Mukta',
-    'Nanum Gothic', 'Karla', 'Inconsolata', 'Fira Sans', 'Barlow',
-    'Manrope', 'Hind', 'Cabin', 'Josefin Sans', 'Dosis'
+    // Modern sans-serifs
+    'Inter', 'Roboto', 'Poppins', 'Montserrat', 'Raleway',
+    'Nunito', 'DM Sans', 'Plus Jakarta Sans', 'Space Grotesk', 'Barlow',
+    // Bold & condensed display
+    'Oswald', 'Bebas Neue', 'Anton', 'Fjalla One', 'Teko',
+    'Righteous', 'Russo One', 'Exo 2', 'Alfa Slab One', 'Ultra',
+    // Serif & editorial
+    'Abril Fatface', 'Playfair Display', 'Merriweather', 'Lora', 'Cormorant Garamond',
+    'Libre Baskerville', 'Bitter', 'EB Garamond', 'Spectral', 'Crimson Text',
+    // Playful & expressive
+    'Pacifico', 'Fredoka One', 'Baloo 2', 'Comfortaa', 'Lilita One',
+    'Permanent Marker', 'Caveat', 'Patrick Hand', 'Varela Round', 'Boogaloo',
+    // Script & flowing
+    'Dancing Script', 'Lobster', 'Sacramento', 'Great Vibes', 'Satisfy',
+    'Cookie', 'Yellowtail', 'Allura', 'Alex Brush', 'Parisienne',
 ];
 
 interface TextStyles {
@@ -132,7 +141,7 @@ export default function TextSettingsModal({
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                                 <input
                                     type="text"
-                                    placeholder="Search 30+ fonts..."
+                                    placeholder="Search 50+ fonts..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
