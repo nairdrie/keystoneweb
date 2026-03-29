@@ -57,7 +57,7 @@ export function SleekTemplate({ palette, isEditMode, children }: MasterTemplateP
                             aria-label="Home"
                             className="flex items-center gap-2 transition-opacity hover:opacity-90"
                         >
-                            {(siteContent.headerLogo || siteContent.siteLogo) ? (
+                            {siteContent.showHeaderLogo !== false && ((siteContent.headerLogo || siteContent.siteLogo) ? (
                                 <img
                                     src={siteContent.headerLogo || siteContent.siteLogo}
                                     alt={siteContent.siteTitle || 'Logo'}
@@ -67,7 +67,7 @@ export function SleekTemplate({ palette, isEditMode, children }: MasterTemplateP
                                 <div className="w-7 h-7 rounded-sm flex items-center justify-center font-bold text-xs text-white" style={{ backgroundColor: pPrimary }}>
                                     {(siteContent.siteTitle || 'S')[0]?.toUpperCase()}
                                 </div>
-                            )}
+                            ))}
                             <EditableText
                                 as="div"
                                 contentKey="siteTitle"
@@ -138,7 +138,7 @@ export function SleekTemplate({ palette, isEditMode, children }: MasterTemplateP
             <footer className="py-8 border-t border-gray-100">
                 <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        {(siteContent.footerLogo || siteContent.siteLogo) ? (
+                        {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
                             <img
                                 src={siteContent.footerLogo || siteContent.siteLogo}
                                 alt={siteContent.siteTitle || 'Logo'}
@@ -148,7 +148,7 @@ export function SleekTemplate({ palette, isEditMode, children }: MasterTemplateP
                             <div className="w-6 h-6 rounded-sm flex items-center justify-center font-bold text-[10px] text-white" style={{ backgroundColor: pPrimary }}>
                                 {(siteContent.siteTitle || 'S')[0]?.toUpperCase()}
                             </div>
-                        )}
+                        ))}
                         <span className="text-sm font-medium" style={{ color: pPrimary }}>{siteContent.siteTitle || 'Sleek'}</span>
                     </div>
                     <div className="flex flex-col items-end gap-1">

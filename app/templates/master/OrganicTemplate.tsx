@@ -57,7 +57,7 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
                             aria-label="Home"
                             className="flex items-center gap-3 transition-opacity hover:opacity-90"
                         >
-                            {(siteContent.headerLogo || siteContent.siteLogo) ? (
+                            {siteContent.showHeaderLogo !== false && ((siteContent.headerLogo || siteContent.siteLogo) ? (
                                 <img
                                     src={siteContent.headerLogo || siteContent.siteLogo}
                                     alt={siteContent.siteTitle || 'Logo'}
@@ -67,7 +67,7 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
                                 <div className="w-9 h-9 rounded-full flex items-center justify-center font-serif font-bold text-sm text-white" style={{ backgroundColor: pSecondary }}>
                                     {(siteContent.siteTitle || 'O')[0]?.toUpperCase()}
                                 </div>
-                            )}
+                            ))}
                             <EditableText
                                 as="div"
                                 contentKey="siteTitle"
@@ -140,7 +140,7 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
             <footer className="py-16 border-t" style={{ borderColor: `${pSecondary}33` }}>
                 <div className="max-w-6xl mx-auto px-6 text-center">
                     <div className="flex items-center justify-center gap-3 mb-3">
-                        {(siteContent.footerLogo || siteContent.siteLogo) ? (
+                        {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
                             <img
                                 src={siteContent.footerLogo || siteContent.siteLogo}
                                 alt={siteContent.siteTitle || 'Logo'}
@@ -150,7 +150,7 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
                             <div className="w-8 h-8 rounded-full flex items-center justify-center font-serif font-bold text-[10px] text-white" style={{ backgroundColor: pSecondary }}>
                                 {(siteContent.siteTitle || 'O')[0]?.toUpperCase()}
                             </div>
-                        )}
+                        ))}
                         <div className="font-title italic text-lg" style={{ color: pPrimary }}>
                             {siteContent.siteTitle || 'Organic Co.'}
                         </div>

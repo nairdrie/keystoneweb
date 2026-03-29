@@ -58,7 +58,7 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                                 aria-label="Home"
                                 className="flex items-center gap-3 transition-opacity hover:opacity-90"
                             >
-                                {(siteContent.headerLogo || siteContent.siteLogo) ? (
+                                {siteContent.showHeaderLogo !== false && ((siteContent.headerLogo || siteContent.siteLogo) ? (
                                     <img
                                         src={siteContent.headerLogo || siteContent.siteLogo}
                                         alt={siteContent.siteTitle || 'Logo'}
@@ -73,7 +73,7 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                                             {(siteContent.siteTitle || 'E')[0]?.toUpperCase()}
                                         </span>
                                     </div>
-                                )}
+                                ))}
                                 <EditableText
                                     as="div"
                                     contentKey="siteTitle"
@@ -152,7 +152,7 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                 <div className="max-w-7xl mx-auto px-6">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
-                            {(siteContent.footerLogo || siteContent.siteLogo) ? (
+                            {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
                                 <img
                                     src={siteContent.footerLogo || siteContent.siteLogo}
                                     alt={siteContent.siteTitle || 'Logo'}
@@ -167,7 +167,7 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                                         {(siteContent.siteTitle || 'E')[0]?.toUpperCase()}
                                     </span>
                                 </div>
-                            )}
+                            ))}
                             <span className="font-bold text-sm text-slate-800">{siteContent.siteTitle || 'Elegant Co.'}</span>
                         </div>
                         <p className="text-sm text-slate-400">

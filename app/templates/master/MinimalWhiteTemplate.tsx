@@ -60,7 +60,7 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
                                 aria-label="Home"
                                 className="flex items-center gap-3 transition-opacity hover:opacity-90"
                             >
-                                {(siteContent.headerLogo || siteContent.siteLogo) ? (
+                                {siteContent.showHeaderLogo !== false && ((siteContent.headerLogo || siteContent.siteLogo) ? (
                                     <img
                                         src={siteContent.headerLogo || siteContent.siteLogo}
                                         alt={siteContent.siteTitle || 'Logo'}
@@ -70,7 +70,7 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
                                     <div className="w-8 h-8 rounded flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pPrimary }}>
                                         {(siteContent.siteTitle || 'S')[0]?.toUpperCase()}
                                     </div>
-                                )}
+                                ))}
                                 <EditableText
                                     as="div"
                                     contentKey="siteTitle"
@@ -148,7 +148,7 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
             <footer className="py-16 border-t border-slate-100">
                 <div className="max-w-6xl mx-auto px-6 text-center">
                     <div className="flex items-center justify-center gap-3 mb-4">
-                        {(siteContent.footerLogo || siteContent.siteLogo) ? (
+                        {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
                             <img
                                 src={siteContent.footerLogo || siteContent.siteLogo}
                                 alt={siteContent.siteTitle || 'Logo'}
@@ -158,7 +158,7 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
                             <div className="w-8 h-8 rounded flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pPrimary }}>
                                 {(siteContent.siteTitle || 'S')[0]?.toUpperCase()}
                             </div>
-                        )}
+                        ))}
                         <span className="text-lg font-semibold tracking-wide font-title" style={{ color: pPrimary }}>
                             {siteContent.siteTitle || 'Studio'}
                         </span>
