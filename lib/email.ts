@@ -4,6 +4,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 interface BookingEmailData {
     serviceName: string;
+    selectedOptionName?: string;
     date: string;       // YYYY-MM-DD
     startTime: string;  // display format e.g. "9:00 AM"
     duration: number;
@@ -95,6 +96,7 @@ export async function sendCustomerConfirmation(data: BookingEmailData) {
                     <div style="background: #f9fafb; border-radius: 8px; padding: 16px;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                             <tr><td style="padding: 6px 0; color: #6b7280;">Service</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.serviceName}</td></tr>
+                            ${data.selectedOptionName ? `<tr><td style="padding: 6px 0; color: #6b7280;">Option</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.selectedOptionName}</td></tr>` : ''}
                             <tr><td style="padding: 6px 0; color: #6b7280;">Date</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${dateFormatted}</td></tr>
                             <tr><td style="padding: 6px 0; color: #6b7280;">Time</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.startTime}</td></tr>
                             <tr><td style="padding: 6px 0; color: #6b7280;">Duration</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.duration} min</td></tr>
@@ -193,6 +195,7 @@ export async function sendOwnerNotification(data: BookingEmailData, ownerEmail: 
                     <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                             <tr><td style="padding: 6px 0; color: #6b7280;">Service</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.serviceName}</td></tr>
+                            ${data.selectedOptionName ? `<tr><td style="padding: 6px 0; color: #6b7280;">Option</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.selectedOptionName}</td></tr>` : ''}
                             <tr><td style="padding: 6px 0; color: #6b7280;">Date</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${dateFormatted}</td></tr>
                             <tr><td style="padding: 6px 0; color: #6b7280;">Time</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.startTime}</td></tr>
                             <tr><td style="padding: 6px 0; color: #6b7280;">Duration</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.duration} min</td></tr>
@@ -253,6 +256,7 @@ export async function sendCustomerPaymentConfirmed(data: BookingEmailData) {
                     <div style="background: #f9fafb; border-radius: 8px; padding: 16px;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                             <tr><td style="padding: 6px 0; color: #6b7280;">Service</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.serviceName}</td></tr>
+                            ${data.selectedOptionName ? `<tr><td style="padding: 6px 0; color: #6b7280;">Option</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.selectedOptionName}</td></tr>` : ''}
                             <tr><td style="padding: 6px 0; color: #6b7280;">Date</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${dateFormatted}</td></tr>
                             <tr><td style="padding: 6px 0; color: #6b7280;">Time</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.startTime}</td></tr>
                             <tr><td style="padding: 6px 0; color: #6b7280;">Duration</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.duration} min</td></tr>

@@ -122,6 +122,8 @@ export async function GET(request: NextRequest) {
             payment_status: 'paid',
             stripe_payment_id: stripePaymentId,
             notes: notes || null,
+            selected_option_name: selectedOptionName || null,
+            total_price_cents: priceCents || null,
         })
         .select()
         .single();
@@ -140,14 +142,11 @@ export async function GET(request: NextRequest) {
     };
 
     const priceCents = checkoutSession.amount_total ?? service.price_cents;
-    const serviceName = selectedOptionName
-        ? `${service.name} — ${selectedOptionName}`
-        : service.name;
-
     const siteName = site.title || site.site_slug || undefined;
 
     const emailData = {
-        serviceName,
+        serviceName: service.name,
+        selectedOptionName: selectedOptionName || undefined,
         date,
         startTime: formatTime(startTime),
         duration: service.duration_minutes,

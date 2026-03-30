@@ -25,6 +25,8 @@ export async function POST(request: NextRequest) {
         siteId, serviceId, date, startTime,
         customerName, customerEmail, customerPhone, notes,
         paymentMethod = 'none',
+        selectedOptionName,
+        totalPriceCents,
     } = body;
 
     // Validation
@@ -109,6 +111,8 @@ export async function POST(request: NextRequest) {
             payment_method: paymentMethod,
             payment_status: paymentStatus,
             notes: notes || null,
+            selected_option_name: selectedOptionName || null,
+            total_price_cents: totalPriceCents ?? null,
         })
         .select()
         .single();
@@ -130,11 +134,13 @@ export async function POST(request: NextRequest) {
         confirmationMessage: settings?.confirmation_message || 'Your booking has been confirmed!',
     };
 
+    const effectivePriceCents = totalPriceCents ?? service.price_cents;
+
     if (paymentMethod === 'etransfer' && settings?.etransfer_email) {
         response.paymentInstructions = {
             type: 'etransfer',
             email: settings.etransfer_email,
-            amount: (service.price_cents / 100).toFixed(2),
+            amount: (effectivePriceCents / 100).toFixed(2),
             currency: service.currency,
             reference: `BOOKING-${booking.id.slice(0, 8).toUpperCase()}`,
         };
@@ -174,10 +180,11 @@ export async function POST(request: NextRequest) {
 
     const emailData = {
         serviceName: service.name,
+        selectedOptionName: selectedOptionName || undefined,
         date,
         startTime: formatTime(startTime),
         duration: service.duration_minutes,
-        priceCents: service.price_cents,
+        priceCents: effectivePriceCents,
         currency: service.currency,
         customerName,
         customerEmail,

@@ -138,10 +138,11 @@ export async function PUT(request: NextRequest) {
 
             sendCustomerPaymentConfirmed({
                 serviceName: service.name,
+                selectedOptionName: existingBooking.selected_option_name || undefined,
                 date: existingBooking.booking_date,
                 startTime: formatTime(existingBooking.start_time),
                 duration: service.duration_minutes,
-                priceCents: service.price_cents,
+                priceCents: existingBooking.total_price_cents ?? service.price_cents,
                 currency: service.currency,
                 customerName: existingBooking.customer_name,
                 customerEmail: existingBooking.customer_email,

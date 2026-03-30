@@ -1291,6 +1291,9 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
 
     // Customer form
     const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '' });
+    const [emailError, setEmailError] = useState('');
+
+    const validateEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
     // Calendar state
     const [calMonth, setCalMonth] = useState(new Date().getMonth());
@@ -1352,7 +1355,7 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
 
     const handleSubmit = async () => {
         if (!selectedService || !selectedDate || !selectedSlot) return;
-        if (!form.name.trim() || !form.email.trim()) return;
+        if (!form.name.trim() || !validateEmail(form.email)) return;
 
         setSubmitting(true);
 
@@ -1398,6 +1401,8 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                 customerPhone: form.phone || undefined,
                 notes: form.notes || undefined,
                 paymentMethod: chosenPaymentMethod,
+                selectedOptionName: selectedOption?.name || undefined,
+                totalPriceCents: effectivePriceCents,
             }),
         });
 
@@ -1702,8 +1707,16 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                                 <label className="text-sm font-medium text-slate-700 block mb-1">Email *</label>
                                 <div className="relative">
                                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="w-full pl-10 pr-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="john@email.com" />
+                                    <input
+                                        type="email"
+                                        value={form.email}
+                                        onChange={e => { setForm({ ...form, email: e.target.value }); setEmailError(''); }}
+                                        onBlur={e => { if (e.target.value && !validateEmail(e.target.value)) setEmailError('Please enter a valid email address'); }}
+                                        className={`w-full pl-10 pr-3 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${emailError ? 'border-red-400' : 'border-slate-300'}`}
+                                        placeholder="john@email.com"
+                                    />
                                 </div>
+                                {emailError && <p className="text-xs text-red-500 mt-1">{emailError}</p>}
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-slate-700 block mb-1">Phone</label>
@@ -1723,7 +1736,7 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
 
                         <button
                             onClick={handleSubmit}
-                            disabled={submitting || !form.name.trim() || !form.email.trim()}
+                            disabled={submitting || !form.name.trim() || !validateEmail(form.email)}
                             className="w-full mt-6 py-3 text-white font-bold rounded-xl shadow-lg hover:opacity-90 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
                             style={{ backgroundColor: pSecondary }}
                         >
@@ -1744,8 +1757,10 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
 
                         <div className="bg-slate-50 rounded-xl p-4 text-sm text-left max-w-sm mx-auto">
                             <div className="flex justify-between"><span className="text-slate-500">Service</span><span className="font-medium text-slate-900">{confirmation.service?.name}</span></div>
+                            {selectedOption && <div className="flex justify-between mt-1"><span className="text-slate-500">Option</span><span className="font-medium text-slate-900">{selectedOption.name}</span></div>}
                             <div className="flex justify-between mt-1"><span className="text-slate-500">Date</span><span className="font-medium text-slate-900">{selectedDate && new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span></div>
                             <div className="flex justify-between mt-1"><span className="text-slate-500">Time</span><span className="font-medium text-slate-900">{selectedSlot?.display}</span></div>
+                            {effectivePriceCents > 0 && <div className="flex justify-between mt-1"><span className="text-slate-500">Price</span><span className="font-medium text-slate-900">${(effectivePriceCents / 100).toFixed(2)} {confirmation.service?.currency}</span></div>}
                             <div className="flex justify-between mt-1"><span className="text-slate-500">Ref #</span><span className="font-mono font-medium text-slate-900">{confirmation.booking?.id?.slice(0, 8).toUpperCase()}</span></div>
                         </div>
 

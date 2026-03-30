@@ -20,6 +20,8 @@ interface Booking {
     notes: string | null;
     created_at: string;
     service: { name: string; duration_minutes: number; price_cents: number; currency: string } | null;
+    selected_option_name: string | null;
+    total_price_cents: number | null;
 }
 
 const STATUS_CONFIG = {
@@ -253,9 +255,11 @@ export default function BookingsPanel({ siteId }: BookingsPanelProps) {
                                                         <div className="pt-2">
                                                             <p className="text-xs font-semibold text-slate-600 mb-1">Appointment</p>
                                                             <p className="text-xs text-slate-700">
-                                                                {booking.service?.name} · {booking.service?.duration_minutes} min
-                                                                {booking.service && booking.service.price_cents > 0
-                                                                    ? ` · $${(booking.service.price_cents / 100).toFixed(2)} ${booking.service.currency}`
+                                                                {booking.service?.name}
+                                                                {booking.selected_option_name && <span className="text-slate-500"> · {booking.selected_option_name}</span>}
+                                                                {' '}· {booking.service?.duration_minutes} min
+                                                                {booking.service && (booking.total_price_cents ?? booking.service.price_cents) > 0
+                                                                    ? ` · $${((booking.total_price_cents ?? booking.service.price_cents) / 100).toFixed(2)} ${booking.service.currency}`
                                                                     : ''}
                                                             </p>
                                                             <p className="text-xs text-slate-600 mt-0.5">
