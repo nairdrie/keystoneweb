@@ -27,6 +27,10 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (siteError || !site || site.user_id !== user.id) {
+      if(siteError) {
+        console.error('Error fetching site:', siteError)
+        return NextResponse.json({ error: siteError }, { status: 500 });
+      }
       return NextResponse.json({ error: 'Site not found or access denied' }, { status: 404 });
     }
 

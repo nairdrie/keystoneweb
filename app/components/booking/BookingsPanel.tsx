@@ -97,14 +97,26 @@ export default function BookingsPanel({ siteId }: BookingsPanelProps) {
     };
 
     const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+
+    const isUpcoming = (b: Booking) => {
+        if (b.status === 'cancelled') return false;
+        if (b.booking_date > today) return true;
+        if (b.booking_date < today) return false;
+        // Same day — check if end time has passed
+        const [hh, mm] = b.end_time.split(':').map(Number);
+        const endTime = new Date(now);
+        endTime.setHours(hh, mm, 0, 0);
+        return now < endTime;
+    };
 
     const filteredBookings = bookings.filter(b => {
-        if (filterStatus === 'upcoming') return b.booking_date >= today && b.status !== 'cancelled';
-        if (filterStatus === 'past') return b.booking_date < today && b.status !== 'cancelled';
+        if (filterStatus === 'upcoming') return isUpcoming(b);
+        if (filterStatus === 'past') return !isUpcoming(b) && b.status !== 'cancelled';
         return b.status === filterStatus;
     });
 
-    const upcomingCount = bookings.filter(b => b.booking_date >= today && b.status !== 'cancelled').length;
+    const upcomingCount = bookings.filter(isUpcoming).length;
 
     return (
         <>
@@ -171,8 +183,8 @@ export default function BookingsPanel({ siteId }: BookingsPanelProps) {
                                 {/* Filter tabs */}
                                 <div className="flex gap-1 px-4 pt-3 pb-2 overflow-x-auto">
                                     {[
-                                        { id: 'upcoming', label: `Upcoming (${bookings.filter(b => b.booking_date >= today && b.status !== 'cancelled').length})` },
-                                        { id: 'past', label: `Past (${bookings.filter(b => b.booking_date < today && b.status !== 'cancelled').length})` },
+                                        { id: 'upcoming', label: `Upcoming (${bookings.filter(isUpcoming).length})` },
+                                        { id: 'past', label: `Past (${bookings.filter(b => !isUpcoming(b) && b.status !== 'cancelled').length})` },
                                         { id: 'cancelled', label: `Cancelled (${bookings.filter(b => b.status === 'cancelled').length})` },
                                     ].map(f => (
                                         <button
