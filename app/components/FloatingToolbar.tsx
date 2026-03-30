@@ -1170,7 +1170,7 @@ export default function FloatingToolbar({
                   {pendingCustomDomain && (
                     <span className="text-[9px] text-amber-600 font-medium" title={`${pendingCustomDomain} — pending verification`}>⏳</span>
                   )}
-                  <button onClick={() => router.push(`/publish/domain-select?session_id=existing&siteId=${currentSiteId}&currentDomain=${publishedDomain}`)} className="p-1 hover:bg-slate-100 rounded text-slate-400" title="Domain settings"><Pencil className="w-3 h-3" /></button>
+                  <button onClick={() => router.push(`/publish/domain-select?session_id=existing&siteId=${currentSiteId}`)} className="p-1 hover:bg-slate-100 rounded text-slate-400" title="Domain settings"><Pencil className="w-3 h-3" /></button>
                 </div>
               </div>
               <div className="flex gap-2">

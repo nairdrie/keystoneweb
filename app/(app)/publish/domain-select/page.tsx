@@ -95,10 +95,6 @@ type CustomMode = 'search' | 'external';
 
 export interface DomainManagerProps {
   siteId: string | null;
-  currentDomain?: string | null;
-  customDomain?: string | null;
-  pendingCustomDomain?: string | null;
-  transferStatus?: string | null;
   transferInitiated?: boolean;
   /** When true, renders inline without full-page wrapper/auth redirect */
   embedded?: boolean;
@@ -287,10 +283,6 @@ function DomainPriceLabel({
 
 export function DomainManager({
   siteId: siteIdProp,
-  currentDomain: currentDomainProp,
-  customDomain: customDomainProp,
-  pendingCustomDomain: pendingCustomDomainProp,
-  transferStatus: transferStatusProp,
   transferInitiated: transferInitiatedProp = false,
   embedded = false,
   onSuccess,
@@ -300,8 +292,16 @@ export function DomainManager({
   const { user, loading: authLoading } = useAuth();
 
   const siteId = siteIdProp;
-  const currentDomain = currentDomainProp ?? null;
   const transferInitiatedParam = transferInitiatedProp;
+
+  // Site domain status (fetched from API)
+  const [siteStatus, setSiteStatus] = useState<{
+    publishedDomain: string | null;
+    customDomain: string | null;
+    pendingCustomDomain: string | null;
+    transferStatus: string | null;
+  } | null>(null);
+  const [loadingSiteStatus, setLoadingSiteStatus] = useState(true);
 
   // Shared state
   const [publishing, setPublishing] = useState(false);
@@ -314,7 +314,7 @@ export function DomainManager({
   const [loadingPlan, setLoadingPlan] = useState(true);
 
   // Subdomain state
-  const [subdomain, setSubdomain] = useState(currentDomain || '');
+  const [subdomain, setSubdomain] = useState('');
   const [domainCheck, setDomainCheck] = useState<DomainCheckResult | null>(null);
   const [checking, setChecking] = useState(false);
 
@@ -380,6 +380,37 @@ export function DomainManager({
       .catch(console.error)
       .finally(() => setLoadingPlan(false));
   }, [user, authLoading]);
+
+  // Fetch site domain status
+  const fetchSiteStatus = useCallback(async () => {
+    if (!siteId) return;
+    setLoadingSiteStatus(true);
+    try {
+      const res = await fetch(`/api/admin/domains?siteId=${siteId}`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setSiteStatus({
+          publishedDomain: data.publishedDomain,
+          customDomain: data.customDomain,
+          pendingCustomDomain: data.pendingCustomDomain,
+          transferStatus: data.transferStatus,
+        });
+        // Pre-populate subdomain input if site already has one
+        if (data.publishedDomain && !subdomain) {
+          setSubdomain(data.publishedDomain);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch site status:', err);
+    } finally {
+      setLoadingSiteStatus(false);
+    }
+  }, [siteId]);
+
+  useEffect(() => {
+    if (authLoading || !user || !siteId) return;
+    fetchSiteStatus();
+  }, [user, authLoading, siteId, fetchSiteStatus]);
 
   // Fetch owned domains (unallocated ones for the dropdown)
   useEffect(() => {
@@ -771,7 +802,7 @@ export function DomainManager({
 
   // ─── Render ─────────────────────────────────────────────────────────────
 
-  if (authLoading || loadingPlan) {
+  if (authLoading || loadingPlan || loadingSiteStatus) {
     if (embedded) {
       return (
         <div className="flex items-center justify-center py-12">
@@ -852,7 +883,7 @@ export function DomainManager({
     );
   }
 
-  const subdomainIsActive = currentDomain && currentDomain === subdomain.trim();
+  const hasActiveSubdomain = !!siteStatus?.publishedDomain;
   const baseDomainDisplay = process.env.NEXT_PUBLIC_PUBLISHED_DOMAIN_BASE || 'kswd.ca';
 
   const outerWrapperClass = embedded
@@ -885,13 +916,13 @@ export function DomainManager({
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* SECTION: Free Subdomain (always visible)                    */}
         {/* ═══════════════════════════════════════════════════════════ */}
-        <div className={`rounded-xl border ${subdomainIsActive ? 'border-green-200 bg-green-50/30' : 'border-slate-200 bg-white'} overflow-hidden`}>
-          <div className={`px-5 py-3 border-b ${subdomainIsActive ? 'border-green-100 bg-green-50' : 'border-slate-100 bg-slate-50'} flex items-center justify-between`}>
+        <div className={`rounded-xl border ${hasActiveSubdomain ? 'border-green-200 bg-green-50/30' : 'border-slate-200 bg-white'} overflow-hidden`}>
+          <div className={`px-5 py-3 border-b ${hasActiveSubdomain ? 'border-green-100 bg-green-50' : 'border-slate-100 bg-slate-50'} flex items-center justify-between`}>
             <div className="flex items-center gap-2">
               <Globe className="w-4 h-4 text-slate-600" />
               <h3 className="text-sm font-bold text-slate-900">Free Subdomain</h3>
             </div>
-            {subdomainIsActive && (
+            {hasActiveSubdomain && (
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
                 <span className="text-xs font-semibold text-green-700">Currently active</span>
@@ -899,79 +930,77 @@ export function DomainManager({
             )}
           </div>
           <div className="px-5 py-4 space-y-4">
-            {subdomainIsActive ? (
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-sm font-semibold text-slate-900">{currentDomain}.{baseDomainDisplay}</span>
-                <span className="text-xs text-green-700 font-medium">This is your domain</span>
+            {hasActiveSubdomain && (
+              <div className="flex items-center gap-2 p-2.5 bg-green-50 rounded-lg border border-green-100">
+                <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                <span className="font-mono text-sm font-semibold text-slate-900">{siteStatus.publishedDomain}.{baseDomainDisplay}</span>
+                <span className="text-[10px] text-green-700 font-medium ml-auto">Live</span>
               </div>
-            ) : (
-              <>
+            )}
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                {hasActiveSubdomain ? 'Change Subdomain' : 'Website Address'}
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={subdomain}
+                  onChange={(e) => setSubdomain(e.target.value.toLowerCase())}
+                  placeholder="e.g., myawesome-site"
+                  className="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg text-slate-900 font-medium placeholder-slate-400 focus:ring-2 focus:ring-red-600 focus:border-transparent"
+                />
+                <span className="text-slate-600 font-semibold text-lg whitespace-nowrap">
+                  .{baseDomainDisplay}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
+                3-63 characters, alphanumeric &amp; hyphens.
+                {checking && (
+                  <span className="ml-2 text-blue-600 inline-flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Checking...
+                  </span>
+                )}
+              </p>
+            </div>
+
+            {domainCheck && !error && (
+              <div
+                className={`p-4 rounded-lg border-2 flex items-start gap-3 ${domainCheck.available
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-red-50 border-red-200'
+                  }`}
+              >
+                {domainCheck.available ? (
+                  <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                ) : (
+                  <X className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                )}
                 <div>
-                  <label className="block text-sm font-semibold text-slate-900 mb-2">
-                    Website Address
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={subdomain}
-                      onChange={(e) => setSubdomain(e.target.value.toLowerCase())}
-                      placeholder="e.g., myawesome-site"
-                      className="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg text-slate-900 font-medium placeholder-slate-400 focus:ring-2 focus:ring-red-600 focus:border-transparent"
-                    />
-                    <span className="text-slate-600 font-semibold text-lg whitespace-nowrap">
-                      .{baseDomainDisplay}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-2">
-                    3-63 characters, alphanumeric &amp; hyphens.
-                    {checking && (
-                      <span className="ml-2 text-blue-600 inline-flex items-center gap-1">
-                        <Loader2 className="w-3 h-3 animate-spin" /> Checking...
-                      </span>
-                    )}
+                  <p className="font-mono font-semibold text-sm text-slate-900">
+                    {domainCheck.fullDomain}
+                  </p>
+                  <p className={`text-sm mt-1 ${domainCheck.available ? 'text-green-700' : 'text-red-700'}`}>
+                    {domainCheck.message}
                   </p>
                 </div>
-
-                {domainCheck && !error && (
-                  <div
-                    className={`p-4 rounded-lg border-2 flex items-start gap-3 ${domainCheck.available
-                        ? 'bg-green-50 border-green-200'
-                        : 'bg-red-50 border-red-200'
-                      }`}
-                  >
-                    {domainCheck.available ? (
-                      <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                    ) : (
-                      <X className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                    )}
-                    <div>
-                      <p className="font-mono font-semibold text-sm text-slate-900">
-                        {domainCheck.fullDomain}
-                      </p>
-                      <p className={`text-sm mt-1 ${domainCheck.available ? 'text-green-700' : 'text-red-700'}`}>
-                        {domainCheck.message}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <button
-                  onClick={handlePublish}
-                  disabled={publishing || !domainCheck || !domainCheck.available || !siteId}
-                  className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {publishing && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {publishing ? 'Publishing...' : 'Publish Site'}
-                </button>
-              </>
+              </div>
             )}
+
+            <button
+              onClick={handlePublish}
+              disabled={publishing || !domainCheck || !domainCheck.available || !siteId}
+              className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {publishing && <Loader2 className="w-4 h-4 animate-spin" />}
+              {publishing ? 'Publishing...' : hasActiveSubdomain ? 'Update Subdomain' : 'Publish Site'}
+            </button>
           </div>
         </div>
 
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* SECTION: Active/Pending Custom Domain Status                */}
         {/* ═══════════════════════════════════════════════════════════ */}
-        {customDomainProp && (
+        {siteStatus?.customDomain && (
           <div className="rounded-xl border border-green-200 bg-green-50/30 overflow-hidden">
             <div className="px-5 py-3 border-b border-green-100 bg-green-50 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -984,27 +1013,27 @@ export function DomainManager({
               </div>
             </div>
             <div className="px-5 py-4 flex items-center justify-between">
-              <span className="font-mono text-sm font-semibold text-slate-900">{customDomainProp}</span>
-              <a href={`https://${customDomainProp}`} target="_blank" rel="noopener noreferrer" className="text-xs text-red-600 hover:text-red-700 font-semibold flex items-center gap-1">
+              <span className="font-mono text-sm font-semibold text-slate-900">{siteStatus.customDomain}</span>
+              <a href={`https://${siteStatus.customDomain}`} target="_blank" rel="noopener noreferrer" className="text-xs text-red-600 hover:text-red-700 font-semibold flex items-center gap-1">
                 Visit <ExternalLink className="w-3 h-3" />
               </a>
             </div>
           </div>
         )}
 
-        {pendingCustomDomainProp && (
+        {siteStatus?.pendingCustomDomain && (
           <div className="rounded-xl border border-amber-200 overflow-hidden">
             <div className="px-5 py-3 border-b border-amber-100 bg-amber-50 flex items-center gap-2">
               <Loader2 className="w-4 h-4 text-amber-600" />
               <h3 className="text-sm font-bold text-amber-900">Pending Domain</h3>
             </div>
             <div className="px-5 py-4 space-y-3">
-              <span className="font-mono text-sm font-semibold text-slate-900">{pendingCustomDomainProp}</span>
-              {transferStatusProp && transferStatusProp !== 'completed' ? (
+              <span className="font-mono text-sm font-semibold text-slate-900">{siteStatus.pendingCustomDomain}</span>
+              {siteStatus.transferStatus && siteStatus.transferStatus !== 'completed' ? (
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-xs text-blue-800">
                     <strong>Domain transfer in progress.</strong> This typically takes 5-7 days.
-                    Status: <span className="font-semibold capitalize">{transferStatusProp.replace('_', ' ')}</span>
+                    Status: <span className="font-semibold capitalize">{siteStatus.transferStatus.replace('_', ' ')}</span>
                   </p>
                 </div>
               ) : (
@@ -1887,13 +1916,11 @@ export function DomainManager({
 function DomainSelectContent() {
   const searchParams = useSearchParams();
   const siteId = searchParams.get('siteId');
-  const currentDomain = searchParams.get('currentDomain');
   const transferInitiated = searchParams.get('transferInitiated') === 'true';
 
   return (
     <DomainManager
       siteId={siteId}
-      currentDomain={currentDomain}
       transferInitiated={transferInitiated}
     />
   );
