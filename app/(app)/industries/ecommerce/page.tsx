@@ -1,8 +1,11 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import Link from 'next/link';
 import { ShoppingBag, CreditCard, BarChart3, Globe, Truck, Layers, Tag, RefreshCw } from 'lucide-react';
+import t2 from '../../../../assets/templates/2.png';
+import t8 from '../../../../assets/templates/8.png';
 import Header from '../../../components/Header';
 import MarketingFooter from '../../../components/MarketingFooter';
 
@@ -159,15 +162,15 @@ export default function EcommerceIndustryPage() {
                 name: 'Vivid',
                 tagline: 'Bold. Energetic. In your face.',
                 description: 'Punchy headlines and saturated color stop the scroll and make your products impossible to ignore.',
-                accent: 'from-orange-600 to-red-600',
                 badge: 'bg-orange-100 text-orange-800',
+                image: t2,
               },
               {
                 name: 'Vibrant',
                 tagline: 'Playful. Gradient. Dynamic.',
                 description: 'Gradient headers and rounded product cards create a shopping experience that feels fresh and trustworthy.',
-                accent: 'from-pink-500 to-violet-600',
                 badge: 'bg-pink-100 text-pink-800',
+                image: t8,
               },
             ].map((tmpl, i) => (
               <motion.div
@@ -178,11 +181,14 @@ export default function EcommerceIndustryPage() {
                 transition={{ duration: 0.5, delay: i * 0.15 }}
                 className="group bg-white rounded-3xl border border-slate-200 overflow-hidden hover:border-red-300 hover:shadow-xl transition-all duration-300"
               >
-                <div className={`relative aspect-video bg-gradient-to-br ${tmpl.accent} flex items-center justify-center`}>
-                  <div className="text-center">
-                    <div className="text-white/20 text-6xl font-black">{tmpl.name[0]}</div>
-                    <div className="text-white/40 text-xs font-medium uppercase tracking-widest mt-1">Screenshot coming soon</div>
-                  </div>
+                <div className="relative aspect-video overflow-hidden">
+                  <Image
+                    src={tmpl.image}
+                    alt={`${tmpl.name} template preview`}
+                    fill
+                    className="object-cover object-top"
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                  />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
                     <Link href="/onboarding" className="px-5 py-2.5 bg-white text-slate-900 font-bold rounded-full shadow-lg hover:scale-105 transition-transform">
                       Use {tmpl.name}
