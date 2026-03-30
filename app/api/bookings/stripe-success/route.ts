@@ -106,6 +106,7 @@ export async function GET(request: NextRequest) {
 
     // Create the confirmed booking
     const stripePaymentId = checkoutSession.payment_intent as string;
+    const priceCents = checkoutSession.amount_total ?? service.price_cents;
 
     const { data: booking, error: bookError } = await supabase
         .from('bookings')
@@ -142,7 +143,6 @@ export async function GET(request: NextRequest) {
         return `${displayHour}:${mm.toString().padStart(2, '0')} ${period}`;
     };
 
-    const priceCents = checkoutSession.amount_total ?? service.price_cents;
     const siteName = site.title || site.site_slug || undefined;
 
     const emailData = {
