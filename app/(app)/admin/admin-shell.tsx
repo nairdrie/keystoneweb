@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
-import { ChevronDown, Plus, Paintbrush, LayoutDashboard, ExternalLink, Pencil, Check, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, HelpCircle, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2 } from 'lucide-react';
+import { ChevronDown, Plus, Paintbrush, LayoutDashboard, ExternalLink, Pencil, Check, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, HelpCircle, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, Eye, EyeOff, BookOpen, UtensilsCrossed } from 'lucide-react';
 import KeystoneLogo from '@/app/components/KeystoneLogo';
 import ProfileDropdown from '@/app/components/ProfileDropdown';
 import AlertModal from '@/app/components/ui/AlertModal';
@@ -21,14 +21,32 @@ interface Site {
   updatedAt: string;
 }
 
-const TABS = [
-  { id: 'analytics', label: 'Analytics', icon: BarChart3, path: '/admin/analytics' },
-  { id: 'seo', label: 'SEO', icon: Globe, path: '/admin/seo' },
-  { id: 'ecommerce', label: 'Ecommerce', icon: ShoppingBag, path: '/admin/ecommerce' },
-  { id: 'booking', label: 'Booking', icon: Calendar, path: '/admin/booking' },
-  { id: 'domains', label: 'Domains', icon: Link2, path: '/admin/domains' },
-  { id: 'inbox', label: 'Inbox', icon: Mail, path: '/admin/inbox' },
+interface TabDef {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  path: string;
+  core?: boolean;
+  requiresBlock?: string;
+  comingSoon?: boolean;
+}
+
+const ALL_TABS: TabDef[] = [
+  // Core — always visible
+  { id: 'analytics', label: 'Analytics', icon: BarChart3, path: '/admin/analytics', core: true },
+  { id: 'seo',       label: 'SEO',       icon: Globe,     path: '/admin/seo',       core: true },
+  { id: 'domains',   label: 'Domains',   icon: Link2,     path: '/admin/domains',   core: true },
+  // Optional — shown when site has the matching block, or when "show all" is on
+  { id: 'booking',   label: 'Booking',   icon: Calendar,  path: '/admin/booking',   requiresBlock: 'booking' },
+  { id: 'ecommerce', label: 'Ecommerce', icon: ShoppingBag, path: '/admin/ecommerce', requiresBlock: 'productGrid' },
+  { id: 'inbox',     label: 'Inbox',     icon: Mail,      path: '/admin/inbox',     requiresBlock: 'contact_form' },
+  // Coming soon — only appear when "show all" is on
+  { id: 'events', label: 'Events', icon: CalendarDays, path: '/admin/events', comingSoon: true },
+  { id: 'blog',   label: 'Blog',   icon: BookOpen,    path: '/admin/blog',   comingSoon: true },
+  { id: 'menu',   label: 'Menu',   icon: UtensilsCrossed, path: '/admin/menu', comingSoon: true },
 ];
+
+const SHOW_ALL_KEY = 'ks_admin_show_all_features';
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -53,12 +71,31 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [usage, setUsage] = useState<UsageData | null>(null);
   const [usagePlan, setUsagePlan] = useState<UsagePlan | null>(null);
   const [siteBreakdown, setSiteBreakdown] = useState<SiteUsageBreakdown[]>([]);
+  const [siteBlockTypes, setSiteBlockTypes] = useState<Set<string>>(new Set());
+  const [showAllFeatures, setShowAllFeatures] = useState(true);
 
   const hasFetchedRef = useRef<string | null>(null);
   const [showWalkthrough, setShowWalkthrough] = useState(false);
   const [walkthroughStep, setWalkthroughStep] = useState(0);
 
   const ADMIN_WALKTHROUGH_KEY = 'ks_seen_admin_walkthrough';
+
+  // Load persisted toggle preference
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(SHOW_ALL_KEY);
+      // default is true; only false if explicitly stored as '0'
+      setShowAllFeatures(stored !== '0');
+    }
+  }, []);
+
+  function toggleShowAllFeatures() {
+    setShowAllFeatures(prev => {
+      const next = !prev;
+      localStorage.setItem(SHOW_ALL_KEY, next ? '1' : '0');
+      return next;
+    });
+  }
 
   const adminSteps: WalkthroughStep[] = [
     {
@@ -174,7 +211,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       if (res.ok) {
         const { siteId: id } = await res.json();
         if (id) {
-          const tab = TABS.find(t => pathname.startsWith(t.path))?.path ?? '/admin/analytics';
+          const tab = ALL_TABS.find(t => pathname.startsWith(t.path))?.path ?? '/admin/analytics';
           router.replace(`${tab}?siteId=${id}`);
           return;
         }
@@ -186,11 +223,30 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   async function fetchSite(id: string) {
     setLoading(true);
     try {
-      const res = await fetch(`/api/sites?id=${id}`, { credentials: 'include' });
-      if (!res.ok) { router.push('/onboarding'); return; }
-      const data = await res.json();
+      // Fetch site data and pages concurrently
+      const [siteRes, pagesRes] = await Promise.all([
+        fetch(`/api/sites?id=${id}`, { credentials: 'include' }),
+        fetch(`/api/pages?siteId=${id}`, { credentials: 'include' }),
+      ]);
+      if (!siteRes.ok) { router.push('/onboarding'); return; }
+      const data = await siteRes.json();
       setSite(data);
       setSiteTitle(data.siteSlug || data.designData?.siteTitle || 'My Website');
+
+      // Detect which block types exist in this site's pages
+      if (pagesRes.ok) {
+        const pagesData = await pagesRes.json();
+        const pages: any[] = pagesData.pages || pagesData || [];
+        const blockTypes = new Set<string>();
+        for (const page of pages) {
+          const blocks: any[] = page.design_data?.blocks ?? page.design_data?.__blocks ?? [];
+          for (const block of blocks) {
+            if (block?.type) blockTypes.add(block.type);
+          }
+        }
+        setSiteBlockTypes(blockTypes);
+      }
+
       // Fetch inbox unread count
       fetch(`/api/contact/inbox?siteId=${id}`, { credentials: 'include' })
         .then(r => r.ok ? r.json() : null)
@@ -232,14 +288,22 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   function navigateSite(newSiteId: string) {
     setShowSiteSwitcher(false);
-    const tab = TABS.find(t => pathname.startsWith(t.path))?.path ?? '/admin/analytics';
+    const tab = ALL_TABS.find(t => pathname.startsWith(t.path))?.path ?? '/admin/analytics';
     router.push(`${tab}?siteId=${newSiteId}`);
   }
 
   if (loading || authLoading) return <EditorLoadingScreen />;
   if (!site) return null;
 
-  const activeTabId = TABS.find(t => pathname.startsWith(t.path))?.id ?? 'analytics';
+  // Determine which tabs to show
+  const visibleTabs = ALL_TABS.filter(tab => {
+    if (tab.core) return true;
+    if (showAllFeatures) return true;
+    if (tab.requiresBlock) return siteBlockTypes.has(tab.requiresBlock);
+    return false; // coming-soon tabs without a block: only visible with showAllFeatures
+  });
+
+  const activeTabId = ALL_TABS.find(t => pathname.startsWith(t.path))?.id ?? 'analytics';
   const liveUrl = site.customDomain
     ? `https://${site.customDomain}`
     : site.publishedDomain
@@ -248,7 +312,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const displayDomain = site.customDomain || (site.publishedDomain ? `${site.publishedDomain}.kswd.ca` : null);
 
   return (
-    <AdminContext.Provider value={{ siteId, site, siteTitle, setSiteTitle, isProUser, palette, usage, usagePlan, siteBreakdown }}>
+    <AdminContext.Provider value={{ siteId, site, siteTitle, setSiteTitle, isProUser, palette, usage, usagePlan, siteBreakdown, siteBlockTypes }}>
       <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-50">
 
         {/* ── Top Bar ── */}
@@ -412,7 +476,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           {/* Mobile: current tab + hamburger */}
           <div className="sm:hidden flex items-center justify-between px-4 py-2">
             {(() => {
-              const activeTab = TABS.find(t => t.id === activeTabId);
+              const activeTab = ALL_TABS.find(t => t.id === activeTabId);
               const Icon = activeTab?.icon;
               return (
                 <span className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
@@ -433,7 +497,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           {/* Mobile dropdown menu */}
           {showMobileMenu && (
             <div className="sm:hidden border-t border-slate-100 px-2 pb-2 space-y-0.5">
-              {TABS.map(tab => {
+              {visibleTabs.map(tab => {
                 const Icon = tab.icon;
                 const isActive = activeTabId === tab.id;
                 const badge = tab.id === 'inbox' && inboxUnread > 0 ? inboxUnread : null;
@@ -447,6 +511,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                   >
                     <Icon className="w-4 h-4" />
                     {tab.label}
+                    {tab.comingSoon && (
+                      <span className="ml-1 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide bg-slate-100 text-slate-400 rounded-full">
+                        Soon
+                      </span>
+                    )}
                     {badge !== null && (
                       <span className="ml-auto min-w-[20px] h-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-black px-1">
                         {badge > 99 ? '99+' : badge}
@@ -455,35 +524,71 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                   </button>
                 );
               })}
+
+              {/* Toggle — mobile */}
+              <div className="pt-1 mt-1 border-t border-slate-100">
+                <button
+                  onClick={toggleShowAllFeatures}
+                  className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                    showAllFeatures ? 'text-slate-700 hover:bg-slate-100' : 'text-slate-400 hover:bg-slate-100'
+                  }`}
+                >
+                  {showAllFeatures ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                  {showAllFeatures ? 'Showing all features' : 'Showing active only'}
+                </button>
+              </div>
             </div>
           )}
 
-          {/* Desktop: regular tabs */}
-          <div className="hidden sm:flex gap-1.5 px-4 py-2">
-            {TABS.map(tab => {
-              const Icon = tab.icon;
-              const isActive = activeTabId === tab.id;
-              const badge = tab.id === 'inbox' && inboxUnread > 0 ? inboxUnread : null;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => navigateTab(tab.path)}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
-                    isActive
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {tab.label}
-                  {badge !== null && (
-                    <span className="ml-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-black px-1">
-                      {badge > 99 ? '99+' : badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          {/* Desktop: regular tabs + toggle */}
+          <div className="hidden sm:flex items-center justify-between px-4 py-2">
+            <div className="flex gap-1.5 flex-wrap">
+              {visibleTabs.map(tab => {
+                const Icon = tab.icon;
+                const isActive = activeTabId === tab.id;
+                const badge = tab.id === 'inbox' && inboxUnread > 0 ? inboxUnread : null;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => navigateTab(tab.path)}
+                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
+                      isActive
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {tab.label}
+                    {tab.comingSoon && (
+                      <span className={`px-1 py-px text-[8px] font-black uppercase tracking-wide rounded-full ${
+                        isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'
+                      }`}>
+                        Soon
+                      </span>
+                    )}
+                    {badge !== null && (
+                      <span className="ml-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-black px-1">
+                        {badge > 99 ? '99+' : badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Toggle — desktop, right side */}
+            <button
+              onClick={toggleShowAllFeatures}
+              title={showAllFeatures ? 'Hide unused features' : 'Show all features'}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all shrink-0 ml-2 ${
+                showAllFeatures
+                  ? 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+                  : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              {showAllFeatures ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+              <span className="hidden md:inline">{showAllFeatures ? 'All features' : 'Active only'}</span>
+            </button>
           </div>
         </div>
 
