@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
     // Resolve site domain for cancel URL and dashboard link
     const { data: siteInfo } = await createAdminClient()
         .from('sites')
-        .select('custom_domain, published_domain, title, site_slug')
+        .select('custom_domain, published_domain, site_slug')
         .eq('id', siteId)
         .single();
 
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
         ? `https://${siteDomain}/admin/booking`
         : undefined;
 
-    const siteName = siteInfo?.title || siteInfo?.site_slug || undefined;
+    const siteName = siteInfo?.site_slug || undefined;
 
     const emailData = {
         serviceName: service.name,

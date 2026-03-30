@@ -1688,10 +1688,11 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                         {/* Summary */}
                         <div className="bg-slate-50 rounded-xl p-4 mb-6 text-sm">
                             <div className="flex justify-between"><span className="text-slate-500">Service</span><span className="font-medium text-slate-900">{selectedService?.name}</span></div>
+                            {selectedOption && <div className="flex justify-between mt-1"><span className="text-slate-500">Option</span><span className="font-medium text-slate-900">{selectedOption.name}</span></div>}
                             <div className="flex justify-between mt-1"><span className="text-slate-500">Date</span><span className="font-medium text-slate-900">{selectedDate && new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span></div>
                             <div className="flex justify-between mt-1"><span className="text-slate-500">Time</span><span className="font-medium text-slate-900">{selectedSlot?.display}</span></div>
-                            {selectedService && selectedService.price_cents > 0 && (
-                                <div className="flex justify-between mt-1 pt-1 border-t border-slate-200"><span className="text-slate-500">Price</span><span className="font-bold" style={{ color: pSecondary }}>${(selectedService.price_cents / 100).toFixed(2)}</span></div>
+                            {effectivePriceCents > 0 && (
+                                <div className="flex justify-between mt-1 pt-1 border-t border-slate-200"><span className="text-slate-500">Price</span><span className="font-bold" style={{ color: pSecondary }}>${(effectivePriceCents / 100).toFixed(2)}</span></div>
                             )}
                         </div>
 
