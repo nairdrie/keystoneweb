@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendCustomerConfirmation, sendOwnerNotification } from '@/lib/email';
 
@@ -155,7 +156,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Resolve site domain for cancel URL and dashboard link
-    const { data: siteInfo } = await supabase
+    const { data: siteInfo } = await createAdminClient()
         .from('sites')
         .select('custom_domain, published_domain, title, site_slug')
         .eq('id', siteId)

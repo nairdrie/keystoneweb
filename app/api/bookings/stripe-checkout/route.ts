@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Get site + connected Stripe account
-        const { data: site } = await supabase
+        const { data: site } = await createAdminClient()
             .from('sites')
             .select('stripe_account_id, site_slug, published_domain')
             .eq('id', siteId)
