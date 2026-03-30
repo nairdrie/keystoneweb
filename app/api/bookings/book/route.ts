@@ -162,6 +162,11 @@ export async function POST(request: NextRequest) {
         .eq('id', siteId)
         .single();
 
+    if(!siteInfo) {
+        console.error('[BOOKINGS]  Site not found:', siteId);
+    }
+
+
     const siteDomain = siteInfo?.custom_domain
         ? siteInfo.custom_domain
         : siteInfo?.published_domain
