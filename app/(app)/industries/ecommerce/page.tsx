@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ShoppingBag, CreditCard, BarChart3, Globe, Truck, Layers, Tag, RefreshCw } from 'lucide-react';
+import t2 from '../../../../assets/templates/2.png';
+import t8 from '../../../../assets/templates/8.png';
 import Header from '../../../components/Header';
 import MarketingFooter from '../../../components/MarketingFooter';
 
@@ -161,14 +163,14 @@ export default function EcommerceIndustryPage() {
                 tagline: 'Bold. Energetic. In your face.',
                 description: 'Punchy headlines and saturated color stop the scroll and make your products impossible to ignore.',
                 badge: 'bg-orange-100 text-orange-800',
-                image: '/templates/2.png',
+                image: t2,
               },
               {
                 name: 'Vibrant',
                 tagline: 'Playful. Gradient. Dynamic.',
                 description: 'Gradient headers and rounded product cards create a shopping experience that feels fresh and trustworthy.',
                 badge: 'bg-pink-100 text-pink-800',
-                image: '/templates/8.png',
+                image: t8,
               },
             ].map((tmpl, i) => (
               <motion.div
@@ -184,7 +186,8 @@ export default function EcommerceIndustryPage() {
                     src={tmpl.image}
                     alt={`${tmpl.name} template preview`}
                     fill
-                    className="object-cover"
+                    className="object-cover object-top"
+                    sizes="(max-width: 768px) 100vw, 50vw"
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
                     <Link href="/onboarding" className="px-5 py-2.5 bg-white text-slate-900 font-bold rounded-full shadow-lg hover:scale-105 transition-transform">

@@ -8,6 +8,16 @@ import Header from '../components/Header';
 import MarketingFooter from '../components/MarketingFooter';
 import mapleLeaf from '../../assets/maple-leaf.png';
 import AnimatedGridPattern from '../components/AnimatedGridPattern';
+import t1 from '../../assets/templates/1.png';
+import t2 from '../../assets/templates/2.png';
+import t3 from '../../assets/templates/3.png';
+import t4 from '../../assets/templates/4.png';
+import t5 from '../../assets/templates/5.png';
+import t6 from '../../assets/templates/6.png';
+import t7 from '../../assets/templates/7.png';
+import t8 from '../../assets/templates/8.png';
+
+const TEMPLATE_IMAGES = [t1, t2, t3, t4, t5, t6, t7, t8];
 
 export default function HomePage() {
   return (
@@ -186,14 +196,12 @@ export default function HomePage() {
             transition={{ duration: 0.8 }}
             className="flex gap-6 animate-scroll-left"
           >
-            {Array.from({ length: 8 }).map((_, i) => (
+            {TEMPLATE_IMAGES.map((img, i) => (
               <div
                 key={`row1-${i}`}
-                className="flex-shrink-0 w-80 h-52 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 overflow-hidden group hover:border-red-500 transition-all duration-300"
+                className="relative shrink-0 w-80 h-52 rounded-xl border border-slate-700 overflow-hidden group hover:border-red-500 transition-all duration-300"
               >
-                <div className="w-full h-full flex items-center justify-center text-slate-600 text-sm font-medium">
-                  Template Preview
-                </div>
+                <Image src={img} alt="" fill className="object-cover object-top" sizes="320px" />
               </div>
             ))}
           </motion.div>
@@ -206,14 +214,12 @@ export default function HomePage() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="flex gap-6 animate-scroll-right"
           >
-            {Array.from({ length: 8 }).map((_, i) => (
+            {[...TEMPLATE_IMAGES].reverse().map((img, i) => (
               <div
                 key={`row2-${i}`}
-                className="flex-shrink-0 w-80 h-52 rounded-xl bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 overflow-hidden group hover:border-red-500 transition-all duration-300"
+                className="relative shrink-0 w-80 h-52 rounded-xl border border-slate-700 overflow-hidden group hover:border-red-500 transition-all duration-300"
               >
-                <div className="w-full h-full flex items-center justify-center text-slate-600 text-sm font-medium">
-                  Template Preview
-                </div>
+                <Image src={img} alt="" fill className="object-cover object-top" sizes="320px" />
               </div>
             ))}
           </motion.div>

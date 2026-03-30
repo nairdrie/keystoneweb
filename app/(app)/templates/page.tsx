@@ -5,6 +5,14 @@ import Image from 'next/image';
 import Link from 'next/link';
 import Header from '../../components/Header';
 import MarketingFooter from '../../components/MarketingFooter';
+import t1 from '../../../assets/templates/1.png';
+import t2 from '../../../assets/templates/2.png';
+import t3 from '../../../assets/templates/3.png';
+import t4 from '../../../assets/templates/4.png';
+import t5 from '../../../assets/templates/5.png';
+import t6 from '../../../assets/templates/6.png';
+import t7 from '../../../assets/templates/7.png';
+import t8 from '../../../assets/templates/8.png';
 
 const TEMPLATES = [
   {
@@ -15,7 +23,7 @@ const TEMPLATES = [
     bestFor: ['Salons & Spas', 'Photographers', 'Boutiques', 'Fine Dining'],
     accent: '#c9a96e',
     badge: 'bg-amber-100 text-amber-800',
-    image: '/templates/1.png',
+    image: t1,
   },
   {
     id: 'vivid',
@@ -25,7 +33,7 @@ const TEMPLATES = [
     bestFor: ['Fitness Studios', 'Food & Drink', 'Creative Agencies', 'Retail'],
     accent: '#f97316',
     badge: 'bg-orange-100 text-orange-800',
-    image: '/templates/2.png',
+    image: t2,
   },
   {
     id: 'airy',
@@ -35,7 +43,7 @@ const TEMPLATES = [
     bestFor: ['Wellness Coaches', 'Yoga & Pilates', 'Consultants', 'Portfolios'],
     accent: '#38bdf8',
     badge: 'bg-sky-100 text-sky-800',
-    image: '/templates/3.png',
+    image: t3,
   },
   {
     id: 'edge',
@@ -45,7 +53,7 @@ const TEMPLATES = [
     bestFor: ['Tech & Software', 'Music & Events', 'Automotive', 'Modern Retail'],
     accent: '#a855f7',
     badge: 'bg-purple-100 text-purple-800',
-    image: '/templates/4.png',
+    image: t4,
   },
   {
     id: 'classic',
@@ -55,7 +63,7 @@ const TEMPLATES = [
     bestFor: ['Trades & Contractors', 'Law & Finance', 'Healthcare', 'Real Estate'],
     accent: '#1e40af',
     badge: 'bg-blue-100 text-blue-800',
-    image: '/templates/5.png',
+    image: t5,
   },
   {
     id: 'organic',
@@ -65,7 +73,7 @@ const TEMPLATES = [
     bestFor: ['Restaurants & Cafes', 'Home Services', 'Landscaping', 'Health Food'],
     accent: '#65a30d',
     badge: 'bg-lime-100 text-lime-800',
-    image: '/templates/6.png',
+    image: t6,
   },
   {
     id: 'sleek',
@@ -75,7 +83,7 @@ const TEMPLATES = [
     bestFor: ['Consultants', 'Architects', 'Designers', 'Professional Services'],
     accent: '#0f172a',
     badge: 'bg-slate-100 text-slate-800',
-    image: '/templates/7.png',
+    image: t7,
   },
   {
     id: 'vibrant',
@@ -85,7 +93,7 @@ const TEMPLATES = [
     bestFor: ['E-Commerce', 'Events & Activities', 'Kids & Family', 'Food Delivery'],
     accent: '#ec4899',
     badge: 'bg-pink-100 text-pink-800',
-    image: '/templates/8.png',
+    image: t8,
   },
 ];
 
@@ -138,13 +146,14 @@ export default function TemplatesPage() {
               transition={{ duration: 0.5, delay: (i % 2) * 0.1 }}
               className="group bg-white rounded-3xl border border-slate-200 overflow-hidden hover:border-red-300 hover:shadow-2xl transition-all duration-300"
             >
-              {/* Template preview image */}
-              <div className="relative aspect-[16/9] overflow-hidden">
+              {/* Screenshot */}
+              <div className="relative aspect-video overflow-hidden">
                 <Image
                   src={template.image}
                   alt={`${template.name} template preview`}
                   fill
-                  className="object-cover"
+                  className="object-cover object-top"
+                  sizes="(max-width: 768px) 100vw, 50vw"
                 />
                 {/* Hover overlay */}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">

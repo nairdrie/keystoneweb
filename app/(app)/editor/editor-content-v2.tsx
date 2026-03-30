@@ -951,12 +951,13 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aiOnboardingBuilding, aiBuilder.isLoading]);
 
-  // Safety timeout: if the loading screen is stuck for 45 seconds, force-dismiss it
+  // Safety timeout: if the loading screen is stuck for 2 minutes, force-dismiss it
+  // (AI generation can take 60-90s for complex sites, so give it plenty of room)
   useEffect(() => {
     if (!aiOnboardingBuilding) return;
     const timeout = setTimeout(() => {
       setAiOnboardingBuilding(false);
-    }, 45_000);
+    }, 120_000);
     return () => clearTimeout(timeout);
   }, [aiOnboardingBuilding]);
 

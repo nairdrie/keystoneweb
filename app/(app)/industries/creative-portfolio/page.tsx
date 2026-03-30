@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Palette, Image as ImageIcon, Globe, MessageSquare, Sparkles, BarChart3, Layers, Star } from 'lucide-react';
+import t1 from '../../../../assets/templates/1.png';
+import t3 from '../../../../assets/templates/3.png';
 import Header from '../../../components/Header';
 import MarketingFooter from '../../../components/MarketingFooter';
 
@@ -161,14 +163,14 @@ export default function CreativePortfolioIndustryPage() {
                 tagline: 'Refined. Elegant. Unforgettable.',
                 description: 'Centered layout with generous whitespace gives your imagery room to breathe and your brand a premium, gallery-like feel.',
                 badge: 'bg-amber-100 text-amber-800',
-                image: '/templates/1.png',
+                image: t1,
               },
               {
                 name: 'Airy',
                 tagline: 'Light. Spacious. Breathable.',
                 description: 'A light, editorial aesthetic that puts your photography or design work at the forefront without distraction.',
                 badge: 'bg-sky-100 text-sky-800',
-                image: '/templates/3.png',
+                image: t3,
               },
             ].map((tmpl, i) => (
               <motion.div
@@ -184,7 +186,8 @@ export default function CreativePortfolioIndustryPage() {
                     src={tmpl.image}
                     alt={`${tmpl.name} template preview`}
                     fill
-                    className="object-cover"
+                    className="object-cover object-top"
+                    sizes="(max-width: 768px) 100vw, 50vw"
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
                     <Link href="/onboarding" className="px-5 py-2.5 bg-white text-slate-900 font-bold rounded-full shadow-lg hover:scale-105 transition-transform">

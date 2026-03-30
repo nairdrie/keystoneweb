@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Hammer, CalendarCheck, ShieldCheck, MapPin, Image as ImageIcon, ListChecks, PhoneCall, Star } from 'lucide-react';
+import t5 from '../../../../assets/templates/5.png';
+import t6 from '../../../../assets/templates/6.png';
 import Header from '../../../components/Header';
 import MarketingFooter from '../../../components/MarketingFooter';
 
@@ -154,14 +156,14 @@ export default function TradesIndustryPage() {
                 tagline: 'Structured. Trusted. Timeless.',
                 description: 'The utility-bar layout and traditional nav signal reliability — exactly what a homeowner wants before handing you their keys.',
                 badge: 'bg-blue-100 text-blue-800',
-                image: '/templates/5.png',
+                image: t5,
               },
               {
                 name: 'Organic',
                 tagline: 'Warm. Natural. Human.',
                 description: 'Earthy tones and rounded shapes give your business a personal, approachable feel that stands out from the competition.',
                 badge: 'bg-lime-100 text-lime-800',
-                image: '/templates/6.png',
+                image: t6,
               },
             ].map((tmpl, i) => (
               <motion.div
@@ -177,7 +179,8 @@ export default function TradesIndustryPage() {
                     src={tmpl.image}
                     alt={`${tmpl.name} template preview`}
                     fill
-                    className="object-cover"
+                    className="object-cover object-top"
+                    sizes="(max-width: 768px) 100vw, 50vw"
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
                     <Link href="/onboarding" className="px-5 py-2.5 bg-white text-slate-900 font-bold rounded-full shadow-lg hover:scale-105 transition-transform">

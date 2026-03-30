@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Briefcase, CalendarCheck, ShieldCheck, Globe, MessageSquare, Sparkles, BarChart3, Users } from 'lucide-react';
+import t5 from '../../../../assets/templates/5.png';
+import t7 from '../../../../assets/templates/7.png';
 import Header from '../../../components/Header';
 import MarketingFooter from '../../../components/MarketingFooter';
 
@@ -161,14 +163,14 @@ export default function ProfessionalServicesIndustryPage() {
                 tagline: 'Minimal. Precise. Powerful.',
                 description: 'Oversized typography and a restrained color palette communicate confidence, authority, and clarity of thought.',
                 badge: 'bg-slate-100 text-slate-800',
-                image: '/templates/7.png',
+                image: t7,
               },
               {
                 name: 'Classic',
                 tagline: 'Structured. Trusted. Timeless.',
                 description: 'The traditional layout that says "I have been doing this for years" — trusted by clients across industries.',
                 badge: 'bg-blue-100 text-blue-800',
-                image: '/templates/5.png',
+                image: t5,
               },
             ].map((tmpl, i) => (
               <motion.div
@@ -184,7 +186,8 @@ export default function ProfessionalServicesIndustryPage() {
                     src={tmpl.image}
                     alt={`${tmpl.name} template preview`}
                     fill
-                    className="object-cover"
+                    className="object-cover object-top"
+                    sizes="(max-width: 768px) 100vw, 50vw"
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
                     <Link href="/onboarding" className="px-5 py-2.5 bg-white text-slate-900 font-bold rounded-full shadow-lg hover:scale-105 transition-transform">
