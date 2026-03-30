@@ -306,11 +306,17 @@ export async function POST(request: NextRequest) {
           })
           .eq('stripe_subscription_id', subscription.id)
           .select('stripe_customer_id, free_domain_claimed, free_domain_claimed_at')
-          .single();
+          .maybeSingle();
 
         if (error) {
           console.error(`Failed to update subscription ${subscription.id} to ${status}:`, error);
           return NextResponse.json({ error: 'Failed to update subscription' }, { status: 500 });
+        }
+
+        if (!userSub) {
+          // Subscription not tracked in our DB (e.g. created before this webhook was set up)
+          console.warn(`Subscription ${subscription.id} not found in user_subscriptions; skipping sync.`);
+          break;
         }
 
         // ── Refund abuse prevention ────────────────────────────────────────
