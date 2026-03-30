@@ -58,6 +58,7 @@ export interface AdminContextValue {
   usage: UsageData | null;
   usagePlan: UsagePlan | null;
   siteBreakdown: SiteUsageBreakdown[];
+  siteBlockTypes: Set<string>;
 }
 
 export const AdminContext = createContext<AdminContextValue>({
@@ -70,6 +71,7 @@ export const AdminContext = createContext<AdminContextValue>({
   usage: null,
   usagePlan: null,
   siteBreakdown: [],
+  siteBlockTypes: new Set(),
 });
 
 export function useAdminContext() {

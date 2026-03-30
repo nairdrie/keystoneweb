@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mail, RefreshCw, Inbox, Bot, User, Sparkles } from 'lucide-react';
 import { useAdminContext } from '../admin-context';
+import { MessageSquare } from 'lucide-react';
 
 interface Submission {
   id: string;
@@ -55,7 +56,7 @@ const FILTERS = [
 ];
 
 export default function AdminInboxPage() {
-  const { siteId } = useAdminContext();
+  const { siteId, siteBlockTypes } = useAdminContext();
   const router = useRouter();
 
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -116,6 +117,26 @@ export default function AdminInboxPage() {
   }
 
   if (!siteId) return null;
+
+  if (!siteBlockTypes.has('contact_form')) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+          <MessageSquare className="w-7 h-7 text-slate-300" />
+        </div>
+        <h2 className="text-base font-bold text-slate-900 mb-1">No Contact Form block on this site</h2>
+        <p className="text-sm text-slate-500 max-w-xs mb-5">
+          Add a <strong>Contact Form</strong> block to your site so visitors can send you messages.
+        </p>
+        <a
+          href={`/design?siteId=${siteId}`}
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-700 transition-colors"
+        >
+          Open Designer
+        </a>
+      </div>
+    );
+  }
 
   const totalPages = Math.ceil(total / 40);
 

@@ -1,0 +1,17 @@
+'use client';
+
+import { BookOpen } from 'lucide-react';
+
+export default function AdminBlogPage() {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
+      <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+        <BookOpen className="w-7 h-7 text-slate-300" />
+      </div>
+      <h2 className="text-base font-bold text-slate-900 mb-1">Blog — Coming Soon</h2>
+      <p className="text-sm text-slate-500 max-w-xs">
+        Write and publish blog posts, manage drafts, and grow your audience. This feature is on the way.
+      </p>
+    </div>
+  );
+}
