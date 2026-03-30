@@ -291,21 +291,15 @@ export default function BookingsPanel({ siteId }: BookingsPanelProps) {
                                                             <div className="flex flex-wrap gap-1.5 pt-1">
                                                                 {booking.status === 'pending' && (
                                                                     <button
-                                                                        onClick={() => updateBooking(booking.id, { status: 'confirmed' })}
+                                                                        onClick={() => updateBooking(booking.id, {
+                                                                            status: 'confirmed',
+                                                                            ...(booking.payment_method === 'etransfer' ? { payment_status: 'paid' } : {}),
+                                                                        })}
                                                                         disabled={updatingId === booking.id}
                                                                         className="px-2.5 py-1.5 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
                                                                     >
                                                                         {updatingId === booking.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-                                                                        Confirm
-                                                                    </button>
-                                                                )}
-                                                                {booking.payment_status !== 'paid' && booking.payment_method !== 'none' && (
-                                                                    <button
-                                                                        onClick={() => updateBooking(booking.id, { status: 'confirmed', payment_status: 'paid' })}
-                                                                        disabled={updatingId === booking.id}
-                                                                        className="px-2.5 py-1.5 text-xs font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                                                                    >
-                                                                        Mark Paid & Confirm
+                                                                        {booking.payment_method === 'etransfer' ? 'Mark Paid & Confirm' : 'Confirm'}
                                                                     </button>
                                                                 )}
                                                                 <button
