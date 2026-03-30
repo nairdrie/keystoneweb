@@ -7,6 +7,49 @@ import { AIMessage, UsageRemaining } from '@/lib/hooks/useAIBuilder';
 
 const WARN_THRESHOLD = 3; // show remaining badge when this many or fewer left
 
+const BUILDING_MESSAGES = [
+  'Building your site...',
+  'Laying the foundation...',
+  'Picking the perfect layout...',
+  'Choosing colors that pop...',
+  'Writing copy that converts...',
+  'Arranging sections just right...',
+  'Adding finishing touches...',
+  'Polishing every pixel...',
+];
+
+function BuildingText() {
+  const [msgIndex, setMsgIndex] = useState(0);
+  const [displayed, setDisplayed] = useState('');
+  const [charIndex, setCharIndex] = useState(0);
+  const currentMsg = BUILDING_MESSAGES[msgIndex];
+
+  useEffect(() => {
+    if (charIndex < currentMsg.length) {
+      const timer = setTimeout(() => {
+        setDisplayed(currentMsg.slice(0, charIndex + 1));
+        setCharIndex((c) => c + 1);
+      }, 38);
+      return () => clearTimeout(timer);
+    }
+    // Fully typed — pause then move to next message
+    const timer = setTimeout(() => {
+      const next = (msgIndex + 1) % BUILDING_MESSAGES.length;
+      setMsgIndex(next);
+      setDisplayed('');
+      setCharIndex(0);
+    }, 2400);
+    return () => clearTimeout(timer);
+  }, [charIndex, msgIndex, currentMsg]);
+
+  return (
+    <span className="text-[12px]">
+      {displayed}
+      <span className="opacity-70 animate-pulse">|</span>
+    </span>
+  );
+}
+
 interface AIBuilderPanelProps {
   messages: AIMessage[];
   isLoading: boolean;
@@ -296,7 +339,7 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
             <div className="flex justify-start">
               <div className="bg-slate-100 text-slate-500 px-3 py-2 rounded-xl rounded-bl-sm flex items-center gap-2">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span className="text-[12px]">Building...</span>
+                <BuildingText />
               </div>
             </div>
           )}
