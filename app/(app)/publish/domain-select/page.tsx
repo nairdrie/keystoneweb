@@ -92,6 +92,20 @@ interface TransferContact {
 type DomainTab = 'subdomain' | 'custom';
 type CustomMode = 'search' | 'external';
 
+// ─── DomainManager Props (for embedding in other pages) ─────────────────────
+
+export interface DomainManagerProps {
+  siteId: string | null;
+  currentDomain?: string | null;
+  transferInitiated?: boolean;
+  /** When true, renders inline without full-page wrapper/auth redirect */
+  embedded?: boolean;
+  /** Called on successful domain setup */
+  onSuccess?: (url: string) => void;
+  /** Called when Cancel is clicked (standalone mode defaults to /editor) */
+  onCancel?: () => void;
+}
+
 // ─── URL → Root Domain Extraction ────────────────────────────────────────────
 
 function extractRootDomain(input: string): string {
@@ -269,15 +283,20 @@ function DomainPriceLabel({
 
 // ─── Main Content ────────────────────────────────────────────────────────────
 
-function DomainSelectContent() {
+export function DomainManager({
+  siteId: siteIdProp,
+  currentDomain: currentDomainProp,
+  transferInitiated: transferInitiatedProp = false,
+  embedded = false,
+  onSuccess,
+  onCancel,
+}: DomainManagerProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
 
-  const siteId = searchParams.get('siteId');
-  const sessionId = searchParams.get('session_id');
-  const currentDomain = searchParams.get('currentDomain');
-  const transferInitiatedParam = searchParams.get('transfer_initiated') === 'true';
+  const siteId = siteIdProp;
+  const currentDomain = currentDomainProp ?? null;
+  const transferInitiatedParam = transferInitiatedProp;
 
   // Shared state
   const [activeTab, setActiveTab] = useState<DomainTab>(transferInitiatedParam ? 'custom' : 'subdomain');
@@ -379,19 +398,19 @@ function DomainSelectContent() {
       .finally(() => setLoadingOwnedDomains(false));
   }, [user, authLoading]);
 
-  // Auth verification
+  // Auth verification (skip redirect in embedded mode — parent handles auth)
   useEffect(() => {
-    if (authLoading) return;
+    if (embedded || authLoading) return;
 
     if (!user) {
       router.push('/signin');
       return;
     }
 
-    if (!siteId || !sessionId) {
-      setError('Invalid session. Missing siteId or sessionId.');
+    if (!siteId) {
+      setError('Invalid session. Missing siteId.');
     }
-  }, [user, authLoading, siteId, sessionId, router]);
+  }, [user, authLoading, siteId, router, embedded]);
 
   // ─── Subdomain Logic ────────────────────────────────────────────────────
 
@@ -751,6 +770,13 @@ function DomainSelectContent() {
   // ─── Render ─────────────────────────────────────────────────────────────
 
   if (authLoading || loadingPlan) {
+    if (embedded) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+        </div>
+      );
+    }
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
@@ -760,6 +786,30 @@ function DomainSelectContent() {
 
   // Success state
   if (success) {
+    if (embedded) {
+      if (onSuccess) onSuccess(publishedUrl);
+      return (
+        <div className="p-6 text-center">
+          <div className="inline-flex items-center justify-center w-12 h-12 bg-green-100 rounded-full mb-3">
+            <Check className="w-6 h-6 text-green-600" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-900 mb-1">Domain Configured!</h2>
+          <p className="text-sm text-slate-600 mb-4">Your site is now live on the web.</p>
+          <div className="bg-slate-100 rounded-lg p-3 mb-4">
+            <p className="text-xs text-slate-600 mb-1">Your live URL:</p>
+            <p className="text-sm font-mono font-bold text-slate-900 break-all">{publishedUrl}</p>
+          </div>
+          <a
+            href={publishedUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-lg transition-colors"
+          >
+            Visit Your Live Site
+          </a>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
@@ -800,13 +850,24 @@ function DomainSelectContent() {
     );
   }
 
+  const outerWrapperClass = embedded
+    ? ''
+    : 'min-h-screen bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center p-4';
+  const innerWrapperClass = embedded
+    ? 'w-full'
+    : 'bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8';
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8">
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">Choose Your Domain</h1>
-        <p className="text-slate-600 mb-6">
-          Pick how you want your site to appear on the web.
-        </p>
+    <div className={outerWrapperClass}>
+      <div className={innerWrapperClass}>
+        {!embedded && (
+          <>
+            <h1 className="text-2xl font-bold text-slate-900 mb-2">Choose Your Domain</h1>
+            <p className="text-slate-600 mb-6">
+              Pick how you want your site to appear on the web.
+            </p>
+          </>
+        )}
 
         {/* ─── Tab Switcher ──────────────────────────────────────────── */}
         <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-6">
@@ -904,12 +965,14 @@ function DomainSelectContent() {
               {publishing ? 'Publishing...' : 'Publish Site'}
             </button>
 
-            <button
-              onClick={() => router.push('/editor')}
-              className="w-full py-2 px-4 bg-slate-200 hover:bg-slate-300 text-slate-900 font-bold rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
+            {!embedded && (
+              <button
+                onClick={() => onCancel ? onCancel() : router.push('/editor')}
+                className="w-full py-2 px-4 bg-slate-200 hover:bg-slate-300 text-slate-900 font-bold rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            )}
           </div>
         )}
 
@@ -1759,18 +1822,35 @@ function DomainSelectContent() {
             )}
 
             {/* Cancel button for custom tab */}
-            <div className="mt-4">
-              <button
-                onClick={() => router.push('/editor')}
-                className="w-full py-2 px-4 bg-slate-200 hover:bg-slate-300 text-slate-900 font-bold rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
+            {!embedded && (
+              <div className="mt-4">
+                <button
+                  onClick={() => onCancel ? onCancel() : router.push('/editor')}
+                  className="w-full py-2 px-4 bg-slate-200 hover:bg-slate-300 text-slate-900 font-bold rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>
     </div>
+  );
+}
+
+function DomainSelectContent() {
+  const searchParams = useSearchParams();
+  const siteId = searchParams.get('siteId');
+  const currentDomain = searchParams.get('currentDomain');
+  const transferInitiated = searchParams.get('transferInitiated') === 'true';
+
+  return (
+    <DomainManager
+      siteId={siteId}
+      currentDomain={currentDomain}
+      transferInitiated={transferInitiated}
+    />
   );
 }
 

@@ -1,33 +1,26 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Globe,
   CheckCircle2,
   AlertCircle,
   Clock,
-  ExternalLink,
   RefreshCw,
   Loader2,
-  Pencil,
-  ArrowRight,
   Link2,
   Shield,
 } from 'lucide-react';
 import { useAdminContext } from '../admin-context';
+import { DomainManager } from '../../publish/domain-select/page';
 
 interface DomainStatus {
-  // Site domain info
   publishedDomain: string | null;
   customDomain: string | null;
   pendingCustomDomain: string | null;
-  // DNS checks (for pending domains)
   dnsChecks: { cname: boolean; txt: boolean } | null;
-  // Transfer info (for pending transfers)
   transferStatus: string | null;
   transferDomain: string | null;
-  // Owned domains linked to this site
   ownedDomains: Array<{
     id: string;
     domain: string;
@@ -41,7 +34,6 @@ interface DomainStatus {
 }
 
 export default function DomainsPage() {
-  const router = useRouter();
   const { siteId, site, isProUser } = useAdminContext();
 
   const [domainStatus, setDomainStatus] = useState<DomainStatus | null>(null);
@@ -86,7 +78,6 @@ export default function DomainsPage() {
         const data = await res.json();
         setDnsResult(data);
         if (data.verified) {
-          // Refresh status after successful verification
           await fetchDomainStatus();
         }
       }
@@ -136,18 +127,9 @@ export default function DomainsPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-black text-slate-900">Domain Settings</h2>
-          <p className="text-sm text-slate-500 mt-1">Manage how visitors reach your site.</p>
-        </div>
-        <button
-          onClick={() => router.push(`/publish/domain-select?session_id=existing&siteId=${siteId}&currentDomain=${domainStatus?.publishedDomain || ''}`)}
-          className="flex items-center gap-1.5 px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition-colors"
-        >
-          <Pencil className="w-3.5 h-3.5" />
-          Change Domain
-        </button>
+      <div>
+        <h2 className="text-xl font-black text-slate-900">Domain Settings</h2>
+        <p className="text-sm text-slate-500 mt-1">Manage how visitors reach your site.</p>
       </div>
 
       {/* Current Active Domain */}
@@ -156,7 +138,6 @@ export default function DomainsPage() {
           <h3 className="text-sm font-bold text-slate-900">Active Domain</h3>
         </div>
         <div className="px-5 py-4 space-y-3">
-          {/* Subdomain - always present if published */}
           {subdomainUrl && (
             <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
               <div className="flex items-center gap-2.5">
@@ -173,7 +154,6 @@ export default function DomainsPage() {
             </div>
           )}
 
-          {/* Custom domain - if verified */}
           {domainStatus?.customDomain && (
             <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100">
               <div className="flex items-center gap-2.5">
@@ -190,31 +170,9 @@ export default function DomainsPage() {
             </div>
           )}
 
-          {/* No custom domain and no pending */}
-          {!domainStatus?.customDomain && !domainStatus?.pendingCustomDomain && (
-            <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg">
-              <AlertCircle className="w-4 h-4 text-slate-400" />
-              <span className="text-sm text-slate-500">No custom domain configured.</span>
-              {isProUser && (
-                <button
-                  onClick={() => router.push(`/publish/domain-select?session_id=existing&siteId=${siteId}&currentDomain=${domainStatus?.publishedDomain || ''}`)}
-                  className="ml-auto text-xs font-semibold text-red-600 hover:text-red-700"
-                >
-                  Add one
-                </button>
-              )}
-            </div>
-          )}
-
-          {!subdomainUrl && !domainStatus?.customDomain && (
+          {!domainStatus?.customDomain && !domainStatus?.pendingCustomDomain && !subdomainUrl && (
             <div className="text-center py-4">
-              <p className="text-sm text-slate-500">Your site hasn't been published yet.</p>
-              <button
-                onClick={() => router.push(`/design?siteId=${siteId}`)}
-                className="mt-2 text-xs font-semibold text-red-600 hover:text-red-700"
-              >
-                Go to Design to publish
-              </button>
+              <p className="text-sm text-slate-500">Your site hasn&apos;t been published yet.</p>
             </div>
           )}
         </div>
@@ -235,9 +193,7 @@ export default function DomainsPage() {
               <span className="font-mono text-sm font-semibold text-slate-900">{domainStatus.pendingCustomDomain}</span>
             </div>
 
-            {/* Determine if this is a DNS-pending or transfer-pending domain */}
             {domainStatus.transferStatus && domainStatus.transferStatus !== 'completed' ? (
-              // Transfer in progress
               <div className="space-y-3">
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-xs text-blue-800">
@@ -264,7 +220,6 @@ export default function DomainsPage() {
                 </button>
               </div>
             ) : (
-              // DNS verification pending
               <div className="space-y-3">
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-xs text-blue-800">
@@ -322,15 +277,7 @@ export default function DomainsPage() {
       {domainStatus?.ownedDomains && domainStatus.ownedDomains.length > 0 && (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900">Domain Registrations</h3>
-              <button
-                onClick={() => router.push('/settings')}
-                className="text-[10px] font-semibold text-slate-400 hover:text-slate-600 flex items-center gap-1"
-              >
-                All domains <ArrowRight className="w-3 h-3" />
-              </button>
-            </div>
+            <h3 className="text-sm font-bold text-slate-900">Domain Registrations</h3>
           </div>
           <div className="divide-y divide-slate-100">
             {domainStatus.ownedDomains.map((d) => (
@@ -369,19 +316,20 @@ export default function DomainsPage() {
         </div>
       )}
 
-      {/* Link to account-level domain settings */}
-      <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
-        <div>
-          <p className="text-sm font-semibold text-slate-700">Account Domain Settings</p>
-          <p className="text-xs text-slate-500 mt-0.5">View all domains across your account, manage renewals, and assign domains to sites.</p>
+      {/* ─── Inline Domain Manager ─────────────────────────────────── */}
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h3 className="text-sm font-bold text-slate-900">Set Up a Domain</h3>
+          <p className="text-xs text-slate-500 mt-1">Purchase, transfer, or connect a domain via DNS.</p>
         </div>
-        <button
-          onClick={() => router.push('/settings')}
-          className="flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-bold rounded-lg transition-colors"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-          Account Settings
-        </button>
+        <div className="px-5 py-4">
+          <DomainManager
+            siteId={siteId}
+            currentDomain={domainStatus?.publishedDomain}
+            embedded
+            onSuccess={() => fetchDomainStatus()}
+          />
+        </div>
       </div>
     </div>
   );
