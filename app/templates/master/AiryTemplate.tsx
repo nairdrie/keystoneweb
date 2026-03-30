@@ -44,8 +44,11 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
             <style dangerouslySetInnerHTML={{
                 __html: `
                 @import url('https://fonts.googleapis.com/css2?family=${titleFont.replace(/ /g, '+')}:wght@400;500;600;700;800;900&family=${bodyFont.replace(/ /g, '+')}:wght@400;500;600;700&display=swap');
-                .template-wrapper h1, .template-wrapper h2, .template-wrapper h3, .template-wrapper h4, .template-wrapper h5, .template-wrapper h6, .template-wrapper .font-title {
+                .template-wrapper h1, .template-wrapper h2, .template-wrapper h3, .template-wrapper h4, .template-wrapper h5, .template-wrapper h6 {
                     font-family: "${titleFont}", sans-serif !important;
+                }
+                .template-wrapper .font-title {
+                    font-family: "${titleFont}", sans-serif;
                 }
                 /* First block top-padding offset for floating header — adds header height to existing block padding */
                 .first-block-offset section.py-40 { padding-top: calc(10rem + var(--header-offset, 0px)) !important; }
