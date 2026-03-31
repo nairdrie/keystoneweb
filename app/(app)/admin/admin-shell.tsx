@@ -40,7 +40,7 @@ const ALL_TABS: TabDef[] = [
   // Optional — shown when site has the matching block, or when "show all" is on
   { id: 'booking',   label: 'Booking',   icon: Calendar,  path: '/admin/booking',   requiresBlock: 'booking' },
   { id: 'ecommerce', label: 'Ecommerce', icon: ShoppingBag, path: '/admin/ecommerce', requiresBlock: 'productGrid' },
-  { id: 'inbox',     label: 'Inbox',     icon: Mail,      path: '/admin/inbox',     requiresBlock: 'contact_form' },
+  { id: 'inbox',     label: 'Inbox',     icon: Mail,      path: '/admin/inbox' },
   // Coming soon — only appear when "show all" is on
   { id: 'events', label: 'Events', icon: CalendarDays, path: '/admin/events', comingSoon: true },
   { id: 'blog',   label: 'Blog',   icon: BookOpen,    path: '/admin/blog',   comingSoon: true },
@@ -313,6 +313,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   // Determine which tabs to show
   const visibleTabs = ALL_TABS.filter(tab => {
     if (tab.core) return true;
+    if (tab.id === 'inbox') {
+      // Inbox is visible if the site has a contact form block OR a published subdomain
+      // (emails can arrive via {subdomain}@kswd.ca even without a contact form)
+      return showAllFeatures || siteBlockTypes.has('contact_form') || !!site.publishedDomain;
+    }
     if (showAllFeatures) return true;
     if (tab.requiresBlock) return siteBlockTypes.has(tab.requiresBlock);
     return false; // coming-soon tabs without a block: only visible with showAllFeatures

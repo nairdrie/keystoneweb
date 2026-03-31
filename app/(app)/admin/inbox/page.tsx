@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, RefreshCw, Inbox, Bot, User, Sparkles } from 'lucide-react';
+import { Mail, RefreshCw, Inbox, Bot, User, Sparkles, Crown } from 'lucide-react';
 import { useAdminContext } from '../admin-context';
 import { MessageSquare } from 'lucide-react';
 
@@ -56,7 +56,7 @@ const FILTERS = [
 ];
 
 export default function AdminInboxPage() {
-  const { siteId, siteBlockTypes } = useAdminContext();
+  const { siteId, siteBlockTypes, isProUser, site } = useAdminContext();
   const router = useRouter();
 
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -118,7 +118,7 @@ export default function AdminInboxPage() {
 
   if (!siteId) return null;
 
-  if (!siteBlockTypes.has('contact_form')) {
+  if (!siteBlockTypes.has('contact_form') && !site?.publishedDomain) {
     return (
       <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
         <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
@@ -142,6 +142,39 @@ export default function AdminInboxPage() {
 
   return (
     <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-4">
+      {/* Email address banner */}
+      {site?.publishedDomain && (
+        <div className={`rounded-xl border p-4 ${isProUser ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200'}`}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Mail className={`w-4 h-4 shrink-0 ${isProUser ? 'text-blue-600' : 'text-slate-400'}`} />
+            <span className={`text-sm font-semibold ${isProUser ? 'text-blue-900' : 'text-slate-600'}`}>
+              Your inbox email:
+            </span>
+            <span className={`text-sm font-mono font-bold ${isProUser ? 'text-blue-800' : 'text-slate-500'}`}>
+              {site.publishedDomain}@kswd.ca
+            </span>
+            {!isProUser && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-black">
+                <Crown className="w-3 h-3" />
+                PRO
+              </span>
+            )}
+          </div>
+          <p className={`text-xs mt-1.5 ${isProUser ? 'text-blue-700' : 'text-slate-400'}`}>
+            {isProUser ? (
+              <>Share this address with customers — emails sent here appear in your inbox alongside contact form messages.</>
+            ) : (
+              <>
+                Upgrade to Pro to receive direct emails at this address.{' '}
+                <a href="/pricing" className="underline font-semibold text-amber-600 hover:text-amber-700">
+                  View pricing
+                </a>
+              </>
+            )}
+          </p>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
