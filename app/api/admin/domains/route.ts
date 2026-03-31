@@ -46,14 +46,16 @@ export async function GET(request: NextRequest) {
     let transferDomain: string | null = null;
 
     if (site.pending_custom_domain) {
-      const { data: transferPurchase } = await supabase
+      const { data: transferPurchases } = await supabase
         .from('domain_purchases')
         .select('transfer_status, domain')
         .eq('site_id', siteId)
         .eq('domain', site.pending_custom_domain)
-        .eq('purchase_type', 'transfer')
-        .single();
+        .not('transfer_status', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
+      const transferPurchase = transferPurchases?.[0] ?? null;
       if (transferPurchase) {
         transferStatus = transferPurchase.transfer_status;
         transferDomain = transferPurchase.domain;
