@@ -271,7 +271,7 @@ export default function InboxDetailPage({ params }: { params: Promise<{ id: stri
           <div className="flex items-center gap-2">
             <Bot className="w-4 h-4 text-violet-500" />
             <span className="text-xs font-bold text-violet-700 uppercase tracking-wide">AI Analysis</span>
-            {submission.ai_confidence != null && (
+            {submission.ai_confidence != null && submission.ai_confidence > 0 && (
               <span className="text-xs text-violet-500 ml-auto">
                 {Math.round(submission.ai_confidence * 100)}% confidence
               </span>

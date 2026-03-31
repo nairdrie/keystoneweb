@@ -535,12 +535,13 @@ export async function sendContactReplyEmail(data: {
     replyText: string;
     originalMessage: string;
     submissionId: string;  // used as a thread reference token
+    replyToAddress?: string; // override Reply-To (e.g. subdomain@kswd.ca for threaded replies)
 }) {
     try {
         const { data: sent, error } = await resend.emails.send({
             from: `${data.fromName} <${data.fromAddress}>`,
             to: data.toEmail,
-            replyTo: data.fromAddress,
+            replyTo: data.replyToAddress || data.fromAddress,
             subject: `Re: Your message to ${data.fromName}`,
             html: `
                 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;">

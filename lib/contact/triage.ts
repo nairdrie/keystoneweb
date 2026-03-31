@@ -113,7 +113,7 @@ export async function triageContactSubmission(
   // Load site context separately
   const { data: site } = await db
     .from('sites')
-    .select('site_slug, design_data, published_data, user_id, contact_ai_replies_enabled')
+    .select('site_slug, design_data, published_data, user_id, contact_ai_replies_enabled, published_domain')
     .eq('id', submission.site_id)
     .single();
 
@@ -244,6 +244,7 @@ Respond with valid JSON only, no markdown fences:
       replyText: draftReply,
       originalMessage: submission.message,
       submissionId,
+      replyToAddress: site?.published_domain ? `${site.published_domain}@kswd.ca` : undefined,
     });
     if (result.success) {
       autoSent = true;
