@@ -432,7 +432,7 @@ export default function OnboardingWizard() {
 
   return (
     <div className="min-h-screen bg-white">
-      {showSiteLimit && <SiteLimitModal onDismiss={() => setShowSiteLimit(false)} />}
+      {showSiteLimit && <SiteLimitModal plan="Basic" limit={1} onDismiss={() => setShowSiteLimit(false)} />}
 
       {/* Header */}
       <Header />
