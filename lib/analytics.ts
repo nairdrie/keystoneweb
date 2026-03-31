@@ -12,7 +12,8 @@ export type AnalyticsEventType =
   | 'page_view'
   | 'site_delete'
   | 'site_transfer_created'
-  | 'site_transfer_accepted';
+  | 'site_transfer_accepted'
+  | 'site_unpublish';
 
 /**
  * Fire-and-forget analytics event logger.
