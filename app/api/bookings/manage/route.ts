@@ -115,10 +115,10 @@ export async function PUT(request: NextRequest) {
     if (existingBooking?.site_id) {
         const { data: siteInfo } = await supabase
             .from('sites')
-            .select('title, site_slug')
+            .select('site_slug')
             .eq('id', existingBooking.site_id)
             .single();
-        siteName = siteInfo?.title || siteInfo?.site_slug || undefined;
+        siteName = siteInfo?.site_slug || undefined;
     }
 
     // Send customer confirmation email when an e-transfer booking is confirmed
