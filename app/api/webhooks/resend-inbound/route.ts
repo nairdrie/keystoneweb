@@ -265,7 +265,7 @@ export async function POST(request: NextRequest) {
               siteName,
               customerName: fromName || fromEmail,
               customerEmail: fromEmail,
-              customerPhone: null,
+              customerPhone: undefined,
               message: messageBody || `[Email] ${subject}`,
               submissionId: submission.id,
               siteId: site.id,
