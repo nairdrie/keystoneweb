@@ -58,8 +58,7 @@ export async function POST(
     return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
   }
 
-  const designData = site?.design_data ?? {};
-  const businessName = designData?.businessName || designData?.siteTitle || site?.site_slug || 'Our Business';
+  const businessName = site?.site_slug || 'Our Business';
 
   const result = await sendContactReplyEmail({
     toEmail: submission.sender_email,
