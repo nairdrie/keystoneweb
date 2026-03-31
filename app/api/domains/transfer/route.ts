@@ -7,6 +7,19 @@ const VERCEL_API_TOKEN = process.env.VERCEL_API_TOKEN;
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID;
 const VERCEL_API_BASE = 'https://api.vercel.com';
 
+/**
+ * Normalize a phone number to E.164 format (+19058579771).
+ * Handles common formats: 905-857-9771, (905) 857-9771, +1 905 857 9771, etc.
+ * Assumes NANP (North American) if 10 digits with no country code.
+ */
+function toE164(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  // Already has country code (>11 digits or non-NANP)
+  return `+${digits}`;
+}
+
 const getStripeClient = () => {
   if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY is not set');
   return new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -62,7 +75,7 @@ export async function initiateVercelTransfer(
           firstName: contact.firstName,
           lastName: contact.lastName,
           email: contact.email,
-          phone: contact.phone,
+          phone: toE164(contact.phone),
           address1: contact.address1,
           city: contact.city,
           state: contact.state,

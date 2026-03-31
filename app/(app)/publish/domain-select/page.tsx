@@ -1823,7 +1823,7 @@ export function DomainManager({
                                       { key: 'firstName', label: 'First Name', placeholder: 'Jane' },
                                       { key: 'lastName', label: 'Last Name', placeholder: 'Smith' },
                                       { key: 'email', label: 'Email', placeholder: 'jane@example.com', full: true },
-                                      { key: 'phone', label: 'Phone (E.164)', placeholder: '+1.4165551234', full: true },
+                                      { key: 'phone', label: 'Phone', placeholder: '+1.4165551234', full: true },
                                       { key: 'address1', label: 'Address', placeholder: '123 Main St', full: true },
                                       { key: 'city', label: 'City', placeholder: 'Toronto' },
                                       { key: 'state', label: 'Province / State', placeholder: 'ON' },
