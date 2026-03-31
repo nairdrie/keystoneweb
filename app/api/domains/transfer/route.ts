@@ -106,6 +106,8 @@ export async function initiateVercelTransfer(
       expires_at: expiresAt.toISOString(),
       // Clear the auth code now that it's been used
       transfer_auth_code: null,
+      // Track what Vercel bills us (for reconciliation — may differ from amount_cents on free transfers)
+      vercel_cost_cents: Math.round(transferPrice * 100),
     })
     .eq('id', purchaseId);
 
