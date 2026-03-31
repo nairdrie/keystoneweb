@@ -17,6 +17,7 @@ import { AIMessage, UsageRemaining } from '@/lib/hooks/useAIBuilder';
 import { Type, User, Languages, Stethoscope } from 'lucide-react';
 import ProfileDropdown from './ProfileDropdown';
 import WalkthroughModal, { WalkthroughStep } from './WalkthroughModal';
+import SiteLimitModal from './SiteLimitModal';
 
 interface Palette {
   name: string;
@@ -161,6 +162,7 @@ export default function FloatingToolbar({
 
   const [userSites, setUserSites] = useState<Site[]>([]);
   const [loadingSites, setLoadingSites] = useState(false);
+  const [publishLimitInfo, setPublishLimitInfo] = useState<{ plan: string; limit: number } | null>(null);
   const [showChanges, setShowChanges] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [activeLogoModal, setActiveLogoModal] = useState<'shared' | 'header' | 'footer' | 'favicon' | null>(null);
@@ -316,7 +318,12 @@ export default function FloatingToolbar({
                 router.refresh();
               }, 500);
             } else {
-              setAlertConfig({ isOpen: true, title: 'Publish Failed', message: 'There was an error updating your live site.', type: 'error' });
+              const errorData = await publishRes.json().catch(() => null);
+              if (errorData?.publishLimitReached) {
+                setPublishLimitInfo({ plan: errorData.plan, limit: errorData.limit });
+              } else {
+                setAlertConfig({ isOpen: true, title: 'Publish Failed', message: 'There was an error updating your live site.', type: 'error' });
+              }
             }
             setIsPublishingUpdates(false);
             return;
@@ -1570,6 +1577,18 @@ export default function FloatingToolbar({
         confirmLabel={alertConfig.confirmLabel}
         cancelLabel={alertConfig.cancelLabel}
       />
+
+      {publishLimitInfo && (
+        <SiteLimitModal
+          plan={publishLimitInfo.plan}
+          limit={publishLimitInfo.limit}
+          onDismiss={() => setPublishLimitInfo(null)}
+          onManageSites={() => {
+            setPublishLimitInfo(null);
+            router.push('/admin');
+          }}
+        />
+      )}
 
       {currentSiteId && (
         <EditHistoryModal

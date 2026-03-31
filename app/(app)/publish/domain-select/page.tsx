@@ -27,6 +27,7 @@ import {
   Link2,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
+import SiteLimitModal from '@/app/components/SiteLimitModal';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -308,6 +309,7 @@ export function DomainManager({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [publishedUrl, setPublishedUrl] = useState('');
+  const [publishLimitInfo, setPublishLimitInfo] = useState<{ plan: string; limit: number } | null>(null);
 
   // Subscription state
   const [userPlan, setUserPlan] = useState<string | null>(null);
@@ -558,6 +560,10 @@ export function DomainManager({
 
       if (!res.ok) {
         const errorData = await res.json();
+        if (errorData.publishLimitReached) {
+          setPublishLimitInfo({ plan: errorData.plan, limit: errorData.limit });
+          return;
+        }
         throw new Error(errorData.error || 'Failed to publish site');
       }
 
@@ -1999,6 +2005,18 @@ export function DomainManager({
           </button>
         )}
       </div>
+
+      {publishLimitInfo && (
+        <SiteLimitModal
+          plan={publishLimitInfo.plan}
+          limit={publishLimitInfo.limit}
+          onDismiss={() => setPublishLimitInfo(null)}
+          onManageSites={() => {
+            setPublishLimitInfo(null);
+            router.push('/admin');
+          }}
+        />
+      )}
     </div>
   );
 }
