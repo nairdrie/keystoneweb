@@ -9,16 +9,16 @@ import MarketingFooter from '@/app/components/MarketingFooter';
 
 const STRIPE_PRICES = {
   basic: {
-    monthly: 'price_1TCZSU9e8C5naDN47tc8rB74', // $30/mo
-    yearly: 'price_1TCZSm9e8C5naDN4d8Zctb6D',  // $180/yr
+    monthly: 'price_1TH93Y9e8C5naDN4tlQtEYaM', // $25/mo
+    yearly: 'price_1TCZSm9e8C5naDN4d8Zctb6D',  // $15/mo ($180/yr)
   },
   pro: {
-    monthly: 'price_1TCZRk9e8C5naDN44O78PCfh', // $60/mo
-    yearly: 'price_1TCZRS9e8C5naDN4LtllOW7G',  // $360/yr
+    monthly: 'price_1TH92v9e8C5naDN4lr3kV5P3', // $50/mo
+    yearly: 'price_1TCZRS9e8C5naDN4LtllOW7G',  // $30/mo ($360/yr)
   },
 };
 
-const MONTHLY_PRICES = { basic: 30, pro: 60 };
+const MONTHLY_PRICES = { basic: 25, pro: 50 };
 const YEARLY_PRICES = { basic: 15, pro: 30 };
 
 interface CheckoutData {
@@ -250,7 +250,7 @@ function PricingContent() {
           </span>
           {isYearly && (
             <span className="bg-red-100 text-red-700 text-xs font-bold px-2.5 py-1 rounded-full">
-              Save 50%
+              Save 40%
             </span>
           )}
         </motion.div>

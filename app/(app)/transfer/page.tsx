@@ -102,7 +102,7 @@ function PlanSelectionStep({
           </button>
           <span className={`text-sm font-semibold ${isYearly ? 'text-slate-900' : 'text-slate-400'}`}>Yearly</span>
           {isYearly && (
-            <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">Save 50%</span>
+            <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">Save 40%</span>
           )}
         </div>
 
