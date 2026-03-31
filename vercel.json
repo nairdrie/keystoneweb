@@ -6,5 +6,10 @@
   "env": {
     "NEXT_PUBLIC_APP_NAME": "Keystone Web"
   },
-  "crons": []
+  "crons": [
+    {
+      "path": "/api/cron/check-domain-transfers",
+      "schedule": "0 10 * * *"
+    }
+  ]
 }

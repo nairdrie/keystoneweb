@@ -42,13 +42,16 @@ export async function POST(request: NextRequest) {
     const domain = site.pending_custom_domain;
 
     // Find the transfer purchase record for this domain
-    const { data: purchase } = await supabase
+    const { data: purchases } = await supabase
       .from('domain_purchases')
-      .select('id, transfer_status, purchase_type')
+      .select('id, transfer_status')
       .eq('site_id', siteId)
       .eq('domain', domain)
-      .eq('purchase_type', 'transfer')
-      .single();
+      .not('transfer_status', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    const purchase = purchases?.[0] ?? null;
 
     if (!purchase) {
       return NextResponse.json({ status: 'no_transfer', message: 'No transfer record found for this domain.' });

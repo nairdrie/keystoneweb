@@ -1095,3 +1095,70 @@ export async function sendOrderCancellationToOwner(data: OrderCancellationData &
         return { success: false, error };
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Domain Emails
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function sendDomainTransferCompleteEmail(data: {
+    userEmail: string;
+    domain: string;
+    siteId: string;
+    appUrl: string;
+}) {
+    try {
+        const manageUrl = `${data.appUrl}/admin/domains?siteId=${data.siteId}`;
+        const liveUrl = `https://${data.domain}`;
+
+        await resend.emails.send({
+            from: 'Keystone Web Design <noreply@keystoneweb.ca>',
+            to: data.userEmail,
+            subject: `Your domain transfer is complete — ${data.domain}`,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; background: #ffffff;">
+                    <!-- Header bar -->
+                    <div style="background: #fe4545; height: 4px; border-radius: 4px 4px 0 0;"></div>
+
+                    <!-- Body -->
+                    <div style="padding: 40px 32px;">
+                        <!-- Logo -->
+                        <img style="width:200px; margin-bottom:32px;" src="https://www.keystoneweb.ca/assets/logo/keystone-logo.png" alt="Keystone Web" />
+
+                        <!-- Heading -->
+                        <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #171717; letter-spacing: -0.02em;">Domain Transfer Complete</h1>
+                        <p style="margin: 0 0 24px; font-size: 15px; color: #6b7280; line-height: 1.6;">
+                            <strong style="color: #171717;">${data.domain}</strong> has been successfully transferred to Keystone Web. Your site is now live at your custom domain.
+                        </p>
+
+                        <!-- CTAs -->
+                        <a href="${manageUrl}" style="display: inline-block; background: #fe4545; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 600; padding: 13px 28px; border-radius: 8px; letter-spacing: 0.01em; margin-bottom: 12px;">
+                            Manage Domain →
+                        </a>
+                        <br />
+                        <a href="${liveUrl}" style="display: inline-block; color: #fe4545; text-decoration: none; font-size: 14px; font-weight: 600; padding: 4px 0; margin-top: 4px;">
+                            Visit ${data.domain} ↗
+                        </a>
+
+                        <!-- Divider -->
+                        <div style="border-top: 1px solid #f3f4f6; margin: 32px 0;"></div>
+
+                        <p style="margin: 0; font-size: 13px; color: #9ca3af; line-height: 1.6;">
+                            Questions? Reply to this email or visit <a href="https://keystoneweb.ca" style="color: #6b7280;">keystoneweb.ca</a>.
+                        </p>
+                    </div>
+
+                    <!-- Footer -->
+                    <div style="padding: 16px 32px; background: #f9fafb; border-top: 1px solid #f3f4f6; border-radius: 0 0 4px 4px;">
+                        <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center;">
+                            Powered by <strong style="color: #6b7280;">Keystone Web Design</strong>
+                        </p>
+                    </div>
+                </div>
+            `,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send domain transfer complete email:', error);
+        return { success: false, error };
+    }
+}
