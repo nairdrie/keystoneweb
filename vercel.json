@@ -6,10 +6,5 @@
   "env": {
     "NEXT_PUBLIC_APP_NAME": "Keystone Web"
   },
-  "crons": [
-    {
-      "path": "/api/cron/usage",
-      "schedule": "0 5 * * *"
-    }
-  ]
+  "crons": []
 }

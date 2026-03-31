@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 import { getPlanByName, calculateOverageCost } from '@/lib/plans';
 
 /**
  * GET /api/user/usage
  *
  * Returns the authenticated user's current billing-period usage, plan limits,
- * and projected overage cost. Used by the admin dashboard "Usage & Limits" panel.
+ * and projected overage cost. Counts live from site_visits.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
     // Fetch subscription to get plan info and limits
     const { data: subscription } = await supabase
       .from('user_subscriptions')
-      .select('subscription_plan, subscription_status, visitor_limit, storage_limit_mb, subscription_started_at')
+      .select('subscription_plan, subscription_status, visitor_limit, storage_limit_mb')
       .eq('user_id', user.id)
       .single();
 
@@ -35,70 +36,61 @@ export async function GET(request: NextRequest) {
     const visitorLimit = subscription.visitor_limit || plan?.visitorLimit || 10_000;
     const storageLimitMb = subscription.storage_limit_mb || plan?.storageLimitMb || 1024;
 
-    // Calculate current billing period (calendar month)
+    // Current billing period (calendar month)
     const now = new Date();
     const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const periodStartStr = periodStart.toISOString().split('T')[0];
+    const periodEndStr = periodEnd.toISOString().split('T')[0];
 
     // Get all user's sites
     const { data: userSites } = await supabase
       .from('sites')
-      .select('id')
+      .select('id, site_slug')
       .eq('user_id', user.id)
       .is('deleted_at', null);
 
     const siteIds = userSites?.map(s => s.id) || [];
 
-    // Read totals from the pre-aggregated monthly rollup (populated by the daily cron).
-    // site_usage_daily is the source for that rollup, so summing it again would be redundant.
-    const { data: monthlyUsage } = await supabase
-      .from('user_usage_monthly')
-      .select('total_visitors, total_views, overage_visitors, overage_reported')
-      .eq('user_id', user.id)
-      .eq('period_start', periodStart.toISOString().split('T')[0])
-      .single();
+    const admin = createAdminClient();
 
-    const totalVisitors = monthlyUsage?.total_visitors ?? 0;
-    const totalViews = monthlyUsage?.total_views ?? 0;
+    let totalVisitors = 0;
+    let totalViews = 0;
+    let siteBreakdown: Array<{ siteId: string; slug: string; visitors: number; views: number }> = [];
+
+    if (siteIds.length > 0) {
+      const { data: visits } = await admin
+        .from('site_visits')
+        .select('site_id, visitor_hash')
+        .in('site_id', siteIds)
+        .gte('created_at', `${periodStartStr}T00:00:00Z`)
+        .lte('created_at', `${periodEndStr}T23:59:59Z`);
+
+      if (visits && visits.length > 0) {
+        const siteMap = new Map((userSites || []).map(s => [s.id, s.site_slug || 'Unnamed']));
+        const agg = new Map<string, Set<string>>();
+
+        for (const v of visits) {
+          if (!agg.has(v.site_id)) agg.set(v.site_id, new Set());
+          agg.get(v.site_id)!.add(v.visitor_hash);
+        }
+
+        totalViews = visits.length;
+        const globalVisitors = new Set(visits.map(v => v.visitor_hash));
+        totalVisitors = globalVisitors.size;
+
+        siteBreakdown = Array.from(agg.entries()).map(([siteId, visitors]) => ({
+          siteId,
+          slug: siteMap.get(siteId) || 'Unnamed',
+          visitors: visitors.size,
+          views: visits.filter(v => v.site_id === siteId).length,
+        })).sort((a, b) => b.visitors - a.visitors);
+      }
+    }
 
     const overageVisitors = Math.max(0, totalVisitors - visitorLimit);
     const overageCost = plan ? calculateOverageCost(plan, totalVisitors) : 0;
     const usagePercent = visitorLimit > 0 ? Math.min(100, Math.round((totalVisitors / visitorLimit) * 100)) : 0;
-
-    // Per-site breakdown for the dashboard
-    let siteBreakdown: Array<{ siteId: string; slug: string; visitors: number; views: number }> = [];
-    if (siteIds.length > 0) {
-      const { data: sites } = await supabase
-        .from('sites')
-        .select('id, site_slug')
-        .in('id', siteIds);
-
-      const { data: perSite } = await supabase
-        .from('site_usage_daily')
-        .select('site_id, unique_visitors, total_views')
-        .in('site_id', siteIds)
-        .gte('date', periodStart.toISOString().split('T')[0])
-        .lte('date', periodEnd.toISOString().split('T')[0]);
-
-      if (perSite && sites) {
-        const siteMap = new Map(sites.map(s => [s.id, s.site_slug || 'Unnamed']));
-        const agg = new Map<string, { visitors: number; views: number }>();
-
-        for (const row of perSite) {
-          const existing = agg.get(row.site_id) || { visitors: 0, views: 0 };
-          existing.visitors += row.unique_visitors;
-          existing.views += row.total_views;
-          agg.set(row.site_id, existing);
-        }
-
-        siteBreakdown = Array.from(agg.entries()).map(([siteId, data]) => ({
-          siteId,
-          slug: siteMap.get(siteId) || 'Unnamed',
-          visitors: data.visitors,
-          views: data.views,
-        })).sort((a, b) => b.visitors - a.visitors);
-      }
-    }
 
     const daysInMonth = periodEnd.getDate();
     const dayOfMonth = now.getDate();
@@ -116,8 +108,8 @@ export async function GET(request: NextRequest) {
         overagePerThousand: plan?.overagePerThousand || 0,
       },
       usage: {
-        periodStart: periodStart.toISOString().split('T')[0],
-        periodEnd: periodEnd.toISOString().split('T')[0],
+        periodStart: periodStartStr,
+        periodEnd: periodEndStr,
         dayOfMonth,
         daysInMonth,
         totalVisitors,
@@ -128,7 +120,6 @@ export async function GET(request: NextRequest) {
         overageCost: Math.round(overageCost * 100) / 100,
         projectedVisitors,
         projectedOverageCost: Math.round(projectedOverageCost * 100) / 100,
-        overageReported: monthlyUsage?.overage_reported || false,
       },
       siteBreakdown,
     });
