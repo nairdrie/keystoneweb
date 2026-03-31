@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import { trackEvent } from '@/lib/analytics';
+import { getPlanByName } from '@/lib/plans';
 
 interface PublishRequest {
   siteId: string;
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
     // Verify subscription is active
     const { data: subscription } = await supabase
       .from('user_subscriptions')
-      .select('subscription_status')
+      .select('subscription_status, subscription_plan')
       .eq('user_id', user.id)
       .single();
 
@@ -86,6 +87,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Subscription required to publish' },
         { status: 402 } // Payment Required
+      );
+    }
+
+    // Enforce publish limit: count currently published sites (excluding this one)
+    const plan = getPlanByName(subscription.subscription_plan);
+    const publishLimit = plan?.publishLimit ?? 1;
+
+    const { count: publishedCount } = await supabase
+      .from('sites')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('is_published', true)
+      .neq('id', siteId);
+
+    if ((publishedCount ?? 0) >= publishLimit) {
+      return NextResponse.json(
+        {
+          error: 'Publish limit reached',
+          publishLimitReached: true,
+          plan: plan?.name ?? 'Basic',
+          limit: publishLimit,
+        },
+        { status: 403 }
       );
     }
 

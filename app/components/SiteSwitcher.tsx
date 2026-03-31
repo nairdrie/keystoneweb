@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, EyeOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface Site {
@@ -10,6 +10,7 @@ interface Site {
   updatedAt: string;
   businessType: string;
   category: string;
+  isPublished: boolean;
 }
 
 interface SiteSwitcherProps {
@@ -22,8 +23,8 @@ export default function SiteSwitcher({ currentSiteId, currentSiteTitle }: SiteSw
   const [isOpen, setIsOpen] = useState(false);
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(false);
+  const [unpublishing, setUnpublishing] = useState<string | null>(null);
 
-  // Fetch user's sites when dropdown opens
   useEffect(() => {
     if (isOpen && sites.length === 0) {
       fetchSites();
@@ -36,7 +37,14 @@ export default function SiteSwitcher({ currentSiteId, currentSiteTitle }: SiteSw
       const res = await fetch('/api/user/sites', { credentials: 'include' });
       if (res.ok) {
         const { sites: userSites } = await res.json();
-        setSites(userSites);
+        setSites(userSites.map((s: any) => ({
+          id: s.id,
+          title: s.siteSlug || `Site ${s.id.slice(0, 8)}`,
+          updatedAt: s.updatedAt,
+          businessType: s.businessType,
+          category: s.category,
+          isPublished: s.isPublished ?? false,
+        })));
       }
     } catch (err) {
       console.error('Failed to fetch sites:', err);
@@ -48,6 +56,28 @@ export default function SiteSwitcher({ currentSiteId, currentSiteTitle }: SiteSw
   const handleSwitchSite = (siteId: string) => {
     router.push(`/editor?siteId=${siteId}`);
     setIsOpen(false);
+  };
+
+  const handleUnpublish = async (e: React.MouseEvent, siteId: string) => {
+    e.stopPropagation();
+    if (!confirm('Unpublish this site? It will go offline. You can republish at any time.')) return;
+
+    setUnpublishing(siteId);
+    try {
+      const res = await fetch('/api/sites/unpublish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ siteId }),
+      });
+      if (res.ok) {
+        setSites(prev => prev.map(s => s.id === siteId ? { ...s, isPublished: false } : s));
+      }
+    } catch (err) {
+      console.error('Failed to unpublish:', err);
+    } finally {
+      setUnpublishing(null);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -117,18 +147,37 @@ export default function SiteSwitcher({ currentSiteId, currentSiteTitle }: SiteSw
                   >
                     {/* Site Title */}
                     <div className="flex items-start justify-between gap-2 mb-1">
-                      <p className="text-sm font-semibold text-slate-900 truncate">
-                        {site.title}
-                      </p>
-                      {site.id === currentSiteId && (
-                        <span className="text-xs font-bold bg-red-600 text-white px-2 py-1 rounded">
-                          Current
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2 min-w-0">
+                        {/* Status dot */}
+                        <span
+                          className={`shrink-0 w-2 h-2 rounded-full mt-0.5 ${site.isPublished ? 'bg-green-500' : 'bg-slate-300'}`}
+                          title={site.isPublished ? 'Live' : 'Unpublished'}
+                        />
+                        <p className="text-sm font-semibold text-slate-900 truncate">
+                          {site.title}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {site.id === currentSiteId && (
+                          <span className="text-xs font-bold bg-red-600 text-white px-2 py-0.5 rounded">
+                            Current
+                          </span>
+                        )}
+                        {site.isPublished && (
+                          <button
+                            onClick={(e) => handleUnpublish(e, site.id)}
+                            disabled={unpublishing === site.id}
+                            title="Unpublish site"
+                            className="p-1 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                          >
+                            <EyeOff className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Site Meta */}
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between pl-4">
                       <p className="text-xs text-slate-500 capitalize">
                         {site.category}
                       </p>

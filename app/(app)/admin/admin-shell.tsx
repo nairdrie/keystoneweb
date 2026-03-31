@@ -19,6 +19,7 @@ interface Site {
   category: string;
   createdAt: string;
   updatedAt: string;
+  isPublished?: boolean;
 }
 
 interface TabDef {
@@ -182,7 +183,12 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     if (!user) return;
     fetch('/api/user/sites', { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.sites) setUserSites(d.sites); })
+      .then(d => {
+        if (d?.sites) setUserSites(d.sites.map((s: any) => ({
+          ...s,
+          isPublished: s.isPublished ?? false,
+        })));
+      })
       .catch(() => {});
   }, [user]);
 
@@ -416,7 +422,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                     </button>
 
                     {showSiteSwitcher && (
-                      <div className="absolute left-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 z-[9999] animate-in fade-in slide-in-from-top-2 w-60">
+                      <div className="absolute left-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 z-[9999] animate-in fade-in slide-in-from-top-2 w-64">
                         <div className="max-h-64 overflow-y-auto p-2 space-y-1">
                           {userSites.length > 0 ? (
                             <>
@@ -425,14 +431,43 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                                 const isActive = siteId === s.id;
                                 const label = s.siteSlug || `Site ${s.id.slice(0, 8)}`;
                                 return (
-                                  <button
+                                  <div
                                     key={s.id}
-                                    onClick={() => navigateSite(s.id)}
-                                    className={`w-full text-left px-3 py-2.5 rounded-lg transition-all text-sm flex items-center justify-between ${isActive ? 'bg-red-50 text-red-900 font-semibold border border-red-100' : 'text-slate-700 hover:bg-slate-100'}`}
+                                    className={`w-full text-left px-3 py-2.5 rounded-lg transition-all text-sm flex items-center justify-between gap-2 ${isActive ? 'bg-red-50 text-red-900 font-semibold border border-red-100' : 'text-slate-700 hover:bg-slate-100'}`}
                                   >
-                                    <span className="truncate pr-4">{label}</span>
-                                    {isActive && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
-                                  </button>
+                                    <button
+                                      onClick={() => navigateSite(s.id)}
+                                      className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                                    >
+                                      <span
+                                        className={`shrink-0 w-2 h-2 rounded-full ${s.isPublished ? 'bg-green-500' : 'bg-slate-300'}`}
+                                        title={s.isPublished ? 'Live' : 'Draft'}
+                                      />
+                                      <span className="truncate">{label}</span>
+                                    </button>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      {isActive && <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />}
+                                      {s.isPublished && (
+                                        <button
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if (!confirm('Unpublish this site? It will go offline.')) return;
+                                            await fetch('/api/sites/unpublish', {
+                                              method: 'POST',
+                                              headers: { 'Content-Type': 'application/json' },
+                                              credentials: 'include',
+                                              body: JSON.stringify({ siteId: s.id }),
+                                            });
+                                            setUserSites(prev => prev.map(site => site.id === s.id ? { ...site, isPublished: false } : site));
+                                          }}
+                                          title="Unpublish"
+                                          className="p-0.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                        >
+                                          <EyeOff className="w-3 h-3" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
                                 );
                               })}
                               <div className="h-px bg-slate-100 my-1 mx-1" />

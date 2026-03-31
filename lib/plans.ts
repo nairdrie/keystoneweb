@@ -18,6 +18,7 @@ export interface PlanConfig {
   visitorLimit: number;        // monthly unique visitors included
   storageLimitMb: number;      // media storage in MB
   overagePerThousand: number;  // $ per 1,000 extra visitors
+  publishLimit: number;        // max simultaneously published sites
   stripe: {
     monthly: string;
     yearly: string;
@@ -34,6 +35,7 @@ export const PLANS: Record<string, PlanConfig> = {
     visitorLimit: 10_000,
     storageLimitMb: 1024,
     overagePerThousand: 1.0,
+    publishLimit: 1,
     stripe: {
       monthly: 'price_1TCZSU9e8C5naDN47tc8rB74',
       yearly: 'price_1TCZSm9e8C5naDN4d8Zctb6D',
@@ -42,12 +44,13 @@ export const PLANS: Record<string, PlanConfig> = {
     },
     features: [
       'Unlimited Site Pages',
-      'Access to all Premium Templates',
+      'AI Site Builder (Limited Use)',
       'Drag-and-Drop Visual Editor',
-      'AI Builder (3 prompts/day)',
+      'Access to all Premium Templates',
       'Up to 10,000 monthly visitors',
       '1 GB media storage',
       'Email Support',
+      'Keystone Subdomain (yoursite.kswd.ca)',
     ],
   },
   pro: {
@@ -57,6 +60,7 @@ export const PLANS: Record<string, PlanConfig> = {
     visitorLimit: 50_000,
     storageLimitMb: 5120,
     overagePerThousand: 0.5,
+    publishLimit: 5,
     stripe: {
       monthly: 'price_1TCZRk9e8C5naDN44O78PCfh',
       yearly: 'price_1TCZRS9e8C5naDN4LtllOW7G',
@@ -66,13 +70,12 @@ export const PLANS: Record<string, PlanConfig> = {
     features: [
       'Everything in Basic',
       'Increased AI Builder Limits',
-      'Unlimited Sites',
-      'Free Custom Domain Included',
+      'Build & Publish up to 5 Sites*',
+      'Custom Domain Support + Free Domain Included*',
       'Up to 50,000 monthly visitors',
       '5 GB media storage',
       '24/7 Priority Email Support',
-      'Advanced Analytics',
-      'Custom CSS Injection',
+      'Custom HTML Content & CSS',
     ],
   },
 };
