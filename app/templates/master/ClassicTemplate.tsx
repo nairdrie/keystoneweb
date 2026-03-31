@@ -56,9 +56,26 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                 <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
                     <span className="flex items-center gap-1.5 opacity-80">
                         <Phone className="w-3 h-3" />
-                        <span>Call us: (555) 123-4567</span>
+                        <EditableText
+                            as="span"
+                            contentKey="bannerPhone"
+                            styleData={siteContent['bannerPhone__styles']}
+                            content={siteContent.bannerPhone}
+                            defaultValue="Call us: (555) 123-4567"
+                            isEditMode={isEditMode}
+                            onSave={updateSiteContent}
+                        />
                     </span>
-                    <span className="opacity-60 hidden sm:block">Mon-Fri 8am - 6pm</span>
+                    <EditableText
+                        as="span"
+                        contentKey="bannerHours"
+                        styleData={siteContent['bannerHours__styles']}
+                        content={siteContent.bannerHours}
+                        defaultValue="Mon-Fri 8am - 6pm"
+                        isEditMode={isEditMode}
+                        onSave={updateSiteContent}
+                        className="opacity-60 hidden sm:block"
+                    />
                 </div>
             </div>
 

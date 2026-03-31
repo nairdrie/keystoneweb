@@ -68,6 +68,15 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [inboxUnread, setInboxUnread] = useState(0);
+
+  function refreshInboxUnread() {
+    const id = siteId;
+    if (!id) return;
+    fetch(`/api/contact/inbox?siteId=${id}`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.unread != null) setInboxUnread(d.unread); })
+      .catch(() => {});
+  }
   const [usage, setUsage] = useState<UsageData | null>(null);
   const [usagePlan, setUsagePlan] = useState<UsagePlan | null>(null);
   const [siteBreakdown, setSiteBreakdown] = useState<SiteUsageBreakdown[]>([]);
@@ -312,7 +321,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const displayDomain = site.customDomain || (site.publishedDomain ? `${site.publishedDomain}.kswd.ca` : null);
 
   return (
-    <AdminContext.Provider value={{ siteId, site, siteTitle, setSiteTitle, isProUser, palette, usage, usagePlan, siteBreakdown, siteBlockTypes }}>
+    <AdminContext.Provider value={{ siteId, site, siteTitle, setSiteTitle, isProUser, palette, usage, usagePlan, siteBreakdown, siteBlockTypes, refreshInboxUnread }}>
       <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-50">
 
         {/* ── Top Bar ── */}

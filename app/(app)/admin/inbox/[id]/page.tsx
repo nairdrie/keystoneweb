@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Bot, User, Send, Loader2, Sparkles, CheckCircle, AlertCircle, Trash2, ShieldAlert, Clock } from 'lucide-react';
+import { useAdminContext } from '../admin-context';
 
 interface Submission {
   id: string;
@@ -43,6 +44,7 @@ export default function InboxDetailPage({ params }: { params: Promise<{ id: stri
   const searchParams = useSearchParams();
   const siteId = searchParams.get('siteId') ?? '';
 
+  const { refreshInboxUnread } = useAdminContext();
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [loading, setLoading] = useState(true);
   const [replyText, setReplyText] = useState('');
@@ -116,6 +118,7 @@ export default function InboxDetailPage({ params }: { params: Promise<{ id: stri
       }
       setSent(true);
       setSubmission(prev => prev ? { ...prev, status: 'replied', admin_reply: replyText, admin_reply_at: new Date().toISOString() } : prev);
+      refreshInboxUnread();
     } finally {
       setSending(false);
     }
@@ -131,6 +134,7 @@ export default function InboxDetailPage({ params }: { params: Promise<{ id: stri
         credentials: 'include',
         body: JSON.stringify({ status: 'spam' }),
       });
+      refreshInboxUnread();
       router.push(`/admin/inbox?siteId=${siteId}`);
     } finally {
       setActioning(false);
@@ -148,6 +152,7 @@ export default function InboxDetailPage({ params }: { params: Promise<{ id: stri
         method: 'DELETE',
         credentials: 'include',
       });
+      refreshInboxUnread();
       router.push(`/admin/inbox?siteId=${siteId}`);
     } finally {
       setActioning(false);
