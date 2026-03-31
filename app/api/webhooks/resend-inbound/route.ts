@@ -2,20 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Webhook } from 'svix';
 import { Resend } from 'resend';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { sendSupportRequestNotification } from '@/lib/email';
+import { sendSupportRequestNotification, sendContactFormNotification } from '@/lib/email';
+import { triageContactSubmission } from '@/lib/contact/triage';
 
 /**
  * POST /api/webhooks/resend-inbound
  *
- * Receives inbound emails forwarded by Resend when a message arrives at
- * support@keystoneweb.ca.
+ * Receives inbound emails forwarded by Resend.
+ *
+ * Routing:
+ *   - Emails to *@keystoneweb.ca → ops support_requests table (existing)
+ *   - Emails to {subdomain}@kswd.ca → customer contact_submissions inbox (Pro only)
  *
  * Setup in Resend dashboard:
  *   Inbound → your domain → Webhook URL → this endpoint
  *   Copy the signing secret (starts with whsec_) → RESEND_INBOUND_SECRET env var
- *
- * Resend signs webhooks using Svix (svix-id / svix-timestamp / svix-signature
- * headers). The SDK's webhooks.verify() handles all of that automatically.
  *
  * Payload shape (email.received) — body is NOT included, metadata only:
  * {
@@ -34,6 +35,74 @@ import { sendSupportRequestNotification } from '@/lib/email';
  * Resend may not have the body ready immediately when the webhook fires,
  * so we retry with delays.
  */
+
+// ---------------------------------------------------------------------------
+// Shared helper: fetch email body from Resend with retries
+// ---------------------------------------------------------------------------
+async function fetchResendEmailBody(emailId: string): Promise<{
+  bodyText: string | null;
+  bodyHtml: string | null;
+  log: string[];
+}> {
+  const log: string[] = [];
+  let bodyText: string | null = null;
+  let bodyHtml: string | null = null;
+
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!emailId) {
+    log.push('[WARN] No email_id in webhook payload — cannot fetch body.');
+    return { bodyText, bodyHtml, log };
+  }
+  if (!apiKey) {
+    log.push('[WARN] RESEND_API_KEY env var is not set — cannot fetch body.');
+    return { bodyText, bodyHtml, log };
+  }
+
+  const resend = new Resend(apiKey);
+  const delays = [0, 2000, 5000]; // immediate, 2s, 5s
+  for (const delay of delays) {
+    if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay));
+    const attemptLabel = `attempt delay=${delay}ms`;
+    try {
+      log.push(`[${attemptLabel}] Calling resend.emails.receiving.get("${emailId}")…`);
+      const { data: fullEmail, error: resendErr } = await resend.emails.receiving.get(emailId);
+
+      if (resendErr) {
+        log.push(`[${attemptLabel}] SDK error: ${JSON.stringify(resendErr)}`);
+        break;
+      }
+
+      if (!fullEmail) {
+        log.push(`[${attemptLabel}] SDK returned null data, no error.`);
+        continue;
+      }
+
+      const keys = Object.keys(fullEmail);
+      log.push(`[${attemptLabel}] Response keys: [${keys.join(', ')}]`);
+
+      const text = (fullEmail as any).text ?? null;
+      const html = (fullEmail as any).html ?? null;
+      log.push(`[${attemptLabel}] text=${text ? `${text.length}chars` : 'null'}, html=${html ? `${html.length}chars` : 'null'}`);
+
+      if (text || html) {
+        bodyText = text;
+        bodyHtml = html;
+        log.push(`[OK] Body fetched successfully.`);
+        break;
+      }
+      log.push(`[${attemptLabel}] Body still empty, will retry…`);
+    } catch (err: any) {
+      log.push(`[${attemptLabel}] Exception: ${err?.message ?? String(err)}`);
+      break;
+    }
+  }
+
+  return { bodyText, bodyHtml, log };
+}
+
+// ---------------------------------------------------------------------------
+// Route handler
+// ---------------------------------------------------------------------------
 export async function POST(request: NextRequest) {
   const signingSecret = process.env.RESEND_INBOUND_SECRET;
 
@@ -69,6 +138,7 @@ export async function POST(request: NextRequest) {
   const fromRaw: string = emailData?.from ?? '';
   const subject: string = emailData?.subject ?? '(no subject)';
   const messageId: string = emailData?.message_id ?? '';
+  const toAddresses: string[] = emailData?.to ?? [];
 
   // Parse "Name <email>" or plain email address
   const emailMatch = fromRaw.match(/<([^>]+)>/);
@@ -81,12 +151,146 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing from email' }, { status: 400 });
   }
 
+  const admin = createAdminClient();
+
+  // -------------------------------------------------------------------------
+  // Routing: check if any recipient is @kswd.ca (customer site email)
+  // -------------------------------------------------------------------------
+  const kswdRecipients = toAddresses
+    .map(addr => addr.toLowerCase().trim())
+    .filter(addr => addr.endsWith('@kswd.ca'))
+    .map(addr => addr.replace(/@kswd\.ca$/, ''));
+
+  const hasOpsRecipient = toAddresses.some(
+    addr => addr.toLowerCase().trim().endsWith('@keystoneweb.ca')
+  );
+
+  // Handle @kswd.ca site emails
+  if (kswdRecipients.length > 0) {
+    // Fetch body once, reuse for all recipients
+    const { bodyText, bodyHtml, log } = await fetchResendEmailBody(emailId);
+    const messageBody = bodyText || (bodyHtml ? bodyHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : null);
+
+    for (const localPart of kswdRecipients) {
+      // Look up site by published subdomain
+      const { data: site } = await admin
+        .from('sites')
+        .select('id, user_id, site_slug, contact_ai_replies_enabled')
+        .eq('published_domain', localPart)
+        .eq('is_published', true)
+        .maybeSingle();
+
+      if (!site) {
+        console.log(`[resend-inbound] No published site for ${localPart}@kswd.ca, skipping`);
+        continue;
+      }
+
+      // Check Pro subscription
+      const { data: subscription } = await admin
+        .from('user_subscriptions')
+        .select('subscription_status, subscription_plan')
+        .eq('user_id', site.user_id)
+        .maybeSingle();
+
+      const isPro =
+        subscription?.subscription_status === 'active' &&
+        subscription?.subscription_plan?.toLowerCase().includes('pro');
+
+      if (!isPro) {
+        console.log(`[resend-inbound] Site ${localPart} owner is not on Pro plan, discarding email`);
+        continue;
+      }
+
+      // Dedup: check for very recent submission from same sender to same site
+      const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
+      const { data: recentDup } = await admin
+        .from('contact_submissions')
+        .select('id')
+        .eq('site_id', site.id)
+        .eq('sender_email', fromEmail)
+        .gte('created_at', oneMinuteAgo)
+        .maybeSingle();
+
+      if (recentDup) {
+        console.log(`[resend-inbound] Duplicate email from ${fromEmail} to ${localPart}@kswd.ca, skipping`);
+        continue;
+      }
+
+      // Insert into contact_submissions
+      const { data: submission, error: insertErr } = await admin
+        .from('contact_submissions')
+        .insert({
+          site_id: site.id,
+          sender_name: fromName || fromEmail,
+          sender_email: fromEmail,
+          sender_phone: null,
+          message: messageBody || `[Email] ${subject}`,
+          status: 'new',
+        })
+        .select('id')
+        .single();
+
+      if (insertErr || !submission) {
+        console.error(`[resend-inbound] Failed to store contact submission for ${localPart}:`, insertErr);
+        continue;
+      }
+
+      console.log(`[resend-inbound] Email from ${fromEmail} routed to site ${localPart} inbox (${submission.id})`);
+
+      // Fire AI triage in the background (non-blocking)
+      triageContactSubmission(submission.id, admin).catch(err => {
+        console.error('[resend-inbound] Triage error (non-fatal):', err);
+      });
+
+      // Notify site owner
+      try {
+        // Look up owner notification email
+        const { data: settings } = await admin
+          .from('booking_settings')
+          .select('notification_email')
+          .eq('site_id', site.id)
+          .maybeSingle();
+
+        let ownerEmail = settings?.notification_email;
+
+        if (!ownerEmail) {
+          const { data: authUser } = await admin.auth.admin.getUserById(site.user_id);
+          ownerEmail = authUser?.user?.email ?? null;
+        }
+
+        if (ownerEmail) {
+          const siteName = site.site_slug || localPart;
+          await sendContactFormNotification(
+            {
+              siteName,
+              customerName: fromName || fromEmail,
+              customerEmail: fromEmail,
+              customerPhone: null,
+              message: messageBody || `[Email] ${subject}`,
+              submissionId: submission.id,
+              siteId: site.id,
+            },
+            ownerEmail
+          );
+        }
+      } catch (notifErr) {
+        console.error('[resend-inbound] Owner notification error (non-fatal):', notifErr);
+      }
+    }
+
+    // If no ops recipient, we're done
+    if (!hasOpsRecipient) {
+      return NextResponse.json({ received: true });
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Existing ops/support routing for @keystoneweb.ca
+  // -------------------------------------------------------------------------
   const isOpsSender = fromEmail.toLowerCase().endsWith('@keystoneweb.ca');
   if (isOpsSender) {
     console.log(`[resend-inbound] Ops self-email detected from ${fromEmail} - will save to DB but skip notification.`);
   }
-
-  const admin = createAdminClient();
 
   // Deduplicate by Resend email_id (most reliable unique key)
   const dedupKey = emailId || messageId;
@@ -103,70 +307,20 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Fetch body via Resend SDK.
-  // Resend fires the webhook before the body is always ready, so retry a few
-  // times with short delays to give it time to process.
-  let bodyText: string | null = null;
-  let bodyHtml: string | null = null;
-  const log: string[] = [];
+  // Fetch body via Resend SDK
+  const { bodyText, bodyHtml, log } = await fetchResendEmailBody(emailId);
+  let opsBodyText = bodyText;
+  const opsBodyHtml = bodyHtml;
 
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!emailId) {
-    log.push('[WARN] No email_id in webhook payload — cannot fetch body.');
-  } else if (!apiKey) {
-    log.push('[WARN] RESEND_API_KEY env var is not set — cannot fetch body.');
-  } else {
-    const resend = new Resend(apiKey);
-    const delays = [0, 2000, 5000]; // immediate, 2s, 5s
-    for (const delay of delays) {
-      if (delay > 0) await new Promise(resolve => setTimeout(resolve, delay));
-      const attemptLabel = `attempt delay=${delay}ms`;
-      try {
-        log.push(`[${attemptLabel}] Calling resend.emails.receiving.get("${emailId}")…`);
-        const { data: fullEmail, error: resendErr } = await resend.emails.receiving.get(emailId);
-
-        if (resendErr) {
-          log.push(`[${attemptLabel}] SDK error: ${JSON.stringify(resendErr)}`);
-          break; // SDK-level error won't improve with retries
-        }
-
-        if (!fullEmail) {
-          log.push(`[${attemptLabel}] SDK returned null data, no error.`);
-          continue;
-        }
-
-        // Log all top-level keys so we can see what Resend actually returns
-        const keys = Object.keys(fullEmail);
-        log.push(`[${attemptLabel}] Response keys: [${keys.join(', ')}]`);
-
-        const text = (fullEmail as any).text ?? null;
-        const html = (fullEmail as any).html ?? null;
-        log.push(`[${attemptLabel}] text=${text ? `${text.length}chars` : 'null'}, html=${html ? `${html.length}chars` : 'null'}`);
-
-        if (text || html) {
-          bodyText = text;
-          bodyHtml = html;
-          log.push(`[OK] Body fetched successfully.`);
-          break;
-        }
-        log.push(`[${attemptLabel}] Body still empty, will retry…`);
-      } catch (err: any) {
-        log.push(`[${attemptLabel}] Exception: ${err?.message ?? String(err)}`);
-        break;
-      }
-    }
-  }
-
-  // If body is still empty, store the diagnostic log as body_text so ops can see
-  // what happened directly in the support ticket.
-  if (!bodyText && !bodyHtml && log.length > 0) {
-    bodyText = `[WEBHOOK DEBUG — body fetch failed]\n\n${log.join('\n')}\n\nWebhook payload.data keys: [${Object.keys(emailData ?? {}).join(', ')}]\nemail_id: ${emailId}\nfrom: ${fromRaw}\nsubject: ${subject}`;
+  // If body is still empty, store the diagnostic log as body_text
+  if (!opsBodyText && !opsBodyHtml && log.length > 0) {
+    opsBodyText = `[WEBHOOK DEBUG — body fetch failed]\n\n${log.join('\n')}\n\nWebhook payload.data keys: [${Object.keys(emailData ?? {}).join(', ')}]\nemail_id: ${emailId}\nfrom: ${fromRaw}\nsubject: ${subject}`;
   }
 
   // Thread detection: scan body for ref:UUID token from ops replies
   let threadId: string | null = null;
-  const refMatch = (bodyText ?? '').match(/ref:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i)
-    ?? (bodyHtml ?? '').match(/ref:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+  const refMatch = (opsBodyText ?? '').match(/ref:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i)
+    ?? (opsBodyHtml ?? '').match(/ref:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
   if (refMatch) {
     const candidateId = refMatch[1];
     // Verify the referenced ticket exists
@@ -185,8 +339,8 @@ export async function POST(request: NextRequest) {
     from_email: fromEmail,
     from_name: fromName,
     subject,
-    body_text: bodyText,
-    body_html: bodyHtml,
+    body_text: opsBodyText,
+    body_html: opsBodyHtml,
     resend_email_id: dedupKey || null,
     thread_id: threadId,
     status: threadId ? 'in_progress' : 'open',
@@ -207,7 +361,7 @@ export async function POST(request: NextRequest) {
       .map(e => e.trim())
       .filter(Boolean);
 
-    const bodyPreview = bodyText ? bodyText.slice(0, 300) : null;
+    const bodyPreview = opsBodyText ? opsBodyText.slice(0, 300) : null;
     await sendSupportRequestNotification({ fromName, fromEmail, subject, bodyPreview }, adminEmails);
   }
 
