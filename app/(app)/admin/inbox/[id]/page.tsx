@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Bot, User, Send, Loader2, Sparkles, CheckCircle, AlertCircle, Trash2, ShieldAlert, Clock } from 'lucide-react';
-import { useAdminContext } from '../admin-context';
+import { useAdminContext } from '../../admin-context';
 
 interface Submission {
   id: string;

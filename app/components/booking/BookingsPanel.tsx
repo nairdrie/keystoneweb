@@ -98,8 +98,8 @@ export default function BookingsPanel({ siteId }: BookingsPanelProps) {
         setCancelReason('');
     };
 
-    const today = new Date().toISOString().split('T')[0];
     const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     const isUpcoming = (b: Booking) => {
         if (b.status === 'cancelled') return false;
