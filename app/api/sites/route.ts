@@ -63,39 +63,8 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    // Enforce site limit for authenticated users on the basic plan
-    console.log('[site-limit] user:', user?.id ?? 'null');
-    if (user) {
-      const { data: subscription, error: subError } = await supabase
-        .from('user_subscriptions')
-        .select('subscription_status, subscription_plan')
-        .eq('user_id', user.id)
-        .single();
-
-      console.log('[site-limit] subscription:', JSON.stringify(subscription), 'error:', subError?.message);
-
-      const isPro =
-        subscription?.subscription_status === 'active' &&
-        subscription?.subscription_plan?.toLowerCase().includes('pro');
-
-      console.log('[site-limit] isPro:', isPro);
-
-      if (!isPro) {
-        const { count, error: countError } = await supabase
-          .from('sites')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id);
-
-        console.log('[site-limit] site count:', count, 'error:', countError?.message);
-
-        if ((count ?? 0) >= 5) {
-          return NextResponse.json(
-            { error: 'Site limit reached', siteLimitReached: true },
-            { status: 403 }
-          );
-        }
-      }
-    }
+    // No creation limit — users can create unlimited draft sites.
+    // Publish limits are enforced separately at publish time.
 
     const siteId = uuidv4();
     const homePageId = uuidv4();

@@ -62,6 +62,10 @@ export default function Header() {
             Pricing
           </Link>
 
+          <Link href="/contact" className="text-sm text-slate-700 hover:text-slate-900 transition-colors font-medium">
+            Contact
+          </Link>
+
           {user ? (
             <div className="flex items-center gap-4">
               <Link
@@ -158,6 +162,13 @@ export default function Header() {
               Pricing
             </Link>
 
+            <Link
+              href="/contact"
+              className="block text-sm text-slate-700 hover:text-slate-900 font-medium py-2"
+              onClick={() => setIsOpen(false)}
+            >
+              Contact
+            </Link>
 
             {user && (
               <div className="border-t border-slate-100 mt-1">

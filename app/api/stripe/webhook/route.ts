@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
 
         // ── Domain Purchase Payment ─────────────────────────────────
         if (session.metadata?.type === 'domain_purchase') {
-          const { domainPurchaseId, domain, siteId, userId } = session.metadata;
+          const { domainPurchaseId, domain, siteId, userId, isDomainSwitch } = session.metadata;
 
           if (!domainPurchaseId || !domain || !siteId || !userId) {
             console.error('Missing domain purchase metadata in checkout session');
@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
             domain,
             siteId,
             userId,
+            isDomainSwitch === 'true',
           );
 
           if (result.success) {

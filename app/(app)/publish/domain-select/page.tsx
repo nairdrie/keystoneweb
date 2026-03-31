@@ -348,6 +348,15 @@ export function DomainManager({
     transferInitiatedParam ? 'transfer' : 'import'
   );
 
+  // Cross-site domain conflict state
+  const [otherSiteWithDomain, setOtherSiteWithDomain] = useState<{ siteId: string; domain: string; siteTitle: string } | null>(null);
+  const [showConflictWarning, setShowConflictWarning] = useState(false);
+  const [pendingConflictDomain, setPendingConflictDomain] = useState<string | null>(null);
+
+  // Domain switch rate limit state
+  const [switchRateLimited, setSwitchRateLimited] = useState(false);
+  const [switchNextAvailable, setSwitchNextAvailable] = useState<string | null>(null);
+
   // Transfer state
   const [transferDomain, setTransferDomain] = useState('');
   const [transferPriceData, setTransferPriceData] = useState<TransferPriceData | null>(null);
@@ -411,6 +420,39 @@ export function DomainManager({
     if (authLoading || !user || !siteId) return;
     fetchSiteStatus();
   }, [user, authLoading, siteId, fetchSiteStatus]);
+
+  // Fetch cross-site domain conflict: check if another user site has a custom domain
+  useEffect(() => {
+    if (authLoading || !user || !siteId) return;
+    fetch('/api/user/sites', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data?.sites) return;
+        const conflict = data.sites.find((s: any) => s.customDomain && s.id !== siteId);
+        if (conflict) {
+          setOtherSiteWithDomain({
+            siteId: conflict.id,
+            domain: conflict.customDomain,
+            siteTitle: conflict.siteSlug || conflict.id.slice(0, 8),
+          });
+        }
+      })
+      .catch(console.error);
+  }, [user, authLoading, siteId]);
+
+  // Check domain switch rate limit
+  useEffect(() => {
+    if (authLoading || !user) return;
+    fetch('/api/domains/switch-status', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.rateLimited) {
+          setSwitchRateLimited(true);
+          setSwitchNextAvailable(data.nextAvailableFormatted ?? null);
+        }
+      })
+      .catch(console.error);
+  }, [user, authLoading]);
 
   // Fetch owned domains (unallocated ones for the dropdown)
   useEffect(() => {
@@ -1005,7 +1047,7 @@ export function DomainManager({
             <div className="px-5 py-3 border-b border-green-100 bg-green-50 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Crown className="w-4 h-4 text-green-600" />
-                <h3 className="text-sm font-bold text-slate-900">Custom Domain</h3>
+                <h3 className="text-sm font-bold text-slate-900">Active Custom Domain</h3>
               </div>
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
@@ -1048,12 +1090,14 @@ export function DomainManager({
         )}
 
         {/* ═══════════════════════════════════════════════════════════ */}
-        {/* SECTION: Custom Domain (addon)                              */}
+        {/* SECTION: Change Custom Domain                               */}
         {/* ═══════════════════════════════════════════════════════════ */}
         <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
             <Crown className="w-4 h-4 text-slate-600" />
-            <h3 className="text-sm font-bold text-slate-900">Custom Domain</h3>
+            <h3 className="text-sm font-bold text-slate-900">
+              {siteStatus?.customDomain ? 'Change Custom Domain' : 'Custom Domain'}
+            </h3>
             {!isPro && <Lock className="w-3.5 h-3.5 text-slate-400 ml-1" />}
             <span className="text-xs text-slate-500 ml-auto">Pro Feature</span>
           </div>
@@ -1087,6 +1131,30 @@ export function DomainManager({
             ) : (
               /* ─── Pro User: Custom Domain Options ─────────────────── */
               <div className="space-y-5">
+
+                {/* Account-level policy note */}
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 leading-relaxed">
+                  <strong>1 custom domain per account.</strong> Your Pro plan includes one free custom domain registration. You can change it to a new domain once per month — a one-time registration fee applies for the new domain.
+                  {freeDomainUsed && switchRateLimited && switchNextAvailable && (
+                    <span className="block mt-1 font-semibold text-amber-700">
+                      Domain switch available again on {switchNextAvailable}.
+                    </span>
+                  )}
+                </div>
+
+                {/* Cross-site conflict warning */}
+                {otherSiteWithDomain && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-xs text-amber-900 font-semibold mb-1">
+                      Custom domain already in use on another site
+                    </p>
+                    <p className="text-xs text-amber-800 leading-relaxed">
+                      Your account&apos;s custom domain <span className="font-mono font-semibold">{otherSiteWithDomain.domain}</span> is currently assigned to &ldquo;{otherSiteWithDomain.siteTitle}&rdquo;.
+                      Adding a domain to this site will disconnect it from that site.
+                    </p>
+                  </div>
+                )}
+
                 {/* Mode Toggle */}
                 <div className="flex gap-2">
                   <button
@@ -1097,7 +1165,7 @@ export function DomainManager({
                       }`}
                   >
                     <ShoppingCart className="w-4 h-4" />
-                    Buy a New Domain
+                    {siteStatus?.customDomain ? 'Switch Domain' : 'Register a Domain'}
                   </button>
                   <button
                     onClick={() => { setCustomMode('external'); setError(null); }}
@@ -1331,36 +1399,58 @@ export function DomainManager({
                         .find(r => r.domain === selectedDomain);
                       const domainPrice = selectedResult?.price;
                       const isPaid = freeDomainUsed && domainPrice && domainPrice > 0;
+                      // Switch price = Vercel price + $5 rounded to .99
+                      const switchPrice = domainPrice ? (Math.ceil(domainPrice + 5) - 0.01) : null;
 
                       return (
-                        <div className="pt-3 border-t border-slate-100">
-                          <div className="flex items-center justify-between mb-3">
+                        <div className="pt-3 border-t border-slate-100 space-y-3">
+                          <div className="flex items-center justify-between">
                             <span className="text-sm text-slate-600">Selected domain:</span>
                             <span className="font-mono font-bold text-slate-900">{selectedDomain}</span>
                           </div>
-                          <button
-                            onClick={handlePurchaseDomain}
-                            disabled={purchasing}
-                            className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                          >
-                            {purchasing ? (
-                              <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                {isPaid ? 'Proceeding to checkout...' : 'Registering Domain...'}
-                              </>
-                            ) : (
-                              <>
-                                <Globe className="w-4 h-4" />
-                                {isPaid
-                                  ? `Purchase Domain — $${domainPrice.toFixed(2)} USD`
-                                  : 'Claim & Connect Domain'}
-                              </>
-                            )}
-                          </button>
-                          <p className="text-xs text-center text-slate-500 mt-2">
+
+                          {/* Cross-site conflict diagram */}
+                          {otherSiteWithDomain && isPaid && (
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                              <p className="text-xs font-semibold text-amber-900 mb-2">What will change:</p>
+                              <div className="space-y-1 text-xs font-mono text-amber-800">
+                                <div><span className="text-slate-500">{otherSiteWithDomain.siteTitle}:</span> <span className="line-through text-red-500">{otherSiteWithDomain.domain}</span> → <span className="text-slate-700">{otherSiteWithDomain.domain.split('.')[0]}.kswd.ca</span></div>
+                                <div><span className="text-slate-500">This site:</span> <span className="text-slate-500">*.kswd.ca</span> → <span className="text-green-700 font-bold">{selectedDomain}</span></div>
+                              </div>
+                            </div>
+                          )}
+
+                          {switchRateLimited ? (
+                            <div className="p-3 bg-slate-100 rounded-lg text-center">
+                              <p className="text-xs text-slate-600">
+                                Domain switch available again on <strong>{switchNextAvailable}</strong>.
+                              </p>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={handlePurchaseDomain}
+                              disabled={purchasing}
+                              className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                              {purchasing ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  {isPaid ? 'Proceeding to checkout...' : 'Registering Domain...'}
+                                </>
+                              ) : (
+                                <>
+                                  <Globe className="w-4 h-4" />
+                                  {isPaid
+                                    ? `Switch Domain — $${switchPrice?.toFixed(2) ?? domainPrice?.toFixed(2)} USD`
+                                    : 'Claim & Connect Domain'}
+                                </>
+                              )}
+                            </button>
+                          )}
+                          <p className="text-xs text-center text-slate-500">
                             {isPaid
-                              ? 'You\u2019ll be redirected to a secure checkout.'
-                              : 'No extra cost \u2014 included with your Pro plan.'}
+                              ? 'One-time registration fee. You\u2019ll be redirected to a secure checkout.'
+                              : 'No extra cost \u2014 your free domain included with Pro.'}
                           </p>
                         </div>
                       );

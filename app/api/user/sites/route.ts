@@ -7,18 +7,20 @@ interface UserSite {
   updatedAt: string;
   businessType: string;
   category: string;
+  isPublished: boolean;
+  publishedDomain?: string;
+  customDomain?: string;
 }
 
 /**
  * GET /api/user/sites
- * Fetch all sites owned by the authenticated user
- * Returns sites ordered by most recently updated first
+ * Fetch all sites owned by the authenticated user.
+ * Returns sites ordered by most recently updated first.
  */
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // Verify user is authenticated
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
@@ -27,10 +29,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch all sites owned by this user, ordered by updated_at DESC
     const { data: sites, error } = await supabase
       .from('sites')
-      .select('id, site_slug, business_type, category, updated_at, created_at')
+      .select('id, site_slug, business_type, category, updated_at, created_at, is_published, published_domain, custom_domain')
       .eq('user_id', user.id)
       .order('updated_at', { ascending: false });
 
@@ -42,13 +43,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Map to response format
     const userSites: UserSite[] = sites.map(site => ({
       id: site.id,
       siteSlug: site.site_slug || undefined,
       updatedAt: site.updated_at,
       businessType: site.business_type,
       category: site.category,
+      isPublished: site.is_published || false,
+      publishedDomain: site.published_domain || undefined,
+      customDomain: site.custom_domain || undefined,
     }));
 
     return NextResponse.json({

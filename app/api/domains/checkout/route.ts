@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
-import { calculateDomainPrice, priceToCents } from '@/lib/domains/pricing';
+import { calculateDomainSwitchPrice, priceToCents } from '@/lib/domains/pricing';
 import Stripe from 'stripe';
 
 const VERCEL_API_TOKEN = process.env.VERCEL_API_TOKEN;
@@ -76,6 +76,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Enforce once-per-month domain switch limit
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: recentSwitch } = await supabase
+      .from('domain_purchases')
+      .select('id, created_at')
+      .eq('user_id', user.id)
+      .eq('status', 'completed')
+      .eq('is_free_with_pro', false)
+      .gte('created_at', thirtyDaysAgo)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (recentSwitch) {
+      const nextAvailable = new Date(new Date(recentSwitch.created_at).getTime() + 30 * 24 * 60 * 60 * 1000);
+      return NextResponse.json(
+        {
+          error: 'Domain changes are limited to once per month.',
+          nextAvailableAt: nextAvailable.toISOString(),
+          nextAvailableFormatted: nextAvailable.toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' }),
+        },
+        { status: 429 }
+      );
+    }
+
     if (!VERCEL_API_TOKEN) {
       return NextResponse.json(
         { error: 'Domain purchasing is not configured. Contact support.' },
@@ -111,7 +136,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const keystonePrice = calculateDomainPrice(vercelPrice);
+    const keystonePrice = calculateDomainSwitchPrice(vercelPrice);
     const amountCents = priceToCents(keystonePrice);
 
     // Create a pending domain_purchase record
@@ -166,6 +191,7 @@ export async function POST(request: NextRequest) {
         siteId,
         userId: user.id,
         vercelPrice: vercelPrice.toString(),
+        isDomainSwitch: 'true',
       },
     });
 

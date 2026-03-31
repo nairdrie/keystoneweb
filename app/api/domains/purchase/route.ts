@@ -128,14 +128,43 @@ async function buyDomainFromVercel(
 
 /**
  * Complete a paid domain purchase (called from the Stripe webhook).
+ * If isDomainSwitch is true, disconnects any existing custom domain from
+ * other sites belonging to this user before linking the new domain.
  */
 export async function completeDomainPurchase(
   purchaseId: string,
   domain: string,
   siteId: string,
   userId: string,
+  isDomainSwitch?: boolean,
 ): Promise<{ success: boolean; error?: string }> {
   const supabase = await createClient();
+
+  // If this is a domain switch, disconnect old custom domain from any other site
+  if (isDomainSwitch) {
+    const { data: sitesWithDomain } = await supabase
+      .from('sites')
+      .select('id, custom_domain')
+      .eq('user_id', userId)
+      .not('custom_domain', 'is', null)
+      .neq('id', siteId);
+
+    if (sitesWithDomain && sitesWithDomain.length > 0) {
+      for (const otherSite of sitesWithDomain) {
+        // Park the old domain (clear from site, keep domain_purchases record)
+        await supabase
+          .from('sites')
+          .update({ custom_domain: null })
+          .eq('id', otherSite.id);
+
+        await supabase
+          .from('domain_purchases')
+          .update({ site_id: null })
+          .eq('domain', otherSite.custom_domain)
+          .eq('user_id', userId);
+      }
+    }
+  }
 
   // Get user info
   const { data: userProfile } = await supabase
