@@ -33,6 +33,7 @@ interface Site {
   category: string;
   createdAt: string;
   updatedAt: string;
+  isPublished?: boolean;
 }
 
 interface FloatingToolbarProps {
@@ -262,7 +263,7 @@ export default function FloatingToolbar({
         const res = await fetch('/api/user/sites', { credentials: 'include' });
         if (res.ok) {
           const { sites } = await res.json();
-          setUserSites(sites);
+          setUserSites(sites.map((s: any) => ({ ...s, isPublished: s.isPublished || false })));
         }
       } catch (error) {
         console.error('Failed to fetch user sites:', error);
@@ -520,22 +521,49 @@ export default function FloatingToolbar({
                     <>
                       <div className="px-3 py-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Your Sites</div>
                       {userSites.map((site) => (
-                        <button
+                        <div
                           key={site.id}
-                          onClick={() => {
-                            setShowSiteSwitcher(false);
-                            router.push(`/design?siteId=${site.id}`);
-                          }}
-                          className={`w-full text-left px-3 py-2.5 rounded-lg transition-all text-sm flex items-center justify-between group ${currentSiteId === site.id
+                          className={`w-full px-3 py-2.5 rounded-lg transition-all text-sm flex items-center gap-2 group ${currentSiteId === site.id
                             ? 'bg-red-50 text-red-900 font-semibold border border-red-100'
                             : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
                             }`}
                         >
-                          <span className="truncate pr-4">{site.siteSlug || `Site ${site.id.slice(0, 8)}`}</span>
-                          {currentSiteId === site.id && (
-                            <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                          <span className={`shrink-0 w-2 h-2 rounded-full ${site.isPublished ? 'bg-green-500' : 'bg-slate-300'}`} />
+                          <button
+                            onClick={() => {
+                              setShowSiteSwitcher(false);
+                              router.push(`/design?siteId=${site.id}`);
+                            }}
+                            className="truncate text-left flex-1"
+                          >
+                            {site.siteSlug || `Site ${site.id.slice(0, 8)}`}
+                          </button>
+                          {site.isPublished && currentSiteId !== site.id && (
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (!confirm('This will take your site offline. Visitors will no longer be able to access it.')) return;
+                                try {
+                                  const res = await fetch('/api/sites/unpublish', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ siteId: site.id }),
+                                  });
+                                  if (res.ok) {
+                                    setUserSites(prev => prev.map(s => s.id === site.id ? { ...s, isPublished: false } : s));
+                                  }
+                                } catch {}
+                              }}
+                              title="Unpublish site"
+                              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-slate-200 transition-all"
+                            >
+                              <EyeOff className="w-3.5 h-3.5 text-slate-400" />
+                            </button>
                           )}
-                        </button>
+                          {currentSiteId === site.id && (
+                            <span className="w-2 h-2 rounded-full bg-red-500 shrink-0"></span>
+                          )}
+                        </div>
                       ))}
                       <div className="h-px bg-slate-100 my-2 mx-1" />
                     </>
