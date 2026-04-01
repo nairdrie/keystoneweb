@@ -23,7 +23,7 @@ export default async function OpsKanbanPage() {
       .from('ops_tickets')
       .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, sort_order, created_at, updated_at')
       .eq('status', status.value)
-      .order('priority_rank' as 'priority', { ascending: true })
+      .order('priority_rank' as unknown as 'priority', { ascending: true })
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true })
       .range(0, INITIAL_STATUS_PAGE_SIZE - 1)

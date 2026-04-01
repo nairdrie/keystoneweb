@@ -42,7 +42,7 @@ export async function GET(request: Request) {
 
     if (sortParam === 'priority') {
       ticketsQuery = ticketsQuery
-        .order('priority_rank' as 'priority', { ascending: true })
+        .order('priority_rank' as unknown as 'priority', { ascending: true })
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true });
     } else {
