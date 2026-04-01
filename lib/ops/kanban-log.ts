@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   getAssigneeDisplay,
   getOpsTicketPriorityMeta,
@@ -187,11 +188,7 @@ export function buildUpdateTicketLogs(
 }
 
 export async function insertOpsTicketLogs(
-  db: {
-    from: (table: string) => {
-      insert: (values: OpsTicketLogInsert[]) => Promise<{ error: { message?: string } | null }>;
-    };
-  },
+  db: SupabaseClient,
   entries: OpsTicketLogInsert[]
 ) {
   if (entries.length === 0) return;
