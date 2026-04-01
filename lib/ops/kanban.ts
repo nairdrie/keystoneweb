@@ -96,6 +96,38 @@ export interface OpsAssigneeOption {
   kind: 'admin' | 'agent' | 'admin_agent';
 }
 
+export const OPS_TICKET_LOG_FIELDS = [
+  'title',
+  'description',
+  'status',
+  'priority',
+  'assignee',
+] as const;
+
+export const OPS_TICKET_LOG_ACTIONS = [
+  'create',
+  'update',
+  'delete',
+] as const;
+
+export type OpsTicketLogField = (typeof OPS_TICKET_LOG_FIELDS)[number];
+export type OpsTicketLogAction = (typeof OPS_TICKET_LOG_ACTIONS)[number];
+
+export interface OpsTicketLogEntry {
+  id: number;
+  ticket_id: string | null;
+  ticket_name: string;
+  actor_user_id: string | null;
+  actor_email: string | null;
+  action: OpsTicketLogAction;
+  field_name: OpsTicketLogField | null;
+  old_value: string | null;
+  new_value: string | null;
+  old_label: string | null;
+  new_label: string | null;
+  created_at: string;
+}
+
 const STATUS_VALUES = new Set<string>(OPS_TICKET_STATUSES.map((status) => status.value));
 const PRIORITY_VALUES = new Set<string>(OPS_TICKET_PRIORITIES.map((priority) => priority.value));
 
@@ -113,6 +145,11 @@ export function getOpsTicketStatusMeta(status: OpsTicketStatus) {
 
 export function getOpsTicketPriorityMeta(priority: OpsTicketPriority) {
   return OPS_TICKET_PRIORITIES.find((item) => item.value === priority) ?? OPS_TICKET_PRIORITIES[1];
+}
+
+export function getAssigneeDisplay(assignee: OpsAssigneeOption | null | undefined) {
+  if (!assignee) return 'Unassigned';
+  return assignee.name?.trim() || assignee.email;
 }
 
 export function sortOpsTickets(tickets: OpsTicket[]) {

@@ -1,10 +1,11 @@
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { getOpsAccessContext, getOpsAdminEmails } from '@/lib/ops/access';
-import type { OpsAssigneeOption, OpsTicket } from '@/lib/ops/kanban';
+import { OPS_TICKET_STATUSES, type OpsAssigneeOption, type OpsTicket, type OpsTicketStatus } from '@/lib/ops/kanban';
 import KanbanBoard from './KanbanBoard';
 
 export const metadata = { title: 'Keystone Ops Kanban' };
+const INITIAL_STATUS_PAGE_SIZE = 20;
 
 export default async function OpsKanbanPage() {
   const access = await getOpsAccessContext();
@@ -15,13 +16,26 @@ export default async function OpsKanbanPage() {
   const db = createAdminClient();
   const adminEmails = getOpsAdminEmails();
 
-  const [ticketsResult, agentsResult, flaggedAdminsResult, envAdminsResult] = await Promise.all([
+  const ticketBatchQueries = OPS_TICKET_STATUSES.map((status) =>
     db
       .from('ops_tickets')
       .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, sort_order, created_at, updated_at')
-      .order('status', { ascending: true })
+      .eq('status', status.value)
       .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: true }),
+      .order('created_at', { ascending: true })
+      .range(0, INITIAL_STATUS_PAGE_SIZE - 1)
+  );
+
+  const ticketCountQueries = OPS_TICKET_STATUSES.map((status) =>
+    db
+      .from('ops_tickets')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', status.value)
+  );
+
+  const [ticketBatchResults, ticketCountResults, agentsResult, flaggedAdminsResult, envAdminsResult] = await Promise.all([
+    Promise.all(ticketBatchQueries),
+    Promise.all(ticketCountQueries),
     db
       .from('users')
       .select('id, email, business_name, is_agent, is_admin')
@@ -41,8 +55,15 @@ export default async function OpsKanbanPage() {
       : Promise.resolve({ data: [], error: null }),
   ]);
 
-  if (ticketsResult.error) {
-    console.error('[ops/kanban page tickets]', ticketsResult.error);
+  for (const [index, result] of ticketBatchResults.entries()) {
+    if (result.error) {
+      console.error('[ops/kanban page tickets]', OPS_TICKET_STATUSES[index]?.value, result.error);
+    }
+  }
+  for (const [index, result] of ticketCountResults.entries()) {
+    if (result.error) {
+      console.error('[ops/kanban page counts]', OPS_TICKET_STATUSES[index]?.value, result.error);
+    }
   }
   if (agentsResult.error) {
     console.error('[ops/kanban page agents]', agentsResult.error);
@@ -98,12 +119,18 @@ export default async function OpsKanbanPage() {
       return left.email.localeCompare(right.email);
     });
 
+  const initialTickets = ticketBatchResults.flatMap((result) => (result.data ?? []) as OpsTicket[]);
+  const statusCounts = Object.fromEntries(
+    OPS_TICKET_STATUSES.map((status, index) => [status.value, ticketCountResults[index]?.count ?? 0])
+  ) as Record<OpsTicketStatus, number>;
+
   return (
     <KanbanBoard
-      initialTickets={(ticketsResult.data ?? []) as OpsTicket[]}
+      initialTickets={initialTickets}
+      statusCounts={statusCounts}
       assignees={assignees}
       currentUserId={access.userId}
-      canDelete={access.isAdmin}
+      canDelete={access.isAdmin || access.isAgent}
     />
   );
 }

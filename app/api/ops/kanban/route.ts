@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { requireOpsAccess } from '@/lib/ops/access';
+import { buildCreateTicketLog, insertOpsTicketLogs } from '@/lib/ops/kanban-log';
 import {
   getNextSortOrder,
   isOpsTicketPriority,
   isOpsTicketStatus,
+  OPS_TICKET_STATUSES,
   sortOpsTickets,
   type OpsTicket,
   type OpsTicketPriority,
@@ -17,16 +19,53 @@ function cleanOptionalText(value: unknown) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const access = await requireOpsAccess();
   if (!access) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const statusParam = searchParams.get('status');
+  const offset = Math.max(0, Number.parseInt(searchParams.get('offset') ?? '0', 10) || 0);
+  const limit = Math.min(100, Math.max(1, Number.parseInt(searchParams.get('limit') ?? '20', 10) || 20));
   const db = createAdminClient();
+  const baseSelect =
+    'id, name, description, status, priority, assignee_user_id, created_by_user_id, sort_order, created_at, updated_at';
+
+  if (statusParam && isOpsTicketStatus(statusParam)) {
+    const [{ data, error }, { count, error: countError }] = await Promise.all([
+      db
+        .from('ops_tickets')
+        .select(baseSelect)
+        .eq('status', statusParam)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true })
+        .range(offset, offset + limit - 1),
+      db
+        .from('ops_tickets')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', statusParam),
+    ]);
+
+    if (error || countError) {
+      console.error('[ops/kanban GET paged]', error || countError);
+      return NextResponse.json({ error: 'Failed to load tickets' }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      tickets: (data ?? []) as OpsTicket[],
+      status: statusParam,
+      total: count ?? 0,
+      offset,
+      limit,
+      hasMore: offset + (data?.length ?? 0) < (count ?? 0),
+    });
+  }
+
   const { data, error } = await db
     .from('ops_tickets')
-    .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, sort_order, created_at, updated_at')
+    .select(baseSelect)
     .order('status', { ascending: true })
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
@@ -36,7 +75,15 @@ export async function GET() {
     return NextResponse.json({ error: 'Failed to load tickets' }, { status: 500 });
   }
 
-  return NextResponse.json({ tickets: sortOpsTickets((data ?? []) as OpsTicket[]) });
+  const counts = Object.fromEntries(
+    OPS_TICKET_STATUSES.map((status) => [status.value, 0])
+  ) as Record<OpsTicketStatus, number>;
+
+  for (const ticket of (data ?? []) as OpsTicket[]) {
+    counts[ticket.status] = (counts[ticket.status] ?? 0) + 1;
+  }
+
+  return NextResponse.json({ tickets: sortOpsTickets((data ?? []) as OpsTicket[]), counts });
 }
 
 export async function POST(request: Request) {
@@ -91,6 +138,17 @@ export async function POST(request: Request) {
   if (error || !data) {
     console.error('[ops/kanban POST]', error);
     return NextResponse.json({ error: 'Failed to create ticket' }, { status: 500 });
+  }
+
+  try {
+    await insertOpsTicketLogs(db, [
+      buildCreateTicketLog(data as OpsTicket, {
+        userId: access.userId,
+        userEmail: access.userEmail,
+      }),
+    ]);
+  } catch (logError) {
+    console.error('[ops/kanban POST log]', logError);
   }
 
   return NextResponse.json(data);

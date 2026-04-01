@@ -2,9 +2,15 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { requireOpsAccess } from '@/lib/ops/access';
 import {
+  buildDeleteTicketLog,
+  buildUpdateTicketLogs,
+  insertOpsTicketLogs,
+} from '@/lib/ops/kanban-log';
+import {
   getNextSortOrder,
   isOpsTicketPriority,
   isOpsTicketStatus,
+  type OpsAssigneeOption,
   type OpsTicket,
   type OpsTicketPriority,
   type OpsTicketStatus,
@@ -14,6 +20,29 @@ function cleanOptionalText(value: unknown) {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+async function loadOpsAssignees(db: ReturnType<typeof createAdminClient>) {
+  const { data, error } = await db
+    .from('users')
+    .select('id, email, business_name, is_agent, is_admin')
+    .or('is_agent.eq.true,is_admin.eq.true')
+    .order('email', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return ((data ?? []).filter((row) => row.id && row.email).map((row) => ({
+    id: row.id as string,
+    email: String(row.email).toLowerCase(),
+    name: row.business_name ? String(row.business_name) : null,
+    kind: row.is_admin && row.is_agent
+      ? 'admin_agent'
+      : row.is_admin
+        ? 'admin'
+        : 'agent',
+  })) as OpsAssigneeOption[]);
 }
 
 export async function PATCH(
@@ -28,6 +57,17 @@ export async function PATCH(
   const { id } = await params;
   const body = await request.json();
   const db = createAdminClient();
+  const { data: existingTicket, error: existingTicketError } = await db
+    .from('ops_tickets')
+    .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, sort_order, created_at, updated_at')
+    .eq('id', id)
+    .single();
+
+  if (existingTicketError || !existingTicket) {
+    console.error('[ops/kanban PATCH existing]', existingTicketError);
+    return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
+  }
+
   const update: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   };
@@ -101,6 +141,23 @@ export async function PATCH(
     return NextResponse.json({ error: 'Failed to update ticket' }, { status: 500 });
   }
 
+  try {
+    const assignees = await loadOpsAssignees(db);
+    const logEntries = buildUpdateTicketLogs(
+      existingTicket as OpsTicket,
+      data as OpsTicket,
+      {
+        userId: access.userId,
+        userEmail: access.userEmail,
+      },
+      assignees
+    );
+
+    await insertOpsTicketLogs(db, logEntries);
+  } catch (logError) {
+    console.error('[ops/kanban PATCH log]', logError);
+  }
+
   return NextResponse.json(data);
 }
 
@@ -109,17 +166,39 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const access = await requireOpsAccess();
-  if (!access || !access.isAdmin) {
+  if (!access) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const { id } = await params;
   const db = createAdminClient();
+  const { data: existingTicket, error: existingTicketError } = await db
+    .from('ops_tickets')
+    .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, sort_order, created_at, updated_at')
+    .eq('id', id)
+    .single();
+
+  if (existingTicketError || !existingTicket) {
+    console.error('[ops/kanban DELETE existing]', existingTicketError);
+    return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
+  }
+
   const { error } = await db.from('ops_tickets').delete().eq('id', id);
 
   if (error) {
     console.error('[ops/kanban DELETE]', error);
     return NextResponse.json({ error: 'Failed to delete ticket' }, { status: 500 });
+  }
+
+  try {
+    await insertOpsTicketLogs(db, [
+      buildDeleteTicketLog(existingTicket as OpsTicket, {
+        userId: access.userId,
+        userEmail: access.userEmail,
+      }),
+    ]);
+  } catch (logError) {
+    console.error('[ops/kanban DELETE log]', logError);
   }
 
   return NextResponse.json({ success: true });
