@@ -26,86 +26,48 @@ export async function checkAndPromoteTransfer(domain: string, siteId: string, us
 
   try {
     const vercelRes = await fetch(
-      `${VERCEL_API_BASE}/v4/domains/${encodeURIComponent(domain)}${teamParam}`,
+      `${VERCEL_API_BASE}/v5/domains/${encodeURIComponent(domain)}${teamParam}`,
       { headers: { Authorization: `Bearer ${VERCEL_API_TOKEN}` } }
     );
 
     let isComplete = false;
 
     if (vercelRes.status === 404) {
-      // Domain not in main list yet, check if it's in the middle of a transfer
-      console.log(`checkAndPromoteTransfer: ${domain} not found in main domains list. Checking registrar transfer status...`);
-      
-      const transferRes = await fetch(
-        `${VERCEL_API_BASE}/v1/registrar/domains/${encodeURIComponent(domain)}/transfer${teamParam}`,
-        { headers: { Authorization: `Bearer ${VERCEL_API_TOKEN}` } }
-      );
-
-      if (transferRes.status === 404) {
-        console.warn(`checkAndPromoteTransfer: Domain ${domain} not found in domains OR registrar transfers. Check if VERCEL_TEAM_ID is correct.`);
-        return false;
-      }
-
-      const transferData = await transferRes.json();
-      console.log(`checkAndPromoteTransfer: Registrar status for ${domain}: ${transferData.status}`);
-      
-      // If registrar says completed, we can proceed to promote
-      if (transferData.status === 'completed') {
-        isComplete = true;
-      } else if (transferData.status === 'failed' || transferData.status === 'canceled') {
-        console.warn(`checkAndPromoteTransfer: Domain transfer ${domain} failed/canceled on Vercel: ${transferData.status}`);
-        
-        // 1. Mark transfer as failed in DB
-        await supabase
-          .from('domain_purchases')
-          .update({ 
-            transfer_status: 'failed', 
-            status: 'failed',
-            updated_at: new Date().toISOString() 
-          })
-          .eq('site_id', siteId)
-          .eq('domain', domain);
-
-        // 2. Clear pending_custom_domain on site
-        await supabase
-          .from('sites')
-          .update({ pending_custom_domain: null })
-          .eq('id', siteId);
-
-        return false;
-      } else {
-        // Still pending/initiating/etc.
-        return false;
-      }
+      console.warn(`checkAndPromoteTransfer: Domain ${domain} not found in Vercel account.`);
+      return false;
     } else if (!vercelRes.ok) {
       console.error(`checkAndPromoteTransfer: Vercel API error for ${domain}:`, vercelRes.status);
       return false;
     } else {
         const result = await vercelRes.json();
-        console.log(`DEBUG: Vercel domain data for ${domain}:`, JSON.stringify(result, null, 2));
+        console.log(`DEBUG: Vercel v5 domain data for ${domain}:`, JSON.stringify(result, null, 2));
         
-        // Vercel v4 returns { domain: { ... } }
         const domainData = result.domain || result;
         
-        const isVerified = domainData.verified === true;
+        const isVerified = domainData.verified === true || domainData.verified === 'true';
         const isVercelRegistrar = domainData.serviceType === 'zeit.world';
-        const hasExpiresAt = !!domainData.expiresAt;
+        const isTransferred = !!domainData.transferredAt;
         
-        // COMPLETION LOGIC:
+        // Nameserver check: Ensure current nameservers match intended ones
+        const ns = domainData.nameservers || [];
+        const intendedNs = domainData.intendedNameservers || [];
+        const nsMatch = intendedNs.length > 0 && 
+                        intendedNs.every((ins: string) => ns.includes(ins));
+
+        // COMPLETION LOGIC (v5):
         // 1. If Vercel is the registrar (Transfer/Purchase): 
-        //    Must be verified AND have an expiration date.
+        //    Must be verified AND transferredAt must exist AND nameservers must match.
         // 2. If it's an external domain (DNS link only):
-        //    Must be verified.
+        //    Must be verified AND nameservers must match.
         if (isVercelRegistrar) {
-            isComplete = isVerified && hasExpiresAt;
+            isComplete = isVerified && isTransferred && nsMatch;
         } else {
-            isComplete = isVerified;
+            isComplete = isVerified && nsMatch;
         }
         
-        console.log(`DEBUG: ${domain} check: isComplete=${isComplete} (verified=${isVerified}, vercelRegistrar=${isVercelRegistrar}, hasExpiresAt=${hasExpiresAt})`);
+        console.log(`DEBUG: ${domain} check: isComplete=${isComplete} (verified=${isVerified}, transferred=${isTransferred}, nsMatch=${nsMatch})`);
 
-        // SELF-HEALING: If DB is 'completed' but Vercel says it's NOT ready (either transferring or not verified)
-        // we demote it back to 'initiated' so we can keep tracking it correctly.
+        // SELF-HEALING: If DB is 'completed' but Vercel says it's NOT ready
         if (!isComplete) {
             const { data: currentPurchase } = await supabase
                 .from('domain_purchases')
