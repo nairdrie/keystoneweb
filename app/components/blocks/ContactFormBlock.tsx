@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useEditorContext } from '@/lib/editor-context';
 import { Send, Loader2, Settings, MessageSquare, Mail, User, Phone } from 'lucide-react';
 
@@ -21,10 +21,6 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Business notification email state
-    const [notificationEmail, setNotificationEmail] = useState<string>('');
-    const [isSavingEmail, setIsSavingEmail] = useState(false);
-
     const title = data.title || 'Get in Touch';
     const description = data.description || 'We\'d love to hear from you. Please fill out the form below.';
     const successMessage = data.successMessage || 'Thank you for your message! We will get back to you shortly.';
@@ -33,46 +29,6 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#3b82f6';
     const pAccent = palette.accent || '#e5e7eb';
-
-    // Fetch site notification settings
-    useEffect(() => {
-        if (isEditMode && siteId) {
-            (async () => {
-                const res = await fetch(`/api/bookings/settings?siteId=${siteId}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.settings?.notification_email) {
-                        setNotificationEmail(data.settings.notification_email);
-                    }
-                }
-            })();
-        }
-    }, [isEditMode, siteId]);
-
-    const handleSaveNotificationEmail = async (email: string) => {
-        const oldEmail = notificationEmail;
-        setNotificationEmail(email);
-        if (!siteId) return;
-
-        // Add to change tracking
-        context?.addChange?.('notification_email', 'Business Notification Email', oldEmail, email);
-
-        setIsSavingEmail(true);
-        try {
-            await fetch('/api/bookings/settings', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    siteId,
-                    notification_email: email || null
-                }),
-            });
-        } catch (err) {
-            console.error('Failed to save notification email:', err);
-        } finally {
-            setIsSavingEmail(false);
-        }
-    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -215,18 +171,14 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                         </div>
 
                         <div className="pt-3 border-t border-blue-100">
-                            <div className="flex items-center justify-between mb-1">
-                                <label className="text-xs font-semibold text-slate-600 block">Where to receive message notifications (Business Email)</label>
-                                {isSavingEmail && <Loader2 className="w-3 h-3 animate-spin text-blue-600" />}
-                            </div>
-                            <input
-                                type="email"
-                                value={notificationEmail}
-                                onChange={(e) => handleSaveNotificationEmail(e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg text-slate-900 bg-white"
-                                placeholder="you@business.ca"
-                            />
-                            <p className="text-[10px] text-slate-500 mt-1">This email will receive all submissions from this form. If left blank, it will go to your account email.</p>
+                            <p className="text-xs text-slate-600 mb-2">To configure the notification email and view messages, go to your Inbox.</p>
+                            <a
+                                href={siteId ? `/admin/inbox?siteId=${siteId}` : '/admin/inbox'}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-700 transition-colors"
+                            >
+                                <Mail className="w-3.5 h-3.5" />
+                                Manage Inbox
+                            </a>
                         </div>
                     </div>
                 </div>
