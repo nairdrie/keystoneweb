@@ -125,7 +125,7 @@ export default async function OpsAgentsPage() {
                         month: 'short', day: 'numeric', year: 'numeric',
                       })}
                     </time>
-                    <AgentActions agentId={agent.id} agentEmail={agent.email} contactEmail={agent.agent_contact_email} />
+                    <AgentActions agentId={agent.id} agentEmail={agent.email} contactEmail={agent.agent_contact_email || undefined} />
                   </div>
                 </div>
               </div>
