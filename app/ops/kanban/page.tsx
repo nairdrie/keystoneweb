@@ -16,11 +16,14 @@ export default async function OpsKanbanPage() {
   const db = createAdminClient();
   const adminEmails = getOpsAdminEmails();
 
+  // Initial load uses priority order to match the default client sort mode.
+  // The priority_rank computed column is defined in migration 037_ops_priority_rank.sql.
   const ticketBatchQueries = OPS_TICKET_STATUSES.map((status) =>
     db
       .from('ops_tickets')
       .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, sort_order, created_at, updated_at')
       .eq('status', status.value)
+      .order('priority_rank' as 'priority', { ascending: true })
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true })
       .range(0, INITIAL_STATUS_PAGE_SIZE - 1)

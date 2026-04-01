@@ -767,6 +767,16 @@ export default function KanbanBoard({
   const [error, setError] = useState('');
   const dragLoadStatusRef = useRef<OpsTicketStatus | null>(null);
 
+  const prevSortModeRef = useRef(sortMode);
+  useEffect(() => {
+    if (prevSortModeRef.current === sortMode) return;
+    prevSortModeRef.current = sortMode;
+    setLoadedByStatus(
+      Object.fromEntries(OPS_TICKET_STATUSES.map((s) => [s.value, 0])) as StatusCounts
+    );
+    setTickets([]);
+  }, [sortMode]);
+
   const assigneeMap = new Map(assignees.map((assignee) => [assignee.id, assignee]));
   const editingTicket = editingTicketId
     ? tickets.find((ticket) => ticket.id === editingTicketId) ?? null
@@ -812,8 +822,9 @@ export default function KanbanBoard({
     setLoadingByStatus((current) => ({ ...current, [status]: true }));
 
     try {
+      const sort = sortMode === 'priority' ? 'priority' : 'manual';
       const response = await fetch(
-        `/api/ops/kanban?status=${status}&offset=${loadedByStatus[status] ?? 0}&limit=${STATUS_PAGE_SIZE}`
+        `/api/ops/kanban?status=${status}&offset=${loadedByStatus[status] ?? 0}&limit=${STATUS_PAGE_SIZE}&sort=${sort}`
       );
       const json = await response.json();
 

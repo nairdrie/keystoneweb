@@ -27,6 +27,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const statusParam = searchParams.get('status');
+  const sortParam = searchParams.get('sort') ?? 'manual';
   const offset = Math.max(0, Number.parseInt(searchParams.get('offset') ?? '0', 10) || 0);
   const limit = Math.min(100, Math.max(1, Number.parseInt(searchParams.get('limit') ?? '20', 10) || 20));
   const db = createAdminClient();
@@ -34,14 +35,24 @@ export async function GET(request: Request) {
     'id, name, description, status, priority, assignee_user_id, created_by_user_id, sort_order, created_at, updated_at';
 
   if (statusParam && isOpsTicketStatus(statusParam)) {
-    const [{ data, error }, { count, error: countError }] = await Promise.all([
-      db
-        .from('ops_tickets')
-        .select(baseSelect)
-        .eq('status', statusParam)
+    let ticketsQuery = db
+      .from('ops_tickets')
+      .select(baseSelect)
+      .eq('status', statusParam);
+
+    if (sortParam === 'priority') {
+      ticketsQuery = ticketsQuery
+        .order('priority_rank' as 'priority', { ascending: true })
         .order('sort_order', { ascending: true })
-        .order('created_at', { ascending: true })
-        .range(offset, offset + limit - 1),
+        .order('created_at', { ascending: true });
+    } else {
+      ticketsQuery = ticketsQuery
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
+    }
+
+    const [{ data, error }, { count, error: countError }] = await Promise.all([
+      ticketsQuery.range(offset, offset + limit - 1),
       db
         .from('ops_tickets')
         .select('id', { count: 'exact', head: true })
