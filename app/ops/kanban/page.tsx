@@ -102,7 +102,7 @@ export default async function OpsKanbanPage() {
   }
 
   const assignees: OpsAssigneeOption[] = [...peopleById.values()]
-    .map((person) => ({
+    .map((person): OpsAssigneeOption => ({
       id: person.id,
       email: person.email,
       name: person.business_name,
