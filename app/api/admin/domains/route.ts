@@ -34,6 +34,36 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Site not found or access denied' }, { status: 404 });
     }
 
+    // CHECK TRANSFER STATUS ON DEMAND
+    // If there's a pending domain, check if the transfer is complete
+    if (site.pending_custom_domain) {
+      const { data: currentTransfer } = await supabase
+        .from('domain_purchases')
+        .select('transfer_status')
+        .eq('site_id', siteId)
+        .eq('domain', site.pending_custom_domain)
+        .eq('transfer_status', 'initiated')
+        .limit(1)
+        .single();
+
+      if (currentTransfer) {
+        const { checkAndPromoteTransfer } = await import('@/lib/domains/status');
+        await checkAndPromoteTransfer(site.pending_custom_domain, siteId, user.id);
+        
+        // Re-fetch site info to reflect any promotion
+        const { data: updatedSite } = await supabase
+          .from('sites')
+          .select('id, user_id, published_domain, custom_domain, pending_custom_domain')
+          .eq('id', siteId)
+          .single();
+        
+        if (updatedSite) {
+            site.custom_domain = updatedSite.custom_domain;
+            site.pending_custom_domain = updatedSite.pending_custom_domain;
+        }
+      }
+    }
+
     // Get owned domains linked to this site
     const { data: ownedDomains } = await supabase
       .from('domain_purchases')

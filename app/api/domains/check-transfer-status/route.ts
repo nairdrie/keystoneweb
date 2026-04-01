@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
-
-const VERCEL_API_TOKEN = process.env.VERCEL_API_TOKEN;
-const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID;
-const VERCEL_API_BASE = 'https://api.vercel.com';
+import { checkAndPromoteTransfer } from '@/lib/domains/status';
 
 /**
  * POST /api/domains/check-transfer-status
@@ -41,64 +38,9 @@ export async function POST(request: NextRequest) {
 
     const domain = site.pending_custom_domain;
 
-    // Find the transfer purchase record for this domain
-    const { data: purchases } = await supabase
-      .from('domain_purchases')
-      .select('id, transfer_status')
-      .eq('site_id', siteId)
-      .eq('domain', domain)
-      .not('transfer_status', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(1);
+    const finished = await checkAndPromoteTransfer(domain, siteId, user.id);
 
-    const purchase = purchases?.[0] ?? null;
-
-    if (!purchase) {
-      return NextResponse.json({ status: 'no_transfer', message: 'No transfer record found for this domain.' });
-    }
-
-    if (!VERCEL_API_TOKEN) {
-      return NextResponse.json({ error: 'Domain service not configured' }, { status: 503 });
-    }
-
-    // Query Vercel for domain status
-    const teamParam = VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : '';
-    const vercelRes = await fetch(
-      `${VERCEL_API_BASE}/v4/domains/${encodeURIComponent(domain)}${teamParam}`,
-      { headers: { Authorization: `Bearer ${VERCEL_API_TOKEN}` } }
-    );
-
-    if (!vercelRes.ok) {
-      return NextResponse.json({
-        status: 'pending',
-        transferStatus: purchase.transfer_status,
-        message: 'Transfer is still in progress.',
-      });
-    }
-
-    const domainData = await vercelRes.json();
-
-    // Vercel domain statuses: if the domain exists and is verified, transfer is complete
-    const isTransferComplete = domainData.verified === true ||
-      domainData.serviceType === 'external' ||
-      (domainData.domain && !domainData.transferring);
-
-    if (isTransferComplete) {
-      // Promote pending domain to active
-      await supabase
-        .from('sites')
-        .update({
-          custom_domain: site.pending_custom_domain,
-          pending_custom_domain: null,
-        })
-        .eq('id', siteId);
-
-      // Update transfer status
-      await supabase
-        .from('domain_purchases')
-        .update({ transfer_status: 'completed', updated_at: new Date().toISOString() })
-        .eq('id', purchase.id);
-
+    if (finished) {
       return NextResponse.json({
         status: 'completed',
         domain,
@@ -108,7 +50,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       status: 'pending',
-      transferStatus: purchase.transfer_status,
       domain,
       message: 'Transfer is still in progress. This typically takes 5-7 days.',
     });

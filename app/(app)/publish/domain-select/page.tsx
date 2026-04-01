@@ -371,6 +371,7 @@ export function DomainManager({
   const [showTransferContact, setShowTransferContact] = useState(false);
   const [transferring, setTransferring] = useState(false);
   const [transferInitiated, setTransferInitiated] = useState(transferInitiatedParam);
+  const [verifyingTransfer, setVerifyingTransfer] = useState(false);
 
   const isPro = userPlan?.toLowerCase().includes('pro');
 
@@ -840,6 +841,42 @@ export function DomainManager({
     }
   };
 
+  const handleVerifyTransferStatus = async () => {
+    if (!siteId) return;
+
+    setVerifyingTransfer(true);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/domains/check-transfer-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ siteId }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to check transfer status');
+      }
+
+      const result = await res.json();
+      
+      if (result.status === 'completed') {
+        setSuccess(true);
+        setPublishedUrl(`https://${result.domain}`);
+      } else {
+        // Just refresh the UI status to show it's still initiated
+        await fetchSiteStatus();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to check transfer status');
+      console.error(err);
+    } finally {
+      setVerifyingTransfer(false);
+    }
+  };
+
   // ─── Copy to Clipboard ─────────────────────────────────────────────────
 
   const copyToClipboard = (text: string, field: string) => {
@@ -1071,9 +1108,19 @@ export function DomainManager({
 
         {siteStatus?.pendingCustomDomain && (
           <div className="rounded-xl border border-amber-200 overflow-hidden">
-            <div className="px-5 py-3 border-b border-amber-100 bg-amber-50 flex items-center gap-2">
-              <Loader2 className="w-4 h-4 text-amber-600" />
-              <h3 className="text-sm font-bold text-amber-900">Pending Domain</h3>
+            <div className="px-5 py-3 border-b border-amber-100 bg-amber-50 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 text-amber-600" />
+                <h3 className="text-sm font-bold text-amber-900">Pending Domain</h3>
+              </div>
+              <button
+                onClick={handleVerifyTransferStatus}
+                disabled={verifyingTransfer}
+                className="flex items-center gap-1 text-xs font-bold text-amber-700 hover:text-amber-900 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3 h-3 ${verifyingTransfer ? 'animate-spin' : ''}`} />
+                {verifyingTransfer ? 'Checking...' : 'Refresh Status'}
+              </button>
             </div>
             <div className="px-5 py-4 space-y-3">
               <span className="font-mono text-sm font-semibold text-slate-900">{siteStatus.pendingCustomDomain}</span>
