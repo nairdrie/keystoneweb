@@ -21,6 +21,8 @@ export default function OpsHeader({
 
   const navLinks = [
     { href: '/', label: 'Overview' },
+    { href: '/kanban', label: 'Kanban' },
+    { href: '/kanban/log', label: 'Kanban Log' },
     ...(isAdmin ? [{ href: '/users', label: 'Users' }] : []),
     { href: '/support', label: 'Support', count: openSupportCount },
     ...(isAdmin ? [{ href: '/agents', label: 'Agents' }] : []),
