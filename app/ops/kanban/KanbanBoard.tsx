@@ -3,15 +3,17 @@
 import { startTransition, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  closestCorners,
+  closestCenter,
   DndContext,
   DragOverlay,
   MouseSensor,
+  pointerWithin,
   TouchSensor,
   useDraggable,
   useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragMoveEvent,
   type DragStartEvent,
@@ -1196,6 +1198,12 @@ export default function KanbanBoard({
     }
   }
 
+  const collisionDetection: CollisionDetection = (args) => {
+    const pointerCollisions = pointerWithin(args);
+    if (pointerCollisions.length > 0) return pointerCollisions;
+    return closestCenter(args);
+  };
+
   function handleDragStart(event: DragStartEvent) {
     const activeId = String(event.active.id);
     if (!activeId.startsWith('ticket:')) return;
@@ -1405,7 +1413,7 @@ export default function KanbanBoard({
 
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCorners}
+          collisionDetection={collisionDetection}
           onDragStart={handleDragStart}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
