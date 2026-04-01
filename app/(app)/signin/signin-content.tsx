@@ -76,7 +76,7 @@ export default function SignInContent() {
 
 
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-80px)] px-4">
+    <div className="flex items-center justify-center min-h-[calc(100vh-160px)] px-4 py-12">
       <div className="w-full max-w-md">
         <div className="bg-white/10 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
           <h1 className="text-3xl font-black text-white mb-2">Sign In</h1>

@@ -81,11 +81,56 @@ export async function checkAndPromoteTransfer(domain: string, siteId: string, us
       console.error(`checkAndPromoteTransfer: Vercel API error for ${domain}:`, vercelRes.status);
       return false;
     } else {
-        const domainData = await vercelRes.json();
-        // Logic matches cron and check-transfer-status route
-        isComplete = domainData.verified === true || 
-                     domainData.serviceType === 'external' || 
-                     (domainData.domain && !domainData.transferring);
+        const result = await vercelRes.json();
+        console.log(`DEBUG: Vercel domain data for ${domain}:`, JSON.stringify(result, null, 2));
+        
+        // Vercel v4 returns { domain: { ... } }
+        const domainData = result.domain || result;
+        
+        const isVerified = domainData.verified === true;
+        const isVercelRegistrar = domainData.serviceType === 'zeit.world';
+        const hasExpiresAt = !!domainData.expiresAt;
+        
+        // COMPLETION LOGIC:
+        // 1. If Vercel is the registrar (Transfer/Purchase): 
+        //    Must be verified AND have an expiration date.
+        // 2. If it's an external domain (DNS link only):
+        //    Must be verified.
+        if (isVercelRegistrar) {
+            isComplete = isVerified && hasExpiresAt;
+        } else {
+            isComplete = isVerified;
+        }
+        
+        console.log(`DEBUG: ${domain} check: isComplete=${isComplete} (verified=${isVerified}, vercelRegistrar=${isVercelRegistrar}, hasExpiresAt=${hasExpiresAt})`);
+
+        // SELF-HEALING: If DB is 'completed' but Vercel says it's NOT ready (either transferring or not verified)
+        // we demote it back to 'initiated' so we can keep tracking it correctly.
+        if (!isComplete) {
+            const { data: currentPurchase } = await supabase
+                .from('domain_purchases')
+                .select('transfer_status')
+                .eq('site_id', siteId)
+                .eq('domain', domain)
+                .single();
+
+            if (currentPurchase?.transfer_status === 'completed') {
+                console.log(`DEMOTING: ${domain} was promoted prematurely. Moving back to initiated status.`);
+                
+                await supabase
+                    .from('domain_purchases')
+                    .update({ transfer_status: 'initiated', updated_at: new Date().toISOString() })
+                    .eq('site_id', siteId)
+                    .eq('domain', domain);
+                
+                await supabase
+                    .from('sites')
+                    .update({ pending_custom_domain: domain, custom_domain: null })
+                    .eq('id', siteId);
+                
+                return false;
+            }
+        }
     }
 
     if (!isComplete) return false;

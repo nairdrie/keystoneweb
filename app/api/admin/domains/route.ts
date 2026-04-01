@@ -49,19 +49,35 @@ export async function GET(request: NextRequest) {
       if (currentTransfer) {
         const { checkAndPromoteTransfer } = await import('@/lib/domains/status');
         await checkAndPromoteTransfer(site.pending_custom_domain, siteId, user.id);
-        
-        // Re-fetch site info to reflect any promotion
-        const { data: updatedSite } = await supabase
-          .from('sites')
-          .select('id, user_id, published_domain, custom_domain, pending_custom_domain')
-          .eq('id', siteId)
-          .single();
-        
-        if (updatedSite) {
-            site.custom_domain = updatedSite.custom_domain;
-            site.pending_custom_domain = updatedSite.pending_custom_domain;
-        }
       }
+    } else if (site.custom_domain) {
+        // SELF-HEALING: If it's already "completed" in our DB, check if Vercel says it's still transferring
+        const { data: completedTransfer } = await supabase
+            .from('domain_purchases')
+            .select('transfer_status')
+            .eq('site_id', siteId)
+            .eq('domain', site.custom_domain)
+            .eq('transfer_status', 'completed')
+            .limit(1)
+            .single();
+        
+        if (completedTransfer) {
+            console.log(`GET /api/admin/domains: Domain ${site.custom_domain} is marked completed. Verifying with Vercel...`);
+            const { checkAndPromoteTransfer } = await import('@/lib/domains/status');
+            await checkAndPromoteTransfer(site.custom_domain, siteId, user.id);
+        }
+    }
+
+    // Re-fetch site info to reflect any changes (promotion OR demotion)
+    const { data: refreshedSite } = await supabase
+        .from('sites')
+        .select('id, user_id, published_domain, custom_domain, pending_custom_domain')
+        .eq('id', siteId)
+        .single();
+    
+    if (refreshedSite) {
+        site.custom_domain = refreshedSite.custom_domain;
+        site.pending_custom_domain = refreshedSite.pending_custom_domain;
     }
 
     // Get owned domains linked to this site
