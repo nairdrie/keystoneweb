@@ -3,6 +3,24 @@ import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import AgentActions from './AgentActions';
 
+type AgentRow = {
+  id: string;
+  email: string;
+  business_name: string | null;
+  agent_contact_email: string | null;
+  created_at: string;
+};
+
+type AgentInviteRow = {
+  id: string;
+  personal_email: string;
+  contact_email: string;
+  token: string;
+  created_at: string;
+  expires_at: string;
+  accepted_at: string | null;
+};
+
 export default async function OpsAgentsPage() {
   // Admin-only page
   const supabase = await createClient();
@@ -52,7 +70,7 @@ export default async function OpsAgentsPage() {
             Pending Invites
           </h2>
           <div className="space-y-2">
-            {(invites ?? []).map((invite: any) => (
+            {((invites ?? []) as AgentInviteRow[]).map((invite) => (
               <div
                 key={invite.id}
                 className="flex items-center justify-between rounded-lg border border-gray-800 bg-gray-900/50 px-4 py-3 text-sm"
@@ -82,7 +100,7 @@ export default async function OpsAgentsPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {(agents ?? []).map((agent: any) => (
+            {((agents ?? []) as AgentRow[]).map((agent) => (
               <div
                 key={agent.id}
                 className="rounded-lg border border-gray-800 bg-gray-900 p-4"
