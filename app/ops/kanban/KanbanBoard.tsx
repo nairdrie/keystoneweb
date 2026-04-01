@@ -399,7 +399,7 @@ function TicketCard({
 }) {
   const statusMeta = getOpsTicketStatusMeta(ticket.status);
   const priorityMeta = getOpsTicketPriorityMeta(ticket.priority);
-  const { attributes, listeners, setNodeRef: setDragRef, transform, transition, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
     id: `ticket:${ticket.id}`,
   });
   const { setNodeRef: setDropRef, isOver } = useDroppable({
@@ -416,7 +416,6 @@ function TicketCard({
       ref={setNodeRef}
       style={{
         transform: CSS.Translate.toString(transform),
-        transition,
         opacity: isDragging ? 0.45 : 1,
       }}
       className={`group cursor-pointer rounded-2xl border border-white/6 bg-black/20 p-4 shadow-[0_10px_30px_rgba(0,0,0,0.18)] transition hover:border-white/12 hover:bg-black/30 ${
