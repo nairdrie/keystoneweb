@@ -1,7 +1,4 @@
-/**
- * Mock Database - In production, this would be Supabase/PostgreSQL
- * For now, we have in-memory mock data
- */
+import { createClient } from './db/supabase-server';
 
 export interface SiteData {
   id: string;
@@ -32,118 +29,53 @@ export interface Section {
   items?: { title: string; description: string }[];
 }
 
-// Mock database of sites
-const MOCK_SITES: Record<string, SiteData> = {
-  'cool-barber': {
-    id: '1',
-    domain: 'cool-barber',
-    siteName: "Cool Barber's",
-    template: 'barber',
-    theme: {
-      primaryColor: '#1e40af',
-      accentColor: '#60a5fa',
-      backgroundColor: '#0f172a',
-    },
-    content: {
-      title: "Cool Barber's",
-      subtitle: 'Premium Haircuts & Styling',
-      pages: {
-        '/': {
-          title: 'Home',
-          sections: [
-            {
-              type: 'hero',
-              title: "Cool Barber's",
-              content: 'Premium Haircuts & Styling Since 2010',
-            },
-            {
-              type: 'features',
-              title: 'Our Services',
-              items: [
-                { title: 'Haircuts', description: 'Classic and modern styles' },
-                { title: 'Beard Trim', description: 'Expert beard grooming' },
-                { title: 'Styling', description: 'Special occasion styling' },
-              ],
-            },
-            {
-              type: 'contact',
-              title: 'Contact Us',
-              content: 'Open Mon-Sat, 9am-6pm | Call: (555) 123-4567',
-            },
-          ],
-        },
-        '/about': {
-          title: 'About',
-          sections: [
-            {
-              type: 'about',
-              title: 'About Us',
-              content: 'With over 10 years of experience, we pride ourselves on quality service and customer satisfaction.',
-            },
-          ],
-        },
-      },
-    },
-  },
-  'demo-pizza': {
-    id: '2',
-    domain: 'demo-pizza',
-    siteName: 'Demo Pizza Co',
-    template: 'restaurant',
-    theme: {
-      primaryColor: '#dc2626',
-      accentColor: '#f87171',
-      backgroundColor: '#1f2937',
-    },
-    content: {
-      title: 'Demo Pizza Co',
-      subtitle: 'Authentic Italian Pizza',
-      pages: {
-        '/': {
-          title: 'Home',
-          sections: [
-            {
-              type: 'hero',
-              title: 'Demo Pizza Co',
-              content: 'Authentic Italian Pizza Made Fresh Daily',
-            },
-            {
-              type: 'features',
-              title: 'Our Menu',
-              items: [
-                { title: 'Margherita', description: 'Fresh mozzarella and basil' },
-                { title: 'Pepperoni', description: 'Classic with premium pepperoni' },
-                { title: 'Vegetarian', description: 'Fresh seasonal vegetables' },
-              ],
-            },
-          ],
-        },
-      },
-    },
-  },
-};
-
 /**
- * Get site data by domain
- * In production, this would query the database
+ * Get site data by domain from Supabase
  */
 export async function getSiteData(domain: string): Promise<SiteData | null> {
-  // Simulate database query delay
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  const supabase = await createClient();
+  
+  // Clean domain
+  const cleanDomain = domain.replace('.local', '').replace(':3000', '').replace('www.', '');
+  console.log(`[Data] getSiteData domain=${domain} cleanDomain=${cleanDomain}`);
 
-  // Remove .local suffix if present
-  const cleanDomain = domain.replace('.local', '').replace(':3000', '');
+  // Query by custom_domain
+  const { data: site, error } = await supabase
+    .from('sites')
+    .select('*, pages(*)')
+    .eq('custom_domain', cleanDomain)
+    .eq('is_published', true)
+    .single();
 
-  // Check mock database
-  const site = MOCK_SITES[cleanDomain];
-
-  if (!site) {
-    console.log(`[Data] Site not found for domain: ${domain}`);
+  if (error || !site) {
+    console.log(`[Data] Site not found in DB for custom_domain: ${cleanDomain}. Error:`, error?.message);
     return null;
   }
 
-  console.log(`[Data] Found site: ${site.siteName} (${cleanDomain})`);
-  return site;
+  console.log(`[Data] Found site ID=${site.id} in DB for domain=${cleanDomain}`);
+
+  // Map Supabase site data to the SiteData interface expected by the layout
+  const publishedData = site.published_data || {};
+  
+  // Extract theme colors from published_data or use defaults
+  const theme = {
+    primaryColor: publishedData.__customPalette_primary || '#000000',
+    accentColor: publishedData.__customPalette_accent || '#cccccc',
+    backgroundColor: publishedData.__customPalette_bg || '#ffffff',
+  };
+
+  return {
+    id: site.id,
+    domain: cleanDomain,
+    siteName: publishedData.siteTitle || site.site_slug || 'My Site',
+    template: site.selected_template_id,
+    theme,
+    content: {
+      title: publishedData.siteTitle || '',
+      subtitle: '', // Not explicitly in schema, can be mapped from hero block if needed
+      pages: {}, // Placeholder for now, specific pages are fetched by getPageContent
+    },
+  };
 }
 
 /**
@@ -153,17 +85,7 @@ export async function getPageContent(
   domain: string,
   path: string
 ): Promise<PageContent | null> {
-  const site = await getSiteData(domain);
-
-  if (!site) return null;
-
-  const normalizedPath = path === '' || path === '/' ? '/' : path;
-  const content = site.content.pages[normalizedPath];
-
-  if (!content) {
-    // Return home page as fallback
-    return site.content.pages['/'];
-  }
-
-  return content;
+  // This function is currently a placeholder for the custom domain layout/page
+  // The actual block rendering happens in the [domain]/page.tsx using EditorContent
+  return null;
 }

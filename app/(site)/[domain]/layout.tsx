@@ -1,5 +1,8 @@
 import { ReactNode } from 'react';
-import { getSiteData } from '@/lib/data';
+import { createClient } from '@/lib/db/supabase-server';
+import type { Metadata } from 'next';
+
+export const dynamic = 'force-dynamic';
 
 interface SiteLayoutProps {
   children: ReactNode;
@@ -8,9 +11,18 @@ interface SiteLayoutProps {
   }>;
 }
 
-export async function generateMetadata({ params }: SiteLayoutProps) {
+export async function generateMetadata({ params }: SiteLayoutProps): Promise<Metadata> {
   const { domain } = await params;
-  const site = await getSiteData(domain);
+  const supabase = await createClient();
+  
+  const cleanDomain = domain.replace('www.', '');
+
+  const { data: site } = await supabase
+    .from('sites')
+    .select('published_data')
+    .eq('custom_domain', cleanDomain)
+    .eq('is_published', true)
+    .single();
 
   if (!site) {
     return {
@@ -19,10 +31,13 @@ export async function generateMetadata({ params }: SiteLayoutProps) {
     };
   }
 
-  return {
-    title: site.content.title,
-    description: site.content.subtitle,
-  };
+  const publishedData = (site.published_data as any) || {};
+
+  const rawTitle = publishedData.seoTitle || publishedData.siteTitle || publishedData.title || cleanDomain;
+  const title = rawTitle.replace(/\{\{(.*?)\}\}/g, '$1').replace(/\\n|\n/g, ' ');
+  const description = publishedData.seoDescription || publishedData.tagline || publishedData.description || 'A site built with Keystone Web.';
+
+  return { title, description };
 }
 
 export default async function SiteLayout({
@@ -30,41 +45,26 @@ export default async function SiteLayout({
   params,
 }: SiteLayoutProps) {
   const { domain } = await params;
-  const site = await getSiteData(domain);
+  const supabase = await createClient();
+  const cleanDomain = domain.replace('www.', '');
+
+  const { data: site } = await supabase
+    .from('sites')
+    .select('id')
+    .eq('custom_domain', cleanDomain)
+    .eq('is_published', true)
+    .single();
 
   if (!site) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-100">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Site Not Found</h1>
-          <p className="text-gray-600">The site for {domain} does not exist.</p>
+          <p className="text-gray-600">The site for {cleanDomain} does not exist.</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div
-      className="min-h-screen"
-      style={{ backgroundColor: site.theme.backgroundColor }}
-    >
-      {/* Navigation */}
-      <nav
-        className="border-b"
-        style={{ borderColor: site.theme.accentColor }}
-      >
-        <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6 lg:px-8">
-          <h1
-            className="text-2xl font-bold"
-            style={{ color: site.theme.primaryColor }}
-          >
-            {site.siteName}
-          </h1>
-        </div>
-      </nav>
-
-      {/* Page Content */}
-      {children}
-    </div>
-  );
+  return <>{children}</>;
 }
