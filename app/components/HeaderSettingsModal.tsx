@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Layout, Palette, Type } from 'lucide-react';
+import { X, Layout, Palette, Type, Code, Lock, Crown } from 'lucide-react';
 
 export type HeaderBgType = 'white' | 'primary' | 'secondary' | 'gradient' | 'custom';
 export type HeaderLayout = 'default' | 'centeredAboveNav';
@@ -41,9 +41,10 @@ interface HeaderSettingsModalProps {
     updateSiteContent: (key: string, value: any) => void;
     palette: Record<string, string>;
     defaults: SiteHeaderDefaults;
+    isProUser?: boolean;
 }
 
-type TabType = 'layout' | 'style' | 'typography';
+type TabType = 'layout' | 'style' | 'typography' | 'css';
 
 export default function HeaderSettingsModal({
     isOpen,
@@ -52,6 +53,7 @@ export default function HeaderSettingsModal({
     updateSiteContent,
     palette,
     defaults,
+    isProUser,
 }: HeaderSettingsModalProps) {
     const [activeTab, setActiveTab] = useState<TabType>('layout');
 
@@ -76,6 +78,8 @@ export default function HeaderSettingsModal({
     const [navFontSize, setNavFontSize] = useState('');
     const [navFontWeight, setNavFontWeight] = useState('');
     const [navColor, setNavColor] = useState('');
+    // CSS
+    const [customCss, setCustomCss] = useState('');
 
     useEffect(() => {
         if (!isOpen) return;
@@ -96,6 +100,7 @@ export default function HeaderSettingsModal({
         setNavFontSize(siteContent.headerNavFontSize || '');
         setNavFontWeight(siteContent.headerNavFontWeight || '');
         setNavColor(siteContent.headerNavColor || '');
+        setCustomCss(siteContent.headerCustomCss || '');
     }, [isOpen, siteContent, defaults]);
 
     if (!isOpen) return null;
@@ -118,6 +123,7 @@ export default function HeaderSettingsModal({
         updateSiteContent('headerNavFontSize', navFontSize);
         updateSiteContent('headerNavFontWeight', navFontWeight);
         updateSiteContent('headerNavColor', navColor);
+        updateSiteContent('headerCustomCss', customCss);
         onClose();
     };
 
@@ -138,6 +144,7 @@ export default function HeaderSettingsModal({
         { id: 'layout', label: 'Layout', Icon: Layout },
         { id: 'style', label: 'Style', Icon: Palette },
         { id: 'typography', label: 'Typography', Icon: Type },
+        { id: 'css', label: 'CSS', Icon: Code },
     ];
 
     const modal = (
@@ -443,6 +450,45 @@ export default function HeaderSettingsModal({
                                 </div>
                             </div>
                         </>
+                    )}
+                    {/* ── CSS TAB ── */}
+                    {activeTab === 'css' && (
+                        isProUser ? (
+                            <div className="space-y-4">
+                                <div>
+                                    <p className="text-sm font-medium text-slate-700 mb-1">Custom CSS for the header</p>
+                                    <p className="text-xs text-slate-500 mb-3">
+                                        Styles are scoped to <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] font-mono">.ks-site-header</code>.
+                                        Use child selectors to target elements inside the header,
+                                        e.g. <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] font-mono">a {'{'} letter-spacing: 0.1em; {'}'}</code>
+                                    </p>
+                                </div>
+                                <textarea
+                                    value={customCss}
+                                    onChange={(e) => setCustomCss(e.target.value)}
+                                    placeholder={`/* Example: */\na {\n  letter-spacing: 0.05em;\n  text-transform: uppercase;\n}\n\n.ks-site-header {\n  border-bottom: 2px solid red;\n}`}
+                                    className="w-full bg-slate-950 text-green-400 font-mono text-sm p-4 min-h-[280px] outline-none border border-slate-700 rounded-lg resize-y selection:bg-green-900"
+                                    spellCheck={false}
+                                />
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-12 text-center">
+                                <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center mb-4">
+                                    <Lock className="w-8 h-8 text-amber-500" />
+                                </div>
+                                <h3 className="text-xl font-bold text-slate-900 mb-2">Custom CSS is a Pro Feature</h3>
+                                <p className="text-sm text-slate-500 max-w-sm mb-6">
+                                    Upgrade to Pro to add custom CSS to the header. Get full control over styling with scoped CSS.
+                                </p>
+                                <a
+                                    href="/pricing"
+                                    className="inline-flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105"
+                                >
+                                    <Crown className="w-5 h-5" />
+                                    Upgrade to Pro
+                                </a>
+                            </div>
+                        )
                     )}
                 </div>
 

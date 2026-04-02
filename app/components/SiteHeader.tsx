@@ -74,6 +74,8 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     const navFontSize      = siteContent.headerNavFontSize    || '';
     const navFontWeight    = siteContent.headerNavFontWeight  || '';
     const navColorOverride = siteContent.headerNavColor       || '';
+    const headerCustomCss  = siteContent.headerCustomCss      || '';
+    const isProUser        = context?.isProUser ?? false;
 
     // Social links
     const socialLinks = [
@@ -118,7 +120,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
         ? (textIsLight ? 'bg-slate-900 border border-slate-700 shadow-xl' : 'bg-white border border-slate-100 shadow-lg')
         : (defaults.submenuClass || 'bg-white border border-slate-100 shadow-lg');
 
-    // Nav typography override style (injected via scoped <style>)
+    // Nav typography + custom CSS injected via scoped <style>
     const hasNavStyle = !!(navFontSize || navFontWeight || navColorOverride);
     const navStyleSheet = hasNavStyle ? `
         .ks-site-header .ks-nav-items a,
@@ -128,6 +130,10 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
             ${navColorOverride ? `color: ${navColorOverride} !important;` : ''}
         }
     ` : '';
+    const hasHeaderStyle = hasNavStyle || !!headerCustomCss;
+    const headerStyleSheet = hasHeaderStyle
+        ? navStyleSheet + (headerCustomCss ? `\n.ks-site-header { ${headerCustomCss} }` : '')
+        : '';
 
     // ── Logo ────────────────────────────────────────────────────────────────
     const logoSize  = defaults.logoSize  || 36;
@@ -302,6 +308,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
             updateSiteContent={updateSiteContent}
             palette={palette}
             defaults={defaults}
+            isProUser={isProUser}
         />
     ) : null;
 
@@ -379,7 +386,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
             <>
                 {bannerEl}
                 <header className={`${isSticky ? 'sticky top-0 z-50 h-0 overflow-visible' : 'relative'} ${isEditMode ? 'group relative' : ''}`}>
-                    {hasNavStyle && <style dangerouslySetInnerHTML={{ __html: navStyleSheet }} />}
+                    {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
                     <div className="pt-3 px-4">
                         <div
                             className={`ks-site-header ${containerClass} mx-auto ${pillBgClass} backdrop-blur-xl rounded-2xl shadow-lg shadow-black/5 border border-white/50 px-5 relative`}
@@ -413,7 +420,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
                     className={`ks-site-header ${stickyClass} ${bgClassFinal} ${defaults.borderClass || 'border-b border-gray-100'} ${isEditMode ? 'group relative' : 'relative'}`}
                     style={headerInlineStyle}
                 >
-                    {hasNavStyle && <style dangerouslySetInnerHTML={{ __html: navStyleSheet }} />}
+                    {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
                     {defaults.hasAccentLine && (
                         <div className="h-0.5 w-full"
                             style={{ background: `linear-gradient(90deg, transparent, ${defaults.accentColor || pSecondary}, transparent)` }} />
@@ -464,7 +471,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
                 className={`ks-site-header ${stickyClass} ${bgClassFinal} ${defaults.borderClass || ''} ${isEditMode ? 'group relative' : 'relative'}`}
                 style={headerInlineStyle}
             >
-                {hasNavStyle && <style dangerouslySetInnerHTML={{ __html: navStyleSheet }} />}
+                {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
                 {defaults.hasAccentLine && (
                     <div className="h-0.5 w-full"
                         style={{ background: `linear-gradient(90deg, transparent, ${defaults.accentColor || pSecondary}, transparent)` }} />
