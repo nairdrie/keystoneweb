@@ -3,6 +3,7 @@
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
+import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -75,10 +76,10 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
                                 <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-8 h-8 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: pPrimary }}>
-                                    {(siteContent.siteTitle || 'A')[0]?.toUpperCase()}
+                                    {(stripHighlight(siteContent.siteTitle) || 'A')[0]?.toUpperCase()}
                                 </div>
                             ))}
-                            <span className="font-bold text-sm" style={{ color: pPrimary }}>{siteContent.siteTitle || 'Airy Studio'}</span>
+                            <span className="font-bold text-sm" style={{ color: pPrimary, ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>{renderSiteTitle(siteContent.siteTitle || 'Airy Studio')}</span>
                         </div>
                         <p className="text-xs text-gray-400">
                             Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>

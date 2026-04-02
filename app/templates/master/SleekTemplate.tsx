@@ -3,6 +3,7 @@
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
+import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -78,10 +79,10 @@ export function SleekTemplate({ palette, isEditMode, children }: MasterTemplateP
                              style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                         ) : (
                             <div className="w-6 h-6 rounded-sm flex items-center justify-center font-bold text-[10px] text-white" style={{ backgroundColor: pPrimary }}>
-                                {(siteContent.siteTitle || 'S')[0]?.toUpperCase()}
+                                {(stripHighlight(siteContent.siteTitle) || 'S')[0]?.toUpperCase()}
                             </div>
                         ))}
-                        <span className="text-sm font-medium" style={{ color: pPrimary }}>{siteContent.siteTitle || 'Sleek'}</span>
+                        <span className="text-sm font-medium" style={{ color: pPrimary, ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>{renderSiteTitle(siteContent.siteTitle || 'Sleek')}</span>
                     </div>
                     <div className="flex flex-col items-end gap-1">
                         <p className="text-xs text-gray-300">

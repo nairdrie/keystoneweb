@@ -3,6 +3,7 @@
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
+import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -73,10 +74,10 @@ export function VividTemplate({ palette, isEditMode, children }: MasterTemplateP
                                 <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-8 h-8 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm" style={{ backgroundColor: pSecondary, color: pPrimary }}>
-                                    {(siteContent.siteTitle || 'V')[0]?.toUpperCase()}
+                                    {(stripHighlight(siteContent.siteTitle) || 'V')[0]?.toUpperCase()}
                                 </div>
                             ))}
-                            <span className="font-bold text-lg">{siteContent.siteTitle || 'Vivid Co'}</span>
+                            <span className="font-bold text-lg" style={{ ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>{renderSiteTitle(siteContent.siteTitle || 'Vivid Co')}</span>
                         </div>
                         <p className="text-sm text-white/50">
                             Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>

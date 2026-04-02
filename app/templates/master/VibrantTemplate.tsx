@@ -3,6 +3,7 @@
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
+import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -73,10 +74,10 @@ export function VibrantTemplate({ palette, isEditMode, children }: MasterTemplat
                                 <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-7 h-7 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-xs font-bold text-white">
-                                    {(siteContent.siteTitle || 'V')[0]?.toUpperCase()}
+                                    {(stripHighlight(siteContent.siteTitle) || 'V')[0]?.toUpperCase()}
                                 </div>
                             ))}
-                            <span className="font-bold text-white">{siteContent.siteTitle || 'Vibrant Co'}</span>
+                            <span className="font-bold text-white" style={{ ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>{renderSiteTitle(siteContent.siteTitle || 'Vibrant Co')}</span>
                         </div>
                         <p className="text-sm text-white/50">
                             Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>

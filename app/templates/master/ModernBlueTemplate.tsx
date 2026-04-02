@@ -3,6 +3,7 @@
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
+import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -75,7 +76,7 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                             {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
                                 <img
                                     src={siteContent.footerLogo || siteContent.siteLogo}
-                                    alt={siteContent.siteTitle || 'Logo'}
+                                    alt={stripHighlight(siteContent.siteTitle) || 'Logo'}
                                     className="w-6 h-6 object-contain"
                                  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
@@ -84,11 +85,11 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                                     style={{ background: `linear-gradient(135deg, ${pPrimary}, ${pSecondary})` }}
                                 >
                                     <span className="text-white font-black text-[8px]">
-                                        {(siteContent.siteTitle || 'E')[0]?.toUpperCase()}
+                                        {(stripHighlight(siteContent.siteTitle) || 'E')[0]?.toUpperCase()}
                                     </span>
                                 </div>
                             ))}
-                            <span className="font-bold text-sm text-slate-800">{siteContent.siteTitle || 'Elegant Co.'}</span>
+                            <span className="font-bold text-sm text-slate-800" style={{ ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>{renderSiteTitle(siteContent.siteTitle || 'Elegant Co.')}</span>
                         </div>
                         <p className="text-sm text-slate-400">
                             Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>

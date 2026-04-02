@@ -4,6 +4,7 @@ import EditableButton from '@/app/components/EditableButton';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
+import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -79,11 +80,11 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                                 <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-10 h-10 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-10 h-10 rounded flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pSecondary }}>
-                                    {(siteContent.siteTitle || 'C')[0]?.toUpperCase()}
+                                    {(stripHighlight(siteContent.siteTitle) || 'C')[0]?.toUpperCase()}
                                 </div>
                             ))}
                             <div>
-                                <div className="font-bold text-lg text-white font-title">{siteContent.siteTitle || 'Classic Services'}</div>
+                                <div className="font-bold text-lg text-white font-title" style={{ ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>{renderSiteTitle(siteContent.siteTitle || 'Classic Services')}</div>
                                 <p className="text-sm text-white/50 mt-1">Professional service you can trust.</p>
                             </div>
                         </div>

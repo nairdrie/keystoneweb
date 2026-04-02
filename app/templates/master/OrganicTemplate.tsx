@@ -3,6 +3,7 @@
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
+import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -75,20 +76,20 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
                         {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
                             <img
                                 src={siteContent.footerLogo || siteContent.siteLogo}
-                                alt={siteContent.siteTitle || 'Logo'}
+                                alt={stripHighlight(siteContent.siteTitle) || 'Logo'}
                                 className="w-8 h-8 object-contain"
                              style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                         ) : (
                             <div className="w-8 h-8 rounded-full flex items-center justify-center font-serif font-bold text-[10px] text-white" style={{ backgroundColor: pSecondary }}>
-                                {(siteContent.siteTitle || 'O')[0]?.toUpperCase()}
+                                {(stripHighlight(siteContent.siteTitle) || 'O')[0]?.toUpperCase()}
                             </div>
                         ))}
-                        <div className="font-title italic text-lg" style={{ color: pPrimary }}>
-                            {siteContent.siteTitle || 'Organic Co.'}
+                        <div className="font-title italic text-lg" style={{ color: pPrimary, ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>
+                            {renderSiteTitle(siteContent.siteTitle || 'Organic Co.')}
                         </div>
                     </div>
                     <p className="text-sm text-gray-400">
-                        &copy; {new Date().getFullYear()} {siteContent.siteTitle || 'Organic Co.'}. Made with care.
+                        &copy; {new Date().getFullYear()} {stripHighlight(siteContent.siteTitle) || 'Organic Co.'}. Made with care.
                     </p>
                     <p className="text-xs text-gray-400 mt-2">
                         Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>

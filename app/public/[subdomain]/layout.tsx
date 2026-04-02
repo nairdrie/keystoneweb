@@ -20,7 +20,8 @@ export async function generateMetadata({
 
   const publishedData = site?.published_data || {};
 
-  const title = publishedData.seoTitle || publishedData.siteTitle || publishedData.title || `${subdomain}.kswd.ca`;
+  const rawTitle = publishedData.seoTitle || publishedData.siteTitle || publishedData.title || `${subdomain}.kswd.ca`;
+  const title = rawTitle.replace(/\{\{(.*?)\}\}/g, '$1').replace(/\\n|\n/g, ' ');
   const description = publishedData.seoDescription || publishedData.tagline || publishedData.description || 'A site built with Keystone Web.';
 
   return { title, description };

@@ -3,6 +3,7 @@
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
+import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -75,11 +76,11 @@ export function LuxeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-10 h-10 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                         ) : (
                             <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: pSecondary }}>
-                                {(siteContent.siteTitle || 'L')[0]?.toUpperCase()}
+                                {(stripHighlight(siteContent.siteTitle) || 'L')[0]?.toUpperCase()}
                             </div>
                         ))}
-                        <div className="text-2xl font-bold tracking-[0.2em] uppercase font-title text-white/90">
-                            {siteContent.siteTitle || 'LUXE STUDIO'}
+                        <div className="text-2xl font-bold tracking-[0.2em] uppercase font-title text-white/90" style={{ ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>
+                            {renderSiteTitle(siteContent.siteTitle || 'LUXE STUDIO')}
                         </div>
                     </div>
                     <div className="w-12 border-t mx-auto mb-6" style={{ borderColor: pSecondary }} />

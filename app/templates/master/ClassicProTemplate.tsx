@@ -3,6 +3,7 @@
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
+import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -74,10 +75,10 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
                                 <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-6 h-6 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
                                 <div className="w-6 h-6 rounded flex items-center justify-center text-xs font-black text-white" style={{ backgroundColor: pSecondary }}>
-                                    {(siteContent.siteTitle || 'B')[0]?.toUpperCase()}
+                                    {(stripHighlight(siteContent.siteTitle) || 'B')[0]?.toUpperCase()}
                                 </div>
                             ))}
-                            <span className="font-bold text-sm">{siteContent.siteTitle || 'Your Business'}</span>
+                            <span className="font-bold text-sm" style={{ ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>{renderSiteTitle(siteContent.siteTitle || 'Your Business')}</span>
                         </div>
                         <p className="text-sm text-white/50">
                             Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>

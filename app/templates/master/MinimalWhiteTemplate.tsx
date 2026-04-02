@@ -5,6 +5,7 @@ import EditableButton from '@/app/components/EditableButton';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
+import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -77,16 +78,16 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
                         {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
                             <img
                                 src={siteContent.footerLogo || siteContent.siteLogo}
-                                alt={siteContent.siteTitle || 'Logo'}
+                                alt={stripHighlight(siteContent.siteTitle) || 'Logo'}
                                 className="w-8 h-8 object-contain"
                              style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                         ) : (
                             <div className="w-8 h-8 rounded flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pPrimary }}>
-                                {(siteContent.siteTitle || 'S')[0]?.toUpperCase()}
+                                {(stripHighlight(siteContent.siteTitle) || 'S')[0]?.toUpperCase()}
                             </div>
                         ))}
-                        <span className="text-lg font-semibold tracking-wide font-title" style={{ color: pPrimary }}>
-                            {siteContent.siteTitle || 'Studio'}
+                        <span className="text-lg font-semibold tracking-wide font-title" style={{ color: pPrimary, ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>
+                            {renderSiteTitle(siteContent.siteTitle || 'Studio')}
                         </span>
                     </div>
                     <p className="text-sm text-slate-400">

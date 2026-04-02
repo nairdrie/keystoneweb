@@ -3,6 +3,7 @@
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
+import { renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -80,7 +81,7 @@ export function EdgeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                             ) : (
                                 <span className="font-mono text-xs" style={{ color: pSecondary }}>{'// '}</span>
                             ))}
-                            <span className="font-bold text-sm text-white">{siteContent.siteTitle || 'Edge Co'}</span>
+                            <span className="font-bold text-sm text-white" style={{ ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>{renderSiteTitle(siteContent.siteTitle || 'Edge Co')}</span>
                         </div>
                         <p className="text-xs text-gray-600">
                             Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>
