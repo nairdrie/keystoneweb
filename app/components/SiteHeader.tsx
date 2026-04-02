@@ -365,12 +365,30 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
         </div>
     ) : null;
 
+    const mobileSocialIcons = rightSide === 'social' && socialLinks.length > 0 ? (
+        <div className="flex items-center gap-0.5">
+            {socialLinks.map(({ key, url, Icon }) => (
+                <a
+                    key={key}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => isEditMode && e.preventDefault()}
+                    className={`p-1.5 rounded-full transition-all hover:opacity-80 ${textIsLight ? 'text-white/70 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
+                >
+                    <Icon className="w-4 h-4" />
+                </a>
+            ))}
+        </div>
+    ) : null;
+
     const mobileToggle = (
-        <div className="flex md:hidden items-center gap-2">
+        <div className="flex md:hidden items-center gap-1">
             <HeaderCartIcon color={cartIconColor} />
             <button className={`p-2 ${mobileIconColor}`} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
+            {mobileSocialIcons}
         </div>
     );
 
@@ -448,10 +466,13 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
                                 {rightEl}
                             </div>
                             <div className="flex md:hidden items-center justify-between h-12">
-                                <HeaderCartIcon color={cartIconColor} />
-                                <button className={`p-2 ${mobileIconColor}`} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-                                    {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                                </button>
+                                <div className="flex items-center gap-1">
+                                    <HeaderCartIcon color={cartIconColor} />
+                                    <button className={`p-2 ${mobileIconColor}`} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+                                        {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                                    </button>
+                                </div>
+                                {mobileSocialIcons}
                             </div>
                             {mobileMenu}
                         </div>
