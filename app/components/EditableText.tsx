@@ -56,6 +56,19 @@ export default function EditableText({
     ...(parsedStyles.fontWeight ? { fontWeight: parsedStyles.fontWeight } : {})
   };
 
+  // Load the override font from Google Fonts if one is set via styleData
+  useEffect(() => {
+    const fontName = parsedStyles.fontFamily;
+    if (!fontName || typeof document === 'undefined') return;
+    const linkId = `ks-font-override-${fontName.replace(/ /g, '-')}`;
+    if (document.getElementById(linkId)) return;
+    const link = document.createElement('link');
+    link.id = linkId;
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${fontName.replace(/ /g, '+')}:wght@400;500;600;700;800;900&display=swap`;
+    document.head.appendChild(link);
+  }, [parsedStyles.fontFamily]);
+
   // Keep refs in sync
   useEffect(() => { isEditingRef.current = isEditing; }, [isEditing]);
   useEffect(() => { displayTextRef.current = displayText; }, [displayText]);
