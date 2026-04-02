@@ -22,7 +22,7 @@ export default async function CustomDomainPage({
     // We assume there's a custom_domain column in the sites table
     const { data: site, error } = await supabase
       .from('sites')
-      .select('id, selected_template_id, published_data, business_profile')
+      .select('id, selected_template_id, published_data, business_profile, translations_config')
       .eq('custom_domain', domain)
       .eq('is_published', true)
       .single();
@@ -62,10 +62,13 @@ export default async function CustomDomainPage({
       (p.published_data?.blocks || []).some((b: any) => b.type === 'productGrid')
     );
 
+    const translationsConfig = site.translations_config as any;
     const mergedPublishData = {
       ...sitePublishData,
       ...pagePublishData,
       __pages: (allPages || []).map(({ id, slug, title }: any) => ({ id, slug, title })),
+      __currentLanguage: translationsConfig?.defaultLanguage || 'en',
+      __translationsConfig: translationsConfig || null,
       __hasProductBlock: hasProductBlock,
     };
 
