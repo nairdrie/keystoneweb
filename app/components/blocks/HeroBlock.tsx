@@ -5,7 +5,8 @@ import EditableText from '@/app/components/EditableText';
 import EditableImage from '@/app/components/EditableImage';
 import EditableButton from '@/app/components/EditableButton';
 import Reveal from '@/app/components/Reveal';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { Video } from 'lucide-react';
 
 export default function HeroBlock({ block, palette }: { block: BlockData, palette: Record<string, string> }) {
     const context = useEditorContext();
@@ -25,6 +26,12 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
     const imageUrl = block.data.image || '';
     const buttonText = block.data.buttonText !== undefined ? block.data.buttonText : 'Get a Free Quote';
     const videoUrl = block.data.videoUrl || '';
+    const [videoInputValue, setVideoInputValue] = useState(videoUrl);
+    const [showVideoInput, setShowVideoInput] = useState(false);
+    const videoInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => { setVideoInputValue(videoUrl); }, [videoUrl]);
+    useEffect(() => { if (showVideoInput) videoInputRef.current?.focus(); }, [showVideoInput]);
 
     // Advanced Background Carousel State
     const carouselImages: string[] = Array.isArray(block.data.bgCarouselImages) ? block.data.bgCarouselImages : [];
@@ -110,7 +117,40 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                 )}
                 <div className="absolute inset-0 bg-black/60" />
                 {isEditMode && (
-                    <div className="absolute top-4 right-4 z-20 flex gap-2">
+                    <div className="absolute top-4 right-4 z-20 flex items-start gap-2">
+                        {showVideoInput ? (
+                            <div className="flex items-center gap-1.5 bg-black/80 backdrop-blur-sm rounded-lg px-2 py-1.5 shadow-xl">
+                                <Video className="w-3.5 h-3.5 text-white/60 shrink-0" />
+                                <input
+                                    ref={videoInputRef}
+                                    type="url"
+                                    value={videoInputValue}
+                                    onChange={(e) => setVideoInputValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') { updateData('videoUrl', videoInputValue); setShowVideoInput(false); }
+                                        if (e.key === 'Escape') { setVideoInputValue(videoUrl); setShowVideoInput(false); }
+                                    }}
+                                    placeholder="https://example.com/video.mp4"
+                                    className="w-64 bg-transparent text-white text-xs outline-none placeholder:text-white/40"
+                                />
+                                <button
+                                    onClick={() => { updateData('videoUrl', videoInputValue); setShowVideoInput(false); }}
+                                    className="text-xs font-bold text-emerald-400 hover:text-emerald-300 ml-1"
+                                >Set</button>
+                                <button
+                                    onClick={() => { setVideoInputValue(videoUrl); setShowVideoInput(false); }}
+                                    className="text-xs text-white/50 hover:text-white ml-0.5"
+                                >✕</button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => setShowVideoInput(true)}
+                                className="flex items-center gap-1.5 bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg transition-colors"
+                            >
+                                <Video className="w-3.5 h-3.5" />
+                                {videoUrl ? 'Change Video' : 'Set Video URL'}
+                            </button>
+                        )}
                         <EditableImage
                             contentKey="image"
                             imageUrl={imageUrl}
