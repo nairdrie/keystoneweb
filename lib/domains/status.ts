@@ -3,7 +3,51 @@ import { sendDomainTransferCompleteEmail } from '@/lib/email';
 
 const VERCEL_API_TOKEN = process.env.VERCEL_API_TOKEN;
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID;
+const VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID;
 const VERCEL_API_BASE = 'https://api.vercel.com';
+
+/**
+ * Links a domain to the Vercel project so it can be served.
+ * This is required for Vercel to manage DNS and SSL for the domain.
+ */
+async function addDomainToProject(domain: string): Promise<{ success: boolean; error?: string }> {
+  console.log("ADD DOMAIN TO PROJECT");
+  if (!VERCEL_PROJECT_ID) {
+    console.error('addDomainToProject: VERCEL_PROJECT_ID is missing');
+    return { success: false, error: 'VERCEL_PROJECT_ID is missing' };
+  }
+
+  const teamParam = VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : '';
+  
+  try {
+    const res = await fetch(
+      `${VERCEL_API_BASE}/v9/projects/${VERCEL_PROJECT_ID}/domains${teamParam}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${VERCEL_API_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name: domain }),
+      }
+    );
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      // 409 means it's already added, which we can treat as success
+      if (res.status === 409) return { success: true };
+      
+      console.error(`addDomainToProject: Failed to add ${domain} to project:`, res.status, errorData);
+      return { success: false, error: errorData.error?.message || 'Failed to add domain to project' };
+    }
+
+    console.log(`addDomainToProject: Successfully added ${domain} to project ${VERCEL_PROJECT_ID}`);
+    return { success: true };
+  } catch (err) {
+    console.error(`addDomainToProject: Unexpected error for ${domain}:`, err);
+    return { success: false, error: 'Unexpected error linking domain' };
+  }
+}
 
 /**
  * Checks the status of a specific domain transfer with Vercel and updates the DB.
@@ -40,7 +84,7 @@ export async function checkAndPromoteTransfer(domain: string, siteId: string, us
       return false;
     } else {
         const result = await vercelRes.json();
-        console.log(`DEBUG: Vercel v5 domain data for ${domain}:`, JSON.stringify(result, null, 2));
+        console.log(`DEBUG: Vercell v5 domain data for ${domain}:`, JSON.stringify(result, null, 2));
         
         const domainData = result.domain || result;
         
@@ -109,6 +153,7 @@ export async function checkAndPromoteTransfer(domain: string, siteId: string, us
 
     if (!purchase) {
         // Already completed or not found
+        console.log("checkAndPromoteTransfer: Purchase not found or already completed", siteId, domain);
         return false;
     }
 
@@ -117,6 +162,9 @@ export async function checkAndPromoteTransfer(domain: string, siteId: string, us
       .from('sites')
       .update({ custom_domain: domain, pending_custom_domain: null })
       .eq('id', siteId);
+
+    // 2.5 Link to Vercel project (automates DNS setup for Vercel Registrar domains)
+    await addDomainToProject(domain);
 
     // 3. Send notification email
     const { data: { user } } = await supabase.auth.admin.getUserById(userId);

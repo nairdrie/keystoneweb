@@ -4,7 +4,50 @@ import { FREE_DOMAIN_MAX_USD } from '@/lib/domains/pricing';
 
 const VERCEL_API_TOKEN = process.env.VERCEL_API_TOKEN;
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID;
+const VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID;
 const VERCEL_API_BASE = 'https://api.vercel.com';
+
+/**
+ * Links a domain to the Vercel project so it can be served.
+ * This is required for Vercel to manage DNS and SSL for the domain.
+ */
+async function addDomainToProject(domain: string): Promise<{ success: boolean; error?: string }> {
+  if (!VERCEL_PROJECT_ID) {
+    console.error('addDomainToProject: VERCEL_PROJECT_ID is missing');
+    return { success: false, error: 'VERCEL_PROJECT_ID is missing' };
+  }
+
+  const teamParam = VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : '';
+  
+  try {
+    const res = await fetch(
+      `${VERCEL_API_BASE}/v9/projects/${VERCEL_PROJECT_ID}/domains${teamParam}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${VERCEL_API_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name: domain }),
+      }
+    );
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      // 409 means it's already added, which we can treat as success
+      if (res.status === 409) return { success: true };
+      
+      console.error(`addDomainToProject: Failed to add ${domain} to project:`, res.status, errorData);
+      return { success: false, error: errorData.error?.message || 'Failed to add domain to project' };
+    }
+
+    console.log(`addDomainToProject: Successfully added ${domain} to project ${VERCEL_PROJECT_ID}`);
+    return { success: true };
+  } catch (err) {
+    console.error(`addDomainToProject: Unexpected error for ${domain}:`, err);
+    return { success: false, error: 'Unexpected error linking domain' };
+  }
+}
 
 interface PurchaseRequest {
   siteId: string;
@@ -122,6 +165,9 @@ async function buyDomainFromVercel(
     value: 'sites.kswd.ca',
     ttl: 3600,
   });
+
+  // Link to Vercel project (automates DNS setup)
+  await addDomainToProject(domain);
 
   return { success: true, orderId: purchaseData.orderId };
 }
