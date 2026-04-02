@@ -1,16 +1,8 @@
 'use client';
 
-import EditableText from '@/app/components/EditableText';
-import EditableButton from '@/app/components/EditableButton';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
-import Link from 'next/link';
-import NavMenu from '@/app/components/NavMenu';
-import HeaderCartIcon from '@/app/components/ecommerce/HeaderCartIcon';
-import HeaderLanguageSelector from '@/app/components/HeaderLanguageSelector';
-import { Menu, X } from 'lucide-react';
-import { useState } from 'react';
-import { usePathname } from 'next/navigation';
+import SiteHeader from '@/app/components/SiteHeader';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -27,9 +19,6 @@ export function LuxeTemplate({ palette, isEditMode, children }: MasterTemplatePr
     const context = useEditorContext();
     const siteContent = context?.siteContent || {};
     const updateSiteContent = context?.updateSiteContent || (() => { });
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const pathname = usePathname();
-    const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const pPrimary = palette.primary || '#1c1917';
     const pSecondary = palette.secondary || '#b45309';
@@ -51,87 +40,28 @@ export function LuxeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                 }
             `}} />
 
-            {/* Header — centered logo, nav below */}
-            <header className="border-b border-gray-100">
-                {/* Top bar with CTA */}
-                <div className="text-center py-6 px-4">
-                    <Link
-                        href={isEditor ? `/editor?siteId=${context?.siteId}&pageId=${context?.pages?.find(p => p.slug === 'home')?.id || ''}` : '/'}
-                        aria-label="Home"
-                        className="inline-flex flex-col items-center gap-2 transition-opacity hover:opacity-90"
-                    >
-                        {siteContent.showHeaderLogo !== false && ((siteContent.headerLogo || siteContent.siteLogo) ? (
-                            <img src={siteContent.headerLogo || siteContent.siteLogo} alt="" className="w-12 h-12 object-contain"  style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
-                        ) : (
-                            <div className="w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white" style={{ backgroundColor: pSecondary }}>
-                                {(siteContent.siteTitle || 'L')[0]?.toUpperCase()}
-                            </div>
-                        ))}
-                        <EditableText
-                            as="div"
-                            contentKey="siteTitle"
-                            styleData={siteContent['siteTitle__styles']}
-                            content={siteContent.siteTitle}
-                            defaultValue="LUXE STUDIO"
-                            isEditMode={isEditMode}
-                            onSave={updateSiteContent}
-                            className="text-2xl font-bold tracking-[0.2em] uppercase font-title"
-                            style={{ color: pPrimary }}
-                        />
-                    </Link>
-                </div>
-
-                {/* Nav bar */}
-                <nav className="border-t border-gray-100">
-                    <div className="max-w-6xl mx-auto px-6">
-                        <div className="hidden md:flex items-center justify-center h-12 gap-8">
-                            <NavMenu
-                                className="flex items-center gap-8"
-                                itemClassName="text-xs font-medium tracking-[0.15em] uppercase text-gray-500 hover:text-gray-900 transition-colors"
-                                submenuClassName="bg-white border border-gray-100 shadow-lg"
-                            />
-                            <HeaderLanguageSelector />
-                            <HeaderCartIcon color={pPrimary} />
-                            <EditableButton
-                                contentKey="navButtonText"
-                                label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
-                                defaultLabel="Reserve"
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="px-6 py-1.5 border-2 text-xs font-semibold tracking-[0.15em] uppercase transition-all cursor-pointer inline-flex items-center justify-center"
-                                style={{ borderColor: pSecondary, color: pSecondary, backgroundColor: 'transparent' }}
-                            />
-                        </div>
-
-                        <div className="flex md:hidden items-center justify-between h-12">
-                            <HeaderCartIcon color={pPrimary} />
-                            <button className="p-2 text-gray-600" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-                                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                            </button>
-                        </div>
-
-                        {mobileMenuOpen && (
-                            <div className="md:hidden border-t border-gray-100 py-4 space-y-2">
-                                <NavMenu
-                                    className="flex flex-col items-center gap-3"
-                                    itemClassName="text-xs font-medium tracking-[0.15em] uppercase text-gray-500 hover:text-gray-900 py-2 transition-colors"
-                                />
-                                <EditableButton
-                                    contentKey="navButtonText"
-                                    label={siteContent.navButtonText}
-                                    linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
-                                    defaultLabel="Reserve"
-                                    isEditMode={isEditMode}
-                                    onSave={updateSiteContent}
-                                    className="w-full mt-3 px-5 py-2.5 border-2 text-xs font-semibold tracking-[0.15em] uppercase flex items-center justify-center"
-                                    style={{ borderColor: pSecondary, color: pSecondary, backgroundColor: 'transparent' }}
-                                />
-                            </div>
-                        )}
-                    </div>
-                </nav>
-            </header>
+            <SiteHeader
+                palette={palette}
+                isEditMode={isEditMode}
+                defaults={{
+                    layout: 'centeredAboveNav',
+                    bgType: 'white',
+                    bgClass: 'bg-white',
+                    borderClass: 'border-b border-gray-100',
+                    sticky: false,
+                    containerClass: 'max-w-6xl',
+                    navItemClass: 'text-xs font-medium tracking-[0.15em] uppercase text-gray-500 hover:text-gray-900 transition-colors',
+                    mobileNavItemClass: 'text-xs font-medium tracking-[0.15em] uppercase text-gray-500 hover:text-gray-900 py-2 transition-colors',
+                    logoSize: 48,
+                    logoClass: 'rounded-full',
+                    logoStyleFn: (p) => ({ backgroundColor: p.secondary, color: '#ffffff' }),
+                    defaultCtaLabel: 'Reserve',
+                    ctaClass: 'px-6 py-1.5 border-2 text-xs font-semibold tracking-[0.15em] uppercase transition-all cursor-pointer inline-flex items-center justify-center',
+                    ctaStyleFn: (p, light) => light
+                        ? { borderColor: '#ffffff', color: '#ffffff', backgroundColor: 'transparent' }
+                        : { borderColor: p.secondary, color: p.secondary, backgroundColor: 'transparent' },
+                }}
+            />
 
             <main className="flex-1 w-full flex flex-col min-h-[50vh]">
                 {children || <BlockRenderer palette={palette} />}

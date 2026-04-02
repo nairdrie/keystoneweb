@@ -1,16 +1,8 @@
 'use client';
 
-import EditableText from '@/app/components/EditableText';
-import EditableButton from '@/app/components/EditableButton';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
-import Link from 'next/link';
-import NavMenu from '@/app/components/NavMenu';
-import HeaderCartIcon from '@/app/components/ecommerce/HeaderCartIcon';
-import HeaderLanguageSelector from '@/app/components/HeaderLanguageSelector';
-import { Menu, X } from 'lucide-react';
-import { useState } from 'react';
-import { usePathname } from 'next/navigation';
+import SiteHeader from '@/app/components/SiteHeader';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -27,9 +19,6 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
     const context = useEditorContext();
     const siteContent = context?.siteContent || {};
     const updateSiteContent = context?.updateSiteContent || (() => { });
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const pathname = usePathname();
-    const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const pPrimary = palette.primary || '#78350f';
     const pSecondary = palette.secondary || '#d97706';
@@ -51,89 +40,29 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
                 }
             `}} />
 
-            {/* Header — warm, centered feel */}
-            <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm shadow-sm">
-                <div className="max-w-6xl mx-auto px-6">
-                    <div className="flex items-center justify-between h-16">
-                        <Link
-                            href={isEditor ? `/editor?siteId=${context?.siteId}&pageId=${context?.pages?.find(p => p.slug === 'home')?.id || ''}` : '/'}
-                            aria-label="Home"
-                            className="flex items-center gap-3 transition-opacity hover:opacity-90"
-                        >
-                            {siteContent.showHeaderLogo !== false && ((siteContent.headerLogo || siteContent.siteLogo) ? (
-                                <img
-                                    src={siteContent.headerLogo || siteContent.siteLogo}
-                                    alt={siteContent.siteTitle || 'Logo'}
-                                    className="w-9 h-9 object-contain rounded-full"
-                                 style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
-                            ) : (
-                                <div className="w-9 h-9 rounded-full flex items-center justify-center font-serif font-bold text-sm text-white" style={{ backgroundColor: pSecondary }}>
-                                    {(siteContent.siteTitle || 'O')[0]?.toUpperCase()}
-                                </div>
-                            ))}
-                            <EditableText
-                                as="div"
-                                contentKey="siteTitle"
-                                styleData={siteContent['siteTitle__styles']}
-                                content={siteContent.siteTitle}
-                                defaultValue="Organic Co."
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="text-xl font-title italic"
-                                style={{ color: pPrimary }}
-                            />
-                        </Link>
-
-                        <div className="hidden md:flex items-center gap-7">
-                            <NavMenu
-                                className="flex items-center gap-6"
-                                itemClassName="text-sm font-medium text-gray-600 hover:text-amber-800 transition-colors"
-                                submenuClassName="bg-white/95 backdrop-blur-sm border border-amber-100 shadow-lg"
-                            />
-                            <HeaderLanguageSelector />
-                            <HeaderCartIcon color={pPrimary} />
-                            <EditableButton
-                                contentKey="navButtonText"
-                                label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink}
-                                iconData={siteContent.navButtonTextIcon}
-                                defaultLabel="Shop Now"
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="px-6 py-2 rounded-full text-white text-sm font-semibold shadow-sm hover:shadow-md transition-all cursor-pointer inline-flex items-center justify-center"
-                                style={{ backgroundColor: pSecondary }}
-                            />
-                        </div>
-
-                        <div className="flex md:hidden items-center gap-2">
-                            <HeaderCartIcon color={pPrimary} />
-                            <button className="p-2 text-gray-500" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-                                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                            </button>
-                        </div>
-                    </div>
-
-                    {mobileMenuOpen && (
-                        <div className="md:hidden border-t border-amber-100 py-4 space-y-2">
-                            <NavMenu
-                                className="flex flex-col gap-1"
-                                itemClassName="text-sm font-medium text-gray-600 hover:text-amber-800 py-2 px-3 rounded-lg hover:bg-amber-50 transition-colors"
-                            />
-                            <EditableButton
-                                contentKey="navButtonText"
-                                label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink}
-                                iconData={siteContent.navButtonTextIcon}
-                                defaultLabel="Shop Now"
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="w-full mt-3 px-5 py-2.5 rounded-full text-white text-sm font-semibold flex items-center justify-center"
-                                style={{ backgroundColor: pSecondary }}
-                            />
-                        </div>
-                    )}
-                </div>
-            </header>
+            <SiteHeader
+                palette={palette}
+                isEditMode={isEditMode}
+                defaults={{
+                    bgType: 'white',
+                    bgClass: 'bg-white/95 backdrop-blur-sm',
+                    borderClass: 'shadow-sm',
+                    sticky: true,
+                    containerClass: 'max-w-6xl',
+                    navItemClass: 'text-sm font-medium text-gray-600 hover:text-amber-800 transition-colors',
+                    mobileNavItemClass: 'text-sm font-medium text-gray-600 hover:text-amber-800 py-2 px-3 rounded-lg hover:bg-amber-50 transition-colors',
+                    submenuClass: 'bg-white/95 backdrop-blur-sm border border-amber-100 shadow-lg',
+                    mobileBorderClass: 'border-amber-100',
+                    logoSize: 36,
+                    logoClass: 'rounded-full',
+                    logoStyleFn: (p) => ({ backgroundColor: p.secondary, color: '#ffffff' }),
+                    defaultCtaLabel: 'Shop Now',
+                    ctaClass: 'px-6 py-2 rounded-full text-white text-sm font-semibold shadow-sm hover:shadow-md transition-all cursor-pointer inline-flex items-center justify-center',
+                    ctaStyleFn: (p, light) => light
+                        ? { backgroundColor: 'rgba(255,255,255,0.2)', color: '#ffffff' }
+                        : { backgroundColor: p.secondary },
+                }}
+            />
 
             <main className="flex-1 w-full flex flex-col min-h-[50vh]">
                 {children || <BlockRenderer palette={palette} />}

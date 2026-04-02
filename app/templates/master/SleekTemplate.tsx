@@ -1,16 +1,8 @@
 'use client';
 
-import EditableText from '@/app/components/EditableText';
-import EditableButton from '@/app/components/EditableButton';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
-import Link from 'next/link';
-import NavMenu from '@/app/components/NavMenu';
-import HeaderCartIcon from '@/app/components/ecommerce/HeaderCartIcon';
-import HeaderLanguageSelector from '@/app/components/HeaderLanguageSelector';
-import { Menu, X } from 'lucide-react';
-import { useState } from 'react';
-import { usePathname } from 'next/navigation';
+import SiteHeader from '@/app/components/SiteHeader';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -27,9 +19,6 @@ export function SleekTemplate({ palette, isEditMode, children }: MasterTemplateP
     const context = useEditorContext();
     const siteContent = context?.siteContent || {};
     const updateSiteContent = context?.updateSiteContent || (() => { });
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const pathname = usePathname();
-    const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const pPrimary = palette.primary || '#111111';
     const pSecondary = palette.secondary || '#6366f1';
@@ -51,87 +40,27 @@ export function SleekTemplate({ palette, isEditMode, children }: MasterTemplateP
                 }
             `}} />
 
-            {/* Header — ultra thin, minimal */}
-            <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md">
-                <div className="max-w-7xl mx-auto px-6">
-                    <div className="flex items-center justify-between h-14">
-                        <Link
-                            href={isEditor ? `/editor?siteId=${context?.siteId}&pageId=${context?.pages?.find(p => p.slug === 'home')?.id || ''}` : '/'}
-                            aria-label="Home"
-                            className="flex items-center gap-2 transition-opacity hover:opacity-90"
-                        >
-                            {siteContent.showHeaderLogo !== false && ((siteContent.headerLogo || siteContent.siteLogo) ? (
-                                <img
-                                    src={siteContent.headerLogo || siteContent.siteLogo}
-                                    alt={siteContent.siteTitle || 'Logo'}
-                                    className="w-7 h-7 object-contain"
-                                 style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
-                            ) : (
-                                <div className="w-7 h-7 rounded-sm flex items-center justify-center font-bold text-xs text-white" style={{ backgroundColor: pPrimary }}>
-                                    {(siteContent.siteTitle || 'S')[0]?.toUpperCase()}
-                                </div>
-                            ))}
-                            <EditableText
-                                as="div"
-                                contentKey="siteTitle"
-                                styleData={siteContent['siteTitle__styles']}
-                                content={siteContent.siteTitle}
-                                defaultValue="Sleek"
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="text-base font-semibold tracking-tight font-title"
-                                style={{ color: pPrimary }}
-                            />
-                        </Link>
-
-                        <div className="hidden md:flex items-center gap-6">
-                            <NavMenu
-                                className="flex items-center gap-5"
-                                itemClassName="text-sm text-gray-400 hover:text-gray-900 transition-colors"
-                                submenuClassName="bg-white/95 backdrop-blur-md border border-gray-100 shadow-lg"
-                            />
-                            <HeaderLanguageSelector />
-                            <HeaderCartIcon color={pPrimary} />
-                            <EditableButton
-                                contentKey="navButtonText"
-                                label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
-                                defaultLabel="Contact"
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="px-5 py-1.5 rounded-sm text-white text-sm font-medium transition-all hover:opacity-90 cursor-pointer inline-flex items-center justify-center"
-                                style={{ backgroundColor: pPrimary }}
-                            />
-                        </div>
-
-                        <div className="flex md:hidden items-center gap-2">
-                            <HeaderCartIcon color={pPrimary} />
-                            <button className="p-2 text-gray-400" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-                                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                            </button>
-                        </div>
-                    </div>
-
-                    {mobileMenuOpen && (
-                        <div className="md:hidden border-t border-gray-100 py-3 space-y-1">
-                            <NavMenu
-                                className="flex flex-col"
-                                itemClassName="text-sm text-gray-400 hover:text-gray-900 py-2 px-2 transition-colors"
-                            />
-                            <EditableButton
-                                contentKey="navButtonText"
-                                label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
-                                defaultLabel="Contact"
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="w-full mt-2 px-5 py-2 rounded-sm text-white text-sm font-medium flex items-center justify-center"
-                                style={{ backgroundColor: pPrimary }}
-                            />
-                        </div>
-                    )}
-                </div>
-            </header>
+            <SiteHeader
+                palette={palette}
+                isEditMode={isEditMode}
+                defaults={{
+                    bgType: 'white',
+                    bgClass: 'bg-white/95 backdrop-blur-md',
+                    sticky: true,
+                    containerClass: 'max-w-7xl',
+                    navItemClass: 'text-sm text-gray-400 hover:text-gray-900 transition-colors',
+                    mobileNavItemClass: 'text-sm text-gray-400 hover:text-gray-900 py-2 px-2 transition-colors',
+                    submenuClass: 'bg-white/95 backdrop-blur-md border border-gray-100 shadow-lg',
+                    logoSize: 28,
+                    logoClass: 'rounded-sm',
+                    logoStyleFn: (p) => ({ backgroundColor: p.primary, color: '#ffffff' }),
+                    defaultCtaLabel: 'Contact',
+                    ctaClass: 'px-5 py-1.5 rounded-sm text-white text-sm font-medium transition-all hover:opacity-90 cursor-pointer inline-flex items-center justify-center',
+                    ctaStyleFn: (p, light) => light
+                        ? { backgroundColor: 'rgba(255,255,255,0.2)', color: '#ffffff' }
+                        : { backgroundColor: p.primary },
+                }}
+            />
 
             <main className="flex-1 w-full flex flex-col min-h-[50vh]">
                 {children || <BlockRenderer palette={palette} />}

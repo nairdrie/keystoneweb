@@ -1278,6 +1278,7 @@ export default function FloatingToolbar({
         onClose={() => setFontPickerState(prev => ({ ...prev, isOpen: false }))}
         title={fontPickerState.type === 'title' ? 'Select Heading Font' : 'Select Body Font'}
         currentFont={fontPickerState.type === 'title' ? titleFont : bodyFont}
+        previewText={fontPickerState.type === 'title' ? (siteTitle || 'The quick brown fox') : 'The quick brown fox jumps over the lazy dog'}
         onSelect={(fontName) => {
           if (fontPickerState.type === 'title') {
             onTitleFontChange?.(fontName);

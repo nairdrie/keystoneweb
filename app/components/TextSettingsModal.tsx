@@ -35,6 +35,7 @@ interface TextSettingsModalProps {
     onSave: (styles: TextStyles) => void;
     initialStyles?: TextStyles;
     title?: string;
+    previewText?: string;
 }
 
 export default function TextSettingsModal({
@@ -42,7 +43,8 @@ export default function TextSettingsModal({
     onClose,
     onSave,
     initialStyles,
-    title = "Text Settings"
+    title = "Text Settings",
+    previewText,
 }: TextSettingsModalProps) {
     const [styles, setStyles] = useState<TextStyles>(initialStyles || {});
     const [activeTab, setActiveTab] = useState<'font' | 'size' | 'weight' | 'color'>('font');
@@ -170,7 +172,9 @@ export default function TextSettingsModal({
                             </div>
 
                             <div className="grid grid-cols-2 gap-2 overflow-y-auto pr-1">
-                                {filteredFonts.map((font) => (
+                                {filteredFonts.map((font) => {
+                                    const preview = previewText?.trim() || font;
+                                    return (
                                     <button
                                         key={font}
                                         onClick={() => setStyles({ ...styles, fontFamily: font })}
@@ -179,14 +183,15 @@ export default function TextSettingsModal({
                                                 : 'bg-white border-slate-200 hover:border-slate-400 hover:shadow-sm'
                                             }`}
                                     >
-                                        <div className="text-xl mb-1 text-slate-900 truncate" style={{ fontFamily: `"${font}", sans-serif` }}>
-                                            {font}
+                                        <div className="text-lg mb-1.5 text-slate-900 leading-snug line-clamp-2" style={{ fontFamily: `"${font}", sans-serif` }}>
+                                            {preview}
                                         </div>
-                                        <div className="text-[10px] text-slate-500 uppercase tracking-wider font-sans">
+                                        <div className="text-[10px] text-slate-400 font-sans">
                                             {font}
                                         </div>
                                     </button>
-                                ))}
+                                    );
+                                })}
                                 {filteredFonts.length === 0 && (
                                     <div className="col-span-2 py-8 text-center text-slate-500">
                                         <Type className="w-8 h-8 mx-auto mb-2 text-slate-300" />

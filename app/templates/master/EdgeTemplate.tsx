@@ -1,16 +1,8 @@
 'use client';
 
-import EditableText from '@/app/components/EditableText';
-import EditableButton from '@/app/components/EditableButton';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
-import Link from 'next/link';
-import NavMenu from '@/app/components/NavMenu';
-import HeaderCartIcon from '@/app/components/ecommerce/HeaderCartIcon';
-import HeaderLanguageSelector from '@/app/components/HeaderLanguageSelector';
-import { Menu, X } from 'lucide-react';
-import { useState } from 'react';
-import { usePathname } from 'next/navigation';
+import SiteHeader from '@/app/components/SiteHeader';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -27,9 +19,6 @@ export function EdgeTemplate({ palette, isEditMode, children }: MasterTemplatePr
     const context = useEditorContext();
     const siteContent = context?.siteContent || {};
     const updateSiteContent = context?.updateSiteContent || (() => { });
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const pathname = usePathname();
-    const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const pPrimary = palette.primary || '#0f172a';
     const pSecondary = palette.secondary || '#22d3ee';
@@ -51,84 +40,31 @@ export function EdgeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                 }
             `}} />
 
-            {/* Header — dark with neon accent line */}
-            <header className="sticky top-0 z-50 border-b" style={{ backgroundColor: '#0a0f1a', borderColor: `${pSecondary}33` }}>
-                <div className="h-0.5 w-full" style={{ background: `linear-gradient(90deg, transparent, ${pSecondary}, transparent)` }} />
-                <div className="max-w-7xl mx-auto px-4">
-                    <div className="flex items-center justify-between h-16">
-                        <Link
-                            href={isEditor ? `/editor?siteId=${context?.siteId}&pageId=${context?.pages?.find(p => p.slug === 'home')?.id || ''}` : '/'}
-                            aria-label="Home"
-                            className="flex items-center gap-3 transition-opacity hover:opacity-90"
-                        >
-                            {siteContent.showHeaderLogo !== false && ((siteContent.headerLogo || siteContent.siteLogo) ? (
-                                <img src={siteContent.headerLogo || siteContent.siteLogo} alt="" className="w-8 h-8 object-contain"  style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
-                            ) : (
-                                <div className="w-8 h-8 border flex items-center justify-center font-mono font-bold text-sm" style={{ borderColor: pSecondary, color: pSecondary }}>
-                                    {'//'}
-                                </div>
-                            ))}
-                            <EditableText
-                                as="div"
-                                contentKey="siteTitle"
-                                styleData={siteContent['siteTitle__styles']}
-                                content={siteContent.siteTitle}
-                                defaultValue="EDGE_CO"
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="text-lg font-bold tracking-tight font-title"
-                                style={{ color: pSecondary }}
-                            />
-                        </Link>
-
-                        <div className="hidden md:flex items-center gap-6">
-                            <NavMenu
-                                className="flex items-center gap-6"
-                                itemClassName="text-sm font-medium text-gray-400 hover:text-white transition-colors"
-                                submenuClassName="bg-[#141a2e] border border-gray-700 shadow-xl"
-                            />
-                            <HeaderLanguageSelector />
-                            <HeaderCartIcon color={pSecondary} />
-                            <EditableButton
-                                contentKey="navButtonText"
-                                label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
-                                defaultLabel="Launch"
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="px-5 py-2 text-sm font-bold transition-all hover:shadow-lg cursor-pointer inline-flex items-center justify-center"
-                                style={{ backgroundColor: pSecondary, color: '#0a0f1a', boxShadow: `0 0 20px ${pSecondary}44` }}
-                            />
-                        </div>
-
-                        <div className="flex md:hidden items-center gap-2">
-                            <HeaderCartIcon color={pSecondary} />
-                            <button className="p-2 text-gray-400" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-                                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-                            </button>
-                        </div>
-                    </div>
-
-                    {mobileMenuOpen && (
-                        <div className="md:hidden border-t py-4 space-y-2" style={{ borderColor: `${pSecondary}22` }}>
-                            <NavMenu
-                                className="flex flex-col gap-1"
-                                itemClassName="text-sm font-medium text-gray-400 hover:text-white py-2 px-3 transition-colors"
-                            />
-                            <EditableButton
-                                contentKey="navButtonText"
-                                label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
-                                defaultLabel="Launch"
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="w-full mt-3 px-5 py-2.5 font-bold text-sm cursor-pointer inline-flex items-center justify-center"
-                                style={{ backgroundColor: pSecondary, color: '#0a0f1a' }}
-                            />
-                        </div>
-                    )}
-                </div>
-            </header>
+            <SiteHeader
+                palette={palette}
+                isEditMode={isEditMode}
+                defaults={{
+                    bgType: 'custom',
+                    bgCustom: '#0a0f1a',
+                    borderClass: 'border-b',
+                    borderStyleFn: (p) => ({ borderColor: `${p.secondary}33` }),
+                    sticky: true,
+                    hasAccentLine: true,
+                    accentColor: pSecondary,
+                    containerClass: 'max-w-7xl',
+                    navItemClass: 'text-sm font-medium text-gray-400 hover:text-white transition-colors',
+                    mobileNavItemClass: 'text-sm font-medium text-gray-400 hover:text-white py-2 px-3 transition-colors',
+                    submenuClass: 'bg-[#141a2e] border border-gray-700 shadow-xl',
+                    mobileBorderClass: 'border-gray-800',
+                    mobileBorderStyleFn: (p) => ({ borderColor: `${p.secondary}22` }),
+                    logoSize: 32,
+                    logoClass: '',
+                    logoStyleFn: (p) => ({ border: `1px solid ${p.secondary}`, color: p.secondary, backgroundColor: 'transparent' }),
+                    defaultCtaLabel: 'Launch',
+                    ctaClass: 'px-5 py-2 text-sm font-bold transition-all hover:shadow-lg cursor-pointer inline-flex items-center justify-center',
+                    ctaStyleFn: (p) => ({ backgroundColor: p.secondary, color: '#0a0f1a', boxShadow: `0 0 20px ${p.secondary}44` }),
+                }}
+            />
 
             <main className="flex-1 w-full flex flex-col min-h-[50vh]">
                 {children || <BlockRenderer palette={palette} />}

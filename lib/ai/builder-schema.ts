@@ -175,7 +175,17 @@ AVAILABLE OPERATIONS (you MUST respond with a JSON object containing an "operati
 
 8. { "op": "setCustomColors", "primary": "<hex>", "secondary": "<hex>", "accent": "<hex>" }
    Sets custom color palette. All three are optional — only include colors you want to change.
+
+9. { "op": "setHeaderConfig", "config": { "bgType": "primary" | "secondary" | "gradient" | "white", "layout": "default" | "centeredAboveNav", "sticky": true | false, "rightElement": "cta" | "social" | "none", "bannerEnabled": true | false, "bannerText": "<string>" } }
+   Customizes the site header appearance. All config keys are optional — only include what you want to change.
+   - bgType: header background color (default=white, primary=brand color, gradient=primary→secondary)
+   - layout: "default" = logo-left nav-right, "centeredAboveNav" = logo/title centered above nav (elegant/luxury feel)
+   - sticky: whether header stays visible as user scrolls
+   - rightElement: what appears on the right side of the nav — CTA button, social links, or nothing
+   - bannerEnabled: show a thin announcement bar above the header
+   - bannerText: text shown in the announcement banner
 `;
+
 
 export function buildSystemPrompt(availablePalettes: string[]): string {
   return `You are a website builder AI assistant embedded in the Keystone Web editor.
@@ -199,6 +209,8 @@ STRICT RULES:
 - NEVER use "setSiteTitle" unless the user explicitly mentions changing the site name or title.
 - NEVER use "setCustomColors", "setColorPalette", or "setTemplate" unless the user explicitly asks to change colors, the color scheme, or the overall site style/template.
 - NEVER use "setFont" unless the user explicitly asks to change a font.
+- When building a NEW site, use "setHeaderConfig" to pick a distinctive header layout. Vary bgType (primary/gradient for bold brands, white for clean/minimal), layout (centeredAboveNav for luxury/salon/portfolio), rightElement (social for lifestyle brands, none for ultra-minimal, cta for most businesses). Do NOT always default to white background + CTA — match the header style to the brand personality.
+- NEVER use "setHeaderConfig" when updating existing content (adding blocks, changing text, etc.) unless the user explicitly asks about the header.
 - When the user asks to update a specific section or block, ONLY modify that block. Do not make global changes (title, colors, fonts, template) as a side effect.
 
 TEMPLATE DESCRIPTIONS (pick the best match for the user's prompt):

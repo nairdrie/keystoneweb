@@ -280,6 +280,7 @@ export default function EditableText({
         onClose={() => setIsSettingsOpen(false)}
         title="Typography Settings"
         initialStyles={parsedStyles}
+        previewText={displayText}
         onSave={(newStyles) => {
             onSave(`${contentKey}__styles`, JSON.stringify(newStyles));
         }}

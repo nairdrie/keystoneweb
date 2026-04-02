@@ -858,6 +858,22 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     }));
   }, [selectedPaletteKey, handlePaletteChange, handleUpdateSiteContent]);
 
+  const aiSetHeaderConfig = useCallback((config: Record<string, any>) => {
+    const keyMap: Record<string, string> = {
+      bgType: 'headerBgType',
+      layout: 'headerLayout',
+      sticky: 'headerSticky',
+      rightElement: 'headerRightElement',
+      bannerEnabled: 'headerBannerEnabled',
+      bannerText: 'headerBannerText',
+    };
+    for (const [configKey, siteKey] of Object.entries(keyMap)) {
+      if (config[configKey] !== undefined) {
+        handleUpdateSiteContent(siteKey, config[configKey]);
+      }
+    }
+  }, [handleUpdateSiteContent]);
+
   const aiSetTemplate = useCallback((templateId: string) => {
     const currentSite = siteRef.current;
     if (!currentSite?.id) return;
@@ -883,7 +899,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
     onSetFont: aiSetFont,
     onSetCustomColors: aiSetCustomColors,
     onSetTemplate: aiSetTemplate,
-  }), [aiAddBlock, aiUpdateBlock, aiRemoveBlock, aiReorderBlocks, aiReplaceBlocks, aiSetSiteTitle, aiSetFont, aiSetCustomColors, aiSetTemplate]);
+    onSetHeaderConfig: aiSetHeaderConfig,
+  }), [aiAddBlock, aiUpdateBlock, aiRemoveBlock, aiReorderBlocks, aiReplaceBlocks, aiSetSiteTitle, aiSetFont, aiSetCustomColors, aiSetTemplate, aiSetHeaderConfig]);
 
   const getAiSiteState = useCallback(() => ({
     title: siteTitle,

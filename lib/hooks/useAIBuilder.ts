@@ -42,6 +42,7 @@ interface AIBuilderCallbacks {
   onSetCustomColors: (colors: { primary?: string; secondary?: string; accent?: string }) => void;
   onSetTemplate: (templateId: string) => void;
   onReplaceBlocks: (blocks: any[]) => void;
+  onSetHeaderConfig: (config: Record<string, any>) => void;
 }
 
 export function useAIBuilder(
@@ -254,6 +255,11 @@ function applyOperation(op: AIOperation, callbacks: AIBuilderCallbacks) {
         secondary: op.secondary,
         accent: op.accent,
       });
+      break;
+    case 'setHeaderConfig':
+      if (op.config && typeof op.config === 'object') {
+        callbacks.onSetHeaderConfig(op.config);
+      }
       break;
   }
 }

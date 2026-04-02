@@ -27,6 +27,7 @@ interface FontPickerModalProps {
     onSelect: (fontName: string) => void;
     currentFont?: string;
     title: string;
+    previewText?: string;
 }
 
 export default function FontPickerModal({
@@ -34,7 +35,8 @@ export default function FontPickerModal({
     onClose,
     onSelect,
     currentFont,
-    title
+    title,
+    previewText,
 }: FontPickerModalProps) {
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -91,7 +93,9 @@ export default function FontPickerModal({
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-2">
-                    {filteredFonts.map((font) => (
+                    {filteredFonts.map((font) => {
+                        const displayText = previewText?.trim() || font;
+                        return (
                         <button
                             key={font}
                             onClick={() => {
@@ -103,14 +107,15 @@ export default function FontPickerModal({
                                 : 'hover:bg-slate-100 text-slate-700 border border-transparent'
                                 }`}
                         >
-                            <span className="text-xl" style={{ fontFamily: `"${font}", sans-serif` }}>
-                                {font}
+                            <span className="text-xl leading-snug" style={{ fontFamily: `"${font}", sans-serif` }}>
+                                {displayText}
                             </span>
-                            <span className="text-xs text-slate-400 mt-1 uppercase tracking-wider font-sans">
+                            <span className="text-xs text-slate-400 mt-1.5 font-sans">
                                 {font}
                             </span>
                         </button>
-                    ))}
+                        );
+                    })}
                     {filteredFonts.length === 0 && (
                         <div className="py-8 text-center text-slate-500">
                             <Type className="w-8 h-8 mx-auto mb-2 text-slate-300" />

@@ -1,17 +1,8 @@
 'use client';
 
-import EditableText from '@/app/components/EditableText';
-import EditableButton from '@/app/components/EditableButton';
-import EditableImage from '@/app/components/EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
-import Link from 'next/link';
-import NavMenu from '@/app/components/NavMenu';
-import HeaderCartIcon from '@/app/components/ecommerce/HeaderCartIcon';
-import HeaderLanguageSelector from '@/app/components/HeaderLanguageSelector';
-import { Menu, X } from 'lucide-react';
-import { useState } from 'react';
-import { usePathname } from 'next/navigation';
+import SiteHeader from '@/app/components/SiteHeader';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -28,12 +19,8 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
     const context = useEditorContext();
     const siteContent = context?.siteContent || {};
     const updateSiteContent = context?.updateSiteContent || (() => { });
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const pathname = usePathname();
-    const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const pPrimary = palette.primary || '#059669';
-    const pSecondary = palette.secondary || '#34d399';
     const pAccent = palette.accent || '#ecfdf5';
 
     const titleFont = siteContent.titleFont || 'Nunito';
@@ -50,104 +37,33 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
                 .template-wrapper .font-title {
                     font-family: "${titleFont}", sans-serif;
                 }
-                /* First block top-padding offset for floating header — adds header height to existing block padding */
-                .first-block-offset section.py-40 { padding-top: calc(10rem + var(--header-offset, 0px)) !important; }
-                .first-block-offset section.py-24 { padding-top: calc(6rem + var(--header-offset, 0px)) !important; }
-                .first-block-offset section.py-20 { padding-top: calc(5rem + var(--header-offset, 0px)) !important; }
-                .first-block-offset section.py-16 { padding-top: calc(4rem + var(--header-offset, 0px)) !important; }
-                .first-block-offset section.py-12 { padding-top: calc(3rem + var(--header-offset, 0px)) !important; }
-                .first-block-offset section:not([class*="py-"]) { padding-top: var(--header-offset, 0px) !important; }
             `}} />
 
-            {/* Header — floating pill nav. Sticky with h-0 so it takes no document space;
-                the inner pill is absolutely positioned to overlay content. */}
-            <header className="sticky top-0 z-50 h-0 overflow-visible">
-                <div className="pt-3 px-4">
-                <div className="max-w-6xl mx-auto bg-white/90 backdrop-blur-xl rounded-2xl shadow-lg shadow-black/5 border border-white/50 px-5">
-                    <div className="flex items-center justify-between h-14">
-                        <Link
-                            href={isEditor ? `/editor?siteId=${context?.siteId}&pageId=${context?.pages?.find(p => p.slug === 'home')?.id || ''}` : '/'}
-                            aria-label="Home"
-                            className="flex items-center gap-2.5 transition-opacity hover:opacity-90"
-                        >
-                            {siteContent.showHeaderLogo !== false && ((siteContent.headerLogo || siteContent.siteLogo) ? (
-                                <img src={siteContent.headerLogo || siteContent.siteLogo} alt="" className="w-8 h-8 object-contain rounded-full"  style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
-                            ) : (
-                                <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pPrimary }}>
-                                    {(siteContent.siteTitle || 'A')[0]?.toUpperCase()}
-                                </div>
-                            ))}
-                            <EditableText
-                                as="div"
-                                contentKey="siteTitle"
-                                styleData={siteContent['siteTitle__styles']}
-                                content={siteContent.siteTitle}
-                                defaultValue="Airy Studio"
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="text-lg font-bold font-title"
-                                style={{ color: pPrimary }}
-                            />
-                        </Link>
-
-                        <div className="hidden md:flex items-center gap-6">
-                            <NavMenu
-                                className="flex items-center gap-5"
-                                itemClassName="text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors"
-                                submenuClassName="bg-white/95 backdrop-blur-xl border border-gray-100 shadow-lg"
-                            />
-                            <HeaderLanguageSelector />
-                            <HeaderCartIcon color={pPrimary} />
-                            <EditableButton
-                                contentKey="navButtonText"
-                                label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
-                                defaultLabel="Contact Us"
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="px-5 py-2 rounded-full text-white text-sm font-semibold shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 cursor-pointer inline-flex items-center justify-center"
-                                style={{ backgroundColor: pPrimary }}
-                            />
-                        </div>
-
-                        <div className="flex md:hidden items-center gap-2">
-                            <HeaderCartIcon color={pPrimary} />
-                            <button className="p-2 text-gray-500" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-                                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                            </button>
-                        </div>
-                    </div>
-
-                    {mobileMenuOpen && (
-                        <div className="md:hidden border-t border-gray-100 py-3 space-y-1">
-                            <NavMenu
-                                className="flex flex-col"
-                                itemClassName="text-sm font-medium text-gray-500 hover:text-gray-800 py-2 px-3 rounded-xl hover:bg-gray-50 transition-colors"
-                            />
-                            <EditableButton
-                                contentKey="navButtonText"
-                                label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
-                                defaultLabel="Contact Us"
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="w-full mt-2 px-5 py-2.5 rounded-full text-white text-sm font-semibold flex items-center justify-center"
-                                style={{ backgroundColor: pPrimary }}
-                            />
-                        </div>
-                    )}
-                </div>
-                </div>
-            </header>
+            <SiteHeader
+                palette={palette}
+                isEditMode={isEditMode}
+                defaults={{
+                    isFloating: true,
+                    bgType: 'white',
+                    bgClass: 'bg-white/90',
+                    sticky: true,
+                    containerClass: 'max-w-6xl',
+                    navItemClass: 'text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors',
+                    mobileNavItemClass: 'text-sm font-medium text-gray-500 hover:text-gray-800 py-2.5 px-3 rounded-xl hover:bg-gray-50 transition-colors',
+                    submenuClass: 'bg-white/95 backdrop-blur-xl border border-gray-100 shadow-lg',
+                    logoSize: 32,
+                    logoClass: 'rounded-full',
+                    logoStyleFn: (p) => ({ backgroundColor: p.primary, color: '#ffffff' }),
+                    defaultCtaLabel: 'Contact Us',
+                    ctaClass: 'px-5 py-2 rounded-full text-white text-sm font-semibold shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 cursor-pointer inline-flex items-center justify-center',
+                    ctaStyleFn: (p, light) => light
+                        ? { backgroundColor: 'rgba(255,255,255,0.2)', color: '#ffffff' }
+                        : { backgroundColor: p.primary },
+                }}
+            />
 
             <main className="flex-1 w-full flex flex-col min-h-[50vh]">
-                {children ? (
-                    <div className="pt-[80px]">
-                        {children}
-                    </div>
-                ) : (
-                    <BlockRenderer palette={palette} headerOffset={80} />
-                )}
+                {children || <BlockRenderer palette={palette} />}
             </main>
 
             {/* Footer — soft rounded */}

@@ -1,16 +1,8 @@
 'use client';
 
-import EditableText from '@/app/components/EditableText';
-import EditableButton from '@/app/components/EditableButton';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
-import Link from 'next/link';
-import NavMenu from '@/app/components/NavMenu';
-import HeaderCartIcon from '@/app/components/ecommerce/HeaderCartIcon';
-import HeaderLanguageSelector from '@/app/components/HeaderLanguageSelector';
-import { Menu, X } from 'lucide-react';
-import { useState } from 'react';
-import { usePathname } from 'next/navigation';
+import SiteHeader from '@/app/components/SiteHeader';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -27,9 +19,6 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
     const context = useEditorContext();
     const siteContent = context?.siteContent || {};
     const updateSiteContent = context?.updateSiteContent || (() => { });
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const pathname = usePathname();
-    const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const pPrimary = palette.primary || '#0f172a';
     const pSecondary = palette.secondary || '#ef4444';
@@ -50,90 +39,26 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
                     font-family: "${titleFont}", sans-serif;
                 }
             `}} />
-            {/* Header — dark, bold, authoritative */}
-            <header className="sticky top-0 z-50 shadow-lg" style={{ backgroundColor: pPrimary }}>
-                <div className="max-w-7xl mx-auto px-4">
-                    <div className="flex items-center justify-between h-16">
-                        {/* Logo/Title */}
-                        <div className="flex items-center gap-3">
-                            <Link
-                                href={isEditor ? `/editor?siteId=${context?.siteId}&pageId=${context?.pages?.find(p => p.slug === 'home')?.id || ''}` : '/'}
-                                aria-label="Home"
-                                className="flex items-center gap-3 transition-opacity hover:opacity-90"
-                            >
-                                {siteContent.showHeaderLogo !== false && ((siteContent.headerLogo || siteContent.siteLogo) ? (
-                                    <img src={siteContent.headerLogo || siteContent.siteLogo} alt="" className="w-8 h-8 object-contain rounded-md"  style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : undefined, width: siteContent.headerLogoHeight ? 'auto' : undefined }} />
-                                ) : (
-                                    <div className="w-8 h-8 rounded-md flex items-center justify-center font-black text-sm text-white" style={{ backgroundColor: pSecondary }}>
-                                        {(siteContent.siteTitle || 'B')[0]?.toUpperCase()}
-                                    </div>
-                                ))}
-                                <EditableText
-                                    as="div"
-                                    contentKey="siteTitle"
-                                    styleData={siteContent['siteTitle__styles']}
-                                    content={siteContent.siteTitle}
-                                    defaultValue="YOUR BUSINESS"
-                                    isEditMode={isEditMode}
-                                    onSave={updateSiteContent}
-                                    className="text-lg font-black tracking-tight text-white font-title"
-                                />
-                            </Link>
-                        </div>
-
-                        {/* Desktop Nav */}
-                        <div className="hidden md:flex items-center gap-6">
-                            <NavMenu
-                                className="flex items-center gap-6"
-                                itemClassName="text-sm font-semibold text-white/80 hover:text-white transition-colors tracking-wide uppercase"
-                                submenuClassName="bg-white/10 backdrop-blur-xl border border-white/20 shadow-xl"
-                            />
-                            <HeaderLanguageSelector />
-                            <HeaderCartIcon color="#ffffff" />
-                            <EditableButton
-                                contentKey="navButtonText"
-                                label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
-                                defaultLabel="Get Quote"
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="px-5 py-2 rounded-md font-bold text-sm transition-all hover:scale-105 text-white cursor-pointer inline-flex items-center justify-center"
-                                style={{ backgroundColor: pSecondary }}
-                            />
-                        </div>
-
-                        <div className="flex md:hidden items-center gap-2">
-                            <HeaderCartIcon color="#ffffff" />
-                            <button
-                                className="text-white p-2"
-                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                            >
-                                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Mobile Menu */}
-                    {mobileMenuOpen && (
-                        <div className="md:hidden border-t border-white/10 py-4 space-y-2">
-                            <NavMenu
-                                className="flex flex-col gap-2"
-                                itemClassName="text-sm font-semibold text-white/80 hover:text-white py-2 px-2 rounded-md hover:bg-white/5 transition-colors"
-                            />
-                            <EditableButton
-                                contentKey="navButtonText"
-                                label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
-                                defaultLabel="Get Quote"
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="w-full mt-2 px-5 py-2.5 rounded-md font-bold text-sm text-white flex items-center justify-center"
-                                style={{ backgroundColor: pSecondary }}
-                            />
-                        </div>
-                    )}
-                </div>
-            </header>
+            <SiteHeader
+                palette={palette}
+                isEditMode={isEditMode}
+                defaults={{
+                    bgType: 'primary',
+                    borderClass: 'shadow-lg',
+                    sticky: true,
+                    containerClass: 'max-w-7xl',
+                    navItemClass: 'text-sm font-semibold text-white/80 hover:text-white transition-colors tracking-wide uppercase',
+                    mobileNavItemClass: 'text-sm font-semibold text-white/80 hover:text-white py-2 px-2 rounded-md hover:bg-white/5 transition-colors',
+                    submenuClass: 'bg-white/10 backdrop-blur-xl border border-white/20 shadow-xl',
+                    mobileBorderClass: 'border-white/10',
+                    logoSize: 32,
+                    logoClass: 'rounded-md',
+                    logoStyleFn: (p) => ({ backgroundColor: p.secondary, color: '#ffffff' }),
+                    defaultCtaLabel: 'Get Quote',
+                    ctaClass: 'px-5 py-2 rounded-md font-bold text-sm transition-all hover:scale-105 text-white cursor-pointer inline-flex items-center justify-center',
+                    ctaStyleFn: (p) => ({ backgroundColor: p.secondary }),
+                }}
+            />
 
             {/* Page Content */}
             <main className="flex-1 w-full flex flex-col min-h-[50vh]">

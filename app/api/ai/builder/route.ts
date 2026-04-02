@@ -208,7 +208,7 @@ async function callAnthropic(apiKey: string, model: string, system: string, hist
 // operations with valid block types pass through. This prevents prompt injection
 // from producing arbitrary payloads.
 
-const VALID_OPS = new Set(['addBlock', 'updateBlock', 'removeBlock', 'reorderBlocks', 'setSiteTitle', 'setFont', 'setCustomColors', 'setTemplate', 'replaceBlocks']);
+const VALID_OPS = new Set(['addBlock', 'updateBlock', 'removeBlock', 'reorderBlocks', 'setSiteTitle', 'setFont', 'setCustomColors', 'setTemplate', 'replaceBlocks', 'setHeaderConfig']);
 const VALID_BLOCK_TYPES = new Set([
   'hero', 'text', 'image', 'servicesGrid', 'featuresList', 'aboutImageText',
   'testimonials', 'stats', 'gallery', 'contact', 'faq', 'cta', 'booking',
@@ -284,6 +284,21 @@ function sanitizeOperations(operations: any[]): any[] {
           }
           if (Object.keys(colors).length === 0) return null;
           return { op: 'setCustomColors', ...colors };
+        }
+        case 'setHeaderConfig': {
+          if (!op.config || typeof op.config !== 'object') return null;
+          const VALID_BG_TYPES = new Set(['white', 'primary', 'secondary', 'gradient', 'custom']);
+          const VALID_LAYOUTS = new Set(['default', 'centeredAboveNav']);
+          const VALID_RIGHT_ELEMENTS = new Set(['cta', 'social', 'none']);
+          const config: Record<string, any> = {};
+          if (VALID_BG_TYPES.has(op.config.bgType)) config.bgType = op.config.bgType;
+          if (VALID_LAYOUTS.has(op.config.layout)) config.layout = op.config.layout;
+          if (typeof op.config.sticky === 'boolean') config.sticky = op.config.sticky;
+          if (VALID_RIGHT_ELEMENTS.has(op.config.rightElement)) config.rightElement = op.config.rightElement;
+          if (typeof op.config.bannerEnabled === 'boolean') config.bannerEnabled = op.config.bannerEnabled;
+          if (typeof op.config.bannerText === 'string') config.bannerText = stripTags(op.config.bannerText).slice(0, 200);
+          if (Object.keys(config).length === 0) return null;
+          return { op: 'setHeaderConfig', config };
         }
         default:
           return null;
