@@ -40,37 +40,44 @@ export async function createClient() {
     }
   );
 
-  // If impersonation is active, override auth.getUser()
+  // If impersonation is active, override the client to use service role
+  // so that queries bypass RLS and we can actually see the target user's data.
   if (impersonatedUserId) {
-    const originalGetUser = supabase.auth.getUser.bind(supabase.auth);
+    // First verify the ACTUAL user is logged in via the anon client
+    const { data: { user: actualUser } } = await supabase.auth.getUser();
     
-    supabase.auth.getUser = async (token?: string) => {
-      // First, we must still verify the ACTUAL user is logged in (via originalGetUser)
-      // to ensure the session is valid, though the middleware already did this.
-      const { data: { user: actualUser } } = await originalGetUser(token);
-      if (!actualUser) return { data: { user: null }, error: null };
+    if (actualUser) {
+      const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
 
-      // Now fetch the impersonated user using the admin client
-      const adminClient = createAdminClient();
-      const { data: { user: targetUser }, error } = await adminClient.auth.admin.getUserById(impersonatedUserId);
-      
-      if (error || !targetUser) {
-        console.error('[Impersonation] Failed to fetch target user:', impersonatedUserId, error);
-        return { data: { user: null }, error: error as any };
+      if (adminEmails.includes(actualUser.email?.toLowerCase() ?? '')) {
+        const adminClient = createAdminClient();
+        const { data: { user: targetUser }, error } = await adminClient.auth.admin.getUserById(impersonatedUserId);
+        
+        if (targetUser && !error) {
+          console.log(`[Impersonation] Active: Admin ${actualUser.email} is impersonating ${targetUser.email}`);
+          // Return the admin client but with auth.getUser() overridden to return the target user
+          // tagged with impersonation metadata.
+          const originalGetUser = adminClient.auth.getUser.bind(adminClient.auth);
+          adminClient.auth.getUser = async (token?: string) => {
+            return { 
+              data: { 
+                user: { 
+                  ...targetUser, 
+                  is_impersonated: true,
+                  original_admin_id: actualUser.id 
+                } as any 
+              }, 
+              error: null 
+            };
+          };
+
+          return adminClient;
+        }
       }
-
-      // Return the target user but tagged as impersonated
-      return { 
-        data: { 
-          user: { 
-            ...targetUser, 
-            is_impersonated: true,
-            original_admin_id: actualUser.id 
-          } as any 
-        }, 
-        error: null 
-      };
-    };
+    }
   }
 
   return supabase;

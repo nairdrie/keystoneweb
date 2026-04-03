@@ -57,8 +57,14 @@ function clearSupabaseAuthCookies() {
   });
 }
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+export function AuthProvider({ 
+  children,
+  initialUser = null 
+}: { 
+  children: React.ReactNode;
+  initialUser?: User | null;
+}) {
+  const [user, setUser] = useState<User | null>(initialUser);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -74,7 +80,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } = await supabase.auth.getSession();
 
         if (!initialSession) {
-          // No local session — nothing to validate.
+          // If we have an initialUser (impersonated), we might still want to show it
+          // even if no local session is found (though this shouldn't happen).
+          if (initialUser) setUser(initialUser);
           return;
         }
 
@@ -101,7 +109,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         setSession(initialSession);
-        setUser(validUser);
+        
+        // If the server tells us we are impersonating, trust that over the 
+        // local browser client's user object (which will always be the admin).
+        if (initialUser && (initialUser as any).is_impersonated) {
+          setUser(initialUser);
+        } else {
+          setUser(validUser);
+        }
       } catch (error) {
         console.error('Error fetching session:', error);
       } finally {
