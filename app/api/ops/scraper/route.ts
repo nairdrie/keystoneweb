@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 
 const SERVICES_CSV_HEADER = 'name,description,duration_minutes,price,currency,category,is_featured,compare_at_price,status';
 
@@ -21,14 +22,26 @@ Rules:
 
 Quote any field that contains commas or newlines. Do not include a header row — I will add it. Do not add any explanation before or after the CSV. If no services are found, return exactly: NO_SERVICES_FOUND`;
 
-async function assertAdmin(): Promise<boolean> {
+async function assertOpsAccess(): Promise<boolean> {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
+
     const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
       .split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
-    return adminEmails.includes(user.email?.toLowerCase() ?? '');
+    if (adminEmails.includes(user.email?.toLowerCase() ?? '')) {
+      return true;
+    }
+
+    const db = createAdminClient();
+    const { data: profile } = await db
+      .from('users')
+      .select('is_agent')
+      .eq('id', user.id)
+      .single();
+
+    return profile?.is_agent ?? false;
   } catch {
     return false;
   }
@@ -76,7 +89,7 @@ function stripHtml(html: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  if (!await assertAdmin()) {
+  if (!await assertOpsAccess()) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
