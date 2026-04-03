@@ -18,7 +18,14 @@ export async function generateMetadata({
     .eq('is_published', true)
     .single();
 
-  const publishedData = site?.published_data || {};
+  if (!site) {
+    return {
+      title: 'Keystone Web Design',
+      description: 'This site is not public or does not exist.',
+    };
+  }
+
+  const publishedData = site.published_data || {};
 
   const rawTitle = publishedData.seoTitle || publishedData.siteTitle || publishedData.title || `${subdomain}.kswd.ca`;
   const title = rawTitle.replace(/\{\{(.*?)\}\}/g, '$1').replace(/\\n|\n/g, ' ');

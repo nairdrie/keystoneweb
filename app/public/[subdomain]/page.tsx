@@ -6,6 +6,7 @@ import { getTemplateMetadata } from '@/lib/db/template-queries';
 import JsonLdScript from '@/app/components/JsonLdScript';
 import { BusinessProfile } from '@/lib/types/sites';
 import { fetchTranslationsConfig } from '@/lib/translations/resolve';
+import SiteNotFound from '@/app/components/SiteNotFound';
 
 export const dynamic = 'force-dynamic'; // Always fetch fresh data
 
@@ -29,14 +30,11 @@ export default async function PublicSitePage({
 
     if (error || !site) {
       return (
-        <div className="flex items-center justify-center min-h-screen bg-slate-50">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold text-slate-900 mb-4">Site Not Found</h1>
-            <p className="text-slate-600">
-              The site at <code className="bg-slate-100 px-2 py-1 rounded">{subdomain}.kswd.ca</code> is not public or does not exist.
-            </p>
-          </div>
-        </div>
+        <SiteNotFound 
+          message="Start building to claim this subdomain."
+          ctaText="Login to start building"
+          domain={`${subdomain}.kswd.ca`}
+        />
       );
     }
 

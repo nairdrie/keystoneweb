@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { createClient } from '@/lib/db/supabase-server';
 import type { Metadata } from 'next';
+import SiteNotFound from '@/app/components/SiteNotFound';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,8 +27,8 @@ export async function generateMetadata({ params }: SiteLayoutProps): Promise<Met
 
   if (!site) {
     return {
-      title: 'Site Not Found',
-      description: 'This site does not exist',
+      title: 'Keystone Web Design',
+      description: 'This site is not public or does not exist.',
     };
   }
 
@@ -57,12 +58,11 @@ export default async function SiteLayout({
 
   if (!site) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Site Not Found</h1>
-          <p className="text-gray-600">The site for {cleanDomain} does not exist.</p>
-        </div>
-      </div>
+      <SiteNotFound 
+        message="The site for this domain is not public or does not exist. Are you the owner?"
+        ctaText="Login to manage domain"
+        domain={cleanDomain}
+      />
     );
   }
 

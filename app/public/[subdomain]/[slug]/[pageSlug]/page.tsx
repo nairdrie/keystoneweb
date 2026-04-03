@@ -3,6 +3,7 @@ import EditorContent from '@/app/(app)/editor/editor-content-v2';
 import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
+import SiteNotFound from '@/app/components/SiteNotFound';
 import {
     isLanguageCode,
     resolveTranslatedContent,
@@ -36,11 +37,11 @@ export default async function PublicSiteTranslatedPage({
 
         if (error || !site) {
             return (
-                <div className="flex items-center justify-center min-h-screen bg-slate-50">
-                    <div className="text-center">
-                        <h1 className="text-4xl font-bold text-slate-900 mb-4">Site Not Found</h1>
-                    </div>
-                </div>
+                <SiteNotFound 
+                    message="Start building to claim this subdomain."
+                    ctaText="Login to start building"
+                    domain={`${subdomain}.kswd.ca`}
+                />
             );
         }
 
