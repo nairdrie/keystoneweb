@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Code, Lock, Crown, Image as ImageIcon, Upload, Trash2, LayoutTemplate } from 'lucide-react';
+import { X, Code, Lock, Crown, Image as ImageIcon, Upload, Trash2, LayoutTemplate, Palette } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 
 interface BlockSettingsModalProps {
@@ -66,18 +66,25 @@ export default function BlockSettingsModal({
             { id: 'landscape', label: 'Landscape Image (4:3)' },
             { id: 'square', label: 'Square Image (1:1)' },
             { id: 'tall', label: 'Tall Image (3:4)' }
+        ],
+        menu: [
+            { id: 'list', label: 'Classic List' },
+            { id: 'grid', label: 'Item Grid' },
+            { id: 'cards', label: 'Detail Cards' },
+            { id: 'compact', label: 'Compact / Dense' }
         ]
     };
 
     const hasVariantSettings = !!VARIANTS[blockType];
     const hasBackgroundSettings = blockType === 'hero';
+    const hasMenuSettings = blockType === 'menu';
 
-    type TabType = 'layout' | 'background' | 'css';
-    const defaultTab: TabType = hasVariantSettings ? 'layout' : (hasBackgroundSettings ? 'background' : 'css');
+    type TabType = 'layout' | 'background' | 'menu' | 'css';
+    const defaultTab: TabType = hasVariantSettings ? 'layout' : (hasBackgroundSettings ? 'background' : hasMenuSettings ? 'menu' : 'css');
 
     const [localCss, setLocalCss] = useState(customCss);
     const [activeTab, setActiveTab] = useState<TabType>(defaultTab);
-    
+
     // Background State
     const [bgType, setBgType] = useState<string>(blockData?.bgType || 'color');
     const [bgColor, setBgColor] = useState<string>(blockData?.backgroundColor || '');
@@ -85,6 +92,13 @@ export default function BlockSettingsModal({
     const [bgCarouselImages, setBgCarouselImages] = useState<string[]>(blockData?.bgCarouselImages || []);
     const [bgCarouselTiming, setBgCarouselTiming] = useState<number>(blockData?.bgCarouselTiming || 5);
     const [isUploading, setIsUploading] = useState(false);
+
+    // Menu Style State
+    const [menuShowPrices, setMenuShowPrices] = useState<boolean>(blockData?.showPrices !== false);
+    const [menuShowDescriptions, setMenuShowDescriptions] = useState<boolean>(blockData?.showDescriptions !== false);
+    const [menuShowImages, setMenuShowImages] = useState<boolean>(blockData?.showImages === true);
+    const [menuCategoryStyle, setMenuCategoryStyle] = useState<string>(blockData?.categoryStyle || 'heading');
+    const [menuBgColor, setMenuBgColor] = useState<string>(blockData?.backgroundColor || '');
 
     useEffect(() => {
         if (isOpen) {
@@ -95,6 +109,11 @@ export default function BlockSettingsModal({
             setBgImage(blockData?.bgImage || '');
             setBgCarouselImages(blockData?.bgCarouselImages || []);
             setBgCarouselTiming(blockData?.bgCarouselTiming || 5);
+            setMenuShowPrices(blockData?.showPrices !== false);
+            setMenuShowDescriptions(blockData?.showDescriptions !== false);
+            setMenuShowImages(blockData?.showImages === true);
+            setMenuCategoryStyle(blockData?.categoryStyle || 'heading');
+            setMenuBgColor(blockData?.backgroundColor || '');
         }
     }, [isOpen, customCss, blockType, blockData, defaultTab]);
 
@@ -113,6 +132,14 @@ export default function BlockSettingsModal({
             updates['bgImage'] = bgImage;
             updates['bgCarouselImages'] = bgCarouselImages;
             updates['bgCarouselTiming'] = bgCarouselTiming;
+        }
+
+        if (blockType === 'menu') {
+            updates['showPrices'] = menuShowPrices;
+            updates['showDescriptions'] = menuShowDescriptions;
+            updates['showImages'] = menuShowImages;
+            updates['categoryStyle'] = menuCategoryStyle;
+            updates['backgroundColor'] = menuBgColor;
         }
 
         if (Object.keys(updates).length > 0 && context?.updateBlockDataBatch) {
@@ -203,6 +230,17 @@ export default function BlockSettingsModal({
                         >
                             <ImageIcon className="w-4 h-4" />
                             Background
+                        </button>
+                    )}
+                    {hasMenuSettings && (
+                        <button
+                            onClick={() => setActiveTab('menu')}
+                            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                                activeTab === 'menu' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+                            }`}
+                        >
+                            <Palette className="w-4 h-4" />
+                            Style
                         </button>
                     )}
                     <button
@@ -362,6 +400,87 @@ export default function BlockSettingsModal({
                                 >
                                     Save Options
                                 </button>
+                            </div>
+                        </div>
+                    ) : activeTab === 'menu' && hasMenuSettings ? (
+                        <div className="space-y-6">
+                            {/* Show / hide toggles */}
+                            <div>
+                                <p className="text-sm font-medium text-slate-700 mb-3">Display Options</p>
+                                <div className="space-y-3">
+                                    {[
+                                        { label: 'Show prices', value: menuShowPrices, setter: setMenuShowPrices },
+                                        { label: 'Show descriptions', value: menuShowDescriptions, setter: setMenuShowDescriptions },
+                                        { label: 'Show item photos', value: menuShowImages, setter: setMenuShowImages },
+                                    ].map(({ label, value, setter }) => (
+                                        <label key={label} className="flex items-center justify-between cursor-pointer group">
+                                            <span className="text-sm text-slate-600 group-hover:text-slate-800">{label}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setter(!value)}
+                                                className={`relative w-10 h-5 rounded-full transition-colors ${value ? 'bg-blue-600' : 'bg-slate-200'}`}
+                                            >
+                                                <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${value ? 'left-[22px]' : 'left-0.5'}`} />
+                                            </button>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Category style */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Category Style</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[
+                                        { id: 'heading', label: 'Heading' },
+                                        { id: 'badge', label: 'Badge' },
+                                        { id: 'divider', label: 'Divider' },
+                                    ].map(opt => (
+                                        <button
+                                            key={opt.id}
+                                            onClick={() => setMenuCategoryStyle(opt.id)}
+                                            className={`p-3 border rounded-xl text-center text-sm font-medium transition-all ${
+                                                menuCategoryStyle === opt.id
+                                                    ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
+                                                    : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Background color */}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-2">Section Background</label>
+                                <div className="flex items-center gap-3">
+                                    <input
+                                        type="color"
+                                        value={menuBgColor || '#ffffff'}
+                                        onChange={(e) => setMenuBgColor(e.target.value)}
+                                        className="w-10 h-10 rounded cursor-pointer"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={menuBgColor}
+                                        onChange={(e) => setMenuBgColor(e.target.value)}
+                                        placeholder="Default (site accent)"
+                                        className="flex-1 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                    />
+                                    <button
+                                        onClick={() => setMenuBgColor('')}
+                                        className="px-3 py-2 text-sm text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50"
+                                    >
+                                        Reset
+                                    </button>
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1">Leave blank to use the site's default style.</p>
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                                <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
+                                <button onClick={handleSave} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-lg transition-colors">Save Style</button>
                             </div>
                         </div>
                     ) : isProUser ? (

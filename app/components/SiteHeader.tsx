@@ -414,7 +414,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
                                 <div className="h-0.5 w-full absolute top-0 left-0 rounded-t-2xl"
                                     style={{ background: `linear-gradient(90deg, transparent, ${defaults.accentColor || pSecondary}, transparent)` }} />
                             )}
-                            <div className="flex items-center justify-between h-14">
+                            <div className="flex items-center justify-between min-h-14 py-3">
                                 {logoLink}
                                 {desktopNav}
                                 {mobileToggle}
@@ -498,7 +498,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
                         style={{ background: `linear-gradient(90deg, transparent, ${defaults.accentColor || pSecondary}, transparent)` }} />
                 )}
                 <div className={`${containerClass} mx-auto px-4`}>
-                    <div className="flex items-center justify-between h-16">
+                    <div className="flex items-center justify-between min-h-16 py-3">
                         {logoLink}
                         {desktopNav}
                         {mobileToggle}

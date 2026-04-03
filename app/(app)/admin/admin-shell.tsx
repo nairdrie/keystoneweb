@@ -44,7 +44,7 @@ const ALL_TABS: TabDef[] = [
   // Coming soon — only appear when "show all" is on
   { id: 'events', label: 'Events', icon: CalendarDays, path: '/admin/events', comingSoon: true },
   { id: 'blog',   label: 'Blog',   icon: BookOpen,    path: '/admin/blog',   comingSoon: true },
-  { id: 'menu',   label: 'Menu',   icon: UtensilsCrossed, path: '/admin/menu', comingSoon: true },
+  { id: 'menu',   label: 'Menu',   icon: UtensilsCrossed, path: '/admin/menu', requiresBlock: 'menu' },
 ];
 
 const SHOW_ALL_KEY = 'ks_admin_show_all_features';
