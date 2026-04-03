@@ -7,6 +7,7 @@ import EditableButton from '@/app/components/EditableButton';
 import Reveal from '@/app/components/Reveal';
 import { useState, useEffect, useRef } from 'react';
 import { Video } from 'lucide-react';
+import PexelsVideoPickerModal from '@/app/components/PexelsVideoPickerModal';
 
 export default function HeroBlock({ block, palette }: { block: BlockData, palette: Record<string, string> }) {
     const context = useEditorContext();
@@ -28,6 +29,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
     const videoUrl = block.data.videoUrl || '';
     const [videoInputValue, setVideoInputValue] = useState(videoUrl);
     const [showVideoInput, setShowVideoInput] = useState(false);
+    const [showPexelsPicker, setShowPexelsPicker] = useState(false);
     const videoInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => { setVideoInputValue(videoUrl); }, [videoUrl]);
@@ -117,6 +119,12 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                 )}
                 <div className="absolute inset-0 bg-black/60" />
                 {isEditMode && (
+                    <>
+                    <PexelsVideoPickerModal
+                        isOpen={showPexelsPicker}
+                        onClose={() => setShowPexelsPicker(false)}
+                        onSelect={(url) => { updateData('videoUrl', url); setVideoInputValue(url); }}
+                    />
                     <div className="absolute top-4 right-4 z-20 flex items-start gap-2">
                         {showVideoInput ? (
                             <div className="flex items-center gap-1.5 bg-black/80 backdrop-blur-sm rounded-lg px-2 py-1.5 shadow-xl">
@@ -143,13 +151,21 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                                 >✕</button>
                             </div>
                         ) : (
-                            <button
-                                onClick={() => setShowVideoInput(true)}
-                                className="flex items-center gap-1.5 bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg transition-colors"
-                            >
-                                <Video className="w-3.5 h-3.5" />
-                                {videoUrl ? 'Change Video' : 'Set Video URL'}
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    onClick={() => setShowPexelsPicker(true)}
+                                    className="flex items-center gap-1.5 bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg transition-colors"
+                                >
+                                    <Video className="w-3.5 h-3.5" />
+                                    Search Pexels
+                                </button>
+                                <button
+                                    onClick={() => setShowVideoInput(true)}
+                                    className="flex items-center gap-1.5 bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg transition-colors"
+                                >
+                                    {videoUrl ? 'Change URL' : 'Paste URL'}
+                                </button>
+                            </div>
                         )}
                         <EditableImage
                             contentKey="image"
@@ -161,6 +177,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                             placeholder="Fallback img"
                         />
                     </div>
+                    </>
                 )}
                 <div className="max-w-5xl mx-auto px-4 py-24 relative z-10 text-center">
                     <Reveal>
