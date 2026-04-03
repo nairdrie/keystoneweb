@@ -11,7 +11,7 @@ export default function SiteNotFound({ message, ctaText, domain }: SiteNotFoundP
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white p-6">
       <div className="mb-12">
-        <KeystoneLogo size="md" showText={true} />
+        <KeystoneLogo size="lg" showText={false} />
       </div>
       
       <div className="text-center max-w-md">
