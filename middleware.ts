@@ -267,7 +267,16 @@ export async function middleware(request: NextRequest) {
 
       if (impersonateId && adminEmails.includes(user.email?.toLowerCase() ?? '')) {
         console.log(`[Middleware] Admin ${user.email} is impersonating: ${impersonateId}`);
-        response.headers.set('x-impersonated-user-id', impersonateId);
+        // Must forward as a request header (not response header) so that
+        // headers() in server components / route handlers can read it.
+        const requestHeaders = new Headers(request.headers);
+        requestHeaders.set('x-impersonated-user-id', impersonateId);
+        const impersonateResponse = NextResponse.next({ request: { headers: requestHeaders } });
+        // Copy any refreshed auth cookies onto the new response
+        response.cookies.getAll().forEach(({ name, value, ...options }) => {
+          impersonateResponse.cookies.set(name, value, options);
+        });
+        return impersonateResponse;
       }
     }
   } catch (err) {
