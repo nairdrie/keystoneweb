@@ -565,12 +565,23 @@ export default function OnboardingWizard() {
                       AI-Powered
                     </div>
                     <h1 className="text-5xl font-black text-slate-900 mb-4">
-                      Describe Your Dream Website
+                      Meet <span className="bg-gradient-to-r from-blue-600 to-red-600 bg-clip-text text-transparent">Archie</span>, Your AI Site Builder
                     </h1>
                     <p className="text-xl text-slate-600 max-w-xl mx-auto">
-                      Tell our AI what kind of site you need and we'll build it for you instantly
+                      Just describe your business and Archie will build your site instantly
                     </p>
                   </div>
+
+                  {/* Archie + Chat Box wrapper */}
+                  <div className="relative">
+                    {/* Archie peeking from the left */}
+                    <div className="absolute -left-18 bottom-0 w-20 z-10 pointer-events-none select-none">
+                      <img
+                        src="/assets/archie.png"
+                        alt="Archie the AI assistant"
+                        className="w-full h-auto"
+                      />
+                    </div>
 
                   <form onSubmit={handleAiSubmit} className="relative">
                     <div className="bg-white rounded-2xl border-2 border-slate-200 hover:border-violet-300 focus-within:border-violet-500 shadow-lg transition-all p-1">
@@ -616,6 +627,7 @@ export default function OnboardingWizard() {
                   {aiError && (
                     <p className="mt-3 text-sm text-red-600 text-center">{aiError}</p>
                   )}
+                  </div>{/* end Archie + Chat Box wrapper */}
                 </div>
 
                 {/* OR Divider */}
