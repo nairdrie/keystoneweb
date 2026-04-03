@@ -951,7 +951,7 @@ export default function FloatingToolbar({
             className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-violet-50 to-purple-50 hover:from-violet-100 hover:to-purple-100 transition-colors"
           >
             <span className="text-xs font-bold text-violet-700 uppercase tracking-wide flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" />
+              <img src="/assets/archie.png" alt="" className="w-4 h-auto" aria-hidden="true" />
               AI Builder
               {!isProUser && !isBasicUser && !isFreeUser && <span className="text-[9px] font-bold bg-violet-600 text-white px-1.5 py-0.5 rounded-full ml-1">PRO</span>}
               {isFreeUser && <span className="text-[9px] font-bold bg-slate-400 text-white px-1.5 py-0.5 rounded-full ml-1">4 FREE</span>}
