@@ -574,8 +574,16 @@ export default function OnboardingWizard() {
 
                   {/* Archie + Chat Box wrapper */}
                   <div className="relative">
-                    {/* Archie peeking from the left */}
-                    <div className="absolute -left-18 bottom-0 w-20 z-10 pointer-events-none select-none">
+                    {/* Archie peeking from the left (desktop only) */}
+                    <div className="hidden md:block absolute -left-18 bottom-0 w-20 z-10 pointer-events-none select-none">
+                      <img
+                        src="/assets/archie.png"
+                        alt="Archie the AI assistant"
+                        className="w-full h-auto"
+                      />
+                    </div>
+                    {/* Archie peeking from the right (mobile only) */}
+                    <div className="md:hidden absolute  -right-6 -top-24 w-20 z-0 pointer-events-none select-none">
                       <img
                         src="/assets/archie.png"
                         alt="Archie the AI assistant"

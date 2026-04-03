@@ -273,11 +273,13 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
         <div className="flex-1 overflow-y-auto px-3 py-2 space-y-3 min-h-0">
           {messages.length === 0 && !isLoading && (
             <div className="text-center py-4 space-y-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mx-auto">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
+              <img
+                src="/assets/archie.png"
+                alt="Archie the AI assistant"
+                className="w-12 h-auto mx-auto absolute right-3"
+              />
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                Tell me what you want and I&apos;ll build it. I can add sections, change colors, update text, and more.
+                Hi! I&apos;m Archie. Tell me what you want and I&apos;ll build it — add sections, change colors, update text, and more.
               </p>
               <div className="space-y-1.5">
                 {QUICK_PROMPTS.map((prompt, i) => (
