@@ -181,7 +181,6 @@ export default function FloatingToolbar({
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [siteCustomDomain, setSiteCustomDomain] = useState<string | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [transferEmail, setTransferEmail] = useState('');
   const [transferIncludeDomain, setTransferIncludeDomain] = useState(false);
@@ -367,17 +366,6 @@ export default function FloatingToolbar({
   // Fetch site custom domain when delete confirm is shown
   const handleShowDeleteConfirm = async () => {
     setShowDeleteConfirm(true);
-    if (currentSiteId) {
-      try {
-        const res = await fetch(`/api/sites?id=${currentSiteId}`, { credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
-          setSiteCustomDomain(data.customDomain || null);
-        }
-      } catch {
-        // Non-blocking
-      }
-    }
   };
 
   const handleDeleteSite = async () => {
@@ -1089,7 +1077,7 @@ export default function FloatingToolbar({
                         placeholder="recipient@example.com"
                         className="w-full text-xs px-3 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 placeholder-slate-400"
                       />
-                      {siteCustomDomain && (
+                      {customDomain && (
                         <label className="flex items-center gap-2 cursor-pointer select-none">
                           <input
                             type="checkbox"
@@ -1098,7 +1086,7 @@ export default function FloatingToolbar({
                             className="w-3.5 h-3.5 accent-blue-600"
                           />
                           <span className="text-[11px] text-slate-600">
-                            Include domain <span className="font-mono text-slate-700">{siteCustomDomain}</span>
+                            Include domain <span className="font-mono text-slate-700">{customDomain}</span>
                           </span>
                         </label>
                       )}
@@ -1138,10 +1126,10 @@ export default function FloatingToolbar({
                       </p>
 
                       {/* Domain ownership notice */}
-                      {siteCustomDomain && (
+                      {customDomain && (
                         <div className="p-2 bg-blue-50 border border-blue-200 rounded-md">
                           <p className="text-xs text-blue-800 font-medium">
-                            Your domain <strong className="font-mono">{siteCustomDomain}</strong> is still yours.
+                            Your domain <strong className="font-mono">{customDomain}</strong> is still yours.
                           </p>
                           <p className="text-[10px] text-blue-600 mt-0.5">
                             It will remain in your account until your current billing cycle ends. You can reassign it to another site from your Account Settings.
@@ -1161,7 +1149,7 @@ export default function FloatingToolbar({
                       />
                       <div className="flex gap-2">
                         <button
-                          onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); setSiteCustomDomain(null); }}
+                          onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); }}
                           className="flex-1 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors"
                         >
                           Cancel
