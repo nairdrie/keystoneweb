@@ -276,7 +276,7 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
               <img
                 src="/assets/archie.png"
                 alt="Archie the AI assistant"
-                className="w-12 h-auto mx-auto"
+                className="w-12 h-auto mx-auto absolute right-3"
               />
               <p className="text-[11px] text-slate-500 leading-relaxed">
                 Hi! I&apos;m Archie. Tell me what you want and I&apos;ll build it — add sections, change colors, update text, and more.

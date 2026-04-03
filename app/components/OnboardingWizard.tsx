@@ -572,19 +572,18 @@ export default function OnboardingWizard() {
                     </p>
                   </div>
 
-                  {/* Mobile: Archie above the form */}
-                  <div className="flex justify-center mb-4 md:hidden">
-                    <img
-                      src="/assets/archie.png"
-                      alt="Archie the AI assistant"
-                      className="w-16 h-auto"
-                    />
-                  </div>
-
                   {/* Archie + Chat Box wrapper */}
                   <div className="relative">
                     {/* Archie peeking from the left (desktop only) */}
                     <div className="hidden md:block absolute -left-18 bottom-0 w-20 z-10 pointer-events-none select-none">
+                      <img
+                        src="/assets/archie.png"
+                        alt="Archie the AI assistant"
+                        className="w-full h-auto"
+                      />
+                    </div>
+                    {/* Archie peeking from the right (mobile only) */}
+                    <div className="md:hidden absolute  -right-6 -top-24 w-20 z-0 pointer-events-none select-none">
                       <img
                         src="/assets/archie.png"
                         alt="Archie the AI assistant"
