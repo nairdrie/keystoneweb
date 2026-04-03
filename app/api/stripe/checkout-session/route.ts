@@ -8,7 +8,9 @@ const getStripeClient = () => {
   if (!process.env.STRIPE_SECRET_KEY) {
     throw new Error('STRIPE_SECRET_KEY is not set');
   }
-  return new Stripe(process.env.STRIPE_SECRET_KEY);
+  return new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: '2026-02-25.clover' as any,
+  });
 };
 
 interface CheckoutRequest {
@@ -133,7 +135,12 @@ export async function POST(request: NextRequest) {
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'subscription',
-      allow_promotion_codes: true,
+      subscription_data: {
+        billing_mode: {
+          type: 'flexible',
+        },
+      },
+      // allow_promotion_codes: true,
       success_url: siteId
         ? `${process.env.NEXT_PUBLIC_APP_URL}/publish/domain-select?session_id={CHECKOUT_SESSION_ID}&siteId=${siteId}`
         : `${process.env.NEXT_PUBLIC_APP_URL}/onboarding?session_id={CHECKOUT_SESSION_ID}`,
