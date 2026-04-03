@@ -59,6 +59,7 @@ const PRODUCT_CSV_HEADERS = [
 const PROVIDER_LABELS: Record<ScraperProvider, string> = {
   shopify: 'Shopify',
   woocommerce: 'WooCommerce / WordPress',
+  vagaro: 'Vagaro',
   squarespace: 'Squarespace Commerce',
   wix: 'Wix Stores',
   bigcommerce: 'BigCommerce',
@@ -88,10 +89,10 @@ function asRecord(value: unknown): JsonRecord | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as JsonRecord) : null;
 }
 
-function toStringList(value: unknown) {
+function toStringList(value: unknown): string[] {
   if (!value) return [];
   if (Array.isArray(value)) {
-    return value.flatMap((entry) => toStringList(entry));
+    return value.flatMap((entry: unknown) => toStringList(entry));
   }
   if (typeof value === 'string') return [value];
   const record = asRecord(value);
@@ -191,7 +192,7 @@ function parseJsonLdProductNode(node: JsonRecord, baseUrl: string): ScrapedProdu
     : [];
 
   const images = uniqueStrings(
-    toStringList(node.image).map((entry) => safeUrl(entry, baseUrl)).filter((entry): entry is string => Boolean(entry))
+    toStringList(node.image).map((entry: string) => safeUrl(entry, baseUrl)).filter((entry): entry is string => Boolean(entry))
   );
   const canonicalUrl = firstNonEmpty(
     safeUrl(String(node.url ?? ''), baseUrl) ?? '',
@@ -551,8 +552,8 @@ function mapShopifyProduct(product: JsonRecord, origin: string, currencyHint: st
   if (!title) return null;
 
   const images = uniqueStrings([
-    ...toStringList(product.image).map((entry) => safeUrl(entry, origin)),
-    ...toStringList(product.images).map((entry) => safeUrl(entry, origin)),
+    ...toStringList(product.image).map((entry: string) => safeUrl(entry, origin)),
+    ...toStringList(product.images).map((entry: string) => safeUrl(entry, origin)),
   ]);
   const variantsRaw = Array.isArray(product.variants) ? product.variants : [];
   const optionNames = Array.isArray(product.options)
