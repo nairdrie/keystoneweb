@@ -26,6 +26,7 @@ import PricingBlock from './PricingBlock';
 import TeamBlock from './TeamBlock';
 import BlogBlock from './BlogBlock';
 import MenuBlock from './MenuBlock';
+import EventsBlock from './EventsBlock';
 
 // We loosen the component type to accommodate both the simpler original blocks and the advanced blocks
 const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
@@ -51,6 +52,7 @@ const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     team: TeamBlock,
     blog: BlogBlock,
     menu: MenuBlock,
+    events: EventsBlock,
 };
 
 const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: boolean }> = [
@@ -75,6 +77,7 @@ const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: boolean }
     { type: 'map', label: 'Google Map' },
     { type: 'blog', label: '📝 Blog / News' },
     { type: 'menu', label: '🍽️ Menu' },
+    { type: 'events', label: '📅 Events' },
     { type: 'custom_html', label: 'Custom HTML / Embed', proOnly: true },
 ];
 
