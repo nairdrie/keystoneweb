@@ -15,6 +15,7 @@ import {
   Copy,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   Mail,
   RefreshCw,
   MapPin,
@@ -358,6 +359,9 @@ export function DomainManager({
   // Domain switch rate limit state
   const [switchRateLimited, setSwitchRateLimited] = useState(false);
   const [switchNextAvailable, setSwitchNextAvailable] = useState<string | null>(null);
+
+  // Domain switch deactivation warning modal
+  const [showDomainSwitchWarningModal, setShowDomainSwitchWarningModal] = useState(false);
 
   // Transfer state
   const [transferDomain, setTransferDomain] = useState('');
@@ -1481,7 +1485,13 @@ export function DomainManager({
                             </div>
                           ) : (
                             <button
-                              onClick={handlePurchaseDomain}
+                              onClick={() => {
+                                if (freeDomainUsed && otherSiteWithDomain) {
+                                  setShowDomainSwitchWarningModal(true);
+                                } else {
+                                  handlePurchaseDomain();
+                                }
+                              }}
                               disabled={purchasing}
                               className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                             >
@@ -2064,6 +2074,99 @@ export function DomainManager({
           }}
         />
       )}
+
+      {/* Domain Switch Deactivation Warning Modal */}
+      {showDomainSwitchWarningModal && otherSiteWithDomain && (() => {
+        const existingDomainRecord = ownedDomains.find(d => d.domain === otherSiteWithDomain.domain);
+        const expiryDate = existingDomainRecord?.expires_at
+          ? new Date(existingDomainRecord.expires_at).toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' })
+          : null;
+        const fallbackUrl = `${otherSiteWithDomain.siteTitle}.kswd.ca`;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+              {/* Header */}
+              <div className="px-6 pt-6 pb-4 border-b border-slate-100">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                    <AlertTriangle className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">Your other domain will be unlinked</h2>
+                    <p className="text-sm text-slate-500 mt-0.5">Please review before continuing</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="px-6 py-5 space-y-4">
+                <p className="text-sm text-slate-700 leading-relaxed">
+                  Your Pro plan supports <strong>1 active custom domain</strong> at a time. Purchasing this domain will unlink your current one:
+                </p>
+
+                {/* Current domain callout */}
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                    <span className="text-sm font-semibold text-amber-900">
+                      &ldquo;{otherSiteWithDomain.siteTitle}&rdquo;&apos;s domain{' '}
+                      <span className="font-mono">{otherSiteWithDomain.domain}</span> will be unlinked
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-800 leading-relaxed pl-6">
+                    That site will only be accessible from{' '}
+                    <span className="font-mono font-semibold">{fallbackUrl}</span> until you reassign a domain to it.
+                  </p>
+                  {expiryDate && (
+                    <p className="text-xs text-amber-700 pl-6">
+                      You&apos;ll still <strong>own</strong>{' '}
+                      <span className="font-mono">{otherSiteWithDomain.domain}</span> until it expires on{' '}
+                      <strong>{expiryDate}</strong>. You can reactivate it or reassign it at any time before then.
+                    </p>
+                  )}
+                  {!expiryDate && (
+                    <p className="text-xs text-amber-700 pl-6">
+                      You&apos;ll still <strong>own</strong>{' '}
+                      <span className="font-mono">{otherSiteWithDomain.domain}</span> and can reactivate it or reassign it at any time.
+                    </p>
+                  )}
+                </div>
+
+                {/* Need multiple domains note */}
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Need more than one active custom domain?{' '}
+                  <button
+                    onClick={() => router.push('/pricing')}
+                    className="text-red-600 font-semibold hover:underline"
+                  >
+                    View our custom plans &rarr;
+                  </button>
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="px-6 pb-6 flex gap-3">
+                <button
+                  onClick={() => setShowDomainSwitchWarningModal(false)}
+                  className="flex-1 py-2.5 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDomainSwitchWarningModal(false);
+                    handlePurchaseDomain();
+                  }}
+                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold transition-colors"
+                >
+                  Continue to Checkout
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
