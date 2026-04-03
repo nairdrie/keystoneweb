@@ -1125,10 +1125,13 @@ export function DomainManager({
             <div className="px-5 py-4 space-y-3">
               <span className="font-mono text-sm font-semibold text-slate-900">{siteStatus.pendingCustomDomain}</span>
               {siteStatus.transferStatus && siteStatus.transferStatus !== 'completed' ? (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
                   <p className="text-xs text-blue-800">
                     <strong>Domain transfer in progress.</strong> This typically takes 5-7 days.
                     Status: <span className="font-semibold capitalize">{siteStatus.transferStatus.replace('_', ' ')}</span>
+                  </p>
+                  <p className="text-xs text-blue-700">
+                    Check your email for a verification message from <strong>Vercel Domain Services</strong>, our domain services partner. You must click the link in that email to avoid suspension of the transfer.
                   </p>
                 </div>
               ) : (
@@ -1993,6 +1996,11 @@ export function DomainManager({
                             <p className="text-xs text-slate-500">
                               Transfers take <strong>5–7 days</strong> to complete. You&apos;ll receive an approval email from your current registrar — you must click confirm there to complete the transfer.
                             </p>
+                            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                              <p className="text-xs text-slate-600">
+                                <strong>Check your email.</strong> Vercel, our domain services partner, will send a verification email to the administrative contact for this domain. You must click the link in that email within 15 days or the transfer may be suspended.
+                              </p>
+                            </div>
 
                             {/* Submit */}
                             <button
