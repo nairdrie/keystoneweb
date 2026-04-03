@@ -13,6 +13,7 @@ export interface AdminSiteData {
   publishedDomain?: string;
   customDomain?: string;
   pendingCustomDomain?: string;
+  inboxCustomEmail?: string;
   siteSlug?: string;
   createdAt: string;
   updatedAt: string;

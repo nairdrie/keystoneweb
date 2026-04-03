@@ -198,9 +198,10 @@ export async function completeDomainPurchase(
     if (sitesWithDomain && sitesWithDomain.length > 0) {
       for (const otherSite of sitesWithDomain) {
         // Park the old domain (clear from site, keep domain_purchases record)
+        // Also clear custom inbox email since it belonged to the old domain
         await supabase
           .from('sites')
-          .update({ custom_domain: null })
+          .update({ custom_domain: null, inbox_custom_email: null, inbox_resend_domain_id: null })
           .eq('id', otherSite.id);
 
         await supabase

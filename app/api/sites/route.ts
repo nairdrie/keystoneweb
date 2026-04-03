@@ -24,6 +24,7 @@ interface SiteData {
   publishedDomain?: string;
   customDomain?: string;
   pendingCustomDomain?: string;
+  inboxCustomEmail?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -43,6 +44,7 @@ function mapSupabaseToSiteData(row: any): SiteData {
     publishedDomain: row.published_domain,
     customDomain: row.custom_domain,
     pendingCustomDomain: row.pending_custom_domain,
+    inboxCustomEmail: row.inbox_custom_email,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

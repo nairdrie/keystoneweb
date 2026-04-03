@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mail, RefreshCw, Inbox, Bot, User, Sparkles, Crown, Settings2, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { Mail, RefreshCw, Inbox, Bot, User, Sparkles, Crown, Settings2, ChevronDown, ChevronRight, Loader2, CheckCircle2, AtSign, Globe, AlertCircle, Pencil, X, Check } from 'lucide-react';
 import { useAdminContext } from '../admin-context';
 import { MessageSquare } from 'lucide-react';
 
 const CONFIG_STORAGE_KEY = 'admin_inbox_config_expanded';
+
+const SUGGESTED_PREFIXES = ['hello', 'support', 'contact', 'info', 'hi'];
 
 interface Submission {
   id: string;
@@ -57,6 +59,223 @@ const FILTERS = [
   { label: 'Spam', value: 'spam' },
 ];
 
+// ---------------------------------------------------------------------------
+// Custom Domain Inbox Email panel
+// ---------------------------------------------------------------------------
+function CustomDomainInboxPanel({
+  siteId,
+  customDomain,
+  currentEmail,
+  onEmailChange,
+}: {
+  siteId: string;
+  customDomain: string;
+  currentEmail: string | null | undefined;
+  onEmailChange: (email: string | null) => void;
+}) {
+  const [localPart, setLocalPart] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [activating, setActivating] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Pre-fill local part from current email or suggest 'hello'
+  useEffect(() => {
+    if (currentEmail) {
+      setLocalPart(currentEmail.split('@')[0]);
+    } else {
+      setLocalPart('hello');
+    }
+  }, [currentEmail]);
+
+  async function handleActivate(lp: string) {
+    const trimmed = lp.trim().toLowerCase();
+    if (!trimmed) return;
+    setActivating(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/contact/inbox-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ siteId, localPart: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to activate');
+        return;
+      }
+      onEmailChange(data.inboxEmail);
+      setEditing(false);
+    } finally {
+      setActivating(false);
+    }
+  }
+
+  async function handleDeactivate() {
+    setDeactivating(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/contact/inbox-email?siteId=${siteId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || 'Failed to deactivate');
+        return;
+      }
+      onEmailChange(null);
+      setLocalPart('hello');
+      setEditing(false);
+    } finally {
+      setDeactivating(false);
+    }
+  }
+
+  function handleCopy() {
+    if (!currentEmail) return;
+    navigator.clipboard.writeText(currentEmail).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  // Active state: show the configured email
+  if (currentEmail && !editing) {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span className="text-sm font-semibold text-emerald-900">Custom domain inbox active</span>
+        </div>
+
+        {/* The email address */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="px-3 py-1.5 rounded-lg bg-white border border-emerald-200 text-sm font-mono font-bold text-emerald-800">
+            {currentEmail}
+          </span>
+          <button
+            onClick={handleCopy}
+            className="text-xs text-emerald-700 hover:text-emerald-900 font-medium transition-colors"
+          >
+            {copied ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
+
+        <p className="text-xs text-emerald-700">
+          Share this address with customers — emails sent here will appear in your inbox alongside contact form messages.
+        </p>
+
+        {/* Change / Revert actions */}
+        <div className="flex items-center gap-3 pt-1">
+          <button
+            onClick={() => { setEditing(true); setLocalPart(currentEmail.split('@')[0]); setError(null); }}
+            className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-900 font-semibold underline underline-offset-2 transition-colors"
+          >
+            <Pencil className="w-3 h-3" />
+            Change address
+          </button>
+          <span className="text-emerald-300 text-xs">·</span>
+          <button
+            onClick={handleDeactivate}
+            disabled={deactivating}
+            className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-red-600 font-medium transition-colors disabled:opacity-50"
+          >
+            {deactivating ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+            Revert to @kswd.ca
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Setup / edit state
+  return (
+    <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 space-y-3">
+      <div className="flex items-start gap-2">
+        <Globe className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-semibold text-indigo-900">
+            {currentEmail ? 'Change your inbox address' : 'This site is eligible for a custom domain email address'}
+          </p>
+          <p className="text-xs text-indigo-700 mt-0.5">
+            {currentEmail
+              ? `Pick a new address at @${customDomain}`
+              : `Receive emails directly at your own domain (@${customDomain})`}
+          </p>
+        </div>
+      </div>
+
+      {/* Suggestions */}
+      {!currentEmail && (
+        <div className="flex flex-wrap gap-1.5">
+          {SUGGESTED_PREFIXES.map(prefix => (
+            <button
+              key={prefix}
+              onClick={() => setLocalPart(prefix)}
+              className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
+                localPart === prefix
+                  ? 'bg-indigo-600 text-white border-indigo-600'
+                  : 'bg-white text-indigo-700 border-indigo-200 hover:border-indigo-400'
+              }`}
+            >
+              {prefix}@{customDomain}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Input + activate */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1 flex items-center rounded-lg border border-indigo-300 bg-white overflow-hidden focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100">
+          <input
+            type="text"
+            value={localPart}
+            onChange={e => setLocalPart(e.target.value.replace(/[^a-zA-Z0-9._+-]/g, '').toLowerCase())}
+            onKeyDown={e => e.key === 'Enter' && handleActivate(localPart)}
+            placeholder="hello"
+            className="flex-1 px-3 py-2 text-sm font-mono text-slate-900 bg-transparent outline-none"
+            spellCheck={false}
+          />
+          <span className="pr-3 text-sm text-slate-400 font-mono select-none">@{customDomain}</span>
+        </div>
+        <button
+          onClick={() => handleActivate(localPart)}
+          disabled={activating || !localPart.trim()}
+          className="shrink-0 flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg transition-colors"
+        >
+          {activating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+          {activating ? 'Activating…' : 'Activate now'}
+        </button>
+        {editing && (
+          <button
+            onClick={() => { setEditing(false); setError(null); }}
+            className="shrink-0 p-2 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-white/60 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-1.5 text-xs text-red-600">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          {error}
+        </div>
+      )}
+
+      <p className="text-[11px] text-indigo-600">
+        DNS is configured automatically for Vercel-managed domains. Emails sent to this address will appear in your inbox.
+      </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
 export default function AdminInboxPage() {
   const { siteId, siteBlockTypes, isProUser, site } = useAdminContext();
   const router = useRouter();
@@ -74,10 +293,20 @@ export default function AdminInboxPage() {
   const [notificationEmailDraft, setNotificationEmailDraft] = useState('');
   const [savingEmail, setSavingEmail] = useState(false);
 
+  // Track custom inbox email locally so the panel can update without a full refetch
+  const [inboxCustomEmail, setInboxCustomEmail] = useState<string | null | undefined>(undefined);
+
   useEffect(() => {
     const saved = localStorage.getItem(CONFIG_STORAGE_KEY);
     if (saved !== null) setConfigExpanded(saved === 'true');
   }, []);
+
+  // Sync inboxCustomEmail from context once site data loads
+  useEffect(() => {
+    if (site !== null) {
+      setInboxCustomEmail(site.inboxCustomEmail ?? null);
+    }
+  }, [site]);
 
   const toggleConfig = () => {
     setConfigExpanded(prev => {
@@ -182,9 +411,14 @@ export default function AdminInboxPage() {
 
   const totalPages = Math.ceil(total / 40);
 
+  // Determine the active inbox email to display in the banner
+  // Custom domain email takes priority over kswd.ca address
+  const activeInboxEmail = inboxCustomEmail || (site?.publishedDomain ? `${site.publishedDomain}@kswd.ca` : null);
+
   return (
     <div className="max-w-3xl mx-auto p-4 sm:p-6 space-y-4">
-      {/* Email address banner */}
+
+      {/* Inbox email banner */}
       {site?.publishedDomain && (
         <div className={`rounded-xl border p-4 ${isProUser ? 'bg-blue-50 border-blue-200' : 'bg-slate-50 border-slate-200'}`}>
           <div className="flex items-center gap-2 flex-wrap">
@@ -193,7 +427,7 @@ export default function AdminInboxPage() {
               Your inbox email:
             </span>
             <span className={`text-sm font-mono font-bold ${isProUser ? 'text-blue-800' : 'text-slate-500'}`}>
-              {site.publishedDomain}@kswd.ca
+              {activeInboxEmail}
             </span>
             {!isProUser && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-black">
@@ -215,6 +449,16 @@ export default function AdminInboxPage() {
             )}
           </p>
         </div>
+      )}
+
+      {/* Custom domain inbox email setup (Pro + has custom domain) */}
+      {isProUser && site?.customDomain && siteId && (
+        <CustomDomainInboxPanel
+          siteId={siteId}
+          customDomain={site.customDomain}
+          currentEmail={inboxCustomEmail}
+          onEmailChange={setInboxCustomEmail}
+        />
       )}
 
       {/* Header */}

@@ -155,24 +155,131 @@ export async function POST(request: NextRequest) {
 
   // -------------------------------------------------------------------------
   // Routing: check if any recipient is @kswd.ca (customer site email)
+  //          or a custom domain inbox email configured on a site
   // -------------------------------------------------------------------------
   const kswdRecipients = toAddresses
     .map(addr => addr.toLowerCase().trim())
     .filter(addr => addr.endsWith('@kswd.ca'))
     .map(addr => addr.replace(/@kswd\.ca$/, ''));
 
+  // Normalise all recipient addresses for custom-domain lookup
+  const normalisedRecipients = toAddresses.map(addr => addr.toLowerCase().trim());
+
   const hasOpsRecipient = toAddresses.some(
     addr => addr.toLowerCase().trim().endsWith('@keystoneweb.ca')
   );
 
-  // Handle @kswd.ca site emails
-  if (kswdRecipients.length > 0) {
+  // --------------------------------------------------------------------------
+  // Helper: route one email to a site's contact_submissions inbox
+  // --------------------------------------------------------------------------
+  async function routeEmailToSiteInbox(
+    site: { id: string; user_id: string; site_slug: string | null; contact_ai_replies_enabled: boolean },
+    recipientLabel: string,
+    messageBody: string | null,
+  ) {
+    // Check Pro subscription
+    const { data: subscription } = await admin
+      .from('user_subscriptions')
+      .select('subscription_status, subscription_plan')
+      .eq('user_id', site.user_id)
+      .maybeSingle();
+
+    const isPro =
+      subscription?.subscription_status === 'active' &&
+      subscription?.subscription_plan?.toLowerCase().includes('pro');
+
+    if (!isPro) {
+      console.log(`[resend-inbound] Site ${recipientLabel} owner is not on Pro plan, discarding email`);
+      return;
+    }
+
+    // Dedup: check for very recent submission from same sender to same site
+    const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
+    const { data: recentDup } = await admin
+      .from('contact_submissions')
+      .select('id')
+      .eq('site_id', site.id)
+      .eq('sender_email', fromEmail)
+      .gte('created_at', oneMinuteAgo)
+      .maybeSingle();
+
+    if (recentDup) {
+      console.log(`[resend-inbound] Duplicate email from ${fromEmail} to ${recipientLabel}, skipping`);
+      return;
+    }
+
+    // Insert into contact_submissions
+    const { data: submission, error: insertErr } = await admin
+      .from('contact_submissions')
+      .insert({
+        site_id: site.id,
+        sender_name: fromName || fromEmail,
+        sender_email: fromEmail,
+        sender_phone: null,
+        message: messageBody || `[Email] ${subject}`,
+        status: 'new',
+      })
+      .select('id')
+      .single();
+
+    if (insertErr || !submission) {
+      console.error(`[resend-inbound] Failed to store contact submission for ${recipientLabel}:`, insertErr);
+      return;
+    }
+
+    console.log(`[resend-inbound] Email from ${fromEmail} routed to site ${recipientLabel} inbox (${submission.id})`);
+
+    // Fire AI triage in the background (non-blocking)
+    triageContactSubmission(submission.id, admin).catch(err => {
+      console.error('[resend-inbound] Triage error (non-fatal):', err);
+    });
+
+    // Notify site owner
+    try {
+      const { data: settings } = await admin
+        .from('booking_settings')
+        .select('notification_email')
+        .eq('site_id', site.id)
+        .maybeSingle();
+
+      let ownerEmail = settings?.notification_email;
+      if (!ownerEmail) {
+        const { data: authUser } = await admin.auth.admin.getUserById(site.user_id);
+        ownerEmail = authUser?.user?.email ?? null;
+      }
+
+      if (ownerEmail) {
+        const siteName = site.site_slug || recipientLabel;
+        await sendContactFormNotification(
+          {
+            siteName,
+            customerName: fromName || fromEmail,
+            customerEmail: fromEmail,
+            customerPhone: undefined,
+            message: messageBody || `[Email] ${subject}`,
+            submissionId: submission.id,
+            siteId: site.id,
+          },
+          ownerEmail
+        );
+      }
+    } catch (notifErr) {
+      console.error('[resend-inbound] Owner notification error (non-fatal):', notifErr);
+    }
+  }
+
+  // Handle @kswd.ca site emails AND custom domain inbox emails
+  const hasSiteRecipients = kswdRecipients.length > 0 || normalisedRecipients.some(
+    addr => !addr.endsWith('@kswd.ca') && !addr.endsWith('@keystoneweb.ca')
+  );
+
+  if (hasSiteRecipients) {
     // Fetch body once, reuse for all recipients
     const { bodyText, bodyHtml, log } = await fetchResendEmailBody(emailId);
     const messageBody = bodyText || (bodyHtml ? bodyHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : null);
 
+    // -- @kswd.ca routing (existing logic) -----------------------------------
     for (const localPart of kswdRecipients) {
-      // Look up site by published subdomain
       const { data: site } = await admin
         .from('sites')
         .select('id, user_id, site_slug, contact_ai_replies_enabled')
@@ -185,97 +292,28 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // Check Pro subscription
-      const { data: subscription } = await admin
-        .from('user_subscriptions')
-        .select('subscription_status, subscription_plan')
-        .eq('user_id', site.user_id)
+      await routeEmailToSiteInbox(site, `${localPart}@kswd.ca`, messageBody);
+    }
+
+    // -- Custom domain inbox routing (new) -----------------------------------
+    // Find any recipient that has a matching inbox_custom_email on a site
+    const customDomainRecipients = normalisedRecipients.filter(
+      addr => !addr.endsWith('@kswd.ca') && !addr.endsWith('@keystoneweb.ca')
+    );
+
+    for (const recipientAddr of customDomainRecipients) {
+      const { data: site } = await admin
+        .from('sites')
+        .select('id, user_id, site_slug, contact_ai_replies_enabled')
+        .eq('inbox_custom_email', recipientAddr)
         .maybeSingle();
 
-      const isPro =
-        subscription?.subscription_status === 'active' &&
-        subscription?.subscription_plan?.toLowerCase().includes('pro');
-
-      if (!isPro) {
-        console.log(`[resend-inbound] Site ${localPart} owner is not on Pro plan, discarding email`);
+      if (!site) {
+        console.log(`[resend-inbound] No site configured for custom inbox ${recipientAddr}, skipping`);
         continue;
       }
 
-      // Dedup: check for very recent submission from same sender to same site
-      const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
-      const { data: recentDup } = await admin
-        .from('contact_submissions')
-        .select('id')
-        .eq('site_id', site.id)
-        .eq('sender_email', fromEmail)
-        .gte('created_at', oneMinuteAgo)
-        .maybeSingle();
-
-      if (recentDup) {
-        console.log(`[resend-inbound] Duplicate email from ${fromEmail} to ${localPart}@kswd.ca, skipping`);
-        continue;
-      }
-
-      // Insert into contact_submissions
-      const { data: submission, error: insertErr } = await admin
-        .from('contact_submissions')
-        .insert({
-          site_id: site.id,
-          sender_name: fromName || fromEmail,
-          sender_email: fromEmail,
-          sender_phone: null,
-          message: messageBody || `[Email] ${subject}`,
-          status: 'new',
-        })
-        .select('id')
-        .single();
-
-      if (insertErr || !submission) {
-        console.error(`[resend-inbound] Failed to store contact submission for ${localPart}:`, insertErr);
-        continue;
-      }
-
-      console.log(`[resend-inbound] Email from ${fromEmail} routed to site ${localPart} inbox (${submission.id})`);
-
-      // Fire AI triage in the background (non-blocking)
-      triageContactSubmission(submission.id, admin).catch(err => {
-        console.error('[resend-inbound] Triage error (non-fatal):', err);
-      });
-
-      // Notify site owner
-      try {
-        // Look up owner notification email
-        const { data: settings } = await admin
-          .from('booking_settings')
-          .select('notification_email')
-          .eq('site_id', site.id)
-          .maybeSingle();
-
-        let ownerEmail = settings?.notification_email;
-
-        if (!ownerEmail) {
-          const { data: authUser } = await admin.auth.admin.getUserById(site.user_id);
-          ownerEmail = authUser?.user?.email ?? null;
-        }
-
-        if (ownerEmail) {
-          const siteName = site.site_slug || localPart;
-          await sendContactFormNotification(
-            {
-              siteName,
-              customerName: fromName || fromEmail,
-              customerEmail: fromEmail,
-              customerPhone: undefined,
-              message: messageBody || `[Email] ${subject}`,
-              submissionId: submission.id,
-              siteId: site.id,
-            },
-            ownerEmail
-          );
-        }
-      } catch (notifErr) {
-        console.error('[resend-inbound] Owner notification error (non-fatal):', notifErr);
-      }
+      await routeEmailToSiteInbox(site, recipientAddr, messageBody);
     }
 
     // If no ops recipient, we're done
