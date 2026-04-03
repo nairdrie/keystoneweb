@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, MousePointerClick, Layers, Palette, Wand2, Rocket, Eye, EyeOff } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, MousePointerClick, Layers, Palette, Wand2, Rocket, Eye, EyeOff, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
@@ -591,7 +591,10 @@ export default function FloatingToolbar({
             onClick={() => toggleSection('general')}
             className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors rounded-t-lg"
           >
-            <span className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-2">Logo</span>
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+              <ImageIcon className="w-3.5 h-3.5" />
+              Logo
+            </span>
             <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('general') ? 'rotate-180' : ''}`} />
           </button>
 
@@ -853,7 +856,10 @@ export default function FloatingToolbar({
               onClick={() => toggleSection('colors')}
               className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
             >
-              <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Colors</span>
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                <Paintbrush className="w-3.5 h-3.5" />
+                Colors
+              </span>
               <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('colors') ? 'rotate-180' : ''}`} />
             </button>
 
@@ -914,7 +920,10 @@ export default function FloatingToolbar({
             onClick={() => toggleSection('typography')}
             className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
           >
-            <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">Typography</span>
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+              <Type className="w-3.5 h-3.5" />
+              Typography
+            </span>
             <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('typography') ? 'rotate-180' : ''}`} />
           </button>
 

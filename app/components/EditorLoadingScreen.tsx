@@ -97,7 +97,7 @@ export default function EditorLoadingScreen({ message }: { message?: string } = 
 
                     {archStones.map((stone, index) => {
                         const step = Math.floor(index / 2);
-                        const delay = stone.isKeystone ? 1.0 : step * 0.15;
+                        const delay = step * 0.15;
 
                         return (
                             <motion.polygon
