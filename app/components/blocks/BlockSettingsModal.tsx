@@ -258,28 +258,60 @@ export default function BlockSettingsModal({
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-6">
                     {activeTab === 'layout' && hasVariantSettings ? (
-                        <div className="space-y-4">
-                            <p className="text-sm font-medium text-slate-700 mb-4">Select a Layout Variant</p>
-                            <div className="grid grid-cols-2 gap-3">
-                                {VARIANTS[blockType].map((variantOption) => {
-                                    const currentVariant = blockData?.variant || VARIANTS[blockType][0].id;
-                                    const isSelected = currentVariant === variantOption.id;
-                                    return (
-                                        <button
-                                            key={variantOption.id}
-                                            onClick={() => handleSelectVariant(variantOption.id)}
-                                            className={`p-4 border rounded-xl text-left transition-all ${
-                                                isSelected 
-                                                    ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600 shadow-sm' 
-                                                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                                            }`}
-                                        >
-                                            <div className="font-semibold text-sm text-slate-900">{variantOption.label}</div>
-                                            <div className="text-xs text-slate-500 mt-1 capitalize font-mono text-[10px]">{variantOption.id} Variant</div>
-                                        </button>
-                                    );
-                                })}
+                        <div className="space-y-6">
+                            <div>
+                                <p className="text-sm font-medium text-slate-700 mb-4">Select a Layout Variant</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {VARIANTS[blockType].map((variantOption) => {
+                                        const currentVariant = blockData?.variant || VARIANTS[blockType][0].id;
+                                        const isSelected = currentVariant === variantOption.id;
+                                        return (
+                                            <button
+                                                key={variantOption.id}
+                                                onClick={() => handleSelectVariant(variantOption.id)}
+                                                className={`p-4 border rounded-xl text-left transition-all ${
+                                                    isSelected
+                                                        ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600 shadow-sm'
+                                                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                                }`}
+                                            >
+                                                <div className="font-semibold text-sm text-slate-900">{variantOption.label}</div>
+                                                <div className="text-xs text-slate-500 mt-1 capitalize font-mono text-[10px]">{variantOption.id} Variant</div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
+                            {blockType === 'team' && (
+                                <div>
+                                    <p className="text-sm font-medium text-slate-700 mb-3">Columns</p>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {[
+                                            { value: 0, label: 'Auto' },
+                                            { value: 2, label: '2' },
+                                            { value: 3, label: '3' },
+                                            { value: 4, label: '4' },
+                                        ].map(opt => {
+                                            const current = blockData?.columns || 0;
+                                            const isSelected = current === opt.value;
+                                            return (
+                                                <button
+                                                    key={opt.value}
+                                                    onClick={() => onUpdateBlockData && onUpdateBlockData('columns', opt.value)}
+                                                    className={`p-3 border rounded-xl text-center text-sm font-medium transition-all ${
+                                                        isSelected
+                                                            ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
+                                                            : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                                    }`}
+                                                >
+                                                    {opt.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <p className="text-xs text-slate-500 mt-2">Auto adjusts columns based on member count.</p>
+                                </div>
+                            )}
                         </div>
                     ) : activeTab === 'background' && hasBackgroundSettings ? (
                         <div className="space-y-6">
