@@ -42,7 +42,7 @@ const ALL_TABS: TabDef[] = [
   { id: 'ecommerce', label: 'Ecommerce', icon: ShoppingBag, path: '/admin/ecommerce', requiresBlock: 'productGrid' },
   { id: 'inbox',     label: 'Inbox',     icon: Mail,      path: '/admin/inbox' },
   // Coming soon — only appear when "show all" is on
-  { id: 'events', label: 'Events', icon: CalendarDays, path: '/admin/events', comingSoon: true },
+  { id: 'events', label: 'Events', icon: CalendarDays, path: '/admin/events', requiresBlock: 'events' },
   { id: 'blog',   label: 'Blog',   icon: BookOpen,    path: '/admin/blog',   comingSoon: true },
   { id: 'menu',   label: 'Menu',   icon: UtensilsCrossed, path: '/admin/menu', requiresBlock: 'menu' },
 ];
