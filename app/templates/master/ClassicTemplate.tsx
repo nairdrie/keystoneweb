@@ -1,6 +1,7 @@
 'use client';
 
 import EditableButton from '@/app/components/EditableButton';
+import EditableText from '@/app/components/EditableText';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
@@ -85,7 +86,14 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                             ))}
                             <div>
                                 <div className="font-bold text-lg text-white font-title" style={{ ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>{renderSiteTitle(siteContent.siteTitle || 'Classic Services')}</div>
-                                <p className="text-sm text-white/50 mt-1">Professional service you can trust.</p>
+                                <EditableText
+                                    contentKey="footerSlogan"
+                                    text={siteContent.footerSlogan}
+                                    defaultText="Professional service you can trust."
+                                    isEditMode={isEditMode}
+                                    onSave={updateSiteContent}
+                                    className="text-sm text-white/50 mt-1 block"
+                                />
                             </div>
                         </div>
                         <EditableButton

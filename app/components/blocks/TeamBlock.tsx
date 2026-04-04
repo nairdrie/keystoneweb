@@ -20,6 +20,7 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
     const pSecondary = palette.secondary || '#dc2626';
 
     const variant = data.variant || 'grid'; // 'grid' | 'cards' | 'minimal'
+    const showBio = data.showBio !== false; // Default to true if not specified
 
     const members = data.members || [
         { name: 'Alex Johnson', role: 'Founder & CEO', image: '', bio: 'Leading our vision with 15+ years of industry experience.' },
@@ -110,6 +111,18 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                         className="text-sm"
                                         style={{ color: pSecondary }}
                                     />
+                                    {showBio && (
+                                        <EditableText
+                                            as="p"
+                                            contentKey={`member_${index}_bio`}
+                                            content={member.bio}
+                                            defaultValue="A brief bio..."
+                                            isEditMode={isEditMode}
+                                            onSave={(_key, value) => handleUpdateMember(index, 'bio', value)}
+                                            className="text-sm mt-2 max-w-2xl"
+                                            style={{ color: pPrimary, opacity: 0.6 }}
+                                        />
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -194,16 +207,18 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                         className="text-sm font-semibold mb-3"
                                         style={{ color: pSecondary }}
                                     />
-                                    <EditableText
-                                        as="p"
-                                        contentKey={`member_${index}_bio`}
-                                        content={member.bio}
-                                        defaultValue="A brief bio about this team member."
-                                        isEditMode={isEditMode}
-                                        onSave={(_key, value) => handleUpdateMember(index, 'bio', value)}
-                                        className="text-sm leading-relaxed"
-                                        style={{ color: pPrimary, opacity: 0.6 }}
-                                    />
+                                    {showBio && (
+                                        <EditableText
+                                            as="p"
+                                            contentKey={`member_${index}_bio`}
+                                            content={member.bio}
+                                            defaultValue="A brief bio about this team member."
+                                            isEditMode={isEditMode}
+                                            onSave={(_key, value) => handleUpdateMember(index, 'bio', value)}
+                                            className="text-sm leading-relaxed"
+                                            style={{ color: pPrimary, opacity: 0.6 }}
+                                        />
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -287,6 +302,18 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                 className="text-sm font-medium"
                                 style={{ color: pSecondary }}
                             />
+                            {showBio && (
+                                <EditableText
+                                    as="p"
+                                    contentKey={`member_${index}_bio`}
+                                    content={member.bio}
+                                    defaultValue="A brief bio..."
+                                    isEditMode={isEditMode}
+                                    onSave={(_key, value) => handleUpdateMember(index, 'bio', value)}
+                                    className="text-xs mt-2 opacity-60 line-clamp-3"
+                                    style={{ color: pPrimary }}
+                                />
+                            )}
                         </div>
                     ))}
                     {isEditMode && (

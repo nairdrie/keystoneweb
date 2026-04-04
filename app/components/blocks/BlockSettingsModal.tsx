@@ -100,6 +100,9 @@ export default function BlockSettingsModal({
     const [menuCategoryStyle, setMenuCategoryStyle] = useState<string>(blockData?.categoryStyle || 'heading');
     const [menuBgColor, setMenuBgColor] = useState<string>(blockData?.backgroundColor || '');
 
+    // Team Style State
+    const [teamShowBio, setTeamShowBio] = useState<boolean>(blockData?.showBio !== false);
+
     useEffect(() => {
         if (isOpen) {
             setLocalCss(customCss);
@@ -114,6 +117,7 @@ export default function BlockSettingsModal({
             setMenuShowImages(blockData?.showImages === true);
             setMenuCategoryStyle(blockData?.categoryStyle || 'heading');
             setMenuBgColor(blockData?.backgroundColor || '');
+            setTeamShowBio(blockData?.showBio !== false);
         }
     }, [isOpen, customCss, blockType, blockData, defaultTab]);
 
@@ -140,6 +144,10 @@ export default function BlockSettingsModal({
             updates['showImages'] = menuShowImages;
             updates['categoryStyle'] = menuCategoryStyle;
             updates['backgroundColor'] = menuBgColor;
+        }
+
+        if (blockType === 'team') {
+            updates['showBio'] = teamShowBio;
         }
 
         if (Object.keys(updates).length > 0 && context?.updateBlockDataBatch) {
@@ -310,6 +318,34 @@ export default function BlockSettingsModal({
                                         })}
                                     </div>
                                     <p className="text-xs text-slate-500 mt-2">Auto adjusts columns based on member count.</p>
+                                </div>
+                            )}
+
+                            {blockType === 'team' && (
+                                <div className="pt-4 border-t border-slate-100">
+                                    <p className="text-sm font-medium text-slate-700 mb-3">Content Options</p>
+                                    <label className="flex items-center justify-between cursor-pointer group">
+                                        <div className="flex flex-col">
+                                            <span className="text-sm text-slate-700 group-hover:text-slate-900 font-medium">Show Descriptions (Bio)</span>
+                                            <span className="text-xs text-slate-500">Toggle the detailed biography text for each member</span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setTeamShowBio(!teamShowBio)}
+                                            className={`relative w-10 h-5 rounded-full transition-colors ${teamShowBio ? 'bg-blue-600' : 'bg-slate-200'}`}
+                                        >
+                                            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${teamShowBio ? 'left-[22px]' : 'left-0.5'}`} />
+                                        </button>
+                                    </label>
+                                    
+                                    <div className="flex justify-end pt-8">
+                                        <button
+                                            onClick={handleSave}
+                                            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-lg transition-colors"
+                                        >
+                                            Save Settings
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>
