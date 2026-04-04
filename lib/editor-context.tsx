@@ -80,6 +80,13 @@ export interface EditorContextType {
 
   /** Whether the current user is on a Pro subscription */
   isProUser?: boolean;
+
+  /**
+   * When set, indicates the site is being viewed in draft preview mode.
+   * NavMenu and SiteHeader use this to generate /preview?siteId=X&pageId=Y
+   * links instead of /{slug} links.
+   */
+  previewSiteId?: string;
 }
 
 const EditorContext = createContext<EditorContextType | undefined>(undefined);

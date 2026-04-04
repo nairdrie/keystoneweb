@@ -11,9 +11,9 @@ export const dynamic = 'force-dynamic';
 export default async function PreviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ siteId?: string }>;
+  searchParams: Promise<{ siteId?: string; pageId?: string }>;
 }) {
-  const { siteId } = await searchParams;
+  const { siteId, pageId } = await searchParams;
 
   if (!siteId) {
     return (
@@ -48,22 +48,23 @@ export default async function PreviewPage({
       );
     }
 
-    // Fetch the home page's draft data
-    const { data: homePage } = await supabase
-      .from('pages')
-      .select('design_data')
-      .eq('site_id', site.id)
-      .eq('slug', 'home')
-      .single();
-
     // Fetch all pages for navigation
     const { data: allPages } = await supabase
       .from('pages')
       .select('id, slug, title, design_data')
       .eq('site_id', site.id);
 
+    // Determine which page to show: use pageId param if provided, else fall back to home
+    let currentPageData: Record<string, any> = {};
+    if (pageId && allPages) {
+      const targetPage = allPages.find((p: any) => p.id === pageId);
+      currentPageData = targetPage?.design_data || {};
+    } else if (allPages) {
+      const homePage = allPages.find((p: any) => p.slug === 'home');
+      currentPageData = homePage?.design_data || {};
+    }
+
     const siteDesignData = site.design_data || {};
-    const pageDesignData = homePage?.design_data || {};
 
     const hasProductBlock = (allPages || []).some((p: any) =>
       (p.design_data?.blocks || []).some((b: any) => b.type === 'productGrid')
@@ -72,7 +73,7 @@ export default async function PreviewPage({
     const translationsConfig = site.translations_config as any;
     const mergedDesignData = {
       ...siteDesignData,
-      ...pageDesignData,
+      ...currentPageData,
       __pages: (allPages || []).map(({ id, slug, title }: any) => ({ id, slug, title })),
       __currentLanguage: translationsConfig?.defaultLanguage || 'en',
       __translationsConfig: translationsConfig || null,
@@ -124,6 +125,7 @@ export default async function PreviewPage({
         <div className="flex-1">
           <EditorContent
             isPublicView={true}
+            isPreviewView={true}
             publicSiteData={{
               id: site.id,
               userId: null,

@@ -69,6 +69,9 @@ export default function NavMenu({ className = '', itemClassName = '', submenuCla
             if (isEditor) {
                 return `/design?siteId=${context?.siteId}&pageId=${item.pageId}`;
             }
+            if (context?.previewSiteId) {
+                return `/preview?siteId=${context.previewSiteId}&pageId=${item.pageId}`;
+            }
             const targetPage = pages.find(p => p.id === item.pageId);
             const slug = targetPage ? targetPage.slug : '';
             const basePath = slug === 'home' ? '/' : `/${slug}`;

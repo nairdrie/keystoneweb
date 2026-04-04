@@ -282,9 +282,12 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     const mobileIconColor = textIsLight ? 'text-white' : 'text-slate-500';
     const cartIconColor   = textIsLight ? '#ffffff' : pPrimary;
 
+    const homePageId = context?.pages?.find((p: any) => p.slug === 'home')?.id || '';
     const homeHref = isEditor
-        ? `/editor?siteId=${context?.siteId}&pageId=${context?.pages?.find((p: any) => p.slug === 'home')?.id || ''}`
-        : '/';
+        ? `/editor?siteId=${context?.siteId}&pageId=${homePageId}`
+        : context?.previewSiteId
+            ? `/preview?siteId=${context.previewSiteId}&pageId=${homePageId}`
+            : '/';
 
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
