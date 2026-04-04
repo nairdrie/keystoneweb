@@ -19,12 +19,14 @@ async function getAuthAndSite(supabase: Awaited<ReturnType<typeof createClient>>
   return { user, site };
 }
 
-// ─── GET /api/events?siteId=&includePast=true ────────────────────────────────
+// ─── GET /api/events?siteId=&includePast=true&sortOrder=asc|desc ────────────
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const siteId = searchParams.get('siteId');
   const includePast = searchParams.get('includePast') === 'true';
+  // 'asc' = closest/soonest first; 'desc' = newest/latest first (default)
+  const ascending = searchParams.get('sortOrder') === 'asc';
 
   if (!siteId) return NextResponse.json({ error: 'Missing siteId' }, { status: 400 });
 
@@ -34,7 +36,7 @@ export async function GET(request: NextRequest) {
     .from('events')
     .select('*')
     .eq('site_id', siteId)
-    .order('event_date', { ascending: false });
+    .order('event_date', { ascending });
 
   if (!includePast) {
     // today's date in YYYY-MM-DD

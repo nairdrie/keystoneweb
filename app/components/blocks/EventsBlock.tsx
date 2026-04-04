@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useEditorContext } from '@/lib/editor-context';
-import { CalendarDays, ExternalLink } from 'lucide-react';
+import { CalendarDays, ExternalLink, ArrowDownUp, Eye, EyeOff } from 'lucide-react';
 import EditableText from '../EditableText';
 
 interface Event {
@@ -23,6 +23,10 @@ interface EventsBlockProps {
     updateContent: (key: string, value: any) => void;
 }
 
+// 'desc' = newest/latest date first (default)
+// 'asc'  = closest/soonest date first
+type SortOrder = 'desc' | 'asc';
+
 export default function EventsBlock({ id, data, isEditMode, palette, updateContent }: EventsBlockProps) {
     const context = useEditorContext();
     const siteId = context?.siteId;
@@ -32,17 +36,21 @@ export default function EventsBlock({ id, data, isEditMode, palette, updateConte
     const pPrimary = palette.primary || '#1f2937';
     const pAccent = palette.accent || '#f8fafc';
 
+    const sortOrder: SortOrder = data.sortOrder || 'desc';
+    const showPast: boolean = data.showPast ?? false;
+
     useEffect(() => {
         if (isEditMode || !siteId) return;
         setLoading(true);
-        fetch(`/api/events?siteId=${siteId}`)
+        fetch(`/api/events?siteId=${siteId}&includePast=${showPast}&sortOrder=${sortOrder}`)
             .then(r => r.ok ? r.json() : { events: [] })
             .then(d => setEvents(d.events || []))
             .catch(() => setEvents([]))
             .finally(() => setLoading(false));
-    }, [siteId, isEditMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [siteId, isEditMode, sortOrder, showPast]);
 
-    // ── Edit mode placeholder ─────────────────────────────────────────────────
+    // ── Edit mode ─────────────────────────────────────────────────────────────
     if (isEditMode) {
         return (
             <section className="py-16" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
@@ -67,10 +75,54 @@ export default function EventsBlock({ id, data, isEditMode, palette, updateConte
                         className="text-base text-center mb-10 max-w-xl mx-auto opacity-60"
                         style={{ color: pPrimary }}
                     />
-                    <div className="flex flex-col items-center justify-center gap-4 py-12 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+
+                    <div className="flex flex-col items-center justify-center gap-5 py-10 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
                         <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
                             <CalendarDays className="w-6 h-6 text-slate-400" />
                         </div>
+
+                        {/* Display settings */}
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                            {/* Sort order toggle */}
+                            <div className="flex items-center gap-1 p-0.5 bg-white rounded-full border border-slate-200 shadow-sm">
+                                <button
+                                    onClick={() => updateContent('sortOrder', 'asc')}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                                        sortOrder === 'asc'
+                                            ? 'bg-slate-900 text-white'
+                                            : 'text-slate-500 hover:text-slate-800'
+                                    }`}
+                                >
+                                    <ArrowDownUp className="w-3 h-3" />
+                                    Closest first
+                                </button>
+                                <button
+                                    onClick={() => updateContent('sortOrder', 'desc')}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                                        sortOrder === 'desc'
+                                            ? 'bg-slate-900 text-white'
+                                            : 'text-slate-500 hover:text-slate-800'
+                                    }`}
+                                >
+                                    <ArrowDownUp className="w-3 h-3" />
+                                    Newest first
+                                </button>
+                            </div>
+
+                            {/* Show past toggle */}
+                            <button
+                                onClick={() => updateContent('showPast', !showPast)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors shadow-sm ${
+                                    showPast
+                                        ? 'bg-slate-900 text-white border-slate-900'
+                                        : 'bg-white text-slate-500 border-slate-200 hover:text-slate-800'
+                                }`}
+                            >
+                                {showPast ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                                {showPast ? 'Showing past events' : 'Hiding past events'}
+                            </button>
+                        </div>
+
                         <div className="text-center">
                             <div className="font-bold text-slate-800 mb-1">Manage Events in Admin</div>
                             <div className="text-sm text-slate-500 mb-4">
@@ -116,7 +168,7 @@ export default function EventsBlock({ id, data, isEditMode, palette, updateConte
                 {!loading && events.length === 0 && (
                     <div className="text-center py-12 text-slate-400">
                         <CalendarDays className="w-8 h-8 mx-auto mb-3 opacity-30" />
-                        <p>No upcoming events.</p>
+                        <p>No {showPast ? '' : 'upcoming '}events.</p>
                     </div>
                 )}
 
