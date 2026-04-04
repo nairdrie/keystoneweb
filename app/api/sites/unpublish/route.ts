@@ -55,13 +55,15 @@ export async function POST(request: NextRequest) {
         .eq('site_id', siteId);
     }
 
-    // Unpublish the site
+    // Unpublish the site — also clear custom inbox email since the custom domain is being removed
     const { error: updateError } = await admin
       .from('sites')
       .update({
         is_published: false,
         published_domain: null,
         custom_domain: null,
+        inbox_custom_email: null,
+        inbox_resend_domain_id: null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', siteId);

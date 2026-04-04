@@ -63,9 +63,13 @@ export async function POST(request: NextRequest) {
 
     if (transfer.include_domain && isPro) {
       // Keep the custom domain active — recipient is Pro
+      // (inbox_custom_email transfers with the domain)
     } else {
       // Remove custom domain: recipient is Basic/unpaid or domain wasn't included
       updateData.custom_domain = null;
+      // Clear custom inbox email since its domain is no longer attached
+      updateData.inbox_custom_email = null;
+      updateData.inbox_resend_domain_id = null;
     }
 
     if (!isPaid) {

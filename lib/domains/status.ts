@@ -129,9 +129,10 @@ export async function checkAndPromoteTransfer(domain: string, siteId: string, us
                     .eq('site_id', siteId)
                     .eq('domain', domain);
                 
+                // Also clear inbox_custom_email since the domain is no longer active
                 await supabase
                     .from('sites')
-                    .update({ pending_custom_domain: domain, custom_domain: null })
+                    .update({ pending_custom_domain: domain, custom_domain: null, inbox_custom_email: null, inbox_resend_domain_id: null })
                     .eq('id', siteId);
                 
                 return false;

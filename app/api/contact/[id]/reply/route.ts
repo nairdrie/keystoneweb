@@ -35,7 +35,7 @@ export async function POST(
   // (same pattern as the working inbox route — auth client + siteId from URL)
   const { data: site } = await supabase
     .from('sites')
-    .select('site_slug, user_id, design_data, published_domain')
+    .select('site_slug, user_id, design_data, published_domain, inbox_custom_email')
     .eq('id', siteId)
     .single();
 
@@ -68,7 +68,12 @@ export async function POST(
     replyText: replyText.trim(),
     originalMessage: submission.message,
     submissionId: id,
-    replyToAddress: site.published_domain ? `${site.published_domain}@kswd.ca` : undefined,
+    // Prefer custom domain inbox email for reply-to so customer replies come back to the right address
+    replyToAddress: site.inbox_custom_email
+      ? site.inbox_custom_email
+      : site.published_domain
+        ? `${site.published_domain}@kswd.ca`
+        : undefined,
   });
 
   if (!result.success) {
