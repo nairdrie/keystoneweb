@@ -88,8 +88,8 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                                 <div className="font-bold text-lg text-white font-title" style={{ ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>{renderSiteTitle(siteContent.siteTitle || 'Classic Services')}</div>
                                 <EditableText
                                     contentKey="footerSlogan"
-                                    text={siteContent.footerSlogan}
-                                    defaultText="Professional service you can trust."
+                                    content={siteContent.footerSlogan}
+                                    defaultValue="Professional service you can trust."
                                     isEditMode={isEditMode}
                                     onSave={updateSiteContent}
                                     className="text-sm text-white/50 mt-1 block"
