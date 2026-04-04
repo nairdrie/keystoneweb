@@ -103,10 +103,10 @@ function TextExpander({ item, isEditMode, onUpdate, primaryColor }: {
 
 // ─── File uploader (shared logic) ─────────────────────────────────────────────
 
-function FileUploadButton({ item, siteId, onUpdate }: {
+function FileUploadButton({ item, siteId, onUploadComplete }: {
     item: ResourceItem;
     siteId: string | undefined;
-    onUpdate: (field: string, value: any) => void;
+    onUploadComplete: (fields: Pick<ResourceItem, 'fileUrl' | 'fileName' | 'fileType'>) => void;
 }) {
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -139,10 +139,12 @@ function FileUploadButton({ item, siteId, onUpdate }: {
                 throw new Error(d.error || 'Upload failed');
             }
             const json = await res.json();
-            const url = json.pdfUrl || json.imageUrl;
-            onUpdate('fileUrl', url);
-            onUpdate('fileName', file.name);
-            onUpdate('fileType', isPdf ? 'pdf' : 'image');
+            // Write all three fields in one call to avoid stale-closure overwrites
+            onUploadComplete({
+                fileUrl: json.pdfUrl || json.imageUrl,
+                fileName: file.name,
+                fileType: isPdf ? 'pdf' : 'image',
+            });
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Upload failed');
         } finally {
@@ -169,10 +171,11 @@ function FileUploadButton({ item, siteId, onUpdate }: {
 
 // ─── Edit panel for a single item ─────────────────────────────────────────────
 
-function ItemEditPanel({ item, siteId, onUpdate, onRemove }: {
+function ItemEditPanel({ item, siteId, onUpdate, onUpdateFields, onRemove }: {
     item: ResourceItem;
     siteId: string | undefined;
     onUpdate: (field: string, value: any) => void;
+    onUpdateFields: (fields: Partial<ResourceItem>) => void;
     onRemove: () => void;
 }) {
     const inputCls = 'w-full text-sm border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white';
@@ -245,7 +248,7 @@ function ItemEditPanel({ item, siteId, onUpdate, onRemove }: {
                             </button>
                         </div>
                     )}
-                    <FileUploadButton item={item} siteId={siteId} onUpdate={onUpdate} />
+                    <FileUploadButton item={item} siteId={siteId} onUploadComplete={onUpdateFields} />
                 </div>
             )}
 
@@ -461,6 +464,12 @@ export default function ResourcesBlock({ id, data, isEditMode, palette, updateCo
         updateContent('items', next);
     };
 
+    // Batch-update multiple fields at once — avoids stale-closure overwrites
+    const updateItemFields = (index: number, fields: Partial<ResourceItem>) => {
+        const next = items.map((item, i) => i === index ? { ...item, ...fields } : item);
+        updateContent('items', next);
+    };
+
     const addItem = () => {
         updateContent('items', [...items, { id: uuidv4(), type: 'link' as ResourceType, title: 'New Resource', description: '' }]);
     };
@@ -521,6 +530,7 @@ export default function ResourcesBlock({ id, data, isEditMode, palette, updateCo
                                 item={item}
                                 siteId={siteId}
                                 onUpdate={(field, value) => updateItem(index, field, value)}
+                                onUpdateFields={(fields) => updateItemFields(index, fields)}
                                 onRemove={() => removeItem(index)}
                             />
                         ))}
