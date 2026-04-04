@@ -363,6 +363,10 @@ export function DomainManager({
   // Domain switch deactivation warning modal
   const [showDomainSwitchWarningModal, setShowDomainSwitchWarningModal] = useState(false);
 
+  // Unpublish state
+  const [unpublishing, setUnpublishing] = useState(false);
+  const [showUnpublishConfirm, setShowUnpublishConfirm] = useState(false);
+
   // Transfer state
   const [transferDomain, setTransferDomain] = useState('');
   const [transferPriceData, setTransferPriceData] = useState<TransferPriceData | null>(null);
@@ -580,6 +584,40 @@ export function DomainManager({
       console.error(err);
     } finally {
       setPublishing(false);
+    }
+  };
+
+  // ─── Unpublish Site ─────────────────────────────────────────────────────
+
+  const handleUnpublish = async () => {
+    if (!siteId) return;
+
+    setUnpublishing(true);
+    setError(null);
+
+    try {
+      const res = await fetch('/api/sites/unpublish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ siteId }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to unpublish site');
+      }
+
+      // Reset UI state and refresh site status
+      setShowUnpublishConfirm(false);
+      setSubdomain('');
+      setDomainCheck(null);
+      await fetchSiteStatus();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to unpublish site');
+      console.error(err);
+    } finally {
+      setUnpublishing(false);
     }
   };
 
@@ -1085,6 +1123,67 @@ export function DomainManager({
             </button>
           </div>
         </div>
+
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* SECTION: Unpublish Site                                     */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {hasActiveSubdomain && (
+          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
+              <Globe className="w-4 h-4 text-slate-500" />
+              <h3 className="text-sm font-bold text-slate-900">Unpublish Site</h3>
+            </div>
+            <div className="px-5 py-4">
+              {!showUnpublishConfirm ? (
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-sm text-slate-600">
+                    Take your site offline and free up your publish slot.
+                    {siteStatus?.customDomain && (
+                      <span className="block text-xs text-slate-500 mt-0.5">
+                        Your custom domain <span className="font-mono font-semibold">{siteStatus.customDomain}</span> will be parked (you keep ownership).
+                      </span>
+                    )}
+                  </p>
+                  <button
+                    onClick={() => setShowUnpublishConfirm(true)}
+                    className="flex-shrink-0 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-colors"
+                  >
+                    Unpublish
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-sm font-semibold text-amber-900 mb-1">Unpublish this site?</p>
+                    <p className="text-xs text-amber-800 leading-relaxed">
+                      Your site at <span className="font-mono font-semibold">{siteStatus?.publishedDomain}.{baseDomainDisplay}</span> will go offline.
+                      {siteStatus?.customDomain && (
+                        <> <span className="font-mono font-semibold">{siteStatus.customDomain}</span> will be parked — you keep ownership and can reassign it anytime.</>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowUnpublishConfirm(false)}
+                      disabled={unpublishing}
+                      className="flex-1 py-2 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleUnpublish}
+                      disabled={unpublishing}
+                      className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {unpublishing && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                      {unpublishing ? 'Unpublishing...' : 'Confirm Unpublish'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* SECTION: Active/Pending Custom Domain Status                */}
