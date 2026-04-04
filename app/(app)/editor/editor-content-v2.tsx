@@ -1139,20 +1139,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
                     pageId: newPage.id,
                   };
                   const updatedNavItems = [...navItems, newNavItem];
-                  // Update state without tracking as unsaved change
+                  addChange('siteContent:navItems', 'Navigation Menu', JSON.stringify(navItems), JSON.stringify(updatedNavItems));
                   setSiteContent((prev) => ({ ...prev, __navItems: updatedNavItems }));
-                  // Auto-save site content with new nav item
-                  if (site?.id) {
-                    const updatedSiteContent = { ...siteContent, __navItems: updatedNavItems, __selectedPalette: selectedPaletteKey };
-                    fetch('/api/sites', {
-                      credentials: 'include',
-                      method: 'PATCH',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ siteId: site.id, designData: updatedSiteContent }),
-                    }).then(() => {
-                      initialSiteContentRef.current = { ...updatedSiteContent };
-                    }).catch(err => console.error('Auto-save nav failed:', err));
-                  }
                   return newPage;
                 }}
                 onDeletePage={async (pageId) => {
@@ -1160,19 +1148,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
                   // Auto-remove nav items that link to this page
                   const filtered = navItems.filter(item => item.pageId !== pageId);
                   if (filtered.length !== navItems.length) {
+                    addChange('siteContent:navItems', 'Navigation Menu', JSON.stringify(navItems), JSON.stringify(filtered));
                     setSiteContent((prev) => ({ ...prev, __navItems: filtered }));
-                    // Auto-save
-                    if (site?.id) {
-                      const updatedSiteContent = { ...siteContent, __navItems: filtered, __selectedPalette: selectedPaletteKey };
-                      fetch('/api/sites', {
-                        credentials: 'include',
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ siteId: site.id, designData: updatedSiteContent }),
-                      }).then(() => {
-                        initialSiteContentRef.current = { ...updatedSiteContent };
-                      }).catch(err => console.error('Auto-save nav failed:', err));
-                    }
                   }
                 }}
               />
