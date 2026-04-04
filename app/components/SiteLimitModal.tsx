@@ -43,12 +43,20 @@ export default function SiteLimitModal({ plan, limit, onDismiss, onManageSites }
         )}
 
         {isPro && (
-          <a
-            href="/contact"
-            className="block w-full py-3 px-6 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold text-sm hover:brightness-110 transition-all shadow-lg mb-3"
-          >
-            Contact Us for Custom Plan
-          </a>
+          <>
+            <a
+              href="/settings"
+              className="block w-full py-3 px-6 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold text-sm hover:brightness-110 transition-all shadow-lg mb-3"
+            >
+              Check Add-Ons in Settings
+            </a>
+            <a
+              href="/contact"
+              className="block w-full py-2.5 px-6 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-colors mb-2"
+            >
+              Contact Us for More
+            </a>
+          </>
         )}
 
         {onManageSites && (

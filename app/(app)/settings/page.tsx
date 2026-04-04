@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/context';
 import { useRouter } from 'next/navigation';
 import KeystoneLogo from '@/app/components/KeystoneLogo';
-import { ArrowLeft, CreditCard, ExternalLink, Loader2, User, History, Globe, Link2, AlertCircle, CheckCircle2, Lock } from 'lucide-react';
+import { ArrowLeft, CreditCard, ExternalLink, Loader2, User, History, Globe, Link2, AlertCircle, CheckCircle2, Lock, Puzzle, Zap } from 'lucide-react';
 
 interface SubscriptionData {
     subscription_status: string;
@@ -12,6 +12,25 @@ interface SubscriptionData {
     subscription_started_at: string;
     updated_at: string;
 }
+
+interface UserAddon {
+    id: string;
+    addon_type: string;
+    quantity: number;
+    status: 'approved' | 'active';
+    monthly_price: number;
+    yearly_price: number;
+    activated_at: string | null;
+    notes: string | null;
+}
+
+const ADDON_LABELS: Record<string, string> = {
+    extra_sites: 'Extra Published Sites',
+    extra_domains: 'Extra Custom Domains',
+    extra_storage: 'Extra Storage (5 GB)',
+    extra_ai: 'Extra AI Prompts',
+    white_label: 'White-Label Branding',
+};
 
 interface OwnedDomain {
     id: string;
@@ -35,6 +54,11 @@ export default function SettingsPage() {
     const [loadingSub, setLoadingSub] = useState(true);
     const [generatingPortal, setGeneratingPortal] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Add-ons state
+    const [addons, setAddons] = useState<UserAddon[]>([]);
+    const [loadingAddons, setLoadingAddons] = useState(true);
+    const [activatingAddon, setActivatingAddon] = useState<string | null>(null);
 
     // Domain state
     const [domains, setDomains] = useState<OwnedDomain[]>([]);
@@ -66,6 +90,26 @@ export default function SettingsPage() {
         }
     }, [user]);
 
+    // Fetch add-ons
+    useEffect(() => {
+        if (user) {
+            const fetchAddons = async () => {
+                try {
+                    const res = await fetch('/api/user/addons');
+                    if (res.ok) {
+                        const data = await res.json();
+                        setAddons(data.addons || []);
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch add-ons:', err);
+                } finally {
+                    setLoadingAddons(false);
+                }
+            };
+            fetchAddons();
+        }
+    }, [user]);
+
     // Fetch owned domains
     useEffect(() => {
         if (user) {
@@ -86,6 +130,32 @@ export default function SettingsPage() {
             fetchDomains();
         }
     }, [user]);
+
+    const handleActivateAddon = async (addonId: string) => {
+        setActivatingAddon(addonId);
+        try {
+            const res = await fetch('/api/stripe/addons/activate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ addonId }),
+            });
+            if (res.ok) {
+                // Refresh addons list
+                const addonsRes = await fetch('/api/user/addons');
+                if (addonsRes.ok) {
+                    const data = await addonsRes.json();
+                    setAddons(data.addons || []);
+                }
+            } else {
+                const err = await res.json();
+                setError(err.error || 'Failed to activate add-on');
+            }
+        } catch (err: any) {
+            setError(err.message || 'Something went wrong');
+        } finally {
+            setActivatingAddon(null);
+        }
+    };
 
     const handleManageBilling = async () => {
         setGeneratingPortal(true);
@@ -267,6 +337,101 @@ export default function SettingsPage() {
                                 )}
                             </div>
                         </div>
+
+                        {/* ═══════════════════════════════════════════════ */}
+                        {/* Plan Add-Ons Block                              */}
+                        {/* ═══════════════════════════════════════════════ */}
+                        {!loadingAddons && addons.length > 0 && (
+                        <div className="border border-slate-200 bg-white rounded-2xl shadow-sm overflow-hidden">
+                            <div className="p-6 border-b border-slate-100">
+                                <h2 className="text-xl font-bold flex items-center gap-2 mb-1">
+                                    <Puzzle className="w-5 h-5 text-red-500" />
+                                    Plan Add-Ons
+                                </h2>
+                                <p className="text-sm text-slate-500">
+                                    Custom add-ons applied to your Pro plan.
+                                </p>
+                            </div>
+
+                            <div className="p-6 bg-slate-50/50">
+                                {addons.some(a => a.status === 'approved') && (
+                                    <div className="flex items-center gap-2 mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                        <Zap className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                                        <p className="text-sm text-amber-800 font-medium">
+                                            You have approved add-ons ready to activate!
+                                        </p>
+                                    </div>
+                                )}
+
+                                <div className="space-y-3">
+                                    {addons.map((addon) => {
+                                        const label = ADDON_LABELS[addon.addon_type] || addon.addon_type;
+                                        const totalMonthly = addon.monthly_price * addon.quantity;
+                                        return (
+                                            <div
+                                                key={addon.id}
+                                                className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white border rounded-xl gap-3 ${
+                                                    addon.status === 'approved' ? 'border-amber-300' : 'border-slate-200'
+                                                }`}
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                                        addon.status === 'active' ? 'bg-green-100' : 'bg-amber-100'
+                                                    }`}>
+                                                        {addon.status === 'active' ? (
+                                                            <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                                        ) : (
+                                                            <Zap className="w-4 h-4 text-amber-600" />
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-semibold text-slate-900">
+                                                            {addon.quantity > 1 ? `${addon.quantity}× ` : ''}{label}
+                                                        </p>
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            <span className="text-sm text-slate-500">
+                                                                ${totalMonthly.toFixed(2)}/mo
+                                                            </span>
+                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                                                addon.status === 'active'
+                                                                    ? 'bg-green-100 text-green-800 border border-green-200'
+                                                                    : 'bg-amber-100 text-amber-800 border border-amber-200'
+                                                            }`}>
+                                                                {addon.status === 'active' ? 'Active' : 'Pending Activation'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {addon.status === 'approved' && (
+                                                    <button
+                                                        onClick={() => handleActivateAddon(addon.id)}
+                                                        disabled={activatingAddon === addon.id}
+                                                        className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-70 text-white text-sm font-bold rounded-lg shadow transition-all flex-shrink-0"
+                                                    >
+                                                        {activatingAddon === addon.id ? (
+                                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                                        ) : null}
+                                                        {activatingAddon === addon.id ? 'Activating...' : 'Accept & Pay'}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Total summary */}
+                                <div className="mt-4 pt-3 border-t border-slate-100">
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-slate-500">Add-on total</span>
+                                        <span className="font-semibold text-slate-900">
+                                            ${addons.filter(a => a.status === 'active').reduce((sum, a) => sum + a.monthly_price * a.quantity, 0).toFixed(2)}/mo
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        )}
 
                         {/* ═══════════════════════════════════════════════ */}
                         {/* Domains Management Block                       */}

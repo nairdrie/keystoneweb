@@ -1163,3 +1163,70 @@ export async function sendDomainTransferCompleteEmail(data: {
         return { success: false, error };
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Add-On Approval Email
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function sendAddonApprovalEmail(data: {
+    customerEmail: string;
+    customerName?: string;
+    addonLabel: string;
+    quantity: number;
+    monthlyPrice: number;
+    settingsUrl: string;
+}) {
+    try {
+        const quantityText = data.quantity > 1 ? `${data.quantity}× ` : '';
+        await resend.emails.send({
+            from: 'Keystone Web Design <noreply@keystoneweb.ca>',
+            to: data.customerEmail,
+            subject: `Add-On Approved — ${quantityText}${data.addonLabel}`,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; background: #ffffff;">
+                    <!-- Header bar -->
+                    <div style="background: #fe4545; height: 4px; border-radius: 4px 4px 0 0;"></div>
+
+                    <!-- Body -->
+                    <div style="padding: 40px 32px;">
+                        <!-- Logo wordmark -->
+                        <img style="width:200px; margin-bottom:32px;" src="https://www.keystoneweb.ca/assets/logo/keystone-logo.png" alt="Keystone Web" />
+
+                        <!-- Heading -->
+                        <h1 style="margin: 0 0 8px; font-size: 24px; font-weight: 700; color: #171717; letter-spacing: -0.02em;">Add-On Approved!</h1>
+                        <p style="margin: 0 0 28px; font-size: 15px; color: #6b7280; line-height: 1.6;">
+                            ${data.customerName ? `Hi ${data.customerName},<br><br>` : ''}Your add-on request has been approved:
+                        </p>
+
+                        <!-- Add-on details -->
+                        <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin: 0 0 28px;">
+                            <p style="margin: 0 0 4px; font-size: 18px; font-weight: 700; color: #171717;">${quantityText}${data.addonLabel}</p>
+                            <p style="margin: 0; font-size: 15px; color: #6b7280;">$${(data.monthlyPrice * data.quantity).toFixed(2)}/month</p>
+                        </div>
+
+                        <p style="margin: 0 0 28px; font-size: 15px; color: #6b7280; line-height: 1.6;">
+                            To activate this add-on and update your billing, visit your account settings:
+                        </p>
+
+                        <!-- CTA Button -->
+                        <a href="${data.settingsUrl}" style="display: inline-block; background: #fe4545; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 600; padding: 13px 28px; border-radius: 8px; letter-spacing: 0.01em;">
+                            Activate Add-On →
+                        </a>
+
+                        <!-- Divider -->
+                        <div style="border-top: 1px solid #f3f4f6; margin: 32px 0;"></div>
+
+                        <!-- Footer note -->
+                        <p style="margin: 0; font-size: 13px; color: #9ca3af; line-height: 1.6;">
+                            This add-on will be charged as an additional line item on your existing Pro subscription. If you have any questions, reply to this email.
+                        </p>
+                    </div>
+                </div>
+            `,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send add-on approval email:', error);
+        return { success: false, error };
+    }
+}
