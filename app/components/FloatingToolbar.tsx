@@ -191,6 +191,8 @@ export default function FloatingToolbar({
   const [siteTitleDraft, setSiteTitleDraft] = useState('');
   const [showWalkthrough, setShowWalkthrough] = useState(false);
   const [walkthroughStep, setWalkthroughStep] = useState(0);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewLinkCopied, setPreviewLinkCopied] = useState(false);
 
   const DESIGNER_WALKTHROUGH_KEY = 'ks_seen_designer_walkthrough';
 
@@ -1255,12 +1257,28 @@ export default function FloatingToolbar({
                 ) : (
                   <a href={customDomain ? `https://${customDomain}` : `https://${publishedDomain}.kswd.ca`} target="_blank" rel="noopener noreferrer" className="flex-[1.2] flex items-center justify-center py-1.5 text-white font-semibold text-xs rounded transition-colors hover:brightness-110" style={{ backgroundColor: 'var(--brand-primary)' }}>View Live</a>
                 )}
+                <button
+                  onClick={() => setShowPreviewModal(true)}
+                  disabled={!currentSiteId}
+                  className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-600 rounded transition-colors"
+                  title="Share draft preview"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           ) : (
             <div className="flex gap-2">
               <button onClick={handleSave} disabled={saving || changes.length === 0} className="flex-1 py-2 text-white font-bold text-sm rounded-lg hover:brightness-110 disabled:opacity-60 bg-slate-600">{saving ? 'Saving...' : user ? 'Save Draft' : 'Sign Up to Save'}</button>
               <button onClick={handlePublish} disabled={publishing || !user || isSynced} className="flex-1 py-2 text-white font-bold text-sm rounded-lg hover:brightness-110 disabled:opacity-60" style={{ backgroundColor: isSynced ? '#94a3b8' : 'var(--brand-primary)' }}>{publishing ? 'Publishing...' : isSynced ? 'Published' : 'Publish'}</button>
+              <button
+                onClick={() => setShowPreviewModal(true)}
+                disabled={!currentSiteId}
+                className="px-3 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-lg transition-colors"
+                title="Share draft preview"
+              >
+                <Eye className="w-4 h-4" />
+              </button>
             </div>
           )}
         </div>
@@ -1515,6 +1533,53 @@ export default function FloatingToolbar({
       {/* ═══════════════════════════════════════════════════════════════
           MODALS (shared, always rendered)
          ═══════════════════════════════════════════════════════════════ */}
+
+      {/* Preview Modal */}
+      {showPreviewModal && currentSiteId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000] p-4" onClick={() => setShowPreviewModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xl font-bold text-slate-900">Share Draft Preview</h2>
+              <button onClick={() => setShowPreviewModal(false)} className="p-1 hover:bg-slate-100 rounded text-slate-400">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-500 mb-6">
+              Share this link so stakeholders can view your site draft before you publish. No account required to view.
+            </p>
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 mb-4">
+              <span className="text-xs text-slate-600 truncate flex-1 font-mono select-all">
+                {typeof window !== 'undefined' ? `${window.location.origin}/preview?siteId=${currentSiteId}` : `/preview?siteId=${currentSiteId}`}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  const url = `${window.location.origin}/preview?siteId=${currentSiteId}`;
+                  navigator.clipboard.writeText(url).then(() => {
+                    setPreviewLinkCopied(true);
+                    setTimeout(() => setPreviewLinkCopied(false), 2000);
+                  });
+                }}
+                className="flex-1 flex items-center justify-center gap-2 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm rounded-lg transition-colors"
+              >
+                {previewLinkCopied ? <CheckIcon className="w-4 h-4 text-green-600" /> : <Share2 className="w-4 h-4" />}
+                {previewLinkCopied ? 'Copied!' : 'Copy Link'}
+              </button>
+              <a
+                href={`/preview?siteId=${currentSiteId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-2 py-2 text-white font-semibold text-sm rounded-lg transition-colors hover:brightness-110"
+                style={{ backgroundColor: 'var(--brand-primary)' }}
+              >
+                <Eye className="w-4 h-4" />
+                Open Preview
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Publish Modal - Show when user tries to publish with unsaved changes */}
       {showPublishModal && (
