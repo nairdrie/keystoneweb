@@ -151,7 +151,9 @@ export async function GET(request: NextRequest) {
       .single();
 
     const planConfig = getPlanByName(sub?.subscription_plan);
-    const storageLimitMb = sub?.storage_limit_mb ?? planConfig?.storageLimitMb ?? PLANS.basic.storageLimitMb;
+    // Prefer plan config over the stored column — storage_limit_mb may be stale
+    // (e.g. user upgraded to Pro but the column still holds the Basic default).
+    const storageLimitMb = planConfig?.storageLimitMb ?? sub?.storage_limit_mb ?? PLANS.basic.storageLimitMb;
 
     return NextResponse.json({
       media: media ?? [],
@@ -222,7 +224,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     const planConfig = getPlanByName(sub?.subscription_plan);
-    const storageLimitMb = sub?.storage_limit_mb ?? planConfig?.storageLimitMb ?? PLANS.basic.storageLimitMb;
+    const storageLimitMb = planConfig?.storageLimitMb ?? sub?.storage_limit_mb ?? PLANS.basic.storageLimitMb;
     const storageLimitBytes = storageLimitMb * 1024 * 1024;
     const currentUsageBytes = await getUserStorageUsed(supabase, user.id);
 

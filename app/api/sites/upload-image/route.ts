@@ -189,6 +189,19 @@ export async function POST(request: NextRequest) {
       .from('site-assets')
       .getPublicUrl(data.path);
 
+    // Track in site_media so it shows up in the media library.
+    // Use upsert to silently handle any duplicate path (e.g. retries).
+    await supabase.from('site_media').upsert({
+      site_id:      siteId,
+      user_id:      user.id,
+      storage_path: data.path,
+      public_url:   publicUrl,
+      file_name:    originalName,
+      media_type:   'image',
+      mime_type:    contentType,
+      size_bytes:   buffer.length,
+    }, { onConflict: 'storage_path', ignoreDuplicates: true });
+
     return NextResponse.json({
       imageUrl: publicUrl,
       path: data.path,
