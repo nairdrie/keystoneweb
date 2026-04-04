@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Upload, Search, Image as ImageIcon, Loader2, Settings, Camera } from 'lucide-react';
+import { X, Upload, Search, Image as ImageIcon, Loader2, Settings, Camera, FolderImage, Check } from 'lucide-react';
 
 interface UnsplashPhoto {
     id: string;
@@ -43,7 +43,15 @@ interface ImageEditorModalProps {
     allowUnsplash?: boolean;
 }
 
-type Tab = 'upload' | 'unsplash' | 'settings';
+type Tab = 'upload' | 'unsplash' | 'media' | 'settings';
+
+interface SiteMediaItem {
+    id: string;
+    public_url: string;
+    file_name: string;
+    size_bytes: number;
+    created_at: string;
+}
 
 export default function ImageEditorModal({
     isOpen,
@@ -81,6 +89,11 @@ export default function ImageEditorModal({
     const [previewUrl, setPreviewUrl] = useState<string | undefined>(currentImageUrl);
     const [pendingAttribution, setPendingAttribution] = useState<UnsplashAttribution | undefined>();
 
+    // Media library state
+    const [mediaItems, setMediaItems] = useState<SiteMediaItem[]>([]);
+    const [mediaLoading, setMediaLoading] = useState(false);
+    const [mediaFetched, setMediaFetched] = useState(false);
+
     // Reset state when opening
     useEffect(() => {
         if (isOpen) {
@@ -92,6 +105,8 @@ export default function ImageEditorModal({
             setPhotos([]);
             setHasSearched(false);
             setSearchQuery('');
+            setMediaFetched(false);
+            setMediaItems([]);
         }
     }, [isOpen, currentImageUrl, currentSettings]);
 
@@ -102,6 +117,21 @@ export default function ImageEditorModal({
             setSearchQuery(siteCategory);
         }
     }, [activeTab, hasSearched, siteCategory]);
+
+    // Fetch media library when switching to that tab
+    useEffect(() => {
+        if (activeTab === 'media' && !mediaFetched && siteId) {
+            setMediaLoading(true);
+            fetch(`/api/sites/media?siteId=${siteId}`, { credentials: 'include' })
+                .then(r => r.ok ? r.json() : { media: [] })
+                .then(data => {
+                    setMediaItems((data.media ?? []).filter((m: any) => m.media_type === 'image'));
+                    setMediaFetched(true);
+                })
+                .catch(() => setMediaFetched(true))
+                .finally(() => setMediaLoading(false));
+        }
+    }, [activeTab, mediaFetched, siteId]);
 
     const searchUnsplash = useCallback(async (query: string, pageNum: number) => {
         if (!query.trim()) return;
@@ -219,6 +249,14 @@ export default function ImageEditorModal({
         }
     };
 
+    // Select from media library
+    const handleMediaSelect = (item: SiteMediaItem) => {
+        setPreviewUrl(item.public_url);
+        setPendingAttribution(undefined);
+        onSave(item.public_url, settings, undefined);
+        onClose();
+    };
+
     // Drag & drop handlers
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
@@ -235,9 +273,10 @@ export default function ImageEditorModal({
     if (!isOpen) return null;
 
     const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-        { id: 'upload', label: 'Upload', icon: <Upload className="w-4 h-4" /> },
+        { id: 'upload',  label: 'Upload',   icon: <Upload      className="w-4 h-4" /> },
         ...(allowUnsplash ? [{ id: 'unsplash' as Tab, label: 'Unsplash', icon: <Camera className="w-4 h-4" /> }] : []),
-        ...(previewUrl ? [{ id: 'settings' as Tab, label: 'Settings', icon: <Settings className="w-4 h-4" /> }] : []),
+        { id: 'media',   label: 'Library',  icon: <FolderImage className="w-4 h-4" /> },
+        ...(previewUrl   ? [{ id: 'settings' as Tab, label: 'Settings', icon: <Settings className="w-4 h-4" /> }] : []),
     ];
 
     const modal = (
@@ -436,6 +475,64 @@ export default function ImageEditorModal({
                                     <Search className="w-10 h-10 mx-auto mb-3 text-slate-300" />
                                     <p className="font-medium">Search for images</p>
                                     <p className="text-sm mt-1">Find free high-resolution photos from Unsplash</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Media Library Tab */}
+                    {activeTab === 'media' && (
+                        <div>
+                            {mediaLoading ? (
+                                <div className="flex items-center justify-center py-16">
+                                    <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+                                    <span className="ml-2 text-sm text-slate-500">Loading your uploads…</span>
+                                </div>
+                            ) : mediaItems.length === 0 ? (
+                                <div className="text-center py-16 text-slate-500">
+                                    <FolderImage className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+                                    <p className="font-medium">No images uploaded yet</p>
+                                    <p className="text-sm mt-1">Switch to the Upload tab to add images, then find them here.</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    {mediaItems.map(item => {
+                                        const isSelected = previewUrl === item.public_url;
+                                        return (
+                                            <div
+                                                key={item.id}
+                                                onClick={() => handleMediaSelect(item)}
+                                                className={`group relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all hover:shadow-md ${
+                                                    isSelected
+                                                        ? 'border-blue-500 ring-2 ring-blue-200'
+                                                        : 'border-slate-200 hover:border-blue-400'
+                                                }`}
+                                            >
+                                                <div className="aspect-[4/3] bg-slate-100">
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img
+                                                        src={item.public_url}
+                                                        alt={item.file_name}
+                                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                        loading="lazy"
+                                                    />
+                                                </div>
+                                                {isSelected && (
+                                                    <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
+                                                        <Check className="w-3 h-3 text-white" />
+                                                    </div>
+                                                )}
+                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors flex items-center justify-center">
+                                                    <span className="opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold bg-blue-600 px-3 py-1.5 rounded-full">
+                                                        Select
+                                                    </span>
+                                                </div>
+                                                <div className="px-2 py-1.5 bg-slate-50 text-xs text-slate-500 truncate border-t border-slate-100">
+                                                    {item.file_name}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
