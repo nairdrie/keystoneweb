@@ -85,7 +85,7 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                     contentKey={`member_${index}_image`}
                                     imageUrl={member.image}
                                     isEditMode={isEditMode}
-                                    onSave={(_key, value) => handleUpdateMember(index, 'image', value)}
+                                    onSave={(key, value) => { if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value); }}
                                     onUpload={context?.uploadImage}
                                     className="w-16 h-16 rounded-full object-cover bg-gray-200 flex-shrink-0"
                                     placeholder="Photo"
@@ -181,7 +181,7 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                     contentKey={`member_${index}_image`}
                                     imageUrl={member.image}
                                     isEditMode={isEditMode}
-                                    onSave={(_key, value) => handleUpdateMember(index, 'image', value)}
+                                    onSave={(key, value) => { if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value); }}
                                     onUpload={context?.uploadImage}
                                     className="w-full h-64 object-cover bg-gray-200"
                                     placeholder="Team member photo"
@@ -277,7 +277,7 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                 contentKey={`member_${index}_image`}
                                 imageUrl={member.image}
                                 isEditMode={isEditMode}
-                                onSave={(_key, value) => handleUpdateMember(index, 'image', value)}
+                                onSave={(key, value) => { if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value); }}
                                 onUpload={context?.uploadImage}
                                 className="w-32 h-32 rounded-full object-cover bg-gray-200 mx-auto mb-4 ring-4 ring-white shadow-lg group-hover:scale-105 transition-transform"
                                 placeholder="Photo"
