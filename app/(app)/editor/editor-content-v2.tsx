@@ -43,11 +43,12 @@ export interface SiteData {
 export interface EditorContentProps {
   publicSiteData?: SiteData;
   isPublicView?: boolean;
+  isPreviewView?: boolean;
   precomputedPalette?: Record<string, string>;
   children?: React.ReactNode;
 }
 
-export default function EditorContent({ publicSiteData, isPublicView = false, precomputedPalette, children }: EditorContentProps = {}) {
+export default function EditorContent({ publicSiteData, isPublicView = false, isPreviewView = false, precomputedPalette, children }: EditorContentProps = {}) {
   // If in pure public viewer mode, render the pre-fetched template directly without hooks
   // This allows full SSR and instant load times, bypassing all Editor UI and loading screens
   if (isPublicView) {
@@ -75,6 +76,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, pr
             blocks: pubDesign.blocks || [],
             pages: pubDesign.__pages || [],
             isProUser: false,
+            previewSiteId: isPreviewView ? publicSiteData?.id : undefined,
           }}
         >
           <div className="w-full min-h-screen">
