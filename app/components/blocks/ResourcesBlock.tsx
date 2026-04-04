@@ -216,16 +216,36 @@ function ItemEditPanel({ item, siteId, onUpdate, onRemove }: {
 
             {/* Type-specific fields */}
             {item.type === 'file' && (
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col gap-2">
+                    {/* Image preview */}
+                    {item.fileUrl && item.fileType === 'image' && (
+                        <img src={item.fileUrl} alt={item.title} className="w-full h-32 object-cover rounded-lg border border-slate-200" />
+                    )}
+                    {/* Uploaded file link + controls */}
+                    {item.fileUrl && (
+                        <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
+                            {item.fileType === 'pdf'
+                                ? <FileText className="w-4 h-4 text-red-500 flex-shrink-0" />
+                                : <ImageIcon className="w-4 h-4 text-violet-500 flex-shrink-0" />
+                            }
+                            <a
+                                href={item.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 text-xs font-medium text-blue-600 hover:text-blue-800 underline truncate"
+                            >
+                                {item.fileName || 'View file'}
+                            </a>
+                            <button
+                                onClick={() => { onUpdate('fileUrl', ''); onUpdate('fileName', ''); onUpdate('fileType', ''); }}
+                                className="text-slate-300 hover:text-red-500 transition-colors flex-shrink-0"
+                                title="Remove file"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    )}
                     <FileUploadButton item={item} siteId={siteId} onUpdate={onUpdate} />
-                    {item.fileUrl && (
-                        <button onClick={() => { onUpdate('fileUrl', ''); onUpdate('fileName', ''); }} className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1">
-                            <X className="w-3 h-3" /> Remove
-                        </button>
-                    )}
-                    {item.fileUrl && (
-                        <span className="text-xs text-slate-500 truncate max-w-[160px]">{item.fileName || 'Uploaded'}</span>
-                    )}
                 </div>
             )}
 
