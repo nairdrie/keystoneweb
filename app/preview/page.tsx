@@ -103,7 +103,7 @@ export default async function PreviewPage({
         {/* Preview banner */}
         <div className="sticky top-0 z-[9999] flex items-center justify-between gap-3 px-4 py-2 bg-slate-900 text-white text-sm shadow-md">
           <div className="flex items-center gap-2.5 min-w-0">
-            <Image src={KeystoneLogoImage} alt="Keystone" width={20} height={20} className="shrink-0 rounded" />
+            <Image src={KeystoneLogoImage} alt="Keystone" width={80} height={20} className="shrink-0 rounded" />
             <span className="font-medium text-slate-100 shrink-0">Site Preview</span>
             <span className="text-slate-400 hidden sm:block truncate">
               This is a draft preview — not the published site.
