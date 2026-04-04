@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Upload, Trash2, Copy, Check, FileText, Film,
-  ImageIcon, AlertTriangle, X, Loader2, FolderImage,
+  ImageIcon, AlertTriangle, X, Loader2, FileImage,
   ExternalLink, RefreshCw, Info,
 } from 'lucide-react';
 import { useAdminContext } from '../admin-context';
@@ -452,7 +452,7 @@ export default function MediaPage() {
   };
 
   const FILTERS: { key: FilterType; label: string; icon: React.ReactNode }[] = [
-    { key: 'all',   label: 'All',    icon: <FolderImage className="w-3.5 h-3.5" /> },
+    { key: 'all',   label: 'All',    icon: <FileImage className="w-3.5 h-3.5" /> },
     { key: 'image', label: 'Images', icon: <ImageIcon   className="w-3.5 h-3.5" /> },
     { key: 'pdf',   label: 'PDFs',   icon: <FileText    className="w-3.5 h-3.5" /> },
     { key: 'video', label: 'Videos', icon: <Film        className="w-3.5 h-3.5" /> },
@@ -540,7 +540,7 @@ export default function MediaPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center text-slate-400 gap-3">
-          <FolderImage className="w-10 h-10 text-slate-300" />
+          <FileImage className="w-10 h-10 text-slate-300" />
           <div>
             <p className="font-bold text-slate-500">
               {filter !== 'all' ? `No ${filter}s uploaded yet` : 'No files uploaded yet'}

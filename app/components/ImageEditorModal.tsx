@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Upload, Search, Image as ImageIcon, Loader2, Settings, Camera, FolderImage, Check } from 'lucide-react';
+import { X, Upload, Search, Image as ImageIcon, Loader2, Settings, Camera, FileImage, Check } from 'lucide-react';
 
 interface UnsplashPhoto {
     id: string;
@@ -275,7 +275,7 @@ export default function ImageEditorModal({
     const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
         { id: 'upload',  label: 'Upload',   icon: <Upload      className="w-4 h-4" /> },
         ...(allowUnsplash ? [{ id: 'unsplash' as Tab, label: 'Unsplash', icon: <Camera className="w-4 h-4" /> }] : []),
-        { id: 'media',   label: 'Library',  icon: <FolderImage className="w-4 h-4" /> },
+        { id: 'media',   label: 'Library',  icon: <FileImage className="w-4 h-4" /> },
         ...(previewUrl   ? [{ id: 'settings' as Tab, label: 'Settings', icon: <Settings className="w-4 h-4" /> }] : []),
     ];
 
@@ -490,7 +490,7 @@ export default function ImageEditorModal({
                                 </div>
                             ) : mediaItems.length === 0 ? (
                                 <div className="text-center py-16 text-slate-500">
-                                    <FolderImage className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+                                    <FileImage className="w-10 h-10 mx-auto mb-3 text-slate-300" />
                                     <p className="font-medium">No images uploaded yet</p>
                                     <p className="text-sm mt-1">Switch to the Upload tab to add images, then find them here.</p>
                                 </div>
