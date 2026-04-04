@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAdminContext } from '../admin-context';
-import { CalendarDays, Plus, Pencil, Trash2, X, Loader2, ExternalLink, ImageIcon, Upload } from 'lucide-react';
+import { CalendarDays, Plus, Pencil, Trash2, X, Loader2, ExternalLink, ImageIcon, Upload, ArrowDownUp } from 'lucide-react';
 
 interface Event {
   id: string;
@@ -336,6 +336,7 @@ export default function AdminEventsPage() {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showPast, setShowPast] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
   if (!siteId) return null;
 
@@ -364,12 +365,12 @@ export default function AdminEventsPage() {
   useEffect(() => {
     fetchEvents();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [siteId, showPast]);
+  }, [siteId, showPast, sortOrder]);
 
   async function fetchEvents() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/events?siteId=${siteId}&includePast=${showPast}`, { credentials: 'include' });
+      const res = await fetch(`/api/events?siteId=${siteId}&includePast=${showPast}&sortOrder=${sortOrder}`, { credentials: 'include' });
       if (!res.ok) throw new Error();
       const data = await res.json();
       setEvents(data.events || []);
@@ -413,6 +414,30 @@ export default function AdminEventsPage() {
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-base font-bold text-slate-900">Events</h2>
         <div className="flex items-center gap-2">
+          {/* Sort order toggle */}
+          <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-lg border border-slate-200">
+            <button
+              onClick={() => setSortOrder('asc')}
+              title="Closest first"
+              className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold transition-colors ${
+                sortOrder === 'asc' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <ArrowDownUp className="w-3 h-3" />
+              Closest
+            </button>
+            <button
+              onClick={() => setSortOrder('desc')}
+              title="Newest first"
+              className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold transition-colors ${
+                sortOrder === 'desc' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <ArrowDownUp className="w-3 h-3" />
+              Newest
+            </button>
+          </div>
+
           <button
             onClick={() => setShowPast(p => !p)}
             className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors border ${
