@@ -143,7 +143,29 @@ AVAILABLE BLOCK TYPES AND THEIR DATA SCHEMAS:
 20. "productGrid" — E-commerce product display (requires user to add products)
     data: {}
 
-21. "custom_html" — Custom HTML/CSS embed (USE SPARINGLY — only when no other block can achieve the goal)
+21. "resources" — Resources section with downloadable files, text articles, and external links
+    data: {
+      title: string,
+      subtitle: string,
+      variant: "grid" | "list",   // "grid" = card grid, "list" = document-style list
+      items: Array<{
+        id: string,
+        type: "file" | "text" | "link",
+        title: string,
+        description: string,
+        // file type only:
+        fileUrl: string,
+        fileName: string,
+        fileType: "pdf" | "image",
+        // text type only:
+        body: string,
+        // link type only:
+        url: string,
+        openInNewTab: boolean
+      }>
+    }
+
+22. "custom_html" — Custom HTML/CSS embed (USE SPARINGLY — only when no other block can achieve the goal)
     data: {
       html: string            // Raw HTML+CSS. No <script> tags allowed. Style tags and iframes are OK.
     }
