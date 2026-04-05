@@ -127,6 +127,14 @@ function FileUploadButton({ item, siteId, onUploadComplete }: {
             return;
         }
 
+        // Vercel serverless functions cap request bodies at ~4.5MB
+        const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // 4MB client-side guard
+        if (file.size > MAX_UPLOAD_BYTES) {
+            setError(`File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum upload size is 4 MB.`);
+            setUploading(false);
+            return;
+        }
+
         try {
             const formData = new FormData();
             formData.append('file', file);
@@ -135,8 +143,14 @@ function FileUploadButton({ item, siteId, onUploadComplete }: {
             const endpoint = isPdf ? '/api/sites/upload-pdf' : '/api/sites/upload-image';
             const res = await fetch(endpoint, { method: 'POST', body: formData, credentials: 'include' });
             if (!res.ok) {
-                const d = await res.json();
-                throw new Error(d.error || 'Upload failed');
+                let errorMsg = 'Upload failed';
+                try {
+                    const d = await res.json();
+                    errorMsg = d.error || errorMsg;
+                } catch {
+                    if (res.status === 413) errorMsg = 'File is too large to upload.';
+                }
+                throw new Error(errorMsg);
             }
             const json = await res.json();
             // Write all three fields in one call to avoid stale-closure overwrites
