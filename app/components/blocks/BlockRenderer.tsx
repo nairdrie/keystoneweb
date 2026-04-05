@@ -32,6 +32,7 @@ import ResourcesBlock from './ResourcesBlock';
 import DeliveryLinksBlock from './DeliveryLinksBlock';
 import FeaturedQuoteBlock from './FeaturedQuoteBlock';
 import MembershipPortalBlock from './MembershipPortalBlock';
+import CarouselBlock from './CarouselBlock';
 
 // We loosen the component type to accommodate both the simpler original blocks and the advanced blocks
 const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
@@ -63,6 +64,7 @@ const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     deliveryLinks: DeliveryLinksBlock,
     featuredQuote: FeaturedQuoteBlock,
     membershipPortal: MembershipPortalBlock,
+    carousel: CarouselBlock,
 };
 
 const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: boolean }> = [
@@ -94,6 +96,7 @@ const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: boolean }
     { type: 'membershipPortal', label: 'Members Only', proOnly: true },
     { type: 'custom_html', label: 'Custom HTML / Embed', proOnly: true },
     { type: 'featuredQuote', label: 'Featured Quote' },
+    { type: 'carousel', label: 'Content Carousel' },
 ];
 
 export default function BlockRenderer({ palette, headerOffset }: { palette: Record<string, string>; headerOffset?: number }) {
