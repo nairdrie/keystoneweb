@@ -79,19 +79,28 @@ export default function FeaturedQuoteBlock({ id, data, isEditMode, palette, upda
     );
 }
 
+// Shared style for the decorative quote mark — tight line-height keeps the
+// surrounding whitespace to just the glyph itself.
+const quoteMark = (pSecondary: string, fontSize: string) => ({
+    style: {
+        color: pSecondary,
+        fontSize,
+        lineHeight: 0.6,
+        display: 'block',
+    } as React.CSSProperties,
+    className: 'font-serif select-none',
+});
+
 // ─── Essay / Longform Variant ────────────────────────────────────────────────
-// Magazine-style: title, big typographic quote marks above/below, and a portrait
-// photo that the essay text wraps around. Built for long-form attributed quotes.
 
 function EssayVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, pSecondary, bgColor }: any) {
     const floatRight = data.imagePosition !== 'left';
-
-    // Hex → rgba helper for the separator line
     const separatorColor = `${pPrimary}22`;
+    const qm = quoteMark(pSecondary, 'clamp(6rem, 12vw, 9rem)');
 
     return (
         <section className="py-24" style={{ backgroundColor: bgColor }}>
-            <div className="max-w-4xl mx-auto px-6">
+            <div className="max-w-6xl mx-auto px-6">
 
                 {/* Eyebrow + Title */}
                 <Reveal>
@@ -112,25 +121,14 @@ function EssayVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
                         defaultValue="In Their Own Words"
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
-                        className="text-3xl md:text-4xl font-bold leading-tight mb-10"
+                        className="text-3xl md:text-4xl font-bold leading-tight mb-8"
                         style={{ color: pPrimary }}
                     />
                 </Reveal>
 
                 {/* Opening quote mark */}
                 <Reveal>
-                    <div
-                        className="font-serif leading-none select-none mb-4"
-                        style={{
-                            color: pSecondary,
-                            opacity: 0.18,
-                            fontSize: 'clamp(6rem, 14vw, 10rem)',
-                            lineHeight: 0.75,
-                        }}
-                        aria-hidden="true"
-                    >
-                        &ldquo;
-                    </div>
+                    <span {...qm} aria-hidden="true" style={{ ...qm.style, marginBottom: '0.5rem' }}>&ldquo;</span>
                 </Reveal>
 
                 {/* Float container — photo wraps with essay text */}
@@ -172,18 +170,11 @@ function EssayVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
 
                 {/* Closing quote mark */}
                 <Reveal>
-                    <div
-                        className="font-serif leading-none select-none text-right mt-2 mb-10"
-                        style={{
-                            color: pSecondary,
-                            opacity: 0.18,
-                            fontSize: 'clamp(6rem, 14vw, 10rem)',
-                            lineHeight: 0.75,
-                        }}
+                    <span
+                        {...qm}
                         aria-hidden="true"
-                    >
-                        &rdquo;
-                    </div>
+                        style={{ ...qm.style, textAlign: 'right', marginTop: '0.25rem', marginBottom: '2rem' }}
+                    >&rdquo;</span>
                 </Reveal>
 
                 {/* Attribution */}
@@ -237,21 +228,14 @@ function EssayVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
 }
 
 // ─── Centered Variant ────────────────────────────────────────────────────────
-// Large quote mark, quote text centered, circular photo + name/title below.
-// Adapts well to both short and very long quotes.
 
 function CenteredVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, pSecondary, bgColor }: any) {
+    const qm = quoteMark(pSecondary, '6rem');
     return (
         <section className="py-24" style={{ backgroundColor: bgColor }}>
-            <div className="max-w-3xl mx-auto px-6 text-center">
+            <div className="max-w-5xl mx-auto px-6 text-center">
                 <Reveal>
-                    <div
-                        className="text-8xl leading-none select-none mb-2 font-serif"
-                        style={{ color: pSecondary, opacity: 0.25 }}
-                        aria-hidden="true"
-                    >
-                        &ldquo;
-                    </div>
+                    <span {...qm} aria-hidden="true" style={{ ...qm.style, textAlign: 'center', marginBottom: '0.5rem' }}>&ldquo;</span>
                 </Reveal>
 
                 <Reveal>
@@ -269,10 +253,7 @@ function CenteredVariant({ data, isEditMode, updateContent, uploadImage, pPrimar
 
                 <Reveal>
                     <div className="flex flex-col items-center gap-4">
-                        <div
-                            className="w-16 h-16 rounded-full overflow-hidden bg-gray-200 flex-shrink-0 ring-2"
-                            style={{ ringColor: pSecondary } as any}
-                        >
+                        <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
                             <EditableImage
                                 contentKey="personImage"
                                 imageUrl={data.personImage}
@@ -314,11 +295,10 @@ function CenteredVariant({ data, isEditMode, updateContent, uploadImage, pPrimar
 }
 
 // ─── Split Variant ───────────────────────────────────────────────────────────
-// Photo fills one half; quote text fills the other. Great for longer quotes or
-// when you want the person's image to really anchor the section.
 
 function SplitVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, pSecondary, bgColor }: any) {
     const imageRight = data.imagePosition === 'right';
+    const qm = quoteMark(pSecondary, '4.5rem');
 
     const imageCol = (
         <Reveal className="relative h-full min-h-64">
@@ -336,13 +316,7 @@ function SplitVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
 
     const textCol = (
         <Reveal className="flex flex-col justify-center py-4">
-            <div
-                className="text-7xl leading-none font-serif mb-2 select-none"
-                style={{ color: pSecondary, opacity: 0.2 }}
-                aria-hidden="true"
-            >
-                &ldquo;
-            </div>
+            <span {...qm} aria-hidden="true" style={{ ...qm.style, marginBottom: '0.5rem' }}>&ldquo;</span>
             <EditableText
                 as="p"
                 contentKey="quote"
@@ -354,10 +328,7 @@ function SplitVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
                 style={{ color: pPrimary }}
             />
             <div className="flex items-center gap-4">
-                <div
-                    className="w-1 self-stretch rounded-full"
-                    style={{ backgroundColor: pSecondary }}
-                />
+                <div className="w-1 self-stretch rounded-full" style={{ backgroundColor: pSecondary }} />
                 <div>
                     <EditableText
                         as="p"
@@ -386,36 +357,21 @@ function SplitVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
 
     return (
         <section className="py-24" style={{ backgroundColor: bgColor }}>
-            <div className="max-w-6xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-stretch">
-                {imageRight ? (
-                    <>
-                        {textCol}
-                        {imageCol}
-                    </>
-                ) : (
-                    <>
-                        {imageCol}
-                        {textCol}
-                    </>
-                )}
+            <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-stretch">
+                {imageRight ? <>{textCol}{imageCol}</> : <>{imageCol}{textCol}</>}
             </div>
         </section>
     );
 }
 
 // ─── Minimal Variant ─────────────────────────────────────────────────────────
-// Understated bar layout: small circular photo inline with name, quote below.
-// Works great when you want the quote to speak for itself without visual noise.
 
 function MinimalVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, pSecondary, bgColor }: any) {
     return (
         <section className="py-20" style={{ backgroundColor: bgColor }}>
-            <div className="max-w-2xl mx-auto px-6">
+            <div className="max-w-4xl mx-auto px-6">
                 <Reveal>
-                    <div
-                        className="border-l-4 pl-6"
-                        style={{ borderColor: pSecondary }}
-                    >
+                    <div className="border-l-4 pl-6" style={{ borderColor: pSecondary }}>
                         <EditableText
                             as="p"
                             contentKey="quote"
