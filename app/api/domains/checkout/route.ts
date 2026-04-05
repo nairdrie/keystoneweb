@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Verify Pro plan
+    // Verify Pro plan and domain limit
     const { data: subscription } = await supabase
       .from('user_subscriptions')
       .select('subscription_status, subscription_plan, stripe_customer_id')
@@ -48,6 +48,22 @@ export async function POST(request: NextRequest) {
     if (!isPro) {
       return NextResponse.json(
         { error: 'Pro plan required for custom domains' },
+        { status: 403 }
+      );
+    }
+
+    // Check domain limit (Pro default: 1, increased by add-ons)
+    const { getUserEffectiveLimits } = await import('@/lib/addons');
+    const limits = await getUserEffectiveLimits(user.id, supabase);
+    const { count: ownedDomainCount } = await supabase
+      .from('domain_purchases')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('status', 'completed');
+
+    if ((ownedDomainCount ?? 0) >= limits.customDomainLimit) {
+      return NextResponse.json(
+        { error: `Domain limit reached (${limits.customDomainLimit}). Contact us for additional domains.` },
         { status: 403 }
       );
     }

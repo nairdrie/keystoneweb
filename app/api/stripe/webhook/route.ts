@@ -380,6 +380,34 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // ── Cancel all add-ons when subscription is fully deleted/cancelled ──
+        if (status === 'canceled' && event.type === 'customer.subscription.deleted') {
+          const { data: subRow } = await supabase
+            .from('user_subscriptions')
+            .select('user_id')
+            .eq('stripe_subscription_id', subscription.id)
+            .single();
+
+          if (subRow?.user_id) {
+            const { error: addonErr } = await supabase
+              .from('user_addons')
+              .update({
+                status: 'cancelled',
+                cancelled_at: new Date().toISOString(),
+                stripe_item_id: null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('user_id', subRow.user_id)
+              .in('status', ['approved', 'active']);
+
+            if (addonErr) {
+              console.error('Failed to cancel add-ons on subscription deletion:', addonErr);
+            } else {
+              console.log(`Add-ons cancelled for user ${subRow.user_id} due to subscription cancellation`);
+            }
+          }
+        }
+
         console.log(`✅ Subscription ${subscription.id} updated to status: ${status}, plan: ${planName}`);
         break;
       }

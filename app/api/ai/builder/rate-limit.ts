@@ -30,10 +30,23 @@ export interface RateLimitResult {
 
 const FREE_LIMIT = 4;
 
-const LIMITS = {
+const BASE_LIMITS = {
   basic: { day: 10,  week: 20, month: 30  },
   pro:   { day: 30,  week: 50, month: 100 },
 } as const;
+
+/**
+ * Get effective AI limits, applying add-on multiplier if provided.
+ * multiplier=1 (default) means base limits; multiplier=2 doubles them, etc.
+ */
+function getEffectiveLimits(plan: 'basic' | 'pro', multiplier: number = 1) {
+  const base = BASE_LIMITS[plan];
+  return {
+    day:   base.day   * multiplier,
+    week:  base.week  * multiplier,
+    month: base.month * multiplier,
+  };
+}
 
 // ── Cancel anti-spam (in-memory only — this is intentionally lightweight) ──
 const CANCEL_RATE_LIMIT_MAX = 5;
@@ -115,6 +128,7 @@ export async function getUsageRemaining(
   plan: UserPlan,
   subscriptionStartedAt: string | null,
   supabase: any,
+  aiMultiplier: number = 1,
 ): Promise<UsageRemaining> {
   const startedAt = subscriptionStartedAt ? new Date(subscriptionStartedAt) : new Date(0);
 
@@ -123,7 +137,7 @@ export async function getUsageRemaining(
     return { total: Math.max(0, FREE_LIMIT - used) };
   }
 
-  const limits = LIMITS[plan];
+  const limits = getEffectiveLimits(plan, aiMultiplier);
   const { day, week, month } = windowStarts();
 
   const effectiveDay   = new Date(Math.max(startedAt.getTime(), day.getTime()));
@@ -152,6 +166,7 @@ export async function checkAndRecordUsage(
   plan: UserPlan,
   subscriptionStartedAt: string | null,
   supabase: any,
+  aiMultiplier: number = 1,
 ): Promise<RateLimitResult> {
   const startedAt = subscriptionStartedAt ? new Date(subscriptionStartedAt) : new Date(0);
 
@@ -177,7 +192,7 @@ export async function checkAndRecordUsage(
   }
 
   // ── Basic / Pro plans ────────────────────────────────────────────────────
-  const limits = LIMITS[plan];
+  const limits = getEffectiveLimits(plan, aiMultiplier);
   const { day, week, month } = windowStarts();
 
   const effectiveDay   = new Date(Math.max(startedAt.getTime(), day.getTime()));

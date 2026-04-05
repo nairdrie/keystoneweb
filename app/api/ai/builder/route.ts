@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import { buildSystemPrompt } from '@/lib/ai/builder-schema';
 import { checkAndRecordUsage, getUsageRemaining, UserPlan } from './rate-limit';
+import { getUserEffectiveLimits } from '@/lib/addons';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -28,11 +29,13 @@ export async function GET(_req: NextRequest) {
       .single();
 
     const plan = getPlan(subscription?.subscription_status, subscription?.subscription_plan);
+    const effectiveLimits = await getUserEffectiveLimits(user.id, supabase);
     const remaining = await getUsageRemaining(
       user.id,
       plan,
       subscription?.subscription_started_at ?? null,
       supabase,
+      effectiveLimits.aiMultiplier,
     );
 
     return NextResponse.json({ remaining });
@@ -63,11 +66,13 @@ export async function POST(req: NextRequest) {
     const plan = getPlan(subscription?.subscription_status, subscription?.subscription_plan);
 
     // Rate limit check + record usage in DB
+    const aiLimits = await getUserEffectiveLimits(user.id, supabase);
     const rateLimitResult = await checkAndRecordUsage(
       user.id,
       plan,
       subscription?.subscription_started_at ?? null,
       supabase,
+      aiLimits.aiMultiplier,
     );
 
     if (!rateLimitResult.allowed) {

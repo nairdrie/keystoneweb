@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import { trackEvent } from '@/lib/analytics';
 import { getPlanByName } from '@/lib/plans';
+import { getUserEffectiveLimits } from '@/lib/addons';
 
 interface PublishRequest {
   siteId: string;
@@ -92,7 +93,8 @@ export async function POST(request: NextRequest) {
 
     // Enforce publish limit: count currently published sites (excluding this one)
     const plan = getPlanByName(subscription.subscription_plan);
-    const publishLimit = plan?.publishLimit ?? 1;
+    const effectiveLimits = await getUserEffectiveLimits(user.id, supabase);
+    const publishLimit = effectiveLimits.publishLimit;
 
     const { count: publishedCount } = await supabase
       .from('sites')

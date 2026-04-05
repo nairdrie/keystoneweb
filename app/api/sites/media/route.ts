@@ -2,6 +2,7 @@ import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { PLANS, getPlanByName } from '@/lib/plans';
+import { getUserEffectiveLimits } from '@/lib/addons';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -217,14 +218,8 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Storage quota check ───────────────────────────────────────────────────
-    const { data: sub } = await supabase
-      .from('user_subscriptions')
-      .select('subscription_plan, storage_limit_mb')
-      .eq('user_id', user.id)
-      .single();
-
-    const planConfig = getPlanByName(sub?.subscription_plan);
-    const storageLimitMb = planConfig?.storageLimitMb ?? sub?.storage_limit_mb ?? PLANS.basic.storageLimitMb;
+    const effectiveLimits = await getUserEffectiveLimits(user.id, supabase);
+    const storageLimitMb = effectiveLimits.storageLimitMb;
     const storageLimitBytes = storageLimitMb * 1024 * 1024;
     const currentUsageBytes = await getUserStorageUsed(supabase, user.id);
 

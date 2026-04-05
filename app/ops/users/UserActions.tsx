@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { UserCircle, Ban, Unlock, CreditCard, ChevronDown, Mail } from 'lucide-react';
+import { UserCircle, Ban, Unlock, CreditCard, ChevronDown, Mail, Puzzle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 
@@ -135,6 +135,15 @@ export default function UserActions({ userId, userEmail, isBanned, currentPlan, 
   return (
     <>
       <div className="flex items-center justify-end gap-2">
+        {/* Manage Add-Ons */}
+        <button
+          onClick={() => router.push(`/ops/users/${userId}/addons`)}
+          className="p-1.5 rounded-md bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+          title="Manage Add-Ons"
+        >
+          <Puzzle className="w-4 h-4" />
+        </button>
+
         {/* Contact */}
         <button
           onClick={() => setShowContact(true)}
