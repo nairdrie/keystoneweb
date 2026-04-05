@@ -1230,3 +1230,151 @@ export async function sendAddonApprovalEmail(data: {
         return { success: false, error };
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MEMBERSHIP EMAILS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface MemberEmailData {
+    memberEmail: string;
+    memberName?: string;
+    siteName?: string;
+}
+
+/**
+ * Send email verification link to a new member.
+ */
+export async function sendMemberVerificationEmail(
+    data: MemberEmailData & { verificationUrl: string }
+) {
+    try {
+        await resend.emails.send({
+            from: 'Keystoneweb <noreply@keystoneweb.ca>',
+            to: data.memberEmail,
+            subject: `Verify your email${data.siteName ? ` for ${data.siteName}` : ''}`,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
+                    <h1 style="font-size: 24px; color: #1e293b; margin-bottom: 16px;">Verify Your Email</h1>
+                    <p style="color: #64748b; font-size: 15px; line-height: 1.6;">
+                        Hi${data.memberName ? ` ${data.memberName}` : ''},
+                    </p>
+                    <p style="color: #64748b; font-size: 15px; line-height: 1.6;">
+                        Thanks for signing up${data.siteName ? ` for ${data.siteName}` : ''}. Please verify your email address by clicking the button below.
+                    </p>
+                    <div style="text-align: center; margin: 32px 0;">
+                        <a href="${data.verificationUrl}" style="display: inline-block; padding: 12px 32px; background-color: #1e293b; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">
+                            Verify Email
+                        </a>
+                    </div>
+                    <p style="color: #94a3b8; font-size: 13px;">
+                        This link expires in 24 hours. If you didn't sign up, you can safely ignore this email.
+                    </p>
+                </div>
+            `,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send member verification email:', error);
+        return { success: false, error };
+    }
+}
+
+/**
+ * Send password reset link to a member.
+ */
+export async function sendMemberPasswordResetEmail(
+    data: MemberEmailData & { resetUrl: string }
+) {
+    try {
+        await resend.emails.send({
+            from: 'Keystoneweb <noreply@keystoneweb.ca>',
+            to: data.memberEmail,
+            subject: `Reset your password${data.siteName ? ` for ${data.siteName}` : ''}`,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
+                    <h1 style="font-size: 24px; color: #1e293b; margin-bottom: 16px;">Reset Your Password</h1>
+                    <p style="color: #64748b; font-size: 15px; line-height: 1.6;">
+                        Hi${data.memberName ? ` ${data.memberName}` : ''},
+                    </p>
+                    <p style="color: #64748b; font-size: 15px; line-height: 1.6;">
+                        We received a request to reset your password. Click the button below to set a new one.
+                    </p>
+                    <div style="text-align: center; margin: 32px 0;">
+                        <a href="${data.resetUrl}" style="display: inline-block; padding: 12px 32px; background-color: #1e293b; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 14px;">
+                            Reset Password
+                        </a>
+                    </div>
+                    <p style="color: #94a3b8; font-size: 13px;">
+                        This link expires in 1 hour. If you didn't request a password reset, you can safely ignore this email.
+                    </p>
+                </div>
+            `,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send member password reset email:', error);
+        return { success: false, error };
+    }
+}
+
+/**
+ * Send welcome email to a verified member.
+ */
+export async function sendMemberWelcomeEmail(
+    data: MemberEmailData & { customSubject?: string; customBody?: string }
+) {
+    try {
+        const subject = data.customSubject || `Welcome to ${data.siteName || 'our community'}!`;
+        const bodyHtml = data.customBody
+            ? `<div style="color: #64748b; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">${data.customBody}</div>`
+            : `<p style="color: #64748b; font-size: 15px; line-height: 1.6;">Thanks for joining${data.siteName ? ` ${data.siteName}` : ''}! Your account is now active.</p>`;
+
+        await resend.emails.send({
+            from: 'Keystoneweb <noreply@keystoneweb.ca>',
+            to: data.memberEmail,
+            subject,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
+                    <h1 style="font-size: 24px; color: #1e293b; margin-bottom: 16px;">${subject}</h1>
+                    <p style="color: #64748b; font-size: 15px;">Hi${data.memberName ? ` ${data.memberName}` : ''},</p>
+                    ${bodyHtml}
+                </div>
+            `,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send member welcome email:', error);
+        return { success: false, error };
+    }
+}
+
+/**
+ * Send new member signup notification to site owner.
+ */
+export async function sendMemberSignupNotification(
+    data: { ownerEmail: string; memberEmail: string; memberName?: string; siteName?: string }
+) {
+    try {
+        await resend.emails.send({
+            from: 'Keystoneweb <noreply@keystoneweb.ca>',
+            to: data.ownerEmail,
+            subject: `New member signup: ${data.memberName || data.memberEmail}`,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
+                    <h1 style="font-size: 24px; color: #1e293b; margin-bottom: 16px;">New Member Signup</h1>
+                    <p style="color: #64748b; font-size: 15px; line-height: 1.6;">
+                        A new member has signed up for ${data.siteName || 'your site'}:
+                    </p>
+                    <div style="background-color: #f8fafc; border-radius: 8px; padding: 16px; margin: 16px 0;">
+                        ${data.memberName ? `<p style="color: #1e293b; font-weight: 600; margin: 0 0 4px;">${data.memberName}</p>` : ''}
+                        <p style="color: #64748b; margin: 0;">${data.memberEmail}</p>
+                    </div>
+                </div>
+            `,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send member signup notification:', error);
+        return { success: false, error };
+    }
+}

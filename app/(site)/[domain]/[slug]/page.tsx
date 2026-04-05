@@ -5,6 +5,11 @@ import { getTemplateMetadata } from '@/lib/db/template-queries';
 import JsonLdScript from '@/app/components/JsonLdScript';
 import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
 import { BusinessProfile } from '@/lib/types/sites';
+import {
+    isMemberSystemRoute,
+    hasMembershipBlockInPages,
+    renderMemberSystemPage,
+} from '@/lib/membership/system-routes';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +39,18 @@ export default async function CustomDomainDynamicPage({
                     </div>
                 </div>
             );
+        }
+
+        // Check if this is a membership system route
+        if (isMemberSystemRoute(slug)) {
+            const { data: allPagesCheck } = await supabase
+                .from('pages')
+                .select('id, slug, title, published_data')
+                .eq('site_id', site.id);
+            if (hasMembershipBlockInPages(allPagesCheck || [])) {
+                const systemPage = await renderMemberSystemPage({ site, slug, allPages: allPagesCheck || [] });
+                if (systemPage) return systemPage;
+            }
         }
 
         // Fetch the specific page
@@ -67,12 +84,16 @@ export default async function CustomDomainDynamicPage({
         const hasProductBlock = (allPages || []).some((p: any) =>
             (p.published_data?.blocks || []).some((b: any) => b.type === 'productGrid')
         );
+        const hasMembershipBlock = (allPages || []).some((p: any) =>
+            (p.published_data?.blocks || []).some((b: any) => b.type === 'membershipPortal')
+        );
 
         const mergedPublishData = {
             ...sitePublishData,
             ...pagePublishData,
             __pages: (allPages || []).map(({ id, slug, title }: any) => ({ id, slug, title })),
             __hasProductBlock: hasProductBlock,
+            __hasMembershipBlock: hasMembershipBlock,
         };
 
         const TemplateComp = await getTemplateComponent(site.selected_template_id);

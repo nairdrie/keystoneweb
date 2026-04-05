@@ -69,6 +69,9 @@ export default async function PreviewPage({
     const hasProductBlock = (allPages || []).some((p: any) =>
       (p.design_data?.blocks || []).some((b: any) => b.type === 'productGrid')
     );
+    const hasMembershipBlock = (allPages || []).some((p: any) =>
+      (p.design_data?.blocks || []).some((b: any) => b.type === 'membershipPortal')
+    );
 
     const translationsConfig = site.translations_config as any;
     const mergedDesignData = {
@@ -78,6 +81,7 @@ export default async function PreviewPage({
       __currentLanguage: translationsConfig?.defaultLanguage || 'en',
       __translationsConfig: translationsConfig || null,
       __hasProductBlock: hasProductBlock,
+      __hasMembershipBlock: hasMembershipBlock,
     };
 
     const TemplateComp = await getTemplateComponent(site.selected_template_id);

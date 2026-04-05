@@ -59,6 +59,9 @@ export default async function PublicSitePage({
     const hasProductBlock = (allPages || []).some((p: any) =>
       (p.published_data?.blocks || []).some((b: any) => b.type === 'productGrid')
     );
+    const hasMembershipBlock = (allPages || []).some((p: any) =>
+      (p.published_data?.blocks || []).some((b: any) => b.type === 'membershipPortal')
+    );
 
     const translationsConfig = site.translations_config as any;
     const mergedPublishData = {
@@ -68,6 +71,7 @@ export default async function PublicSitePage({
       __currentLanguage: translationsConfig?.defaultLanguage || 'en',
       __translationsConfig: translationsConfig || null,
       __hasProductBlock: hasProductBlock,
+      __hasMembershipBlock: hasMembershipBlock,
     };
 
     // Preload template component and metadata for SSR

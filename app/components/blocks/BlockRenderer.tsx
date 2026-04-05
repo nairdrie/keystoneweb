@@ -31,6 +31,7 @@ import PDFBlock from './PDFBlock';
 import ResourcesBlock from './ResourcesBlock';
 import DeliveryLinksBlock from './DeliveryLinksBlock';
 import FeaturedQuoteBlock from './FeaturedQuoteBlock';
+import MembershipPortalBlock from './MembershipPortalBlock';
 
 // We loosen the component type to accommodate both the simpler original blocks and the advanced blocks
 const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
@@ -61,6 +62,7 @@ const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     resources: ResourcesBlock,
     deliveryLinks: DeliveryLinksBlock,
     featuredQuote: FeaturedQuoteBlock,
+    membershipPortal: MembershipPortalBlock,
 };
 
 const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: boolean }> = [
@@ -89,6 +91,7 @@ const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: boolean }
     { type: 'events', label: '📅 Events' },
     { type: 'pdf', label: '📄 PDF Viewer' },
     { type: 'resources', label: '📚 Resources' },
+    { type: 'membershipPortal', label: 'Members Only', proOnly: true },
     { type: 'custom_html', label: 'Custom HTML / Embed', proOnly: true },
     { type: 'featuredQuote', label: 'Featured Quote' },
 ];
