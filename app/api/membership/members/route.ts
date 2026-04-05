@@ -33,23 +33,39 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(request.nextUrl.searchParams.get('limit') || '50'), 100);
     const offset = (page - 1) * limit;
 
+    const sortByParam = request.nextUrl.searchParams.get('sortBy') || 'signed_up_at';
+    const sortDirParam = request.nextUrl.searchParams.get('sortDir') || 'desc';
+    const ascending = sortDirParam === 'asc';
+
+    // Map frontend sort keys to actual DB columns
+    const SORT_COLUMN_MAP: Record<string, string> = {
+      name: 'name',
+      email: 'email',
+      status: 'status',
+      signed_up_at: 'signed_up_at',
+      last_login_at: 'last_login_at',
+      subscription_status: 'subscription_status',
+      package: 'package_id',
+    };
+    const sortColumn = SORT_COLUMN_MAP[sortByParam] || 'signed_up_at';
+
     let query = supabase
       .from('members')
       .select(`
         id, email, name, avatar_url, status, email_verified,
-        package_id, subscription_status, current_period_end,
+        custom_fields, package_id, subscription_status, current_period_end,
         marketing_opt_in, signed_up_at, last_login_at, created_at,
         membership_packages(id, name)
       `, { count: 'exact' })
       .eq('site_id', siteId)
-      .order('created_at', { ascending: false })
+      .order(sortColumn, { ascending })
       .range(offset, offset + limit - 1);
 
     if (status && status !== 'all') {
       query = query.eq('status', status);
     }
     if (search) {
-      query = query.or(`email.ilike.%${search}%,name.ilike.%${search}%`);
+      query = query.or(`email.ilike.%${search}%,name.ilike.%${search}%,custom_fields::text.ilike.%${search}%`);
     }
 
     const { data: members, count, error } = await query;
