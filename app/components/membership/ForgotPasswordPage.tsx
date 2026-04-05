@@ -7,9 +7,10 @@ interface ForgotPasswordPageProps {
   siteId: string;
   siteName?: string;
   palette: Record<string, string>;
+  branding?: Record<string, any>;
 }
 
-export default function ForgotPasswordPage({ siteId, siteName, palette }: ForgotPasswordPageProps) {
+export default function ForgotPasswordPage({ siteId, siteName, palette, branding }: ForgotPasswordPageProps) {
   const primary = palette.primary || '#374151';
 
   // Check if this is a reset action (has token in URL)
@@ -17,16 +18,16 @@ export default function ForgotPasswordPage({ siteId, siteName, palette }: Forgot
   const resetToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('token') : null;
 
   if (isResetMode && resetToken) {
-    return <ResetPasswordForm siteId={siteId} token={resetToken} palette={palette} primary={primary} />;
+    return <ResetPasswordForm siteId={siteId} token={resetToken} palette={palette} primary={primary} branding={branding} />;
   }
 
-  return <ForgotPasswordForm siteId={siteId} siteName={siteName} palette={palette} primary={primary} />;
+  return <ForgotPasswordForm siteId={siteId} siteName={siteName} palette={palette} primary={primary} branding={branding} />;
 }
 
 function ForgotPasswordForm({
-  siteId, siteName, palette, primary,
+  siteId, siteName, palette, primary, branding,
 }: {
-  siteId: string; siteName?: string; palette: Record<string, string>; primary: string;
+  siteId: string; siteName?: string; palette: Record<string, string>; primary: string; branding?: Record<string, any>;
 }) {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -85,12 +86,22 @@ function ForgotPasswordForm({
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
           <div className="text-center mb-8">
-            <div
-              className="w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center"
-              style={{ backgroundColor: `${primary}15` }}
-            >
-              <KeyRound className="w-6 h-6" style={{ color: primary }} />
-            </div>
+            {branding?.siteLogo ? (
+              <div className="flex justify-center mb-4">
+                <img
+                  src={branding.siteLogo}
+                  alt={siteName || 'Logo'}
+                  className="max-h-16 w-auto object-contain"
+                />
+              </div>
+            ) : (
+              <div
+                className="w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center"
+                style={{ backgroundColor: `${primary}15` }}
+              >
+                <KeyRound className="w-6 h-6" style={{ color: primary }} />
+              </div>
+            )}
             <h1 className="text-2xl font-bold text-slate-900">Forgot Password</h1>
             <p className="text-sm text-slate-500 mt-1">Enter your email to receive a reset link</p>
           </div>
