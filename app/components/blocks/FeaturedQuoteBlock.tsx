@@ -476,7 +476,11 @@ function MultiGridVariant({ data, isEditMode, updateContent, uploadImage, pPrima
                                         contentKey={`people[${index}].image`}
                                         imageUrl={person.image}
                                         isEditMode={isEditMode}
-                                        onSave={(_key, value) => handleUpdatePerson(index, 'image', value)}
+                                        onSave={(key, value) => {
+                                            if (key === `people[${index}].image`) {
+                                                handleUpdatePerson(index, 'image', value);
+                                            }
+                                        }}
                                         onUpload={uploadImage}
                                         className="w-full h-full object-cover"
                                         placeholder="Photo"
