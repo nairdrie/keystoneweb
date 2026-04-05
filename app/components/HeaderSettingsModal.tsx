@@ -80,6 +80,9 @@ export default function HeaderSettingsModal({
     const [navColor, setNavColor] = useState('');
     // CSS
     const [customCss, setCustomCss] = useState('');
+    // Member sign-in link
+    const [showMemberSignIn, setShowMemberSignIn] = useState(true);
+    const [memberSignInText, setMemberSignInText] = useState('');
 
     useEffect(() => {
         if (!isOpen) return;
@@ -98,6 +101,8 @@ export default function HeaderSettingsModal({
         setBgColor(siteContent.headerBgColor || '');
         setSticky(siteContent.headerSticky || (defaults.sticky === false ? 'none' : 'always'));
         setNavFontSize(siteContent.headerNavFontSize || '');
+        setShowMemberSignIn(siteContent.headerShowMemberSignIn !== false);
+        setMemberSignInText(siteContent.headerMemberSignInText || '');
         setNavFontWeight(siteContent.headerNavFontWeight || '');
         setNavColor(siteContent.headerNavColor || '');
         setCustomCss(siteContent.headerCustomCss || '');
@@ -124,6 +129,8 @@ export default function HeaderSettingsModal({
         updateSiteContent('headerNavFontWeight', navFontWeight);
         updateSiteContent('headerNavColor', navColor);
         updateSiteContent('headerCustomCss', customCss);
+        updateSiteContent('headerShowMemberSignIn', showMemberSignIn);
+        updateSiteContent('headerMemberSignInText', memberSignInText);
         onClose();
     };
 
@@ -329,6 +336,36 @@ export default function HeaderSettingsModal({
                                     </div>
                                 )}
                             </div>
+
+                            {/* Member Sign-In Link */}
+                            {siteContent.__hasMembershipBlock && rightSide === 'cta' && (
+                                <div>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div>
+                                            <label className="text-sm font-semibold text-slate-800">"Already a member?" Link</label>
+                                            <p className="text-xs text-slate-500 mt-0.5">Shown below the CTA button — links to the sign-in page</p>
+                                        </div>
+                                        <button
+                                            onClick={() => setShowMemberSignIn(!showMemberSignIn)}
+                                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${showMemberSignIn ? 'bg-blue-600' : 'bg-slate-200'}`}
+                                        >
+                                            <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${showMemberSignIn ? 'translate-x-4' : 'translate-x-0'}`} />
+                                        </button>
+                                    </div>
+                                    {showMemberSignIn && (
+                                        <div className="bg-slate-50 rounded-xl p-4">
+                                            <label className="block text-xs text-slate-600 mb-1">Link Text</label>
+                                            <input
+                                                type="text"
+                                                value={memberSignInText}
+                                                onChange={(e) => setMemberSignInText(e.target.value)}
+                                                placeholder="Already a member? Sign In"
+                                                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </>
                     )}
 
