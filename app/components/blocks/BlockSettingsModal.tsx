@@ -79,6 +79,11 @@ export default function BlockSettingsModal({
             { id: 'minimal', label: 'Minimal / Pull Quote' },
             { id: 'essay', label: 'Essay / Longform' },
             { id: 'multiGrid', label: 'Multi-Person Grid' }
+        ],
+        carousel: [
+            { id: 'cards', label: 'Scrolling Cards' },
+            { id: 'slides', label: 'Split Slides' },
+            { id: 'minimal', label: 'Minimal / Centered' },
         ]
     };
 

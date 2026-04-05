@@ -170,7 +170,20 @@ AVAILABLE BLOCK TYPES AND THEIR DATA SCHEMAS:
       html: string            // Raw HTML+CSS. No <script> tags allowed. Style tags and iframes are OK.
     }
 
-23. "deliveryLinks" — Delivery app link buttons (Uber Eats, DoorDash, Skip the Dishes, Grubhub, custom)
+23. "carousel" — Scrolling content carousel with image or icon + title + text
+    data: {
+      title: string,            // Optional section heading
+      subtitle: string,         // Optional section subheading
+      variant: "cards" | "slides" | "minimal",
+      items: Array<{
+        mediaType: "image" | "icon",  // "icon" uses a Lucide icon; "image" uses an uploaded photo
+        icon: string,                  // Lucide icon name (e.g. "Star", "Zap", "Shield") — used when mediaType is "icon"
+        title: string,
+        text: string
+      }>   // 2–8 items recommended
+    }
+
+24. "deliveryLinks" — Delivery app link buttons (Uber Eats, DoorDash, Skip the Dishes, Grubhub, custom)
     data: {
       title: string,          // e.g. "Order Online"
       subtitle: string,       // e.g. "Fresh food delivered to your door"
