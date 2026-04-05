@@ -69,6 +69,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                             <div key={index} className="relative group">
                                 <EditableImage
                                     contentKey={`gallery_image_${index}`}
+                                    initialSettings={data[`gallery_image_${index}__settings`]}
                                     imageUrl={imageUrl}
                                     isEditMode={isEditMode}
                                     onSave={(_key, value) => handleUpdateImage(index, value)}
@@ -102,7 +103,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                     </button>
                     <img
                         src={images[lightboxIndex]}
-                        alt=""
+                        alt={`Gallery image ${lightboxIndex + 1}`}
                         className="max-w-full max-h-full object-contain rounded-lg"
                         onClick={(e) => e.stopPropagation()}
                     />

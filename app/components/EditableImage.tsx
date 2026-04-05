@@ -16,6 +16,7 @@ interface EditableImageProps {
   fallback?: React.ReactNode;
   editOverlayStyle?: 'pill' | 'icon';
   allowUnsplash?: boolean;
+  initialSettings?: ImageSettings;
 }
 
 export default function EditableImage({
@@ -29,11 +30,12 @@ export default function EditableImage({
   fallback,
   editOverlayStyle = 'pill',
   allowUnsplash = true,
+  initialSettings,
 }: EditableImageProps) {
   const context = useEditorContext();
   const [previewUrl, setPreviewUrl] = useState<string | undefined>(imageUrl);
   const [modalOpen, setModalOpen] = useState(false);
-  const [imageSettings, setImageSettings] = useState<ImageSettings>({ objectFit: 'cover', borderRadius: 0 });
+  const [imageSettings, setImageSettings] = useState<ImageSettings>(initialSettings || { objectFit: 'cover', borderRadius: 0 });
   const [attribution, setAttribution] = useState<UnsplashAttribution | undefined>();
 
   // Sync previewUrl when imageUrl prop changes externally (undo/redo, page switch)
@@ -49,10 +51,8 @@ export default function EditableImage({
     // Save the image URL
     onSave(contentKey, newUrl);
 
-    // Save image settings alongside
-    if (settings.objectFit !== 'cover' || (settings.borderRadius && settings.borderRadius > 0)) {
-      onSave(`${contentKey}__settings`, settings);
-    }
+    // Save image settings alongside (always save to persist altText and other settings)
+    onSave(`${contentKey}__settings`, settings);
 
     // Save attribution if from Unsplash
     if (attr) {
@@ -85,7 +85,7 @@ export default function EditableImage({
       <div className="relative w-full h-full">
         <img
           src={previewUrl}
-          alt={contentKey}
+          alt={imageSettings.altText || contentKey}
           className={`rounded ${className}`}
           style={imgStyle}
         />
@@ -113,7 +113,7 @@ export default function EditableImage({
         <div className="relative w-full h-full group cursor-pointer" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setModalOpen(true); }}>
           <img
             src={previewUrl}
-            alt={contentKey}
+            alt={imageSettings.altText || contentKey}
             className={`rounded ${className}`}
             style={imgStyle}
           />

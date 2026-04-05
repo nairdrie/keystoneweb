@@ -83,6 +83,7 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                 )}
                                 <EditableImage
                                     contentKey={`member_${index}_image`}
+                                    initialSettings={data[`member_${index}_image__settings`]}
                                     imageUrl={member.image}
                                     isEditMode={isEditMode}
                                     onSave={(key, value) => { if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value); }}
@@ -179,6 +180,7 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                 )}
                                 <EditableImage
                                     contentKey={`member_${index}_image`}
+                                    initialSettings={data[`member_${index}_image__settings`]}
                                     imageUrl={member.image}
                                     isEditMode={isEditMode}
                                     onSave={(key, value) => { if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value); }}
@@ -275,6 +277,7 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                             )}
                             <EditableImage
                                 contentKey={`member_${index}_image`}
+                                initialSettings={data[`member_${index}_image__settings`]}
                                 imageUrl={member.image}
                                 isEditMode={isEditMode}
                                 onSave={(key, value) => { if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value); }}

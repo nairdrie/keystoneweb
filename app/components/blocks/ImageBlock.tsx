@@ -18,6 +18,7 @@ export default function ImageBlock({ block, palette }: { block: BlockData, palet
             <div className="max-w-5xl mx-auto px-4">
                 <EditableImage
                     contentKey="image"
+                    initialSettings={block.data.image__settings}
                     imageUrl={imageUrl}
                     isEditMode={isEditMode}
                     onSave={(key, val) => updateData(key, val)}

@@ -58,6 +58,7 @@ function ImageContent({ data, isEditMode, updateContent, uploadImage }: any) {
         <Reveal>
             <EditableImage
                 contentKey="image"
+                initialSettings={data.image__settings}
                 imageUrl={data.image}
                 isEditMode={isEditMode}
                 onSave={(key, value) => updateContent(key, value)}

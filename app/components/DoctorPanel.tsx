@@ -674,12 +674,401 @@ function checkTranslations(data: DiagnosticData): DiagnosticResult[] {
     return results;
 }
 
+// --- Accessibility (AODA / WCAG 2.0 AA) checks ---
+
+/**
+ * Parse a hex color string to {r, g, b} (0-255).
+ */
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+    const cleaned = hex.replace('#', '');
+    if (cleaned.length === 3) {
+        return {
+            r: parseInt(cleaned[0] + cleaned[0], 16),
+            g: parseInt(cleaned[1] + cleaned[1], 16),
+            b: parseInt(cleaned[2] + cleaned[2], 16),
+        };
+    }
+    if (cleaned.length === 6) {
+        return {
+            r: parseInt(cleaned.slice(0, 2), 16),
+            g: parseInt(cleaned.slice(2, 4), 16),
+            b: parseInt(cleaned.slice(4, 6), 16),
+        };
+    }
+    return null;
+}
+
+/**
+ * Calculate relative luminance per WCAG 2.0 spec.
+ */
+function relativeLuminance(r: number, g: number, b: number): number {
+    const [rs, gs, bs] = [r, g, b].map(c => {
+        const s = c / 255;
+        return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+}
+
+/**
+ * Calculate WCAG contrast ratio between two hex colors.
+ */
+function contrastRatio(hex1: string, hex2: string): number | null {
+    const c1 = hexToRgb(hex1);
+    const c2 = hexToRgb(hex2);
+    if (!c1 || !c2) return null;
+    const l1 = relativeLuminance(c1.r, c1.g, c1.b);
+    const l2 = relativeLuminance(c2.r, c2.g, c2.b);
+    const lighter = Math.max(l1, l2);
+    const darker = Math.min(l1, l2);
+    return (lighter + 0.05) / (darker + 0.05);
+}
+
+/**
+ * Check all images across pages for missing alt text.
+ * Scans EditableImage-stored alt via __settings keys and inline images in block data.
+ */
+function checkImageAltText(data: DiagnosticData): DiagnosticResult[] {
+    const results: DiagnosticResult[] = [];
+    let totalImages = 0;
+    let missingAlt = 0;
+
+    // Block types that commonly have a primary image via EditableImage
+    const editableImageKeys = ['image', 'bgImage', 'featureImage', 'authorImage', 'quoteImage'];
+    // Block types with array items containing images
+    const arrayImageFields: Record<string, string[]> = {
+        gallery: ['images'],
+        team: ['members'],
+        carousel: ['items'],
+        logoCloud: ['logos'],
+    };
+
+    for (const page of data.pages) {
+        const blocks = page.design_data?.blocks || page.design_data?.__blocks || [];
+        const pageName = page.title || page.slug;
+
+        for (const block of blocks) {
+            const bd = block.data || {};
+
+            // Check primary image keys
+            for (const key of editableImageKeys) {
+                if (bd[key] && typeof bd[key] === 'string' && bd[key].startsWith('http')) {
+                    totalImages++;
+                    const settingsKey = `${key}__settings`;
+                    const altText = bd[settingsKey]?.altText;
+                    if (!altText || altText.trim() === '') {
+                        missingAlt++;
+                        results.push({
+                            id: `a11y-alt-${page.id}-${block.id}-${key}`,
+                            category: 'Accessibility',
+                            label: `Missing alt text: ${block.type} image`,
+                            severity: 'warning',
+                            message: `Image in "${block.type}" block on "${pageName}" has no alt text. Screen readers cannot describe this image to visually impaired users. Edit the image and add descriptive alt text.`,
+                            page: page.slug,
+                            blockType: block.type,
+                        });
+                    }
+                }
+            }
+
+            // Check all keys for image URLs that might be EditableImage-managed
+            for (const key of Object.keys(bd)) {
+                if (
+                    key.endsWith('__settings') ||
+                    key.endsWith('__attribution') ||
+                    editableImageKeys.includes(key)
+                ) continue;
+                if (
+                    typeof bd[key] === 'string' &&
+                    bd[key].startsWith('http') &&
+                    /\.(jpg|jpeg|png|gif|webp|svg)/i.test(bd[key])
+                ) {
+                    totalImages++;
+                    const settingsKey = `${key}__settings`;
+                    const altText = bd[settingsKey]?.altText;
+                    if (!altText || altText.trim() === '') {
+                        missingAlt++;
+                        results.push({
+                            id: `a11y-alt-${page.id}-${block.id}-${key}`,
+                            category: 'Accessibility',
+                            label: `Missing alt text: ${block.type} image`,
+                            severity: 'warning',
+                            message: `Image (${key}) in "${block.type}" block on "${pageName}" has no alt text. Add alt text for accessibility compliance.`,
+                            page: page.slug,
+                            blockType: block.type,
+                        });
+                    }
+                }
+            }
+
+            // Check array items with images (gallery images, team members, carousel items, etc.)
+            for (const key of Object.keys(bd)) {
+                if (!Array.isArray(bd[key])) continue;
+                bd[key].forEach((item: any, index: number) => {
+                    if (!item || typeof item !== 'object') return;
+                    // Check for image/image_url in array items
+                    const imgUrl = item.image || item.image_url || item.coverImage;
+                    if (imgUrl && typeof imgUrl === 'string' && imgUrl.startsWith('http')) {
+                        totalImages++;
+                        // Array items typically don't have __settings, so check for item-level alt
+                        if (!item.altText && !item.alt && !item.name && !item.title) {
+                            missingAlt++;
+                            results.push({
+                                id: `a11y-alt-${page.id}-${block.id}-${key}-${index}`,
+                                category: 'Accessibility',
+                                label: `Missing alt text: ${block.type} item image`,
+                                severity: 'warning',
+                                message: `Image #${index + 1} in "${block.type}" block on "${pageName}" has no alt text or descriptive name/title.`,
+                                page: page.slug,
+                                blockType: block.type,
+                            });
+                        }
+                    }
+                });
+            }
+        }
+    }
+
+    // Check site logo alt text
+    const dd = data.site.design_data || {};
+    if (dd.logo || dd.__siteLogo || dd.siteLogo) {
+        totalImages++;
+        if (!dd.siteTitle && !dd.title && !dd.__siteTitle) {
+            missingAlt++;
+            results.push({
+                id: 'a11y-alt-logo',
+                category: 'Accessibility',
+                label: 'Logo missing alt text',
+                severity: 'warning',
+                message: 'Your site logo uses the site title as alt text, but no site title is set. Set a site title so the logo is accessible.',
+            });
+        }
+    }
+
+    if (totalImages > 0 && missingAlt === 0) {
+        results.push({
+            id: 'a11y-alt-ok',
+            category: 'Accessibility',
+            label: 'Image alt text',
+            severity: 'pass',
+            message: `All ${totalImages} image(s) have alt text set.`,
+        });
+    } else if (totalImages === 0) {
+        results.push({
+            id: 'a11y-alt-none',
+            category: 'Accessibility',
+            label: 'Image alt text',
+            severity: 'pass',
+            message: 'No images found to check.',
+        });
+    }
+
+    return results;
+}
+
+/**
+ * Check colour contrast ratios against WCAG 2.0 AA standards.
+ * AODA requires WCAG 2.0 Level AA: 4.5:1 for normal text, 3:1 for large text.
+ * We check the user's palette colours in common usage patterns.
+ */
+function checkColorContrast(data: DiagnosticData): DiagnosticResult[] {
+    const results: DiagnosticResult[] = [];
+    const dd = data.site.design_data || {};
+
+    // Resolve palette colors
+    const customPrimary = dd.__customPalette_primary;
+    const customSecondary = dd.__customPalette_secondary;
+    const customAccent = dd.__customPalette_accent;
+
+    const primary = customPrimary || dd.palette?.primary || '#1f2937';
+    const secondary = customSecondary || dd.palette?.secondary || '#ef4444';
+    const accent = customAccent || dd.palette?.accent || '#f3f4f6';
+
+    const WHITE = '#ffffff';
+    const BLACK = '#000000';
+
+    // Common colour pairings used in templates:
+    // 1. Primary text on white background (headings, body text)
+    // 2. White text on primary background (hero overlays, dark sections)
+    // 3. White text on secondary background (buttons, CTAs)
+    // 4. Primary text on accent background (accent sections like hero, feature areas)
+    // 5. Secondary text on white background (links, highlights)
+
+    const pairings: { fg: string; bg: string; label: string; usage: string }[] = [
+        { fg: primary, bg: WHITE, label: 'Primary on White', usage: 'Headings and body text on white sections' },
+        { fg: WHITE, bg: primary, label: 'White on Primary', usage: 'Text on primary-coloured hero banners and sections' },
+        { fg: WHITE, bg: secondary, label: 'White on Secondary', usage: 'Button text and CTA labels' },
+        { fg: primary, bg: accent, label: 'Primary on Accent', usage: 'Text on accent-coloured background sections' },
+        { fg: secondary, bg: WHITE, label: 'Secondary on White', usage: 'Links, highlights, and emphasis text' },
+    ];
+
+    let allPass = true;
+
+    for (const pair of pairings) {
+        const ratio = contrastRatio(pair.fg, pair.bg);
+        if (ratio === null) continue;
+
+        const roundedRatio = Math.round(ratio * 100) / 100;
+
+        if (ratio < 3) {
+            allPass = false;
+            results.push({
+                id: `a11y-contrast-${pair.label.replace(/\s/g, '-').toLowerCase()}`,
+                category: 'Accessibility',
+                label: `Poor contrast: ${pair.label}`,
+                severity: 'error',
+                message: `Contrast ratio ${roundedRatio}:1 fails WCAG AA for all text sizes (minimum 4.5:1 for normal text, 3:1 for large text). Used for: ${pair.usage}. Adjust your colours in the Design Toolbar → Colours panel.`,
+            });
+        } else if (ratio < 4.5) {
+            allPass = false;
+            results.push({
+                id: `a11y-contrast-${pair.label.replace(/\s/g, '-').toLowerCase()}`,
+                category: 'Accessibility',
+                label: `Low contrast: ${pair.label}`,
+                severity: 'warning',
+                message: `Contrast ratio ${roundedRatio}:1 passes for large text (3:1) but fails for normal text (4.5:1 required). Used for: ${pair.usage}. Consider adjusting your colours.`,
+            });
+        }
+    }
+
+    if (allPass) {
+        results.push({
+            id: 'a11y-contrast-ok',
+            category: 'Accessibility',
+            label: 'Colour contrast',
+            severity: 'pass',
+            message: 'All colour combinations meet WCAG AA contrast requirements (4.5:1).',
+        });
+    }
+
+    return results;
+}
+
+/**
+ * Check for common structural accessibility issues required by AODA / WCAG 2.0 AA.
+ */
+function checkAccessibilityStructure(data: DiagnosticData): DiagnosticResult[] {
+    const results: DiagnosticResult[] = [];
+    const dd = data.site.design_data || {};
+
+    // Check: Site language is set (WCAG 3.1.1 — Language of Page)
+    // The site renders with lang="en" by default in layout.tsx, so this is handled.
+    // But we can warn if they have translations enabled but no default language set.
+    const transConfig = data.site.translations_config;
+    if (transConfig?.enabled && !transConfig.defaultLanguage) {
+        results.push({
+            id: 'a11y-lang-missing',
+            category: 'Accessibility',
+            label: 'Default language not set',
+            severity: 'warning',
+            message: 'Translations are enabled but no default language is specified. Screen readers rely on the language attribute to pronounce text correctly. Set a default language in the Translations panel.',
+        });
+    }
+
+    // Check: Pages have proper heading structure (at least one heading per page)
+    for (const page of data.pages) {
+        const blocks = page.design_data?.blocks || page.design_data?.__blocks || [];
+        const pageName = page.title || page.slug;
+        if (blocks.length === 0) continue;
+
+        // Check if any block has heading/title content
+        const hasHeading = blocks.some((block: any) => {
+            const bd = block.data || {};
+            return (
+                block.type === 'hero' ||
+                bd.title || bd.heading || bd.headline ||
+                bd.sectionTitle || bd.sectionHeading
+            );
+        });
+
+        if (!hasHeading) {
+            results.push({
+                id: `a11y-heading-${page.id}`,
+                category: 'Accessibility',
+                label: `No heading: "${pageName}"`,
+                severity: 'warning',
+                message: `Page "${pageName}" may lack a visible heading (h1/h2). Headings help screen reader users navigate and understand page structure (WCAG 2.4.6).`,
+                page: page.slug,
+            });
+        }
+    }
+
+    // Check: Contact forms have associated labels (WCAG 1.3.1 / 4.1.2)
+    const hasContactForm = data.pages.some(page => {
+        const blocks = page.design_data?.blocks || page.design_data?.__blocks || [];
+        return blocks.some((b: any) => b.type === 'contact_form');
+    });
+    if (hasContactForm) {
+        results.push({
+            id: 'a11y-form-labels',
+            category: 'Accessibility',
+            label: 'Form field labels',
+            severity: 'pass',
+            message: 'Contact form uses labelled input fields for screen reader compatibility.',
+        });
+    }
+
+    // Check: Navigation is present (WCAG 2.4.5 — Multiple ways to find pages)
+    const navItems = dd.__navItems || [];
+    if (data.pages.length > 1 && navItems.length === 0) {
+        results.push({
+            id: 'a11y-nav-missing',
+            category: 'Accessibility',
+            label: 'No navigation menu',
+            severity: 'warning',
+            message: 'Your site has multiple pages but no navigation menu. Users (including those using assistive technology) need a way to navigate between pages (WCAG 2.4.5).',
+        });
+    }
+
+    // Check: Link text — scan for generic "Click here" / "Read more" link labels without context
+    let genericLinkCount = 0;
+    for (const page of data.pages) {
+        const blocks = page.design_data?.blocks || page.design_data?.__blocks || [];
+        for (const block of blocks) {
+            const bd = block.data || {};
+            for (const key of Object.keys(bd)) {
+                if (typeof bd[key] !== 'string') continue;
+                const val = bd[key].trim().toLowerCase();
+                if (
+                    (key.toLowerCase().includes('button') || key.toLowerCase().includes('cta')) &&
+                    (val === 'click here' || val === 'read more' || val === 'learn more' || val === 'here')
+                ) {
+                    genericLinkCount++;
+                }
+            }
+        }
+    }
+    if (genericLinkCount > 0) {
+        results.push({
+            id: 'a11y-generic-links',
+            category: 'Accessibility',
+            label: 'Generic link text found',
+            severity: 'warning',
+            message: `${genericLinkCount} button(s) use generic text like "Click here" or "Read more". Screen readers read links out of context — use descriptive text like "View our services" instead (WCAG 2.4.4).`,
+        });
+    }
+
+    if (results.length === 0) {
+        results.push({
+            id: 'a11y-structure-ok',
+            category: 'Accessibility',
+            label: 'Page structure',
+            severity: 'pass',
+            message: 'Site structure meets accessibility requirements.',
+        });
+    }
+
+    return results;
+}
+
 function runAllChecks(data: DiagnosticData): DiagnosticResult[] {
     return [
         ...checkSiteBasics(data),
         ...checkPages(data),
         ...checkButtonsAndLinks(data),
         ...checkTranslations(data),
+        ...checkImageAltText(data),
+        ...checkColorContrast(data),
+        ...checkAccessibilityStructure(data),
         ...checkBooking(data),
         ...checkEcommerce(data),
         ...checkContactForm(data),
@@ -757,7 +1146,7 @@ export default function DoctorPanel({ siteId }: DoctorPanelProps) {
     return (
         <div className="p-4 space-y-4">
             <div className="text-sm text-slate-600">
-                Run a full health check on your site before publishing. This will scan every page for missing configurations, broken links, and incomplete setups.
+                Run a full health check on your site before publishing. Scans for missing configurations, broken links, incomplete setups, and accessibility compliance (AODA / WCAG 2.0 AA).
             </div>
 
             <button

@@ -410,7 +410,7 @@ function AddProductForm({ siteId, onAdded, onCancel }: {
                     <div className="flex gap-2 flex-wrap mb-2">
                         {images.map((img, i) => (
                             <div key={i} className="relative group w-20 h-20 rounded-lg overflow-hidden border border-slate-200">
-                                <img src={img} alt="" className="w-full h-full object-cover" />
+                                <img src={img} alt={`Product image ${i + 1}`} className="w-full h-full object-cover" />
                                 <button
                                     onClick={() => removeImage(i)}
                                     className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"

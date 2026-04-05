@@ -50,6 +50,7 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
                                 <div key={index} className="flex items-center justify-center p-6 bg-gray-50 rounded-xl">
                                     <EditableImage
                                         contentKey={`logo_${index}`}
+                                        initialSettings={data[`logo_${index}__settings`]}
                                         imageUrl={logoUrl}
                                         isEditMode={isEditMode}
                                         onSave={(_key, value) => handleUpdateLogo(index, value)}
@@ -90,6 +91,7 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
                             <div key={index} className="flex-shrink-0">
                                 <EditableImage
                                     contentKey={`logo_${index}`}
+                                    initialSettings={data[`logo_${index}__settings`]}
                                     imageUrl={logoUrl}
                                     isEditMode={isEditMode}
                                     onSave={(_key, value) => handleUpdateLogo(index, value)}
@@ -134,6 +136,7 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
                             <EditableImage
                                 key={index}
                                 contentKey={`logo_${index}`}
+                                initialSettings={data[`logo_${index}__settings`]}
                                 imageUrl={logoUrl}
                                 isEditMode={isEditMode}
                                 onSave={(_key, value) => handleUpdateLogo(index, value)}

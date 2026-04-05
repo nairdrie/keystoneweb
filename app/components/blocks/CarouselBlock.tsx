@@ -314,6 +314,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                       {item.mediaType === 'image' ? (
                         <EditableImage
                           contentKey={`carousel_${idx}_image`} imageUrl={item.image}
+                          initialSettings={data[`carousel_${idx}_image__settings`]}
                           isEditMode={isEditMode} onSave={(_, v) => updateItem(idx, 'image', v)}
                           className="w-full h-44 object-cover rounded-xl"
                         />
@@ -412,6 +413,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                       {item.mediaType === 'image' ? (
                         <EditableImage
                           contentKey={`carousel_${idx}_image`} imageUrl={item.image}
+                          initialSettings={data[`carousel_${idx}_image__settings`]}
                           isEditMode={isEditMode && idx === current}
                           onSave={(_, v) => updateItem(idx, 'image', v)}
                           className="w-full h-80 object-cover"
@@ -508,6 +510,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                       isEditMode && idx === current ? (
                         <EditableImage
                           contentKey={`carousel_${idx}_image`} imageUrl={item.image}
+                          initialSettings={data[`carousel_${idx}_image__settings`]}
                           isEditMode={isEditMode} onSave={(_, v) => updateItem(idx, 'image', v)}
                           className="w-48 h-48 object-cover rounded-2xl mx-auto"
                         />
