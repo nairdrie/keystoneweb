@@ -45,7 +45,7 @@ export default function AdminMembershipPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       {/* Sub-tabs */}
       <div className="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
         {tabs.map(tab => (
