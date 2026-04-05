@@ -29,6 +29,7 @@ import MenuBlock from './MenuBlock';
 import EventsBlock from './EventsBlock';
 import PDFBlock from './PDFBlock';
 import ResourcesBlock from './ResourcesBlock';
+import DeliveryLinksBlock from './DeliveryLinksBlock';
 
 // We loosen the component type to accommodate both the simpler original blocks and the advanced blocks
 const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
@@ -57,6 +58,7 @@ const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     events: EventsBlock,
     pdf: PDFBlock,
     resources: ResourcesBlock,
+    deliveryLinks: DeliveryLinksBlock,
 };
 
 const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: boolean }> = [
@@ -81,6 +83,7 @@ const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: boolean }
     { type: 'map', label: 'Google Map' },
     { type: 'blog', label: '📝 Blog / News' },
     { type: 'menu', label: '🍽️ Menu' },
+    { type: 'deliveryLinks', label: '🛵 Delivery App Links' },
     { type: 'events', label: '📅 Events' },
     { type: 'pdf', label: '📄 PDF Viewer' },
     { type: 'resources', label: '📚 Resources' },
