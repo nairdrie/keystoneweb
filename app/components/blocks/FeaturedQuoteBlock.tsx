@@ -5,6 +5,7 @@ import EditableText from '../EditableText';
 import EditableImage from '../EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
 import Reveal from '@/app/components/Reveal';
+import { Plus, X } from 'lucide-react';
 
 interface FeaturedQuoteBlockProps {
     id: string;
@@ -22,6 +23,20 @@ export default function FeaturedQuoteBlock({ id, data, isEditMode, palette, upda
 
     const variant = data.variant || 'centered';
     const bgColor = data.backgroundColor || pAccent;
+
+    if (variant === 'multiGrid') {
+        return (
+            <MultiGridVariant
+                data={data}
+                isEditMode={isEditMode}
+                updateContent={updateContent}
+                uploadImage={context?.uploadImage}
+                pPrimary={pPrimary}
+                pSecondary={pSecondary}
+                bgColor={bgColor}
+            />
+        );
+    }
 
     if (variant === 'essay') {
         return (
@@ -360,6 +375,166 @@ function SplitVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
         <section className="py-24" style={{ backgroundColor: bgColor }}>
             <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-stretch">
                 {imageRight ? <>{textCol}{imageCol}</> : <>{imageCol}{textCol}</>}
+            </div>
+        </section>
+    );
+}
+
+// ─── Multi-Person Grid Variant ───────────────────────────────────────────────
+
+const DEFAULT_MULTI_PEOPLE = [
+    {
+        name: 'Jane Smith',
+        title: 'CEO, Acme Corp',
+        quote: '"The best investment you can make is in yourself. The more you learn, the more you earn."',
+        image: '',
+    },
+    {
+        name: 'John Doe',
+        title: 'Lead Engineer',
+        quote: '"Great things in business are never done by one person — they\'re done by a team of people."',
+        image: '',
+    },
+    {
+        name: 'Maria Garcia',
+        title: 'Head of Design',
+        quote: '"Design is not just what it looks like. Design is how it works."',
+        image: '',
+    },
+    {
+        name: 'Alex Kim',
+        title: 'Product Manager',
+        quote: '"Every product decision is ultimately a bet on what your users value most."',
+        image: '',
+    },
+];
+
+function MultiGridVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, pSecondary, bgColor }: any) {
+    const people: any[] = data.people || DEFAULT_MULTI_PEOPLE;
+
+    const handleUpdatePerson = (index: number, field: string, value: string) => {
+        const updated = people.map((p: any, i: number) =>
+            i === index ? { ...p, [field]: value } : p
+        );
+        updateContent('people', updated);
+    };
+
+    const handleAddPerson = () => {
+        updateContent('people', [
+            ...people,
+            {
+                name: 'New Person',
+                title: 'Title / Role',
+                quote: '"Add a quote here."',
+                image: '',
+            },
+        ]);
+    };
+
+    const handleRemovePerson = (index: number) => {
+        if (people.length <= 1) return;
+        updateContent('people', people.filter((_: any, i: number) => i !== index));
+    };
+
+    return (
+        <section className="py-20" style={{ backgroundColor: bgColor }}>
+            <div className="max-w-6xl mx-auto px-6">
+
+                {/* Section heading */}
+                <Reveal>
+                    <EditableText
+                        as="h2"
+                        contentKey="title"
+                        content={data.title}
+                        defaultValue="Our Members Talk About Nursing"
+                        isEditMode={isEditMode}
+                        onSave={(key, value) => updateContent(key, value)}
+                        className="text-3xl md:text-4xl font-bold text-center mb-14"
+                        style={{ color: pPrimary }}
+                    />
+                </Reveal>
+
+                {/* 2-column grid */}
+                <div className="grid md:grid-cols-2 gap-x-16 gap-y-12">
+                    {people.map((person: any, index: number) => (
+                        <Reveal key={index}>
+                            <div className="relative flex gap-5 items-start">
+                                {/* Remove button */}
+                                {isEditMode && people.length > 1 && (
+                                    <button
+                                        onClick={() => handleRemovePerson(index)}
+                                        className="absolute -top-2 -right-2 z-10 p-1 rounded-full bg-red-100 hover:bg-red-200 transition-colors"
+                                        title="Remove person"
+                                    >
+                                        <X className="w-3.5 h-3.5 text-red-600" />
+                                    </button>
+                                )}
+
+                                {/* Circle photo */}
+                                <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 flex-shrink-0 mt-1">
+                                    <EditableImage
+                                        contentKey={`people[${index}].image`}
+                                        imageUrl={person.image}
+                                        isEditMode={isEditMode}
+                                        onSave={(_key, value) => handleUpdatePerson(index, 'image', value)}
+                                        onUpload={uploadImage}
+                                        className="w-full h-full object-cover"
+                                        placeholder="Photo"
+                                        editOverlayStyle="icon"
+                                    />
+                                </div>
+
+                                {/* Text */}
+                                <div className="flex-1 min-w-0">
+                                    <EditableText
+                                        as="p"
+                                        contentKey={`people[${index}].name`}
+                                        content={person.name}
+                                        defaultValue="Name"
+                                        isEditMode={isEditMode}
+                                        onSave={(_key, value) => handleUpdatePerson(index, 'name', value)}
+                                        className="font-bold text-base leading-tight"
+                                        style={{ color: pPrimary }}
+                                    />
+                                    <EditableText
+                                        as="p"
+                                        contentKey={`people[${index}].title`}
+                                        content={person.title}
+                                        defaultValue="Title"
+                                        isEditMode={isEditMode}
+                                        onSave={(_key, value) => handleUpdatePerson(index, 'title', value)}
+                                        className="text-sm italic font-medium mt-0.5 mb-3"
+                                        style={{ color: pSecondary }}
+                                    />
+                                    <EditableText
+                                        as="p"
+                                        contentKey={`people[${index}].quote`}
+                                        content={person.quote}
+                                        defaultValue='"Quote goes here."'
+                                        isEditMode={isEditMode}
+                                        onSave={(_key, value) => handleUpdatePerson(index, 'quote', value)}
+                                        className="text-sm leading-relaxed"
+                                        style={{ color: pPrimary }}
+                                    />
+                                </div>
+                            </div>
+                        </Reveal>
+                    ))}
+                </div>
+
+                {/* Add person button */}
+                {isEditMode && (
+                    <div className="flex justify-center mt-10">
+                        <button
+                            onClick={handleAddPerson}
+                            className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-lg border-2 border-dashed transition-colors"
+                            style={{ borderColor: pSecondary, color: pSecondary }}
+                        >
+                            <Plus className="w-4 h-4" />
+                            Add Person
+                        </button>
+                    </div>
+                )}
             </div>
         </section>
     );
