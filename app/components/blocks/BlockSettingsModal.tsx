@@ -84,6 +84,11 @@ export default function BlockSettingsModal({
             { id: 'cards', label: 'Scrolling Cards' },
             { id: 'slides', label: 'Split Slides' },
             { id: 'minimal', label: 'Minimal / Centered' },
+        ],
+        blog: [
+            { id: 'grid', label: 'Card Grid' },
+            { id: 'list', label: 'List View' },
+            { id: 'magazine', label: 'Magazine (Featured + Grid)' },
         ]
     };
 

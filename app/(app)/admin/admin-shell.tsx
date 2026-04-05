@@ -44,7 +44,7 @@ const ALL_TABS: TabDef[] = [
   { id: 'media',    label: 'Media',     icon: FileImage, path: '/admin/media', core: true },
   // Coming soon — only appear when "show all" is on
   { id: 'events', label: 'Events', icon: CalendarDays, path: '/admin/events', requiresBlock: 'events' },
-  { id: 'blog',   label: 'Blog',   icon: BookOpen,    path: '/admin/blog',   comingSoon: true },
+  { id: 'blog',   label: 'Blog',   icon: BookOpen,    path: '/admin/blog',   requiresBlock: 'blog' },
   { id: 'menu',   label: 'Menu',   icon: UtensilsCrossed, path: '/admin/menu', requiresBlock: 'menu' },
   { id: 'membership', label: 'Members', icon: Users, path: '/admin/membership', requiresBlock: 'membershipPortal' },
 ];
