@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Type, Search } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
@@ -46,6 +46,7 @@ export default function TextSettingsModal({
     title = "Text Settings",
     previewText,
 }: TextSettingsModalProps) {
+    const mouseDownOnBackdrop = useRef(false);
     const [styles, setStyles] = useState<TextStyles>(initialStyles || {});
     const [activeTab, setActiveTab] = useState<'font' | 'size' | 'weight' | 'color'>('font');
     const [searchQuery, setSearchQuery] = useState('');
@@ -92,7 +93,8 @@ export default function TextSettingsModal({
     const modal = (
         <div
             className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-            onClick={onClose}
+            onMouseDown={(e) => { mouseDownOnBackdrop.current = e.target === e.currentTarget; }}
+            onClick={() => { if (mouseDownOnBackdrop.current) onClose(); }}
         >
             <div
                 className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden"

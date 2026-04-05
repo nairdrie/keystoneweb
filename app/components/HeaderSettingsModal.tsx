@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Layout, Palette, Type, Code, Lock, Crown } from 'lucide-react';
 
@@ -55,6 +55,7 @@ export default function HeaderSettingsModal({
     defaults,
     isProUser,
 }: HeaderSettingsModalProps) {
+    const mouseDownOnBackdrop = useRef(false);
     const [activeTab, setActiveTab] = useState<TabType>('layout');
 
     // Layout
@@ -156,7 +157,11 @@ export default function HeaderSettingsModal({
 
     const modal = (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+            <div
+                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                onMouseDown={(e) => { mouseDownOnBackdrop.current = e.target === e.currentTarget; }}
+                onClick={() => { if (mouseDownOnBackdrop.current) onClose(); }}
+            />
             <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden">
 
                 {/* Header */}

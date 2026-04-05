@@ -26,6 +26,7 @@ export default function NavItemEditModal({
     onClose,
 }: NavItemEditModalProps) {
 
+    const mouseDownOnBackdrop = useRef(false);
     const [label, setLabel] = useState(item.label);
     const [linkType, setLinkType] = useState<'page' | 'section' | 'custom'>(item.linkType);
     const [pageId, setPageId] = useState(item.pageId || '');
@@ -159,7 +160,11 @@ export default function NavItemEditModal({
     };
 
     return createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000] p-4" onClick={onClose}>
+        <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000] p-4"
+            onMouseDown={(e) => { mouseDownOnBackdrop.current = e.target === e.currentTarget; }}
+            onClick={() => { if (mouseDownOnBackdrop.current) onClose(); }}
+        >
             <div
                 className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6"
                 onClick={(e) => e.stopPropagation()}

@@ -66,6 +66,7 @@ export default function ImageEditorModal({
     currentSettings,
     allowUnsplash = true,
 }: ImageEditorModalProps) {
+    const mouseDownOnBackdrop = useRef(false);
     const [activeTab, setActiveTab] = useState<Tab>('upload');
     const [isUploading, setIsUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -286,7 +287,11 @@ export default function ImageEditorModal({
             onClick={(e) => e.stopPropagation()}
         >
             {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+            <div
+                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                onMouseDown={(e) => { mouseDownOnBackdrop.current = e.target === e.currentTarget; }}
+                onClick={() => { if (mouseDownOnBackdrop.current) onClose(); }}
+            />
 
             {/* Modal */}
             <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Settings, Search, LucideIcon } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { createPortal } from 'react-dom';
@@ -42,6 +42,7 @@ export default function ButtonSettingsModal({
     initialSettings,
     title = "Button Settings"
 }: ButtonSettingsModalProps) {
+    const mouseDownOnBackdrop = useRef(false);
     const [settings, setSettings] = useState<ButtonSettings>(initialSettings || {});
     const [activeTab, setActiveTab] = useState<'icon' | 'layout'>('icon');
     const [searchQuery, setSearchQuery] = useState('');
@@ -67,7 +68,8 @@ export default function ButtonSettingsModal({
     const modal = (
         <div
             className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-            onClick={onClose}
+            onMouseDown={(e) => { mouseDownOnBackdrop.current = e.target === e.currentTarget; }}
+            onClick={() => { if (mouseDownOnBackdrop.current) onClose(); }}
         >
             <div
                 className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden"
