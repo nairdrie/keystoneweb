@@ -75,7 +75,7 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
             {/* Footer — structured two-row */}
             <footer style={{ backgroundColor: pPrimary }}>
                 <div className="max-w-7xl mx-auto px-4 py-12">
-                    <div className="flex flex-col items-center gap-6 text-center">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="flex items-center gap-3">
                             {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
                                 <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-10 h-10 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
@@ -84,17 +84,17 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                                     {(stripHighlight(siteContent.siteTitle) || 'C')[0]?.toUpperCase()}
                                 </div>
                             ))}
-                            <div>
-                                <div className="font-bold text-lg text-white font-title" style={{ ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>{renderSiteTitle(siteContent.siteTitle || 'Classic Services')}</div>
-                                <EditableText
-                                    contentKey="footerSlogan"
-                                    content={siteContent.footerSlogan}
-                                    defaultValue="Professional service you can trust."
-                                    isEditMode={isEditMode}
-                                    onSave={updateSiteContent}
-                                    className="text-sm text-white/50 mt-1 block"
-                                />
-                            </div>
+                        </div>
+                        <div className="text-center">
+                            <div className="font-bold text-lg text-white font-title" style={{ ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>{renderSiteTitle(siteContent.siteTitle || 'Classic Services')}</div>
+                            <EditableText
+                                contentKey="footerSlogan"
+                                content={siteContent.footerSlogan}
+                                defaultValue="Professional service you can trust."
+                                isEditMode={isEditMode}
+                                onSave={updateSiteContent}
+                                className="text-sm text-white/50 mt-1 block"
+                            />
                         </div>
                         <EditableButton
                             contentKey="navButtonText"
