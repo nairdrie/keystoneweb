@@ -82,7 +82,7 @@ export default function EditableImage({
     }
 
     return (
-      <div className="relative">
+      <div className="relative w-full h-full">
         <img
           src={previewUrl}
           alt={contentKey}
@@ -110,7 +110,7 @@ export default function EditableImage({
   return (
     <>
       {previewUrl ? (
-        <div className="relative group cursor-pointer" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setModalOpen(true); }}>
+        <div className="relative w-full h-full group cursor-pointer" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setModalOpen(true); }}>
           <img
             src={previewUrl}
             alt={contentKey}
