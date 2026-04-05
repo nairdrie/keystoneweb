@@ -30,6 +30,7 @@ import EventsBlock from './EventsBlock';
 import PDFBlock from './PDFBlock';
 import ResourcesBlock from './ResourcesBlock';
 import DeliveryLinksBlock from './DeliveryLinksBlock';
+import FeaturedQuoteBlock from './FeaturedQuoteBlock';
 
 // We loosen the component type to accommodate both the simpler original blocks and the advanced blocks
 const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
@@ -59,6 +60,7 @@ const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     pdf: PDFBlock,
     resources: ResourcesBlock,
     deliveryLinks: DeliveryLinksBlock,
+    featuredQuote: FeaturedQuoteBlock,
 };
 
 const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: boolean }> = [
@@ -88,6 +90,7 @@ const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: boolean }
     { type: 'pdf', label: '📄 PDF Viewer' },
     { type: 'resources', label: '📚 Resources' },
     { type: 'custom_html', label: 'Custom HTML / Embed', proOnly: true },
+    { type: 'featuredQuote', label: 'Featured Quote' },
 ];
 
 export default function BlockRenderer({ palette, headerOffset }: { palette: Record<string, string>; headerOffset?: number }) {

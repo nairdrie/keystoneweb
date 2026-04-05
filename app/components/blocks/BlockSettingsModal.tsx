@@ -72,6 +72,11 @@ export default function BlockSettingsModal({
             { id: 'grid', label: 'Item Grid' },
             { id: 'cards', label: 'Detail Cards' },
             { id: 'compact', label: 'Compact / Dense' }
+        ],
+        featuredQuote: [
+            { id: 'centered', label: 'Centered' },
+            { id: 'split', label: 'Split (Photo + Quote)' },
+            { id: 'minimal', label: 'Minimal / Pull Quote' }
         ]
     };
 
