@@ -113,7 +113,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                         <source src={videoUrl} type="video/mp4" />
                     </video>
                 ) : imageUrl ? (
-                    <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                    <img src={imageUrl} alt={block.data.image__settings?.altText || ''} role={block.data.image__settings?.altText ? undefined : 'presentation'} className="absolute inset-0 w-full h-full object-cover" />
                 ) : (
                     <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${pPrimary}, ${pSecondary})` }} />
                 )}
@@ -173,6 +173,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                             isEditMode={isEditMode}
                             onSave={(key, val) => updateData(key, val)}
                             onUpload={context?.uploadImage}
+                            initialSettings={block.data.image__settings}
                             className="w-28 h-16 object-cover rounded-lg shadow-lg border-2 border-white/50"
                             placeholder="Fallback img"
                         />
@@ -307,7 +308,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
         return (
             <section className="relative min-h-[70vh] flex items-center overflow-hidden">
                 {imageUrl ? (
-                    <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                    <img src={imageUrl} alt={block.data.image__settings?.altText || ''} role={block.data.image__settings?.altText ? undefined : 'presentation'} className="absolute inset-0 w-full h-full object-cover" />
                 ) : (
                     <div className="absolute inset-0" style={{ backgroundColor: pPrimary }} />
                 )}
@@ -320,6 +321,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                             isEditMode={isEditMode}
                             onSave={(key, val) => updateData(key, val)}
                             onUpload={context?.uploadImage}
+                            initialSettings={block.data.image__settings}
                             className="w-32 h-20 object-cover rounded-lg shadow-lg border-2 border-white/50"
                             placeholder="Set bg image"
                         />

@@ -163,6 +163,7 @@ function EssayVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
                         >
                             <EditableImage
                                 contentKey="personImage"
+                                initialSettings={data.personImage__settings}
                                 imageUrl={data.personImage}
                                 isEditMode={isEditMode}
                                 onSave={(key, value) => updateContent(key, value)}
@@ -273,6 +274,7 @@ function CenteredVariant({ data, isEditMode, updateContent, uploadImage, pPrimar
                         <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
                             <EditableImage
                                 contentKey="personImage"
+                                initialSettings={data.personImage__settings}
                                 imageUrl={data.personImage}
                                 isEditMode={isEditMode}
                                 onSave={(key, value) => updateContent(key, value)}
@@ -320,6 +322,7 @@ function SplitVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
         <Reveal className="relative h-full min-h-64">
             <EditableImage
                 contentKey="personImage"
+                initialSettings={data.personImage__settings}
                 imageUrl={data.personImage}
                 isEditMode={isEditMode}
                 onSave={(key, value) => updateContent(key, value)}
@@ -474,6 +477,7 @@ function MultiGridVariant({ data, isEditMode, updateContent, uploadImage, pPrima
                                 <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 flex-shrink-0 mt-1">
                                     <EditableImage
                                         contentKey={`people[${index}].image`}
+                                        initialSettings={data[`people[${index}].image__settings`]}
                                         imageUrl={person.image}
                                         isEditMode={isEditMode}
                                         onSave={(key, value) => {
@@ -566,6 +570,7 @@ function MinimalVariant({ data, isEditMode, updateContent, uploadImage, pPrimary
                             <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
                                 <EditableImage
                                     contentKey="personImage"
+                                    initialSettings={data.personImage__settings}
                                     imageUrl={data.personImage}
                                     isEditMode={isEditMode}
                                     onSave={(key, value) => updateContent(key, value)}

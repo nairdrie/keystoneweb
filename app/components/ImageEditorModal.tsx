@@ -22,6 +22,7 @@ interface UnsplashPhoto {
 export interface ImageSettings {
     objectFit?: 'cover' | 'contain' | 'fill';
     borderRadius?: number;
+    altText?: string;
 }
 
 export interface UnsplashAttribution {
@@ -594,6 +595,23 @@ export default function ImageEditorModal({
                                     onChange={(e) => setSettings(prev => ({ ...prev, borderRadius: parseInt(e.target.value) }))}
                                     className="w-full accent-blue-600"
                                 />
+                            </div>
+
+                            {/* Alt Text */}
+                            <div>
+                                <label className="text-sm font-medium text-slate-700 mb-2 block">
+                                    Alt Text (Accessibility)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={settings.altText || ''}
+                                    onChange={(e) => setSettings(prev => ({ ...prev, altText: e.target.value }))}
+                                    placeholder="Describe this image for screen readers..."
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <p className="text-xs text-slate-400 mt-1">
+                                    Required for accessibility compliance (AODA/WCAG). Describe what the image shows.
+                                </p>
                             </div>
 
                             {/* Apply button */}
