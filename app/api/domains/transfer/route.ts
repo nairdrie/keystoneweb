@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
     // Verify Pro plan
     const { data: subscription } = await supabase
       .from('user_subscriptions')
-      .select('subscription_status, subscription_plan, stripe_customer_id, stripe_subscription_id')
+      .select('subscription_status, subscription_plan, stripe_customer_id, stripe_subscription_id, free_domain_claimed, last_domain_claimed_at')
       .eq('user_id', user.id)
       .single();
 
@@ -216,14 +216,51 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unable to determine transfer price.' }, { status: 502 });
     }
 
-    // Check free domain credit
+    // Check domain limit and enforce 30-day cooldown
+    const { getUserEffectiveLimits } = await import('@/lib/addons');
+    const limits = await getUserEffectiveLimits(user.id, supabase);
+
+    const { count: ownedDomainCount } = await supabase
+      .from('domain_purchases')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('status', 'completed');
+
+    if ((ownedDomainCount ?? 0) >= limits.customDomainLimit) {
+      return NextResponse.json(
+        { error: `Domain limit reached (${limits.customDomainLimit}). Contact us for additional domains.` },
+        { status: 403 }
+      );
+    }
+
+    // Enforce 30-day cooldown (bypass for extra_domains addon holders)
+    if (limits.customDomainLimit <= 1) {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const lastClaimedAt = subscription?.last_domain_claimed_at
+        ? new Date(subscription.last_domain_claimed_at)
+        : null;
+
+      if (lastClaimedAt && lastClaimedAt > thirtyDaysAgo) {
+        const nextAvailable = new Date(lastClaimedAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+        return NextResponse.json(
+          {
+            error: 'Domain changes are limited to once per month.',
+            nextAvailableAt: nextAvailable.toISOString(),
+            nextAvailableFormatted: nextAvailable.toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' }),
+          },
+          { status: 429 }
+        );
+      }
+    }
+
+    // Check free domain credit — flag survives domain transfer-out
     const { count: purchaseCount } = await supabase
       .from('domain_purchases')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .eq('status', 'completed');
 
-    const freeDomainUsed = (purchaseCount ?? 0) > 0;
+    const freeDomainUsed = (purchaseCount ?? 0) > 0 || !!subscription?.free_domain_claimed;
 
     // Determine what the user owes
     let userOwesVercelPrice = 0;
@@ -285,10 +322,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: result.error }, { status: 502 });
       }
 
-      // Mark free domain credit used
+      // Mark free domain credit used and track claim timestamp
+      const claimedAt = new Date().toISOString();
       await supabase
         .from('user_subscriptions')
-        .update({ free_domain_claimed: true, free_domain_claimed_at: new Date().toISOString() })
+        .update({ free_domain_claimed: true, free_domain_claimed_at: claimedAt, last_domain_claimed_at: claimedAt })
         .eq('user_id', user.id);
 
       return NextResponse.json({
