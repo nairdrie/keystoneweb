@@ -510,8 +510,47 @@ function PackageForm({
 // SIGNUP FORM TAB
 // ═══════════════════════════════════════════════════════════════════════════════
 
+interface SignupFormField {
+  key: string;
+  label: string;
+  type: string;
+  required: boolean;
+  options?: string[];
+}
+
+interface SignupFormStage {
+  id: string;
+  title: string;
+  fields: SignupFormField[];
+}
+
+const STAGE1_LOCKED_KEYS = ['email', 'password'];
+
+function defaultStages(): SignupFormStage[] {
+  return [{
+    id: 'stage_1',
+    title: 'Account Details',
+    fields: [
+      { key: 'email', label: 'Email', type: 'email', required: true },
+      { key: 'password', label: 'Password', type: 'password', required: true },
+    ],
+  }];
+}
+
+function rawToStages(raw: any): SignupFormStage[] {
+  if (!raw) return defaultStages();
+  if (raw.stages) return raw.stages;
+  if (Array.isArray(raw)) {
+    // Backwards compat: old flat array → single stage, email+password first
+    const locked = raw.filter((f: any) => STAGE1_LOCKED_KEYS.includes(f.key));
+    const rest = raw.filter((f: any) => !STAGE1_LOCKED_KEYS.includes(f.key));
+    return [{ id: 'stage_1', title: 'Account Details', fields: [...locked, ...rest] }];
+  }
+  return defaultStages();
+}
+
 function SignupFormTab({ siteId }: { siteId: string }) {
-  const [fields, setFields] = useState<any[]>([]);
+  const [stages, setStages] = useState<SignupFormStage[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -520,37 +559,91 @@ function SignupFormTab({ siteId }: { siteId: string }) {
       try {
         const res = await fetch(`/api/membership/settings?siteId=${siteId}`);
         const data = await res.json();
-        setFields(data.settings?.signup_form_fields || [
-          { key: 'name', label: 'Full Name', type: 'text', required: true },
-          { key: 'email', label: 'Email', type: 'email', required: true },
-          { key: 'password', label: 'Password', type: 'password', required: true },
-        ]);
+        setStages(rawToStages(data.settings?.signup_form_fields));
       } catch {
-        // ignore
+        setStages(defaultStages());
       } finally {
         setLoading(false);
       }
     })();
   }, [siteId]);
 
-  const lockedKeys = ['name', 'email', 'password'];
+  // ── Stage operations ────────────────────────────────────────────────────────
 
-  const addField = () => {
-    setFields(prev => [...prev, {
-      key: `custom_${Date.now()}`,
-      label: 'New Field',
-      type: 'text',
-      required: false,
+  const addStage = () => {
+    setStages(prev => [...prev, {
+      id: `stage_${Date.now()}`,
+      title: `Step ${prev.length + 1}`,
+      fields: [],
     }]);
   };
 
-  const updateField = (index: number, field: string, value: any) => {
-    setFields(prev => prev.map((f, i) => i === index ? { ...f, [field]: value } : f));
+  const removeStage = (si: number) => {
+    setStages(prev => prev.filter((_, i) => i !== si));
   };
 
-  const removeField = (index: number) => {
-    setFields(prev => prev.filter((_, i) => i !== index));
+  const updateStageTitle = (si: number, title: string) => {
+    setStages(prev => prev.map((s, i) => i === si ? { ...s, title } : s));
   };
+
+  // ── Field operations ────────────────────────────────────────────────────────
+
+  const addField = (si: number) => {
+    setStages(prev => prev.map((s, i) => i === si ? {
+      ...s,
+      fields: [...s.fields, { key: `custom_${Date.now()}`, label: 'New Field', type: 'text', required: false }],
+    } : s));
+  };
+
+  const removeField = (si: number, fi: number) => {
+    setStages(prev => prev.map((s, i) => i === si ? {
+      ...s, fields: s.fields.filter((_, j) => j !== fi),
+    } : s));
+  };
+
+  const updateField = (si: number, fi: number, key: string, value: any) => {
+    setStages(prev => prev.map((s, i) => i === si ? {
+      ...s,
+      fields: s.fields.map((f, j) => {
+        if (j !== fi) return f;
+        const updated = { ...f, [key]: value };
+        // Clear options when switching away from select/multiselect
+        if (key === 'type' && value !== 'select' && value !== 'multiselect') {
+          delete updated.options;
+        }
+        return updated;
+      }),
+    } : s));
+  };
+
+  // ── Option operations ───────────────────────────────────────────────────────
+
+  const addOption = (si: number, fi: number) => {
+    setStages(prev => prev.map((s, i) => i === si ? {
+      ...s,
+      fields: s.fields.map((f, j) => j === fi ? { ...f, options: [...(f.options || []), ''] } : f),
+    } : s));
+  };
+
+  const updateOption = (si: number, fi: number, oi: number, value: string) => {
+    setStages(prev => prev.map((s, i) => i === si ? {
+      ...s,
+      fields: s.fields.map((f, j) => j === fi ? {
+        ...f, options: (f.options || []).map((o, k) => k === oi ? value : o),
+      } : f),
+    } : s));
+  };
+
+  const removeOption = (si: number, fi: number, oi: number) => {
+    setStages(prev => prev.map((s, i) => i === si ? {
+      ...s,
+      fields: s.fields.map((f, j) => j === fi ? {
+        ...f, options: (f.options || []).filter((_, k) => k !== oi),
+      } : f),
+    } : s));
+  };
+
+  // ── Save ────────────────────────────────────────────────────────────────────
 
   const handleSave = async () => {
     setSaving(true);
@@ -558,7 +651,7 @@ function SignupFormTab({ siteId }: { siteId: string }) {
       await fetch('/api/membership/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ siteId, signupFormFields: fields }),
+        body: JSON.stringify({ siteId, signupFormFields: { stages } }),
       });
     } catch {
       // ignore
@@ -570,64 +663,137 @@ function SignupFormTab({ siteId }: { siteId: string }) {
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>;
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-slate-500">Configure the fields shown on your signup form. Name, email, and password are required.</p>
-      <div className="space-y-3">
-        {fields.map((field, i) => {
-          const isLocked = lockedKeys.includes(field.key);
-          return (
-            <div key={field.key} className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg">
-              <div className="flex-1 grid grid-cols-3 gap-3">
-                <input
-                  type="text"
-                  value={field.label}
-                  onChange={e => updateField(i, 'label', e.target.value)}
-                  disabled={isLocked}
-                  className="px-3 py-1.5 border border-slate-200 rounded text-sm disabled:bg-slate-50"
-                  placeholder="Label"
-                />
-                <select
-                  value={field.type}
-                  onChange={e => updateField(i, 'type', e.target.value)}
-                  disabled={isLocked}
-                  className="px-3 py-1.5 border border-slate-200 rounded text-sm disabled:bg-slate-50"
-                >
-                  <option value="text">Text</option>
-                  <option value="email">Email</option>
-                  <option value="password">Password</option>
-                  <option value="phone">Phone</option>
-                  <option value="date">Date</option>
-                  <option value="select">Select</option>
-                  <option value="textarea">Textarea</option>
-                  <option value="checkbox">Checkbox</option>
-                </select>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={field.required}
-                    onChange={e => updateField(i, 'required', e.target.checked)}
-                    disabled={isLocked}
-                    className="rounded"
-                  />
-                  Required
-                </label>
-              </div>
-              {!isLocked && (
-                <button onClick={() => removeField(i)} className="p-1.5 text-slate-400 hover:text-red-500">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
+    <div className="space-y-5">
+      <p className="text-sm text-slate-500">
+        Break your signup into stages — users see a progress bar as they move through each step.
+        Stage 1 always requires email and password.
+      </p>
+
+      {stages.map((stage, si) => (
+        <div key={stage.id} className="border border-slate-200 rounded-xl overflow-hidden">
+          {/* Stage header */}
+          <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border-b border-slate-200">
+            <span className="w-6 h-6 rounded-full bg-slate-800 text-white text-xs flex items-center justify-center font-bold shrink-0">
+              {si + 1}
+            </span>
+            <input
+              type="text"
+              value={stage.title}
+              onChange={e => updateStageTitle(si, e.target.value)}
+              className="flex-1 bg-transparent text-sm font-semibold text-slate-800 focus:outline-none"
+              placeholder="Stage title"
+            />
+            {si > 0 && (
+              <button onClick={() => removeStage(si)} className="p-1 text-slate-400 hover:text-red-500" title="Remove stage">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Fields */}
+          <div className="p-4 space-y-3">
+            {stage.fields.length === 0 && (
+              <p className="text-xs text-slate-400 text-center py-2">No fields yet.</p>
+            )}
+            {stage.fields.map((field, fi) => {
+              const isLocked = si === 0 && STAGE1_LOCKED_KEYS.includes(field.key);
+              const needsOptions = field.type === 'select' || field.type === 'multiselect';
+              return (
+                <div key={field.key} className="border border-slate-200 rounded-lg overflow-hidden">
+                  <div className="flex items-center gap-3 p-3">
+                    <div className="flex-1 grid grid-cols-3 gap-3">
+                      <input
+                        type="text"
+                        value={field.label}
+                        onChange={e => updateField(si, fi, 'label', e.target.value)}
+                        disabled={isLocked}
+                        className="px-3 py-1.5 border border-slate-200 rounded text-sm disabled:bg-slate-50 disabled:text-slate-400"
+                        placeholder="Label"
+                      />
+                      <select
+                        value={field.type}
+                        onChange={e => updateField(si, fi, 'type', e.target.value)}
+                        disabled={isLocked}
+                        className="px-3 py-1.5 border border-slate-200 rounded text-sm disabled:bg-slate-50 disabled:text-slate-400"
+                      >
+                        <option value="text">Text</option>
+                        <option value="email">Email</option>
+                        <option value="password">Password</option>
+                        <option value="phone">Phone</option>
+                        <option value="date">Date</option>
+                        <option value="select">Select (dropdown)</option>
+                        <option value="multiselect">Multi-select</option>
+                        <option value="textarea">Textarea</option>
+                        <option value="checkbox">Checkbox</option>
+                      </select>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={field.required}
+                          onChange={e => updateField(si, fi, 'required', e.target.checked)}
+                          disabled={isLocked}
+                          className="rounded"
+                        />
+                        Required
+                      </label>
+                    </div>
+                    {!isLocked && (
+                      <button onClick={() => removeField(si, fi)} className="p-1.5 text-slate-400 hover:text-red-500">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Options editor for select / multiselect */}
+                  {needsOptions && (
+                    <div className="px-3 pb-3 pt-2 border-t border-slate-100 bg-slate-50">
+                      <p className="text-xs font-medium text-slate-500 mb-2">Options</p>
+                      <div className="space-y-1.5">
+                        {(field.options || []).map((opt, oi) => (
+                          <div key={oi} className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={opt}
+                              onChange={e => updateOption(si, fi, oi, e.target.value)}
+                              className="flex-1 px-2 py-1 text-xs border border-slate-200 rounded bg-white"
+                              placeholder={`Option ${oi + 1}`}
+                            />
+                            <button onClick={() => removeOption(si, fi, oi)} className="text-slate-300 hover:text-red-400">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => addOption(si, fi)}
+                          className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 mt-1"
+                        >
+                          <Plus className="w-3 h-3" /> Add option
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            <button
+              onClick={() => addField(si)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-dashed border-slate-300 text-sm rounded-lg text-slate-500 hover:bg-slate-50 w-full justify-center"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Field
+            </button>
+          </div>
+        </div>
+      ))}
+
       <div className="flex items-center gap-3">
         <button
-          onClick={addField}
+          onClick={addStage}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-sm rounded-lg text-slate-600 hover:bg-slate-50"
         >
           <Plus className="w-3.5 h-3.5" />
-          Add Field
+          Add Stage
         </button>
         <button
           onClick={handleSave}
