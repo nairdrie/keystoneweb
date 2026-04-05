@@ -5,6 +5,7 @@ import { Pencil, Settings } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useEditorContext, NavItem } from '@/lib/editor-context';
+import { useLangPrefix } from '@/lib/hooks/useLangPrefix';
 import NavItemEditModal from './NavItemEditModal';
 import ButtonSettingsModal from './ButtonSettingsModal';
 
@@ -69,6 +70,7 @@ export default function EditableButton({
 
     const pages = context?.pages || [];
     const blocks = context?.blocks || [];
+    const langPrefix = useLangPrefix();
 
     const currentLabel = label || defaultLabel;
     const currentLinkType = linkData?.linkType || 'custom';
@@ -128,15 +130,20 @@ export default function EditableButton({
                 // In editor, navigate to the page within the editor
                 return `/design?siteId=${context.siteId}&pageId=${currentPageId}`;
             } else {
-                // Public site, navigate using standard slug
+                // Public site, navigate using standard slug with language prefix
                 const targetPage = pages.find(p => p.id === currentPageId);
                 const slug = targetPage ? targetPage.slug : '';
-                return slug === 'home' ? '/' : `/${slug}`;
+                const basePath = slug === 'home' ? '/' : `/${slug}`;
+                return langPrefix ? `${langPrefix}${basePath === '/' ? '' : basePath}` : basePath;
             }
         }
         if (currentLinkType === 'section' && currentBlockId) {
             // Use the stored href if available (it's already been resolved to /page#section)
             if (currentHref && currentHref !== '#' && !currentHref.startsWith('http')) {
+                // Add language prefix for cross-page section links (e.g. /about#section)
+                if (langPrefix && currentHref.startsWith('/')) {
+                    return `${langPrefix}${currentHref}`;
+                }
                 return currentHref;
             }
             return `#${currentBlockId}`;

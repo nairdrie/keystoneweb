@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { BlockData, useEditorContext } from '@/lib/editor-context';
+import { useLangPrefix, prefixInternalLinks } from '@/lib/hooks/useLangPrefix';
 import { Lock, Crown } from 'lucide-react';
 import DOMPurify from 'isomorphic-dompurify';
 
@@ -26,8 +27,10 @@ export default function CustomHTMLBlock({ block, palette }: { block: BlockData, 
         context?.updateBlockData?.(block.id, 'html', localHtml);
     };
 
+    const langPrefix = useLangPrefix();
+
     if (!isEditMode) {
-        return <div dangerouslySetInnerHTML={{ __html: safeHTML }} />;
+        return <div dangerouslySetInnerHTML={{ __html: prefixInternalLinks(safeHTML, langPrefix) }} />;
     }
 
     // Paywall for non-pro users in edit mode
