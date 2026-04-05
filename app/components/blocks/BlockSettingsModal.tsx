@@ -76,7 +76,8 @@ export default function BlockSettingsModal({
         featuredQuote: [
             { id: 'centered', label: 'Centered' },
             { id: 'split', label: 'Split (Photo + Quote)' },
-            { id: 'minimal', label: 'Minimal / Pull Quote' }
+            { id: 'minimal', label: 'Minimal / Pull Quote' },
+            { id: 'essay', label: 'Essay / Longform' }
         ]
     };
 
