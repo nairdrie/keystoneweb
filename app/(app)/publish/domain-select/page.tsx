@@ -608,11 +608,11 @@ export function DomainManager({
         throw new Error(errorData.error || 'Failed to unpublish site');
       }
 
-      // Reset UI state and refresh site status
+      // Reset UI state and navigate back to editor
       setShowUnpublishConfirm(false);
       setSubdomain('');
       setDomainCheck(null);
-      await fetchSiteStatus();
+      router.push(siteId ? `/editor?siteId=${siteId}` : '/editor');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to unpublish site');
       console.error(err);
