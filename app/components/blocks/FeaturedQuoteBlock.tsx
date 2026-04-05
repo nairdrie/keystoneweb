@@ -173,7 +173,7 @@ function EssayVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
 
                 {/* Closing quote mark */}
                 <Reveal>
-                    <div className="flex justify-end mt-2 mb-8">
+                    <div className="mt-2 mb-8">
                         <QuoteRight color={pSecondary} className="w-16 h-16 md:w-20 md:h-20" />
                     </div>
                 </Reveal>
