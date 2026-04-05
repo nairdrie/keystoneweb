@@ -79,24 +79,27 @@ export default function FeaturedQuoteBlock({ id, data, isEditMode, palette, upda
     );
 }
 
-// Shared style for the decorative quote mark — tight line-height keeps the
-// surrounding whitespace to just the glyph itself.
-const quoteMark = (pSecondary: string, fontSize: string) => ({
-    style: {
-        color: pSecondary,
-        fontSize,
-        lineHeight: 0.6,
-        display: 'block',
-    } as React.CSSProperties,
-    className: 'font-serif select-none',
-});
+function QuoteLeft({ color, className = '' }: { color: string; className?: string }) {
+    return (
+        <svg aria-hidden="true" focusable="false" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" className={className} style={{ color, display: 'block', flexShrink: 0 }}>
+            <path fill="currentColor" d="M464 256h-80v-64c0-35.3 28.7-64 64-64h8c13.3 0 24-10.7 24-24V56c0-13.3-10.7-24-24-24h-8c-88.4 0-160 71.6-160 160v240c0 26.5 21.5 48 48 48h128c26.5 0 48-21.5 48-48V304c0-26.5-21.5-48-48-48zm-288 0H96v-64c0-35.3 28.7-64 64-64h8c13.3 0 24-10.7 24-24V56c0-13.3-10.7-24-24-24h-8C71.6 32 0 103.6 0 192v240c0 26.5 21.5 48 48 48h128c26.5 0 48-21.5 48-48V304c0-26.5-21.5-48-48-48z" />
+        </svg>
+    );
+}
+
+function QuoteRight({ color, className = '' }: { color: string; className?: string }) {
+    return (
+        <svg aria-hidden="true" focusable="false" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" className={className} style={{ color, display: 'block', flexShrink: 0 }}>
+            <path fill="currentColor" d="M464 32H336c-26.5 0-48 21.5-48 48v128c0 26.5 21.5 48 48 48h80v64c0 35.3-28.7 64-64 64h-8c-13.3 0-24 10.7-24 24v48c0 13.3 10.7 24 24 24h8c88.4 0 160-71.6 160-160V80c0-26.5-21.5-48-48-48zm-288 0H48C21.5 32 0 53.5 0 80v128c0 26.5 21.5 48 48 48h80v64c0 35.3-28.7 64-64 64h-8c-13.3 0-24 10.7-24 24v48c0 13.3 10.7 24 24 24h8c88.4 0 160-71.6 160-160V80c0-26.5-21.5-48-48-48z" />
+        </svg>
+    );
+}
 
 // ─── Essay / Longform Variant ────────────────────────────────────────────────
 
 function EssayVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, pSecondary, bgColor }: any) {
     const floatRight = data.imagePosition !== 'left';
     const separatorColor = `${pPrimary}22`;
-    const qm = quoteMark(pSecondary, 'clamp(6rem, 12vw, 9rem)');
 
     return (
         <section className="py-24" style={{ backgroundColor: bgColor }}>
@@ -128,7 +131,7 @@ function EssayVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
 
                 {/* Opening quote mark */}
                 <Reveal>
-                    <span {...qm} aria-hidden="true" style={{ ...qm.style, marginBottom: '0.5rem' }}>&ldquo;</span>
+                    <QuoteLeft color={pSecondary} className="w-16 h-16 md:w-20 md:h-20 mb-4" />
                 </Reveal>
 
                 {/* Float container — photo wraps with essay text */}
@@ -170,11 +173,9 @@ function EssayVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
 
                 {/* Closing quote mark */}
                 <Reveal>
-                    <span
-                        {...qm}
-                        aria-hidden="true"
-                        style={{ ...qm.style, textAlign: 'right', marginTop: '0.25rem', marginBottom: '2rem' }}
-                    >&rdquo;</span>
+                    <div className="flex justify-end mt-2 mb-8">
+                        <QuoteRight color={pSecondary} className="w-16 h-16 md:w-20 md:h-20" />
+                    </div>
                 </Reveal>
 
                 {/* Attribution */}
@@ -230,12 +231,13 @@ function EssayVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
 // ─── Centered Variant ────────────────────────────────────────────────────────
 
 function CenteredVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, pSecondary, bgColor }: any) {
-    const qm = quoteMark(pSecondary, '6rem');
     return (
         <section className="py-24" style={{ backgroundColor: bgColor }}>
             <div className="max-w-5xl mx-auto px-6 text-center">
                 <Reveal>
-                    <span {...qm} aria-hidden="true" style={{ ...qm.style, textAlign: 'center', marginBottom: '0.5rem' }}>&ldquo;</span>
+                    <div className="flex justify-center mb-4">
+                        <QuoteLeft color={pSecondary} className="w-14 h-14 md:w-16 md:h-16" />
+                    </div>
                 </Reveal>
 
                 <Reveal>
@@ -298,7 +300,6 @@ function CenteredVariant({ data, isEditMode, updateContent, uploadImage, pPrimar
 
 function SplitVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, pSecondary, bgColor }: any) {
     const imageRight = data.imagePosition === 'right';
-    const qm = quoteMark(pSecondary, '4.5rem');
 
     const imageCol = (
         <Reveal className="relative h-full min-h-64">
@@ -316,7 +317,7 @@ function SplitVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
 
     const textCol = (
         <Reveal className="flex flex-col justify-center py-4">
-            <span {...qm} aria-hidden="true" style={{ ...qm.style, marginBottom: '0.5rem' }}>&ldquo;</span>
+            <QuoteLeft color={pSecondary} className="w-12 h-12 mb-4" />
             <EditableText
                 as="p"
                 contentKey="quote"
