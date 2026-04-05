@@ -147,9 +147,9 @@ function ForgotPasswordForm({
 }
 
 function ResetPasswordForm({
-  siteId, token, palette, primary,
+  siteId, token, palette, primary, branding,
 }: {
-  siteId: string; token: string; palette: Record<string, string>; primary: string;
+  siteId: string; token: string; palette: Record<string, string>; primary: string; branding?: Record<string, any>;
 }) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
