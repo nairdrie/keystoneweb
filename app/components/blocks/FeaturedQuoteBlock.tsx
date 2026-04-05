@@ -173,7 +173,7 @@ function SplitVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
                 &ldquo;
             </div>
             <EditableText
-                as="blockquote"
+                as="p"
                 contentKey="quote"
                 content={data.quote}
                 defaultValue="The best investment you can make is in yourself. The more you learn, the more you earn."
