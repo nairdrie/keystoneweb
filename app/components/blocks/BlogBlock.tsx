@@ -625,7 +625,6 @@ function BlogViewer({ siteId, data, palette }: {
     const [posts, setPosts] = useState<BlogPost[]>([]);
     const [loading, setLoading] = useState(true);
     const [openPost, setOpenPost] = useState<BlogPost | null>(null);
-    const langPrefix = useLangPrefix();
 
     const layout: LayoutStyle = data.layout || 'grid';
     const title = data.title || 'Blog';
@@ -898,6 +897,7 @@ function PostDetail({ post, onBack, pPrimary, pSecondary }: {
     pPrimary: string;
     pSecondary: string;
 }) {
+    const langPrefix = useLangPrefix();
     return (
         <section className="py-12 px-4 bg-white">
             <div className="max-w-3xl mx-auto">
