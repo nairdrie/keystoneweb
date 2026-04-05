@@ -1177,6 +1177,9 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
                 __hasProductBlock: pages.some(p =>
                   (p.design_data?.blocks || []).some((b: any) => b.type === 'productGrid')
                 ),
+                __hasMembershipBlock: pages.some(p =>
+                  (p.design_data?.blocks || []).some((b: any) => b.type === 'membershipPortal')
+                ),
               },
               updateSiteContent: handleUpdateSiteContent,
               navItems,

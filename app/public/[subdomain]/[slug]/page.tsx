@@ -14,6 +14,11 @@ import {
     resolveTranslatedContent,
     isLanguageCode,
 } from '@/lib/translations/resolve';
+import {
+    isMemberSystemRoute,
+    hasMembershipBlockInPages,
+    renderMemberSystemPage,
+} from '@/lib/membership/system-routes';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +48,18 @@ export default async function PublicSiteDynamicPage({
                     domain={`${subdomain}.kswd.ca`}
                 />
             );
+        }
+
+        // Check if this is a membership system route (signin, signup, member, forgot-password)
+        if (isMemberSystemRoute(slug)) {
+            const { data: allPagesCheck } = await supabase
+                .from('pages')
+                .select('id, slug, title, published_data')
+                .eq('site_id', site.id);
+            if (hasMembershipBlockInPages(allPagesCheck || [])) {
+                const systemPage = await renderMemberSystemPage({ site, slug, allPages: allPagesCheck || [] });
+                if (systemPage) return systemPage;
+            }
         }
 
         const translationsConfig = site.translations_config as any;
@@ -112,6 +129,9 @@ async function renderHomePage(
     const hasProductBlock = (allPages || []).some((p: any) =>
         (p.published_data?.blocks || []).some((b: any) => b.type === 'productGrid')
     );
+    const hasMembershipBlock = (allPages || []).some((p: any) =>
+        (p.published_data?.blocks || []).some((b: any) => b.type === 'membershipPortal')
+    );
 
     const mergedPublishData = {
         ...translatedSiteData,
@@ -120,6 +140,7 @@ async function renderHomePage(
         __currentLanguage: language,
         __translationsConfig: config,
         __hasProductBlock: hasProductBlock,
+        __hasMembershipBlock: hasMembershipBlock,
     };
 
     const TemplateComp = await getTemplateComponent(site.selected_template_id);
@@ -212,6 +233,9 @@ async function renderPage(
     const hasProductBlock = (allPages || []).some((p: any) =>
         (p.published_data?.blocks || []).some((b: any) => b.type === 'productGrid')
     );
+    const hasMembershipBlock = (allPages || []).some((p: any) =>
+        (p.published_data?.blocks || []).some((b: any) => b.type === 'membershipPortal')
+    );
 
     const mergedPublishData = {
         ...translatedSiteData,
@@ -220,6 +244,7 @@ async function renderPage(
         __currentLanguage: language,
         __translationsConfig: config,
         __hasProductBlock: hasProductBlock,
+        __hasMembershipBlock: hasMembershipBlock,
     };
 
     const TemplateComp = await getTemplateComponent(site.selected_template_id);

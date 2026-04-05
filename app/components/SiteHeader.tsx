@@ -9,6 +9,7 @@ import EditableText from '@/app/components/EditableText';
 import EditableButton from '@/app/components/EditableButton';
 import NavMenu from '@/app/components/NavMenu';
 import HeaderCartIcon from '@/app/components/ecommerce/HeaderCartIcon';
+import HeaderMemberIcon from '@/app/components/membership/HeaderMemberIcon';
 import HeaderLanguageSelector from '@/app/components/HeaderLanguageSelector';
 import HeaderSettingsModal, { type SiteHeaderDefaults, type HeaderBgType, type HeaderLayout } from '@/app/components/HeaderSettingsModal';
 
@@ -184,7 +185,10 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
             ? { backgroundColor: 'rgba(255,255,255,0.15)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.3)' }
             : { backgroundColor: pPrimary, color: '#ffffff' };
 
-    const defaultCtaLabel = defaults.defaultCtaLabel || 'Contact';
+    // Check if membership is active site-wide (to default CTA link to /signup)
+    const hasMembershipBlock = !!siteContent.__hasMembershipBlock;
+
+    const defaultCtaLabel = hasMembershipBlock ? 'Sign Up' : (defaults.defaultCtaLabel || 'Contact');
 
     const rightEl = (() => {
         if (rightSide === 'none') return null;
@@ -214,7 +218,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
             <EditableButton
                 contentKey="navButtonText"
                 label={siteContent.navButtonText}
-                linkData={siteContent.navButtonTextLink}
+                linkData={hasMembershipBlock && !siteContent.navButtonTextLink ? { type: 'url', value: '/signup' } : siteContent.navButtonTextLink}
                 iconData={siteContent.navButtonTextIcon}
                 defaultLabel={defaultCtaLabel}
                 isEditMode={isEditMode}
@@ -334,6 +338,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
             </div>
             <HeaderLanguageSelector />
             <HeaderCartIcon color={cartIconColor} />
+            <HeaderMemberIcon color={cartIconColor} />
             {rightEl}
         </div>
     );
@@ -388,6 +393,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     const mobileToggle = (
         <div className="flex md:hidden items-center gap-1">
             <HeaderCartIcon color={cartIconColor} />
+            <HeaderMemberIcon color={cartIconColor} />
             <button className={`p-2 ${mobileIconColor}`} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -466,11 +472,13 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
                                 </div>
                                 <HeaderLanguageSelector />
                                 <HeaderCartIcon color={cartIconColor} />
+                                <HeaderMemberIcon color={cartIconColor} />
                                 {rightEl}
                             </div>
                             <div className="flex md:hidden items-center justify-between h-12">
                                 <div className="flex items-center gap-1">
                                     <HeaderCartIcon color={cartIconColor} />
+                                    <HeaderMemberIcon color={cartIconColor} />
                                     <button className={`p-2 ${mobileIconColor}`} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
                                         {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                                     </button>

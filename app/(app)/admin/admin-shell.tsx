@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
-import { ChevronDown, Plus, Paintbrush, LayoutDashboard, ExternalLink, Pencil, Check, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, HelpCircle, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, Eye, EyeOff, BookOpen, UtensilsCrossed, FileImage } from 'lucide-react';
+import { ChevronDown, Plus, Paintbrush, LayoutDashboard, ExternalLink, Pencil, Check, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, HelpCircle, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, Eye, EyeOff, BookOpen, UtensilsCrossed, FileImage, Users } from 'lucide-react';
 import KeystoneLogo from '@/app/components/KeystoneLogo';
 import ProfileDropdown from '@/app/components/ProfileDropdown';
 import AlertModal from '@/app/components/ui/AlertModal';
@@ -46,6 +46,7 @@ const ALL_TABS: TabDef[] = [
   { id: 'events', label: 'Events', icon: CalendarDays, path: '/admin/events', requiresBlock: 'events' },
   { id: 'blog',   label: 'Blog',   icon: BookOpen,    path: '/admin/blog',   comingSoon: true },
   { id: 'menu',   label: 'Menu',   icon: UtensilsCrossed, path: '/admin/menu', requiresBlock: 'menu' },
+  { id: 'membership', label: 'Members', icon: Users, path: '/admin/membership', requiresBlock: 'membershipPortal' },
 ];
 
 const SHOW_ALL_KEY = 'ks_admin_show_all_features';
