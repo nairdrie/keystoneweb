@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
     const siteId = request.nextUrl.searchParams.get('siteId');
     const postId = request.nextUrl.searchParams.get('id');
+    const slug = request.nextUrl.searchParams.get('slug');
 
     if (!siteId) {
         return NextResponse.json({ error: 'Missing siteId' }, { status: 400 });
@@ -24,6 +25,18 @@ export async function GET(request: NextRequest) {
             .from('blog_posts')
             .select('*')
             .eq('id', postId)
+            .eq('site_id', siteId)
+            .single();
+
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ post: data });
+    }
+
+    if (slug) {
+        const { data, error } = await supabase
+            .from('blog_posts')
+            .select('*')
+            .eq('slug', slug)
             .eq('site_id', siteId)
             .single();
 

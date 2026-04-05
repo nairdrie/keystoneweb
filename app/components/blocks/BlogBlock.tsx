@@ -58,109 +58,56 @@ export default function BlogBlock({ id, data, isEditMode, palette, updateContent
     }
 
     if (isEditMode) {
-        return <BlogManager siteId={siteId} data={data} palette={palette} updateContent={updateContent} />;
+        return <BlogEditorPanel siteId={siteId} data={data} palette={palette} updateContent={updateContent} />;
     }
 
     return <BlogViewer siteId={siteId} data={data} palette={palette} />;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// EDITOR: Blog Manager
+// EDITOR: Blog Editor Panel (shown in /editor — settings + manage button)
 // ═══════════════════════════════════════════════════════════════════════════
 
-function BlogManager({ siteId, data, palette, updateContent }: {
+function BlogEditorPanel({ siteId, data, palette, updateContent }: {
     siteId: string;
     data: any;
     palette: Record<string, string>;
     updateContent: (key: string, value: any) => void;
 }) {
-    const [posts, setPosts] = useState<BlogPost[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
-    const [showNewPost, setShowNewPost] = useState(false);
+    const [postCount, setPostCount] = useState<number | null>(null);
 
     const layout: LayoutStyle = data.layout || 'grid';
     const title = data.title ?? 'Blog';
     const subtitle = data.subtitle ?? 'Latest news & updates';
+    const showAuthor = data.showAuthor !== false;
+    const showDate = data.showDate !== false;
+    const showTags = data.showTags !== false;
+    const showExcerpt = data.showExcerpt !== false;
+    const postsPerPage = data.postsPerPage || 9;
 
     useEffect(() => {
-        fetchPosts();
+        fetch(`/api/blog/posts?siteId=${siteId}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d?.posts) setPostCount(d.posts.length); })
+            .catch(() => {});
     }, [siteId]);
-
-    const fetchPosts = async () => {
-        setLoading(true);
-        try {
-            const res = await fetch(`/api/blog/posts?siteId=${siteId}`);
-            if (!res.ok) throw new Error('Failed to fetch');
-            const d = await res.json();
-            setPosts(d.posts || []);
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleDelete = async (postId: string) => {
-        if (!confirm('Delete this post?')) return;
-        await fetch(`/api/blog/posts?id=${postId}`, { method: 'DELETE' });
-        setPosts(posts.filter(p => p.id !== postId));
-    };
-
-    const handleTogglePublish = async (post: BlogPost) => {
-        const res = await fetch('/api/blog/posts', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: post.id, is_published: !post.is_published }),
-        });
-        const d = await res.json();
-        if (d.post) setPosts(posts.map(p => p.id === post.id ? d.post : p));
-    };
-
-    if (editingPost) {
-        return (
-            <PostEditor
-                siteId={siteId}
-                post={editingPost}
-                palette={palette}
-                onSaved={(updated) => {
-                    setPosts(posts.map(p => p.id === updated.id ? updated : p));
-                    setEditingPost(null);
-                }}
-                onBack={() => setEditingPost(null)}
-            />
-        );
-    }
-
-    if (showNewPost) {
-        return (
-            <PostEditor
-                siteId={siteId}
-                post={null}
-                palette={palette}
-                onSaved={(created) => {
-                    setPosts([...posts, created]);
-                    setShowNewPost(false);
-                }}
-                onBack={() => setShowNewPost(false)}
-            />
-        );
-    }
 
     return (
         <section className="py-12 px-4">
             <div className="max-w-3xl mx-auto space-y-6">
-                {/* Header settings */}
+                {/* Header */}
                 <div className="bg-white border-2 border-emerald-200 rounded-2xl shadow-sm overflow-hidden">
                     <div className="bg-emerald-50 px-6 py-4 border-b border-emerald-200">
                         <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                             <Newspaper className="w-5 h-5 text-emerald-600" />
                             Blog / News Block
                         </h3>
-                        <p className="text-sm text-slate-500 mt-1">{posts.length} post{posts.length !== 1 ? 's' : ''}</p>
+                        <p className="text-sm text-slate-500 mt-1">
+                            {postCount !== null ? `${postCount} post${postCount !== 1 ? 's' : ''}` : 'Loading…'}
+                        </p>
                     </div>
 
-                    <div className="p-6 space-y-4">
+                    <div className="p-6 space-y-5">
                         {/* Editable title & subtitle */}
                         <div className="grid grid-cols-2 gap-3">
                             <div>
@@ -209,90 +156,254 @@ function BlogManager({ siteId, data, palette, updateContent }: {
                                 ))}
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                {/* Post list */}
-                <div className="bg-white border-2 border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                    <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                        <h4 className="font-semibold text-slate-800 text-sm">Posts</h4>
-                        <button
-                            onClick={() => setShowNewPost(true)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors"
-                        >
-                            <Plus className="w-3.5 h-3.5" /> New Post
-                        </button>
-                    </div>
-
-                    <div className="p-4 space-y-2">
-                        {loading && (
-                            <div className="py-8 text-center">
-                                <Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400" />
+                        {/* Display options */}
+                        <div>
+                            <label className="text-xs font-semibold text-slate-600 mb-2 block">Display Options</label>
+                            <div className="flex flex-wrap gap-3">
+                                {([
+                                    { key: 'showAuthor', label: 'Author', value: showAuthor },
+                                    { key: 'showDate', label: 'Date', value: showDate },
+                                    { key: 'showTags', label: 'Tags', value: showTags },
+                                    { key: 'showExcerpt', label: 'Excerpt', value: showExcerpt },
+                                ] as const).map(({ key, label, value }) => (
+                                    <label key={key} className="flex items-center gap-2 cursor-pointer select-none">
+                                        <div
+                                            onClick={() => updateContent(key, !value)}
+                                            className={`relative w-8 h-4 rounded-full transition-colors ${value ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                                        >
+                                            <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${value ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                                        </div>
+                                        <span className="text-xs font-medium text-slate-600">{label}</span>
+                                    </label>
+                                ))}
                             </div>
-                        )}
+                        </div>
 
-                        {!loading && posts.length === 0 && (
-                            <p className="text-sm text-slate-400 text-center py-6">No posts yet. Create your first post above.</p>
-                        )}
+                        {/* Posts per page */}
+                        <div>
+                            <label className="text-xs font-semibold text-slate-600 mb-1 block">Posts Per Page</label>
+                            <select
+                                value={postsPerPage}
+                                onChange={e => updateContent('postsPerPage', parseInt(e.target.value))}
+                                className="px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                            >
+                                {[3, 6, 9, 12, 15].map(n => (
+                                    <option key={n} value={n}>{n}</option>
+                                ))}
+                            </select>
+                        </div>
 
-                        {!loading && posts.map(post => (
-                            <div key={post.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${post.is_published ? 'border-slate-200' : 'border-slate-100 bg-slate-50 opacity-70'}`}>
-                                {post.cover_image ? (
-                                    <img src={post.cover_image} alt={post.title} className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
-                                ) : (
-                                    <div className="w-14 h-14 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
-                                        <ImageIcon className="w-5 h-5 text-slate-300" />
-                                    </div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <p className="font-semibold text-slate-900 text-sm truncate">{post.title}</p>
-                                        {!post.is_published && (
-                                            <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex-shrink-0">Draft</span>
-                                        )}
-                                    </div>
-                                    {post.excerpt && (
-                                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{post.excerpt}</p>
-                                    )}
-                                    <div className="flex items-center gap-2 mt-1">
-                                        {post.author && <span className="text-xs text-slate-400">{post.author}</span>}
-                                        <span className="text-xs text-slate-400">
-                                            {new Date(post.published_at || post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                        </span>
-                                        {post.tags.length > 0 && (
-                                            <span className="text-xs text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">{post.tags[0]}{post.tags.length > 1 ? ` +${post.tags.length - 1}` : ''}</span>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                    <button
-                                        onClick={() => handleTogglePublish(post)}
-                                        title={post.is_published ? 'Unpublish' : 'Publish'}
-                                        className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition-colors"
-                                    >
-                                        {post.is_published ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                                    </button>
-                                    <button
-                                        onClick={() => setEditingPost(post)}
-                                        title="Edit post"
-                                        className="p-1.5 hover:bg-blue-50 rounded-lg text-slate-400 hover:text-blue-600 transition-colors"
-                                    >
-                                        <Edit3 className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        onClick={() => handleDelete(post.id)}
-                                        title="Delete post"
-                                        className="p-1.5 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-colors"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                        {/* Manage in Dashboard button */}
+                        <div className="pt-2 border-t border-slate-100">
+                            <a
+                                href={`/admin/blog?siteId=${siteId}`}
+                                className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-slate-900 hover:bg-slate-700 text-white text-sm font-bold rounded-xl transition-colors"
+                            >
+                                <ExternalLink className="w-4 h-4" />
+                                Manage Blog Posts in Dashboard
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
         </section>
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Blog Posts Manager (standalone — used in /admin/blog)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export function BlogPostsManager({ siteId, palette }: {
+    siteId: string;
+    palette: Record<string, string>;
+}) {
+    const [posts, setPosts] = useState<BlogPost[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
+    const [showNewPost, setShowNewPost] = useState(false);
+
+    useEffect(() => {
+        fetchPosts();
+    }, [siteId]);
+
+    const fetchPosts = async () => {
+        setLoading(true);
+        try {
+            const res = await fetch(`/api/blog/posts?siteId=${siteId}`);
+            if (!res.ok) throw new Error('Failed to fetch');
+            const d = await res.json();
+            setPosts(d.posts || []);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async (postId: string) => {
+        if (!confirm('Delete this post?')) return;
+        await fetch(`/api/blog/posts?id=${postId}`, { method: 'DELETE' });
+        setPosts(posts.filter(p => p.id !== postId));
+    };
+
+    const handleTogglePublish = async (post: BlogPost) => {
+        const res = await fetch('/api/blog/posts', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: post.id, is_published: !post.is_published }),
+        });
+        const d = await res.json();
+        if (d.post) setPosts(posts.map(p => p.id === post.id ? d.post : p));
+    };
+
+    const handlePublishAll = async () => {
+        const drafts = posts.filter(p => !p.is_published);
+        if (drafts.length === 0) return;
+        if (!confirm(`Publish all ${drafts.length} draft${drafts.length !== 1 ? 's' : ''}?`)) return;
+        for (const draft of drafts) {
+            await fetch('/api/blog/posts', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: draft.id, is_published: true }),
+            });
+        }
+        fetchPosts();
+    };
+
+    if (editingPost) {
+        return (
+            <PostEditor
+                siteId={siteId}
+                post={editingPost}
+                palette={palette}
+                onSaved={(updated) => {
+                    setPosts(posts.map(p => p.id === updated.id ? updated : p));
+                    setEditingPost(null);
+                }}
+                onBack={() => setEditingPost(null)}
+            />
+        );
+    }
+
+    if (showNewPost) {
+        return (
+            <PostEditor
+                siteId={siteId}
+                post={null}
+                palette={palette}
+                onSaved={(created) => {
+                    setPosts([...posts, created]);
+                    setShowNewPost(false);
+                }}
+                onBack={() => setShowNewPost(false)}
+            />
+        );
+    }
+
+    const publishedCount = posts.filter(p => p.is_published).length;
+    const draftCount = posts.filter(p => !p.is_published).length;
+
+    return (
+        <div className="space-y-4">
+            {/* Stats bar */}
+            <div className="flex items-center gap-4 text-xs text-slate-500">
+                <span className="font-medium">{posts.length} total</span>
+                <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {publishedCount} published</span>
+                {draftCount > 0 && <span className="flex items-center gap-1 text-amber-600"><EyeOff className="w-3 h-3" /> {draftCount} draft{draftCount !== 1 ? 's' : ''}</span>}
+            </div>
+
+            {/* Actions bar */}
+            <div className="flex items-center justify-between">
+                <button
+                    onClick={() => setShowNewPost(true)}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors"
+                >
+                    <Plus className="w-3.5 h-3.5" /> New Post
+                </button>
+                {draftCount > 0 && (
+                    <button
+                        onClick={handlePublishAll}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors"
+                    >
+                        <Eye className="w-3.5 h-3.5" /> Publish All Drafts
+                    </button>
+                )}
+            </div>
+
+            {/* Post list */}
+            <div className="space-y-2">
+                {loading && (
+                    <div className="py-12 text-center">
+                        <Loader2 className="w-6 h-6 animate-spin mx-auto text-slate-400" />
+                    </div>
+                )}
+
+                {!loading && posts.length === 0 && (
+                    <div className="text-center py-12 text-slate-400">
+                        <Newspaper className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                        <p className="text-sm font-medium">No posts yet</p>
+                        <p className="text-xs mt-1">Create your first blog post to get started.</p>
+                    </div>
+                )}
+
+                {!loading && posts.map(post => (
+                    <div key={post.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${post.is_published ? 'border-slate-200 bg-white' : 'border-slate-100 bg-slate-50 opacity-70'}`}>
+                        {post.cover_image ? (
+                            <img src={post.cover_image} alt={post.title} className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
+                        ) : (
+                            <div className="w-14 h-14 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
+                                <ImageIcon className="w-5 h-5 text-slate-300" />
+                            </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                                <p className="font-semibold text-slate-900 text-sm truncate">{post.title}</p>
+                                {!post.is_published && (
+                                    <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex-shrink-0">Draft</span>
+                                )}
+                            </div>
+                            {post.excerpt && (
+                                <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{post.excerpt}</p>
+                            )}
+                            <div className="flex items-center gap-2 mt-1">
+                                {post.author && <span className="text-xs text-slate-400">{post.author}</span>}
+                                <span className="text-xs text-slate-400">
+                                    {new Date(post.published_at || post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </span>
+                                {post.tags.length > 0 && (
+                                    <span className="text-xs text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">{post.tags[0]}{post.tags.length > 1 ? ` +${post.tags.length - 1}` : ''}</span>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                                onClick={() => handleTogglePublish(post)}
+                                title={post.is_published ? 'Unpublish' : 'Publish'}
+                                className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition-colors"
+                            >
+                                {post.is_published ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                            </button>
+                            <button
+                                onClick={() => setEditingPost(post)}
+                                title="Edit post"
+                                className="p-1.5 hover:bg-blue-50 rounded-lg text-slate-400 hover:text-blue-600 transition-colors"
+                            >
+                                <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => handleDelete(post.id)}
+                                title="Delete post"
+                                className="p-1.5 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-colors"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
     );
 }
 
@@ -628,9 +739,13 @@ function BlogViewer({ siteId, data, palette }: {
     const layout: LayoutStyle = data.layout || 'grid';
     const title = data.title || 'Blog';
     const subtitle = data.subtitle || '';
+    const showAuthor = data.showAuthor !== false;
+    const showDate = data.showDate !== false;
+    const showTags = data.showTags !== false;
+    const showExcerpt = data.showExcerpt !== false;
+    const postsPerPage = data.postsPerPage || 9;
     const pPrimary = palette.primary || '#0f172a';
     const pSecondary = palette.secondary || '#dc2626';
-    const pAccent = palette.accent || '#f59e0b';
 
     useEffect(() => {
         (async () => {
@@ -638,14 +753,14 @@ function BlogViewer({ siteId, data, palette }: {
                 const res = await fetch(`/api/blog/posts?siteId=${siteId}`);
                 if (!res.ok) throw new Error();
                 const d = await res.json();
-                setPosts((d.posts || []).filter((p: BlogPost) => p.is_published));
+                setPosts((d.posts || []).filter((p: BlogPost) => p.is_published).slice(0, postsPerPage));
             } catch {
                 // silent
             } finally {
                 setLoading(false);
             }
         })();
-    }, [siteId]);
+    }, [siteId, postsPerPage]);
 
     if (loading) {
         return (
@@ -665,6 +780,8 @@ function BlogViewer({ siteId, data, palette }: {
             />
         );
     }
+
+    const displayOpts = { showAuthor, showDate, showTags, showExcerpt };
 
     return (
         <section className="py-16 px-4 bg-white">
@@ -691,15 +808,15 @@ function BlogViewer({ siteId, data, palette }: {
                 )}
 
                 {posts.length > 0 && layout === 'grid' && (
-                    <GridLayout posts={posts} onOpen={setOpenPost} pPrimary={pPrimary} pSecondary={pSecondary} />
+                    <GridLayout posts={posts} onOpen={setOpenPost} pPrimary={pPrimary} pSecondary={pSecondary} displayOpts={displayOpts} />
                 )}
 
                 {posts.length > 0 && layout === 'list' && (
-                    <ListLayout posts={posts} onOpen={setOpenPost} pPrimary={pPrimary} pSecondary={pSecondary} />
+                    <ListLayout posts={posts} onOpen={setOpenPost} pPrimary={pPrimary} pSecondary={pSecondary} displayOpts={displayOpts} />
                 )}
 
                 {posts.length > 0 && layout === 'magazine' && (
-                    <MagazineLayout posts={posts} onOpen={setOpenPost} pPrimary={pPrimary} pSecondary={pSecondary} />
+                    <MagazineLayout posts={posts} onOpen={setOpenPost} pPrimary={pPrimary} pSecondary={pSecondary} displayOpts={displayOpts} />
                 )}
             </div>
         </section>
@@ -708,19 +825,28 @@ function BlogViewer({ siteId, data, palette }: {
 
 // ─── Grid Layout ─────────────────────────────────────────────────────────────
 
-function GridLayout({ posts, onOpen, pPrimary, pSecondary }: {
+interface DisplayOpts {
+    showAuthor: boolean;
+    showDate: boolean;
+    showTags: boolean;
+    showExcerpt: boolean;
+}
+
+function GridLayout({ posts, onOpen, pPrimary, pSecondary, displayOpts }: {
     posts: BlogPost[];
     onOpen: (p: BlogPost) => void;
     pPrimary: string;
     pSecondary: string;
+    displayOpts: DisplayOpts;
 }) {
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {posts.map(post => (
-                <article
+                <a
                     key={post.id}
-                    onClick={() => onOpen(post)}
-                    className="group cursor-pointer rounded-2xl border border-slate-100 overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1 bg-white"
+                    href={`/blog/${post.slug}`}
+                    onClick={(e) => { e.preventDefault(); onOpen(post); }}
+                    className="group cursor-pointer rounded-2xl border border-slate-100 overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1 bg-white block"
                 >
                     <div className="aspect-[16/9] bg-slate-50 overflow-hidden">
                         {post.cover_image ? (
@@ -732,7 +858,7 @@ function GridLayout({ posts, onOpen, pPrimary, pSecondary }: {
                         )}
                     </div>
                     <div className="p-5">
-                        {post.tags.length > 0 && (
+                        {displayOpts.showTags && post.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mb-3">
                                 {post.tags.slice(0, 2).map(tag => (
                                     <span key={tag} className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${pSecondary}15`, color: pSecondary }}>{tag}</span>
@@ -740,16 +866,18 @@ function GridLayout({ posts, onOpen, pPrimary, pSecondary }: {
                             </div>
                         )}
                         <h3 className="font-bold text-slate-900 text-base leading-snug group-hover:text-blue-700 transition-colors line-clamp-2">{post.title}</h3>
-                        {post.excerpt && <p className="text-sm text-slate-500 mt-2 line-clamp-2">{post.excerpt}</p>}
+                        {displayOpts.showExcerpt && post.excerpt && <p className="text-sm text-slate-500 mt-2 line-clamp-2">{post.excerpt}</p>}
                         <div className="flex items-center gap-3 mt-4 text-xs text-slate-400">
-                            {post.author && <span className="flex items-center gap-1"><User className="w-3 h-3" />{post.author}</span>}
-                            <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {new Date(post.published_at || post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                            </span>
+                            {displayOpts.showAuthor && post.author && <span className="flex items-center gap-1"><User className="w-3 h-3" />{post.author}</span>}
+                            {displayOpts.showDate && (
+                                <span className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    {new Date(post.published_at || post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </span>
+                            )}
                         </div>
                     </div>
-                </article>
+                </a>
             ))}
         </div>
     );
@@ -757,19 +885,21 @@ function GridLayout({ posts, onOpen, pPrimary, pSecondary }: {
 
 // ─── List Layout ──────────────────────────────────────────────────────────────
 
-function ListLayout({ posts, onOpen, pPrimary, pSecondary }: {
+function ListLayout({ posts, onOpen, pPrimary, pSecondary, displayOpts }: {
     posts: BlogPost[];
     onOpen: (p: BlogPost) => void;
     pPrimary: string;
     pSecondary: string;
+    displayOpts: DisplayOpts;
 }) {
     return (
         <div className="space-y-6 max-w-3xl mx-auto">
             {posts.map(post => (
-                <article
+                <a
                     key={post.id}
-                    onClick={() => onOpen(post)}
-                    className="group cursor-pointer flex gap-5 rounded-2xl border border-slate-100 overflow-hidden hover:shadow-lg transition-all bg-white p-4"
+                    href={`/blog/${post.slug}`}
+                    onClick={(e) => { e.preventDefault(); onOpen(post); }}
+                    className="group cursor-pointer flex gap-5 rounded-2xl border border-slate-100 overflow-hidden hover:shadow-lg transition-all bg-white p-4 block"
                 >
                     {post.cover_image && (
                         <div className="w-36 h-28 flex-shrink-0 rounded-xl overflow-hidden bg-slate-50">
@@ -777,7 +907,7 @@ function ListLayout({ posts, onOpen, pPrimary, pSecondary }: {
                         </div>
                     )}
                     <div className="flex-1 min-w-0 py-1">
-                        {post.tags.length > 0 && (
+                        {displayOpts.showTags && post.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mb-2">
                                 {post.tags.slice(0, 3).map(tag => (
                                     <span key={tag} className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${pSecondary}15`, color: pSecondary }}>{tag}</span>
@@ -785,17 +915,19 @@ function ListLayout({ posts, onOpen, pPrimary, pSecondary }: {
                             </div>
                         )}
                         <h3 className="font-bold text-slate-900 text-lg leading-snug group-hover:text-blue-700 transition-colors">{post.title}</h3>
-                        {post.excerpt && <p className="text-sm text-slate-500 mt-1.5 line-clamp-2">{post.excerpt}</p>}
+                        {displayOpts.showExcerpt && post.excerpt && <p className="text-sm text-slate-500 mt-1.5 line-clamp-2">{post.excerpt}</p>}
                         <div className="flex items-center gap-3 mt-3 text-xs text-slate-400">
-                            {post.author && <span className="flex items-center gap-1"><User className="w-3 h-3" />{post.author}</span>}
-                            <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {new Date(post.published_at || post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                            </span>
+                            {displayOpts.showAuthor && post.author && <span className="flex items-center gap-1"><User className="w-3 h-3" />{post.author}</span>}
+                            {displayOpts.showDate && (
+                                <span className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    {new Date(post.published_at || post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </span>
+                            )}
                             <span className="ml-auto text-xs font-medium" style={{ color: pSecondary }}>Read more →</span>
                         </div>
                     </div>
-                </article>
+                </a>
             ))}
         </div>
     );
@@ -803,11 +935,12 @@ function ListLayout({ posts, onOpen, pPrimary, pSecondary }: {
 
 // ─── Magazine Layout ──────────────────────────────────────────────────────────
 
-function MagazineLayout({ posts, onOpen, pPrimary, pSecondary }: {
+function MagazineLayout({ posts, onOpen, pPrimary, pSecondary, displayOpts }: {
     posts: BlogPost[];
     onOpen: (p: BlogPost) => void;
     pPrimary: string;
     pSecondary: string;
+    displayOpts: DisplayOpts;
 }) {
     const [featured, ...rest] = posts;
 
@@ -815,9 +948,10 @@ function MagazineLayout({ posts, onOpen, pPrimary, pSecondary }: {
         <div className="space-y-6">
             {/* Featured post */}
             {featured && (
-                <article
-                    onClick={() => onOpen(featured)}
-                    className="group cursor-pointer grid md:grid-cols-2 gap-0 rounded-2xl overflow-hidden border border-slate-100 hover:shadow-xl transition-all bg-white"
+                <a
+                    href={`/blog/${featured.slug}`}
+                    onClick={(e) => { e.preventDefault(); onOpen(featured); }}
+                    className="group cursor-pointer grid md:grid-cols-2 gap-0 rounded-2xl overflow-hidden border border-slate-100 hover:shadow-xl transition-all bg-white block"
                 >
                     <div className="aspect-[4/3] md:aspect-auto bg-slate-50 overflow-hidden">
                         {featured.cover_image ? (
@@ -829,7 +963,7 @@ function MagazineLayout({ posts, onOpen, pPrimary, pSecondary }: {
                         )}
                     </div>
                     <div className="p-8 flex flex-col justify-center">
-                        {featured.tags.length > 0 && (
+                        {displayOpts.showTags && featured.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mb-4">
                                 {featured.tags.slice(0, 2).map(tag => (
                                     <span key={tag} className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: `${pSecondary}15`, color: pSecondary }}>{tag}</span>
@@ -838,26 +972,29 @@ function MagazineLayout({ posts, onOpen, pPrimary, pSecondary }: {
                         )}
                         <span className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: pSecondary }}>Featured</span>
                         <h2 className="text-2xl font-bold text-slate-900 leading-tight group-hover:text-blue-700 transition-colors">{featured.title}</h2>
-                        {featured.excerpt && <p className="text-slate-500 mt-3 line-clamp-3">{featured.excerpt}</p>}
+                        {displayOpts.showExcerpt && featured.excerpt && <p className="text-slate-500 mt-3 line-clamp-3">{featured.excerpt}</p>}
                         <div className="flex items-center gap-3 mt-6 text-sm text-slate-400">
-                            {featured.author && <span className="flex items-center gap-1"><User className="w-3.5 h-3.5" />{featured.author}</span>}
-                            <span className="flex items-center gap-1">
-                                <Calendar className="w-3.5 h-3.5" />
-                                {new Date(featured.published_at || featured.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                            </span>
+                            {displayOpts.showAuthor && featured.author && <span className="flex items-center gap-1"><User className="w-3.5 h-3.5" />{featured.author}</span>}
+                            {displayOpts.showDate && (
+                                <span className="flex items-center gap-1">
+                                    <Calendar className="w-3.5 h-3.5" />
+                                    {new Date(featured.published_at || featured.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                </span>
+                            )}
                         </div>
                     </div>
-                </article>
+                </a>
             )}
 
             {/* Remaining posts grid */}
             {rest.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                     {rest.map(post => (
-                        <article
+                        <a
                             key={post.id}
-                            onClick={() => onOpen(post)}
-                            className="group cursor-pointer rounded-2xl border border-slate-100 overflow-hidden hover:shadow-lg transition-all bg-white"
+                            href={`/blog/${post.slug}`}
+                            onClick={(e) => { e.preventDefault(); onOpen(post); }}
+                            className="group cursor-pointer rounded-2xl border border-slate-100 overflow-hidden hover:shadow-lg transition-all bg-white block"
                         >
                             <div className="aspect-[16/9] bg-slate-50 overflow-hidden">
                                 {post.cover_image ? (
@@ -869,16 +1006,16 @@ function MagazineLayout({ posts, onOpen, pPrimary, pSecondary }: {
                                 )}
                             </div>
                             <div className="p-4">
-                                {post.tags.length > 0 && (
+                                {displayOpts.showTags && post.tags.length > 0 && (
                                     <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full mb-2 inline-block" style={{ backgroundColor: `${pSecondary}15`, color: pSecondary }}>{post.tags[0]}</span>
                                 )}
                                 <h3 className="font-bold text-slate-900 leading-snug group-hover:text-blue-700 transition-colors line-clamp-2">{post.title}</h3>
                                 <div className="flex items-center gap-3 mt-3 text-xs text-slate-400">
-                                    {post.author && <span>{post.author}</span>}
-                                    <span className="ml-auto">{new Date(post.published_at || post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                                    {displayOpts.showAuthor && post.author && <span>{post.author}</span>}
+                                    {displayOpts.showDate && <span className="ml-auto">{new Date(post.published_at || post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
                                 </div>
                             </div>
-                        </article>
+                        </a>
                     ))}
                 </div>
             )}
