@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Code, Lock, Crown, Image as ImageIcon, Upload, Trash2, LayoutTemplate, Palette } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
@@ -28,6 +28,7 @@ export default function BlockSettingsModal({
     onSaveCustomCss,
     isProUser,
 }: BlockSettingsModalProps) {
+    const mouseDownOnBackdrop = useRef(false);
     const context = useEditorContext();
     const { uploadImage } = context || {};
 
@@ -229,7 +230,11 @@ export default function BlockSettingsModal({
             onClick={(e) => e.stopPropagation()}
         >
             {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+            <div
+                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                onMouseDown={(e) => { mouseDownOnBackdrop.current = e.target === e.currentTarget; }}
+                onClick={() => { if (mouseDownOnBackdrop.current) onClose(); }}
+            />
 
             {/* Modal */}
             <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
