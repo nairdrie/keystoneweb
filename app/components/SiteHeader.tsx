@@ -228,7 +228,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
             );
         }
         return (
-            <div className="flex flex-col items-end gap-1">
+            <div className="flex flex-col items-center gap-1">
                 <EditableButton
                     contentKey="navButtonText"
                     label={siteContent.navButtonText}
