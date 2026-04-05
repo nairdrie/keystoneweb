@@ -51,13 +51,14 @@ export async function renderMemberSystemPage({
     palette = palettesObj[requestedPalette] || palettesObj['default'] || {};
   }
 
-  const siteName = sitePublishData.siteTitle || '';
+  const siteName = sitePublishData.siteTitle || site.site_slug || '';
+  const branding = { siteLogo: sitePublishData.headerLogo || sitePublishData.siteLogo || '' };
 
   const pageComponents: Record<string, React.ReactElement> = {
-    signin: <MemberSignInPage siteId={site.id} siteName={siteName} palette={palette} />,
-    signup: <MemberSignUpPage siteId={site.id} siteName={siteName} palette={palette} />,
+    signin: <MemberSignInPage siteId={site.id} siteName={siteName} palette={palette} branding={branding} />,
+    signup: <MemberSignUpPage siteId={site.id} siteName={siteName} palette={palette} branding={branding} />,
     member: <MemberProfilePage siteId={site.id} siteName={siteName} palette={palette} />,
-    'forgot-password': <ForgotPasswordPage siteId={site.id} siteName={siteName} palette={palette} />,
+    'forgot-password': <ForgotPasswordPage siteId={site.id} siteName={siteName} palette={palette} branding={branding} />,
   };
 
   return pageComponents[slug] || null;

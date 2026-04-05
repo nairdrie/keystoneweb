@@ -57,12 +57,22 @@ export default function MemberSignInPage({ siteId, siteName, palette, branding }
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
           <div className="text-center mb-8">
-            <div
-              className="w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center"
-              style={{ backgroundColor: `${primary}15` }}
-            >
-              <LogIn className="w-6 h-6" style={{ color: primary }} />
-            </div>
+            {branding?.siteLogo ? (
+              <div className="flex justify-center mb-4">
+                <img
+                  src={branding.siteLogo}
+                  alt={siteName || 'Logo'}
+                  className="max-h-16 w-auto object-contain"
+                />
+              </div>
+            ) : (
+              <div
+                className="w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center"
+                style={{ backgroundColor: `${primary}15` }}
+              >
+                <LogIn className="w-6 h-6" style={{ color: primary }} />
+              </div>
+            )}
             <h1 className="text-2xl font-bold text-slate-900">Sign In</h1>
             {siteName && <p className="text-sm text-slate-500 mt-1">to {siteName}</p>}
           </div>
