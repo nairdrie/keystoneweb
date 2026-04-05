@@ -5,6 +5,10 @@ import {
   generateSecureToken,
   getVerificationExpiresAt,
 } from '@/lib/membership/auth';
+import {
+  sendMemberVerificationEmail,
+  sendMemberSignupNotification,
+} from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +33,7 @@ export async function POST(request: NextRequest) {
     // Verify site exists and has membership enabled
     const { data: site } = await supabase
       .from('sites')
-      .select('id, published_domain')
+      .select('id, published_domain, site_slug, custom_domain')
       .eq('id', siteId)
       .single();
 
@@ -68,7 +72,29 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', existing.id);
 
-        // TODO: Send verification email via Resend
+        const siteName = site.custom_domain || site.published_domain || site.site_slug || undefined;
+        const verificationUrl = `${request.nextUrl.origin}/api/membership/verify-email?token=${verificationToken}&siteId=${siteId}`;
+        await sendMemberVerificationEmail({
+          memberEmail: emailLower,
+          memberName: name || undefined,
+          siteName,
+          verificationUrl,
+        });
+
+        const { data: reSignupSettings } = await supabase
+          .from('membership_settings')
+          .select('notification_email')
+          .eq('site_id', siteId)
+          .single();
+        if (reSignupSettings?.notification_email) {
+          await sendMemberSignupNotification({
+            ownerEmail: reSignupSettings.notification_email,
+            memberEmail: emailLower,
+            memberName: name || undefined,
+            siteName,
+          });
+        }
+
         return NextResponse.json({ success: true, requiresVerification: true });
       }
       return NextResponse.json({ error: 'An account with this email already exists' }, { status: 409 });
@@ -77,7 +103,7 @@ export async function POST(request: NextRequest) {
     // Fetch settings to check if verification is required
     const { data: settings } = await supabase
       .from('membership_settings')
-      .select('require_email_verification')
+      .select('require_email_verification, notification_email')
       .eq('site_id', siteId)
       .single();
 
@@ -110,8 +136,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create account' }, { status: 500 });
     }
 
-    // TODO: Send verification email if required
-    // TODO: Send notification email to site owner
+    const siteName = site.custom_domain || site.published_domain || site.site_slug || undefined;
+
+    if (requireVerification && verificationToken) {
+      const verificationUrl = `${request.nextUrl.origin}/api/membership/verify-email?token=${verificationToken}&siteId=${siteId}`;
+      await sendMemberVerificationEmail({
+        memberEmail: emailLower,
+        memberName: name || undefined,
+        siteName,
+        verificationUrl,
+      });
+    }
+
+    if (settings?.notification_email) {
+      await sendMemberSignupNotification({
+        ownerEmail: settings.notification_email,
+        memberEmail: emailLower,
+        memberName: name || undefined,
+        siteName,
+      });
+    }
 
     return NextResponse.json({
       success: true,

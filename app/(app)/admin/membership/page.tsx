@@ -78,6 +78,8 @@ export default function AdminMembershipPage() {
 // MEMBERS TAB
 // ═══════════════════════════════════════════════════════════════════════════════
 
+const BUILT_IN_FIELD_KEYS = new Set(['name', 'email', 'password']);
+
 function MembersTab({ siteId }: { siteId: string }) {
   const [members, setMembers] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
@@ -85,6 +87,28 @@ function MembersTab({ siteId }: { siteId: string }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState('signed_up_at');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [formFields, setFormFields] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch(`/api/membership/settings?siteId=${siteId}`)
+      .then(r => r.json())
+      .then(data => setFormFields(data.settings?.signup_form_fields || []))
+      .catch(() => {});
+  }, [siteId]);
+
+  const customColumns = formFields.filter(f => !BUILT_IN_FIELD_KEYS.has(f.key));
+
+  const handleSort = (col: string) => {
+    if (sortBy === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(col);
+      setSortDir('asc');
+    }
+    setPage(1);
+  };
 
   const fetchMembers = useCallback(async () => {
     setLoading(true);
@@ -93,6 +117,8 @@ function MembersTab({ siteId }: { siteId: string }) {
         siteId,
         page: String(page),
         limit: '50',
+        sortBy,
+        sortDir,
       });
       if (search) params.set('search', search);
       if (statusFilter !== 'all') params.set('status', statusFilter);
@@ -106,22 +132,32 @@ function MembersTab({ siteId }: { siteId: string }) {
     } finally {
       setLoading(false);
     }
-  }, [siteId, page, search, statusFilter]);
+  }, [siteId, page, search, statusFilter, sortBy, sortDir]);
 
   useEffect(() => { fetchMembers(); }, [fetchMembers]);
 
   const handleExportCSV = () => {
+    const customHeaders = customColumns.map(f => f.label);
+    const headers = ['Name', 'Email', 'Status', 'Package', 'Subscription', 'Signed Up', 'Last Login', ...customHeaders, 'Marketing Opt-In'];
     const csv = [
-      ['Name', 'Email', 'Status', 'Package', 'Subscription', 'Signed Up', 'Last Login'].join(','),
-      ...members.map(m => [
-        m.name || '',
-        m.email,
-        m.status,
-        m.membership_packages?.name || '',
-        m.subscription_status,
-        m.signed_up_at ? new Date(m.signed_up_at).toLocaleDateString() : '',
-        m.last_login_at ? new Date(m.last_login_at).toLocaleDateString() : '',
-      ].map(v => `"${v}"`).join(',')),
+      headers.join(','),
+      ...members.map(m => {
+        const customValues = customColumns.map(f => {
+          const v = m.custom_fields?.[f.key];
+          return Array.isArray(v) ? v.join('; ') : (v ?? '');
+        });
+        return [
+          m.name || '',
+          m.email,
+          m.status,
+          m.membership_packages?.name || '',
+          m.subscription_status === 'none' ? '' : (m.subscription_status || ''),
+          m.signed_up_at ? new Date(m.signed_up_at).toLocaleDateString() : '',
+          m.last_login_at ? new Date(m.last_login_at).toLocaleDateString() : '',
+          ...customValues,
+          m.marketing_opt_in ? 'Yes' : 'No',
+        ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+      }),
     ].join('\n');
 
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -159,15 +195,30 @@ function MembersTab({ siteId }: { siteId: string }) {
     cancelled: 'bg-slate-100 text-slate-500',
   };
 
+  const SortIndicator = ({ col }: { col: string }) => (
+    <span className={`ml-1 text-[10px] ${sortBy === col ? 'text-slate-700' : 'text-slate-300'}`}>
+      {sortBy === col ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
+    </span>
+  );
+
+  const SortTh = ({ col, label, className = '' }: { col: string; label: string; className?: string }) => (
+    <th
+      className={`text-left px-4 py-2.5 font-medium whitespace-nowrap cursor-pointer select-none hover:text-slate-700 ${className}`}
+      onClick={() => handleSort(col)}
+    >
+      {label}<SortIndicator col={col} />
+    </th>
+  );
+
   return (
     <div className="space-y-4">
       {/* Search + filters */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search by name or email..."
+            placeholder="Search members..."
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
             className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm"
@@ -207,79 +258,112 @@ function MembersTab({ siteId }: { siteId: string }) {
         </div>
       ) : (
         <div className="border border-slate-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500">
-              <tr>
-                <th className="text-left px-4 py-2.5 font-medium">Member</th>
-                <th className="text-left px-4 py-2.5 font-medium">Status</th>
-                <th className="text-left px-4 py-2.5 font-medium">Package</th>
-                <th className="text-left px-4 py-2.5 font-medium">Subscription</th>
-                <th className="text-left px-4 py-2.5 font-medium">Joined</th>
-                <th className="text-right px-4 py-2.5 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {members.map(m => (
-                <tr key={m.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div>
-                      <p className="font-medium text-slate-900">{m.name || 'Unnamed'}</p>
-                      <p className="text-xs text-slate-400">{m.email}</p>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[m.status] || ''}`}>
-                      {m.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {m.membership_packages?.name || '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`text-xs ${
-                      m.subscription_status === 'active' ? 'text-green-600' :
-                      m.subscription_status === 'past_due' ? 'text-yellow-600' :
-                      'text-slate-400'
-                    }`}>
-                      {m.subscription_status === 'none' ? '—' : m.subscription_status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-400">
-                    {m.signed_up_at ? new Date(m.signed_up_at).toLocaleDateString() : '—'}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      {m.status === 'active' && (
-                        <button
-                          onClick={() => handleUpdateStatus(m.id, 'suspended')}
-                          className="p-1.5 rounded text-slate-400 hover:text-yellow-600 hover:bg-yellow-50"
-                          title="Suspend"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      {m.status === 'suspended' && (
-                        <button
-                          onClick={() => handleUpdateStatus(m.id, 'active')}
-                          className="p-1.5 rounded text-slate-400 hover:text-green-600 hover:bg-green-50"
-                          title="Reactivate"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleDeleteMember(m.id)}
-                        className="p-1.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm" style={{ minWidth: `${600 + customColumns.length * 160}px` }}>
+              <thead className="bg-slate-50 text-slate-500">
+                <tr>
+                  <th
+                    className="text-left px-4 py-2.5 font-medium whitespace-nowrap cursor-pointer select-none hover:text-slate-700 sticky left-0 bg-slate-50 z-10 shadow-[1px_0_0_0_#e2e8f0]"
+                    onClick={() => handleSort('name')}
+                  >
+                    Member<SortIndicator col="name" />
+                  </th>
+                  <SortTh col="status" label="Status" />
+                  <SortTh col="package" label="Package" />
+                  <SortTh col="subscription_status" label="Subscription" />
+                  <SortTh col="signed_up_at" label="Joined" />
+                  <SortTh col="last_login_at" label="Last Login" />
+                  {customColumns.map(f => (
+                    <th key={f.key} className="text-left px-4 py-2.5 font-medium whitespace-nowrap">
+                      {f.label}
+                    </th>
+                  ))}
+                  <th className="text-right px-4 py-2.5 font-medium sticky right-0 bg-slate-50 z-10 shadow-[-1px_0_0_0_#e2e8f0]">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {members.map(m => (
+                  <tr key={m.id} className="hover:bg-slate-50/80 transition-colors group">
+                    <td className="px-4 py-3 sticky left-0 bg-white group-hover:bg-slate-50/80 z-10 shadow-[1px_0_0_0_#e2e8f0]">
+                      <div>
+                        <p className="font-medium text-slate-900">{m.name || 'Unnamed'}</p>
+                        <p className="text-xs text-slate-400">{m.email}</p>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[m.status] || ''}`}>
+                        {m.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                      {m.membership_packages?.name || '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs ${
+                        m.subscription_status === 'active' ? 'text-green-600' :
+                        m.subscription_status === 'past_due' ? 'text-yellow-600' :
+                        'text-slate-400'
+                      }`}>
+                        {m.subscription_status === 'none' ? '—' : (m.subscription_status || '—')}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
+                      {m.signed_up_at ? new Date(m.signed_up_at).toLocaleDateString() : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-slate-400 whitespace-nowrap">
+                      {m.last_login_at ? new Date(m.last_login_at).toLocaleDateString() : '—'}
+                    </td>
+                    {customColumns.map(f => {
+                      const val = m.custom_fields?.[f.key];
+                      const display = val === null || val === undefined ? '—'
+                        : Array.isArray(val) ? (val.length ? val.join(', ') : '—')
+                        : val === true ? 'Yes'
+                        : val === false ? 'No'
+                        : String(val) || '—';
+                      return (
+                        <td key={f.key} className="px-4 py-3 text-slate-600 max-w-[200px]">
+                          <span className="block truncate" title={display !== '—' ? String(display) : undefined}>
+                            {display}
+                          </span>
+                        </td>
+                      );
+                    })}
+                    <td className="px-4 py-3 text-right sticky right-0 bg-white group-hover:bg-slate-50/80 z-10 shadow-[-1px_0_0_0_#e2e8f0]">
+                      <div className="flex items-center justify-end gap-1">
+                        {m.status === 'active' && (
+                          <button
+                            onClick={() => handleUpdateStatus(m.id, 'suspended')}
+                            className="p-1.5 rounded text-slate-400 hover:text-yellow-600 hover:bg-yellow-50"
+                            title="Suspend"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {m.status === 'suspended' && (
+                          <button
+                            onClick={() => handleUpdateStatus(m.id, 'active')}
+                            className="p-1.5 rounded text-slate-400 hover:text-green-600 hover:bg-green-50"
+                            title="Reactivate"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteMember(m.id)}
+                          className="p-1.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
