@@ -416,6 +416,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                 <Reveal>
                     <EditableImage
                         contentKey="image"
+                        initialSettings={block.data.image__settings}
                         imageUrl={imageUrl}
                         isEditMode={isEditMode}
                         onSave={(key, val) => updateData(key, val)}
