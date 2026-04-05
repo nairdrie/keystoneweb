@@ -51,7 +51,7 @@ export async function renderMemberSystemPage({
     palette = palettesObj[requestedPalette] || palettesObj['default'] || {};
   }
 
-  const siteName = sitePublishData.siteTitle || site.site_slug || '';
+  const siteName = site.site_slug || '';
   const branding = { siteLogo: sitePublishData.headerLogo || sitePublishData.siteLogo || '' };
 
   const pageComponents: Record<string, React.ReactElement> = {
