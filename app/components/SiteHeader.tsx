@@ -185,10 +185,10 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
             ? { backgroundColor: 'rgba(255,255,255,0.15)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.3)' }
             : { backgroundColor: pPrimary, color: '#ffffff' };
 
-    const defaultCtaLabel = defaults.defaultCtaLabel || 'Contact';
-
-    // Check if membership is active site-wide (for CTA replacement)
+    // Check if membership is active site-wide (to default CTA link to /signup)
     const hasMembershipBlock = !!siteContent.__hasMembershipBlock;
+
+    const defaultCtaLabel = hasMembershipBlock ? 'Sign Up' : (defaults.defaultCtaLabel || 'Contact');
 
     const rightEl = (() => {
         if (rightSide === 'none') return null;
@@ -214,20 +214,11 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
                 </div>
             );
         }
-        // When membership is enabled (non-edit mode), replace CTA with Login/Sign Up
-        // The HeaderMemberIcon handles the signed-in state separately
-        if (hasMembershipBlock && !isEditMode) {
-            return (
-                <a href="/signin" className={ctaClass} style={resolvedCtaStyle}>
-                    Login / Sign Up
-                </a>
-            );
-        }
         return (
             <EditableButton
                 contentKey="navButtonText"
                 label={siteContent.navButtonText}
-                linkData={siteContent.navButtonTextLink}
+                linkData={hasMembershipBlock && !siteContent.navButtonTextLink ? { type: 'url', value: '/signup' } : siteContent.navButtonTextLink}
                 iconData={siteContent.navButtonTextIcon}
                 defaultLabel={defaultCtaLabel}
                 isEditMode={isEditMode}
