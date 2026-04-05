@@ -190,6 +190,19 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
 
     const defaultCtaLabel = hasMembershipBlock ? 'Sign Up' : (defaults.defaultCtaLabel || 'Contact');
 
+    // Member sign-in link (shown below CTA button when membership block exists)
+    const showMemberSignIn = hasMembershipBlock && (siteContent.headerShowMemberSignIn !== false);
+    const memberSignInText = siteContent.headerMemberSignInText || 'Already a member? Sign In';
+    const memberSignInEl = showMemberSignIn ? (
+        <a
+            href={isEditMode ? undefined : '/signin'}
+            onClick={isEditMode ? (e: React.MouseEvent) => e.preventDefault() : undefined}
+            className={`text-xs transition-opacity hover:opacity-80 whitespace-nowrap ${textIsLight ? 'text-white/70' : 'text-slate-500'}`}
+        >
+            {memberSignInText}
+        </a>
+    ) : null;
+
     const rightEl = (() => {
         if (rightSide === 'none') return null;
         if (rightSide === 'social') {
@@ -215,17 +228,20 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
             );
         }
         return (
-            <EditableButton
-                contentKey="navButtonText"
-                label={siteContent.navButtonText}
-                linkData={hasMembershipBlock && !siteContent.navButtonTextLink ? { type: 'url', value: '/signup' } : siteContent.navButtonTextLink}
-                iconData={siteContent.navButtonTextIcon}
-                defaultLabel={defaultCtaLabel}
-                isEditMode={isEditMode}
-                onSave={updateSiteContent}
-                className={ctaClass}
-                style={resolvedCtaStyle}
-            />
+            <div className="flex flex-col items-end gap-1">
+                <EditableButton
+                    contentKey="navButtonText"
+                    label={siteContent.navButtonText}
+                    linkData={hasMembershipBlock && !siteContent.navButtonTextLink ? { type: 'url', value: '/signup' } : siteContent.navButtonTextLink}
+                    iconData={siteContent.navButtonTextIcon}
+                    defaultLabel={defaultCtaLabel}
+                    isEditMode={isEditMode}
+                    onSave={updateSiteContent}
+                    className={ctaClass}
+                    style={resolvedCtaStyle}
+                />
+                {memberSignInEl}
+            </div>
         );
     })();
 
@@ -368,6 +384,9 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
                         className={`w-full ${ctaClass}`}
                         style={resolvedCtaStyle}
                     />
+                    {memberSignInEl && (
+                        <div className="text-center mt-2">{memberSignInEl}</div>
+                    )}
                 </div>
             )}
         </div>
