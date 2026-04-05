@@ -10,6 +10,7 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import Placeholder from '@tiptap/extension-placeholder';
 import { useEffect, useState } from 'react';
 import { BlockData, useEditorContext } from '@/lib/editor-context';
+import { useLangPrefix, prefixInternalLinks } from '@/lib/hooks/useLangPrefix';
 import {
     Bold, Italic, Underline as UnderlineIcon, Strikethrough,
     AlignLeft, AlignCenter, AlignRight, AlignJustify,
@@ -203,8 +204,10 @@ function Toolbar({ editor }: { editor: ReturnType<typeof useEditor> | null }) {
 export default function TextBlock({ block, palette }: { block: BlockData; palette: Record<string, string> }) {
     const context = useEditorContext();
     const isEditMode = context?.isEditMode || false;
+    const langPrefix = useLangPrefix();
 
-    const html = block.data.html !== undefined ? block.data.html : defaultHtml;
+    const rawHtml = block.data.html !== undefined ? block.data.html : defaultHtml;
+    const html = isEditMode ? rawHtml : prefixInternalLinks(rawHtml, langPrefix);
 
     const editor = useEditor({
         immediatelyRender: false,

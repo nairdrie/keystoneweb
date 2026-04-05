@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Plus, X, Pencil, ChevronDown, GripVertical } from 'lucide-react';
 import { useEditorContext, NavItem } from '@/lib/editor-context';
+import { useLangPrefix } from '@/lib/hooks/useLangPrefix';
 import NavItemEditModal from './NavItemEditModal';
 import { getBlockSlug } from '@/lib/block-utils';
 import {
@@ -41,18 +42,11 @@ export default function NavMenu({ className = '', itemClassName = '', submenuCla
     const updateNavItems = context?.updateNavItems;
     const pages = context?.pages || [];
     const blocks = context?.blocks || [];
-    const siteContent = context?.siteContent;
-
     const pathname = usePathname();
     const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     // Language prefix for published multilingual sites
-    const currentLanguage = siteContent?.__currentLanguage as string | undefined;
-    const translationsConfig = siteContent?.__translationsConfig as { enabled?: boolean; defaultLanguage?: string } | undefined;
-    const defaultLanguage = translationsConfig?.defaultLanguage || 'en';
-    const langPrefix = (!isEditor && translationsConfig?.enabled && currentLanguage && currentLanguage !== defaultLanguage)
-        ? `/${currentLanguage}`
-        : '';
+    const langPrefix = useLangPrefix();
 
     const [editingItem, setEditingItem] = useState<NavItem | null>(null);
     const [editingParentId, setEditingParentId] = useState<string | null>(null);

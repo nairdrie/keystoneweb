@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useEditorContext } from '@/lib/editor-context';
+import { useLangPrefix, prefixInternalLinks } from '@/lib/hooks/useLangPrefix';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -624,6 +625,7 @@ function BlogViewer({ siteId, data, palette }: {
     const [posts, setPosts] = useState<BlogPost[]>([]);
     const [loading, setLoading] = useState(true);
     const [openPost, setOpenPost] = useState<BlogPost | null>(null);
+    const langPrefix = useLangPrefix();
 
     const layout: LayoutStyle = data.layout || 'grid';
     const title = data.title || 'Blog';
@@ -940,7 +942,7 @@ function PostDetail({ post, onBack, pPrimary, pSecondary }: {
                 {post.content ? (
                     <div
                         className="prose prose-slate lg:prose-lg max-w-none"
-                        dangerouslySetInnerHTML={{ __html: post.content }}
+                        dangerouslySetInnerHTML={{ __html: prefixInternalLinks(post.content, langPrefix) }}
                     />
                 ) : (
                     <p className="text-slate-400 italic">This post has no content yet.</p>
