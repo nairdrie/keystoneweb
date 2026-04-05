@@ -85,7 +85,7 @@ function CenteredVariant({ data, isEditMode, updateContent, uploadImage, pPrimar
 
                 <Reveal>
                     <EditableText
-                        as="blockquote"
+                        as="p"
                         contentKey="quote"
                         content={data.quote}
                         defaultValue="The best investment you can make is in yourself. The more you learn, the more you earn."
@@ -246,7 +246,7 @@ function MinimalVariant({ data, isEditMode, updateContent, uploadImage, pPrimary
                         style={{ borderColor: pSecondary }}
                     >
                         <EditableText
-                            as="blockquote"
+                            as="p"
                             contentKey="quote"
                             content={data.quote}
                             defaultValue="The best investment you can make is in yourself."
