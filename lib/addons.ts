@@ -27,8 +27,8 @@ export const ADDON_TYPES: Record<AddonType, { label: string; unit: string; perUn
 // ── Default pricing (admin can override per user) ────────────────────────────
 
 export const ADDON_PRICES: Record<AddonType, { monthly: number; yearly: number }> = {
-  extra_sites:   { monthly: 20, yearly: 12 },
-  extra_domains: { monthly: 20, yearly: 12 },
+  extra_sites:   { monthly: 5, yearly: 3 },
+  extra_domains: { monthly: 30, yearly: 18 },
   extra_storage: { monthly: 10, yearly: 6 },
   extra_ai:      { monthly: 10, yearly: 6 },
   white_label:   { monthly: 25, yearly: 15 },
