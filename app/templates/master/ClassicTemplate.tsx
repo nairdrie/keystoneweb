@@ -75,8 +75,8 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
             {/* Footer — structured two-row */}
             <footer style={{ backgroundColor: pPrimary }}>
                 <div className="max-w-7xl mx-auto px-4 py-12">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="flex items-center gap-3">
+                    <div className="flex flex-col md:flex-row items-center gap-6">
+                        <div className="flex items-center gap-3 flex-1">
                             {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
                                 <img src={siteContent.footerLogo || siteContent.siteLogo} alt="" className="w-10 h-10 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
                             ) : (
@@ -85,7 +85,7 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                                 </div>
                             ))}
                         </div>
-                        <div className="text-center">
+                        <div className="text-center flex-1">
                             <div className="font-bold text-lg text-white font-title" style={{ ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>{renderSiteTitle(siteContent.siteTitle || 'Classic Services')}</div>
                             <EditableText
                                 contentKey="footerSlogan"
@@ -96,16 +96,18 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                                 className="text-sm text-white/50 mt-1 block"
                             />
                         </div>
-                        <EditableButton
-                            contentKey="navButtonText"
-                            label={siteContent.navButtonText}
-                            linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
-                            defaultLabel="Get a Quote"
-                            isEditMode={isEditMode}
-                            onSave={updateSiteContent}
-                            className="px-8 py-3 rounded text-white text-sm font-bold transition-all hover:opacity-90 cursor-pointer inline-flex items-center justify-center"
-                            style={{ backgroundColor: pSecondary }}
-                        />
+                        <div className="flex-1 flex justify-end">
+                            <EditableButton
+                                contentKey="navButtonText"
+                                label={siteContent.navButtonText}
+                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
+                                defaultLabel="Get a Quote"
+                                isEditMode={isEditMode}
+                                onSave={updateSiteContent}
+                                className="px-8 py-3 rounded text-white text-sm font-bold transition-all hover:opacity-90 cursor-pointer inline-flex items-center justify-center"
+                                style={{ backgroundColor: pSecondary }}
+                            />
+                        </div>
                     </div>
                 </div>
                 <div className="border-t border-white/10 py-4">
