@@ -146,7 +146,7 @@ export default function ManageAddonsPage() {
       {/* Header */}
       <div className="flex items-center gap-3 mb-8">
         <button
-          onClick={() => router.push('/ops/users')}
+          onClick={() => router.push('/users')}
           className="p-2 rounded-lg bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />

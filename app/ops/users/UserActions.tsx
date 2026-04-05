@@ -137,7 +137,7 @@ export default function UserActions({ userId, userEmail, isBanned, currentPlan, 
       <div className="flex items-center justify-end gap-2">
         {/* Manage Add-Ons */}
         <button
-          onClick={() => router.push(`/ops/users/${userId}/addons`)}
+          onClick={() => router.push(`/users/${userId}/addons`)}
           className="p-1.5 rounded-md bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
           title="Manage Add-Ons"
         >
