@@ -232,17 +232,24 @@ export async function completeDomainPurchase(
   if (result.success) {
     const expiresAt = new Date();
     expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+    const now = new Date().toISOString();
 
     await supabase
       .from('domain_purchases')
       .update({
         vercel_order_id: result.orderId,
         status: 'completed',
-        updated_at: new Date().toISOString(),
+        updated_at: now,
         expires_at: expiresAt.toISOString(),
         auto_renew: true,
       })
       .eq('id', purchaseId);
+
+    // Track claim timestamp for 30-day cooldown enforcement
+    await supabase
+      .from('user_subscriptions')
+      .update({ last_domain_claimed_at: now })
+      .eq('user_id', userId);
 
     return { success: true };
   } else {
@@ -277,7 +284,7 @@ export async function POST(request: NextRequest) {
     // Verify Pro plan
     const { data: subscription } = await supabase
       .from('user_subscriptions')
-      .select('subscription_status, subscription_plan, stripe_subscription_id')
+      .select('subscription_status, subscription_plan, stripe_subscription_id, free_domain_claimed')
       .eq('user_id', user.id)
       .single();
 
@@ -307,14 +314,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user has already used their free domain
+    // Check if user has already used their free domain.
+    // We check BOTH the flag on user_subscriptions (survives domain transfer-out)
+    // AND domain_purchases records (covers normal case).
     const { count: purchaseCount } = await supabase
       .from('domain_purchases')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .eq('status', 'completed');
 
-    if ((purchaseCount ?? 0) > 0) {
+    if ((purchaseCount ?? 0) > 0 || subscription?.free_domain_claimed) {
       return NextResponse.json(
         { error: 'Free domain already used. Use /api/domains/checkout for paid purchases.' },
         { status: 403 }
@@ -399,7 +408,7 @@ export async function POST(request: NextRequest) {
     // Flag the subscription so refund-review logic (webhook) knows a digital good was delivered
     await supabase
       .from('user_subscriptions')
-      .update({ free_domain_claimed: true, free_domain_claimed_at: claimedAt })
+      .update({ free_domain_claimed: true, free_domain_claimed_at: claimedAt, last_domain_claimed_at: claimedAt })
       .eq('user_id', user.id);
 
     return NextResponse.json({

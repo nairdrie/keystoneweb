@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     // Verify Pro plan and domain limit
     const { data: subscription } = await supabase
       .from('user_subscriptions')
-      .select('subscription_status, subscription_plan, stripe_customer_id')
+      .select('subscription_status, subscription_plan, stripe_customer_id, last_domain_claimed_at')
       .eq('user_id', user.id)
       .single();
 
@@ -92,29 +92,47 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Enforce once-per-month domain switch limit
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: recentSwitch } = await supabase
-      .from('domain_purchases')
-      .select('id, created_at')
-      .eq('user_id', user.id)
-      .eq('status', 'completed')
-      .eq('is_free_with_pro', false)
-      .gte('created_at', thirtyDaysAgo)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // Enforce once-per-month domain claim limit.
+    // Users with extra_domains addon bypass this cooldown.
+    if (limits.customDomainLimit <= 1) {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const thirtyDaysAgoISO = thirtyDaysAgo.toISOString();
 
-    if (recentSwitch) {
-      const nextAvailable = new Date(new Date(recentSwitch.created_at).getTime() + 30 * 24 * 60 * 60 * 1000);
-      return NextResponse.json(
-        {
-          error: 'Domain changes are limited to once per month.',
-          nextAvailableAt: nextAvailable.toISOString(),
-          nextAvailableFormatted: nextAvailable.toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' }),
-        },
-        { status: 429 }
-      );
+      // Check domain_purchases records (normal case)
+      const { data: recentSwitch } = await supabase
+        .from('domain_purchases')
+        .select('id, created_at')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .eq('is_free_with_pro', false)
+        .gte('created_at', thirtyDaysAgoISO)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Also check last_domain_claimed_at (survives domain transfer-out)
+      const lastClaimedAt = subscription?.last_domain_claimed_at
+        ? new Date(subscription.last_domain_claimed_at)
+        : null;
+
+      const mostRecentClaim = [
+        recentSwitch ? new Date(recentSwitch.created_at) : null,
+        lastClaimedAt,
+      ]
+        .filter((d): d is Date => d !== null && d > thirtyDaysAgo)
+        .sort((a, b) => b.getTime() - a.getTime())[0];
+
+      if (mostRecentClaim) {
+        const nextAvailable = new Date(mostRecentClaim.getTime() + 30 * 24 * 60 * 60 * 1000);
+        return NextResponse.json(
+          {
+            error: 'Domain changes are limited to once per month.',
+            nextAvailableAt: nextAvailable.toISOString(),
+            nextAvailableFormatted: nextAvailable.toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' }),
+          },
+          { status: 429 }
+        );
+      }
     }
 
     if (!VERCEL_API_TOKEN) {

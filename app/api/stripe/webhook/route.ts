@@ -128,13 +128,16 @@ export async function POST(request: NextRequest) {
           if (result.success) {
             console.log(`✅ Domain transfer initiated for ${domain}`);
 
-            // If free credit was applied, mark it as claimed
-            if (freeCreditApplied === 'true') {
-              await supabase
-                .from('user_subscriptions')
-                .update({ free_domain_claimed: true, free_domain_claimed_at: new Date().toISOString() })
-                .eq('user_id', userId);
-            }
+            const claimedAt = new Date().toISOString();
+
+            // Track claim timestamp for 30-day cooldown enforcement
+            await supabase
+              .from('user_subscriptions')
+              .update({
+                ...(freeCreditApplied === 'true' ? { free_domain_claimed: true, free_domain_claimed_at: claimedAt } : {}),
+                last_domain_claimed_at: claimedAt,
+              })
+              .eq('user_id', userId);
           } else {
             console.error(`❌ Domain transfer failed for ${domain}:`, result.error);
           }
