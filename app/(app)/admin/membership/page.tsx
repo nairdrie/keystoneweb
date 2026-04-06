@@ -94,7 +94,10 @@ function MembersTab({ siteId }: { siteId: string }) {
   useEffect(() => {
     fetch(`/api/membership/settings?siteId=${siteId}`)
       .then(r => r.json())
-      .then(data => setFormFields(data.settings?.signup_form_fields || []))
+      .then(data => {
+        const fields = data.settings?.signup_form_fields;
+        setFormFields(Array.isArray(fields) ? fields : []);
+      })
       .catch(() => {});
   }, [siteId]);
 
