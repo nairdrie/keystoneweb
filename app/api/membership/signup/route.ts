@@ -72,23 +72,30 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', existing.id);
 
+        const { data: reSettings } = await supabase
+          .from('membership_settings')
+          .select('notification_email, email_verification_subject, email_verification_body, email_verification_cta_enabled, email_verification_cta_label, branding')
+          .eq('site_id', siteId)
+          .single();
+
         const siteName = site.site_slug || site.custom_domain || site.published_domain || undefined;
         const verificationUrl = `${request.nextUrl.origin}/api/membership/verify-email?token=${verificationToken}&siteId=${siteId}`;
+
         await sendMemberVerificationEmail({
           memberEmail: emailLower,
           memberName: name || undefined,
           siteName,
           verificationUrl,
+          customSubject: reSettings?.email_verification_subject || undefined,
+          customBody: reSettings?.email_verification_body || undefined,
+          ctaEnabled: reSettings?.email_verification_cta_enabled ?? true,
+          ctaLabel: reSettings?.email_verification_cta_label || undefined,
+          branding: reSettings?.branding || undefined,
         });
 
-        const { data: reSignupSettings } = await supabase
-          .from('membership_settings')
-          .select('notification_email')
-          .eq('site_id', siteId)
-          .single();
-        if (reSignupSettings?.notification_email) {
+        if (reSettings?.notification_email) {
           await sendMemberSignupNotification({
-            ownerEmail: reSignupSettings.notification_email,
+            ownerEmail: reSettings.notification_email,
             memberEmail: emailLower,
             memberName: name || undefined,
             siteName,
