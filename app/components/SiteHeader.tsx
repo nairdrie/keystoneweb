@@ -208,62 +208,6 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
         </a>
     ) : null;
 
-    // When a member is signed in, replace the CTA with their profile icon + welcome text
-    const memberRightEl = member ? (() => {
-        const firstName = member.name?.split(' ')[0] || member.email.split('@')[0];
-        return (
-            <div className="flex items-center gap-2">
-                <span className={`hidden md:block text-sm ${textIsLight ? 'text-white/80' : 'text-slate-600'}`}>
-                    Welcome, {firstName}
-                </span>
-                <HeaderMemberIcon color={cartIconColor} />
-            </div>
-        );
-    })() : null;
-
-    const rightEl = (() => {
-        if (rightSide === 'none') return memberRightEl;
-        if (member) return memberRightEl;
-        if (rightSide === 'social') {
-            if (socialLinks.length === 0 && isEditMode) {
-                return <span className="text-xs opacity-40 italic">Add links in Header Settings</span>;
-            }
-            if (socialLinks.length === 0) return null;
-            return (
-                <div className="flex items-center gap-1">
-                    {socialLinks.map(({ key, url, Icon }) => (
-                        <a
-                            key={key}
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => isEditMode && e.preventDefault()}
-                            className={`p-1.5 rounded-full transition-all hover:opacity-80 ${textIsLight ? 'text-white/70 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
-                        >
-                            <Icon className="w-4 h-4" />
-                        </a>
-                    ))}
-                </div>
-            );
-        }
-        return (
-            <div className="flex flex-col items-center gap-1">
-                <EditableButton
-                    contentKey="navButtonText"
-                    label={siteContent.navButtonText}
-                    linkData={hasMembershipBlock && !siteContent.navButtonTextLink ? { type: 'url', value: '/signup' } : siteContent.navButtonTextLink}
-                    iconData={siteContent.navButtonTextIcon}
-                    defaultLabel={defaultCtaLabel}
-                    isEditMode={isEditMode}
-                    onSave={updateSiteContent}
-                    className={ctaClass}
-                    style={resolvedCtaStyle}
-                />
-                {memberSignInEl}
-            </div>
-        );
-    })();
-
     // ── Banner ──────────────────────────────────────────────────────────────
     const bannerBgType  = siteContent.headerBannerBgType  || 'primary';
     const bannerBgColor = siteContent.headerBannerBgColor || '';
@@ -320,6 +264,62 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     // ── Mobile toggle color ─────────────────────────────────────────────────
     const mobileIconColor = textIsLight ? 'text-white' : 'text-slate-500';
     const cartIconColor   = textIsLight ? '#ffffff' : pPrimary;
+
+    // When a member is signed in, replace CTA with profile icon + welcome text on all pages
+    const memberRightEl = member ? (() => {
+        const firstName = member.name?.split(' ')[0] || member.email.split('@')[0];
+        return (
+            <div className="flex items-center gap-2">
+                <span className={`hidden md:block text-sm ${textIsLight ? 'text-white/80' : 'text-slate-600'}`}>
+                    Welcome, {firstName}
+                </span>
+                <HeaderMemberIcon color={cartIconColor} />
+            </div>
+        );
+    })() : null;
+
+    const rightEl = (() => {
+        if (rightSide === 'none') return memberRightEl;
+        if (member) return memberRightEl;
+        if (rightSide === 'social') {
+            if (socialLinks.length === 0 && isEditMode) {
+                return <span className="text-xs opacity-40 italic">Add links in Header Settings</span>;
+            }
+            if (socialLinks.length === 0) return null;
+            return (
+                <div className="flex items-center gap-1">
+                    {socialLinks.map(({ key, url, Icon }) => (
+                        <a
+                            key={key}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => isEditMode && e.preventDefault()}
+                            className={`p-1.5 rounded-full transition-all hover:opacity-80 ${textIsLight ? 'text-white/70 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
+                        >
+                            <Icon className="w-4 h-4" />
+                        </a>
+                    ))}
+                </div>
+            );
+        }
+        return (
+            <div className="flex flex-col items-center gap-1">
+                <EditableButton
+                    contentKey="navButtonText"
+                    label={siteContent.navButtonText}
+                    linkData={hasMembershipBlock && !siteContent.navButtonTextLink ? { type: 'url', value: '/signup' } : siteContent.navButtonTextLink}
+                    iconData={siteContent.navButtonTextIcon}
+                    defaultLabel={defaultCtaLabel}
+                    isEditMode={isEditMode}
+                    onSave={updateSiteContent}
+                    className={ctaClass}
+                    style={resolvedCtaStyle}
+                />
+                {memberSignInEl}
+            </div>
+        );
+    })();
 
     const homePageId = context?.pages?.find((p: any) => p.slug === 'home')?.id || '';
     const homeHref = isEditor
