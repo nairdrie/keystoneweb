@@ -72,11 +72,10 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', existing.id);
 
-        const { data: reSettings } = await supabase
-          .from('membership_settings')
-          .select('notification_email, email_verification_subject, email_verification_body, email_verification_cta_enabled, email_verification_cta_label, branding')
-          .eq('site_id', siteId)
-          .single();
+        const [{ data: reSettings }, { data: reExtSettings }] = await Promise.all([
+          supabase.from('membership_settings').select('notification_email, branding').eq('site_id', siteId).single(),
+          supabase.from('membership_settings').select('email_verification_subject, email_verification_body, email_verification_cta_enabled, email_verification_cta_label').eq('site_id', siteId).single(),
+        ]);
 
         const siteName = site.site_slug || site.custom_domain || site.published_domain || undefined;
         const verificationUrl = `${request.nextUrl.origin}/api/membership/verify-email?token=${verificationToken}&siteId=${siteId}`;
@@ -86,10 +85,10 @@ export async function POST(request: NextRequest) {
           memberName: name || undefined,
           siteName,
           verificationUrl,
-          customSubject: reSettings?.email_verification_subject || undefined,
-          customBody: reSettings?.email_verification_body || undefined,
-          ctaEnabled: reSettings?.email_verification_cta_enabled ?? true,
-          ctaLabel: reSettings?.email_verification_cta_label || undefined,
+          customSubject: reExtSettings?.email_verification_subject || undefined,
+          customBody: reExtSettings?.email_verification_body || undefined,
+          ctaEnabled: reExtSettings?.email_verification_cta_enabled ?? true,
+          ctaLabel: reExtSettings?.email_verification_cta_label || undefined,
           branding: reSettings?.branding || undefined,
         });
 
@@ -107,10 +106,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'An account with this email already exists' }, { status: 409 });
     }
 
-    // Fetch settings to check if verification is required
+    // Fetch settings — split into base (guaranteed) + extended (migration 042/043) queries
+    // so a missing migration doesn't prevent branding from being applied.
     const { data: settings } = await supabase
       .from('membership_settings')
-      .select('require_email_verification, notification_email, email_verification_subject, email_verification_body, email_verification_cta_enabled, email_verification_cta_label, branding')
+      .select('require_email_verification, notification_email, branding')
+      .eq('site_id', siteId)
+      .single();
+
+    const { data: extSettings } = await supabase
+      .from('membership_settings')
+      .select('email_verification_subject, email_verification_body, email_verification_cta_enabled, email_verification_cta_label')
       .eq('site_id', siteId)
       .single();
 
@@ -152,10 +158,10 @@ export async function POST(request: NextRequest) {
         memberName: name || undefined,
         siteName,
         verificationUrl,
-        customSubject: settings?.email_verification_subject || undefined,
-        customBody: settings?.email_verification_body || undefined,
-        ctaEnabled: settings?.email_verification_cta_enabled ?? true,
-        ctaLabel: settings?.email_verification_cta_label || undefined,
+        customSubject: extSettings?.email_verification_subject || undefined,
+        customBody: extSettings?.email_verification_body || undefined,
+        ctaEnabled: extSettings?.email_verification_cta_enabled ?? true,
+        ctaLabel: extSettings?.email_verification_cta_label || undefined,
         branding: settings?.branding || undefined,
       });
     }
