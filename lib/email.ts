@@ -1251,11 +1251,14 @@ export async function sendMemberVerificationEmail(
         verificationUrl: string;
         customSubject?: string;
         customBody?: string;
+        ctaEnabled?: boolean;
+        ctaLabel?: string;
     }
 ) {
     try {
         const greeting = data.memberName ? `Hi ${data.memberName},` : 'Hi there,';
         const defaultBody = `Thanks for signing up${data.siteName ? ` for ${data.siteName}` : ''}. Click the button below to verify your email address and activate your account.`;
+        const showCta = data.ctaEnabled !== false;
         const bodyLines = [greeting, data.customBody || defaultBody];
 
         await resend.emails.send({
@@ -1265,9 +1268,11 @@ export async function sendMemberVerificationEmail(
             html: buildMemberEmailHtml({
                 heading: 'Verify Your Email',
                 bodyLines,
-                ctaLabel: 'Verify Email',
-                ctaUrl: data.verificationUrl,
-                note: 'This link expires in 24 hours. If you didn\'t sign up, you can safely ignore this email.',
+                ctaLabel: showCta ? (data.ctaLabel || 'Verify Email') : undefined,
+                ctaUrl: showCta ? data.verificationUrl : undefined,
+                note: showCta
+                    ? 'This link expires in 24 hours. If you didn\'t sign up, you can safely ignore this email.'
+                    : `Verify your email by visiting this link (expires in 24 hours): ${data.verificationUrl}`,
                 branding: data.branding,
             }),
         });
@@ -1286,11 +1291,14 @@ export async function sendMemberPasswordResetEmail(
         resetUrl: string;
         customSubject?: string;
         customBody?: string;
+        ctaEnabled?: boolean;
+        ctaLabel?: string;
     }
 ) {
     try {
         const greeting = data.memberName ? `Hi ${data.memberName},` : 'Hi there,';
         const defaultBody = 'We received a request to reset your password. Click the button below to set a new one.';
+        const showCta = data.ctaEnabled !== false;
         const bodyLines = [greeting, data.customBody || defaultBody];
 
         await resend.emails.send({
@@ -1300,9 +1308,11 @@ export async function sendMemberPasswordResetEmail(
             html: buildMemberEmailHtml({
                 heading: 'Reset Your Password',
                 bodyLines,
-                ctaLabel: 'Reset Password',
-                ctaUrl: data.resetUrl,
-                note: 'This link expires in 1 hour. If you didn\'t request a password reset, you can safely ignore this email.',
+                ctaLabel: showCta ? (data.ctaLabel || 'Reset Password') : undefined,
+                ctaUrl: showCta ? data.resetUrl : undefined,
+                note: showCta
+                    ? 'This link expires in 1 hour. If you didn\'t request a password reset, you can safely ignore this email.'
+                    : `Reset your password by visiting this link (expires in 1 hour): ${data.resetUrl}`,
                 branding: data.branding,
             }),
         });
@@ -1317,12 +1327,18 @@ export async function sendMemberPasswordResetEmail(
  * Send welcome email to a verified member.
  */
 export async function sendMemberWelcomeEmail(
-    data: MemberEmailData & { customSubject?: string; customBody?: string }
+    data: MemberEmailData & {
+        customSubject?: string;
+        customBody?: string;
+        ctaEnabled?: boolean;
+        ctaLabel?: string;
+    }
 ) {
     try {
         const subject = data.customSubject || `Welcome to ${data.siteName || 'our community'}!`;
         const greeting = data.memberName ? `Hi ${data.memberName},` : 'Hi there,';
         const defaultBody = `Thanks for joining${data.siteName ? ` ${data.siteName}` : ''}! Your account is now active.`;
+        const showCta = data.ctaEnabled === true;
         const bodyLines = [greeting, data.customBody || defaultBody];
 
         await resend.emails.send({
@@ -1332,6 +1348,8 @@ export async function sendMemberWelcomeEmail(
             html: buildMemberEmailHtml({
                 heading: subject,
                 bodyLines,
+                ctaLabel: showCta ? (data.ctaLabel || 'Get Started') : undefined,
+                ctaUrl: showCta ? '#' : undefined,
                 branding: data.branding,
             }),
         });

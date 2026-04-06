@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
     // Fetch settings to check if verification is required
     const { data: settings } = await supabase
       .from('membership_settings')
-      .select('require_email_verification, notification_email, email_verification_subject, email_verification_body, branding')
+      .select('require_email_verification, notification_email, email_verification_subject, email_verification_body, email_verification_cta_enabled, email_verification_cta_label, branding')
       .eq('site_id', siteId)
       .single();
 
@@ -147,6 +147,8 @@ export async function POST(request: NextRequest) {
         verificationUrl,
         customSubject: settings?.email_verification_subject || undefined,
         customBody: settings?.email_verification_body || undefined,
+        ctaEnabled: settings?.email_verification_cta_enabled ?? true,
+        ctaLabel: settings?.email_verification_cta_label || undefined,
         branding: settings?.branding || undefined,
       });
     }

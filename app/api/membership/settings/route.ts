@@ -63,8 +63,14 @@ export async function PUT(request: NextRequest) {
     if (settingsData.welcomeEmailBody !== undefined) dbData.welcome_email_body = settingsData.welcomeEmailBody;
     if (settingsData.emailVerificationSubject !== undefined) dbData.email_verification_subject = settingsData.emailVerificationSubject;
     if (settingsData.emailVerificationBody !== undefined) dbData.email_verification_body = settingsData.emailVerificationBody;
+    if (settingsData.emailVerificationCtaEnabled !== undefined) dbData.email_verification_cta_enabled = settingsData.emailVerificationCtaEnabled;
+    if (settingsData.emailVerificationCtaLabel !== undefined) dbData.email_verification_cta_label = settingsData.emailVerificationCtaLabel;
     if (settingsData.passwordResetSubject !== undefined) dbData.password_reset_subject = settingsData.passwordResetSubject;
     if (settingsData.passwordResetBody !== undefined) dbData.password_reset_body = settingsData.passwordResetBody;
+    if (settingsData.passwordResetCtaEnabled !== undefined) dbData.password_reset_cta_enabled = settingsData.passwordResetCtaEnabled;
+    if (settingsData.passwordResetCtaLabel !== undefined) dbData.password_reset_cta_label = settingsData.passwordResetCtaLabel;
+    if (settingsData.welcomeCtaEnabled !== undefined) dbData.welcome_cta_enabled = settingsData.welcomeCtaEnabled;
+    if (settingsData.welcomeCtaLabel !== undefined) dbData.welcome_cta_label = settingsData.welcomeCtaLabel;
     if (settingsData.signupFormFields !== undefined) dbData.signup_form_fields = settingsData.signupFormFields;
     if (settingsData.branding !== undefined) dbData.branding = settingsData.branding;
     if (settingsData.notificationEmail !== undefined) dbData.notification_email = settingsData.notificationEmail;

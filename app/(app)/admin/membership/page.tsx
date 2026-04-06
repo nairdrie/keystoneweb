@@ -950,9 +950,9 @@ function CampaignsTab({ siteId }: { siteId: string }) {
 
   // System email templates
   const [templates, setTemplates] = useState({
-    verification: { subject: '', body: '' },
-    passwordReset: { subject: '', body: '' },
-    welcome: { subject: '', body: '' },
+    verification: { subject: '', body: '', ctaEnabled: true,  ctaLabel: '' },
+    passwordReset: { subject: '', body: '', ctaEnabled: true,  ctaLabel: '' },
+    welcome:       { subject: '', body: '', ctaEnabled: false, ctaLabel: '' },
   });
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
   const [savingTemplate, setSavingTemplate] = useState<string | null>(null);
@@ -980,9 +980,9 @@ function CampaignsTab({ siteId }: { siteId: string }) {
         setFooterText(b.footerText || '');
         setFontFamily(b.fontFamily || 'system');
         setTemplates({
-          verification: { subject: s.email_verification_subject || '', body: s.email_verification_body || '' },
-          passwordReset: { subject: s.password_reset_subject || '', body: s.password_reset_body || '' },
-          welcome: { subject: s.welcome_email_subject || '', body: s.welcome_email_body || '' },
+          verification: { subject: s.email_verification_subject || '', body: s.email_verification_body || '', ctaEnabled: s.email_verification_cta_enabled ?? true,  ctaLabel: s.email_verification_cta_label || '' },
+          passwordReset: { subject: s.password_reset_subject || '',    body: s.password_reset_body || '',    ctaEnabled: s.password_reset_cta_enabled ?? true,      ctaLabel: s.password_reset_cta_label || '' },
+          welcome:       { subject: s.welcome_email_subject || '',      body: s.welcome_email_body || '',      ctaEnabled: s.welcome_cta_enabled ?? false,             ctaLabel: s.welcome_cta_label || '' },
         });
       })
       .catch(() => {})
@@ -1029,16 +1029,22 @@ function CampaignsTab({ siteId }: { siteId: string }) {
   const saveTemplate = async (key: 'verification' | 'passwordReset' | 'welcome') => {
     setSavingTemplate(key);
     const t = templates[key];
-    const payload: Record<string, string> = { siteId };
+    const payload: Record<string, any> = { siteId };
     if (key === 'verification') {
-      payload.emailVerificationSubject = t.subject;
-      payload.emailVerificationBody = t.body;
+      payload.emailVerificationSubject  = t.subject;
+      payload.emailVerificationBody     = t.body;
+      payload.emailVerificationCtaEnabled = t.ctaEnabled;
+      payload.emailVerificationCtaLabel   = t.ctaLabel;
     } else if (key === 'passwordReset') {
-      payload.passwordResetSubject = t.subject;
-      payload.passwordResetBody = t.body;
+      payload.passwordResetSubject    = t.subject;
+      payload.passwordResetBody       = t.body;
+      payload.passwordResetCtaEnabled = t.ctaEnabled;
+      payload.passwordResetCtaLabel   = t.ctaLabel;
     } else {
       payload.welcomeEmailSubject = t.subject;
-      payload.welcomeEmailBody = t.body;
+      payload.welcomeEmailBody    = t.body;
+      payload.welcomeCtaEnabled   = t.ctaEnabled;
+      payload.welcomeCtaLabel     = t.ctaLabel;
     }
     try {
       await fetch('/api/membership/settings', {
@@ -1053,7 +1059,7 @@ function CampaignsTab({ siteId }: { siteId: string }) {
     }
   };
 
-  const updateTemplate = (key: 'verification' | 'passwordReset' | 'welcome', field: 'subject' | 'body', value: string) => {
+  const updateTemplate = (key: 'verification' | 'passwordReset' | 'welcome', field: string, value: string | boolean) => {
     setTemplates(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
   };
 
@@ -1093,34 +1099,34 @@ function CampaignsTab({ siteId }: { siteId: string }) {
       key: 'verification' as const,
       label: 'Email Confirmation',
       description: 'Sent when a member signs up and needs to verify their email address.',
-      defaultSubject: 'Verify your email',
-      ctaLabel: 'Verify Email',
-      note: 'This link expires in 24 hours. If you didn\'t sign up, you can safely ignore this email.',
       heading: 'Verify Your Email',
       subjectPlaceholder: 'Verify your email',
       bodyPlaceholder: 'Thanks for signing up! Click the button below to verify your email address and activate your account.',
+      defaultCtaLabel: 'Verify Email',
+      hasRequiredLink: true,
+      note: 'This link expires in 24 hours. If you didn\'t sign up, you can safely ignore this email.',
     },
     {
       key: 'passwordReset' as const,
       label: 'Forgot Password',
       description: 'Sent when a member requests a password reset link.',
-      defaultSubject: 'Reset your password',
-      ctaLabel: 'Reset Password',
-      note: 'This link expires in 1 hour. If you didn\'t request a password reset, you can safely ignore this email.',
       heading: 'Reset Your Password',
       subjectPlaceholder: 'Reset your password',
       bodyPlaceholder: 'We received a request to reset your password. Click the button below to set a new one.',
+      defaultCtaLabel: 'Reset Password',
+      hasRequiredLink: true,
+      note: 'This link expires in 1 hour. If you didn\'t request a password reset, you can safely ignore this email.',
     },
     {
       key: 'welcome' as const,
       label: 'Welcome Email',
       description: 'Sent after a member\'s email address is verified.',
-      defaultSubject: 'Welcome!',
-      ctaLabel: null as string | null,
-      note: undefined as string | undefined,
       heading: 'Welcome!',
       subjectPlaceholder: 'Welcome to [your community]!',
       bodyPlaceholder: 'Thanks for joining! Your account is now active.',
+      defaultCtaLabel: 'Get Started',
+      hasRequiredLink: false,
+      note: undefined as string | undefined,
     },
   ];
 
@@ -1271,7 +1277,7 @@ function CampaignsTab({ siteId }: { siteId: string }) {
                   <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1.5">
                       Message
-                      {tmpl.ctaLabel && <span className="text-slate-400 font-normal ml-1">— shown above the "{tmpl.ctaLabel}" button</span>}
+                      {t.ctaEnabled && <span className="text-slate-400 font-normal ml-1">— shown above the button</span>}
                     </label>
                     <textarea
                       value={t.body}
@@ -1282,12 +1288,47 @@ function CampaignsTab({ siteId }: { siteId: string }) {
                     />
                     <p className="text-xs text-slate-400 mt-1">Leave blank to use the default message.</p>
                   </div>
+
+                  {/* CTA Button */}
+                  <div className="rounded-lg border border-slate-200 overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 bg-slate-50">
+                      <div>
+                        <p className="text-xs font-medium text-slate-700">CTA Button</p>
+                        {!t.ctaEnabled && tmpl.hasRequiredLink && (
+                          <p className="text-xs text-amber-600 mt-0.5">The action link will appear as plain text below the message.</p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={t.ctaEnabled}
+                        onClick={() => updateTemplate(tmpl.key, 'ctaEnabled', !t.ctaEnabled)}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${t.ctaEnabled ? 'bg-slate-800' : 'bg-slate-200'}`}
+                      >
+                        <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${t.ctaEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                    {t.ctaEnabled && (
+                      <div className="px-4 py-3 border-t border-slate-100">
+                        <label className="block text-xs font-medium text-slate-600 mb-1.5">Button Label</label>
+                        <input
+                          type="text"
+                          value={t.ctaLabel}
+                          onChange={e => updateTemplate(tmpl.key, 'ctaLabel', e.target.value)}
+                          placeholder={tmpl.defaultCtaLabel}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                        />
+                        <p className="text-xs text-slate-400 mt-1">Leave blank to use "{tmpl.defaultCtaLabel}".</p>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="flex items-center gap-2 pt-1">
                     <button
                       onClick={() => setPreviewHtml(buildPreview(
                         tmpl.heading,
                         t.body || tmpl.bodyPlaceholder,
-                        tmpl.ctaLabel || 'Continue',
+                        t.ctaEnabled ? (t.ctaLabel || tmpl.defaultCtaLabel) : '',
                         tmpl.note,
                       ))}
                       className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50"
