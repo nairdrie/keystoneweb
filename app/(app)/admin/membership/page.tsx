@@ -17,15 +17,15 @@ export default function AdminMembershipPage() {
 
   if (!siteId) return null;
 
-  if (!siteBlockTypes.has('membershipPortal')) {
+  if (!siteBlockTypes.has('membershipGate')) {
     return (
       <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
         <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
           <Users className="w-7 h-7 text-slate-300" />
         </div>
-        <h2 className="text-base font-bold text-slate-900 mb-1">No Members Only block on this site</h2>
+        <h2 className="text-base font-bold text-slate-900 mb-1">No Membership Gate block on this site</h2>
         <p className="text-sm text-slate-500 max-w-xs mb-5">
-          Add a <strong>Members Only</strong> block to your site to start accepting memberships
+          Add a <strong>Membership Gate</strong> block to your site to start accepting memberships
           and managing your members.
         </p>
         <a

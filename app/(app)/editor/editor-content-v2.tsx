@@ -54,7 +54,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   // This allows full SSR and instant load times, bypassing all Editor UI and loading screens
   if (isPublicView) {
     const pubDesign = publicSiteData?.designData || {};
-    const hasMembership = (pubDesign.blocks || []).some((b: any) => b.type === 'membershipPortal');
+    const hasMembership = (pubDesign.blocks || []).some((b: any) => b.type === 'membershipGate');
     return (
       <CartProvider siteId={publicSiteData?.id || ''}>
         <MemberProvider siteId={publicSiteData?.id || ''}>
@@ -1182,7 +1182,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
                   (p.design_data?.blocks || []).some((b: any) => b.type === 'productGrid')
                 ),
                 __hasMembershipBlock: pages.some(p =>
-                  (p.design_data?.blocks || []).some((b: any) => b.type === 'membershipPortal')
+                  (p.design_data?.blocks || []).some((b: any) => b.type === 'membershipGate')
                 ),
               },
               updateSiteContent: handleUpdateSiteContent,

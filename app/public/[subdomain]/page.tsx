@@ -60,7 +60,7 @@ export default async function PublicSitePage({
       (p.published_data?.blocks || []).some((b: any) => b.type === 'productGrid')
     );
     const hasMembershipBlock = (allPages || []).some((p: any) =>
-      (p.published_data?.blocks || []).some((b: any) => b.type === 'membershipPortal')
+      (p.published_data?.blocks || []).some((b: any) => b.type === 'membershipGate')
     );
 
     const translationsConfig = site.translations_config as any;
