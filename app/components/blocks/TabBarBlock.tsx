@@ -300,7 +300,7 @@ function TabBarEditor({ items, tabStyle, tabAlign, activeColor, bgColor, palette
                     <input
                         type="color"
                         value={bgColor || '#ffffff'}
-                        onChange={e => updateContent('bgColor', e.target.value === '#ffffff' ? '' : e.target.value)}
+                        onChange={e => updateContent('bgColor', e.target.value)}
                         className="w-6 h-6 rounded cursor-pointer border border-slate-200"
                         title="Bar background color"
                     />

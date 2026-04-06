@@ -47,7 +47,7 @@ export default function HeaderMemberIcon({ color = '#475569' }: { color?: string
     context?.updateSiteContent?.('memberDropdownItems', items);
   };
 
-  // Close on outside click
+  // Close on outside click — but not while the edit modal is open (it's a portal, outside ref)
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -55,11 +55,11 @@ export default function HeaderMemberIcon({ color = '#475569' }: { color?: string
         setEditingItem(null);
       }
     }
-    if (dropdownOpen) {
+    if (dropdownOpen && !editingItem) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [dropdownOpen]);
+  }, [dropdownOpen, editingItem]);
 
   if (!memberCtx || !memberCtx.member) return null;
 
