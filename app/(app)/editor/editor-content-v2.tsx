@@ -109,27 +109,6 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   const [viewAsMember, setViewAsMember] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
 
-  // Computed once — does any page on this site have a membershipGate block?
-  const hasMembershipGate = pages.some(p =>
-    (p.design_data?.blocks || []).some((b: any) => b.type === 'membershipGate')
-  );
-
-  // Mock member used when the editor "View as Member" toggle is on
-  const MOCK_MEMBER: MemberData = {
-    id: 'preview',
-    email: 'member@example.com',
-    name: 'Preview Member',
-    avatarUrl: null,
-    status: 'active',
-    packageId: null,
-    package: null,
-    subscriptionStatus: 'active',
-    currentPeriodEnd: null,
-    customFields: {},
-    marketingOptIn: false,
-    signedUpAt: new Date().toISOString(),
-  };
-
   // Auto-expand sidebar on large screens when editor loads
   const hasInitSidebarRef = useRef(false);
   useEffect(() => {
@@ -157,6 +136,28 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   const pageIdFromUrl = searchParams.get('pageId');
   const pagesHook = usePages(site?.id || "", pageIdFromUrl);
   const { pages, currentPageId, setCurrentPageId, fetchPages, currentPage, updatePage, createPage, deletePage, loading: pagesLoading } = pagesHook;
+
+  // Computed once — does any page have a membershipGate block?
+  const hasMembershipGate = pages.some(p =>
+    (p.design_data?.blocks || []).some((b: any) => b.type === 'membershipGate')
+  );
+
+  // Mock member used when the editor "View as Member" toggle is on
+  const MOCK_MEMBER: MemberData = {
+    id: 'preview',
+    email: 'member@example.com',
+    name: 'Preview Member',
+    avatarUrl: null,
+    status: 'active',
+    packageId: null,
+    package: null,
+    subscriptionStatus: 'active',
+    currentPeriodEnd: null,
+    customFields: {},
+    marketingOptIn: false,
+    signedUpAt: new Date().toISOString(),
+  };
+
   const changesHook = useChangeTracking();
   const { addChange, clearChanges } = changesHook;
 
