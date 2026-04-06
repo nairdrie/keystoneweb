@@ -406,41 +406,33 @@ function getTabClass(style: TabStyle, active: boolean, align: TabAlign): string 
 
     switch (style) {
         case 'underline':
-            return `${base} px-3 py-2 border-b-2 ${
-                active
-                    ? 'border-current'
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
-            }`;
+            // Color is always set via inline style; only the underline changes
+            return `${base} px-3 py-2 border-b-2 ${active ? 'border-current' : 'border-transparent hover:border-current/40'}`;
         case 'pills':
-            return `${base} px-4 py-1.5 rounded-full ${
-                active
-                    ? 'text-white'
-                    : 'text-slate-600 hover:bg-slate-100'
-            }`;
+            return `${base} px-4 py-1.5 rounded-full ${active ? 'text-white' : 'hover:opacity-70'}`;
         case 'tabs':
             return `${base} px-4 py-2 rounded-t-lg border border-b-0 ${
-                active
-                    ? 'bg-white border-slate-200 text-slate-900'
-                    : 'bg-transparent border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-200'
+                active ? 'bg-white border-slate-200' : 'bg-transparent border-transparent hover:border-slate-200'
             }`;
         case 'buttons':
-            return `${base} px-4 py-2 rounded-lg border ${
-                active
-                    ? 'text-white border-transparent'
-                    : 'text-slate-600 border-slate-200 hover:border-slate-400 hover:text-slate-800'
-            }`;
+            return `${base} px-4 py-2 rounded-lg border ${active ? 'text-white border-transparent' : 'border-current/30 hover:border-current/60'}`;
         default:
             return base;
     }
 }
 
 function getTabStyle(style: TabStyle, active: boolean, activeColor: string): React.CSSProperties {
-    if (!active) return {};
     switch (style) {
-        case 'underline': return { color: activeColor, borderColor: activeColor };
-        case 'pills':     return { backgroundColor: activeColor };
-        case 'buttons':   return { backgroundColor: activeColor };
-        case 'tabs':      return { color: activeColor };
-        default:          return { color: activeColor };
+        case 'underline':
+            // Both active and inactive use the same color — the underline is the only indicator
+            return { color: activeColor };
+        case 'pills':
+            return active ? { backgroundColor: activeColor } : { color: activeColor };
+        case 'tabs':
+            return { color: activeColor };
+        case 'buttons':
+            return active ? { backgroundColor: activeColor } : { color: activeColor };
+        default:
+            return { color: activeColor };
     }
 }
