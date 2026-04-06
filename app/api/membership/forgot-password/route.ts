@@ -43,10 +43,10 @@ export async function POST(request: NextRequest) {
     // Fetch site + settings for branding and custom template
     const [{ data: site }, { data: settings }] = await Promise.all([
       supabase.from('sites').select('published_domain, custom_domain, site_slug').eq('id', siteId).single(),
-      supabase.from('membership_settings').select('password_reset_subject, password_reset_body, branding').eq('site_id', siteId).single(),
+      supabase.from('membership_settings').select('password_reset_subject, password_reset_body, password_reset_cta_enabled, password_reset_cta_label, branding').eq('site_id', siteId).single(),
     ]);
 
-    const siteName = site?.custom_domain || site?.published_domain || site?.site_slug || undefined;
+    const siteName = site?.site_slug || site?.custom_domain || site?.published_domain || undefined;
     const siteDomain = site?.custom_domain
       ? `https://${site.custom_domain}`
       : site?.published_domain
@@ -62,6 +62,8 @@ export async function POST(request: NextRequest) {
       resetUrl,
       customSubject: settings?.password_reset_subject || undefined,
       customBody: settings?.password_reset_body || undefined,
+      ctaEnabled: settings?.password_reset_cta_enabled ?? true,
+      ctaLabel: settings?.password_reset_cta_label || undefined,
       branding: settings?.branding || undefined,
     });
 

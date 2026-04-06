@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', existing.id);
 
-        const siteName = site.custom_domain || site.published_domain || site.site_slug || undefined;
+        const siteName = site.site_slug || site.custom_domain || site.published_domain || undefined;
         const verificationUrl = `${request.nextUrl.origin}/api/membership/verify-email?token=${verificationToken}&siteId=${siteId}`;
         await sendMemberVerificationEmail({
           memberEmail: emailLower,
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
     // Fetch settings to check if verification is required
     const { data: settings } = await supabase
       .from('membership_settings')
-      .select('require_email_verification, notification_email, email_verification_subject, email_verification_body, branding')
+      .select('require_email_verification, notification_email, email_verification_subject, email_verification_body, email_verification_cta_enabled, email_verification_cta_label, branding')
       .eq('site_id', siteId)
       .single();
 
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create account' }, { status: 500 });
     }
 
-    const siteName = site.custom_domain || site.published_domain || site.site_slug || undefined;
+    const siteName = site.site_slug || site.custom_domain || site.published_domain || undefined;
 
     if (requireVerification && verificationToken) {
       const verificationUrl = `${request.nextUrl.origin}/api/membership/verify-email?token=${verificationToken}&siteId=${siteId}`;
@@ -147,6 +147,8 @@ export async function POST(request: NextRequest) {
         verificationUrl,
         customSubject: settings?.email_verification_subject || undefined,
         customBody: settings?.email_verification_body || undefined,
+        ctaEnabled: settings?.email_verification_cta_enabled ?? true,
+        ctaLabel: settings?.email_verification_cta_label || undefined,
         branding: settings?.branding || undefined,
       });
     }
