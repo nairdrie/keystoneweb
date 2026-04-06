@@ -21,7 +21,7 @@ import { CartProvider } from '@/app/components/ecommerce/CartProvider';
 import CartDrawer from '@/app/components/ecommerce/CartDrawer';
 import CartButton from '@/app/components/ecommerce/CartButton';
 import PreviewProductPage from '@/app/components/ecommerce/PreviewProductPage';
-import { MemberProvider } from '@/app/components/membership/MemberProvider';
+import { MemberProvider, type MemberData } from '@/app/components/membership/MemberProvider';
 
 
 export interface SiteData {
@@ -106,7 +106,29 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
   const [editMode, setEditMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [viewAsMember, setViewAsMember] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+
+  // Computed once — does any page on this site have a membershipGate block?
+  const hasMembershipGate = pages.some(p =>
+    (p.design_data?.blocks || []).some((b: any) => b.type === 'membershipGate')
+  );
+
+  // Mock member used when the editor "View as Member" toggle is on
+  const MOCK_MEMBER: MemberData = {
+    id: 'preview',
+    email: 'member@example.com',
+    name: 'Preview Member',
+    avatarUrl: null,
+    status: 'active',
+    packageId: null,
+    package: null,
+    subscriptionStatus: 'active',
+    currentPeriodEnd: null,
+    customFields: {},
+    marketingOptIn: false,
+    signedUpAt: new Date().toISOString(),
+  };
 
   // Auto-expand sidebar on large screens when editor loads
   const hasInitSidebarRef = useRef(false);
@@ -1160,8 +1182,24 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
             )}
           </div>
 
-          {/* Right: Edit/Preview Toggle */}
-          <div className="flex-shrink-0">
+          {/* Right: View-as toggle (only when site has a membership gate) + Edit/Preview Toggle */}
+          <div className="flex-shrink-0 flex items-center gap-3">
+            {hasMembershipGate && (
+              <div className="flex items-center gap-0.5 bg-black/25 rounded-full p-0.5" title="Preview as public visitor or signed-in member">
+                <button
+                  onClick={() => setViewAsMember(false)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${!viewAsMember ? 'bg-white text-slate-800' : 'text-white/70 hover:text-white'}`}
+                >
+                  Public
+                </button>
+                <button
+                  onClick={() => setViewAsMember(true)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${viewAsMember ? 'bg-white text-slate-800' : 'text-white/70 hover:text-white'}`}
+                >
+                  Member
+                </button>
+              </div>
+            )}
             <EmbeddedToggle
               isActive={editMode}
               onToggle={setEditMode}
@@ -1173,6 +1211,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
 
         {/* Template Render Wrapper (This section alone scrolls, so sticky headers inside templates stick to the top of THIS container, right below our Editor banner) */}
         <div className="flex-1 overflow-y-auto w-full relative">
+          <MemberProvider siteId={siteId || ''} overrideMember={hasMembershipGate ? (viewAsMember ? MOCK_MEMBER : null) : undefined}>
           <EditorProvider
             value={{
               content: editableContent,
@@ -1223,6 +1262,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
               ) : null}
             </div>
           </EditorProvider>
+          </MemberProvider>
         </div>
 
         <AlertModal

@@ -37,11 +37,24 @@ export function useMember() {
   return useContext(MemberContext);
 }
 
-export function MemberProvider({ children, siteId }: { children: ReactNode; siteId: string }) {
+interface MemberProviderProps {
+  children: ReactNode;
+  siteId: string;
+  /**
+   * Editor preview override.
+   * - `undefined` (default): fetch normally from /api/membership/me
+   * - `null`: force no member (public view in editor)
+   * - `MemberData`: force a specific member (member view in editor)
+   */
+  overrideMember?: MemberData | null;
+}
+
+export function MemberProvider({ children, siteId, overrideMember }: MemberProviderProps) {
   const [member, setMember] = useState<MemberData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchMember = useCallback(async () => {
+    setIsLoading(true);
     try {
       const res = await fetch('/api/membership/me', { credentials: 'include' });
       if (res.ok) {
@@ -58,15 +71,19 @@ export function MemberProvider({ children, siteId }: { children: ReactNode; site
   }, []);
 
   useEffect(() => {
-    fetchMember();
-  }, [fetchMember]);
+    if (overrideMember !== undefined) {
+      // Editor preview mode: use the provided override (null = public, MemberData = member)
+      setMember(overrideMember);
+      setIsLoading(false);
+    } else {
+      // Normal published mode: fetch from API
+      fetchMember();
+    }
+  }, [overrideMember, fetchMember]);
 
   const signOut = useCallback(async () => {
     try {
-      await fetch('/api/membership/signout', {
-        method: 'POST',
-        credentials: 'include',
-      });
+      await fetch('/api/membership/signout', { method: 'POST', credentials: 'include' });
     } catch {
       // Ignore errors — cookie will be cleared regardless
     }
