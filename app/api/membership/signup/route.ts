@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
     // Fetch settings to check if verification is required
     const { data: settings } = await supabase
       .from('membership_settings')
-      .select('require_email_verification, notification_email')
+      .select('require_email_verification, notification_email, email_verification_subject, email_verification_body, branding')
       .eq('site_id', siteId)
       .single();
 
@@ -145,6 +145,9 @@ export async function POST(request: NextRequest) {
         memberName: name || undefined,
         siteName,
         verificationUrl,
+        customSubject: settings?.email_verification_subject || undefined,
+        customBody: settings?.email_verification_body || undefined,
+        branding: settings?.branding || undefined,
       });
     }
 

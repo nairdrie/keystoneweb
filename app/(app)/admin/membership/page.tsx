@@ -5,7 +5,9 @@ import { useAdminContext } from '../admin-context';
 import {
   Users, Package, Settings, Mail, Search, Plus, Trash2, Loader2, Download,
   MoreVertical, Check, X, Edit2, Send, Calendar, CreditCard, AlertTriangle,
+  Eye, ChevronDown, ChevronUp, Palette,
 } from 'lucide-react';
+import { buildMemberEmailHtml } from '@/lib/membership/email-template';
 
 type TabId = 'members' | 'packages' | 'form' | 'campaigns' | 'settings';
 
@@ -895,112 +897,534 @@ function SignupFormTab({ siteId }: { siteId: string }) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// CAMPAIGNS TAB
+// EMAIL PREVIEW MODAL
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function CampaignsTab({ siteId }: { siteId: string }) {
-  const [campaigns, setCampaigns] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
-  const [subject, setSubject] = useState('');
-  const [body, setBody] = useState('');
-  const [sending, setSending] = useState(false);
+function EmailPreviewModal({ html, onClose }: { html: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 shrink-0">
+          <span className="text-sm font-semibold text-slate-700">Email Preview</span>
+          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 rounded">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-hidden bg-slate-100">
+          <iframe
+            srcDoc={html}
+            className="w-full h-full border-0"
+            title="Email Preview"
+            sandbox="allow-same-origin"
+            style={{ minHeight: '500px' }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
-  const fetchCampaigns = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/membership/campaigns?siteId=${siteId}`);
-      const data = await res.json();
-      setCampaigns(data.campaigns || []);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
+// ═══════════════════════════════════════════════════════════════════════════════
+// CAMPAIGNS TAB (Email management)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const DEFAULT_HEADER_COLOR = '#1e293b';
+const DEFAULT_ACCENT_COLOR = '#334155';
+
+function CampaignsTab({ siteId }: { siteId: string }) {
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(true);
+
+  // Email design
+  const [logoUrl, setLogoUrl] = useState('');
+  const [headerColor, setHeaderColor] = useState(DEFAULT_HEADER_COLOR);
+  const [accentColor, setAccentColor] = useState(DEFAULT_ACCENT_COLOR);
+  const [footerText, setFooterText] = useState('');
+  const [savingDesign, setSavingDesign] = useState(false);
+  const [designSaved, setDesignSaved] = useState(false);
+
+  // System email templates
+  const [templates, setTemplates] = useState({
+    verification: { subject: '', body: '' },
+    passwordReset: { subject: '', body: '' },
+    welcome: { subject: '', body: '' },
+  });
+  const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
+  const [savingTemplate, setSavingTemplate] = useState<string | null>(null);
+  const [templateSaved, setTemplateSaved] = useState<string | null>(null);
+
+  // Preview
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+
+  // Campaign creation
+  const [showCreate, setShowCreate] = useState(false);
+  const [newCampaign, setNewCampaign] = useState({ subject: '', body: '', scheduledAt: '' });
+  const [sendingCampaign, setSendingCampaign] = useState(false);
+  const [previewingCampaign, setPreviewingCampaign] = useState(false);
+
+  // Load settings + campaigns
+  useEffect(() => {
+    fetch(`/api/membership/settings?siteId=${siteId}`)
+      .then(r => r.json())
+      .then(data => {
+        const s = data.settings || {};
+        const b = s.branding || {};
+        setLogoUrl(b.logoUrl || '');
+        setHeaderColor(b.headerColor || DEFAULT_HEADER_COLOR);
+        setAccentColor(b.accentColor || DEFAULT_ACCENT_COLOR);
+        setFooterText(b.footerText || '');
+        setTemplates({
+          verification: { subject: s.email_verification_subject || '', body: s.email_verification_body || '' },
+          passwordReset: { subject: s.password_reset_subject || '', body: s.password_reset_body || '' },
+          welcome: { subject: s.welcome_email_subject || '', body: s.welcome_email_body || '' },
+        });
+      })
+      .catch(() => {})
+      .finally(() => setSettingsLoading(false));
+
+    fetch(`/api/membership/campaigns?siteId=${siteId}`)
+      .then(r => r.json())
+      .then(data => setCampaigns(data.campaigns || []))
+      .catch(() => {})
+      .finally(() => setCampaignsLoading(false));
   }, [siteId]);
 
-  useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
+  const branding = { logoUrl, headerColor, accentColor, footerText };
 
-  const handleSend = async () => {
-    if (!subject.trim() || !body.trim()) return;
-    setSending(true);
+  const buildPreview = (heading: string, body: string, ctaLabel: string, note?: string) =>
+    buildMemberEmailHtml({
+      heading,
+      bodyLines: body.trim() ? body.split('\n').filter(Boolean) : [`Example body text for "${heading}".`],
+      ctaLabel,
+      ctaUrl: '#preview',
+      note,
+      branding,
+    });
+
+  // ── Design save ─────────────────────────────────────────────────────────────
+
+  const saveDesign = async () => {
+    setSavingDesign(true);
+    try {
+      await fetch('/api/membership/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteId, branding }),
+      });
+      setDesignSaved(true);
+      setTimeout(() => setDesignSaved(false), 2000);
+    } catch {} finally {
+      setSavingDesign(false);
+    }
+  };
+
+  // ── Template save ────────────────────────────────────────────────────────────
+
+  const saveTemplate = async (key: 'verification' | 'passwordReset' | 'welcome') => {
+    setSavingTemplate(key);
+    const t = templates[key];
+    const payload: Record<string, string> = { siteId };
+    if (key === 'verification') {
+      payload.emailVerificationSubject = t.subject;
+      payload.emailVerificationBody = t.body;
+    } else if (key === 'passwordReset') {
+      payload.passwordResetSubject = t.subject;
+      payload.passwordResetBody = t.body;
+    } else {
+      payload.welcomeEmailSubject = t.subject;
+      payload.welcomeEmailBody = t.body;
+    }
+    try {
+      await fetch('/api/membership/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      setTemplateSaved(key);
+      setTimeout(() => setTemplateSaved(null), 2000);
+    } catch {} finally {
+      setSavingTemplate(null);
+    }
+  };
+
+  const updateTemplate = (key: 'verification' | 'passwordReset' | 'welcome', field: 'subject' | 'body', value: string) => {
+    setTemplates(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }));
+  };
+
+  // ── Campaign send ────────────────────────────────────────────────────────────
+
+  const handleSendCampaign = async (sendNow: boolean) => {
+    if (!newCampaign.subject.trim() || !newCampaign.body.trim()) return;
+    setSendingCampaign(true);
     try {
       await fetch('/api/membership/campaigns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ siteId, subject, bodyText: body, sendNow: true }),
+        body: JSON.stringify({
+          siteId,
+          subject: newCampaign.subject,
+          bodyText: newCampaign.body,
+          scheduledAt: !sendNow && newCampaign.scheduledAt ? newCampaign.scheduledAt : undefined,
+          sendNow,
+        }),
       });
       setShowCreate(false);
-      setSubject('');
-      setBody('');
-      fetchCampaigns();
-    } catch {
-      // ignore
-    } finally {
-      setSending(false);
+      setNewCampaign({ subject: '', body: '', scheduledAt: '' });
+      const res = await fetch(`/api/membership/campaigns?siteId=${siteId}`);
+      const data = await res.json();
+      setCampaigns(data.campaigns || []);
+    } catch {} finally {
+      setSendingCampaign(false);
     }
   };
 
-  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>;
+  if (settingsLoading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>;
+
+  // ── System template definitions ──────────────────────────────────────────────
+
+  const SYSTEM_TEMPLATES = [
+    {
+      key: 'verification' as const,
+      label: 'Email Confirmation',
+      description: 'Sent when a member signs up and needs to verify their email address.',
+      defaultSubject: 'Verify your email',
+      ctaLabel: 'Verify Email',
+      note: 'This link expires in 24 hours. If you didn\'t sign up, you can safely ignore this email.',
+      heading: 'Verify Your Email',
+      subjectPlaceholder: 'Verify your email',
+      bodyPlaceholder: 'Thanks for signing up! Click the button below to verify your email address and activate your account.',
+    },
+    {
+      key: 'passwordReset' as const,
+      label: 'Forgot Password',
+      description: 'Sent when a member requests a password reset link.',
+      defaultSubject: 'Reset your password',
+      ctaLabel: 'Reset Password',
+      note: 'This link expires in 1 hour. If you didn\'t request a password reset, you can safely ignore this email.',
+      heading: 'Reset Your Password',
+      subjectPlaceholder: 'Reset your password',
+      bodyPlaceholder: 'We received a request to reset your password. Click the button below to set a new one.',
+    },
+    {
+      key: 'welcome' as const,
+      label: 'Welcome Email',
+      description: 'Sent after a member\'s email address is verified.',
+      defaultSubject: 'Welcome!',
+      ctaLabel: null as string | null,
+      note: undefined as string | undefined,
+      heading: 'Welcome!',
+      subjectPlaceholder: 'Welcome to [your community]!',
+      bodyPlaceholder: 'Thanks for joining! Your account is now active.',
+    },
+  ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500">Send emails to your members (only those who opted in).</p>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-700"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          New Email
-        </button>
+    <div className="space-y-6">
+      {previewHtml && (
+        <EmailPreviewModal html={previewHtml} onClose={() => setPreviewHtml(null)} />
+      )}
+
+      {/* ── Email Design ────────────────────────────────────────────────────── */}
+      <div className="border border-slate-200 rounded-xl overflow-hidden">
+        <div className="flex items-center gap-2 px-5 py-3.5 bg-slate-50 border-b border-slate-200">
+          <Palette className="w-4 h-4 text-slate-500" />
+          <span className="text-sm font-semibold text-slate-800">Email Design</span>
+          <span className="text-xs text-slate-400 ml-1">— applied to all emails</span>
+        </div>
+        <div className="p-5 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">Logo URL</label>
+              <input
+                type="url"
+                value={logoUrl}
+                onChange={e => setLogoUrl(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                placeholder="https://yourdomain.com/logo.png"
+              />
+              <p className="text-xs text-slate-400 mt-1">Shown in the email header. Leave blank for a default icon.</p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">Footer Text</label>
+              <input
+                type="text"
+                value={footerText}
+                onChange={e => setFooterText(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                placeholder="© 2025 Your Company. All rights reserved."
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-6 flex-wrap">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-2">Header Color</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={headerColor}
+                  onChange={e => setHeaderColor(e.target.value)}
+                  className="w-9 h-9 rounded-lg border border-slate-200 cursor-pointer p-0.5"
+                />
+                <input
+                  type="text"
+                  value={headerColor}
+                  onChange={e => setHeaderColor(e.target.value)}
+                  className="w-24 px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-mono"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-2">Button Color</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={accentColor}
+                  onChange={e => setAccentColor(e.target.value)}
+                  className="w-9 h-9 rounded-lg border border-slate-200 cursor-pointer p-0.5"
+                />
+                <input
+                  type="text"
+                  value={accentColor}
+                  onChange={e => setAccentColor(e.target.value)}
+                  className="w-24 px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-mono"
+                />
+              </div>
+            </div>
+            <div className="pt-5 ml-auto flex items-center gap-2">
+              <button
+                onClick={() => setPreviewHtml(buildPreview('Preview Email', 'This is how your branded email will look when sent to members.', 'Example Button'))}
+                className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50"
+              >
+                <Eye className="w-4 h-4" />
+                Preview
+              </button>
+              <button
+                onClick={saveDesign}
+                disabled={savingDesign}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50"
+              >
+                {savingDesign ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : designSaved ? <Check className="w-3.5 h-3.5" /> : null}
+                {designSaved ? 'Saved!' : 'Save Design'}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {showCreate && (
-        <div className="border border-slate-200 rounded-xl p-5 space-y-4 bg-white">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Subject</label>
-            <input type="text" value={subject} onChange={e => setSubject(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Body</label>
-            <textarea value={body} onChange={e => setBody(e.target.value)} rows={6} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={handleSend} disabled={sending} className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50">
-              <Send className="w-3.5 h-3.5" />
-              {sending ? 'Sending...' : 'Send Now'}
-            </button>
-            <button onClick={() => setShowCreate(false)} className="px-4 py-2 border border-slate-200 text-sm rounded-lg text-slate-600 hover:bg-slate-50">
-              Cancel
-            </button>
-          </div>
+      {/* ── System Email Templates ───────────────────────────────────────────── */}
+      <div className="space-y-1">
+        <div className="flex items-center gap-2 mb-3">
+          <Mail className="w-4 h-4 text-slate-500" />
+          <span className="text-sm font-semibold text-slate-800">System Emails</span>
+          <span className="text-xs text-slate-400 ml-1">— sent automatically</span>
         </div>
-      )}
 
-      {campaigns.length === 0 && !showCreate ? (
-        <div className="text-center py-12 text-sm text-slate-400">No emails sent yet.</div>
-      ) : (
-        <div className="space-y-3">
-          {campaigns.map(c => (
-            <div key={c.id} className="border border-slate-200 rounded-lg p-4 flex items-center justify-between">
-              <div>
-                <p className="font-medium text-slate-900 text-sm">{c.subject}</p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {c.status === 'sent' ? `Sent to ${c.recipient_count} members on ${new Date(c.sent_at).toLocaleDateString()}` : c.status}
-                </p>
-              </div>
-              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                c.status === 'sent' ? 'bg-green-100 text-green-700' :
-                c.status === 'draft' ? 'bg-slate-100 text-slate-600' :
-                c.status === 'sending' ? 'bg-blue-100 text-blue-700' :
-                'bg-slate-100 text-slate-600'
-              }`}>
-                {c.status}
-              </span>
+        {SYSTEM_TEMPLATES.map(tmpl => {
+          const isExpanded = expandedTemplate === tmpl.key;
+          const t = templates[tmpl.key];
+          return (
+            <div key={tmpl.key} className="border border-slate-200 rounded-xl overflow-hidden">
+              <button
+                className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-slate-50 transition-colors"
+                onClick={() => setExpandedTemplate(isExpanded ? null : tmpl.key)}
+              >
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-slate-900">{tmpl.label}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{tmpl.description}</p>
+                </div>
+                {t.subject && (
+                  <span className="text-xs text-slate-400 hidden sm:block truncate max-w-[200px]">{t.subject}</span>
+                )}
+                {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" /> : <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />}
+              </button>
+
+              {isExpanded && (
+                <div className="px-5 pb-5 pt-2 border-t border-slate-100 space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1.5">Subject Line</label>
+                    <input
+                      type="text"
+                      value={t.subject}
+                      onChange={e => updateTemplate(tmpl.key, 'subject', e.target.value)}
+                      placeholder={tmpl.subjectPlaceholder}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                      Message
+                      {tmpl.ctaLabel && <span className="text-slate-400 font-normal ml-1">— shown above the "{tmpl.ctaLabel}" button</span>}
+                    </label>
+                    <textarea
+                      value={t.body}
+                      onChange={e => updateTemplate(tmpl.key, 'body', e.target.value)}
+                      placeholder={tmpl.bodyPlaceholder}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm resize-y"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">Leave blank to use the default message.</p>
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      onClick={() => setPreviewHtml(buildPreview(
+                        tmpl.heading,
+                        t.body || tmpl.bodyPlaceholder,
+                        tmpl.ctaLabel || 'Continue',
+                        tmpl.note,
+                      ))}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      Preview
+                    </button>
+                    <button
+                      onClick={() => saveTemplate(tmpl.key)}
+                      disabled={savingTemplate === tmpl.key}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50"
+                    >
+                      {savingTemplate === tmpl.key
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : templateSaved === tmpl.key
+                          ? <Check className="w-3.5 h-3.5" />
+                          : null}
+                      {templateSaved === tmpl.key ? 'Saved!' : 'Save'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          ))}
+          );
+        })}
+      </div>
+
+      {/* ── Campaigns ───────────────────────────────────────────────────────── */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-sm font-semibold text-slate-800">Member Campaigns</span>
+            <span className="text-xs text-slate-400 ml-2">— send to opted-in members</span>
+          </div>
+          {!showCreate && (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-700"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              New Campaign
+            </button>
+          )}
         </div>
-      )}
+
+        {showCreate && (
+          <div className="border border-slate-200 rounded-xl p-5 space-y-4 bg-white">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">Subject</label>
+              <input
+                type="text"
+                value={newCampaign.subject}
+                onChange={e => setNewCampaign(p => ({ ...p, subject: e.target.value }))}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                placeholder="Monthly update for our members"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">Message</label>
+              <textarea
+                value={newCampaign.body}
+                onChange={e => setNewCampaign(p => ({ ...p, body: e.target.value }))}
+                rows={6}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm resize-y"
+                placeholder="Write your message here..."
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                Schedule <span className="text-slate-400 font-normal">(optional — leave blank to send now)</span>
+              </label>
+              <input
+                type="datetime-local"
+                value={newCampaign.scheduledAt}
+                onChange={e => setNewCampaign(p => ({ ...p, scheduledAt: e.target.value }))}
+                className="px-3 py-2 border border-slate-200 rounded-lg text-sm"
+              />
+            </div>
+            <div className="flex items-center gap-2 flex-wrap pt-1">
+              <button
+                onClick={() => {
+                  if (newCampaign.subject && newCampaign.body) {
+                    setPreviewHtml(buildPreview(newCampaign.subject, newCampaign.body, ''));
+                    setPreviewingCampaign(true);
+                  }
+                }}
+                disabled={!newCampaign.subject || !newCampaign.body}
+                className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                Preview
+              </button>
+              <button
+                onClick={() => handleSendCampaign(true)}
+                disabled={sendingCampaign || !newCampaign.subject.trim() || !newCampaign.body.trim()}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50"
+              >
+                {sendingCampaign ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                Send Now
+              </button>
+              {newCampaign.scheduledAt && (
+                <button
+                  onClick={() => handleSendCampaign(false)}
+                  disabled={sendingCampaign}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-200 text-sm font-semibold rounded-lg text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  Schedule
+                </button>
+              )}
+              <button
+                onClick={() => { setShowCreate(false); setNewCampaign({ subject: '', body: '', scheduledAt: '' }); }}
+                className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {campaignsLoading ? (
+          <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-slate-400" /></div>
+        ) : campaigns.length === 0 ? (
+          <div className="text-center py-10 text-sm text-slate-400">No campaigns yet.</div>
+        ) : (
+          <div className="border border-slate-200 rounded-xl divide-y divide-slate-100">
+            {campaigns.map(c => (
+              <div key={c.id} className="flex items-center gap-4 px-4 py-3.5">
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-slate-900 text-sm truncate">{c.subject}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {c.status === 'sent'
+                      ? `Sent to ${c.recipient_count} member${c.recipient_count !== 1 ? 's' : ''} · ${new Date(c.sent_at).toLocaleDateString()}`
+                      : c.status === 'scheduled' && c.scheduled_at
+                        ? `Scheduled for ${new Date(c.scheduled_at).toLocaleString()}`
+                        : c.status}
+                  </p>
+                </div>
+                <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${
+                  c.status === 'sent' ? 'bg-green-100 text-green-700' :
+                  c.status === 'scheduled' ? 'bg-blue-100 text-blue-700' :
+                  c.status === 'sending' ? 'bg-yellow-100 text-yellow-700' :
+                  'bg-slate-100 text-slate-600'
+                }`}>
+                  {c.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
