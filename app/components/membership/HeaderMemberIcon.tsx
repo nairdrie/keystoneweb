@@ -1,24 +1,18 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { User, LogOut, UserCircle } from 'lucide-react';
+import { LogOut, UserCircle } from 'lucide-react';
 import { useMember } from './MemberProvider';
-import { useEditorContext } from '@/lib/editor-context';
 
 /**
  * Member profile icon for the header.
- * Only shows when the site has a membershipPortal block and the member is signed in.
+ * Shows when a member is signed in, on any page.
  * Follows the same pattern as HeaderCartIcon.
  */
 export default function HeaderMemberIcon({ color = '#475569' }: { color?: string }) {
   const memberCtx = useMember();
-  const context = useEditorContext();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-
-  const hasMembershipBlock =
-    context?.blocks?.some(b => b.type === 'membershipPortal') ||
-    !!context?.siteContent?.__hasMembershipBlock;
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -33,7 +27,7 @@ export default function HeaderMemberIcon({ color = '#475569' }: { color?: string
     }
   }, [dropdownOpen]);
 
-  if (!memberCtx || !hasMembershipBlock || !memberCtx.member) return null;
+  if (!memberCtx || !memberCtx.member) return null;
 
   const member = memberCtx.member;
   const initials = member.name

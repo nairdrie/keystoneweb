@@ -85,7 +85,7 @@ export default async function CustomDomainDynamicPage({
             (p.published_data?.blocks || []).some((b: any) => b.type === 'productGrid')
         );
         const hasMembershipBlock = (allPages || []).some((p: any) =>
-            (p.published_data?.blocks || []).some((b: any) => b.type === 'membershipPortal')
+            (p.published_data?.blocks || []).some((b: any) => b.type === 'membershipGate')
         );
 
         const mergedPublishData = {
