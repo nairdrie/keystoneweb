@@ -8,7 +8,24 @@ export interface EmailBranding {
   headerColor?: string;
   accentColor?: string;
   footerText?: string;
+  fontFamily?: string;
 }
+
+const FONT_STACKS: Record<string, string> = {
+  'system':    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  'inter':     "'Inter', 'Helvetica Neue', Arial, sans-serif",
+  'georgia':   "Georgia, 'Times New Roman', serif",
+  'merriweather': "'Merriweather', Georgia, serif",
+  'courier':   "'Courier New', Courier, monospace",
+};
+
+export const EMAIL_FONT_OPTIONS = [
+  { value: 'system',       label: 'System Default' },
+  { value: 'inter',        label: 'Inter (Modern sans-serif)' },
+  { value: 'georgia',      label: 'Georgia (Classic serif)' },
+  { value: 'merriweather', label: 'Merriweather (Editorial serif)' },
+  { value: 'courier',      label: 'Courier (Monospace)' },
+] as const;
 
 export function buildMemberEmailHtml(opts: {
   heading: string;
@@ -21,6 +38,7 @@ export function buildMemberEmailHtml(opts: {
   const headerColor = opts.branding?.headerColor || '#1e293b';
   const accentColor = opts.branding?.accentColor || '#1e293b';
   const footerText  = opts.branding?.footerText  || '';
+  const fontStack   = FONT_STACKS[opts.branding?.fontFamily || 'system'] || FONT_STACKS['system'];
 
   const logoHtml = opts.branding?.logoUrl
     ? `<img src="${opts.branding.logoUrl}" style="max-height:44px;max-width:200px;display:block;object-fit:contain;" alt="Logo" />`
@@ -50,13 +68,13 @@ export function buildMemberEmailHtml(opts: {
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f1f5f9;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 16px;">
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:${fontStack};">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 16px;font-family:${fontStack};">
   <tr><td align="center">
-    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);font-family:${fontStack};">
       <tr><td style="background:${headerColor};padding:20px 32px;">${logoHtml}</td></tr>
-      <tr><td style="padding:40px 32px;">
-        <h1 style="margin:0 0 20px;font-size:22px;font-weight:700;color:#0f172a;line-height:1.3;">${opts.heading}</h1>
+      <tr><td style="padding:40px 32px;font-family:${fontStack};">
+        <h1 style="margin:0 0 20px;font-size:22px;font-weight:700;color:#0f172a;line-height:1.3;font-family:${fontStack};">${opts.heading}</h1>
         ${bodyHtml}
         ${ctaHtml}
         ${noteHtml}

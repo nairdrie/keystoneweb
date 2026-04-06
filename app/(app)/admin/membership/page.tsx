@@ -7,7 +7,7 @@ import {
   MoreVertical, Check, X, Edit2, Send, Calendar, CreditCard, AlertTriangle,
   Eye, ChevronDown, ChevronUp, Palette,
 } from 'lucide-react';
-import { buildMemberEmailHtml } from '@/lib/membership/email-template';
+import { buildMemberEmailHtml, EMAIL_FONT_OPTIONS } from '@/lib/membership/email-template';
 
 type TabId = 'members' | 'packages' | 'form' | 'campaigns' | 'settings';
 
@@ -944,6 +944,7 @@ function CampaignsTab({ siteId }: { siteId: string }) {
   const [headerColor, setHeaderColor] = useState(DEFAULT_HEADER_COLOR);
   const [accentColor, setAccentColor] = useState(DEFAULT_ACCENT_COLOR);
   const [footerText, setFooterText] = useState('');
+  const [fontFamily, setFontFamily] = useState('system');
   const [savingDesign, setSavingDesign] = useState(false);
   const [designSaved, setDesignSaved] = useState(false);
 
@@ -977,6 +978,7 @@ function CampaignsTab({ siteId }: { siteId: string }) {
         setHeaderColor(b.headerColor || DEFAULT_HEADER_COLOR);
         setAccentColor(b.accentColor || DEFAULT_ACCENT_COLOR);
         setFooterText(b.footerText || '');
+        setFontFamily(b.fontFamily || 'system');
         setTemplates({
           verification: { subject: s.email_verification_subject || '', body: s.email_verification_body || '' },
           passwordReset: { subject: s.password_reset_subject || '', body: s.password_reset_body || '' },
@@ -993,7 +995,7 @@ function CampaignsTab({ siteId }: { siteId: string }) {
       .finally(() => setCampaignsLoading(false));
   }, [siteId]);
 
-  const branding = { logoUrl, headerColor, accentColor, footerText };
+  const branding = { logoUrl, headerColor, accentColor, footerText, fontFamily };
 
   const buildPreview = (heading: string, body: string, ctaLabel: string, note?: string) =>
     buildMemberEmailHtml({
@@ -1149,6 +1151,18 @@ function CampaignsTab({ siteId }: { siteId: string }) {
               <p className="text-xs text-slate-400 mt-1">Shown in the email header. Leave blank for a default icon.</p>
             </div>
             <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">Font Family</label>
+              <select
+                value={fontFamily}
+                onChange={e => setFontFamily(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+              >
+                {EMAIL_FONT_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
               <label className="block text-xs font-medium text-slate-600 mb-1.5">Footer Text</label>
               <input
                 type="text"
