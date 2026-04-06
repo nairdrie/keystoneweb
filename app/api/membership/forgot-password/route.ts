@@ -40,10 +40,11 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', member.id);
 
-    // Fetch site + settings for branding and custom template
-    const [{ data: site }, { data: settings }] = await Promise.all([
+    // Fetch site + settings — split base (guaranteed cols) from extended (migration 042/043)
+    const [{ data: site }, { data: settings }, { data: extSettings }] = await Promise.all([
       supabase.from('sites').select('published_domain, custom_domain, site_slug').eq('id', siteId).single(),
-      supabase.from('membership_settings').select('password_reset_subject, password_reset_body, password_reset_cta_enabled, password_reset_cta_label, branding').eq('site_id', siteId).single(),
+      supabase.from('membership_settings').select('branding').eq('site_id', siteId).single(),
+      supabase.from('membership_settings').select('password_reset_subject, password_reset_body, password_reset_cta_enabled, password_reset_cta_label').eq('site_id', siteId).single(),
     ]);
 
     const siteName = site?.site_slug || site?.custom_domain || site?.published_domain || undefined;
@@ -60,10 +61,10 @@ export async function POST(request: NextRequest) {
       memberName: member.name || undefined,
       siteName,
       resetUrl,
-      customSubject: settings?.password_reset_subject || undefined,
-      customBody: settings?.password_reset_body || undefined,
-      ctaEnabled: settings?.password_reset_cta_enabled ?? true,
-      ctaLabel: settings?.password_reset_cta_label || undefined,
+      customSubject: extSettings?.password_reset_subject || undefined,
+      customBody: extSettings?.password_reset_body || undefined,
+      ctaEnabled: extSettings?.password_reset_cta_enabled ?? true,
+      ctaLabel: extSettings?.password_reset_cta_label || undefined,
       branding: settings?.branding || undefined,
     });
 

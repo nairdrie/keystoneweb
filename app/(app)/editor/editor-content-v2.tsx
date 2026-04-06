@@ -21,6 +21,7 @@ import { CartProvider } from '@/app/components/ecommerce/CartProvider';
 import CartDrawer from '@/app/components/ecommerce/CartDrawer';
 import CartButton from '@/app/components/ecommerce/CartButton';
 import PreviewProductPage from '@/app/components/ecommerce/PreviewProductPage';
+import { MemberProvider } from '@/app/components/membership/MemberProvider';
 
 
 export interface SiteData {
@@ -53,38 +54,41 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   // This allows full SSR and instant load times, bypassing all Editor UI and loading screens
   if (isPublicView) {
     const pubDesign = publicSiteData?.designData || {};
+    const hasMembership = (pubDesign.blocks || []).some((b: any) => b.type === 'membershipPortal');
     return (
       <CartProvider siteId={publicSiteData?.id || ''}>
-        {/* Dynamic favicon for published site */}
-        {(pubDesign.faviconLogo || pubDesign.siteLogo) && (
-          <link rel="icon" href={`/api/sites/favicon?siteId=${publicSiteData?.id}`} />
-        )}
-        <EditorProvider
-          value={{
-            content: pubDesign,
-            siteContent: pubDesign,
-            updateSiteContent: () => { },
-            navItems: pubDesign.__navItems || [],
-            updateNavItems: () => { },
-            isEditMode: false,
-            updateContent: () => { },
-            palette: precomputedPalette || {},
-            availablePalettes: [],
-            siteId: publicSiteData?.id,
-            uploadImage: async () => { return ''; },
-            setPalette: () => { },
-            blocks: pubDesign.blocks || [],
-            pages: pubDesign.__pages || [],
-            isProUser: false,
-            previewSiteId: isPreviewView ? publicSiteData?.id : undefined,
-          }}
-        >
-          <div className="w-full min-h-screen">
-            {children}
-          </div>
-        </EditorProvider>
-        <CartDrawer siteId={publicSiteData?.id || ''} palette={precomputedPalette || {}} />
-        <CartButton accentColor={(precomputedPalette as any)?.secondary} />
+        <MemberProvider siteId={publicSiteData?.id || ''}>
+          {/* Dynamic favicon for published site */}
+          {(pubDesign.faviconLogo || pubDesign.siteLogo) && (
+            <link rel="icon" href={`/api/sites/favicon?siteId=${publicSiteData?.id}`} />
+          )}
+          <EditorProvider
+            value={{
+              content: pubDesign,
+              siteContent: { ...pubDesign, __hasMembershipBlock: hasMembership },
+              updateSiteContent: () => { },
+              navItems: pubDesign.__navItems || [],
+              updateNavItems: () => { },
+              isEditMode: false,
+              updateContent: () => { },
+              palette: precomputedPalette || {},
+              availablePalettes: [],
+              siteId: publicSiteData?.id,
+              uploadImage: async () => { return ''; },
+              setPalette: () => { },
+              blocks: pubDesign.blocks || [],
+              pages: pubDesign.__pages || [],
+              isProUser: false,
+              previewSiteId: isPreviewView ? publicSiteData?.id : undefined,
+            }}
+          >
+            <div className="w-full min-h-screen">
+              {children}
+            </div>
+          </EditorProvider>
+          <CartDrawer siteId={publicSiteData?.id || ''} palette={precomputedPalette || {}} />
+          <CartButton accentColor={(precomputedPalette as any)?.secondary} />
+        </MemberProvider>
       </CartProvider>
     );
   }
