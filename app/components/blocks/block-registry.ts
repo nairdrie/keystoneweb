@@ -32,8 +32,10 @@ import ResourcesBlock from './ResourcesBlock';
 import DeliveryLinksBlock from './DeliveryLinksBlock';
 import FeaturedQuoteBlock from './FeaturedQuoteBlock';
 import CarouselBlock from './CarouselBlock';
+import TabBarBlock from './TabBarBlock';
 
 export const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
+    tabBar: TabBarBlock,
     hero: HeroBlock,
     text: TextBlock,
     image: ImageBlock,
@@ -94,4 +96,5 @@ export const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: bo
     { type: 'custom_html', label: 'Custom HTML / Embed', proOnly: true },
     { type: 'featuredQuote', label: 'Featured Quote' },
     { type: 'carousel', label: 'Content Carousel' },
+    { type: 'tabBar', label: '🗂️ Tab Bar / Menu Bar' },
 ];
