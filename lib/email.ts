@@ -1385,3 +1385,114 @@ export async function sendMemberSignupNotification(
         return { success: false, error };
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Transfer Reminder Email (cron: accepted but not yet published)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function sendTransferReminderEmail(data: {
+    recipientEmail: string;
+    siteName: string;
+    domainName: string | null;
+    hasPaidPlan: boolean;
+    isPro: boolean;
+    loginUrl: string;
+}) {
+    try {
+        // Build status-specific guidance
+        let guidanceHtml: string;
+        if (!data.hasPaidPlan) {
+            // No subscription — they need to pick a plan first
+            guidanceHtml = `
+                <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 16px; margin-top: 16px;">
+                    <h3 style="margin: 0 0 8px; color: #92400e; font-size: 14px; font-weight: 700;">Choose a plan to publish</h3>
+                    <p style="margin: 0; color: #92400e; font-size: 13px; line-height: 1.6;">
+                        Your site is ready but needs an active plan before it can go live.
+                        Log in and choose a plan to publish your site.
+                        ${data.domainName
+                            ? ` To keep <strong>${data.domainName}</strong> active on your site, select the <strong>Pro plan</strong>.`
+                            : ''}
+                    </p>
+                </div>
+            `;
+        } else {
+            // Has a plan — just hasn't clicked publish
+            guidanceHtml = `
+                <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; margin-top: 16px;">
+                    <h3 style="margin: 0 0 8px; color: #1e40af; font-size: 14px; font-weight: 700;">One click away</h3>
+                    <p style="margin: 0; color: #1e40af; font-size: 13px; line-height: 1.6;">
+                        Your plan is active — just log in and hit <strong>Publish</strong> to take your site live.
+                        ${data.domainName && !data.isPro
+                            ? ` To use <strong>${data.domainName}</strong> as your custom domain, upgrade to the <strong>Pro plan</strong> first.`
+                            : ''}
+                    </p>
+                </div>
+            `;
+        }
+
+        const domainRow = data.domainName
+            ? `<tr><td style="padding: 6px 0; color: #6b7280;">Domain</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827; font-family: monospace;">${data.domainName}</td></tr>`
+            : '';
+
+        await resend.emails.send({
+            from: 'Keystone Web Design <noreply@keystoneweb.ca>',
+            to: data.recipientEmail,
+            subject: `Reminder: Your site "${data.siteName}" is waiting to be published`,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; background: #ffffff;">
+                    <!-- Red top bar -->
+                    <div style="background: #fe4545; height: 4px; border-radius: 4px 4px 0 0;"></div>
+
+                    <!-- Body -->
+                    <div style="padding: 40px 32px;">
+                        <!-- Logo -->
+                        <img style="width:180px; margin-bottom:32px;" src="https://www.keystoneweb.ca/assets/logo/keystone-logo.png" alt="Keystone Web" />
+
+                        <!-- Heading -->
+                        <h1 style="margin: 0 0 8px; font-size: 22px; font-weight: 700; color: #171717; letter-spacing: -0.02em;">
+                            Your site is waiting to go live
+                        </h1>
+                        <p style="margin: 0 0 24px; font-size: 15px; color: #6b7280; line-height: 1.6;">
+                            You accepted a site transfer a few days ago but haven't published yet.
+                            Your site <strong style="color: #111827;">${data.siteName}</strong> is ready whenever you are.
+                        </p>
+
+                        <!-- Site details -->
+                        <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 8px;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                                <tr><td style="padding: 6px 0; color: #6b7280;">Site</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #111827;">${data.siteName}</td></tr>
+                                ${domainRow}
+                                <tr><td style="padding: 6px 0; color: #6b7280;">Status</td><td style="padding: 6px 0; text-align: right; font-weight: 600; color: #f59e0b;">Unpublished</td></tr>
+                            </table>
+                        </div>
+
+                        ${guidanceHtml}
+
+                        <!-- CTA -->
+                        <div style="margin-top: 28px; text-align: center;">
+                            <a href="${data.loginUrl}" style="display: inline-block; background: #fe4545; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 600; padding: 14px 32px; border-radius: 8px; letter-spacing: 0.01em;">
+                                Log In & Publish →
+                            </a>
+                        </div>
+
+                        <div style="border-top: 1px solid #f3f4f6; margin: 28px 0 0;"></div>
+                        <p style="margin: 16px 0 0; font-size: 12px; color: #9ca3af; line-height: 1.6;">
+                            Questions? Reply to this email or visit <a href="https://keystoneweb.ca" style="color: #6b7280;">keystoneweb.ca</a>.
+                        </p>
+                    </div>
+
+                    <!-- Footer -->
+                    <div style="padding: 16px 32px; background: #f9fafb; border-top: 1px solid #f3f4f6; border-radius: 0 0 4px 4px;">
+                        <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center;">
+                            Powered by <strong style="color: #6b7280;">Keystone Web Design</strong>
+                        </p>
+                    </div>
+                </div>
+            `,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send transfer reminder email:', error);
+        return { success: false, error };
+    }
+}
