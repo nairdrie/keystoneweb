@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { generateSecureToken, getPasswordResetExpiresAt } from '@/lib/membership/auth';
+import { sendMemberPasswordResetEmail } from '@/lib/email';
 
 /** POST /api/membership/forgot-password */
 export async function POST(request: NextRequest) {
@@ -39,9 +40,30 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', member.id);
 
-    // TODO: Send password reset email via Resend
-    // The email should contain a link like:
-    // https://{siteDomain}/forgot-password?token={resetToken}&siteId={siteId}&action=reset
+    // Fetch site + settings for branding and custom template
+    const [{ data: site }, { data: settings }] = await Promise.all([
+      supabase.from('sites').select('published_domain, custom_domain, site_slug').eq('id', siteId).single(),
+      supabase.from('membership_settings').select('password_reset_subject, password_reset_body, branding').eq('site_id', siteId).single(),
+    ]);
+
+    const siteName = site?.custom_domain || site?.published_domain || site?.site_slug || undefined;
+    const siteDomain = site?.custom_domain
+      ? `https://${site.custom_domain}`
+      : site?.published_domain
+        ? `https://${site.published_domain}.kswd.ca`
+        : request.nextUrl.origin;
+
+    const resetUrl = `${siteDomain}/forgot-password?token=${resetToken}&siteId=${siteId}&action=reset`;
+
+    await sendMemberPasswordResetEmail({
+      memberEmail: emailLower,
+      memberName: member.name || undefined,
+      siteName,
+      resetUrl,
+      customSubject: settings?.password_reset_subject || undefined,
+      customBody: settings?.password_reset_body || undefined,
+      branding: settings?.branding || undefined,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

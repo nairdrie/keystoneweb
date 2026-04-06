@@ -61,6 +61,10 @@ export async function PUT(request: NextRequest) {
     if (settingsData.requireEmailVerification !== undefined) dbData.require_email_verification = settingsData.requireEmailVerification;
     if (settingsData.welcomeEmailSubject !== undefined) dbData.welcome_email_subject = settingsData.welcomeEmailSubject;
     if (settingsData.welcomeEmailBody !== undefined) dbData.welcome_email_body = settingsData.welcomeEmailBody;
+    if (settingsData.emailVerificationSubject !== undefined) dbData.email_verification_subject = settingsData.emailVerificationSubject;
+    if (settingsData.emailVerificationBody !== undefined) dbData.email_verification_body = settingsData.emailVerificationBody;
+    if (settingsData.passwordResetSubject !== undefined) dbData.password_reset_subject = settingsData.passwordResetSubject;
+    if (settingsData.passwordResetBody !== undefined) dbData.password_reset_body = settingsData.passwordResetBody;
     if (settingsData.signupFormFields !== undefined) dbData.signup_form_fields = settingsData.signupFormFields;
     if (settingsData.branding !== undefined) dbData.branding = settingsData.branding;
     if (settingsData.notificationEmail !== undefined) dbData.notification_email = settingsData.notificationEmail;
