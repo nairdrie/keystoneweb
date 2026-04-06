@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       supabase.from('membership_settings').select('password_reset_subject, password_reset_body, password_reset_cta_enabled, password_reset_cta_label, branding').eq('site_id', siteId).single(),
     ]);
 
-    const siteName = site?.custom_domain || site?.published_domain || site?.site_slug || undefined;
+    const siteName = site?.site_slug || site?.custom_domain || site?.published_domain || undefined;
     const siteDomain = site?.custom_domain
       ? `https://${site.custom_domain}`
       : site?.published_domain

@@ -1262,7 +1262,7 @@ export async function sendMemberVerificationEmail(
         const bodyLines = [greeting, data.customBody || defaultBody];
 
         await resend.emails.send({
-            from: 'Keystoneweb <noreply@keystoneweb.ca>',
+            from: `${data.siteName || 'Keystoneweb'} <noreply@keystoneweb.ca>`,
             to: data.memberEmail,
             subject: data.customSubject || `Verify your email${data.siteName ? ` for ${data.siteName}` : ''}`,
             html: buildMemberEmailHtml({
@@ -1302,7 +1302,7 @@ export async function sendMemberPasswordResetEmail(
         const bodyLines = [greeting, data.customBody || defaultBody];
 
         await resend.emails.send({
-            from: 'Keystoneweb <noreply@keystoneweb.ca>',
+            from: `${data.siteName || 'Keystoneweb'} <noreply@keystoneweb.ca>`,
             to: data.memberEmail,
             subject: data.customSubject || `Reset your password${data.siteName ? ` for ${data.siteName}` : ''}`,
             html: buildMemberEmailHtml({
@@ -1342,7 +1342,7 @@ export async function sendMemberWelcomeEmail(
         const bodyLines = [greeting, data.customBody || defaultBody];
 
         await resend.emails.send({
-            from: 'Keystoneweb <noreply@keystoneweb.ca>',
+            from: `${data.siteName || 'Keystoneweb'} <noreply@keystoneweb.ca>`,
             to: data.memberEmail,
             subject,
             html: buildMemberEmailHtml({
@@ -1368,7 +1368,7 @@ export async function sendMemberSignupNotification(
 ) {
     try {
         await resend.emails.send({
-            from: 'Keystoneweb <noreply@keystoneweb.ca>',
+            from: `${data.siteName || 'Keystoneweb'} <noreply@keystoneweb.ca>`,
             to: data.ownerEmail,
             subject: `New member signup: ${data.memberName || data.memberEmail}`,
             html: buildMemberEmailHtml({

@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', existing.id);
 
-        const siteName = site.custom_domain || site.published_domain || site.site_slug || undefined;
+        const siteName = site.site_slug || site.custom_domain || site.published_domain || undefined;
         const verificationUrl = `${request.nextUrl.origin}/api/membership/verify-email?token=${verificationToken}&siteId=${siteId}`;
         await sendMemberVerificationEmail({
           memberEmail: emailLower,
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create account' }, { status: 500 });
     }
 
-    const siteName = site.custom_domain || site.published_domain || site.site_slug || undefined;
+    const siteName = site.site_slug || site.custom_domain || site.published_domain || undefined;
 
     if (requireVerification && verificationToken) {
       const verificationUrl = `${request.nextUrl.origin}/api/membership/verify-email?token=${verificationToken}&siteId=${siteId}`;
