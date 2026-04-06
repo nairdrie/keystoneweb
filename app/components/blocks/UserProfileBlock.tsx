@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMember, MemberData } from '../membership/MemberProvider';
-import { User, Mail, Package, Calendar, LogOut, Pencil, Check, X, KeyRound, ChevronDown, ChevronUp } from 'lucide-react';
+import { useEditorContext } from '@/lib/editor-context';
+import { Mail, Package, Calendar, LogOut, Pencil, Check, X, KeyRound, ChevronDown, ChevronUp } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -14,10 +15,39 @@ interface UserProfileBlockProps {
   updateContent: (key: string, value: any) => void;
 }
 
+// ─── Fetch form field label map ───────────────────────────────────────────────
+// Returns { 'custom_1234': 'City', 'custom_5678': 'Phone', ... }
+async function fetchFieldLabels(siteId: string): Promise<Record<string, string>> {
+  try {
+    const res = await fetch(`/api/membership/settings?siteId=${siteId}`);
+    if (!res.ok) return {};
+    const data = await res.json();
+    const raw = data.settings?.signup_form_fields;
+    let fields: Array<{ key: string; label: string }> = [];
+    if (Array.isArray(raw)) {
+      fields = raw;
+    } else if (raw?.stages) {
+      fields = (raw.stages as any[]).flatMap((s: any) => s.fields || []);
+    }
+    return Object.fromEntries(fields.map((f: any) => [f.key, f.label]));
+  } catch {
+    return {};
+  }
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function UserProfileBlock({ id, data, isEditMode, palette }: UserProfileBlockProps) {
   const memberCtx = useMember();
+  const context = useEditorContext();
+  const siteId = context?.siteId;
+
+  const [fieldLabels, setFieldLabels] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!siteId) return;
+    fetchFieldLabels(siteId).then(setFieldLabels);
+  }, [siteId]);
 
   if (isEditMode) {
     return <EditModePreview palette={palette} />;
@@ -28,7 +58,7 @@ export default function UserProfileBlock({ id, data, isEditMode, palette }: User
     return null;
   }
 
-  return <ProfileView member={memberCtx.member} signOut={memberCtx.signOut} palette={palette} />;
+  return <ProfileView member={memberCtx.member} signOut={memberCtx.signOut} palette={palette} fieldLabels={fieldLabels} />;
 }
 
 // ─── Edit Mode Preview ────────────────────────────────────────────────────────
@@ -65,7 +95,7 @@ function EditModePreview({ palette }: { palette: Record<string, string> }) {
 
 // ─── Live Profile View ────────────────────────────────────────────────────────
 
-function ProfileView({ member, signOut, palette }: { member: MemberData; signOut: () => Promise<void>; palette: Record<string, string> }) {
+function ProfileView({ member, signOut, palette, fieldLabels }: { member: MemberData; signOut: () => Promise<void>; palette: Record<string, string>; fieldLabels: Record<string, string> }) {
   const primary = palette.primary || '#374151';
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState(member.name || '');
@@ -242,7 +272,7 @@ function ProfileView({ member, signOut, palette }: { member: MemberData; signOut
             <div className="px-6 pb-4 space-y-2.5 border-t border-slate-100 pt-4">
               {customFieldEntries.map(([key, val]) => (
                 <div key={key} className="flex items-start justify-between gap-4 text-sm">
-                  <span className="text-slate-500 capitalize shrink-0">{key.replace(/_/g, ' ')}</span>
+                  <span className="text-slate-500 shrink-0">{fieldLabels[key] || key.replace(/^custom_\d+$/, 'Field').replace(/_/g, ' ')}</span>
                   <span className="text-slate-700 text-right">{String(val)}</span>
                 </div>
               ))}

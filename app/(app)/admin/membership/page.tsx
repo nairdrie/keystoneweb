@@ -97,8 +97,16 @@ function MembersTab({ siteId }: { siteId: string }) {
     fetch(`/api/membership/settings?siteId=${siteId}`)
       .then(r => r.json())
       .then(data => {
-        const fields = data.settings?.signup_form_fields;
-        setFormFields(Array.isArray(fields) ? fields : []);
+        const raw = data.settings?.signup_form_fields;
+        let allFields: any[] = [];
+        if (Array.isArray(raw)) {
+          // Old flat-array format
+          allFields = raw;
+        } else if (raw?.stages) {
+          // New multi-stage format — flatten all fields from all stages
+          allFields = (raw.stages as any[]).flatMap((s: any) => s.fields || []);
+        }
+        setFormFields(allFields);
       })
       .catch(() => {});
   }, [siteId]);
