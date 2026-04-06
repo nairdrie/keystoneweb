@@ -6,9 +6,44 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
     apiVersion: '2026-02-25.clover' as any,
 });
 
+/** GET /api/stripe/connect?siteId=xxx — Check Stripe connection status */
+export async function GET(request: NextRequest) {
+    try {
+        const siteId = request.nextUrl.searchParams.get('siteId');
+        if (!siteId) {
+            return NextResponse.json({ error: 'Missing siteId' }, { status: 400 });
+        }
+
+        const supabase = await createClient();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const { data: site } = await supabase
+            .from('sites')
+            .select('stripe_account_id')
+            .eq('id', siteId)
+            .eq('user_id', user.id)
+            .single();
+
+        if (!site) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+
+        return NextResponse.json({
+            connected: !!site.stripe_account_id,
+            stripeAccountId: site.stripe_account_id || null,
+        });
+    } catch (error: any) {
+        console.error('Stripe connect GET error:', error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
+}
+
 /**
  * POST /api/stripe/connect
- * 
+ *
  * Generates an onboarding link for a business owner to connect their Stripe account.
  * Creates an Express account if one doesn't exist.
  */

@@ -411,8 +411,10 @@ function MembersTab({ siteId }: { siteId: string }) {
 function PackagesTab({ siteId }: { siteId: string }) {
   const [packages, setPackages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAdd, setShowAdd] = useState(false);
-  const [editPkg, setEditPkg] = useState<any>(null);
+  const [stripeConnected, setStripeConnected] = useState(false);
+  const [stripeLoading, setStripeLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
 
   const fetchPackages = useCallback(async () => {
     try {
@@ -426,28 +428,106 @@ function PackagesTab({ siteId }: { siteId: string }) {
     }
   }, [siteId]);
 
-  useEffect(() => { fetchPackages(); }, [fetchPackages]);
+  useEffect(() => {
+    fetchPackages();
+    // Check Stripe connection status
+    fetch(`/api/stripe/connect?siteId=${siteId}`)
+      .then(r => r.json())
+      .then(d => setStripeConnected(!!d.connected))
+      .catch(() => {})
+      .finally(() => setStripeLoading(false));
+  }, [fetchPackages, siteId]);
 
-  if (loading) {
+  const handleStripeConnect = async () => {
+    const returnUrl = window.location.href;
+    const res = await fetch('/api/stripe/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ siteId, returnUrl }),
+    });
+    const data = await res.json();
+    if (data.url) window.location.href = data.url;
+  };
+
+  const handleImport = async () => {
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const res = await fetch('/api/stripe/import-products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setImportResult(`Error: ${data.error}`);
+      } else {
+        setImportResult(`Synced ${data.imported} package${data.imported !== 1 ? 's' : ''} from Stripe.`);
+        fetchPackages();
+      }
+    } catch {
+      setImportResult('Network error. Please try again.');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  if (loading || stripeLoading) {
     return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>;
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500">{packages.length} package{packages.length !== 1 ? 's' : ''}</p>
-        <button
-          onClick={() => { setShowAdd(true); setEditPkg(null); }}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-700"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Add Package
-        </button>
+    <div className="space-y-5">
+      {/* Stripe Connect */}
+      <div className="border border-slate-200 rounded-xl p-5">
+        <h3 className="font-semibold text-slate-900 flex items-center gap-2 mb-3">
+          <CreditCard className="w-4 h-4" />
+          Stripe Payments
+        </h3>
+        {stripeConnected ? (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-green-700">
+              <Check className="w-4 h-4" />
+              Stripe account connected
+            </div>
+            <button
+              onClick={handleImport}
+              disabled={importing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+              {importing ? 'Syncing…' : 'Sync from Stripe'}
+            </button>
+          </div>
+        ) : (
+          <div>
+            <p className="text-sm text-slate-500 mb-3">Connect your Stripe account to accept paid memberships. Your Stripe products will be imported as packages automatically.</p>
+            <button
+              onClick={handleStripeConnect}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700"
+            >
+              <CreditCard className="w-4 h-4" />
+              Connect Stripe
+            </button>
+          </div>
+        )}
+        {importResult && (
+          <p className={`text-xs mt-3 ${importResult.startsWith('Error') ? 'text-red-600' : 'text-green-700'}`}>
+            {importResult}
+          </p>
+        )}
       </div>
 
-      {packages.length === 0 && !showAdd ? (
+      {/* Package list */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-500">{packages.length} package{packages.length !== 1 ? 's' : ''}</p>
+      </div>
+
+      {packages.length === 0 ? (
         <div className="text-center py-12 text-sm text-slate-400">
-          No packages yet. Create your first membership package.
+          {stripeConnected
+            ? 'No packages yet. Click "Sync from Stripe" to import your Stripe products.'
+            : 'Connect your Stripe account to import products as membership packages.'}
         </div>
       ) : (
         <div className="grid gap-4">
@@ -464,6 +544,9 @@ function PackagesTab({ siteId }: { siteId: string }) {
                   </span>
                   {pkg.trial_days > 0 && (
                     <span className="text-xs text-blue-600">{pkg.trial_days}-day trial</span>
+                  )}
+                  {pkg.stripe_price_id && (
+                    <span className="text-xs text-slate-400 font-mono">{pkg.stripe_price_id}</span>
                   )}
                 </div>
                 {pkg.features && pkg.features.length > 0 && (
@@ -492,14 +575,6 @@ function PackagesTab({ siteId }: { siteId: string }) {
             </div>
           ))}
         </div>
-      )}
-
-      {showAdd && (
-        <PackageForm
-          siteId={siteId}
-          onSaved={() => { setShowAdd(false); fetchPackages(); }}
-          onCancel={() => setShowAdd(false)}
-        />
       )}
     </div>
   );
@@ -1498,7 +1573,6 @@ function CampaignsTab({ siteId }: { siteId: string }) {
 
 function SettingsTab({ siteId }: { siteId: string }) {
   const [settings, setSettings] = useState<any>(null);
-  const [stripeAccountId, setStripeAccountId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -1509,11 +1583,8 @@ function SettingsTab({ siteId }: { siteId: string }) {
         const data = await res.json();
         setSettings(data.settings || {
           require_email_verification: true,
-          welcome_email_subject: 'Welcome!',
-          welcome_email_body: '',
           notification_email: '',
           privacy_policy_url: '',
-          marketing_opt_in_label: 'Send me updates and news',
         });
       } catch {
         // ignore
@@ -1532,11 +1603,8 @@ function SettingsTab({ siteId }: { siteId: string }) {
         body: JSON.stringify({
           siteId,
           requireEmailVerification: settings.require_email_verification,
-          welcomeEmailSubject: settings.welcome_email_subject,
-          welcomeEmailBody: settings.welcome_email_body,
           notificationEmail: settings.notification_email,
           privacyPolicyUrl: settings.privacy_policy_url,
-          marketingOptInLabel: settings.marketing_opt_in_label,
         }),
       });
     } catch {
@@ -1550,39 +1618,6 @@ function SettingsTab({ siteId }: { siteId: string }) {
 
   return (
     <div className="space-y-6 max-w-xl">
-      {/* Stripe Connect */}
-      <div className="border border-slate-200 rounded-xl p-5">
-        <h3 className="font-semibold text-slate-900 flex items-center gap-2 mb-3">
-          <CreditCard className="w-4 h-4" />
-          Stripe Payments
-        </h3>
-        {stripeAccountId ? (
-          <div className="flex items-center gap-2 text-sm text-green-700">
-            <Check className="w-4 h-4" />
-            Stripe account connected
-          </div>
-        ) : (
-          <div>
-            <p className="text-sm text-slate-500 mb-3">Connect your Stripe account to accept paid memberships.</p>
-            <button
-              onClick={async () => {
-                const res = await fetch('/api/stripe/connect', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ siteId }),
-                });
-                const data = await res.json();
-                if (data.url) window.location.href = data.url;
-              }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700"
-            >
-              <CreditCard className="w-4 h-4" />
-              Connect Stripe
-            </button>
-          </div>
-        )}
-      </div>
-
       {/* Privacy Policy */}
       {!settings.privacy_policy_url && (
         <div className="border border-yellow-200 bg-yellow-50 rounded-xl p-4 flex items-start gap-3">
@@ -1627,37 +1662,6 @@ function SettingsTab({ siteId }: { siteId: string }) {
             onChange={e => setSettings((s: any) => ({ ...s, privacy_policy_url: e.target.value }))}
             className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
             placeholder="https://..."
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Marketing Opt-in Label</label>
-          <input
-            type="text"
-            value={settings.marketing_opt_in_label || ''}
-            onChange={e => setSettings((s: any) => ({ ...s, marketing_opt_in_label: e.target.value }))}
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Welcome Email Subject</label>
-          <input
-            type="text"
-            value={settings.welcome_email_subject || ''}
-            onChange={e => setSettings((s: any) => ({ ...s, welcome_email_subject: e.target.value }))}
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Welcome Email Body</label>
-          <textarea
-            value={settings.welcome_email_body || ''}
-            onChange={e => setSettings((s: any) => ({ ...s, welcome_email_body: e.target.value }))}
-            rows={4}
-            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
-            placeholder="Welcome to our community..."
           />
         </div>
       </div>
