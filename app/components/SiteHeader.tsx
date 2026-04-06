@@ -60,6 +60,10 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     const pathname = usePathname();
     const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
+    // Member auth state — needed early for CTA replacement
+    const memberCtx = useMember();
+    const member = memberCtx?.member ?? null;
+
     // ── Resolve config (user override > template default > system default) ──
     const layout: HeaderLayout    = siteContent.headerLayout  || defaults.layout  || 'default';
     const bgType: HeaderBgType    = siteContent.headerBgType  || defaults.bgType  || 'white';
@@ -326,9 +330,6 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
 
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
-
-    const memberCtx = useMember();
-    const member = memberCtx?.member ?? null;
 
     // ── Settings cog (edit mode hover) ─────────────────────────────────────
     const settingsCog = isEditMode ? (
