@@ -52,6 +52,12 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
 
   const { count } = await countQuery;
 
+  // Fetch pending moderation count
+  const { count: moderationCount } = await db
+    .from('moderation_events')
+    .select('id', { count: 'exact', head: true })
+    .is('reviewed_at', null);
+
   return (
     <html lang="en">
       <body className="antialiased">
@@ -60,6 +66,7 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
             userEmail={user.email}
             openSupportCount={count ?? 0}
             isAdmin={isAdmin}
+            pendingModerationCount={moderationCount ?? 0}
           />
 
           <main className="w-full px-4 py-8 sm:px-6 lg:px-8">

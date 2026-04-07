@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
+import { scanImage } from '@/lib/moderation/image-scan';
+import { handleModerationResult } from '@/lib/moderation/report';
 
 /**
  * POST /api/menu/upload
@@ -44,6 +46,25 @@ export async function POST(request: NextRequest) {
   const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
   const filename = `${siteId}/menu/${Date.now()}-menu.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
+
+  // Scan images for illegal content / CSAEM (PDFs are text-only, skip image scan)
+  if (file.type !== 'application/pdf') {
+    const scanResult = await scanImage(buffer);
+    if (scanResult.blocked) {
+      const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+        ?? request.headers.get('x-real-ip')
+        ?? null;
+      await handleModerationResult(scanResult, {
+        siteId:      siteId,
+        userId:      user.id,
+        ipAddress:   ip,
+        contentType: 'image',
+        contentRef:  null,
+        contentHash: null,
+      });
+      return NextResponse.json({ error: 'Content policy violation' }, { status: 422 });
+    }
+  }
 
   const { data, error: uploadErr } = await supabase.storage
     .from('site-assets')

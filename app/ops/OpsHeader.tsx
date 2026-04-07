@@ -11,10 +11,12 @@ export default function OpsHeader({
   userEmail,
   openSupportCount = 0,
   isAdmin = false,
+  pendingModerationCount = 0,
 }: {
   userEmail?: string;
   openSupportCount?: number;
   isAdmin?: boolean;
+  pendingModerationCount?: number;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
@@ -25,6 +27,7 @@ export default function OpsHeader({
     { href: '/kanban/log', label: 'Kanban Log' },
     ...(isAdmin ? [{ href: '/users', label: 'Users' }] : []),
     { href: '/support', label: 'Support', count: openSupportCount },
+    { href: '/moderation', label: 'Moderation', count: pendingModerationCount },
     ...(isAdmin ? [{ href: '/agents', label: 'Agents' }] : []),
     { href: '/email', label: 'Email' },
     { href: '/scraper', label: 'Scraper' },
