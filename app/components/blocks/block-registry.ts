@@ -34,6 +34,7 @@ import FeaturedQuoteBlock from './FeaturedQuoteBlock';
 import CarouselBlock from './CarouselBlock';
 import TabBarBlock from './TabBarBlock';
 import UserProfileBlock from './UserProfileBlock';
+import VideoBlock from './VideoBlock';
 
 export const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     tabBar: TabBarBlock,
@@ -66,6 +67,7 @@ export const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     deliveryLinks: DeliveryLinksBlock,
     featuredQuote: FeaturedQuoteBlock,
     carousel: CarouselBlock,
+    video: VideoBlock,
 };
 
 /** All addable block types (used in both main renderer and inside gates). */
@@ -98,6 +100,7 @@ export const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: bo
     { type: 'custom_html', label: 'Custom HTML / Embed', proOnly: true },
     { type: 'featuredQuote', label: 'Featured Quote' },
     { type: 'carousel', label: 'Content Carousel' },
+    { type: 'video', label: '▶ Video Embed' },
     { type: 'tabBar', label: '🗂️ Tab Bar / Menu Bar' },
     { type: 'userProfile', label: '👤 User Profile', proOnly: true },
 ];
