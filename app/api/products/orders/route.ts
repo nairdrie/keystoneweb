@@ -73,10 +73,10 @@ export async function POST(request: NextRequest) {
     // Get site name for customer emails
     const { data: siteInfo } = await supabase
         .from('sites')
-        .select('title, site_slug')
+        .select('site_slug')
         .eq('id', siteId)
         .single();
-    const siteName = siteInfo?.title || siteInfo?.site_slug || undefined;
+    const siteName = siteInfo?.site_slug || undefined;
 
     // Get e-commerce settings for e-transfer email + notification email
     // Falls back to booking_settings for backwards compatibility
