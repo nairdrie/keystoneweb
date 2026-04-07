@@ -21,7 +21,7 @@ export default async function ProductDetailPage({
         // Fetch the published site by subdomain
         const { data: site, error: siteError } = await supabase
             .from('sites')
-            .select('id, selected_template_id, published_data')
+            .select('id, selected_template_id, published_data, site_slug')
             .eq('published_domain', subdomain)
             .eq('is_published', true)
             .single();
@@ -130,7 +130,7 @@ export default async function ProductDetailPage({
                             product={product}
                             siteId={site.id}
                             palette={paletteData}
-                            siteName={mergedPublishData.siteTitle || ''}
+                            siteName={site.site_slug || ''}
                             allProducts={allProducts || []}
                             navContent={mergedPublishData}
                             templateId={site.selected_template_id}
@@ -141,7 +141,7 @@ export default async function ProductDetailPage({
                         product={product}
                         siteId={site.id}
                         palette={paletteData}
-                        siteName={mergedPublishData.siteTitle || ''}
+                        siteName={site.site_slug || ''}
                         allProducts={allProducts || []}
                         navContent={mergedPublishData}
                         templateId={site.selected_template_id}

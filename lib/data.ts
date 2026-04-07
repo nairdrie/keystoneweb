@@ -67,7 +67,7 @@ export async function getSiteData(domain: string): Promise<SiteData | null> {
   return {
     id: site.id,
     domain: cleanDomain,
-    siteName: publishedData.siteTitle || site.site_slug || 'My Site',
+    siteName: site.site_slug || 'My Site',
     template: site.selected_template_id,
     theme,
     content: {

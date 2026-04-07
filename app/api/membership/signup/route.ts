@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
           supabase.from('membership_settings').select('email_verification_subject, email_verification_body, email_verification_cta_enabled, email_verification_cta_label').eq('site_id', siteId).single(),
         ]);
 
-        const siteName = site.site_slug || site.custom_domain || site.published_domain || undefined;
+        const siteName = site.site_slug || undefined;
         const verificationUrl = `${request.nextUrl.origin}/api/membership/verify-email?token=${verificationToken}&siteId=${siteId}`;
 
         await sendMemberVerificationEmail({
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create account' }, { status: 500 });
     }
 
-    const siteName = site.site_slug || site.custom_domain || site.published_domain || undefined;
+    const siteName = site.site_slug || undefined;
 
     if (requireVerification && verificationToken) {
       const verificationUrl = `${request.nextUrl.origin}/api/membership/verify-email?token=${verificationToken}&siteId=${siteId}`;

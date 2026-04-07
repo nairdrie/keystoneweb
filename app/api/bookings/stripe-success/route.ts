@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
         return `${displayHour}:${mm.toString().padStart(2, '0')} ${period}`;
     };
 
-    const siteName = site.title || site.site_slug || undefined;
+    const siteName = site.site_slug || undefined;
 
     const emailData = {
         serviceName: service.name,
