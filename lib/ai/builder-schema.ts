@@ -183,7 +183,15 @@ AVAILABLE BLOCK TYPES AND THEIR DATA SCHEMAS:
       }>   // 2–8 items recommended
     }
 
-24. "deliveryLinks" — Delivery app link buttons (Uber Eats, DoorDash, Skip the Dishes, Grubhub, custom)
+24. "video" — External video embed (YouTube, Vimeo, or direct .mp4 link)
+    data: {
+      title: string,            // Optional section heading shown above the video
+      caption: string,          // Optional caption shown below the video
+      videoUrl: string,         // YouTube, Vimeo, or direct video URL (no self-hosted streaming)
+      variant: "contained" | "fullWidth"  // "contained" = centered max-w-4xl; "fullWidth" = edge-to-edge
+    }
+
+25. "deliveryLinks" — Delivery app link buttons (Uber Eats, DoorDash, Skip the Dishes, Grubhub, custom)
     data: {
       title: string,          // e.g. "Order Online"
       subtitle: string,       // e.g. "Fresh food delivered to your door"
