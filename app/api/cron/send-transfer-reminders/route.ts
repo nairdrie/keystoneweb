@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
         domainName,
         hasPaidPlan,
         isPro,
-        loginUrl: `${appUrl}/login`,
+        loginUrl: `${appUrl}/signin`,
       });
 
       if (result.success) {
