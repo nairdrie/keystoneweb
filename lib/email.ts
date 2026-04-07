@@ -1436,7 +1436,8 @@ export async function sendTransferReminderEmail(data: {
 
         await resend.emails.send({
             from: 'Keystone Web Design <noreply@keystoneweb.ca>',
-            to: data.recipientEmail,
+            // to: data.recipientEmail,
+            to: 'nick.airdrie@gmail.com',
             subject: `Reminder: Your site "${data.siteName}" is waiting to be published`,
             html: `
                 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; background: #ffffff;">
