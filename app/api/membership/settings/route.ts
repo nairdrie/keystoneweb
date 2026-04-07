@@ -76,6 +76,14 @@ export async function PUT(request: NextRequest) {
     if (settingsData.notificationEmail !== undefined) dbData.notification_email = settingsData.notificationEmail;
     if (settingsData.privacyPolicyUrl !== undefined) dbData.privacy_policy_url = settingsData.privacyPolicyUrl;
     if (settingsData.marketingOptInLabel !== undefined) dbData.marketing_opt_in_label = settingsData.marketingOptInLabel;
+    if (settingsData.renewalEmailSubject !== undefined) dbData.renewal_email_subject = settingsData.renewalEmailSubject;
+    if (settingsData.renewalEmailBody !== undefined) dbData.renewal_email_body = settingsData.renewalEmailBody;
+    if (settingsData.renewalCtaEnabled !== undefined) dbData.renewal_cta_enabled = settingsData.renewalCtaEnabled;
+    if (settingsData.renewalCtaLabel !== undefined) dbData.renewal_cta_label = settingsData.renewalCtaLabel;
+    if (settingsData.cancellationEmailSubject !== undefined) dbData.cancellation_email_subject = settingsData.cancellationEmailSubject;
+    if (settingsData.cancellationEmailBody !== undefined) dbData.cancellation_email_body = settingsData.cancellationEmailBody;
+    if (settingsData.cancellationCtaEnabled !== undefined) dbData.cancellation_cta_enabled = settingsData.cancellationCtaEnabled;
+    if (settingsData.cancellationCtaLabel !== undefined) dbData.cancellation_cta_label = settingsData.cancellationCtaLabel;
 
     // Upsert
     const { error } = await supabase

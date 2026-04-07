@@ -41,6 +41,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Site not found' }, { status: 404 });
     }
 
+    // Fetch selected package to check geo restrictions
+    if (packageId) {
+      const { data: pkg } = await supabase
+        .from('membership_packages')
+        .select('geo_restriction')
+        .eq('id', packageId)
+        .eq('site_id', siteId)
+        .single();
+
+      if (pkg?.geo_restriction?.allowed_countries?.length) {
+        const memberCountry = customFields?.country || body.country;
+        if (!memberCountry || !pkg.geo_restriction.allowed_countries.includes(memberCountry)) {
+          const errorMsg = pkg.geo_restriction.error_message || 'This membership is not available in your country';
+          return NextResponse.json({ error: errorMsg }, { status: 400 });
+        }
+      }
+    }
+
     // Check for existing member
     const { data: existing } = await supabase
       .from('members')
@@ -132,6 +150,8 @@ export async function POST(request: NextRequest) {
         password_hash: passwordHash,
         name: name || null,
         custom_fields: customFields || {},
+        country: customFields?.country || body.country || null,
+        province: customFields?.province || body.province || null,
         status: requireVerification ? 'pending' : 'active',
         email_verified: !requireVerification,
         email_verification_token: verificationToken,

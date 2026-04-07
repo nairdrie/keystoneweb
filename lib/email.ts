@@ -1385,3 +1385,84 @@ export async function sendMemberSignupNotification(
         return { success: false, error };
     }
 }
+
+/**
+ * Send renewal confirmation email to a member whose subscription auto-renewed.
+ */
+export async function sendMemberRenewalEmail(
+    data: MemberEmailData & {
+        packageName: string;
+        nextRenewalDate?: string;
+        customSubject?: string;
+        customBody?: string;
+        ctaEnabled?: boolean;
+        ctaLabel?: string;
+    }
+) {
+    try {
+        const subject = data.customSubject || `Your ${data.packageName} membership has been renewed`;
+        const greeting = data.memberName ? `Hi ${data.memberName},` : 'Hi there,';
+        const defaultBody = `Your ${data.packageName} membership${data.siteName ? ` with ${data.siteName}` : ''} has been successfully renewed. Thank you for your continued support!${data.nextRenewalDate ? `\n\nYour next renewal date is ${data.nextRenewalDate}.` : ''}`;
+        const showCta = data.ctaEnabled === true;
+        const bodyLines = [greeting, data.customBody || defaultBody];
+
+        await resend.emails.send({
+            from: `${data.siteName || 'Keystoneweb'} <noreply@keystoneweb.ca>`,
+            to: data.memberEmail,
+            subject,
+            html: buildMemberEmailHtml({
+                heading: 'Membership Renewed',
+                bodyLines,
+                ctaLabel: showCta ? (data.ctaLabel || 'View Membership') : undefined,
+                ctaUrl: showCta ? '#' : undefined,
+                branding: data.branding,
+            }),
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send member renewal email:', error);
+        return { success: false, error };
+    }
+}
+
+/**
+ * Send cancellation notification email to a member whose subscription was cancelled.
+ */
+export async function sendMemberCancellationEmail(
+    data: MemberEmailData & {
+        packageName: string;
+        accessEndDate?: string;
+        customSubject?: string;
+        customBody?: string;
+        ctaEnabled?: boolean;
+        ctaLabel?: string;
+    }
+) {
+    try {
+        const subject = data.customSubject || `Your ${data.packageName} membership has been cancelled`;
+        const greeting = data.memberName ? `Hi ${data.memberName},` : 'Hi there,';
+        const accessNote = data.accessEndDate
+            ? ` You will retain access until ${data.accessEndDate}.`
+            : '';
+        const defaultBody = `Your ${data.packageName} membership${data.siteName ? ` with ${data.siteName}` : ''} has been cancelled.${accessNote}`;
+        const showCta = data.ctaEnabled === true;
+        const bodyLines = [greeting, data.customBody || defaultBody];
+
+        await resend.emails.send({
+            from: `${data.siteName || 'Keystoneweb'} <noreply@keystoneweb.ca>`,
+            to: data.memberEmail,
+            subject,
+            html: buildMemberEmailHtml({
+                heading: 'Membership Cancelled',
+                bodyLines,
+                ctaLabel: showCta ? (data.ctaLabel || 'Reactivate Membership') : undefined,
+                ctaUrl: showCta ? '#' : undefined,
+                branding: data.branding,
+            }),
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send member cancellation email:', error);
+        return { success: false, error };
+    }
+}

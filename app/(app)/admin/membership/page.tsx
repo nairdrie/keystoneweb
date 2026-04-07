@@ -5,11 +5,11 @@ import { useAdminContext } from '../admin-context';
 import {
   Users, Package, Settings, Mail, Search, Plus, Trash2, Loader2, Download,
   MoreVertical, Check, X, Edit2, Send, Calendar, CreditCard, AlertTriangle,
-  Eye, ChevronDown, ChevronUp, Palette,
+  Eye, ChevronDown, ChevronUp, Palette, Tag,
 } from 'lucide-react';
 import { buildMemberEmailHtml, EMAIL_FONT_OPTIONS } from '@/lib/membership/email-template';
 
-type TabId = 'members' | 'packages' | 'form' | 'campaigns' | 'settings';
+type TabId = 'members' | 'packages' | 'form' | 'campaigns' | 'promo' | 'settings';
 
 export default function AdminMembershipPage() {
   const { siteId, palette, siteBlockTypes, site } = useAdminContext();
@@ -43,6 +43,7 @@ export default function AdminMembershipPage() {
     { id: 'packages', label: 'Packages', icon: Package },
     { id: 'form', label: 'Signup Form', icon: Edit2 },
     { id: 'campaigns', label: 'Emails', icon: Mail },
+    { id: 'promo', label: 'Promo Codes', icon: Tag },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -71,6 +72,7 @@ export default function AdminMembershipPage() {
       {activeTab === 'packages' && <PackagesTab siteId={siteId} />}
       {activeTab === 'form' && <SignupFormTab siteId={siteId} />}
       {activeTab === 'campaigns' && <CampaignsTab siteId={siteId} />}
+      {activeTab === 'promo' && <PromoCodesTab siteId={siteId} />}
       {activeTab === 'settings' && <SettingsTab siteId={siteId} />}
     </div>
   );
@@ -201,6 +203,105 @@ function MembersTab({ siteId }: { siteId: string }) {
     fetchMembers();
   };
 
+  // ── Import Members ──────────────────────────────────────────────────────────
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPreview, setImportPreview] = useState<any[]>([]);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
+  const [importPackageId, setImportPackageId] = useState('');
+  const [importPackages, setImportPackages] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (showImportModal && importPackages.length === 0) {
+      fetch(`/api/membership/packages?siteId=${siteId}`)
+        .then(r => r.json())
+        .then(d => setImportPackages(d.packages || []))
+        .catch(() => {});
+    }
+  }, [showImportModal, siteId, importPackages.length]);
+
+  const handleImportFileChange = (file: File | null) => {
+    setImportFile(file);
+    setImportResult(null);
+    if (!file) { setImportPreview([]); return; }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const lines = text.split('\n').filter(l => l.trim());
+      if (lines.length < 2) { setImportPreview([]); return; }
+
+      const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+      const rows = lines.slice(1, 6).map(line => {
+        const vals = line.match(/(".*?"|[^",]+)/g) || [];
+        const obj: Record<string, string> = {};
+        headers.forEach((h, i) => { obj[h] = (vals[i] || '').replace(/^"|"$/g, '').trim(); });
+        return obj;
+      });
+      setImportPreview(rows);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImportSubmit = async () => {
+    if (!importFile) return;
+    setImportLoading(true);
+    setImportResult(null);
+
+    try {
+      const text = await importFile.text();
+      const lines = text.split('\n').filter(l => l.trim());
+      if (lines.length < 2) { setImportResult({ error: 'CSV file is empty' }); return; }
+
+      const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+      const members = lines.slice(1).map(line => {
+        const vals = line.match(/(".*?"|[^",]+)/g) || [];
+        const obj: Record<string, string> = {};
+        headers.forEach((h, i) => { obj[h] = (vals[i] || '').replace(/^"|"$/g, '').trim(); });
+
+        const customFields: Record<string, string> = {};
+        const knownKeys = new Set(['email', 'name', 'password_hash', 'stripe_customer_id', 'stripe_subscription_id', 'subscription_status', 'current_period_end', 'country', 'province', 'status']);
+        for (const [k, v] of Object.entries(obj)) {
+          if (!knownKeys.has(k) && v) customFields[k] = v;
+        }
+
+        return {
+          email: obj.email || '',
+          name: obj.name || undefined,
+          password_hash: obj.password_hash || undefined,
+          stripe_customer_id: obj.stripe_customer_id || undefined,
+          stripe_subscription_id: obj.stripe_subscription_id || undefined,
+          subscription_status: obj.subscription_status || undefined,
+          current_period_end: obj.current_period_end || undefined,
+          country: obj.country || undefined,
+          province: obj.province || undefined,
+          status: obj.status || 'active',
+          custom_fields: Object.keys(customFields).length > 0 ? customFields : undefined,
+        };
+      }).filter(m => m.email);
+
+      const res = await fetch('/api/membership/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          siteId,
+          members,
+          defaultPackageId: importPackageId || undefined,
+          skipDuplicates: true,
+        }),
+      });
+
+      const data = await res.json();
+      setImportResult(data);
+      if (data.imported > 0) fetchMembers();
+    } catch {
+      setImportResult({ error: 'Import failed' });
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
   const statusColors: Record<string, string> = {
     active: 'bg-green-100 text-green-700',
     pending: 'bg-yellow-100 text-yellow-700',
@@ -254,6 +355,13 @@ function MembersTab({ siteId }: { siteId: string }) {
         >
           <Download className="w-4 h-4" />
           CSV
+        </button>
+        <button
+          onClick={() => setShowImportModal(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-slate-700"
+        >
+          <Plus className="w-4 h-4" />
+          Import
         </button>
       </div>
 
@@ -398,6 +506,120 @@ function MembersTab({ siteId }: { siteId: string }) {
           >
             Next
           </button>
+        </div>
+      )}
+
+      {/* Import Members Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowImportModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-slate-900">Import Members</h2>
+                <button onClick={() => setShowImportModal(false)} className="text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <p className="text-sm text-slate-500">
+                Upload a CSV file with member data. Required column: <code className="bg-slate-100 px-1 rounded">email</code>.
+                Optional columns: <code className="bg-slate-100 px-1 rounded">name</code>, <code className="bg-slate-100 px-1 rounded">password_hash</code>,{' '}
+                <code className="bg-slate-100 px-1 rounded">stripe_customer_id</code>, <code className="bg-slate-100 px-1 rounded">stripe_subscription_id</code>,{' '}
+                <code className="bg-slate-100 px-1 rounded">country</code>, <code className="bg-slate-100 px-1 rounded">province</code>.
+                Any extra columns become custom fields.
+              </p>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Assign to Package</label>
+                <select
+                  value={importPackageId}
+                  onChange={e => setImportPackageId(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                >
+                  <option value="">No package</option>
+                  {importPackages.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">CSV File</label>
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={e => handleImportFileChange(e.target.files?.[0] || null)}
+                  className="w-full text-sm"
+                />
+              </div>
+
+              {importPreview.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-slate-600 mb-1">Preview (first {importPreview.length} rows)</p>
+                  <div className="border border-slate-200 rounded-lg overflow-x-auto">
+                    <table className="text-xs w-full">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          {Object.keys(importPreview[0]).map(h => (
+                            <th key={h} className="px-2 py-1.5 text-left font-medium text-slate-500 whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {importPreview.map((row, i) => (
+                          <tr key={i}>
+                            {Object.values(row).map((v, j) => (
+                              <td key={j} className="px-2 py-1 text-slate-600 whitespace-nowrap max-w-[150px] truncate">{v as string}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {importResult && (
+                <div className={`p-3 rounded-lg text-sm ${importResult.error ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+                  {importResult.error ? (
+                    importResult.error
+                  ) : (
+                    <>
+                      Imported {importResult.imported} member{importResult.imported !== 1 ? 's' : ''}.
+                      {importResult.skipped > 0 && ` Skipped ${importResult.skipped} duplicate${importResult.skipped !== 1 ? 's' : ''}.`}
+                      {importResult.errors?.length > 0 && (
+                        <details className="mt-1">
+                          <summary className="cursor-pointer">{importResult.errors.length} error{importResult.errors.length !== 1 ? 's' : ''}</summary>
+                          <ul className="mt-1 text-xs space-y-0.5">
+                            {importResult.errors.map((err: any, i: number) => (
+                              <li key={i}>{err.email}: {err.reason}</li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={handleImportSubmit}
+                  disabled={!importFile || importLoading}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50"
+                >
+                  {importLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  Import Members
+                </button>
+                <button
+                  onClick={() => setShowImportModal(false)}
+                  className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -555,6 +777,29 @@ function PackagesTab({ siteId }: { siteId: string }) {
                       <span key={i} className="px-2 py-0.5 bg-slate-100 rounded text-xs text-slate-600">{f}</span>
                     ))}
                   </div>
+                )}
+                {/* Geo restriction toggle */}
+                <label className="flex items-center gap-2 mt-2">
+                  <input
+                    type="checkbox"
+                    checked={!!pkg.geo_restriction?.allowed_countries?.length}
+                    onChange={async (e) => {
+                      const geoRestriction = e.target.checked
+                        ? { allowed_countries: ['CA'], error_message: 'This membership is only available to Canadian residents' }
+                        : null;
+                      await fetch('/api/membership/packages', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ siteId, packageId: pkg.id, geoRestriction }),
+                      });
+                      fetchPackages();
+                    }}
+                    className="rounded"
+                  />
+                  <span className="text-xs text-slate-500">Restrict to Canada only</span>
+                </label>
+                {pkg.billing_interval === 'one_time' && (
+                  <p className="text-xs text-amber-600 mt-1">One-time payment — does not auto-renew (suitable for student memberships)</p>
                 )}
               </div>
               <button
@@ -1571,6 +1816,239 @@ function CampaignsTab({ siteId }: { siteId: string }) {
 // SETTINGS TAB
 // ═══════════════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// PROMO CODES TAB
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function PromoCodesTab({ siteId }: { siteId: string }) {
+  const [codes, setCodes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ code: '', discountType: 'percent' as 'percent' | 'amount', percentOff: '', amountOff: '', maxRedemptions: '', expiresAt: '' });
+
+  const fetchCodes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/membership/promo-codes?siteId=${siteId}`);
+      const data = await res.json();
+      setCodes(data.promoCodes || []);
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  }, [siteId]);
+
+  useEffect(() => { fetchCodes(); }, [fetchCodes]);
+
+  const handleCreate = async () => {
+    if (!form.code.trim()) return;
+    setCreating(true);
+    try {
+      const payload: any = { siteId, code: form.code.trim() };
+      if (form.discountType === 'percent') {
+        payload.percentOff = parseFloat(form.percentOff);
+      } else {
+        payload.amountOff = Math.round(parseFloat(form.amountOff) * 100); // dollars to cents
+        payload.currency = 'CAD';
+      }
+      if (form.maxRedemptions) payload.maxRedemptions = parseInt(form.maxRedemptions);
+      if (form.expiresAt) payload.expiresAt = form.expiresAt;
+
+      const res = await fetch('/api/membership/promo-codes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        setShowForm(false);
+        setForm({ code: '', discountType: 'percent', percentOff: '', amountOff: '', maxRedemptions: '', expiresAt: '' });
+        fetchCodes();
+      }
+    } catch {
+      // ignore
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDeactivate = async (promoCodeId: string) => {
+    if (!confirm('Deactivate this promo code?')) return;
+    await fetch('/api/membership/promo-codes', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ siteId, promoCodeId }),
+    });
+    fetchCodes();
+  };
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-slate-400" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-slate-500">Promotion codes are applied at checkout. Members enter the code on the Stripe payment page.</p>
+        <button
+          onClick={() => setShowForm(f => !f)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-700"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          New Code
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Code</label>
+              <input
+                type="text"
+                value={form.code}
+                onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm uppercase"
+                placeholder="WELCOME20"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Discount Type</label>
+              <select
+                value={form.discountType}
+                onChange={e => setForm(f => ({ ...f, discountType: e.target.value as 'percent' | 'amount' }))}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+              >
+                <option value="percent">Percentage</option>
+                <option value="amount">Fixed Amount (CAD)</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {form.discountType === 'percent' ? (
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Percent Off</label>
+                <input
+                  type="number"
+                  value={form.percentOff}
+                  onChange={e => setForm(f => ({ ...f, percentOff: e.target.value }))}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                  placeholder="20"
+                  min="1"
+                  max="100"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Amount Off ($)</label>
+                <input
+                  type="number"
+                  value={form.amountOff}
+                  onChange={e => setForm(f => ({ ...f, amountOff: e.target.value }))}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                  placeholder="10.00"
+                  min="0.01"
+                  step="0.01"
+                />
+              </div>
+            )}
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Max Uses</label>
+              <input
+                type="number"
+                value={form.maxRedemptions}
+                onChange={e => setForm(f => ({ ...f, maxRedemptions: e.target.value }))}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+                placeholder="Unlimited"
+                min="1"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Expires</label>
+              <input
+                type="date"
+                value={form.expiresAt}
+                onChange={e => setForm(f => ({ ...f, expiresAt: e.target.value }))}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleCreate}
+              disabled={creating || !form.code.trim()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-700 disabled:opacity-50"
+            >
+              {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+              Create
+            </button>
+            <button
+              onClick={() => setShowForm(false)}
+              className="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-900"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {codes.length === 0 ? (
+        <div className="text-center py-12 text-sm text-slate-400">No promo codes yet</div>
+      ) : (
+        <div className="border border-slate-200 rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs font-medium text-slate-500">
+              <tr>
+                <th className="px-4 py-2.5">Code</th>
+                <th className="px-4 py-2.5">Discount</th>
+                <th className="px-4 py-2.5">Used</th>
+                <th className="px-4 py-2.5">Expires</th>
+                <th className="px-4 py-2.5">Status</th>
+                <th className="px-4 py-2.5"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {codes.map(c => (
+                <tr key={c.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-2.5 font-mono font-bold text-slate-900">{c.code}</td>
+                  <td className="px-4 py-2.5">
+                    {c.percentOff ? `${c.percentOff}% off` : c.amountOff ? `$${(c.amountOff / 100).toFixed(2)} off` : '-'}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {c.timesRedeemed}{c.maxRedemptions ? ` / ${c.maxRedemptions}` : ''}
+                  </td>
+                  <td className="px-4 py-2.5 text-slate-500">
+                    {c.expiresAt ? new Date(c.expiresAt).toLocaleDateString() : 'Never'}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${c.active ? 'bg-green-50 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                      {c.active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {c.active && (
+                      <button
+                        onClick={() => handleDeactivate(c.id)}
+                        className="text-xs text-red-500 hover:text-red-700"
+                      >
+                        Deactivate
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SETTINGS TAB
+// ═══════════════════════════════════════════════════════════════════════════════
+
 function SettingsTab({ siteId }: { siteId: string }) {
   const [settings, setSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -1605,6 +2083,14 @@ function SettingsTab({ siteId }: { siteId: string }) {
           requireEmailVerification: settings.require_email_verification,
           notificationEmail: settings.notification_email,
           privacyPolicyUrl: settings.privacy_policy_url,
+          renewalEmailSubject: settings.renewal_email_subject,
+          renewalEmailBody: settings.renewal_email_body,
+          renewalCtaEnabled: settings.renewal_cta_enabled,
+          renewalCtaLabel: settings.renewal_cta_label,
+          cancellationEmailSubject: settings.cancellation_email_subject,
+          cancellationEmailBody: settings.cancellation_email_body,
+          cancellationCtaEnabled: settings.cancellation_cta_enabled,
+          cancellationCtaLabel: settings.cancellation_cta_label,
         }),
       });
     } catch {
@@ -1664,6 +2150,94 @@ function SettingsTab({ siteId }: { siteId: string }) {
             placeholder="https://..."
           />
         </div>
+      </div>
+
+      {/* Renewal Email Template */}
+      <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+        <h3 className="text-sm font-semibold text-slate-800">Renewal Email</h3>
+        <p className="text-xs text-slate-500">Sent automatically when a membership auto-renews. Leave blank for defaults.</p>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Subject</label>
+          <input
+            type="text"
+            value={settings.renewal_email_subject || ''}
+            onChange={e => setSettings((s: any) => ({ ...s, renewal_email_subject: e.target.value }))}
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+            placeholder="Your membership has been renewed"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Body</label>
+          <textarea
+            value={settings.renewal_email_body || ''}
+            onChange={e => setSettings((s: any) => ({ ...s, renewal_email_body: e.target.value }))}
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+            rows={3}
+            placeholder="Thank you for your continued support..."
+          />
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={settings.renewal_cta_enabled || false}
+            onChange={e => setSettings((s: any) => ({ ...s, renewal_cta_enabled: e.target.checked }))}
+            className="rounded"
+          />
+          Show CTA button
+        </label>
+        {settings.renewal_cta_enabled && (
+          <input
+            type="text"
+            value={settings.renewal_cta_label || ''}
+            onChange={e => setSettings((s: any) => ({ ...s, renewal_cta_label: e.target.value }))}
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+            placeholder="View Membership"
+          />
+        )}
+      </div>
+
+      {/* Cancellation Email Template */}
+      <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+        <h3 className="text-sm font-semibold text-slate-800">Cancellation Email</h3>
+        <p className="text-xs text-slate-500">Sent automatically when a membership is cancelled. Leave blank for defaults.</p>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Subject</label>
+          <input
+            type="text"
+            value={settings.cancellation_email_subject || ''}
+            onChange={e => setSettings((s: any) => ({ ...s, cancellation_email_subject: e.target.value }))}
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+            placeholder="Your membership has been cancelled"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Body</label>
+          <textarea
+            value={settings.cancellation_email_body || ''}
+            onChange={e => setSettings((s: any) => ({ ...s, cancellation_email_body: e.target.value }))}
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+            rows={3}
+            placeholder="We're sorry to see you go..."
+          />
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={settings.cancellation_cta_enabled || false}
+            onChange={e => setSettings((s: any) => ({ ...s, cancellation_cta_enabled: e.target.checked }))}
+            className="rounded"
+          />
+          Show CTA button
+        </label>
+        {settings.cancellation_cta_enabled && (
+          <input
+            type="text"
+            value={settings.cancellation_cta_label || ''}
+            onChange={e => setSettings((s: any) => ({ ...s, cancellation_cta_label: e.target.value }))}
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm"
+            placeholder="Reactivate Membership"
+          />
+        )}
       </div>
 
       <button

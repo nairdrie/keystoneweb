@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
+import { sendMemberRenewalEmail, sendMemberCancellationEmail } from '@/lib/email';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -7,6 +8,29 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 });
 
 const webhookSecret = process.env.STRIPE_MEMBERSHIP_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET!;
+
+/** Fetch member + package + site settings for sending emails */
+async function getMemberEmailContext(supabase: ReturnType<typeof createAdminClient>, memberId: string) {
+  const { data: member } = await supabase
+    .from('members')
+    .select('id, email, name, site_id, package_id, current_period_end')
+    .eq('id', memberId)
+    .single();
+
+  if (!member) return null;
+
+  const [{ data: pkg }, { data: site }, { data: settings }] = await Promise.all([
+    member.package_id
+      ? supabase.from('membership_packages').select('name').eq('id', member.package_id).single()
+      : Promise.resolve({ data: null }),
+    supabase.from('sites').select('site_slug, custom_domain, published_domain').eq('id', member.site_id).single(),
+    supabase.from('membership_settings').select('branding, renewal_email_subject, renewal_email_body, renewal_cta_enabled, renewal_cta_label, cancellation_email_subject, cancellation_email_body, cancellation_cta_enabled, cancellation_cta_label').eq('site_id', member.site_id).single(),
+  ]);
+
+  const siteName = site?.site_slug || site?.custom_domain || site?.published_domain || undefined;
+
+  return { member, packageName: pkg?.name || 'Membership', siteName, settings };
+}
 
 /**
  * POST /api/membership/webhook
@@ -109,6 +133,29 @@ export async function POST(request: NextRequest) {
           })
           .eq('id', member.id);
 
+        // Send cancellation email
+        const cancelCtx = await getMemberEmailContext(supabase, member.id);
+        if (cancelCtx) {
+          const accessEndDate = cancelCtx.member.current_period_end
+            ? new Date(cancelCtx.member.current_period_end).toLocaleDateString('en-US', {
+                month: 'long', day: 'numeric', year: 'numeric',
+              })
+            : undefined;
+
+          await sendMemberCancellationEmail({
+            memberEmail: cancelCtx.member.email,
+            memberName: cancelCtx.member.name || undefined,
+            siteName: cancelCtx.siteName,
+            packageName: cancelCtx.packageName,
+            accessEndDate,
+            customSubject: cancelCtx.settings?.cancellation_email_subject || undefined,
+            customBody: cancelCtx.settings?.cancellation_email_body || undefined,
+            ctaEnabled: cancelCtx.settings?.cancellation_cta_enabled ?? false,
+            ctaLabel: cancelCtx.settings?.cancellation_cta_label || undefined,
+            branding: cancelCtx.settings?.branding || undefined,
+          });
+        }
+
         break;
       }
 
@@ -132,6 +179,31 @@ export async function POST(request: NextRequest) {
                 updated_at: new Date().toISOString(),
               })
               .eq('id', member.id);
+
+            // Send renewal email only for actual renewals, not first payment
+            if ((invoice as any).billing_reason === 'subscription_cycle') {
+              const renewalCtx = await getMemberEmailContext(supabase, member.id);
+              if (renewalCtx) {
+                const nextRenewalDate = renewalCtx.member.current_period_end
+                  ? new Date(renewalCtx.member.current_period_end).toLocaleDateString('en-US', {
+                      month: 'long', day: 'numeric', year: 'numeric',
+                    })
+                  : undefined;
+
+                await sendMemberRenewalEmail({
+                  memberEmail: renewalCtx.member.email,
+                  memberName: renewalCtx.member.name || undefined,
+                  siteName: renewalCtx.siteName,
+                  packageName: renewalCtx.packageName,
+                  nextRenewalDate,
+                  customSubject: renewalCtx.settings?.renewal_email_subject || undefined,
+                  customBody: renewalCtx.settings?.renewal_email_body || undefined,
+                  ctaEnabled: renewalCtx.settings?.renewal_cta_enabled ?? false,
+                  ctaLabel: renewalCtx.settings?.renewal_cta_label || undefined,
+                  branding: renewalCtx.settings?.branding || undefined,
+                });
+              }
+            }
           }
         }
         break;
