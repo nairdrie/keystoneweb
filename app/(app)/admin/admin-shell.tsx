@@ -407,9 +407,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                   </button>
                   <div className="relative group shrink-0 mt-0.5">
                     <HelpCircle className="w-4 h-4 text-slate-300 hover:text-slate-500 cursor-help transition-colors" />
-                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 w-64 bg-slate-800 text-white text-xs leading-relaxed rounded-lg px-3 py-2.5 shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-50">
+                    <div className="absolute right-0 top-full mt-1.5 w-64 bg-slate-800 text-white text-xs leading-relaxed rounded-lg px-3 py-2.5 shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-50">
                       This name is customer-facing. It appears as the sender name in booking confirmations, contact replies, membership emails, and more.
-                      <div className="absolute left-1/2 -translate-x-1/2 -top-1 w-2 h-2 bg-slate-800 rotate-45" />
+                      <div className="absolute right-1.5 -top-1 w-2 h-2 bg-slate-800 rotate-45" />
                     </div>
                   </div>
                 </div>
