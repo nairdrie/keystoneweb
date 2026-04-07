@@ -34,7 +34,7 @@ export default function HeaderProductSearch({ color = '#475569' }: { color?: str
     const [loading, setLoading] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
-    const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+    const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
     // Close on outside click
     useEffect(() => {
