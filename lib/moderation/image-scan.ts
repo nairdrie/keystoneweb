@@ -9,11 +9,13 @@
  * Layer 2: Google Cloud Vision SafeSearch
  *   AI classifier for adult/violent content beyond known hashes.
  *   Catches novel/AI-generated CSAEM where no hash exists yet.
- *   Env vars: GOOGLE_VISION_API_KEY
+ *   Env var: GOOGLE_SERVICE_ACCOUNT_JSON (paste the full service account JSON as a string)
  *
  * If either API is unconfigured, that layer is skipped (fail-open with a warning).
  * Set MODERATION_STRICT=true to fail-closed if APIs are unavailable.
  */
+
+import { SignJWT, importPKCS8 } from 'jose';
 
 export type ImageModerationResult = {
   blocked: boolean;
@@ -88,26 +90,90 @@ async function checkArachnidShield(buffer: Buffer): Promise<ImageModerationResul
   return null; // clean per hash check — proceed to layer 2
 }
 
+// ─── Google Service Account OAuth2 token (cached per cold start) ─────────────
+
+let _cachedToken: { token: string; expiresAt: number } | null = null;
+
+async function getGoogleAccessToken(serviceAccountJson: string): Promise<string> {
+  // Reuse token if valid for at least another 60 seconds
+  if (_cachedToken && _cachedToken.expiresAt - 60_000 > Date.now()) {
+    return _cachedToken.token;
+  }
+
+  const sa = JSON.parse(serviceAccountJson) as {
+    client_email: string;
+    private_key: string;
+    token_uri: string;
+  };
+
+  const now = Math.floor(Date.now() / 1000);
+  const privateKey = await importPKCS8(sa.private_key, 'RS256');
+
+  const jwt = await new SignJWT({
+    scope: 'https://www.googleapis.com/auth/cloud-vision',
+  })
+    .setProtectedHeader({ alg: 'RS256' })
+    .setIssuer(sa.client_email)
+    .setAudience(sa.token_uri)
+    .setIssuedAt(now)
+    .setExpirationTime(now + 3600)
+    .sign(privateKey);
+
+  const tokenRes = await fetch(sa.token_uri, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion:  jwt,
+    }),
+  });
+
+  if (!tokenRes.ok) {
+    const text = await tokenRes.text();
+    throw new Error(`Google token exchange failed: ${tokenRes.status} ${text}`);
+  }
+
+  const { access_token, expires_in } = await tokenRes.json() as {
+    access_token: string;
+    expires_in: number;
+  };
+
+  _cachedToken = { token: access_token, expiresAt: Date.now() + expires_in * 1000 };
+  return access_token;
+}
+
 // ─── Layer 2: Google Cloud Vision SafeSearch ──────────────────────────────────
 
 async function checkVisionSafeSearch(buffer: Buffer): Promise<ImageModerationResult | null> {
-  const apiKey = process.env.GOOGLE_VISION_API_KEY;
+  const serviceAccountJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
 
-  if (!apiKey) {
+  if (!serviceAccountJson) {
     if (process.env.MODERATION_STRICT === 'true') {
-      throw new Error('Google Vision API key not configured (MODERATION_STRICT=true)');
+      throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON not configured (MODERATION_STRICT=true)');
     }
     console.warn('[moderation] Google Vision not configured — skipping classifier check');
+    return null;
+  }
+
+  let accessToken: string;
+  try {
+    accessToken = await getGoogleAccessToken(serviceAccountJson);
+  } catch (err) {
+    console.error('[moderation] Failed to get Google access token:', err);
+    if (process.env.MODERATION_STRICT === 'true') throw err;
     return null;
   }
 
   const base64Image = buffer.toString('base64');
 
   const response = await fetch(
-    `https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`,
+    'https://vision.googleapis.com/v1/images:annotate',
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: JSON.stringify({
         requests: [{
           image: { content: base64Image },
