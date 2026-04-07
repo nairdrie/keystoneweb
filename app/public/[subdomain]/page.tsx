@@ -62,6 +62,9 @@ export default async function PublicSitePage({
     const hasMembershipBlock = (allPages || []).some((p: any) =>
       (p.published_data?.blocks || []).some((b: any) => b.type === 'membershipGate')
     );
+    const hasChatSupportBlock = (allPages || []).some((p: any) =>
+      (p.published_data?.blocks || []).some((b: any) => b.type === 'chatSupport')
+    );
 
     const translationsConfig = site.translations_config as any;
     const mergedPublishData = {
@@ -72,6 +75,7 @@ export default async function PublicSitePage({
       __translationsConfig: translationsConfig || null,
       __hasProductBlock: hasProductBlock,
       __hasMembershipBlock: hasMembershipBlock,
+      __hasChatSupportBlock: hasChatSupportBlock,
     };
 
     // Preload template component and metadata for SSR

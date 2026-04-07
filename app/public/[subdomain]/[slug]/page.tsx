@@ -132,6 +132,9 @@ async function renderHomePage(
     const hasMembershipBlock = (allPages || []).some((p: any) =>
         (p.published_data?.blocks || []).some((b: any) => b.type === 'membershipGate')
     );
+    const hasChatSupportBlock = (allPages || []).some((p: any) =>
+        (p.published_data?.blocks || []).some((b: any) => b.type === 'chatSupport')
+    );
 
     const mergedPublishData = {
         ...translatedSiteData,
@@ -141,6 +144,7 @@ async function renderHomePage(
         __translationsConfig: config,
         __hasProductBlock: hasProductBlock,
         __hasMembershipBlock: hasMembershipBlock,
+        __hasChatSupportBlock: hasChatSupportBlock,
     };
 
     const TemplateComp = await getTemplateComponent(site.selected_template_id);
@@ -236,6 +240,9 @@ async function renderPage(
     const hasMembershipBlock = (allPages || []).some((p: any) =>
         (p.published_data?.blocks || []).some((b: any) => b.type === 'membershipGate')
     );
+    const hasChatSupportBlock = (allPages || []).some((p: any) =>
+        (p.published_data?.blocks || []).some((b: any) => b.type === 'chatSupport')
+    );
 
     const mergedPublishData = {
         ...translatedSiteData,
@@ -245,6 +252,7 @@ async function renderPage(
         __translationsConfig: config,
         __hasProductBlock: hasProductBlock,
         __hasMembershipBlock: hasMembershipBlock,
+        __hasChatSupportBlock: hasChatSupportBlock,
     };
 
     const TemplateComp = await getTemplateComponent(site.selected_template_id);

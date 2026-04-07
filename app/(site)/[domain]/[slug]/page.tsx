@@ -87,6 +87,9 @@ export default async function CustomDomainDynamicPage({
         const hasMembershipBlock = (allPages || []).some((p: any) =>
             (p.published_data?.blocks || []).some((b: any) => b.type === 'membershipGate')
         );
+        const hasChatSupportBlock = (allPages || []).some((p: any) =>
+            (p.published_data?.blocks || []).some((b: any) => b.type === 'chatSupport')
+        );
 
         const mergedPublishData = {
             ...sitePublishData,
@@ -94,6 +97,7 @@ export default async function CustomDomainDynamicPage({
             __pages: (allPages || []).map(({ id, slug, title }: any) => ({ id, slug, title })),
             __hasProductBlock: hasProductBlock,
             __hasMembershipBlock: hasMembershipBlock,
+            __hasChatSupportBlock: hasChatSupportBlock,
         };
 
         const TemplateComp = await getTemplateComponent(site.selected_template_id);
