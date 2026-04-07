@@ -8,7 +8,7 @@ import {
 
 interface EcommerceSettings {
     site_id: string;
-    payment_methods: { none?: boolean; etransfer?: boolean; stripe?: boolean };
+    payment_methods: { etransfer?: boolean; stripe?: boolean };
     etransfer_email: string | null;
     notification_email: string | null;
 }
@@ -20,7 +20,7 @@ interface StoreSettingsPanelProps {
 export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) {
     const [settings, setSettings] = useState<EcommerceSettings>({
         site_id: siteId,
-        payment_methods: { none: true, etransfer: false, stripe: false },
+        payment_methods: { etransfer: false, stripe: false },
         etransfer_email: null,
         notification_email: null,
     });
@@ -128,22 +128,6 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                             Accepted Payment Methods
                         </label>
                         <div className="space-y-2.5">
-                            <label className="flex items-center gap-2.5 cursor-pointer group">
-                                <input
-                                    type="checkbox"
-                                    checked={pm.none !== false}
-                                    onChange={() => setSettings({
-                                        ...settings,
-                                        payment_methods: { ...pm, none: pm.none === false ? true : false }
-                                    })}
-                                    className="rounded accent-blue-600 w-4 h-4"
-                                />
-                                <div>
-                                    <span className="text-sm text-slate-700 font-medium">No payment required</span>
-                                    <p className="text-xs text-slate-400">Orders placed without payment (pay in person, COD, etc.)</p>
-                                </div>
-                            </label>
-
                             <label className="flex items-center gap-2.5 cursor-pointer group">
                                 <input
                                     type="checkbox"
