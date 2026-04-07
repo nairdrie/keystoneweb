@@ -111,7 +111,7 @@ export default function TermsOfServicePage() {
             <h2 className="text-xl font-bold text-slate-900 mb-3">7. Acceptable Use</h2>
             <p className="mb-2">You agree not to use the Service to:</p>
             <ul className="list-disc pl-5 space-y-1 text-sm">
-              <li>Publish illegal, abusive, defamatory, or fraudulent content.</li>
+              <li>Upload, create, or publish illegal, abusive, defamatory, or fraudulent content.</li>
               <li>Distribute malware, spam, or unsolicited commercial messages.</li>
               <li>Infringe third-party intellectual property rights.</li>
               <li>Attempt to gain unauthorised access to any Keystone system or another user&rsquo;s account.</li>

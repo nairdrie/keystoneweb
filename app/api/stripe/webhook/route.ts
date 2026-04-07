@@ -267,7 +267,7 @@ export async function POST(request: NextRequest) {
               customerEmail: user.email,
               customerName: customerName,
               planName: planName || 'Unknown Plan',
-              loginUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://keystoneweb.ca'}/login`
+              loginUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://keystoneweb.ca'}/signin`
             });
           }
         } catch (err) {

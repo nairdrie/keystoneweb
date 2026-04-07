@@ -46,7 +46,7 @@ const ALL_TABS: TabDef[] = [
   { id: 'events', label: 'Events', icon: CalendarDays, path: '/admin/events', requiresBlock: 'events' },
   { id: 'blog',   label: 'Blog',   icon: BookOpen,    path: '/admin/blog',   requiresBlock: 'blog' },
   { id: 'menu',   label: 'Menu',   icon: UtensilsCrossed, path: '/admin/menu', requiresBlock: 'menu' },
-  { id: 'membership', label: 'Members', icon: Users, path: '/admin/membership', requiresBlock: 'membershipPortal' },
+  { id: 'membership', label: 'Members', icon: Users, path: '/admin/membership', requiresBlock: 'membershipGate' },
 ];
 
 const SHOW_ALL_KEY = 'ks_admin_show_all_features';

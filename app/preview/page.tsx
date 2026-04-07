@@ -70,7 +70,7 @@ export default async function PreviewPage({
       (p.design_data?.blocks || []).some((b: any) => b.type === 'productGrid')
     );
     const hasMembershipBlock = (allPages || []).some((p: any) =>
-      (p.design_data?.blocks || []).some((b: any) => b.type === 'membershipPortal')
+      (p.design_data?.blocks || []).some((b: any) => b.type === 'membershipGate')
     );
 
     const translationsConfig = site.translations_config as any;

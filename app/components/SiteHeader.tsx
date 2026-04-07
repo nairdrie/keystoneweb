@@ -10,6 +10,7 @@ import EditableButton from '@/app/components/EditableButton';
 import NavMenu from '@/app/components/NavMenu';
 import HeaderCartIcon from '@/app/components/ecommerce/HeaderCartIcon';
 import HeaderMemberIcon from '@/app/components/membership/HeaderMemberIcon';
+import { useMember } from '@/app/components/membership/MemberProvider';
 import HeaderLanguageSelector from '@/app/components/HeaderLanguageSelector';
 import HeaderSettingsModal, { type SiteHeaderDefaults, type HeaderBgType, type HeaderLayout } from '@/app/components/HeaderSettingsModal';
 
@@ -58,6 +59,10 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     const updateSiteContent = context?.updateSiteContent || (() => {});
     const pathname = usePathname();
     const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
+
+    // Member auth state — needed early for CTA replacement
+    const memberCtx = useMember();
+    const member = memberCtx?.member ?? null;
 
     // ── Resolve config (user override > template default > system default) ──
     const layout: HeaderLayout    = siteContent.headerLayout  || defaults.layout  || 'default';
@@ -203,48 +208,6 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
         </a>
     ) : null;
 
-    const rightEl = (() => {
-        if (rightSide === 'none') return null;
-        if (rightSide === 'social') {
-            if (socialLinks.length === 0 && isEditMode) {
-                return <span className="text-xs opacity-40 italic">Add links in Header Settings</span>;
-            }
-            if (socialLinks.length === 0) return null;
-            return (
-                <div className="flex items-center gap-1">
-                    {socialLinks.map(({ key, url, Icon }) => (
-                        <a
-                            key={key}
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => isEditMode && e.preventDefault()}
-                            className={`p-1.5 rounded-full transition-all hover:opacity-80 ${textIsLight ? 'text-white/70 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
-                        >
-                            <Icon className="w-4 h-4" />
-                        </a>
-                    ))}
-                </div>
-            );
-        }
-        return (
-            <div className="flex flex-col items-center gap-1">
-                <EditableButton
-                    contentKey="navButtonText"
-                    label={siteContent.navButtonText}
-                    linkData={hasMembershipBlock && !siteContent.navButtonTextLink ? { type: 'url', value: '/signup' } : siteContent.navButtonTextLink}
-                    iconData={siteContent.navButtonTextIcon}
-                    defaultLabel={defaultCtaLabel}
-                    isEditMode={isEditMode}
-                    onSave={updateSiteContent}
-                    className={ctaClass}
-                    style={resolvedCtaStyle}
-                />
-                {memberSignInEl}
-            </div>
-        );
-    })();
-
     // ── Banner ──────────────────────────────────────────────────────────────
     const bannerBgType  = siteContent.headerBannerBgType  || 'primary';
     const bannerBgColor = siteContent.headerBannerBgColor || '';
@@ -302,6 +265,62 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     const mobileIconColor = textIsLight ? 'text-white' : 'text-slate-500';
     const cartIconColor   = textIsLight ? '#ffffff' : pPrimary;
 
+    // When a member is signed in, replace CTA with profile icon + welcome text on all pages
+    const memberRightEl = member ? (() => {
+        const firstName = member.name?.split(' ')[0] || member.email.split('@')[0];
+        return (
+            <div className="flex items-center gap-2">
+                <span className={`hidden md:block text-sm ${textIsLight ? 'text-white/80' : 'text-slate-600'}`}>
+                    Welcome, {firstName}
+                </span>
+                <HeaderMemberIcon color={cartIconColor} />
+            </div>
+        );
+    })() : null;
+
+    const rightEl = (() => {
+        if (rightSide === 'none') return memberRightEl;
+        if (member) return memberRightEl;
+        if (rightSide === 'social') {
+            if (socialLinks.length === 0 && isEditMode) {
+                return <span className="text-xs opacity-40 italic">Add links in Header Settings</span>;
+            }
+            if (socialLinks.length === 0) return null;
+            return (
+                <div className="flex items-center gap-1">
+                    {socialLinks.map(({ key, url, Icon }) => (
+                        <a
+                            key={key}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => isEditMode && e.preventDefault()}
+                            className={`p-1.5 rounded-full transition-all hover:opacity-80 ${textIsLight ? 'text-white/70 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'}`}
+                        >
+                            <Icon className="w-4 h-4" />
+                        </a>
+                    ))}
+                </div>
+            );
+        }
+        return (
+            <div className="flex flex-col items-center gap-1">
+                <EditableButton
+                    contentKey="navButtonText"
+                    label={siteContent.navButtonText}
+                    linkData={hasMembershipBlock && !siteContent.navButtonTextLink ? { type: 'url', value: '/signup' } : siteContent.navButtonTextLink}
+                    iconData={siteContent.navButtonTextIcon}
+                    defaultLabel={defaultCtaLabel}
+                    isEditMode={isEditMode}
+                    onSave={updateSiteContent}
+                    className={ctaClass}
+                    style={resolvedCtaStyle}
+                />
+                {memberSignInEl}
+            </div>
+        );
+    })();
+
     const homePageId = context?.pages?.find((p: any) => p.slug === 'home')?.id || '';
     const homeHref = isEditor
         ? `/editor?siteId=${context?.siteId}&pageId=${homePageId}`
@@ -354,7 +373,6 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
             </div>
             <HeaderLanguageSelector />
             <HeaderCartIcon color={cartIconColor} />
-            <HeaderMemberIcon color={cartIconColor} />
             {rightEl}
         </div>
     );
@@ -373,19 +391,30 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
             </div>
             {rightSide === 'cta' && (
                 <div className="mt-3">
-                    <EditableButton
-                        contentKey="navButtonText"
-                        label={siteContent.navButtonText}
-                        linkData={siteContent.navButtonTextLink}
-                        iconData={siteContent.navButtonTextIcon}
-                        defaultLabel={defaultCtaLabel}
-                        isEditMode={isEditMode}
-                        onSave={updateSiteContent}
-                        className={`w-full ${ctaClass}`}
-                        style={resolvedCtaStyle}
-                    />
-                    {memberSignInEl && (
-                        <div className="text-center mt-2">{memberSignInEl}</div>
+                    {member ? (
+                        <div className="flex items-center gap-3 px-3 py-2">
+                            <HeaderMemberIcon color={cartIconColor} />
+                            <span className={`text-sm ${textIsLight ? 'text-white/80' : 'text-slate-600'}`}>
+                                Welcome, {member.name?.split(' ')[0] || member.email.split('@')[0]}
+                            </span>
+                        </div>
+                    ) : (
+                        <>
+                            <EditableButton
+                                contentKey="navButtonText"
+                                label={siteContent.navButtonText}
+                                linkData={siteContent.navButtonTextLink}
+                                iconData={siteContent.navButtonTextIcon}
+                                defaultLabel={defaultCtaLabel}
+                                isEditMode={isEditMode}
+                                onSave={updateSiteContent}
+                                className={`w-full ${ctaClass}`}
+                                style={resolvedCtaStyle}
+                            />
+                            {memberSignInEl && (
+                                <div className="text-center mt-2">{memberSignInEl}</div>
+                            )}
+                        </>
                     )}
                 </div>
             )}
@@ -412,7 +441,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     const mobileToggle = (
         <div className="flex md:hidden items-center gap-1">
             <HeaderCartIcon color={cartIconColor} />
-            <HeaderMemberIcon color={cartIconColor} />
+            {member && <HeaderMemberIcon color={cartIconColor} />}
             <button className={`p-2 ${mobileIconColor}`} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -491,13 +520,12 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
                                 </div>
                                 <HeaderLanguageSelector />
                                 <HeaderCartIcon color={cartIconColor} />
-                                <HeaderMemberIcon color={cartIconColor} />
                                 {rightEl}
                             </div>
                             <div className="flex md:hidden items-center justify-between h-12">
                                 <div className="flex items-center gap-1">
                                     <HeaderCartIcon color={cartIconColor} />
-                                    <HeaderMemberIcon color={cartIconColor} />
+                                    {member && <HeaderMemberIcon color={cartIconColor} />}
                                     <button className={`p-2 ${mobileIconColor}`} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
                                         {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                                     </button>

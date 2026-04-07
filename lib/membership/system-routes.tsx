@@ -16,7 +16,7 @@ export function isMemberSystemRoute(slug: string): boolean {
 
 export function hasMembershipBlockInPages(allPages: any[]): boolean {
   return (allPages || []).some((p: any) =>
-    ((p.published_data || p.design_data)?.blocks || []).some((b: any) => b.type === 'membershipPortal')
+    ((p.published_data || p.design_data)?.blocks || []).some((b: any) => b.type === 'membershipGate')
   );
 }
 
