@@ -53,7 +53,7 @@ async function checkArachnidShield(buffer: Buffer): Promise<ImageModerationResul
 
   // The Shield API accepts image bytes as a multipart upload
   const formData = new FormData();
-  formData.append('media', new Blob([buffer]), 'upload');
+  formData.append('media', new Blob([new Uint8Array(buffer)]), 'upload');
 
   const response = await fetch('https://shield.projectarachnid.ca/v1/media/scan', {
     method: 'POST',
