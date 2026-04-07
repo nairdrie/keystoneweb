@@ -16,13 +16,25 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Missing siteId' }, { status: 400 });
     }
 
+    const search = request.nextUrl.searchParams.get('search')?.trim() || '';
+
     const supabase = await createClient();
 
-    const { data, error } = await supabase
+    let query = supabase
         .from('products')
         .select('*')
-        .eq('site_id', siteId)
-        .order('sort_order', { ascending: true });
+        .eq('site_id', siteId);
+
+    if (search) {
+        // Fuzzy search across name and description
+        const pattern = `%${search}%`;
+        query = query.or(`name.ilike.${pattern},description.ilike.${pattern}`);
+        query = query.eq('is_active', true).eq('status', 'published');
+    }
+
+    query = query.order('sort_order', { ascending: true });
+
+    const { data, error } = await query;
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });

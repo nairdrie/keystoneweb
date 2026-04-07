@@ -9,6 +9,7 @@ import EditableText from '@/app/components/EditableText';
 import EditableButton from '@/app/components/EditableButton';
 import NavMenu from '@/app/components/NavMenu';
 import HeaderCartIcon from '@/app/components/ecommerce/HeaderCartIcon';
+import HeaderProductSearch from '@/app/components/ecommerce/HeaderProductSearch';
 import HeaderMemberIcon from '@/app/components/membership/HeaderMemberIcon';
 import { useMember } from '@/app/components/membership/MemberProvider';
 import HeaderLanguageSelector from '@/app/components/HeaderLanguageSelector';
@@ -372,6 +373,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
                 />
             </div>
             <HeaderLanguageSelector />
+            <HeaderProductSearch color={cartIconColor} />
             <HeaderCartIcon color={cartIconColor} />
             {rightEl}
         </div>
@@ -440,6 +442,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
 
     const mobileToggle = (
         <div className="flex md:hidden items-center gap-1">
+            <HeaderProductSearch color={cartIconColor} />
             <HeaderCartIcon color={cartIconColor} />
             {member && <HeaderMemberIcon color={cartIconColor} />}
             <button className={`p-2 ${mobileIconColor}`} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
@@ -519,11 +522,13 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
                                     />
                                 </div>
                                 <HeaderLanguageSelector />
+                                <HeaderProductSearch color={cartIconColor} />
                                 <HeaderCartIcon color={cartIconColor} />
                                 {rightEl}
                             </div>
                             <div className="flex md:hidden items-center justify-between h-12">
                                 <div className="flex items-center gap-1">
+                                    <HeaderProductSearch color={cartIconColor} />
                                     <HeaderCartIcon color={cartIconColor} />
                                     {member && <HeaderMemberIcon color={cartIconColor} />}
                                     <button className={`p-2 ${mobileIconColor}`} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
