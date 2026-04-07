@@ -1385,3 +1385,83 @@ export async function sendMemberSignupNotification(
         return { success: false, error };
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Content Moderation Alerts
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Send an internal ops alert when illegal/CSAEM content is detected.
+ * CSAEM incidents also require a manual Cybertip.ca report if programmatic
+ * reporting is not yet configured (CYBERTIP_API_URL not set).
+ */
+export async function sendModerationAlert(data: {
+    eventId: string | null;
+    severity: 'csaem' | 'adult' | 'review';
+    contentType: 'image' | 'pdf' | 'text';
+    detectionMethod: 'arachnid_hash' | 'vision_classifier' | 'text_classifier';
+    siteId: string | null;
+    userId: string | null;
+    contentRef: string | null;
+    cybertipReportId: string | null;
+}) {
+    const opsEmail = process.env.OPS_ALERT_EMAIL || process.env.OPS_ADMIN_EMAILS?.split(',')[0];
+    if (!opsEmail) {
+        console.warn('[moderation] OPS_ALERT_EMAIL not configured — skipping moderation alert email');
+        return { success: false };
+    }
+
+    const severityLabel: Record<string, string> = {
+        csaem: 'CSAEM (CHILD SAFETY — URGENT)',
+        adult: 'Adult / Explicit Content',
+        review: 'Flagged for Review',
+    };
+
+    const isCsaem = data.severity === 'csaem';
+    const cybertipNote = isCsaem && !data.cybertipReportId
+        ? `<p style="background:#fef2f2;border:1px solid #fca5a5;padding:12px;border-radius:6px;color:#991b1b;font-weight:600;">
+             ACTION REQUIRED: CYBERTIP_API_URL is not configured. You must file a manual report at
+             <a href="https://www.cybertip.ca" style="color:#dc2626;">cybertip.ca</a> for this incident.
+           </p>`
+        : isCsaem && data.cybertipReportId
+            ? `<p style="background:#f0fdf4;border:1px solid #86efac;padding:12px;border-radius:6px;color:#166534;">
+                 Cybertip.ca report submitted automatically. Report ID: <strong>${data.cybertipReportId}</strong>
+               </p>`
+            : '';
+
+    try {
+        await resend.emails.send({
+            from: 'Keystone Web Design <noreply@keystoneweb.ca>',
+            to: opsEmail,
+            subject: `[MODERATION ALERT] ${severityLabel[data.severity]} — ${data.contentType}`,
+            html: `
+                <div style="font-family:monospace;max-width:600px;margin:0 auto;background:#fff;padding:24px;border:2px solid ${isCsaem ? '#dc2626' : '#f59e0b'};">
+                    <h2 style="margin:0 0 16px;color:${isCsaem ? '#dc2626' : '#92400e'};">
+                        Content Moderation Alert: ${severityLabel[data.severity]}
+                    </h2>
+                    ${cybertipNote}
+                    <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                        <tr><td style="padding:6px 0;color:#6b7280;width:160px;">Event ID</td><td style="padding:6px 0;">${data.eventId ?? 'n/a'}</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b7280;">Severity</td><td style="padding:6px 0;font-weight:700;color:${isCsaem ? '#dc2626' : '#92400e'};">${data.severity.toUpperCase()}</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b7280;">Content Type</td><td style="padding:6px 0;">${data.contentType}</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b7280;">Detection Method</td><td style="padding:6px 0;">${data.detectionMethod}</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b7280;">Site ID</td><td style="padding:6px 0;">${data.siteId ?? 'n/a'}</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b7280;">User ID</td><td style="padding:6px 0;">${data.userId ?? 'n/a'}</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b7280;">Content Ref</td><td style="padding:6px 0;">${data.contentRef ?? 'n/a (blocked before storage)'}</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b7280;">Detected At</td><td style="padding:6px 0;">${new Date().toISOString()}</td></tr>
+                    </table>
+                    <p style="margin-top:20px;font-size:13px;color:#6b7280;">
+                        Review in ops dashboard: <a href="https://ops.keystoneweb.ca/moderation">ops.keystoneweb.ca/moderation</a>
+                    </p>
+                    <p style="font-size:11px;color:#9ca3af;margin-top:8px;">
+                        Do not delete flagged content — preservation is required under the Mandatory Reporting Act (S.C. 2011, c. 4).
+                    </p>
+                </div>
+            `,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('[moderation] Failed to send moderation alert email:', error);
+        return { success: false, error };
+    }
+}
