@@ -25,7 +25,26 @@ interface Package {
   currency: string;
   billing_interval: string;
   features: string[];
+  geo_restriction?: { allowed_countries?: string[]; error_message?: string } | null;
 }
+
+const COUNTRY_OPTIONS = [
+  { code: 'CA', label: 'Canada' },
+  { code: 'US', label: 'United States' },
+  { code: 'GB', label: 'United Kingdom' },
+  { code: 'AU', label: 'Australia' },
+  { code: 'NZ', label: 'New Zealand' },
+  { code: 'IE', label: 'Ireland' },
+  { code: 'FR', label: 'France' },
+  { code: 'DE', label: 'Germany' },
+  { code: 'IN', label: 'India' },
+  { code: 'PH', label: 'Philippines' },
+  { code: 'ZA', label: 'South Africa' },
+  { code: 'NG', label: 'Nigeria' },
+  { code: 'JM', label: 'Jamaica' },
+  { code: 'TT', label: 'Trinidad and Tobago' },
+  { code: 'OTHER', label: 'Other' },
+];
 
 interface MemberSignUpPageProps {
   siteId: string;
@@ -162,6 +181,8 @@ export default function MemberSignUpPage({ siteId, siteName, palette, branding }
           name: name || null,
           packageId: selectedPackage || null,
           customFields,
+          country: formData.country || null,
+          province: formData.province || null,
           marketingOptIn,
         }),
       });
@@ -460,6 +481,35 @@ export default function MemberSignUpPage({ siteId, siteName, palette, branding }
               </div>
             </div>
           )}
+
+          {/* Country dropdown — shown when selected package has geo restriction */}
+          {currentStage === 0 && (() => {
+            const pkg = packages.find(p => p.id === selectedPackage);
+            if (!pkg?.geo_restriction?.allowed_countries?.length) return null;
+            return (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Country <span className="text-red-400 ml-0.5">*</span>
+                </label>
+                <select
+                  required
+                  value={formData.country || ''}
+                  onChange={e => setFormData(prev => ({ ...prev, country: e.target.value }))}
+                  className="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-offset-1"
+                >
+                  <option value="">Select your country…</option>
+                  {COUNTRY_OPTIONS.map(c => (
+                    <option key={c.code} value={c.code}>{c.label}</option>
+                  ))}
+                </select>
+                {formData.country && !pkg.geo_restriction.allowed_countries.includes(formData.country) && (
+                  <p className="text-xs text-red-500 mt-1">
+                    {pkg.geo_restriction.error_message || 'This membership is not available in your country'}
+                  </p>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">

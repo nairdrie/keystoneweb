@@ -17,30 +17,66 @@ export async function GET(request: NextRequest) {
     }
 
     const search = request.nextUrl.searchParams.get('search')?.trim() || '';
+    const category = request.nextUrl.searchParams.get('category')?.trim() || '';
+    const status = request.nextUrl.searchParams.get('status')?.trim() || '';
+    const page = Math.max(1, parseInt(request.nextUrl.searchParams.get('page') || '1'));
+    const limit = Math.min(100, Math.max(1, parseInt(request.nextUrl.searchParams.get('limit') || '50')));
+    const offset = (page - 1) * limit;
 
     const supabase = await createClient();
 
     let query = supabase
         .from('products')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('site_id', siteId);
 
     if (search) {
-        // Fuzzy search across name and description
         const pattern = `%${search}%`;
         query = query.or(`name.ilike.${pattern},description.ilike.${pattern}`);
+    }
+
+    if (category) {
+        query = query.eq('category', category);
+    }
+
+    if (status === 'draft' || status === 'published') {
+        query = query.eq('status', status);
+    }
+
+    // For public search, only show published active products
+    if (search && !status && !category) {
         query = query.eq('is_active', true).eq('status', 'published');
     }
 
-    query = query.order('sort_order', { ascending: true });
+    query = query.order('sort_order', { ascending: true })
+        .range(offset, offset + limit - 1);
 
-    const { data, error } = await query;
+    const { data, error, count } = await query;
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ products: data });
+    // Fetch distinct categories for this site (for filter dropdown)
+    const { data: catData } = await supabase
+        .from('products')
+        .select('category')
+        .eq('site_id', siteId)
+        .not('category', 'is', null)
+        .order('category');
+
+    const categories = [...new Set((catData || []).map(r => r.category).filter(Boolean))];
+
+    return NextResponse.json({
+        products: data,
+        categories,
+        pagination: {
+            page,
+            limit,
+            total: count ?? 0,
+            totalPages: Math.ceil((count ?? 0) / limit),
+        },
+    });
 }
 
 export async function POST(request: NextRequest) {
@@ -134,12 +170,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { id, ...fields } = body;
 
-    if (!id) {
-        return NextResponse.json({ error: 'Missing product id' }, { status: 400 });
-    }
-
-    const updates: Record<string, any> = { updated_at: new Date().toISOString() };
-    // Bulk publish all drafts for a site
+    // Bulk publish all drafts for a site (no id needed)
     if (fields.siteId && fields.publishAll === true) {
         const { data: site } = await supabase.from('sites').select('user_id').eq('id', fields.siteId).single();
         if (!site || site.user_id !== user.id) {
@@ -154,7 +185,13 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ success: true });
     }
 
-    const allowedFields = ['name', 'description', 'price_cents', 'compare_at_cents', 'currency', 'images', 'variants', 'inventory_count', 'is_active', 'sort_order', 'status'];
+    if (!id) {
+        return NextResponse.json({ error: 'Missing product id' }, { status: 400 });
+    }
+
+    const updates: Record<string, any> = { updated_at: new Date().toISOString() };
+
+    const allowedFields = ['name', 'description', 'price_cents', 'compare_at_cents', 'currency', 'images', 'variants', 'inventory_count', 'is_active', 'sort_order', 'status', 'category', 'tags'];
 
     for (const key of allowedFields) {
         if (fields[key] !== undefined) updates[key] = fields[key];

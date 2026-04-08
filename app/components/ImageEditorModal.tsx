@@ -360,13 +360,13 @@ export default function ImageEditorModal({
                                     Drop an image here or click to browse
                                 </p>
                                 <p className="text-sm text-slate-500 mt-1">
-                                    PNG, JPG, GIF, WebP — up to 10MB
+                                    PNG, JPG, GIF, WebP, ICO — up to 10MB
                                 </p>
                             </div>
                             <input
                                 ref={fileInputRef}
                                 type="file"
-                                accept="image/*"
+                                accept="image/*,.ico"
                                 onChange={(e) => {
                                     const file = e.target.files?.[0];
                                     if (file) handleFileUpload(file);

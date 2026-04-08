@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useEditorContext } from '@/lib/editor-context';
 import { useCart } from '../ecommerce/CartProvider';
 import {
     Package, Plus, Trash2, Loader2, ShoppingCart, X,
-    ImageIcon, Upload, GripVertical, Send
+    ImageIcon, Upload, Send, Search,
+    ChevronLeft, ChevronRight, Tag,
 } from 'lucide-react';
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
 import { useRouter, usePathname } from 'next/navigation';
@@ -27,6 +28,8 @@ interface Product {
     is_active: boolean;
     sort_order: number;
     status: string;
+    category: string | null;
+    tags: string[];
 }
 
 interface ProductGridBlockProps {
@@ -77,30 +80,79 @@ export default function ProductGridBlock({ id, data, isEditMode, palette, update
 
 export function ProductManager({ siteId, palette }: { siteId: string; palette: Record<string, string> }) {
     const [products, setProducts] = useState<Product[]>([]);
+    const [categories, setCategories] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAdd, setShowAdd] = useState(false);
     const [publishing, setPublishing] = useState(false);
     const [showDraftModal, setShowDraftModal] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
 
+    // Search, filter & pagination
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterCategory, setFilterCategory] = useState('');
+    const [filterStatus, setFilterStatus] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalProducts, setTotalProducts] = useState(0);
+    const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const ITEMS_PER_PAGE = 25;
+
+    const fetchProducts = useCallback(async (page = 1, search = '', category = '', status = '') => {
+        try {
+            const params = new URLSearchParams({ siteId, page: String(page), limit: String(ITEMS_PER_PAGE) });
+            if (search) params.set('search', search);
+            if (category) params.set('category', category);
+            if (status) params.set('status', status);
+
+            const res = await fetch(`/api/products?${params}`);
+            if (!res.ok) throw new Error('Failed to fetch');
+            const data = await res.json();
+            setProducts(data.products || []);
+            setCategories(data.categories || []);
+            setTotalPages(data.pagination?.totalPages ?? 1);
+            setTotalProducts(data.pagination?.total ?? 0);
+        } catch (err) {
+            console.error(err);
+        }
+    }, [siteId]);
+
     useEffect(() => {
         (async () => {
-            try {
-                const res = await fetch(`/api/products?siteId=${siteId}`);
-                if (!res.ok) throw new Error('Failed to fetch');
-                const data = await res.json();
-                setProducts(data.products || []);
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
-            }
+            await fetchProducts();
+            setLoading(false);
         })();
-    }, [siteId]);
+    }, [fetchProducts]);
+
+    const handleSearch = (value: string) => {
+        setSearchQuery(value);
+        if (searchTimeout.current) clearTimeout(searchTimeout.current);
+        searchTimeout.current = setTimeout(() => {
+            setCurrentPage(1);
+            fetchProducts(1, value, filterCategory, filterStatus);
+        }, 300);
+    };
+
+    const handleFilterCategory = (cat: string) => {
+        setFilterCategory(cat);
+        setCurrentPage(1);
+        fetchProducts(1, searchQuery, cat, filterStatus);
+    };
+
+    const handleFilterStatus = (s: string) => {
+        setFilterStatus(s);
+        setCurrentPage(1);
+        fetchProducts(1, searchQuery, filterCategory, s);
+    };
+
+    const handlePageChange = (page: number) => {
+        setCurrentPage(page);
+        fetchProducts(page, searchQuery, filterCategory, filterStatus);
+    };
 
     const handleDelete = async (productId: string) => {
         await fetch(`/api/products?id=${productId}`, { method: 'DELETE' });
-        setProducts(products.filter(p => p.id !== productId));
+        fetchProducts(currentPage, searchQuery, filterCategory, filterStatus);
     };
 
     const handlePublishAll = async () => {
@@ -110,16 +162,18 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ siteId, publishAll: true }),
         });
-        if (res.ok) setProducts(products.map(p => p.status === 'draft' ? { ...p, status: 'published' } : p));
+        if (res.ok) {
+            await fetchProducts(currentPage, searchQuery, filterCategory, filterStatus);
+        }
         setPublishing(false);
     };
 
-    const handleCsvImported = async () => {
-        const res = await fetch(`/api/products?siteId=${siteId}`);
-        if (res.ok) {
-            const data = await res.json();
-            setProducts(data.products || []);
-        }
+    const handleImported = async () => {
+        setCurrentPage(1);
+        setSearchQuery('');
+        setFilterCategory('');
+        setFilterStatus('');
+        await fetchProducts(1);
     };
 
     const handleToggle = async (product: Product) => {
@@ -136,6 +190,8 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
         return <section className="py-16 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-400" /></section>;
     }
 
+    const draftCount = products.filter(p => p.status === 'draft').length;
+
     return (
         <section className="py-12 px-4">
             <div className="max-w-2xl mx-auto">
@@ -147,7 +203,7 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                                     <Package className="w-5 h-5 text-blue-600" />
                                     Product Catalog
                                 </h3>
-                                <p className="text-sm text-slate-500 mt-1">{products.length} product{products.length !== 1 ? 's' : ''}</p>
+                                <p className="text-sm text-slate-500 mt-1">{totalProducts} product{totalProducts !== 1 ? 's' : ''}</p>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                                 <button
@@ -155,54 +211,85 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg transition-colors"
                                 >
                                     <Upload className="w-3.5 h-3.5" />
-                                    Import CSV
+                                    Import
                                 </button>
                                 {/* Draft count badge + popover */}
                                 <div className="relative">
-                                    {(() => {
-                                        const draftProducts = products.filter(p => p.status === 'draft');
-                                        const dc = draftProducts.length;
-                                        return (
-                                            <>
-                                                <button
-                                                    onClick={() => dc > 0 && setShowDraftModal(v => !v)}
-                                                    className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${dc > 0 ? 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 cursor-pointer' : 'bg-slate-50 border-slate-200 text-slate-400 cursor-default'}`}
-                                                >
-                                                    <span className={`w-1.5 h-1.5 rounded-full ${dc > 0 ? 'bg-amber-400' : 'bg-slate-300'}`} />
-                                                    {dc} draft{dc !== 1 ? 's' : ''}
-                                                </button>
-                                                {showDraftModal && dc > 0 && (
-                                                    <>
-                                                        <div className="fixed inset-0 z-40" onClick={() => setShowDraftModal(false)} />
-                                                        <div className="absolute top-full right-0 mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-lg p-3 w-56">
-                                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Not yet live</p>
-                                                            <div className="space-y-1.5">
-                                                                {draftProducts.map(p => (
-                                                                    <div key={p.id} className="flex items-center gap-2 text-sm text-slate-700">
-                                                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                                                                        <span className="truncate">{p.name}</span>
-                                                                    </div>
-                                                                ))}
-                                                            </div>
+                                    <button
+                                        onClick={() => draftCount > 0 && setShowDraftModal(v => !v)}
+                                        className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${draftCount > 0 ? 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100 cursor-pointer' : 'bg-slate-50 border-slate-200 text-slate-400 cursor-default'}`}
+                                    >
+                                        <span className={`w-1.5 h-1.5 rounded-full ${draftCount > 0 ? 'bg-amber-400' : 'bg-slate-300'}`} />
+                                        {draftCount} draft{draftCount !== 1 ? 's' : ''}
+                                    </button>
+                                    {showDraftModal && draftCount > 0 && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setShowDraftModal(false)} />
+                                            <div className="absolute top-full right-0 mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-lg p-3 w-56">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Not yet live</p>
+                                                <div className="space-y-1.5">
+                                                    {products.filter(p => p.status === 'draft').map(p => (
+                                                        <div key={p.id} className="flex items-center gap-2 text-sm text-slate-700">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                                                            <span className="truncate">{p.name}</span>
                                                         </div>
-                                                    </>
-                                                )}
-                                            </>
-                                        );
-                                    })()}
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
-                                <button onClick={handlePublishAll} disabled={publishing || !products.some(p => p.status === 'draft')}
+                                <button onClick={handlePublishAll} disabled={publishing || draftCount === 0}
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                                     {publishing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                                     Publish Drafts
                                 </button>
                             </div>
                         </div>
+
+                        {/* Search & Filters */}
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <div className="relative flex-1 min-w-[180px]">
+                                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                <input
+                                    type="text"
+                                    placeholder="Search products..."
+                                    value={searchQuery}
+                                    onChange={e => handleSearch(e.target.value)}
+                                    className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                />
+                            </div>
+                            {categories.length > 0 && (
+                                <select
+                                    value={filterCategory}
+                                    onChange={e => handleFilterCategory(e.target.value)}
+                                    className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                >
+                                    <option value="">All Categories</option>
+                                    {categories.map(c => (
+                                        <option key={c} value={c}>{c}</option>
+                                    ))}
+                                </select>
+                            )}
+                            <select
+                                value={filterStatus}
+                                onChange={e => handleFilterStatus(e.target.value)}
+                                className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                            >
+                                <option value="">All Status</option>
+                                <option value="draft">Draft</option>
+                                <option value="published">Published</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div className="p-6 space-y-3">
-                        {products.length === 0 && (
+                        {products.length === 0 && !searchQuery && !filterCategory && !filterStatus && (
                             <p className="text-sm text-slate-400 text-center py-4">No products yet. Add your first product below.</p>
+                        )}
+
+                        {products.length === 0 && (searchQuery || filterCategory || filterStatus) && (
+                            <p className="text-sm text-slate-400 text-center py-4">No products match your filters.</p>
                         )}
 
                         {products.map(product => (
@@ -221,10 +308,13 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                                             <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded border border-amber-200">Draft</span>
                                         )}
                                     </div>
-                                    <div className="flex items-center gap-2 mt-0.5">
+                                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                         <span className="text-sm font-bold text-green-700">${(product.price_cents / 100).toFixed(2)}</span>
                                         {product.compare_at_cents && (
                                             <span className="text-xs text-slate-400 line-through">${(product.compare_at_cents / 100).toFixed(2)}</span>
+                                        )}
+                                        {product.category && (
+                                            <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">{product.category}</span>
                                         )}
                                         {product.variants?.length > 0 && (
                                             <span className="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{product.variants.map(v => v.name).join(', ')}</span>
@@ -233,15 +323,51 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                                             <span className="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{product.inventory_count} in stock</span>
                                         )}
                                     </div>
+                                    {product.tags?.length > 0 && (
+                                        <div className="flex items-center gap-1 mt-1 flex-wrap">
+                                            <Tag className="w-3 h-3 text-slate-400 shrink-0" />
+                                            {product.tags.slice(0, 4).map(tag => (
+                                                <span key={tag} className="text-[10px] text-slate-500 bg-slate-50 px-1 py-0.5 rounded">{tag}</span>
+                                            ))}
+                                            {product.tags.length > 4 && (
+                                                <span className="text-[10px] text-slate-400">+{product.tags.length - 4}</span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
-                                <button onClick={() => handleToggle(product)} className="text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600">
+                                <button onClick={() => handleToggle(product)} className="text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600 shrink-0">
                                     {product.is_active ? 'Hide' : 'Show'}
                                 </button>
-                                <button onClick={() => handleDelete(product.id)} className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600">
+                                <button onClick={() => handleDelete(product.id)} className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600 shrink-0">
                                     <Trash2 className="w-4 h-4" />
                                 </button>
                             </div>
                         ))}
+
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                                <p className="text-xs text-slate-400">
+                                    Page {currentPage} of {totalPages} ({totalProducts} total)
+                                </p>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        disabled={currentPage === 1}
+                                        className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        <ChevronLeft className="w-3.5 h-3.5 text-slate-600" />
+                                    </button>
+                                    <button
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        disabled={currentPage === totalPages}
+                                        className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         {!showAdd ? (
                             <button
@@ -253,7 +379,7 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                         ) : (
                             <AddProductForm
                                 siteId={siteId}
-                                onAdded={product => { setProducts([...products, product]); setShowAdd(false); }}
+                                onAdded={product => { fetchProducts(currentPage, searchQuery, filterCategory, filterStatus); setShowAdd(false); }}
                                 onCancel={() => setShowAdd(false)}
                             />
                         )}
@@ -265,7 +391,7 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                         siteId={siteId}
                         type="products"
                         onClose={() => setShowImportModal(false)}
-                        onImported={handleCsvImported}
+                        onImported={handleImported}
                     />
                 )}
 

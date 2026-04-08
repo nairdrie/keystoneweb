@@ -12,6 +12,7 @@ const MAX_VIDEO_SIZE  = 500 * 1024 * 1024;  // 500 MB
 
 const ALLOWED_IMAGE_MIME = new Set([
   'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif',
+  'image/x-icon', 'image/vnd.microsoft.icon',
 ]);
 const ALLOWED_PDF_MIME = new Set(['application/pdf']);
 const ALLOWED_VIDEO_MIME = new Set([
@@ -26,6 +27,16 @@ function validateMagicBytes(
   buf: Buffer,
   mimeType: string
 ): { ok: boolean; reason?: string } {
+  if (mimeType === 'image/x-icon' || mimeType === 'image/vnd.microsoft.icon') {
+    // ICO header: 00 00 01 00 (reserved=0, type=1 for ICO)
+    if (buf.length < 4
+      || buf[0] !== 0x00 || buf[1] !== 0x00
+      || buf[2] !== 0x01 || buf[3] !== 0x00) {
+      return { ok: false, reason: 'File does not appear to be a valid ICO file.' };
+    }
+    return { ok: true };
+  }
+
   if (ALLOWED_IMAGE_MIME.has(mimeType)) {
     // Images are re-encoded by Sharp — no extra magic-byte check needed here.
     return { ok: true };
@@ -192,7 +203,7 @@ export async function POST(request: NextRequest) {
     const declaredMime = file.type.toLowerCase();
     if (!ALL_ALLOWED_MIME.has(declaredMime)) {
       return NextResponse.json(
-        { error: `File type "${declaredMime}" is not allowed. Supported types: images (JPEG, PNG, WebP, GIF, AVIF), PDFs, and videos (MP4, WebM, Ogg, MOV).` },
+        { error: `File type "${declaredMime}" is not allowed. Supported types: images (JPEG, PNG, WebP, GIF, AVIF, ICO), PDFs, and videos (MP4, WebM, Ogg, MOV).` },
         { status: 400 }
       );
     }
@@ -254,27 +265,36 @@ export async function POST(request: NextRequest) {
       .slice(0, 80);
 
     if (mediaType === 'image') {
-      // Re-encode with Sharp to sanitize (strips metadata, kills embedded attacks)
-      try {
-        const image = sharp(inputBuffer);
-        const meta  = await image.metadata();
-        const transparent = meta.format === 'png' || meta.format === 'webp' || meta.format === 'gif';
-        if (transparent) {
-          finalBuffer = await image.resize({ width: 2000, withoutEnlargement: true }).toBuffer();
-          finalMime   = declaredMime;
-          finalExt    = meta.format === 'png' ? 'png' : meta.format === 'webp' ? 'webp' : 'gif';
-        } else {
-          finalBuffer = await image
-            .resize({ width: 2000, withoutEnlargement: true })
-            .jpeg({ quality: 85, mozjpeg: true })
-            .toBuffer();
-          finalMime = 'image/jpeg';
-          finalExt  = 'jpg';
+      const isIco = declaredMime === 'image/x-icon' || declaredMime === 'image/vnd.microsoft.icon';
+      if (isIco) {
+        // ICO files: pass through as-is (Sharp doesn't support ICO, already validated by magic bytes)
+        finalBuffer    = inputBuffer;
+        finalMime      = 'image/x-icon';
+        finalExt       = 'ico';
+        finalSizeBytes = inputBuffer.length;
+      } else {
+        // Re-encode with Sharp to sanitize (strips metadata, kills embedded attacks)
+        try {
+          const image = sharp(inputBuffer);
+          const meta  = await image.metadata();
+          const transparent = meta.format === 'png' || meta.format === 'webp' || meta.format === 'gif';
+          if (transparent) {
+            finalBuffer = await image.resize({ width: 2000, withoutEnlargement: true }).toBuffer();
+            finalMime   = declaredMime;
+            finalExt    = meta.format === 'png' ? 'png' : meta.format === 'webp' ? 'webp' : 'gif';
+          } else {
+            finalBuffer = await image
+              .resize({ width: 2000, withoutEnlargement: true })
+              .jpeg({ quality: 85, mozjpeg: true })
+              .toBuffer();
+            finalMime = 'image/jpeg';
+            finalExt  = 'jpg';
+          }
+        } catch {
+          return NextResponse.json({ error: 'Invalid or corrupted image file.' }, { status: 400 });
         }
-      } catch {
-        return NextResponse.json({ error: 'Invalid or corrupted image file.' }, { status: 400 });
+        finalSizeBytes = finalBuffer.length;
       }
-      finalSizeBytes = finalBuffer.length;
     } else {
       // PDFs and videos: upload as-is (already validated above)
       finalBuffer    = inputBuffer;

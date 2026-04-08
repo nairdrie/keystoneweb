@@ -3,12 +3,14 @@
 import { useState, useRef, useCallback } from 'react';
 import {
     X, Upload, Download, FileText, CheckCircle2, AlertTriangle,
-    Loader2, ChevronDown, ChevronRight, Sparkles, Info,
+    Loader2, ChevronDown, ChevronRight, Sparkles, Info, FileJson,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type CsvImportType = 'services' | 'products';
+
+type FileFormat = 'csv' | 'json';
 
 interface ImportResult {
     imported: number;
@@ -16,8 +18,10 @@ interface ImportResult {
     already_exists: number;
     skipped: number;
     errors: { row: number; name: string; error: string }[];
-    mapping: Record<string, string | null>;
+    mapping?: Record<string, string | null>;
     total: number;
+    images?: { uploaded: number; failed: number; totalBytes: number };
+    source?: { provider: string | null; sourceUrl: string | null };
 }
 
 interface CsvImportModalProps {
@@ -130,29 +134,59 @@ function downloadTemplate(type: CsvImportType) {
 
 // ─── File Validation (client-side pre-check) ──────────────────────────────────
 
-const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+const MAX_CSV_FILE_SIZE = 2 * 1024 * 1024;  // 2MB
+const MAX_JSON_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_ROWS_PREVIEW = 500;
 
+function detectFileFormat(file: File): FileFormat | null {
+    const name = file.name.toLowerCase();
+    if (name.endsWith('.csv')) return 'csv';
+    if (name.endsWith('.json')) return 'json';
+    return null;
+}
+
 function validateFile(file: File): string | null {
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-        return 'File must have a .csv extension.';
+    const format = detectFileFormat(file);
+    if (!format) {
+        return 'File must have a .csv or .json extension.';
     }
     if (file.size === 0) {
         return 'File is empty.';
     }
-    if (file.size > MAX_FILE_SIZE) {
-        return `File is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is 2MB.`;
+    const maxSize = format === 'json' ? MAX_JSON_FILE_SIZE : MAX_CSV_FILE_SIZE;
+    const maxLabel = format === 'json' ? '10MB' : '2MB';
+    if (file.size > maxSize) {
+        return `File is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum is ${maxLabel}.`;
     }
     return null;
 }
 
-async function previewCsvRows(file: File): Promise<{ rowCount: number; headers: string[] } | null> {
+interface CsvPreview { type: 'csv'; rowCount: number; headers: string[] }
+interface JsonPreview { type: 'json'; productCount: number; provider: string | null; sourceUrl: string | null; sampleNames: string[] }
+type FilePreview = CsvPreview | JsonPreview;
+
+async function previewFile(file: File): Promise<FilePreview | null> {
     try {
         const text = await file.text();
+        const format = detectFileFormat(file);
+
+        if (format === 'json') {
+            const data = JSON.parse(text);
+            if (!data.products || !Array.isArray(data.products)) return null;
+            return {
+                type: 'json',
+                productCount: data.products.length,
+                provider: data.provider || null,
+                sourceUrl: data.sourceUrl || null,
+                sampleNames: data.products.slice(0, 5).map((p: any) => p.productName || '(unnamed)'),
+            };
+        }
+
+        // CSV preview
         const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
         if (lines.length < 2) return null;
         const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim());
-        return { rowCount: lines.length - 1, headers };
+        return { type: 'csv', rowCount: lines.length - 1, headers };
     } catch {
         return null;
     }
@@ -163,8 +197,9 @@ async function previewCsvRows(file: File): Promise<{ rowCount: number; headers: 
 export default function CsvImportModal({ siteId, type, onClose, onImported }: CsvImportModalProps) {
     const [dragOver, setDragOver] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [fileFormat, setFileFormat] = useState<FileFormat | null>(null);
     const [fileError, setFileError] = useState<string | null>(null);
-    const [preview, setPreview] = useState<{ rowCount: number; headers: string[] } | null>(null);
+    const [preview, setPreview] = useState<FilePreview | null>(null);
     const [uploading, setUploading] = useState(false);
     const [result, setResult] = useState<ImportResult | null>(null);
     const [showErrorDetails, setShowErrorDetails] = useState(false);
@@ -178,6 +213,7 @@ export default function CsvImportModal({ siteId, type, onClose, onImported }: Cs
         setResult(null);
         setFileError(null);
         setPreview(null);
+        setFileFormat(null);
 
         const err = validateFile(file);
         if (err) {
@@ -186,20 +222,35 @@ export default function CsvImportModal({ siteId, type, onClose, onImported }: Cs
             return;
         }
 
-        setSelectedFile(file);
-        const p = await previewCsvRows(file);
-        if (!p) {
-            setFileError('Could not read CSV. Make sure the file is not empty and is valid UTF-8.');
+        const format = detectFileFormat(file);
+        if (format === 'json' && type === 'services') {
+            setFileError('JSON import is only supported for products. Please use CSV for services.');
             setSelectedFile(null);
             return;
         }
-        if (p.rowCount > MAX_ROWS_PREVIEW) {
+
+        setSelectedFile(file);
+        setFileFormat(format);
+        const p = await previewFile(file);
+        if (!p) {
+            setFileError(format === 'json'
+                ? 'Could not read JSON. Make sure the file contains a valid "products" array.'
+                : 'Could not read CSV. Make sure the file is not empty and is valid UTF-8.');
+            setSelectedFile(null);
+            return;
+        }
+        if (p.type === 'csv' && p.rowCount > MAX_ROWS_PREVIEW) {
             setFileError(`CSV has ${p.rowCount} rows. Maximum allowed is ${MAX_ROWS_PREVIEW}. Please split it into smaller files.`);
             setSelectedFile(null);
             return;
         }
+        if (p.type === 'json' && p.productCount > MAX_ROWS_PREVIEW) {
+            setFileError(`JSON has ${p.productCount} products. Maximum allowed is ${MAX_ROWS_PREVIEW}. Please split it into smaller files.`);
+            setSelectedFile(null);
+            return;
+        }
         setPreview(p);
-    }, []);
+    }, [type]);
 
     const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
@@ -223,10 +274,16 @@ export default function CsvImportModal({ siteId, type, onClose, onImported }: Cs
         try {
             const form = new FormData();
             form.append('file', selectedFile);
-            form.append('type', type);
             form.append('siteId', siteId);
 
-            const res = await fetch('/api/csv-import', {
+            const isJson = fileFormat === 'json';
+            if (!isJson) {
+                form.append('type', type);
+            }
+
+            const endpoint = isJson ? '/api/json-import' : '/api/csv-import';
+
+            const res = await fetch(endpoint, {
                 method: 'POST',
                 body: form,
             });
@@ -251,6 +308,7 @@ export default function CsvImportModal({ siteId, type, onClose, onImported }: Cs
 
     const handleReset = () => {
         setSelectedFile(null);
+        setFileFormat(null);
         setPreview(null);
         setResult(null);
         setFileError(null);
@@ -265,10 +323,19 @@ export default function CsvImportModal({ siteId, type, onClose, onImported }: Cs
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0">
                     <div>
-                        <h2 className="text-base font-bold text-slate-900">Import {typeLabel} from CSV</h2>
+                        <h2 className="text-base font-bold text-slate-900">Import {typeLabel}</h2>
                         <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
-                            <Sparkles className="w-3 h-3 text-purple-500" />
-                            AI will auto-map your columns — flexible format accepted
+                            {type === 'products' ? (
+                                <>
+                                    <Sparkles className="w-3 h-3 text-purple-500" />
+                                    Upload CSV or JSON — AI auto-maps columns for CSV
+                                </>
+                            ) : (
+                                <>
+                                    <Sparkles className="w-3 h-3 text-purple-500" />
+                                    AI will auto-map your columns — flexible format accepted
+                                </>
+                            )}
                         </p>
                     </div>
                     <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition-colors">
@@ -342,7 +409,7 @@ export default function CsvImportModal({ siteId, type, onClose, onImported }: Cs
                                 <input
                                     ref={fileInputRef}
                                     type="file"
-                                    accept=".csv,text/csv"
+                                    accept={type === 'products' ? '.csv,text/csv,.json,application/json' : '.csv,text/csv'}
                                     className="hidden"
                                     onChange={handleInputChange}
                                 />
@@ -352,20 +419,25 @@ export default function CsvImportModal({ siteId, type, onClose, onImported }: Cs
                                         <p className="text-sm font-semibold text-emerald-700">{selectedFile.name}</p>
                                         <p className="text-xs text-emerald-600">
                                             {(selectedFile.size / 1024).toFixed(1)}KB
-                                            {preview && ` · ${preview.rowCount} row${preview.rowCount !== 1 ? 's' : ''} · ${preview.headers.length} columns`}
+                                            {preview?.type === 'csv' && ` · ${preview.rowCount} row${preview.rowCount !== 1 ? 's' : ''} · ${preview.headers.length} columns`}
+                                            {preview?.type === 'json' && ` · ${preview.productCount} product${preview.productCount !== 1 ? 's' : ''}${preview.provider ? ` · ${preview.provider}` : ''}`}
                                         </p>
                                     </div>
                                 ) : (
                                     <div className="space-y-1">
                                         <Upload className="w-8 h-8 text-slate-400 mx-auto" />
-                                        <p className="text-sm font-semibold text-slate-700">Drop your CSV here</p>
-                                        <p className="text-xs text-slate-500">or click to browse · max 2MB · 500 rows</p>
+                                        <p className="text-sm font-semibold text-slate-700">
+                                            {type === 'products' ? 'Drop your CSV or JSON here' : 'Drop your CSV here'}
+                                        </p>
+                                        <p className="text-xs text-slate-500">
+                                            {type === 'products' ? 'or click to browse · CSV max 2MB · JSON max 10MB · 500 items' : 'or click to browse · max 2MB · 500 rows'}
+                                        </p>
                                     </div>
                                 )}
                             </div>
 
-                            {/* Detected columns preview */}
-                            {preview && (
+                            {/* Detected columns preview (CSV) */}
+                            {preview?.type === 'csv' && (
                                 <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5">
                                     <div className="flex items-center gap-1.5 mb-1.5">
                                         <Info className="w-3.5 h-3.5 text-slate-500" />
@@ -380,6 +452,33 @@ export default function CsvImportModal({ siteId, type, onClose, onImported }: Cs
                                         <Sparkles className="w-3 h-3 text-purple-400" />
                                         AI will map these to the correct fields automatically
                                     </p>
+                                </div>
+                            )}
+
+                            {/* JSON preview */}
+                            {preview?.type === 'json' && (
+                                <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2.5">
+                                    <div className="flex items-center gap-1.5 mb-1.5">
+                                        <FileJson className="w-3.5 h-3.5 text-purple-500" />
+                                        <span className="text-xs font-semibold text-purple-700">JSON Product Import</span>
+                                    </div>
+                                    {preview.provider && (
+                                        <p className="text-[10px] text-purple-600 mb-1">
+                                            Source: <strong>{preview.provider}</strong>
+                                            {preview.sourceUrl && <span className="text-purple-400"> · {preview.sourceUrl}</span>}
+                                        </p>
+                                    )}
+                                    <p className="text-[10px] text-purple-600 mb-1.5">
+                                        <strong>{preview.productCount}</strong> product{preview.productCount !== 1 ? 's' : ''} found — images will be downloaded and uploaded automatically
+                                    </p>
+                                    <div className="space-y-0.5">
+                                        {preview.sampleNames.map((name, i) => (
+                                            <div key={i} className="text-[10px] text-purple-600 truncate">· {name}</div>
+                                        ))}
+                                        {preview.productCount > 5 && (
+                                            <div className="text-[10px] text-purple-400">...and {preview.productCount - 5} more</div>
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </>
@@ -428,32 +527,60 @@ export default function CsvImportModal({ siteId, type, onClose, onImported }: Cs
                                 </div>
                             </div>
 
-                            {/* Column mapping accordion */}
-                            <button
-                                onClick={() => setShowMappingDetails(v => !v)}
-                                className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
-                            >
-                                <span className="flex items-center gap-1.5">
-                                    <Sparkles className="w-3.5 h-3.5 text-purple-500" />
-                                    AI column mapping used
-                                </span>
-                                {showMappingDetails ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                            </button>
-                            {showMappingDetails && (
-                                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1">
-                                    {Object.entries(result.mapping).filter(([, v]) => v !== null).map(([field, col]) => (
-                                        <div key={field} className="flex items-center gap-2 text-xs">
-                                            <span className="font-mono text-slate-500 w-32 shrink-0">{field}</span>
-                                            <span className="text-slate-400">←</span>
-                                            <span className="font-mono text-slate-700">{col}</span>
+                            {/* Image import stats (JSON only) */}
+                            {result.images && (
+                                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                                    <div className="flex items-center gap-1.5 mb-1.5">
+                                        <FileJson className="w-3.5 h-3.5 text-purple-500" />
+                                        <span className="text-xs font-semibold text-purple-700">Image Import</span>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-1.5">
+                                        <div className="bg-white rounded-lg p-2 text-center border border-purple-200">
+                                            <div className="text-base font-bold text-purple-700">{result.images.uploaded}</div>
+                                            <div className="text-[10px] text-slate-500">Uploaded</div>
                                         </div>
-                                    ))}
-                                    {Object.entries(result.mapping).filter(([, v]) => v === null).length > 0 && (
-                                        <div className="pt-1 border-t border-slate-200 mt-1">
-                                            <p className="text-[10px] text-slate-400">Not found: {Object.entries(result.mapping).filter(([, v]) => v === null).map(([f]) => f).join(', ')}</p>
+                                        <div className="bg-white rounded-lg p-2 text-center border border-purple-200">
+                                            <div className={`text-base font-bold ${result.images.failed > 0 ? 'text-amber-600' : 'text-slate-400'}`}>{result.images.failed}</div>
+                                            <div className="text-[10px] text-slate-500">Failed</div>
+                                        </div>
+                                        <div className="bg-white rounded-lg p-2 text-center border border-purple-200">
+                                            <div className="text-base font-bold text-purple-700">{(result.images.totalBytes / (1024 * 1024)).toFixed(1)}</div>
+                                            <div className="text-[10px] text-slate-500">MB used</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Column mapping accordion (CSV only) */}
+                            {result.mapping && (
+                                <>
+                                    <button
+                                        onClick={() => setShowMappingDetails(v => !v)}
+                                        className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                                    >
+                                        <span className="flex items-center gap-1.5">
+                                            <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                                            AI column mapping used
+                                        </span>
+                                        {showMappingDetails ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                                    </button>
+                                    {showMappingDetails && (
+                                        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1">
+                                            {Object.entries(result.mapping).filter(([, v]) => v !== null).map(([field, col]) => (
+                                                <div key={field} className="flex items-center gap-2 text-xs">
+                                                    <span className="font-mono text-slate-500 w-32 shrink-0">{field}</span>
+                                                    <span className="text-slate-400">←</span>
+                                                    <span className="font-mono text-slate-700">{col}</span>
+                                                </div>
+                                            ))}
+                                            {Object.entries(result.mapping).filter(([, v]) => v === null).length > 0 && (
+                                                <div className="pt-1 border-t border-slate-200 mt-1">
+                                                    <p className="text-[10px] text-slate-400">Not found: {Object.entries(result.mapping).filter(([, v]) => v === null).map(([f]) => f).join(', ')}</p>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
-                                </div>
+                                </>
                             )}
 
                             {/* Errors accordion */}
@@ -513,7 +640,7 @@ export default function CsvImportModal({ siteId, type, onClose, onImported }: Cs
                                 {uploading ? (
                                     <>
                                         <Loader2 className="w-4 h-4 animate-spin" />
-                                        Importing...
+                                        {fileFormat === 'json' ? 'Importing (downloading images)...' : 'Importing...'}
                                     </>
                                 ) : (
                                     <>

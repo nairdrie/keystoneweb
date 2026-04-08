@@ -41,8 +41,8 @@ const canvasToFile = (
  * (and for PNGs/WebPs that are still too large after the first pass).
  */
 const compressImage = async (file: File): Promise<File> => {
-  // Skip compression for non-images or SVGs
-  if (!file.type.startsWith('image/') || file.type === 'image/svg+xml') {
+  // Skip compression for non-images, SVGs, or ICO files (Canvas can't handle ICO)
+  if (!file.type.startsWith('image/') || file.type === 'image/svg+xml' || file.type === 'image/x-icon' || file.type === 'image/vnd.microsoft.icon') {
     return file;
   }
 

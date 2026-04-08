@@ -127,6 +127,7 @@ async function renderHomePage(
     // Use precomputed flags from publish time
     const hasProductBlock = !!(sitePublishData as any).__hasProductBlock;
     const hasMembershipBlock = !!(sitePublishData as any).__hasMembershipBlock;
+    const hasChatSupportBlock = !!(sitePublishData as any).__hasChatSupportBlock;
 
     const mergedPublishData = {
         ...translatedSiteData,
@@ -136,6 +137,7 @@ async function renderHomePage(
         __translationsConfig: config,
         __hasProductBlock: hasProductBlock,
         __hasMembershipBlock: hasMembershipBlock,
+        __hasChatSupportBlock: hasChatSupportBlock,
     };
 
     const TemplateComp = await getTemplateComponent(site.selected_template_id);
@@ -229,6 +231,7 @@ async function renderPage(
     // Use precomputed flags from publish time
     const hasProductBlock = !!(sitePublishData as any).__hasProductBlock;
     const hasMembershipBlock = !!(sitePublishData as any).__hasMembershipBlock;
+    const hasChatSupportBlock = !!(sitePublishData as any).__hasChatSupportBlock;
 
     const mergedPublishData = {
         ...translatedSiteData,
@@ -238,6 +241,7 @@ async function renderPage(
         __translationsConfig: config,
         __hasProductBlock: hasProductBlock,
         __hasMembershipBlock: hasMembershipBlock,
+        __hasChatSupportBlock: hasChatSupportBlock,
     };
 
     const TemplateComp = await getTemplateComponent(site.selected_template_id);
