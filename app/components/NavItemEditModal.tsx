@@ -73,10 +73,8 @@ export default function NavItemEditModal({
             .then(r => r.json())
             .then(data => {
                 const page = (data.pages || []).find((p: any) => p.id === sectionPageId);
-                const pageBlocks: BlockData[] = page?.design_data?.__blocks || [];
-                // If API returned nothing, fall back to the passed blocks prop
-                // (covers the case where sectionPageId matches the current page)
-                setTargetBlocks(pageBlocks.length > 0 ? pageBlocks : blocks);
+                const pageBlocks: BlockData[] = page?.design_data?.blocks || page?.design_data?.__blocks || [];
+                setTargetBlocks(pageBlocks);
             })
             .catch(() => setTargetBlocks(blocks))
             .finally(() => setIsFetchingBlocks(false));
