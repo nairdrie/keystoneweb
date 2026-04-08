@@ -36,10 +36,38 @@ export async function POST(req: NextRequest) {
     const os = detectOS(ua);
 
     const admin = createAdminClient();
+    const normalizedPath = pagePath || '/';
+
+    // Deduplication: check for an existing visit from the same visitor
+    // on the same site+page within the last 5 minutes. Uses the
+    // site_visits_site_visitor index on (site_id, visitor_hash, created_at DESC).
+    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const { data: existing } = await admin
+      .from('site_visits')
+      .select('id')
+      .eq('site_id', siteId)
+      .eq('visitor_hash', visitorHash)
+      .eq('page_path', normalizedPath)
+      .gte('created_at', fiveMinAgo)
+      .limit(1)
+      .single();
+
+    if (existing) {
+      // Duplicate visit — if this is a duration update (beacon on page hide),
+      // update the existing row instead of inserting a new one.
+      if (durationMs) {
+        await admin
+          .from('site_visits')
+          .update({ duration_ms: durationMs })
+          .eq('id', existing.id);
+      }
+      return NextResponse.json({ ok: true });
+    }
+
     await admin.from('site_visits').insert({
       site_id: siteId,
       visitor_hash: visitorHash,
-      page_path: pagePath || '/',
+      page_path: normalizedPath,
       referrer: referrer || null,
       referrer_source: referrerSource,
       device_type: deviceType,

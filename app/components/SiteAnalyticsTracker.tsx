@@ -35,21 +35,44 @@ export default function SiteAnalyticsTracker({ siteId }: { siteId: string }) {
     }
 
     const sessionId = getSessionId();
+    const pagePath = window.location.pathname;
 
-    // Fire the page view
-    const payload = {
-      siteId,
-      pagePath: window.location.pathname,
-      referrer: document.referrer || null,
-      sessionId,
-    };
+    // Throttle: skip the page-view call if this exact page was tracked
+    // within the last 5 seconds (prevents double-fires from React Strict
+    // Mode, fast navigations, and re-renders).
+    const THROTTLE_KEY = `ks_track_${siteId}`;
+    const THROTTLE_MS = 5000;
+    let shouldTrack = true;
+    try {
+      const prev = sessionStorage.getItem(THROTTLE_KEY);
+      if (prev) {
+        const { path, ts } = JSON.parse(prev);
+        if (path === pagePath && Date.now() - ts < THROTTLE_MS) {
+          shouldTrack = false;
+        }
+      }
+    } catch { /* ignore */ }
 
-    fetch('/api/sites/analytics/track', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      keepalive: true,
-    }).catch(() => {}); // fire-and-forget
+    if (shouldTrack) {
+      try {
+        sessionStorage.setItem(THROTTLE_KEY, JSON.stringify({ path: pagePath, ts: Date.now() }));
+      } catch { /* ignore */ }
+
+      // Fire the page view
+      const payload = {
+        siteId,
+        pagePath,
+        referrer: document.referrer || null,
+        sessionId,
+      };
+
+      fetch('/api/sites/analytics/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      }).catch(() => {}); // fire-and-forget
+    }
 
     // Send duration on page unload via beacon
     const sendDuration = () => {

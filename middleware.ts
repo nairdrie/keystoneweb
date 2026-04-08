@@ -157,7 +157,14 @@ export async function middleware(request: NextRequest) {
     const rewriteUrl = request.nextUrl.clone();
     rewriteUrl.pathname = `/public/${subdomain}${pathname}`;
     console.log(`[Middleware] Rewriting to: ${rewriteUrl.pathname}${rewriteUrl.search}`);
-    return NextResponse.rewrite(rewriteUrl);
+    const subdomainResponse = NextResponse.rewrite(rewriteUrl);
+    // Cache published site pages at Vercel's edge CDN to reduce serverless
+    // invocations and DB queries from repeated/abusive requests.
+    subdomainResponse.headers.set(
+      'Cache-Control',
+      'public, s-maxage=60, stale-while-revalidate=300'
+    );
+    return subdomainResponse;
   }
 
   // ============================================================
@@ -224,7 +231,14 @@ export async function middleware(request: NextRequest) {
     const rewriteUrl = request.nextUrl.clone();
     rewriteUrl.pathname = `/${cleanDomain}${pathname}`;
     console.log(`[Middleware] Rewriting custom domain to: ${rewriteUrl.pathname}${rewriteUrl.search}`);
-    return NextResponse.rewrite(rewriteUrl);
+    const customDomainResponse = NextResponse.rewrite(rewriteUrl);
+    // Cache published site pages at Vercel's edge CDN to reduce serverless
+    // invocations and DB queries from repeated/abusive requests.
+    customDomainResponse.headers.set(
+      'Cache-Control',
+      'public, s-maxage=60, stale-while-revalidate=300'
+    );
+    return customDomainResponse;
   }
 
   if (!isAppDomain) {
