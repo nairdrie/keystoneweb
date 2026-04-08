@@ -43,19 +43,22 @@ export async function GET(request: NextRequest) {
       { stripeAccount: site.stripe_account_id }
     );
 
-    const codes = promoCodes.data.map(pc => ({
-      id: pc.id,
-      code: pc.code,
-      active: pc.active,
-      couponId: pc.coupon.id,
-      percentOff: typeof pc.coupon === 'object' ? pc.coupon.percent_off : null,
-      amountOff: typeof pc.coupon === 'object' ? pc.coupon.amount_off : null,
-      currency: typeof pc.coupon === 'object' ? pc.coupon.currency : null,
-      maxRedemptions: pc.max_redemptions,
-      timesRedeemed: pc.times_redeemed,
-      expiresAt: pc.expires_at ? new Date(pc.expires_at * 1000).toISOString() : null,
-      created: new Date(pc.created * 1000).toISOString(),
-    }));
+    const codes = promoCodes.data.map(pc => {
+      const coupon = (pc as any).coupon as Stripe.Coupon | undefined;
+      return {
+        id: pc.id,
+        code: pc.code,
+        active: pc.active,
+        couponId: coupon?.id ?? null,
+        percentOff: coupon?.percent_off ?? null,
+        amountOff: coupon?.amount_off ?? null,
+        currency: coupon?.currency ?? null,
+        maxRedemptions: pc.max_redemptions,
+        timesRedeemed: pc.times_redeemed,
+        expiresAt: pc.expires_at ? new Date(pc.expires_at * 1000).toISOString() : null,
+        created: new Date(pc.created * 1000).toISOString(),
+      };
+    });
 
     return NextResponse.json({ promoCodes: codes });
   } catch (error: any) {
