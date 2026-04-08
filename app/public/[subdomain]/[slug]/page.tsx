@@ -7,6 +7,7 @@ import LanguageSelector from '@/app/components/LanguageSelector';
 import JsonLdScript from '@/app/components/JsonLdScript';
 import { BusinessProfile } from '@/lib/types/sites';
 import SiteNotFound from '@/app/components/SiteNotFound';
+import { extractTestimonials } from '@/lib/seo/testimonials';
 import {
     fetchTranslationsConfig,
     fetchSiteTranslations,
@@ -18,8 +19,65 @@ import {
     isMemberSystemRoute,
     renderMemberSystemPage,
 } from '@/lib/membership/system-routes';
+import type { Metadata } from 'next';
+import {
+    buildSiteMetadata,
+    cleanSeoTitle,
+    cleanSeoDescription,
+    buildCanonicalUrl,
+    buildHreflangAlternates,
+} from '@/lib/seo/metadata';
 
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata({
+    params,
+}: {
+    params: Promise<{ subdomain: string; slug: string }>;
+}): Promise<Metadata> {
+    const { subdomain, slug } = await params;
+    const supabase = await createClient();
+
+    const { data: site } = await supabase
+        .from('sites')
+        .select('id, published_data, custom_domain, business_profile, translations_config')
+        .eq('published_domain', subdomain)
+        .eq('is_published', true)
+        .single();
+
+    if (!site) return { title: 'Page Not Found' };
+
+    const siteData = (site.published_data as any) || {};
+    const siteTitle = cleanSeoTitle(siteData, `${subdomain}.kswd.ca`);
+
+    // Fetch page-level SEO data
+    const { data: page } = await supabase
+        .from('pages')
+        .select('published_data, title')
+        .eq('site_id', site.id)
+        .eq('slug', slug)
+        .single();
+
+    const pageData = (page?.published_data as any) || {};
+    const pageTitle = pageData.seoTitle || page?.title || slug;
+    const description = pageData.seoDescription || cleanSeoDescription(siteData);
+    const canonicalUrl = buildCanonicalUrl(subdomain, site.custom_domain, slug);
+    const alternateLanguages = buildHreflangAlternates(
+        buildCanonicalUrl(subdomain, site.custom_domain),
+        site.translations_config,
+        slug,
+    );
+
+    return buildSiteMetadata({
+        siteTitle,
+        pageTitle: `${pageTitle} | ${siteTitle}`,
+        description,
+        canonicalUrl,
+        publishedData: { ...siteData, ...pageData },
+        businessProfile: site.business_profile,
+        alternateLanguages,
+    });
+}
 
 export default async function PublicSiteDynamicPage({
     params,
@@ -151,6 +209,7 @@ async function renderHomePage(
                     businessProfile={site.business_profile as BusinessProfile}
                     siteUrl={`https://${subdomain}.kswd.ca/${language}`}
                     socialLinks={(mergedPublishData as any).socialLinks}
+                    testimonials={extractTestimonials(mergedPublishData)}
                 />
             )}
             <EditorContent
@@ -256,6 +315,7 @@ async function renderPage(
                     businessProfile={site.business_profile as BusinessProfile}
                     siteUrl={`https://${subdomain}.kswd.ca/${pageSlug}`}
                     socialLinks={(mergedPublishData as any).socialLinks}
+                    testimonials={extractTestimonials(mergedPublishData)}
                 />
             )}
             <EditorContent

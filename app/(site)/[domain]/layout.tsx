@@ -2,6 +2,13 @@ import { ReactNode } from 'react';
 import { createClient } from '@/lib/db/supabase-server';
 import type { Metadata } from 'next';
 import SiteNotFound from '@/app/components/SiteNotFound';
+import {
+  buildSiteMetadata,
+  cleanSeoTitle,
+  cleanSeoDescription,
+  buildCanonicalUrl,
+  buildHreflangAlternates,
+} from '@/lib/seo/metadata';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,12 +22,12 @@ interface SiteLayoutProps {
 export async function generateMetadata({ params }: SiteLayoutProps): Promise<Metadata> {
   const { domain } = await params;
   const supabase = await createClient();
-  
+
   const cleanDomain = domain.replace('www.', '');
 
   const { data: site } = await supabase
     .from('sites')
-    .select('published_data')
+    .select('published_data, published_domain, business_profile, translations_config')
     .eq('custom_domain', cleanDomain)
     .eq('is_published', true)
     .single();
@@ -33,12 +40,23 @@ export async function generateMetadata({ params }: SiteLayoutProps): Promise<Met
   }
 
   const publishedData = (site.published_data as any) || {};
+  const title = cleanSeoTitle(publishedData, cleanDomain);
+  const description = cleanSeoDescription(publishedData);
+  // Canonical always points to custom domain when available
+  const canonicalUrl = buildCanonicalUrl(site.published_domain, cleanDomain);
+  const alternateLanguages = buildHreflangAlternates(
+    canonicalUrl,
+    site.translations_config,
+  );
 
-  const rawTitle = publishedData.seoTitle || publishedData.siteTitle || publishedData.title || cleanDomain;
-  const title = rawTitle.replace(/\{\{(.*?)\}\}/g, '$1').replace(/\\n|\n/g, ' ');
-  const description = publishedData.seoDescription || publishedData.tagline || publishedData.description || 'A site built with Keystone Web.';
-
-  return { title, description };
+  return buildSiteMetadata({
+    siteTitle: title,
+    description,
+    canonicalUrl,
+    publishedData,
+    businessProfile: site.business_profile,
+    alternateLanguages,
+  });
 }
 
 export default async function SiteLayout({
@@ -58,7 +76,7 @@ export default async function SiteLayout({
 
   if (!site) {
     return (
-      <SiteNotFound 
+      <SiteNotFound
         message="The site for this domain is not public or does not exist. Are you the owner?"
         ctaText="Login to manage domain"
         domain={cleanDomain}

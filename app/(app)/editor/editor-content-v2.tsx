@@ -1112,6 +1112,10 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
           onDismissAiUpgradeModal={aiBuilder.dismissUpgradeModal}
           aiRemaining={aiBuilder.remaining}
           focusAiBuilder={focusAiBuilder}
+          currentPageTitle={currentPage?.title || ''}
+          currentPageSeoTitle={editableContent.seoTitle || ''}
+          currentPageSeoDescription={editableContent.seoDescription || ''}
+          onPageSeoUpdate={(field, value) => handleUpdateContent(field, value)}
           onHistoryRevert={() => {
             // Re-fetch site and pages to reflect the reverted state
             if (siteId) {

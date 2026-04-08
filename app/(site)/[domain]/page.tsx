@@ -6,6 +6,7 @@ import JsonLdScript from '@/app/components/JsonLdScript';
 import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
 import { BusinessProfile } from '@/lib/types/sites';
 import SiteNotFound from '@/app/components/SiteNotFound';
+import { extractTestimonials } from '@/lib/seo/testimonials';
 
 export const dynamic = 'force-dynamic';
 
@@ -103,6 +104,7 @@ export default async function CustomDomainPage({
             businessProfile={site.business_profile as BusinessProfile}
             siteUrl={`https://${domain}`}
             socialLinks={(mergedPublishData as any).socialLinks}
+            testimonials={extractTestimonials(mergedPublishData)}
           />
         )}
         <EditorContent
