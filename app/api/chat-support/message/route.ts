@@ -345,56 +345,9 @@ ${siteContext || 'No additional site information available.'}`;
 
     try {
       if (apiProvider === 'anthropic') {
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey!,
-            'anthropic-version': '2023-06-01',
-          },
-          body: JSON.stringify({
-            model: modelId,
-            max_tokens: 512,
-            system: systemPrompt,
-            messages: [
-              ...conversationHistory,
-              { role: 'user', content: message },
-            ],
-          }),
-        });
-
-        if (!res.ok) {
-          console.error('Chat support AI error:', res.status, await res.text());
-          throw new Error('AI unavailable');
-        }
-
-        const data = await res.json();
-        aiReply = data.content?.[0]?.text || '';
+        aiReply = await callAnthropic(apiKey!, modelId, systemPrompt, conversationHistory, message);
       } else {
-        const res = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify({
-            model: modelId,
-            max_tokens: 512,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              ...conversationHistory,
-              { role: 'user', content: message },
-            ],
-          }),
-        });
-
-        if (!res.ok) {
-          console.error('Chat support AI error:', res.status, await res.text());
-          throw new Error('AI unavailable');
-        }
-
-        const data = await res.json();
-        aiReply = data.choices?.[0]?.message?.content || '';
+        aiReply = await callOpenAI(apiKey!, modelId, systemPrompt, conversationHistory, message);
       }
     } catch {
       const fallbackReply = contactEmail
@@ -430,4 +383,63 @@ ${siteContext || 'No additional site information available.'}`;
     console.error('Chat support error:', err);
     return NextResponse.json({ reply: 'Something went wrong. Please try again.' });
   }
+}
+
+// ── AI provider helpers (mirrors ai/builder/route.ts) ───────────────────────
+
+async function callAnthropic(apiKey: string, model: string, system: string, history: any[], latestUserMessage: string): Promise<string> {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 512,
+      system,
+      messages: [
+        ...history,
+        { role: 'user', content: latestUserMessage },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.text();
+    console.error(`Anthropic API error ${res.status}:`, errBody);
+    throw new Error('AI service unavailable.');
+  }
+
+  const data = await res.json();
+  return data.content?.[0]?.text || '';
+}
+
+async function callOpenAI(apiKey: string, model: string, system: string, history: any[], latestUserMessage: string): Promise<string> {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 512,
+      messages: [
+        { role: 'system', content: system },
+        ...history,
+        { role: 'user', content: latestUserMessage },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.text();
+    console.error(`OpenAI API error ${res.status}:`, errBody);
+    throw new Error('AI service unavailable.');
+  }
+
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content || '';
 }
