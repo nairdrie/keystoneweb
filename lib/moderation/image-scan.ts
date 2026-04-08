@@ -55,13 +55,22 @@ async function checkArachnidShield(buffer: Buffer): Promise<ImageModerationResul
   const formData = new FormData();
   formData.append('media', new Blob([new Uint8Array(buffer)]), 'upload');
 
-  const response = await fetch('https://shield.projectarachnid.ca/v1/media/scan', {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${credentials}`,
-    },
-    body: formData,
-  });
+  let response: Response;
+  try {
+    response = await fetch('https://shield.projectarachnid.com/v1/media/scan', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${credentials}`,
+      },
+      body: formData,
+    });
+  } catch (err) {
+    console.error('[moderation] Arachnid Shield network error:', err);
+    if (process.env.MODERATION_STRICT === 'true') {
+      throw new Error('Arachnid Shield unreachable (MODERATION_STRICT=true)');
+    }
+    return null;
+  }
 
   if (!response.ok) {
     const text = await response.text();
@@ -166,22 +175,31 @@ async function checkVisionSafeSearch(buffer: Buffer): Promise<ImageModerationRes
 
   const base64Image = buffer.toString('base64');
 
-  const response = await fetch(
-    'https://vision.googleapis.com/v1/images:annotate',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        requests: [{
-          image: { content: base64Image },
-          features: [{ type: 'SAFE_SEARCH_DETECTION' }],
-        }],
-      }),
+  let response: Response;
+  try {
+    response = await fetch(
+      'https://vision.googleapis.com/v1/images:annotate',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          requests: [{
+            image: { content: base64Image },
+            features: [{ type: 'SAFE_SEARCH_DETECTION' }],
+          }],
+        }),
+      }
+    );
+  } catch (err) {
+    console.error('[moderation] Google Vision network error:', err);
+    if (process.env.MODERATION_STRICT === 'true') {
+      throw new Error('Google Vision unreachable (MODERATION_STRICT=true)');
     }
-  );
+    return null;
+  }
 
   if (!response.ok) {
     const text = await response.text();
