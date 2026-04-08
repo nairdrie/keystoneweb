@@ -105,14 +105,14 @@ export async function POST(request: NextRequest) {
     });
 
     // Create promotion code wrapping the coupon
-    const promoParams: Stripe.PromotionCodeCreateParams = {
+    const promoParams: Record<string, any> = {
       coupon: coupon.id,
       code: code.toUpperCase(),
     };
     if (maxRedemptions) promoParams.max_redemptions = maxRedemptions;
     if (expiresAt) promoParams.expires_at = Math.floor(new Date(expiresAt).getTime() / 1000);
 
-    const promoCode = await stripe.promotionCodes.create(promoParams, {
+    const promoCode = await stripe.promotionCodes.create(promoParams as any, {
       stripeAccount: site.stripe_account_id,
     });
 
