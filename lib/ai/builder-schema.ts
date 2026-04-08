@@ -183,12 +183,7 @@ AVAILABLE BLOCK TYPES AND THEIR DATA SCHEMAS:
       }>   // 2–8 items recommended
     }
 
-24. "chatSupport" — AI chat support widget (floating panel, Pro only)
-    data: {}
-    NOTE: This block has no inline content — it renders a floating chat widget on the published site.
-    Only one chatSupport block should exist per site. Adding it enables the AI support agent.
-
-25. "deliveryLinks" — Delivery app link buttons (Uber Eats, DoorDash, Skip the Dishes, Grubhub, custom)
+24. "deliveryLinks" — Delivery app link buttons (Uber Eats, DoorDash, Skip the Dishes, Grubhub, custom)
     data: {
       title: string,          // e.g. "Order Online"
       subtitle: string,       // e.g. "Fresh food delivered to your door"

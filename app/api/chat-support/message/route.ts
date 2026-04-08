@@ -178,6 +178,9 @@ async function gatherSiteContext(
 // ── POST /api/chat-support/message ──────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  // Feature is hidden — not yet released
+  return NextResponse.json({ reply: 'Chat support is not available yet.' }, { status: 503 });
+
   try {
     const body = await req.json();
     const { siteId, sessionId, message, history } = body;
