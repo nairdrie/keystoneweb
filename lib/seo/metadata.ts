@@ -81,7 +81,11 @@ export function buildSiteMetadata({
  * Extract the SEO title, cleaning template markers and newlines.
  */
 export function cleanSeoTitle(publishedData: Record<string, any>, fallback: string): string {
-  const raw = publishedData.seoTitle || publishedData.siteTitle || publishedData.title || fallback;
+  const raw =
+    (publishedData.seoTitle?.trim()) ||
+    (publishedData.siteTitle?.trim()) ||
+    (publishedData.title?.trim()) ||
+    fallback;
   return raw.replace(/\{\{(.*?)\}\}/g, '$1').replace(/\\n|\n/g, ' ');
 }
 
