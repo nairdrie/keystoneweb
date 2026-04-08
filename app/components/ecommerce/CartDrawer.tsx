@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Plus, Minus, ShoppingBag, Trash2, Loader2, Check, ArrowRight, User, Mail, Phone, MapPin, CreditCard, DollarSign } from 'lucide-react';
+import { X, Plus, Minus, ShoppingBag, Trash2, Loader2, Check, ArrowRight, User, Mail, Phone, CreditCard, DollarSign, Truck, AlertCircle, Package } from 'lucide-react';
 import { useCart } from './CartProvider';
+import AddressAutocomplete from './AddressAutocomplete';
+import { COUNTRIES, REGIONS, getCountryName } from '@/lib/shipping-data';
 
 interface PaymentMethods {
     etransfer?: boolean;
@@ -13,7 +15,17 @@ interface PaymentMethods {
 interface EcommerceSettings {
     payment_methods: PaymentMethods;
     etransfer_email: string | null;
+    shipping_required?: boolean;
 }
+
+interface ShippingResult {
+    zone: { id: string; name: string; is_local_pickup: boolean };
+    shippingCents: number;
+    shippingLabel: string;
+    freeThresholdCents: number | null;
+}
+
+type Step = 'cart' | 'address' | 'payment' | 'confirmation';
 
 interface CartDrawerProps {
     siteId: string;
@@ -22,14 +34,25 @@ interface CartDrawerProps {
 
 export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
     const cart = useCart();
-    const [step, setStep] = useState<'cart' | 'checkout' | 'confirmation'>('cart');
+    const [step, setStep] = useState<Step>('cart');
     const [submitting, setSubmitting] = useState(false);
     const [confirmation, setConfirmation] = useState<any>(null);
-    const [form, setForm] = useState({ name: '', email: '', phone: '', line1: '', city: '', province: '', postal: '' });
+    const [form, setForm] = useState({
+        name: '', email: '', phone: '',
+        line1: '', city: '', region: '', postal: '', country: 'CA',
+    });
     const [selectedPayment, setSelectedPayment] = useState<'etransfer' | 'stripe'>('etransfer');
     const [ecomSettings, setEcomSettings] = useState<EcommerceSettings | null>(null);
     const [stripeConnected, setStripeConnected] = useState(false);
     const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+    // Shipping
+    const [shippingResult, setShippingResult] = useState<ShippingResult | null>(null);
+    const [shippingError, setShippingError] = useState<string | null>(null);
+    const [shippingLoading, setShippingLoading] = useState(false);
+    const [noZonesConfigured, setNoZonesConfigured] = useState(false);
+
+    const shippingRequired = ecomSettings?.shipping_required !== false;
 
     // Fetch ecommerce settings when drawer opens
     useEffect(() => {
@@ -41,7 +64,6 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                 setEcomSettings(data.settings);
                 setStripeConnected(data.stripeConnected || false);
 
-                // Auto-select the first available payment method
                 const pm = data.settings?.payment_methods || {};
                 if (pm.stripe && data.stripeConnected) {
                     setSelectedPayment('stripe');
@@ -56,13 +78,54 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
         })();
     }, [cart?.isCartOpen, siteId, settingsLoaded]);
 
+    // Calculate shipping when address is complete or when moving to payment step
+    const calculateShipping = useCallback(async () => {
+        if (!form.country || !shippingRequired) return;
+
+        setShippingLoading(true);
+        setShippingError(null);
+        setNoZonesConfigured(false);
+
+        try {
+            const res = await fetch('/api/shipping-zones/calculate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    siteId,
+                    country: form.country,
+                    region: form.region,
+                    subtotalCents: cart?.subtotalCents || 0,
+                }),
+            });
+            const data = await res.json();
+
+            if (data.error === 'no_zones') {
+                setNoZonesConfigured(true);
+                setShippingResult(null);
+            } else if (data.error === 'no_zone') {
+                setShippingError(data.message || "We don't currently ship to this area.");
+                setShippingResult(null);
+            } else if (data.zone) {
+                setShippingResult(data);
+            }
+        } catch {
+            setShippingError('Failed to calculate shipping.');
+        } finally {
+            setShippingLoading(false);
+        }
+    }, [siteId, form.country, form.region, cart?.subtotalCents, shippingRequired]);
+
     if (!cart || !cart.isCartOpen) return null;
 
     const pSecondary = palette.secondary || '#dc2626';
     const currency = cart.items[0]?.currency || 'CAD';
-    const total = `$${(cart.subtotalCents / 100).toFixed(2)}`;
+    const subtotal = cart.subtotalCents;
+    const shippingCents = shippingResult?.shippingCents ?? 0;
+    const totalCents = subtotal + (shippingRequired ? shippingCents : 0);
+    const subtotalStr = `$${(subtotal / 100).toFixed(2)}`;
+    const totalStr = `$${(totalCents / 100).toFixed(2)}`;
 
-    // Determine available payment methods
+    // Available payment methods
     const pm = ecomSettings?.payment_methods || {};
     const availableMethods: Array<{ key: 'etransfer' | 'stripe'; label: string; desc: string; icon: typeof CreditCard }> = [];
     if (pm.stripe && stripeConnected) {
@@ -72,12 +135,33 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
         availableMethods.push({ key: 'etransfer', label: 'Interac e-Transfer', desc: 'Send payment via Interac', icon: DollarSign });
     }
 
+    // Validation helpers
+    const addressComplete = form.line1.trim() && form.city.trim() && form.region.trim() && form.postal.trim() && form.country;
+    const contactComplete = form.name.trim() && form.email.trim();
+    const canPlaceOrder = contactComplete && (!shippingRequired || (addressComplete && shippingResult && !shippingError));
+
+    // Region options for selected country
+    const regionOptions = REGIONS[form.country] || [];
+
+    const handleAddressPlaceSelected = (fields: { line1: string; city: string; region: string; postal: string; country: string }) => {
+        setForm(f => ({ ...f, ...fields }));
+        // Reset shipping when address changes
+        setShippingResult(null);
+        setShippingError(null);
+    };
+
+    const handleProceedToPayment = async () => {
+        if (shippingRequired) {
+            await calculateShipping();
+        }
+        setStep('payment');
+    };
+
     const handleCheckout = async () => {
-        if (!form.name.trim() || !form.email.trim()) return;
+        if (!canPlaceOrder) return;
         setSubmitting(true);
 
         try {
-            // Step 1: Create the order
             const orderRes = await fetch('/api/products/orders', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -95,12 +179,15 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                     customerName: form.name,
                     customerEmail: form.email,
                     customerPhone: form.phone || undefined,
-                    shippingAddress: form.line1 ? {
+                    shippingAddress: shippingRequired ? {
                         line1: form.line1,
                         city: form.city,
-                        province: form.province,
+                        region: form.region,
                         postal: form.postal,
+                        country: form.country,
                     } : undefined,
+                    shippingCents: shippingRequired ? shippingCents : 0,
+                    shippingMethod: shippingRequired ? (shippingResult?.shippingLabel || '') : undefined,
                     paymentMethod: selectedPayment,
                 }),
             });
@@ -112,9 +199,8 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                 return;
             }
 
-            // Step 2: Handle payment based on method
+            // Handle Stripe payment
             if (selectedPayment === 'stripe' && orderData.order?.id) {
-                // Create Stripe Checkout session and redirect
                 const currentUrl = window.location.href;
                 const stripeRes = await fetch('/api/stripe/checkout', {
                     method: 'POST',
@@ -133,11 +219,10 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                     return;
                 } else {
                     console.error('Stripe checkout failed:', stripeData);
-                    // Fall through to show confirmation without Stripe
                 }
             }
 
-            // For e-transfer and "none" payment: show confirmation
+            // For e-transfer / none: show confirmation
             setConfirmation(orderData);
             setStep('confirmation');
             cart.clearCart();
@@ -150,15 +235,20 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
 
     const handleClose = () => {
         cart.setCartOpen(false);
-        setTimeout(() => { setStep('cart'); setConfirmation(null); }, 300);
+        setTimeout(() => {
+            setStep('cart');
+            setConfirmation(null);
+            setShippingResult(null);
+            setShippingError(null);
+        }, 300);
     };
+
+    const stepTitle = step === 'cart' ? 'Your Cart' : step === 'address' ? 'Shipping Address' : step === 'payment' ? 'Review & Pay' : 'Order Confirmed';
 
     return createPortal(
         <div className="fixed inset-0 z-[9999] flex justify-end" onClick={handleClose}>
-            {/* Overlay */}
             <div className="absolute inset-0 bg-black/30" />
 
-            {/* Drawer */}
             <div
                 className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
                 onClick={e => e.stopPropagation()}
@@ -167,14 +257,32 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                 <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
                     <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                         <ShoppingBag className="w-5 h-5" />
-                        {step === 'cart' ? 'Your Cart' : step === 'checkout' ? 'Checkout' : 'Order Confirmed'}
+                        {stepTitle}
                     </h2>
                     <button onClick={handleClose} className="p-1 hover:bg-slate-100 rounded-lg"><X className="w-5 h-5 text-slate-500" /></button>
                 </div>
 
+                {/* Step indicator */}
+                {step !== 'confirmation' && cart.items.length > 0 && (
+                    <div className="px-5 pt-3 pb-1 flex items-center gap-1.5 text-xs">
+                        {(['cart', ...(shippingRequired ? ['address'] : []), 'payment'] as Step[]).map((s, i, arr) => (
+                            <span key={s} className="flex items-center gap-1.5">
+                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                                    s === step ? 'bg-slate-900 text-white' :
+                                    arr.indexOf(step) > i ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'
+                                }`}>{i + 1}</span>
+                                <span className={`${s === step ? 'text-slate-900 font-semibold' : 'text-slate-400'}`}>
+                                    {s === 'cart' ? 'Cart' : s === 'address' ? 'Address' : 'Pay'}
+                                </span>
+                                {i < arr.length - 1 && <span className="text-slate-300 mx-0.5">—</span>}
+                            </span>
+                        ))}
+                    </div>
+                )}
+
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto">
-                    {/* Cart Items */}
+                    {/* ── Cart step ── */}
                     {step === 'cart' && (
                         <div className="p-5">
                             {cart.items.length === 0 ? (
@@ -217,23 +325,10 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                         </div>
                     )}
 
-                    {/* Checkout Form */}
-                    {step === 'checkout' && (
+                    {/* ── Address step ── */}
+                    {step === 'address' && (
                         <div className="p-5 space-y-4">
-                            {/* Order summary */}
-                            <div className="bg-slate-50 rounded-xl p-3 text-sm">
-                                {cart.items.map((item, i) => (
-                                    <div key={i} className="flex justify-between py-1">
-                                        <span className="text-slate-600">{item.qty}x {item.name}</span>
-                                        <span className="font-medium text-slate-900">${(item.price_cents * item.qty / 100).toFixed(2)}</span>
-                                    </div>
-                                ))}
-                                <div className="flex justify-between pt-2 mt-2 border-t border-slate-200">
-                                    <span className="font-bold text-slate-900">Total</span>
-                                    <span className="font-bold" style={{ color: pSecondary }}>{total}</span>
-                                </div>
-                            </div>
-
+                            {/* Contact info */}
                             <div>
                                 <label className="text-sm font-medium text-slate-700 block mb-1">Full Name *</label>
                                 <div className="relative">
@@ -256,20 +351,182 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="text-sm font-medium text-slate-700 block mb-1">Shipping Address</label>
-                                <div className="space-y-2">
-                                    <div className="relative">
-                                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                        <input type="text" value={form.line1} onChange={e => setForm({ ...form, line1: e.target.value })} className="w-full pl-10 pr-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Street address" />
+                            {/* Shipping address */}
+                            <div className="pt-2 border-t border-slate-100">
+                                <p className="text-sm font-semibold text-slate-800 mb-3 flex items-center gap-1.5">
+                                    <Truck className="w-4 h-4 text-slate-500" /> Shipping Address
+                                </p>
+
+                                {/* Country */}
+                                <div className="mb-2">
+                                    <label className="text-xs font-medium text-slate-600 block mb-1">Country *</label>
+                                    <select
+                                        value={form.country}
+                                        onChange={e => setForm({ ...form, country: e.target.value, region: '' })}
+                                        className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        {COUNTRIES.map(c => (
+                                            <option key={c.code} value={c.code}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Street address with autocomplete */}
+                                <div className="mb-2">
+                                    <label className="text-xs font-medium text-slate-600 block mb-1">Street Address *</label>
+                                    <AddressAutocomplete
+                                        value={form.line1}
+                                        onChange={val => setForm({ ...form, line1: val })}
+                                        onPlaceSelected={handleAddressPlaceSelected}
+                                        placeholder="Street address"
+                                    />
+                                </div>
+
+                                {/* City + Region */}
+                                <div className="flex gap-2 mb-2">
+                                    <div className="flex-1">
+                                        <label className="text-xs font-medium text-slate-600 block mb-1">City *</label>
+                                        <input type="text" value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="City" />
                                     </div>
-                                    <div className="flex gap-2">
-                                        <input type="text" value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} className="flex-1 px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="City" />
-                                        <input type="text" value={form.province} onChange={e => setForm({ ...form, province: e.target.value })} className="w-20 px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Prov" />
+                                    <div className="w-28">
+                                        <label className="text-xs font-medium text-slate-600 block mb-1">
+                                            {form.country === 'US' ? 'State' : 'Province'} *
+                                        </label>
+                                        {regionOptions.length > 0 ? (
+                                            <select
+                                                value={form.region}
+                                                onChange={e => setForm({ ...form, region: e.target.value })}
+                                                className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="">Select</option>
+                                                {regionOptions.map(r => (
+                                                    <option key={r.code} value={r.code}>{r.code}</option>
+                                                ))}
+                                            </select>
+                                        ) : (
+                                            <input type="text" value={form.region} onChange={e => setForm({ ...form, region: e.target.value })} className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Region" />
+                                        )}
                                     </div>
-                                    <input type="text" value={form.postal} onChange={e => setForm({ ...form, postal: e.target.value })} className="w-32 px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Postal code" />
+                                </div>
+
+                                {/* Postal */}
+                                <div>
+                                    <label className="text-xs font-medium text-slate-600 block mb-1">Postal / ZIP Code *</label>
+                                    <input type="text" value={form.postal} onChange={e => setForm({ ...form, postal: e.target.value })} className="w-40 px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder={form.country === 'US' ? '10001' : 'A1B 2C3'} />
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* ── Payment step ── */}
+                    {step === 'payment' && (
+                        <div className="p-5 space-y-4">
+                            {/* Contact info (shown here when no shipping step) */}
+                            {!shippingRequired && (
+                                <>
+                                    <div>
+                                        <label className="text-sm font-medium text-slate-700 block mb-1">Full Name *</label>
+                                        <div className="relative">
+                                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                            <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full pl-10 pr-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="John Smith" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium text-slate-700 block mb-1">Email *</label>
+                                        <div className="relative">
+                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                            <input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="w-full pl-10 pr-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="john@email.com" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium text-slate-700 block mb-1">Phone</label>
+                                        <div className="relative">
+                                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                            <input type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="w-full pl-10 pr-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="(555) 123-4567" />
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Order summary */}
+                            <div className="bg-slate-50 rounded-xl p-3 text-sm">
+                                {cart.items.map((item, i) => (
+                                    <div key={i} className="flex justify-between py-1">
+                                        <span className="text-slate-600">{item.qty}x {item.name}</span>
+                                        <span className="font-medium text-slate-900">${(item.price_cents * item.qty / 100).toFixed(2)}</span>
+                                    </div>
+                                ))}
+                                <div className="flex justify-between pt-2 mt-2 border-t border-slate-200">
+                                    <span className="text-slate-600">Subtotal</span>
+                                    <span className="font-medium text-slate-900">{subtotalStr}</span>
+                                </div>
+
+                                {shippingRequired && (
+                                    <div className="flex justify-between py-1">
+                                        <span className="text-slate-600 flex items-center gap-1">
+                                            <Truck className="w-3.5 h-3.5" />
+                                            Shipping
+                                            {shippingResult && <span className="text-xs text-slate-400">({shippingResult.shippingLabel})</span>}
+                                        </span>
+                                        {shippingLoading ? (
+                                            <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
+                                        ) : shippingResult ? (
+                                            <span className="font-medium text-slate-900">
+                                                {shippingCents === 0 ? 'Free' : `$${(shippingCents / 100).toFixed(2)}`}
+                                            </span>
+                                        ) : (
+                                            <span className="text-xs text-slate-400">—</span>
+                                        )}
+                                    </div>
+                                )}
+
+                                <div className="flex justify-between pt-2 mt-1 border-t border-slate-200">
+                                    <span className="font-bold text-slate-900">Total</span>
+                                    <span className="font-bold" style={{ color: pSecondary }}>{totalStr}</span>
+                                </div>
+
+                                {/* Free shipping threshold hint */}
+                                {shippingRequired && shippingResult?.freeThresholdCents && shippingCents > 0 && (
+                                    <p className="text-xs text-green-600 mt-1">
+                                        Spend ${((shippingResult.freeThresholdCents - subtotal) / 100).toFixed(2)} more for free shipping!
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Shipping errors */}
+                            {shippingRequired && shippingError && (
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                                    <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                                    <p className="text-sm text-red-700">{shippingError}</p>
+                                </div>
+                            )}
+
+                            {shippingRequired && noZonesConfigured && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+                                    <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                                    <p className="text-sm text-amber-700">This store is not yet set up for shipping. Please contact the store owner.</p>
+                                </div>
+                            )}
+
+                            {/* Shipping info (if local pickup) */}
+                            {shippingResult?.zone.is_local_pickup && (
+                                <div className="bg-violet-50 border border-violet-200 rounded-lg p-3 flex items-start gap-2">
+                                    <Package className="w-4 h-4 text-violet-500 flex-shrink-0 mt-0.5" />
+                                    <p className="text-sm text-violet-700">Local pickup — no shipping charge</p>
+                                </div>
+                            )}
+
+                            {/* Shipping address summary */}
+                            {shippingRequired && addressComplete && (
+                                <div className="bg-slate-50 rounded-lg p-3">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <p className="text-xs font-semibold text-slate-600">Ship to</p>
+                                        <button onClick={() => setStep('address')} className="text-xs text-blue-600 hover:underline">Change</button>
+                                    </div>
+                                    <p className="text-sm text-slate-800">{form.name}</p>
+                                    <p className="text-xs text-slate-500">{form.line1}, {form.city}, {form.region} {form.postal}, {getCountryName(form.country)}</p>
+                                </div>
+                            )}
 
                             {/* Payment Method Selection */}
                             {availableMethods.length > 1 && (
@@ -312,7 +569,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                         </div>
                     )}
 
-                    {/* Confirmation */}
+                    {/* ── Confirmation step ── */}
                     {step === 'confirmation' && confirmation && (
                         <div className="p-5 text-center py-12">
                             <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: pSecondary + '20' }}>
@@ -340,15 +597,15 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                     )}
                 </div>
 
-                {/* Footer */}
+                {/* ── Footer buttons ── */}
                 {step === 'cart' && cart.items.length > 0 && (
                     <div className="border-t border-slate-200 px-5 py-4 space-y-3">
                         <div className="flex justify-between text-sm">
                             <span className="text-slate-600">Subtotal ({cart.itemCount} items)</span>
-                            <span className="font-bold text-lg text-slate-900">{total} {currency}</span>
+                            <span className="font-bold text-lg text-slate-900">{subtotalStr} {currency}</span>
                         </div>
                         <button
-                            onClick={() => setStep('checkout')}
+                            onClick={() => setStep(shippingRequired ? 'address' : 'payment')}
                             className="w-full py-3 text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
                             style={{ backgroundColor: pSecondary }}
                         >
@@ -357,11 +614,28 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                     </div>
                 )}
 
-                {step === 'checkout' && (
+                {step === 'address' && (
+                    <div className="border-t border-slate-200 px-5 py-4 space-y-2">
+                        <button
+                            onClick={handleProceedToPayment}
+                            disabled={!contactComplete || !addressComplete}
+                            className="w-full py-3 text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-40"
+                            style={{ backgroundColor: pSecondary }}
+                        >
+                            {shippingLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                            Continue to Payment
+                        </button>
+                        <button onClick={() => setStep('cart')} className="w-full py-2 text-sm text-slate-500 hover:text-slate-700">
+                            &#8592; Back to cart
+                        </button>
+                    </div>
+                )}
+
+                {step === 'payment' && (
                     <div className="border-t border-slate-200 px-5 py-4 space-y-2">
                         <button
                             onClick={handleCheckout}
-                            disabled={submitting || !form.name.trim() || !form.email.trim()}
+                            disabled={submitting || !canPlaceOrder || (shippingRequired && (!!shippingError || noZonesConfigured))}
                             className="w-full py-3 text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-40"
                             style={{ backgroundColor: selectedPayment === 'stripe' ? '#635BFF' : pSecondary }}
                         >
@@ -373,12 +647,12 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                 <Check className="w-5 h-5" />
                             )}
                             {selectedPayment === 'stripe'
-                                ? `Pay ${total} with Card`
-                                : `Place Order — ${total} (e-Transfer)`
+                                ? `Pay ${totalStr} with Card`
+                                : `Place Order — ${totalStr} (e-Transfer)`
                             }
                         </button>
-                        <button onClick={() => setStep('cart')} className="w-full py-2 text-sm text-slate-500 hover:text-slate-700">
-                            &#8592; Back to cart
+                        <button onClick={() => setStep(shippingRequired ? 'address' : 'cart')} className="w-full py-2 text-sm text-slate-500 hover:text-slate-700">
+                            &#8592; Back
                         </button>
                     </div>
                 )}
