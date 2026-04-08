@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     let originalName: string;
 
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-    const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
+    const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif', 'image/x-icon', 'image/vnd.microsoft.icon'];
 
     if (imageUrl) {
       // URL-based upload (e.g. from Unsplash)
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
       // Validate MIME type
       if (!ALLOWED_MIME_TYPES.includes(file.type)) {
         return NextResponse.json(
-          { error: `Unsupported file type: ${file.type}. Allowed types: JPEG, PNG, WebP, GIF, AVIF.` },
+          { error: `Unsupported file type: ${file.type}. Allowed types: JPEG, PNG, WebP, GIF, AVIF, ICO.` },
           { status: 400 }
         );
       }
@@ -127,35 +127,54 @@ export async function POST(request: NextRequest) {
       const arrayBuffer = await file.arrayBuffer();
       const inputBuffer = Buffer.from(arrayBuffer);
 
-      // Always process with sharp for security (re-encoding kills many attacks)
-      // and optimization (resizing/quality)
-      try {
-        const image = sharp(inputBuffer);
-        const metadata = await image.metadata();
-        const isTransparent = metadata.format === 'png' || metadata.format === 'webp' || metadata.format === 'gif';
+      const isIco = file.type === 'image/x-icon' || file.type === 'image/vnd.microsoft.icon';
 
-        if (isTransparent) {
-          buffer = await image
-            .resize({ width: 2000, withoutEnlargement: true })
-            .toBuffer();
-          contentType = file.type;
-          const ext = metadata.format === 'png' ? 'png' : metadata.format === 'webp' ? 'webp' : 'gif';
-          const baseName = (file.name || 'upload').replace(/\.[^/.]+$/, "").toLowerCase().replace(/[^a-z0-9]/g, '-');
-          originalName = `${baseName || 'image'}.${ext}`;
-        } else {
-          buffer = await image
-            .resize({ width: 2000, withoutEnlargement: true })
-            .jpeg({ quality: 85, mozjpeg: true })
-            .toBuffer();
-          contentType = 'image/jpeg';
-          const baseName = (file.name || 'upload').replace(/\.[^/.]+$/, "").toLowerCase().replace(/[^a-z0-9]/g, '-');
-          originalName = `${baseName || 'image'}.jpg`;
+      if (isIco) {
+        // ICO files: validate magic bytes and pass through as-is (Sharp doesn't support ICO)
+        // ICO header: 00 00 01 00 (reserved=0, type=1 for ICO)
+        if (inputBuffer.length < 4
+          || inputBuffer[0] !== 0x00 || inputBuffer[1] !== 0x00
+          || inputBuffer[2] !== 0x01 || inputBuffer[3] !== 0x00) {
+          return NextResponse.json(
+            { error: 'Invalid or corrupted ICO file' },
+            { status: 400 }
+          );
         }
-      } catch (err) {
-        return NextResponse.json(
-          { error: 'Invalid or corrupted image file' },
-          { status: 400 }
-        );
+        buffer = inputBuffer;
+        contentType = 'image/x-icon';
+        const baseName = (file.name || 'upload').replace(/\.[^/.]+$/, "").toLowerCase().replace(/[^a-z0-9]/g, '-');
+        originalName = `${baseName || 'favicon'}.ico`;
+      } else {
+        // All other images: process with sharp for security (re-encoding kills many attacks)
+        // and optimization (resizing/quality)
+        try {
+          const image = sharp(inputBuffer);
+          const metadata = await image.metadata();
+          const isTransparent = metadata.format === 'png' || metadata.format === 'webp' || metadata.format === 'gif';
+
+          if (isTransparent) {
+            buffer = await image
+              .resize({ width: 2000, withoutEnlargement: true })
+              .toBuffer();
+            contentType = file.type;
+            const ext = metadata.format === 'png' ? 'png' : metadata.format === 'webp' ? 'webp' : 'gif';
+            const baseName = (file.name || 'upload').replace(/\.[^/.]+$/, "").toLowerCase().replace(/[^a-z0-9]/g, '-');
+            originalName = `${baseName || 'image'}.${ext}`;
+          } else {
+            buffer = await image
+              .resize({ width: 2000, withoutEnlargement: true })
+              .jpeg({ quality: 85, mozjpeg: true })
+              .toBuffer();
+            contentType = 'image/jpeg';
+            const baseName = (file.name || 'upload').replace(/\.[^/.]+$/, "").toLowerCase().replace(/[^a-z0-9]/g, '-');
+            originalName = `${baseName || 'image'}.jpg`;
+          }
+        } catch (err) {
+          return NextResponse.json(
+            { error: 'Invalid or corrupted image file' },
+            { status: 400 }
+          );
+        }
       }
     } else {
       return NextResponse.json(

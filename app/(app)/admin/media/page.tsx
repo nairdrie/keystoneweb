@@ -46,6 +46,7 @@ function formatDate(iso: string): string {
 
 const ACCEPT = [
   'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif',
+  'image/x-icon', 'image/vnd.microsoft.icon',
   'application/pdf',
   'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime',
 ].join(',');
