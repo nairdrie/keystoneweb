@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: SiteLayoutProps): Promise<Met
 
   const { data: site } = await supabase
     .from('sites')
-    .select('published_data, published_domain, business_profile, translations_config')
+    .select('published_data, published_domain, business_profile, translations_config, site_slug')
     .eq('custom_domain', cleanDomain)
     .eq('is_published', true)
     .single();
@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: SiteLayoutProps): Promise<Met
   }
 
   const publishedData = (site.published_data as any) || {};
-  const title = cleanSeoTitle(publishedData, cleanDomain);
+  const title = cleanSeoTitle(publishedData, site.site_slug || cleanDomain);
   const description = cleanSeoDescription(publishedData);
   // Canonical always points to custom domain when available
   const canonicalUrl = buildCanonicalUrl(site.published_domain, cleanDomain);

@@ -40,7 +40,7 @@ export async function generateMetadata({
 
     const { data: site } = await supabase
         .from('sites')
-        .select('id, published_data, custom_domain, business_profile, translations_config')
+        .select('id, published_data, custom_domain, business_profile, translations_config, site_slug')
         .eq('published_domain', subdomain)
         .eq('is_published', true)
         .single();
@@ -48,7 +48,7 @@ export async function generateMetadata({
     if (!site) return { title: 'Page Not Found' };
 
     const siteData = (site.published_data as any) || {};
-    const siteTitle = cleanSeoTitle(siteData, `${subdomain}.kswd.ca`);
+    const siteTitle = cleanSeoTitle(siteData, site.site_slug || subdomain);
 
     // Fetch page-level SEO data
     const { data: page } = await supabase
