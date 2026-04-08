@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendOrderConfirmation, sendOrderNotification, sendOrderPaymentConfirmed, sendOrderCancellationToCustomer, sendOrderCancellationToOwner } from '@/lib/email';
+import { findMatchingZone, type ShippingZone } from '@/lib/shipping-data';
 import Stripe from 'stripe';
 
 /**
@@ -15,7 +16,8 @@ export async function POST(request: NextRequest) {
 
     const {
         siteId, items, customerName, customerEmail, customerPhone,
-        shippingAddress, notes, paymentMethod = 'none', stripeSessionId,
+        shippingAddress, shippingCents: clientShippingCents, shippingMethod: clientShippingMethod,
+        notes, paymentMethod = 'none', stripeSessionId,
     } = body;
 
     if (!siteId || !items || !items.length || !customerName || !customerEmail) {
@@ -24,6 +26,39 @@ export async function POST(request: NextRequest) {
 
     // Calculate subtotal from items
     const subtotalCents = items.reduce((sum: number, item: any) => sum + (item.price_cents * item.qty), 0);
+
+    // Server-side shipping validation: re-calculate shipping from zones to prevent tampering
+    let validatedShippingCents = 0;
+    let validatedShippingMethod: string | null = null;
+
+    const { data: ecomSettingsRow } = await supabase
+        .from('ecommerce_settings')
+        .select('shipping_required')
+        .eq('site_id', siteId)
+        .single();
+
+    const shippingRequired = ecomSettingsRow?.shipping_required !== false;
+
+    if (shippingRequired && shippingAddress) {
+        const { data: zones } = await supabase
+            .from('shipping_zones')
+            .select('*')
+            .eq('site_id', siteId)
+            .order('sort_order');
+
+        if (zones && zones.length > 0) {
+            const result = findMatchingZone(
+                zones as ShippingZone[],
+                shippingAddress.country || '',
+                shippingAddress.region || shippingAddress.province || '',
+                subtotalCents
+            );
+            if (result) {
+                validatedShippingCents = result.shippingCents;
+                validatedShippingMethod = result.label;
+            }
+        }
+    }
 
     // Determine status based on payment
     const status = paymentMethod === 'none' ? 'confirmed' : 'pending';
@@ -35,6 +70,8 @@ export async function POST(request: NextRequest) {
             site_id: siteId,
             items,
             subtotal_cents: subtotalCents,
+            shipping_cents: validatedShippingCents,
+            shipping_method: validatedShippingMethod,
             customer_name: customerName,
             customer_email: customerEmail,
             customer_phone: customerPhone || null,
@@ -100,11 +137,13 @@ export async function POST(request: NextRequest) {
         confirmationMessage: 'Thank you for your order!',
     };
 
+    const orderTotalCents = subtotalCents + validatedShippingCents;
+
     if (paymentMethod === 'etransfer' && paymentConfig?.etransfer_email) {
         response.paymentInstructions = {
             type: 'etransfer',
             email: paymentConfig?.etransfer_email,
-            amount: (subtotalCents / 100).toFixed(2),
+            amount: (orderTotalCents / 100).toFixed(2),
             currency: items[0]?.currency || 'CAD',
             reference: `ORDER-${order.id.slice(0, 8).toUpperCase()}`,
         };
@@ -120,6 +159,8 @@ export async function POST(request: NextRequest) {
         orderId: order.id,
         items,
         subtotalCents,
+        shippingCents: validatedShippingCents,
+        shippingMethod: validatedShippingMethod || undefined,
         currency: items[0]?.currency || 'CAD',
         customerName,
         customerEmail,
@@ -253,6 +294,8 @@ export async function PUT(request: NextRequest) {
             orderId: existingOrder.id,
             items: existingOrder.items,
             subtotalCents: existingOrder.subtotal_cents,
+            shippingCents: existingOrder.shipping_cents || 0,
+            shippingMethod: existingOrder.shipping_method || undefined,
             currency: existingOrder.items[0]?.currency || 'CAD',
             customerName: existingOrder.customer_name,
             customerEmail: existingOrder.customer_email,

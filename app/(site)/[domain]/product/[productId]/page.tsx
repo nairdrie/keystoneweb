@@ -74,16 +74,26 @@ export default async function CustomDomainProductDetailPage({
         const pagePublishData = homePage?.published_data || {};
         const sitePublishData = site.published_data || {};
 
-        // Fetch all pages for navigation links
+        // Fetch all pages for navigation links + find the page with productGrid block
         const { data: allPages } = await supabase
             .from('pages')
-            .select('id, slug, title')
+            .select('id, slug, title, published_data')
             .eq('site_id', site.id);
+
+        // Find the page that contains the productGrid block
+        let productsPagePath = '/#products';
+        for (const p of (allPages || [])) {
+            const blocks = (p.published_data as any)?.blocks || [];
+            if (blocks.some((b: any) => b.type === 'productGrid')) {
+                productsPagePath = p.slug === 'home' ? '/#products' : `/${p.slug}#products`;
+                break;
+            }
+        }
 
         const mergedPublishData = {
             ...sitePublishData,
             ...pagePublishData,
-            __pages: allPages || []
+            __pages: (allPages || []).map(({ id, slug, title }) => ({ id, slug, title }))
         };
 
         const TemplateComp = await getTemplateComponent(site.selected_template_id);
@@ -133,6 +143,7 @@ export default async function CustomDomainProductDetailPage({
                             allProducts={allProducts || []}
                             navContent={mergedPublishData}
                             templateId={site.selected_template_id}
+                            productsPagePath={productsPagePath}
                         />
                     </TemplateComp>
                 ) : (

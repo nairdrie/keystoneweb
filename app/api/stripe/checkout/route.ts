@@ -54,6 +54,21 @@ export async function POST(request: NextRequest) {
             }
         });
 
+        // Add shipping as a line item if applicable
+        if (order.shipping_cents && order.shipping_cents > 0) {
+            lineItems.push({
+                price_data: {
+                    currency: order.items?.[0]?.currency || 'cad',
+                    product_data: {
+                        name: `Shipping${order.shipping_method ? ` (${order.shipping_method})` : ''}`,
+                        images: [],
+                    },
+                    unit_amount: order.shipping_cents,
+                },
+                quantity: 1,
+            });
+        }
+
         // 0% platform fee - everything goes to the connected account (minus Stripe fees)
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],

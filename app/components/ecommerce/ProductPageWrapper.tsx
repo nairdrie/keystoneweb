@@ -20,6 +20,8 @@ interface Product {
     variants: Array<{ name: string; options: string[] }>;
     inventory_count: number;
     is_active: boolean;
+    category?: string | null;
+    tags?: string[];
 }
 
 interface Props {
@@ -30,9 +32,10 @@ interface Props {
     allProducts: Product[];
     navContent: Record<string, any>;
     templateId: string;
+    productsPagePath?: string;
 }
 
-export default function ProductPageWrapper({ product, siteId, palette, siteName, allProducts }: Props) {
+export default function ProductPageWrapper({ product, siteId, palette, siteName, allProducts, productsPagePath }: Props) {
     return (
         <ProductPage
             product={product}
@@ -40,6 +43,7 @@ export default function ProductPageWrapper({ product, siteId, palette, siteName,
             palette={palette}
             siteName={siteName}
             allProducts={allProducts}
+            productsPagePath={productsPagePath}
         />
     );
 }

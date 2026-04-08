@@ -1,0 +1,131 @@
+/** Common shipping countries with display names (ISO 3166-1 alpha-2) */
+export const COUNTRIES = [
+    { code: 'CA', name: 'Canada' },
+    { code: 'US', name: 'United States' },
+    { code: 'GB', name: 'United Kingdom' },
+    { code: 'AU', name: 'Australia' },
+    { code: 'FR', name: 'France' },
+    { code: 'DE', name: 'Germany' },
+    { code: 'IT', name: 'Italy' },
+    { code: 'ES', name: 'Spain' },
+    { code: 'NL', name: 'Netherlands' },
+    { code: 'BE', name: 'Belgium' },
+    { code: 'IE', name: 'Ireland' },
+    { code: 'NZ', name: 'New Zealand' },
+    { code: 'JP', name: 'Japan' },
+    { code: 'MX', name: 'Mexico' },
+] as const;
+
+/** Province/state lists keyed by country code */
+export const REGIONS: Record<string, Array<{ code: string; name: string }>> = {
+    CA: [
+        { code: 'AB', name: 'Alberta' },
+        { code: 'BC', name: 'British Columbia' },
+        { code: 'MB', name: 'Manitoba' },
+        { code: 'NB', name: 'New Brunswick' },
+        { code: 'NL', name: 'Newfoundland and Labrador' },
+        { code: 'NS', name: 'Nova Scotia' },
+        { code: 'NT', name: 'Northwest Territories' },
+        { code: 'NU', name: 'Nunavut' },
+        { code: 'ON', name: 'Ontario' },
+        { code: 'PE', name: 'Prince Edward Island' },
+        { code: 'QC', name: 'Quebec' },
+        { code: 'SK', name: 'Saskatchewan' },
+        { code: 'YT', name: 'Yukon' },
+    ],
+    US: [
+        { code: 'AL', name: 'Alabama' }, { code: 'AK', name: 'Alaska' },
+        { code: 'AZ', name: 'Arizona' }, { code: 'AR', name: 'Arkansas' },
+        { code: 'CA', name: 'California' }, { code: 'CO', name: 'Colorado' },
+        { code: 'CT', name: 'Connecticut' }, { code: 'DE', name: 'Delaware' },
+        { code: 'FL', name: 'Florida' }, { code: 'GA', name: 'Georgia' },
+        { code: 'HI', name: 'Hawaii' }, { code: 'ID', name: 'Idaho' },
+        { code: 'IL', name: 'Illinois' }, { code: 'IN', name: 'Indiana' },
+        { code: 'IA', name: 'Iowa' }, { code: 'KS', name: 'Kansas' },
+        { code: 'KY', name: 'Kentucky' }, { code: 'LA', name: 'Louisiana' },
+        { code: 'ME', name: 'Maine' }, { code: 'MD', name: 'Maryland' },
+        { code: 'MA', name: 'Massachusetts' }, { code: 'MI', name: 'Michigan' },
+        { code: 'MN', name: 'Minnesota' }, { code: 'MS', name: 'Mississippi' },
+        { code: 'MO', name: 'Missouri' }, { code: 'MT', name: 'Montana' },
+        { code: 'NE', name: 'Nebraska' }, { code: 'NV', name: 'Nevada' },
+        { code: 'NH', name: 'New Hampshire' }, { code: 'NJ', name: 'New Jersey' },
+        { code: 'NM', name: 'New Mexico' }, { code: 'NY', name: 'New York' },
+        { code: 'NC', name: 'North Carolina' }, { code: 'ND', name: 'North Dakota' },
+        { code: 'OH', name: 'Ohio' }, { code: 'OK', name: 'Oklahoma' },
+        { code: 'OR', name: 'Oregon' }, { code: 'PA', name: 'Pennsylvania' },
+        { code: 'RI', name: 'Rhode Island' }, { code: 'SC', name: 'South Carolina' },
+        { code: 'SD', name: 'South Dakota' }, { code: 'TN', name: 'Tennessee' },
+        { code: 'TX', name: 'Texas' }, { code: 'UT', name: 'Utah' },
+        { code: 'VT', name: 'Vermont' }, { code: 'VA', name: 'Virginia' },
+        { code: 'WA', name: 'Washington' }, { code: 'WV', name: 'West Virginia' },
+        { code: 'WI', name: 'Wisconsin' }, { code: 'WY', name: 'Wyoming' },
+        { code: 'DC', name: 'District of Columbia' },
+    ],
+};
+
+/** Get country display name from code */
+export function getCountryName(code: string): string {
+    return COUNTRIES.find(c => c.code === code)?.name || code;
+}
+
+/** Get region display name from country + region code */
+export function getRegionName(countryCode: string, regionCode: string): string {
+    return REGIONS[countryCode]?.find(r => r.code === regionCode)?.name || regionCode;
+}
+
+/** Shipping zone type used across client and server */
+export interface ShippingZone {
+    id: string;
+    site_id: string;
+    name: string;
+    countries: string[];
+    regions: string[];
+    rate_type: 'flat' | 'free' | 'free_above';
+    rate_cents: number;
+    free_threshold_cents: number;
+    is_local_pickup: boolean;
+    sort_order: number;
+}
+
+/** Find the first shipping zone matching a given country + region */
+export function findMatchingZone(
+    zones: ShippingZone[],
+    country: string,
+    region: string,
+    subtotalCents: number
+): { zone: ShippingZone; shippingCents: number; label: string } | null {
+    const sorted = [...zones].sort((a, b) => a.sort_order - b.sort_order);
+
+    for (const zone of sorted) {
+        const countriesArr = zone.countries as string[];
+        if (!countriesArr.includes(country)) continue;
+
+        const regionsArr = zone.regions as string[];
+        if (regionsArr.length > 0 && !regionsArr.includes(region)) continue;
+
+        // Zone matches — calculate rate
+        let shippingCents = 0;
+        let label = zone.name;
+
+        if (zone.is_local_pickup) {
+            shippingCents = 0;
+            label = `Local Pickup — ${zone.name}`;
+        } else if (zone.rate_type === 'free') {
+            shippingCents = 0;
+            label = `Free Shipping — ${zone.name}`;
+        } else if (zone.rate_type === 'free_above' && subtotalCents >= zone.free_threshold_cents) {
+            shippingCents = 0;
+            label = `Free Shipping — ${zone.name}`;
+        } else if (zone.rate_type === 'free_above') {
+            shippingCents = zone.rate_cents;
+            label = zone.name;
+        } else {
+            shippingCents = zone.rate_cents;
+            label = zone.name;
+        }
+
+        return { zone, shippingCents, label };
+    }
+
+    return null;
+}

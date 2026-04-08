@@ -110,7 +110,7 @@ export default function HeaderProductSearch({ color = '#475569' }: { color?: str
     }
 
     return (
-        <div ref={containerRef} className="relative">
+        <div ref={containerRef} className="relative z-[200]">
             {/* Search input */}
             <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-full px-3 py-1.5 shadow-sm min-w-[240px]">
                 <Search className="w-4 h-4 text-slate-400 shrink-0" />

@@ -10,10 +10,12 @@ interface Order {
     id: string;
     items: Array<{ name: string; price_cents: number; qty: number; variants?: Record<string, string> }>;
     subtotal_cents: number;
+    shipping_cents: number;
+    shipping_method: string | null;
     customer_name: string;
     customer_email: string;
     customer_phone: string | null;
-    shipping_address: { line1?: string; city?: string; province?: string; postal?: string } | null;
+    shipping_address: { line1?: string; city?: string; region?: string; province?: string; postal?: string; country?: string } | null;
     status: 'pending' | 'confirmed' | 'shipped' | 'completed' | 'cancelled';
     payment_method: 'none' | 'etransfer' | 'stripe';
     payment_status: 'unpaid' | 'pending' | 'paid';
@@ -189,7 +191,8 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
                                     const ps = PAYMENT_STATUS_LABELS[order.payment_status];
                                     const StatusIcon = sc.icon;
                                     const isOpen = expandedOrder === order.id;
-                                    const total = `$${(order.subtotal_cents / 100).toFixed(2)}`;
+                                    const orderTotal = order.subtotal_cents + (order.shipping_cents || 0);
+                                    const total = `$${(orderTotal / 100).toFixed(2)}`;
                                     const refId = `ORDER-${order.id.slice(0, 8).toUpperCase()}`;
                                     const date = new Date(order.created_at).toLocaleDateString('en-US', {
                                         month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
@@ -236,6 +239,19 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
                                                         ))}
                                                     </div>
 
+                                                    {/* Shipping + totals */}
+                                                    {(order.shipping_cents > 0 || order.shipping_method) && (
+                                                        <div className="flex justify-between text-xs">
+                                                            <span className="text-slate-600 flex items-center gap-1">
+                                                                <Truck className="w-3 h-3" />
+                                                                Shipping{order.shipping_method ? ` (${order.shipping_method})` : ''}
+                                                            </span>
+                                                            <span className="text-slate-900 font-medium">
+                                                                {order.shipping_cents > 0 ? `$${(order.shipping_cents / 100).toFixed(2)}` : 'Free'}
+                                                            </span>
+                                                        </div>
+                                                    )}
+
                                                     {/* Customer info */}
                                                     <div>
                                                         <p className="text-xs font-semibold text-slate-600 mb-1">Customer</p>
@@ -245,7 +261,7 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
                                                             {order.shipping_address && (
                                                                 <p className="flex items-center gap-1">
                                                                     <MapPin className="w-3 h-3 text-slate-400" />
-                                                                    {[order.shipping_address.line1, order.shipping_address.city, order.shipping_address.province, order.shipping_address.postal].filter(Boolean).join(', ')}
+                                                                    {[order.shipping_address.line1, order.shipping_address.city, order.shipping_address.region || order.shipping_address.province, order.shipping_address.postal, order.shipping_address.country].filter(Boolean).join(', ')}
                                                                 </p>
                                                             )}
                                                         </div>
