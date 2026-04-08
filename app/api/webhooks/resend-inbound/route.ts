@@ -3,7 +3,7 @@ import { Webhook } from 'svix';
 import { Resend } from 'resend';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { sendSupportRequestNotification, sendContactFormNotification } from '@/lib/email';
-import { triageContactSubmission } from '@/lib/contact/triage';
+import { triageContactSubmission, isSpamInboundEmail } from '@/lib/contact/triage';
 
 /**
  * POST /api/webhooks/resend-inbound
@@ -353,6 +353,26 @@ export async function POST(request: NextRequest) {
   // If body is still empty, store the diagnostic log as body_text
   if (!opsBodyText && !opsBodyHtml && log.length > 0) {
     opsBodyText = `[WEBHOOK DEBUG — body fetch failed]\n\n${log.join('\n')}\n\nWebhook payload.data keys: [${Object.keys(emailData ?? {}).join(', ')}]\nemail_id: ${emailId}\nfrom: ${fromRaw}\nsubject: ${subject}`;
+  }
+
+  // Spam pre-screen: skip notification for obvious spam / gibberish emails
+  const isSpam = isSpamInboundEmail(fromName, subject, opsBodyText);
+  if (isSpam) {
+    // Still store for audit purposes, but mark as spam and skip notification
+    await admin.from('support_requests').insert({
+      from_email: fromEmail,
+      from_name: fromName,
+      subject,
+      body_text: opsBodyText,
+      body_html: opsBodyHtml,
+      resend_email_id: dedupKey || null,
+      thread_id: null,
+      status: 'closed',
+      priority: 'low',
+      notes: 'Auto-closed: detected as spam/gibberish.',
+    });
+    console.log(`[resend-inbound] Spam detected from ${fromEmail}, stored but skipping notification`);
+    return NextResponse.json({ received: true });
   }
 
   // Thread detection: scan body for ref:UUID token from ops replies

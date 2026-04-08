@@ -36,6 +36,56 @@ function charEntropy(str: string): number {
   }, 0);
 }
 
+/**
+ * Detect if a string looks like a random/gibberish token (e.g. "jJgoMHuyQxdXByEqPqDDdhi").
+ * Real words rarely have more than 2 case transitions; random tokens have many.
+ */
+function looksLikeRandomToken(str: string): boolean {
+  const trimmed = str.trim().replace(/^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$/g, '');
+  if (trimmed.includes(' ') || trimmed.length < 8) return false;
+
+  let transitions = 0;
+  for (let i = 1; i < trimmed.length; i++) {
+    const prev = trimmed[i - 1];
+    const curr = trimmed[i];
+    const prevUpper = prev >= 'A' && prev <= 'Z';
+    const currUpper = curr >= 'A' && curr <= 'Z';
+    const prevLetter = (prev >= 'a' && prev <= 'z') || prevUpper;
+    const currLetter = (curr >= 'a' && curr <= 'z') || currUpper;
+    if (prevLetter && currLetter && prevUpper !== currUpper) {
+      transitions++;
+    }
+  }
+
+  return transitions >= 3;
+}
+
+/**
+ * Pre-screen inbound emails (to support@keystoneweb.ca) for spam.
+ * Checks sender name, subject, and body for gibberish / random tokens.
+ */
+export function isSpamInboundEmail(
+  fromName: string | null,
+  subject: string,
+  body: string | null,
+): boolean {
+  // Gibberish sender name
+  if (fromName && looksLikeRandomToken(fromName)) return true;
+
+  // Short gibberish body (random token under 30 chars)
+  if (body && body.trim().length > 0 && body.trim().length < 30 && looksLikeRandomToken(body.trim())) return true;
+
+  // Two or more gibberish tokens in subject (e.g. "Enterprise Inquiry from ABC123xyz (XYZabc789)")
+  const subjectTokens = subject.split(/[\s()]+/).filter(Boolean);
+  const gibberishCount = subjectTokens.filter(t => looksLikeRandomToken(t)).length;
+  if (gibberishCount >= 2) return true;
+
+  // Fall through to body-level checks if body is available
+  if (body) return isObviousSpam(body, fromName || '');
+
+  return false;
+}
+
 export function isObviousSpam(message: string, name: string): boolean {
   const lower = message.toLowerCase();
 
