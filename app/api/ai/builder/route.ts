@@ -218,6 +218,7 @@ const VALID_BLOCK_TYPES = new Set([
   'hero', 'text', 'image', 'servicesGrid', 'featuresList', 'aboutImageText',
   'testimonials', 'stats', 'gallery', 'contact', 'faq', 'cta', 'booking',
   'productGrid', 'contact_form', 'map', 'custom_html', 'pricing', 'logoCloud', 'team', 'blog',
+  'resources', 'carousel', 'video', 'deliveryLinks', 'menu', 'events', 'pdf', 'featuredQuote',
   // 'chatSupport', // Hidden — not yet released
 ]);
 const VALID_TEMPLATES = new Set(['luxe', 'vivid', 'airy', 'edge', 'classic', 'organic', 'sleek', 'vibrant']);

@@ -204,6 +204,45 @@ AVAILABLE BLOCK TYPES AND THEIR DATA SCHEMAS:
         enabled: boolean      // Only enabled links with a URL are shown to visitors
       }>
     }
+
+26. "menu" — Restaurant / food menu (requires user to add menu items via Admin)
+    data: {
+      title: string,            // e.g. "Our Menu"
+      subtitle: string,         // e.g. "Fresh, locally sourced ingredients"
+      mode: "items" | "pdf",    // "items" = structured menu from admin, "pdf" = uploaded PDF (default: "items")
+      variant: "list" | "grid" | "cards" | "compact",  // Layout style (default: "list")
+      showPrices: boolean,      // Show prices next to items (default: true)
+      showDescriptions: boolean, // Show item descriptions (default: true)
+      showImages: boolean,      // Show item images (default: false)
+      categoryStyle: "heading" | "badge" | "divider"  // How categories are displayed (default: "heading")
+    }
+
+27. "events" — Events feed (requires user to add events via Admin)
+    data: {
+      title: string,            // e.g. "Upcoming Events"
+      subtitle: string,         // e.g. "Stay up to date with what's happening"
+      sortOrder: "desc" | "asc", // "desc" = newest first, "asc" = closest/soonest first (default: "desc")
+      showPast: boolean          // Whether to include past events (default: false)
+    }
+
+28. "pdf" — PDF document viewer (user uploads PDF separately)
+    data: {
+      title: string,            // Optional section heading
+      showDownload: boolean,    // Show a download button below the viewer (default: true)
+      downloadLabel: string     // Download button label (default: "Download PDF")
+    }
+
+29. "featuredQuote" — Featured quote / spotlight testimonial with photo
+    data: {
+      variant: "centered" | "split" | "minimal" | "essay" | "multiGrid",  // Layout style (default: "centered")
+      quote: string,            // The quote text
+      personName: string,       // Person's name
+      personTitle: string,      // Person's role / company (e.g. "CEO, Acme Corp")
+      title: string,            // Optional section heading (used by "essay" and "multiGrid" variants)
+      imagePosition: "left" | "right",  // Image position for "split" and "essay" variants (default: "right")
+      // "multiGrid" variant uses a people array instead of single quote:
+      people: Array<{ name: string, title: string, quote: string }>  // 2-6 people for multiGrid variant
+    }
 `;
 
 export const AVAILABLE_OPERATIONS = `
