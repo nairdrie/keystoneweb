@@ -36,7 +36,7 @@ function charEntropy(str: string): number {
   }, 0);
 }
 
-function isObviousSpam(message: string, name: string): boolean {
+export function isObviousSpam(message: string, name: string): boolean {
   const lower = message.toLowerCase();
 
   // Very short messages that are just gibberish characters (< 15 chars with low entropy)
