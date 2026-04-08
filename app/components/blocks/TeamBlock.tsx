@@ -178,16 +178,18 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                         <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                 )}
-                                <EditableImage
-                                    contentKey={`member_${index}_image`}
-                                    initialSettings={data[`member_${index}_image__settings`]}
-                                    imageUrl={member.image}
-                                    isEditMode={isEditMode}
-                                    onSave={(key, value) => { if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value); }}
-                                    onUpload={context?.uploadImage}
-                                    className="w-full h-64 object-cover bg-gray-200"
-                                    placeholder="Team member photo"
-                                />
+                                <div className="h-64 w-full flex-shrink-0">
+                                    <EditableImage
+                                        contentKey={`member_${index}_image`}
+                                        initialSettings={data[`member_${index}_image__settings`]}
+                                        imageUrl={member.image}
+                                        isEditMode={isEditMode}
+                                        onSave={(key, value) => { if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value); }}
+                                        onUpload={context?.uploadImage}
+                                        className="w-full h-full object-cover bg-gray-200"
+                                        placeholder="Team member photo"
+                                    />
+                                </div>
                                 <div className="p-6">
                                     <EditableText
                                         as="h3"
