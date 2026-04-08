@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     // Verify the user owns this domain and it's unallocated
     const { data: domainPurchase, error: dpError } = await supabase
       .from('domain_purchases')
-      .select('id, site_id, status')
+      .select('id, site_id, status, auto_renew, cancelled_at')
       .eq('user_id', user.id)
       .eq('domain', domain)
       .eq('status', 'completed')
@@ -60,10 +60,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Assign domain to site
+    // Assign domain to site and re-enable auto-renewal if the cron had turned it off
+    const dpUpdate: Record<string, unknown> = { site_id: siteId };
+    if (!domainPurchase.auto_renew && !domainPurchase.cancelled_at) {
+      dpUpdate.auto_renew = true;
+      dpUpdate.updated_at = new Date().toISOString();
+
+      // Re-enable on Vercel as well
+      const VERCEL_API_TOKEN = process.env.VERCEL_API_TOKEN;
+      const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID;
+      if (VERCEL_API_TOKEN) {
+        const teamParam = VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : '';
+        try {
+          await fetch(
+            `https://api.vercel.com/v1/registrar/domains/${encodeURIComponent(domain)}${teamParam}`,
+            {
+              method: 'PATCH',
+              headers: {
+                Authorization: `Bearer ${VERCEL_API_TOKEN}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ renew: true }),
+            }
+          );
+        } catch (err) {
+          console.error('Failed to re-enable auto-renew on Vercel for', domain, err);
+        }
+      }
+    }
+
     const { error: updateDpError } = await supabase
       .from('domain_purchases')
-      .update({ site_id: siteId })
+      .update(dpUpdate)
       .eq('id', domainPurchase.id);
 
     if (updateDpError) {
