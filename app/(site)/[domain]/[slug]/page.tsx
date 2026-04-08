@@ -32,7 +32,7 @@ export async function generateMetadata({
 
     const { data: site } = await supabase
         .from('sites')
-        .select('id, published_data, published_domain, business_profile, translations_config')
+        .select('id, published_data, published_domain, business_profile, translations_config, site_slug')
         .eq('custom_domain', cleanDomain)
         .eq('is_published', true)
         .single();
@@ -40,7 +40,7 @@ export async function generateMetadata({
     if (!site) return { title: 'Page Not Found' };
 
     const siteData = (site.published_data as any) || {};
-    const siteTitle = cleanSeoTitle(siteData, cleanDomain);
+    const siteTitle = cleanSeoTitle(siteData, site.site_slug || cleanDomain);
 
     const { data: page } = await supabase
         .from('pages')

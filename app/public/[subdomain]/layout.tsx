@@ -20,7 +20,7 @@ export async function generateMetadata({
 
   const { data: site } = await supabase
     .from('sites')
-    .select('published_data, custom_domain, business_profile, translations_config')
+    .select('published_data, custom_domain, business_profile, translations_config, site_slug')
     .eq('published_domain', subdomain)
     .eq('is_published', true)
     .single();
@@ -33,7 +33,7 @@ export async function generateMetadata({
   }
 
   const publishedData = (site.published_data as any) || {};
-  const title = cleanSeoTitle(publishedData, `${subdomain}.kswd.ca`);
+  const title = cleanSeoTitle(publishedData, site.site_slug || subdomain);
   const description = cleanSeoDescription(publishedData);
   const canonicalUrl = buildCanonicalUrl(subdomain, site.custom_domain);
   const alternateLanguages = buildHreflangAlternates(
