@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
         name: t.name,
         category: t.category,
         tags,
-        imageUrl: t.thumbnail_url || getStyleImage(t.template_id) || `/templates/luxe.png`,
+        imageUrl: getStyleImage(t.template_id) || t.thumbnail_url || `/templates/luxe.png`,
       };
     });
 
