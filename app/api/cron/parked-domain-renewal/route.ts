@@ -48,9 +48,11 @@ async function setVercelAutoRenew(domain: string, renew: boolean): Promise<boole
  *
  * Invoked daily by Vercel Cron.
  *
- * 1. Finds parked domains (completed, not linked to a published site) that are
- *    within 7 days of their renewal date and have auto_renew = true.
+ * 1. Finds parked domains (completed, not linked to a published site) whose
+ *    owner is NOT on an active Pro plan, that are within 7 days of their
+ *    renewal date, and have auto_renew = true.
  *    → Turns off auto-renewal via Vercel API and updates the DB.
+ *    Pro users keep their parked domains — only non-Pro parked domains are affected.
  *
  * 2. Finds domains that are back on a published site but still have
  *    auto_renew = false (turned off by this cron, not by the user).
@@ -73,7 +75,7 @@ export async function GET(request: NextRequest) {
   // 1a. Domains with no site at all
   const { data: unlinkedDomains, error: unlinkedErr } = await supabase
     .from('domain_purchases')
-    .select('id, domain')
+    .select('id, domain, user_id')
     .eq('status', 'completed')
     .eq('auto_renew', true)
     .is('site_id', null)
@@ -87,7 +89,7 @@ export async function GET(request: NextRequest) {
   // 1b. Domains linked to a site that is not published
   const { data: linkedDomains, error: linkedErr } = await supabase
     .from('domain_purchases')
-    .select('id, domain, site_id, sites!inner(is_published)')
+    .select('id, domain, user_id, site_id, sites!inner(is_published)')
     .eq('status', 'completed')
     .eq('auto_renew', true)
     .not('site_id', 'is', null)
@@ -99,7 +101,27 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'DB query failed' }, { status: 500 });
   }
 
-  const toDisable = [...(unlinkedDomains ?? []), ...(linkedDomains ?? [])];
+  const parkedCandidates = [...(unlinkedDomains ?? []), ...(linkedDomains ?? [])];
+
+  // Filter out owners who are on an active Pro plan — they keep their parked domains.
+  const ownerIds = [...new Set(parkedCandidates.map((d) => d.user_id))];
+  const proOwnerIds = new Set<string>();
+
+  if (ownerIds.length > 0) {
+    const { data: subs } = await supabase
+      .from('user_subscriptions')
+      .select('user_id, subscription_status, subscription_plan')
+      .in('user_id', ownerIds);
+
+    for (const sub of subs ?? []) {
+      const isPro =
+        sub.subscription_status === 'active' &&
+        sub.subscription_plan?.toLowerCase().includes('pro');
+      if (isPro) proOwnerIds.add(sub.user_id);
+    }
+  }
+
+  const toDisable = parkedCandidates.filter((d) => !proOwnerIds.has(d.user_id));
   let disabled = 0;
   let disableErrors = 0;
 
@@ -117,7 +139,7 @@ export async function GET(request: NextRequest) {
         .update({ auto_renew: false, updated_at: new Date().toISOString() })
         .eq('id', dp.id);
       disabled++;
-      console.log(`Cron parked-renewal: disabled auto-renew for parked domain ${dp.domain}`);
+      console.log(`Cron parked-renewal: disabled auto-renew for parked domain ${dp.domain} (non-Pro owner)`);
     } else {
       disableErrors++;
     }
