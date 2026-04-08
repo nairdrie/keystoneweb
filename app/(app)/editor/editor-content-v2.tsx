@@ -225,7 +225,17 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
       return true;
     };
 
-    if (!isDeepEqual(site.designData || {}, site.publishedData || {})) return false;
+    // Strip internal metadata keys (e.g. __hasProductBlock) added at publish time
+    const stripMeta = (obj: any) => {
+      if (!obj || typeof obj !== 'object') return obj;
+      const cleaned: any = {};
+      for (const key of Object.keys(obj)) {
+        if (!key.startsWith('__')) cleaned[key] = obj[key];
+      }
+      return cleaned;
+    };
+
+    if (!isDeepEqual(stripMeta(site.designData || {}), stripMeta(site.publishedData || {}))) return false;
 
     for (const page of pages) {
       if (!isDeepEqual(page.design_data || {}, page.published_data || {})) return false;
