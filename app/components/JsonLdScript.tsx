@@ -1,5 +1,11 @@
 import { BusinessProfile } from '@/lib/types/sites';
 
+interface TestimonialItem {
+  name?: string;
+  quote?: string;
+  rating?: number;
+}
+
 interface JsonLdScriptProps {
   businessProfile: BusinessProfile;
   siteUrl?: string;
@@ -10,6 +16,8 @@ interface JsonLdScriptProps {
     linkedin?: string;
     youtube?: string;
   };
+  /** Testimonial items from testimonials blocks — used to emit AggregateRating */
+  testimonials?: TestimonialItem[];
 }
 
 /**
@@ -19,7 +27,7 @@ interface JsonLdScriptProps {
  * This enables Google Knowledge Panels, Rich Snippets, and Local Map Pack
  * eligibility for the tenant's published site.
  */
-export default function JsonLdScript({ businessProfile, siteUrl, socialLinks }: JsonLdScriptProps) {
+export default function JsonLdScript({ businessProfile, siteUrl, socialLinks, testimonials }: JsonLdScriptProps) {
   if (!businessProfile?.legalName) return null;
 
   const jsonLd: Record<string, any> = {
@@ -62,6 +70,19 @@ export default function JsonLdScript({ businessProfile, siteUrl, socialLinks }: 
 
   if (businessProfile.image) {
     jsonLd.image = businessProfile.image;
+  }
+
+  // AggregateRating from testimonials (boosts star ratings in SERPs)
+  if (testimonials && testimonials.length > 0) {
+    const ratings = testimonials.map(t => t.rating ?? 5);
+    const sum = ratings.reduce((a, b) => a + b, 0);
+    jsonLd.aggregateRating = {
+      '@type': 'AggregateRating',
+      ratingValue: (sum / ratings.length).toFixed(1),
+      bestRating: '5',
+      worstRating: '1',
+      ratingCount: ratings.length,
+    };
   }
 
   // sameAs link to social profiles to help Google connect them

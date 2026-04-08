@@ -5,12 +5,70 @@ import { getTemplateMetadata } from '@/lib/db/template-queries';
 import JsonLdScript from '@/app/components/JsonLdScript';
 import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
 import { BusinessProfile } from '@/lib/types/sites';
+import { extractTestimonials } from '@/lib/seo/testimonials';
 import {
     isMemberSystemRoute,
     renderMemberSystemPage,
 } from '@/lib/membership/system-routes';
+import type { Metadata } from 'next';
+import {
+    buildSiteMetadata,
+    cleanSeoTitle,
+    cleanSeoDescription,
+    buildCanonicalUrl,
+    buildHreflangAlternates,
+} from '@/lib/seo/metadata';
 
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata({
+    params,
+}: {
+    params: Promise<{ domain: string; slug: string }>;
+}): Promise<Metadata> {
+    const { domain, slug } = await params;
+    const supabase = await createClient();
+    const cleanDomain = domain.replace('www.', '');
+
+    const { data: site } = await supabase
+        .from('sites')
+        .select('id, published_data, published_domain, business_profile, translations_config')
+        .eq('custom_domain', cleanDomain)
+        .eq('is_published', true)
+        .single();
+
+    if (!site) return { title: 'Page Not Found' };
+
+    const siteData = (site.published_data as any) || {};
+    const siteTitle = cleanSeoTitle(siteData, cleanDomain);
+
+    const { data: page } = await supabase
+        .from('pages')
+        .select('published_data, title')
+        .eq('site_id', site.id)
+        .eq('slug', slug)
+        .single();
+
+    const pageData = (page?.published_data as any) || {};
+    const pageTitle = pageData.seoTitle || page?.title || slug;
+    const description = pageData.seoDescription || cleanSeoDescription(siteData);
+    const canonicalUrl = buildCanonicalUrl(site.published_domain, cleanDomain, slug);
+    const alternateLanguages = buildHreflangAlternates(
+        buildCanonicalUrl(site.published_domain, cleanDomain),
+        site.translations_config,
+        slug,
+    );
+
+    return buildSiteMetadata({
+        siteTitle,
+        pageTitle: `${pageTitle} | ${siteTitle}`,
+        description,
+        canonicalUrl,
+        publishedData: { ...siteData, ...pageData },
+        businessProfile: site.business_profile,
+        alternateLanguages,
+    });
+}
 
 export default async function CustomDomainDynamicPage({
     params,
@@ -121,6 +179,7 @@ export default async function CustomDomainDynamicPage({
                         businessProfile={site.business_profile as BusinessProfile}
                         siteUrl={`https://${domain}/${slug}`}
                         socialLinks={(mergedPublishData as any).socialLinks}
+                        testimonials={extractTestimonials(mergedPublishData)}
                     />
                 )}
                 <EditorContent

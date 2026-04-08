@@ -7,6 +7,7 @@ import JsonLdScript from '@/app/components/JsonLdScript';
 import { BusinessProfile } from '@/lib/types/sites';
 import { fetchTranslationsConfig } from '@/lib/translations/resolve';
 import SiteNotFound from '@/app/components/SiteNotFound';
+import { extractTestimonials } from '@/lib/seo/testimonials';
 
 export const dynamic = 'force-dynamic'; // Always fetch fresh data
 
@@ -102,6 +103,7 @@ export default async function PublicSitePage({
             businessProfile={site.business_profile as BusinessProfile}
             siteUrl={`https://${subdomain}.kswd.ca`}
             socialLinks={(mergedPublishData as any).socialLinks}
+            testimonials={extractTestimonials(mergedPublishData)}
           />
         )}
         <SiteAnalyticsTracker siteId={site.id} />
