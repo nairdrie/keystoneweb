@@ -318,26 +318,42 @@ export async function sendOrderConfirmation(data: OrderEmailData) {
             </tr>`;
         }).join('');
 
+        const isEtransfer = data.paymentMethod === 'etransfer' && data.etransferEmail;
+
         let paymentSection = '';
-        if (data.paymentMethod === 'etransfer' && data.etransferEmail) {
+        if (isEtransfer) {
             paymentSection = `
                 <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px;margin-top:16px;">
                     <h3 style="margin:0 0 8px;color:#92400e;font-size:14px;">💸 Payment via Interac e-Transfer</h3>
-                    <p style="margin:0;color:#78350f;font-size:14px;">Send <strong>${total}</strong> to: <strong>${data.etransferEmail}</strong></p>
-                    <p style="margin:4px 0 0;color:#92400e;font-size:12px;">Reference: <strong>${refId}</strong></p>
+                    <p style="margin:0;color:#78350f;font-size:14px;">Send <strong>${total}</strong> to:</p>
+                    <p style="margin:4px 0;color:#78350f;font-size:15px;font-weight:700;font-family:monospace;">${data.etransferEmail}</p>
+                    <p style="margin:4px 0 0;color:#92400e;font-size:12px;">Include this reference in the message field: <strong>${refId}</strong></p>
+                    <p style="margin:8px 0 0;color:#92400e;font-size:12px;">Your order will be confirmed once payment is received.</p>
                 </div>`;
         }
+
+        const emailSubject = isEtransfer
+            ? `Order Received — ${refId}`
+            : `Order Confirmed — ${refId}`;
+        const emailHeading = isEtransfer
+            ? 'Order Received'
+            : 'Order Confirmed';
+        const emailSubheading = isEtransfer
+            ? `Thank you for your order, ${data.customerName}! Please complete your payment below.`
+            : `Thank you for your order, ${data.customerName}!`;
+        const headingBg = isEtransfer ? '#fef3c7' : '#dcfce7';
+        const headingEmoji = isEtransfer ? '🛍️' : '🛍️';
 
         await resend.emails.send({
             from: `${data.siteName || 'Keystone Web Design'} <orders@keystoneweb.ca>`,
             to: data.customerEmail,
-            subject: `Order Confirmed — ${refId}`,
+            subject: emailSubject,
             html: `
                 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
                     <div style="text-align:center;padding:24px 0;">
-                        <div style="width:48px;height:48px;background:#dcfce7;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">🛍️</div>
-                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">Order Confirmed</h1>
-                        <p style="margin:0;color:#6b7280;font-size:14px;">Thank you for your order, ${data.customerName}!</p>
+                        <div style="width:48px;height:48px;background:${headingBg};border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">${headingEmoji}</div>
+                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">${emailHeading}</h1>
+                        <p style="margin:0;color:#6b7280;font-size:14px;">${emailSubheading}</p>
                     </div>
                     <div style="background:#f9fafb;border-radius:8px;padding:16px;">
                         <table style="width:100%;border-collapse:collapse;">${itemsHtml}
@@ -362,20 +378,37 @@ export async function sendOrderNotification(data: OrderEmailData, ownerEmail: st
         const total = `$${(data.subtotalCents / 100).toFixed(2)} ${data.currency}`;
         const itemsSummary = data.items.map(i => `${i.qty}x ${i.name}`).join(', ');
 
+        const isEtransfer = data.paymentMethod === 'etransfer';
+        const ownerSubject = isEtransfer
+            ? `New Order (Awaiting Payment) — ${refId} from ${data.customerName}`
+            : `New Order — ${refId} from ${data.customerName}`;
+        const ownerHeading = isEtransfer ? 'New Order (Awaiting Payment)' : 'New Order';
+        const paymentLabel = isEtransfer ? 'Interac e-Transfer' : data.paymentMethod === 'stripe' ? 'Stripe' : data.paymentMethod;
+
+        let awaitingPaymentSection = '';
+        if (isEtransfer) {
+            awaitingPaymentSection = `
+                <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px;margin-top:16px;">
+                    <h3 style="margin:0 0 8px;color:#92400e;font-size:14px;">⏳ Awaiting e-Transfer Payment</h3>
+                    <p style="margin:0;color:#78350f;font-size:14px;">The customer has been asked to send <strong>${total}</strong> via Interac e-Transfer with reference <strong>${refId}</strong>.</p>
+                    <p style="margin:8px 0 0;color:#92400e;font-size:13px;">Once you receive the e-transfer, go to your orders dashboard and click <strong>"Mark Paid &amp; Confirm"</strong> to confirm the order. This will send the customer their order confirmation email.</p>
+                </div>`;
+        }
+
         await resend.emails.send({
             from: 'Keystone Web Design <orders@keystoneweb.ca>',
             to: ownerEmail,
-            subject: `New Order — ${refId} from ${data.customerName}`,
+            subject: ownerSubject,
             html: `
                 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
                     <div style="text-align:center;padding:24px 0;">
                         <div style="width:48px;height:48px;background:#dbeafe;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">📦</div>
-                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">New Order</h1>
+                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">${ownerHeading}</h1>
                         <p style="margin:0;color:#6b7280;font-size:14px;">${refId} — ${total}</p>
                     </div>
                     <div style="background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:16px;">
                         <p style="margin:0;font-size:14px;color:#111827;"><strong>Items:</strong> ${itemsSummary}</p>
-                        <p style="margin:8px 0 0;font-size:14px;color:#111827;"><strong>Payment:</strong> ${data.paymentMethod === 'etransfer' ? 'e-Transfer' : data.paymentMethod === 'stripe' ? 'Stripe' : 'Pay on delivery'}</p>
+                        <p style="margin:8px 0 0;font-size:14px;color:#111827;"><strong>Payment:</strong> ${paymentLabel}</p>
                     </div>
                     <div style="background:#f0f9ff;border-radius:8px;padding:16px;">
                         <h3 style="margin:0 0 8px;font-size:14px;color:#0c4a6e;">Customer</h3>
@@ -384,12 +417,63 @@ export async function sendOrderNotification(data: OrderEmailData, ownerEmail: st
                         ${data.customerPhone ? `<p style="margin:2px 0;font-size:14px;color:#111827;">📱 ${data.customerPhone}</p>` : ''}
                         ${data.shippingAddress ? `<p style="margin:8px 0 0;font-size:13px;color:#6b7280;">📍 ${[data.shippingAddress.line1, data.shippingAddress.city, data.shippingAddress.province, data.shippingAddress.postal].filter(Boolean).join(', ')}</p>` : ''}
                     </div>
+                    ${awaitingPaymentSection}
                     <p style="margin-top:24px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
                 </div>`,
         });
         return { success: true };
     } catch (error) {
         console.error('Failed to send order notification email:', error);
+        return { success: false, error };
+    }
+}
+
+/**
+ * Send payment confirmed / order confirmed email to the customer
+ * Called when the owner marks an e-transfer order as paid
+ */
+export async function sendOrderPaymentConfirmed(data: OrderEmailData) {
+    try {
+        const refId = `ORDER-${data.orderId.slice(0, 8).toUpperCase()}`;
+        const total = `$${(data.subtotalCents / 100).toFixed(2)} ${data.currency}`;
+
+        const itemsHtml = data.items.map(item => {
+            const varStr = item.variants ? Object.values(item.variants).join(', ') : '';
+            return `<tr>
+                <td style="padding:6px 0;color:#111827;font-size:14px;">${item.name}${varStr ? ` <span style="color:#6b7280">(${varStr})</span>` : ''}</td>
+                <td style="padding:6px 0;text-align:center;color:#6b7280;font-size:14px;">x${item.qty}</td>
+                <td style="padding:6px 0;text-align:right;font-weight:600;color:#111827;font-size:14px;">$${(item.price_cents * item.qty / 100).toFixed(2)}</td>
+            </tr>`;
+        }).join('');
+
+        await resend.emails.send({
+            from: `${data.siteName || 'Keystone Web Design'} <orders@keystoneweb.ca>`,
+            to: data.customerEmail,
+            subject: `Payment Received — Order Confirmed — ${refId}`,
+            html: `
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
+                    <div style="text-align:center;padding:24px 0;">
+                        <div style="width:48px;height:48px;background:#dcfce7;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">✅</div>
+                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">Payment Received — Order Confirmed</h1>
+                        <p style="margin:0;color:#6b7280;font-size:14px;">${refId}</p>
+                    </div>
+                    <div style="background:#f9fafb;border-radius:8px;padding:16px;">
+                        <table style="width:100%;border-collapse:collapse;">${itemsHtml}
+                            <tr><td colspan="2" style="padding:8px 0 4px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:14px;">Amount Paid</td><td style="padding:8px 0 4px;border-top:1px solid #e5e7eb;text-align:right;font-weight:700;color:#111827;font-size:16px;">${total}</td></tr>
+                        </table>
+                    </div>
+                    <div style="background:#dcfce7;border-radius:8px;padding:14px;margin-top:16px;">
+                        <p style="margin:0;color:#166534;font-size:14px;text-align:center;">
+                            ✓ Your e-transfer payment has been confirmed and your order is now being processed.
+                        </p>
+                    </div>
+                    <p style="margin-top:16px;font-size:12px;color:#9ca3af;text-align:center;">Ref: ${refId}</p>
+                    <p style="margin-top:8px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
+                </div>`,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send order payment confirmed email:', error);
         return { success: false, error };
     }
 }
@@ -1493,6 +1577,86 @@ export async function sendTransferReminderEmail(data: {
         return { success: true };
     } catch (error) {
         console.error('Failed to send transfer reminder email:', error);
+        return { success: false, error };
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Content Moderation Alerts
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Send an internal ops alert when illegal/CSAEM content is detected.
+ * CSAEM incidents also require a manual Cybertip.ca report if programmatic
+ * reporting is not yet configured (CYBERTIP_API_URL not set).
+ */
+export async function sendModerationAlert(data: {
+    eventId: string | null;
+    severity: 'csaem' | 'adult' | 'review';
+    contentType: 'image' | 'pdf' | 'text';
+    detectionMethod: 'arachnid_hash' | 'vision_classifier' | 'text_classifier';
+    siteId: string | null;
+    userId: string | null;
+    contentRef: string | null;
+    cybertipReportId: string | null;
+}) {
+    const opsEmail = process.env.OPS_ALERT_EMAIL || process.env.OPS_ADMIN_EMAILS?.split(',')[0];
+    if (!opsEmail) {
+        console.warn('[moderation] OPS_ALERT_EMAIL not configured — skipping moderation alert email');
+        return { success: false };
+    }
+
+    const severityLabel: Record<string, string> = {
+        csaem: 'CSAEM (CHILD SAFETY — URGENT)',
+        adult: 'Adult / Explicit Content',
+        review: 'Flagged for Review',
+    };
+
+    const isCsaem = data.severity === 'csaem';
+    const cybertipNote = isCsaem && !data.cybertipReportId
+        ? `<p style="background:#fef2f2;border:1px solid #fca5a5;padding:12px;border-radius:6px;color:#991b1b;font-weight:600;">
+             ACTION REQUIRED: CYBERTIP_API_URL is not configured. You must file a manual report at
+             <a href="https://www.cybertip.ca" style="color:#dc2626;">cybertip.ca</a> for this incident.
+           </p>`
+        : isCsaem && data.cybertipReportId
+            ? `<p style="background:#f0fdf4;border:1px solid #86efac;padding:12px;border-radius:6px;color:#166534;">
+                 Cybertip.ca report submitted automatically. Report ID: <strong>${data.cybertipReportId}</strong>
+               </p>`
+            : '';
+
+    try {
+        await resend.emails.send({
+            from: 'Keystone Web Design <noreply@keystoneweb.ca>',
+            to: opsEmail,
+            subject: `[MODERATION ALERT] ${severityLabel[data.severity]} — ${data.contentType}`,
+            html: `
+                <div style="font-family:monospace;max-width:600px;margin:0 auto;background:#fff;padding:24px;border:2px solid ${isCsaem ? '#dc2626' : '#f59e0b'};">
+                    <h2 style="margin:0 0 16px;color:${isCsaem ? '#dc2626' : '#92400e'};">
+                        Content Moderation Alert: ${severityLabel[data.severity]}
+                    </h2>
+                    ${cybertipNote}
+                    <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                        <tr><td style="padding:6px 0;color:#6b7280;width:160px;">Event ID</td><td style="padding:6px 0;">${data.eventId ?? 'n/a'}</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b7280;">Severity</td><td style="padding:6px 0;font-weight:700;color:${isCsaem ? '#dc2626' : '#92400e'};">${data.severity.toUpperCase()}</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b7280;">Content Type</td><td style="padding:6px 0;">${data.contentType}</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b7280;">Detection Method</td><td style="padding:6px 0;">${data.detectionMethod}</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b7280;">Site ID</td><td style="padding:6px 0;">${data.siteId ?? 'n/a'}</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b7280;">User ID</td><td style="padding:6px 0;">${data.userId ?? 'n/a'}</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b7280;">Content Ref</td><td style="padding:6px 0;">${data.contentRef ?? 'n/a (blocked before storage)'}</td></tr>
+                        <tr><td style="padding:6px 0;color:#6b7280;">Detected At</td><td style="padding:6px 0;">${new Date().toISOString()}</td></tr>
+                    </table>
+                    <p style="margin-top:20px;font-size:13px;color:#6b7280;">
+                        Review in ops dashboard: <a href="https://ops.keystoneweb.ca/moderation">ops.keystoneweb.ca/moderation</a>
+                    </p>
+                    <p style="font-size:11px;color:#9ca3af;margin-top:8px;">
+                        Do not delete flagged content — preservation is required under the Mandatory Reporting Act (S.C. 2011, c. 4).
+                    </p>
+                </div>
+            `,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('[moderation] Failed to send moderation alert email:', error);
         return { success: false, error };
     }
 }

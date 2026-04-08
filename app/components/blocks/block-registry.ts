@@ -35,6 +35,7 @@ import CarouselBlock from './CarouselBlock';
 import TabBarBlock from './TabBarBlock';
 import UserProfileBlock from './UserProfileBlock';
 import ChatSupportBlock from './ChatSupportBlock';
+import VideoBlock from './VideoBlock';
 
 export const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     tabBar: TabBarBlock,
@@ -68,6 +69,7 @@ export const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     featuredQuote: FeaturedQuoteBlock,
     carousel: CarouselBlock,
     chatSupport: ChatSupportBlock,
+    video: VideoBlock,
 };
 
 /** All addable block types (used in both main renderer and inside gates). */
@@ -100,6 +102,7 @@ export const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: bo
     { type: 'custom_html', label: 'Custom HTML / Embed', proOnly: true },
     { type: 'featuredQuote', label: 'Featured Quote' },
     { type: 'carousel', label: 'Content Carousel' },
+    { type: 'video', label: '▶ Video Embed' },
     { type: 'tabBar', label: '🗂️ Tab Bar / Menu Bar' },
     { type: 'userProfile', label: '👤 User Profile', proOnly: true },
     // { type: 'chatSupport', label: '💬 AI Chat Support', proOnly: true }, // Hidden — not yet released

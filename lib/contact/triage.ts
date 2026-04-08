@@ -118,8 +118,7 @@ export async function triageContactSubmission(
     .single();
 
   const designData = site?.design_data ?? site?.published_data ?? {};
-  const businessName =
-    designData?.businessName || designData?.siteTitle || site?.site_slug || 'Our Business';
+  const businessName = site?.site_slug || 'Our Business';
   const businessDescription =
     designData?.tagline || designData?.description || designData?.aboutText || '';
   const services: string[] =

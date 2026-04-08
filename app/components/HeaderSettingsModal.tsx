@@ -84,6 +84,8 @@ export default function HeaderSettingsModal({
     // Member sign-in link
     const [showMemberSignIn, setShowMemberSignIn] = useState(true);
     const [memberSignInText, setMemberSignInText] = useState('');
+    // Product search
+    const [showProductSearch, setShowProductSearch] = useState(true);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -104,6 +106,7 @@ export default function HeaderSettingsModal({
         setNavFontSize(siteContent.headerNavFontSize || '');
         setShowMemberSignIn(siteContent.headerShowMemberSignIn !== false);
         setMemberSignInText(siteContent.headerMemberSignInText || '');
+        setShowProductSearch(siteContent.headerShowProductSearch !== false);
         setNavFontWeight(siteContent.headerNavFontWeight || '');
         setNavColor(siteContent.headerNavColor || '');
         setCustomCss(siteContent.headerCustomCss || '');
@@ -132,6 +135,7 @@ export default function HeaderSettingsModal({
         updateSiteContent('headerCustomCss', customCss);
         updateSiteContent('headerShowMemberSignIn', showMemberSignIn);
         updateSiteContent('headerMemberSignInText', memberSignInText);
+        updateSiteContent('headerShowProductSearch', showProductSearch);
         onClose();
     };
 
@@ -369,6 +373,24 @@ export default function HeaderSettingsModal({
                                             />
                                         </div>
                                     )}
+                                </div>
+                            )}
+
+                            {/* Product Search */}
+                            {siteContent.__hasProductBlock && (
+                                <div>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div>
+                                            <label className="text-sm font-semibold text-slate-800">Product Search</label>
+                                            <p className="text-xs text-slate-500 mt-0.5">Show a search icon in the header to let visitors find products</p>
+                                        </div>
+                                        <button
+                                            onClick={() => setShowProductSearch(!showProductSearch)}
+                                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${showProductSearch ? 'bg-blue-600' : 'bg-slate-200'}`}
+                                        >
+                                            <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${showProductSearch ? 'translate-x-4' : 'translate-x-0'}`} />
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </>

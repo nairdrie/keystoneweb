@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
+import { scanText } from '@/lib/moderation/text-scan';
+import { handleModerationResult } from '@/lib/moderation/report';
 
 // ─── Helper ─────────────────────────────────────────────────────────────────
 
@@ -63,6 +65,27 @@ export async function POST(request: NextRequest) {
 
   const auth = await getAuthAndSite(supabase, siteId);
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+  // Scan event text for illegal content before storing
+  const textToScan = [title, description].filter(Boolean).join('\n\n');
+  const textScanResult = await scanText(textToScan);
+  if (textScanResult.flagged) {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      ?? request.headers.get('x-real-ip')
+      ?? null;
+    await handleModerationResult(
+      { ...textScanResult, severity: 'review' as const },
+      {
+        siteId:      siteId,
+        userId:      auth.user.id,
+        ipAddress:   ip,
+        contentType: 'text',
+        contentRef:  null,
+        contentHash: null,
+      }
+    );
+    return NextResponse.json({ error: 'Content policy violation' }, { status: 422 });
+  }
 
   const { data, error } = await supabase
     .from('events')

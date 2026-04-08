@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Plus, Minus, ShoppingBag, Trash2, Loader2, Check, ArrowRight, User, Mail, Phone, MapPin, CreditCard, DollarSign, Banknote } from 'lucide-react';
+import { X, Plus, Minus, ShoppingBag, Trash2, Loader2, Check, ArrowRight, User, Mail, Phone, MapPin, CreditCard, DollarSign } from 'lucide-react';
 import { useCart } from './CartProvider';
 
 interface PaymentMethods {
-    none?: boolean;
     etransfer?: boolean;
     stripe?: boolean;
 }
@@ -27,7 +26,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
     const [submitting, setSubmitting] = useState(false);
     const [confirmation, setConfirmation] = useState<any>(null);
     const [form, setForm] = useState({ name: '', email: '', phone: '', line1: '', city: '', province: '', postal: '' });
-    const [selectedPayment, setSelectedPayment] = useState<'none' | 'etransfer' | 'stripe'>('none');
+    const [selectedPayment, setSelectedPayment] = useState<'etransfer' | 'stripe'>('etransfer');
     const [ecomSettings, setEcomSettings] = useState<EcommerceSettings | null>(null);
     const [stripeConnected, setStripeConnected] = useState(false);
     const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -46,10 +45,8 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                 const pm = data.settings?.payment_methods || {};
                 if (pm.stripe && data.stripeConnected) {
                     setSelectedPayment('stripe');
-                } else if (pm.etransfer) {
-                    setSelectedPayment('etransfer');
                 } else {
-                    setSelectedPayment('none');
+                    setSelectedPayment('etransfer');
                 }
             } catch (err) {
                 console.error('Failed to load ecommerce settings:', err);
@@ -67,15 +64,12 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
 
     // Determine available payment methods
     const pm = ecomSettings?.payment_methods || {};
-    const availableMethods: Array<{ key: 'none' | 'etransfer' | 'stripe'; label: string; desc: string; icon: typeof CreditCard }> = [];
+    const availableMethods: Array<{ key: 'etransfer' | 'stripe'; label: string; desc: string; icon: typeof CreditCard }> = [];
     if (pm.stripe && stripeConnected) {
         availableMethods.push({ key: 'stripe', label: 'Credit / Debit Card', desc: 'Pay securely with Stripe', icon: CreditCard });
     }
     if (pm.etransfer) {
         availableMethods.push({ key: 'etransfer', label: 'Interac e-Transfer', desc: 'Send payment via Interac', icon: DollarSign });
-    }
-    if (pm.none !== false) {
-        availableMethods.push({ key: 'none', label: 'Pay Later', desc: 'Pay on pickup or delivery', icon: Banknote });
     }
 
     const handleCheckout = async () => {
@@ -380,9 +374,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                             )}
                             {selectedPayment === 'stripe'
                                 ? `Pay ${total} with Card`
-                                : selectedPayment === 'etransfer'
-                                    ? `Place Order — ${total} (e-Transfer)`
-                                    : `Place Order — ${total}`
+                                : `Place Order — ${total} (e-Transfer)`
                             }
                         </button>
                         <button onClick={() => setStep('cart')} className="w-full py-2 text-sm text-slate-500 hover:text-slate-700">

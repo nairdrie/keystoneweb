@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
+import { scanImage } from '@/lib/moderation/image-scan';
+import { handleModerationResult } from '@/lib/moderation/report';
 
 /**
  * POST /api/sites/upload-image
@@ -160,6 +162,23 @@ export async function POST(request: NextRequest) {
         { error: 'No image provided' },
         { status: 400 }
       );
+    }
+
+    // Scan for illegal content / CSAEM before storing
+    const scanResult = await scanImage(buffer);
+    if (scanResult.blocked) {
+      const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+        ?? request.headers.get('x-real-ip')
+        ?? null;
+      await handleModerationResult(scanResult, {
+        siteId:      siteId,
+        userId:      user.id,
+        ipAddress:   ip,
+        contentType: 'image',
+        contentRef:  null,    // not yet stored
+        contentHash: null,
+      });
+      return NextResponse.json({ error: 'Content policy violation' }, { status: 422 });
     }
 
     // Generate unique filename
