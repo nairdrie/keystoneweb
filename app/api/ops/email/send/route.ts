@@ -85,12 +85,11 @@ export async function POST(request: Request) {
 
     const resend = new Resend(process.env.RESEND_API_KEY);
 
-    const senderLabel = isAdmin ? 'Keystone Operations' : 'Keystone';
     const senderName = nameFromEmail(user.email ?? fromEmail);
     const logoUrl = 'https://keystoneweb.ca/assets/logo/keystone-logo.png';
 
     const { data, error } = await resend.emails.send({
-      from: `${senderLabel} <${fromEmail}>`,
+      from: `${senderName} <${fromEmail}>`,
       to: Array.isArray(to) ? to : [to],
       subject,
       replyTo: reply_to || fromEmail,
