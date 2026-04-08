@@ -15,6 +15,8 @@ interface Product {
     variants: Array<{ name: string; options: string[] }>;
     inventory_count: number;
     is_active: boolean;
+    category?: string | null;
+    tags?: string[];
 }
 
 interface ProductPageProps {
@@ -23,9 +25,35 @@ interface ProductPageProps {
     palette: Record<string, string>;
     siteName?: string;
     allProducts?: Product[];
+    productsPagePath?: string;
 }
 
-export default function ProductPage({ product, siteId, palette, siteName, allProducts }: ProductPageProps) {
+/** Score candidates by shared tags + same category, return top N. */
+function getRelatedProducts(current: Product, all: Product[], limit = 4): Product[] {
+    const candidates = all.filter(p => p.id !== current.id && p.is_active);
+    if (candidates.length === 0) return [];
+
+    const currentTags = new Set((current.tags || []).map(t => t.toLowerCase()));
+    const currentCategory = current.category?.toLowerCase() || '';
+
+    const scored = candidates.map(p => {
+        let score = 0;
+        // +2 per shared tag
+        for (const tag of (p.tags || [])) {
+            if (currentTags.has(tag.toLowerCase())) score += 2;
+        }
+        // +3 for same category
+        if (currentCategory && p.category?.toLowerCase() === currentCategory) score += 3;
+        return { product: p, score };
+    });
+
+    // Sort by score desc, then by sort_order for ties
+    scored.sort((a, b) => b.score - a.score);
+
+    return scored.slice(0, limit).map(s => s.product);
+}
+
+export default function ProductPage({ product, siteId, palette, siteName, allProducts, productsPagePath }: ProductPageProps) {
     const cart = useCart();
     const [selectedImage, setSelectedImage] = useState(0);
     const [qty, setQty] = useState(1);
@@ -39,7 +67,8 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
     const discountPct = hasDiscount ? Math.round((1 - product.price_cents / product.compare_at_cents!) * 100) : 0;
     const outOfStock = product.inventory_count === 0;
     const lowStock = product.inventory_count > 0 && product.inventory_count <= 5;
-    const relatedProducts = (allProducts || []).filter(p => p.id !== product.id && p.is_active).slice(0, 4);
+    const relatedProducts = getRelatedProducts(product, allProducts || []);
+    const productsHref = productsPagePath || '/#products';
 
     // Default variant selections
     useEffect(() => {
@@ -75,7 +104,7 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
                 <nav className="flex items-center gap-2 text-sm text-slate-500">
                     <a href="/" className="hover:text-slate-900 transition-colors">Home</a>
                     <span>/</span>
-                    <a href="/#products" className="hover:text-slate-900 transition-colors">Products</a>
+                    <a href={productsHref} className="hover:text-slate-900 transition-colors">Products</a>
                     <span>/</span>
                     <span className="text-slate-900 font-medium truncate">{product.name}</span>
                 </nav>
