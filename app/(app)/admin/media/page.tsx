@@ -60,27 +60,42 @@ function StorageBar({
   limitMb:   number;
 }) {
   const limitBytes = limitMb * 1024 * 1024;
-  const pct = Math.min(100, (usedBytes / limitBytes) * 100);
-  const barColor =
-    pct >= 90 ? 'bg-red-500'
+  const pct = (usedBytes / limitBytes) * 100;
+  const isOverLimit = usedBytes > limitBytes;
+  const barColor = isOverLimit ? 'bg-red-600'
+    : pct >= 90 ? 'bg-red-500'
     : pct >= 70 ? 'bg-amber-400'
     : 'bg-emerald-500';
+  const overageBytes = usedBytes - limitBytes;
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4">
+    <div className={`border rounded-xl p-4 ${isOverLimit ? 'bg-red-50 border-red-300' : 'bg-white border-slate-200'}`}>
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-bold text-slate-700">Storage</span>
-        <span className="text-xs text-slate-500">
-          {formatBytes(usedBytes)} / {formatBytes(limitMb * 1024 * 1024)}
+        <span className={`text-xs ${isOverLimit ? 'text-red-600 font-bold' : 'text-slate-500'}`}>
+          {formatBytes(usedBytes)} / {formatBytes(limitBytes)}
+          {isOverLimit && ` (+${formatBytes(overageBytes)} over)`}
         </span>
       </div>
       <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-          style={{ width: `${pct}%` }}
+          style={{ width: `${Math.min(100, pct)}%` }}
         />
       </div>
-      {pct >= 90 && (
+      {isOverLimit && (
+        <div className="mt-3 p-2.5 bg-red-100 border border-red-200 rounded-lg">
+          <p className="text-xs text-red-700 font-bold flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+            Storage limit exceeded — uploads are blocked
+          </p>
+          <p className="text-xs text-red-600 mt-1">
+            You are {formatBytes(overageBytes)} over your {formatBytes(limitBytes)} limit.
+            Delete unused files or upgrade your plan to resume uploading.
+          </p>
+        </div>
+      )}
+      {!isOverLimit && pct >= 90 && (
         <p className="mt-2 text-xs text-red-600 font-medium flex items-center gap-1">
           <AlertTriangle className="w-3.5 h-3.5" />
           Storage nearly full — delete unused files or upgrade your plan.
@@ -483,7 +498,15 @@ export default function MediaPage() {
       <StorageBar usedBytes={usedBytes} limitMb={limitMb} />
 
       {/* Upload zone */}
-      <UploadZone onFiles={handleFiles} uploading={uploading} />
+      {usedBytes > limitMb * 1024 * 1024 ? (
+        <div className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-red-300 rounded-xl p-8 bg-red-50/50">
+          <AlertTriangle className="w-8 h-8 text-red-400" />
+          <p className="text-sm font-bold text-red-600">Uploads blocked — storage limit exceeded</p>
+          <p className="text-xs text-red-500">Delete files or upgrade your plan to upload more.</p>
+        </div>
+      ) : (
+        <UploadZone onFiles={handleFiles} uploading={uploading} />
+      )}
 
       {/* Upload errors */}
       {uploadErrors.length > 0 && (
