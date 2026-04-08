@@ -19,6 +19,16 @@ const STATUS_STYLES: Record<string, string> = {
   closed: 'text-gray-500 bg-gray-800',
 };
 
+/** Derive a display name from an email address, e.g. "nick.smith@gmail.com" → "Nick Smith" */
+function nameFromEmail(email: string): string {
+  const username = email.split('@')[0];
+  return username
+    .split(/[._-]/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 export default async function OpsEmailPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -28,8 +38,9 @@ export default async function OpsEmailPage() {
 
   const isAdmin = adminEmails.includes(user?.email?.toLowerCase() ?? '');
 
+  // Fetch contact email for all users (admins and agents alike)
   let agentContactEmail: string | null = null;
-  if (!isAdmin && user) {
+  if (user) {
     const db = createAdminClient();
     const { data: profile } = await db
       .from('users')
@@ -39,12 +50,18 @@ export default async function OpsEmailPage() {
     agentContactEmail = profile?.agent_contact_email ?? null;
   }
 
-  // Agents can only use their own contact email as the sender
+  // Admins get all standard addresses + their personal one (if set)
+  // Agents can only use their own contact email
   const availableFromEmails = isAdmin
-    ? ALL_FROM_EMAILS
+    ? [
+        ...(agentContactEmail ? [agentContactEmail] : []),
+        ...ALL_FROM_EMAILS,
+      ]
     : agentContactEmail
       ? [agentContactEmail]
       : [];
+
+  const senderName = nameFromEmail(user?.email ?? '');
 
   // Fetch support replies from people this user has emailed
   let inboxThreads: any[] = [];
@@ -81,7 +98,7 @@ export default async function OpsEmailPage() {
         </p>
       </div>
 
-      <EmailComposer availableFromEmails={availableFromEmails} />
+      <EmailComposer availableFromEmails={availableFromEmails} senderName={senderName} />
 
       {/* Inbox: support replies from people you've emailed */}
       <div>
