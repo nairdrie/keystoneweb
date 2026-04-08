@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, User } from 'lucide-react';
 import EditableText from '../EditableText';
 import EditableImage from '../EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
@@ -90,6 +90,11 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                     onUpload={context?.uploadImage}
                                     className="w-16 h-16 rounded-full object-cover bg-gray-200 flex-shrink-0"
                                     placeholder="Photo"
+                                    fallback={
+                                        <div className="w-16 h-16 rounded-full bg-gray-200 flex-shrink-0 flex items-center justify-center">
+                                            <User className="w-8 h-8 text-gray-400" />
+                                        </div>
+                                    }
                                 />
                                 <div className="flex-1">
                                     <EditableText
@@ -188,6 +193,11 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                         onUpload={context?.uploadImage}
                                         className="w-full h-full object-cover bg-gray-200"
                                         placeholder="Team member photo"
+                                        fallback={
+                                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                                <User className="w-16 h-16 text-gray-400" />
+                                            </div>
+                                        }
                                     />
                                 </div>
                                 <div className="p-6">
@@ -286,6 +296,11 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                 onUpload={context?.uploadImage}
                                 className="w-32 h-32 rounded-full object-cover bg-gray-200 mx-auto mb-4 ring-4 ring-white shadow-lg group-hover:scale-105 transition-transform"
                                 placeholder="Photo"
+                                fallback={
+                                    <div className="w-32 h-32 rounded-full bg-gray-200 mx-auto mb-4 ring-4 ring-white shadow-lg group-hover:scale-105 transition-transform flex items-center justify-center">
+                                        <User className="w-12 h-12 text-gray-400" />
+                                    </div>
+                                }
                             />
                             <EditableText
                                 as="h3"
