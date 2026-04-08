@@ -57,7 +57,7 @@ async function checkArachnidShield(buffer: Buffer): Promise<ImageModerationResul
 
   let response: Response;
   try {
-    response = await fetch('https://shield.projectarachnid.ca/v1/media/scan', {
+    response = await fetch('https://shield.projectarachnid.com/v1/media/scan', {
       method: 'POST',
       headers: {
         Authorization: `Basic ${credentials}`,
