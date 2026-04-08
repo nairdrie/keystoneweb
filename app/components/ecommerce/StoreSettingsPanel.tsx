@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import {
     Settings, CreditCard, Mail, Loader2, Check, ExternalLink,
-    AlertCircle, ChevronDown, ChevronRight, DollarSign, Link2
+    AlertCircle, ChevronDown, ChevronRight, DollarSign, Link2,
+    Download, Package, X
 } from 'lucide-react';
 
 interface EcommerceSettings {
@@ -30,6 +31,14 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
     const [saved, setSaved] = useState(false);
     const [connectingStripe, setConnectingStripe] = useState(false);
     const [expanded, setExpanded] = useState(false);
+
+    // Stripe product sync state
+    const [stripeProducts, setStripeProducts] = useState<any[]>([]);
+    const [showSyncPrompt, setShowSyncPrompt] = useState(false);
+    const [selectedSyncProducts, setSelectedSyncProducts] = useState<Set<string>>(new Set());
+    const [syncing, setSyncing] = useState(false);
+    const [syncResult, setSyncResult] = useState<{ imported: number; skipped: number } | null>(null);
+    const [checkingProducts, setCheckingProducts] = useState(false);
 
     useEffect(() => {
         (async () => {
@@ -94,6 +103,64 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
             setConnectingStripe(false);
         }
     };
+
+    const checkStripeProducts = async () => {
+        setCheckingProducts(true);
+        setSyncResult(null);
+        try {
+            const res = await fetch(`/api/stripe/connect-products?siteId=${siteId}`);
+            const data = await res.json();
+            if (data.products && data.products.length > 0) {
+                setStripeProducts(data.products);
+                setSelectedSyncProducts(new Set(data.products.map((p: any) => p.stripe_product_id)));
+                setShowSyncPrompt(true);
+            } else {
+                setStripeProducts([]);
+                setShowSyncPrompt(false);
+            }
+        } catch (err) {
+            console.error('Failed to check Stripe products:', err);
+        } finally {
+            setCheckingProducts(false);
+        }
+    };
+
+    const handleSyncProducts = async () => {
+        const toSync = stripeProducts.filter(p => selectedSyncProducts.has(p.stripe_product_id));
+        if (toSync.length === 0) return;
+
+        setSyncing(true);
+        try {
+            const res = await fetch('/api/stripe/connect-products', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ siteId, products: toSync }),
+            });
+            const data = await res.json();
+            setSyncResult({ imported: data.imported, skipped: data.skipped });
+            setShowSyncPrompt(false);
+        } catch (err) {
+            console.error('Failed to sync Stripe products:', err);
+        } finally {
+            setSyncing(false);
+        }
+    };
+
+    const toggleSyncProduct = (productId: string) => {
+        setSelectedSyncProducts(prev => {
+            const next = new Set(prev);
+            if (next.has(productId)) next.delete(productId);
+            else next.add(productId);
+            return next;
+        });
+    };
+
+    // Auto-check for Stripe products when connection is detected
+    useEffect(() => {
+        if (stripeConnected && !loading) {
+            checkStripeProducts();
+        }
+    }, [stripeConnected, loading]);
 
     if (loading) {
         return (
@@ -226,6 +293,103 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                                 <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
                                     <AlertCircle className="w-3 h-3" /> Connect Stripe to accept card payments
                                 </p>
+                            )}
+
+                            {/* Stripe Product Sync Prompt */}
+                            {stripeConnected && showSyncPrompt && stripeProducts.length > 0 && (
+                                <div className="mt-3 border border-blue-200 bg-blue-50 rounded-lg p-4">
+                                    <div className="flex items-start justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <Package className="w-4 h-4 text-blue-600" />
+                                            <span className="text-sm font-semibold text-blue-800">
+                                                Found {stripeProducts.length} product{stripeProducts.length !== 1 ? 's' : ''} in your Stripe account
+                                            </span>
+                                        </div>
+                                        <button
+                                            onClick={() => setShowSyncPrompt(false)}
+                                            className="text-blue-400 hover:text-blue-600"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-blue-600 mb-3">
+                                        Select which products to import into your store. They'll be added as drafts so you can review before publishing.
+                                    </p>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto mb-3">
+                                        {stripeProducts.map(product => (
+                                            <label
+                                                key={product.stripe_product_id}
+                                                className="flex items-center gap-2.5 p-2 rounded-md bg-white border border-blue-100 cursor-pointer hover:border-blue-300 transition-colors"
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedSyncProducts.has(product.stripe_product_id)}
+                                                    onChange={() => toggleSyncProduct(product.stripe_product_id)}
+                                                    className="rounded accent-blue-600 w-4 h-4"
+                                                />
+                                                <div className="flex-1 min-w-0">
+                                                    <span className="text-sm text-slate-700 font-medium block truncate">
+                                                        {product.name}
+                                                    </span>
+                                                    <span className="text-xs text-slate-400">
+                                                        {product.currency} ${(product.price_cents / 100).toFixed(2)}
+                                                    </span>
+                                                </div>
+                                            </label>
+                                        ))}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={handleSyncProducts}
+                                            disabled={syncing || selectedSyncProducts.size === 0}
+                                            className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            {syncing ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : (
+                                                <Download className="w-4 h-4" />
+                                            )}
+                                            Import {selectedSyncProducts.size} Product{selectedSyncProducts.size !== 1 ? 's' : ''}
+                                        </button>
+                                        <button
+                                            onClick={() => setShowSyncPrompt(false)}
+                                            className="px-4 py-2 border border-slate-300 text-slate-600 text-sm rounded-lg hover:bg-slate-50 transition-colors"
+                                        >
+                                            Skip
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Sync Result */}
+                            {syncResult && (
+                                <div className="mt-3 px-3 py-2.5 bg-green-50 border border-green-200 rounded-lg">
+                                    <p className="text-sm text-green-700 flex items-center gap-2">
+                                        <Check className="w-4 h-4 text-green-600" />
+                                        Imported {syncResult.imported} product{syncResult.imported !== 1 ? 's' : ''} as drafts
+                                        {syncResult.skipped > 0 && (
+                                            <span className="text-green-500">
+                                                ({syncResult.skipped} skipped — already exist)
+                                            </span>
+                                        )}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Manual check button when connected but prompt dismissed */}
+                            {stripeConnected && !showSyncPrompt && !syncResult && (
+                                <button
+                                    onClick={checkStripeProducts}
+                                    disabled={checkingProducts}
+                                    className="mt-2 text-xs text-violet-600 hover:text-violet-800 underline flex items-center gap-1"
+                                >
+                                    {checkingProducts ? (
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                        <Download className="w-3 h-3" />
+                                    )}
+                                    Import products from Stripe
+                                </button>
                             )}
                         </div>
                     )}
