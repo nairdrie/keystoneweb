@@ -171,6 +171,7 @@ export async function PUT(request: NextRequest) {
     if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
     if (updates.sortOrder !== undefined) dbUpdates.sort_order = updates.sortOrder;
     if (updates.trialDays !== undefined) dbUpdates.trial_days = updates.trialDays;
+    if (updates.geoRestriction !== undefined) dbUpdates.geo_restriction = updates.geoRestriction;
 
     const { error } = await supabase
       .from('membership_packages')

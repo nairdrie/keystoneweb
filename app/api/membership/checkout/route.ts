@@ -88,6 +88,7 @@ export async function POST(request: NextRequest) {
       payment_method_types: ['card'],
       line_items: [{ price: pkg.stripe_price_id, quantity: 1 }],
       mode: mode as any,
+      allow_promotion_codes: true,
       success_url: successUrl,
       cancel_url: cancelUrl,
       metadata: {
