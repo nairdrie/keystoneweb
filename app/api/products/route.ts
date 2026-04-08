@@ -170,12 +170,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { id, ...fields } = body;
 
-    if (!id) {
-        return NextResponse.json({ error: 'Missing product id' }, { status: 400 });
-    }
-
-    const updates: Record<string, any> = { updated_at: new Date().toISOString() };
-    // Bulk publish all drafts for a site
+    // Bulk publish all drafts for a site (no id needed)
     if (fields.siteId && fields.publishAll === true) {
         const { data: site } = await supabase.from('sites').select('user_id').eq('id', fields.siteId).single();
         if (!site || site.user_id !== user.id) {
@@ -189,6 +184,12 @@ export async function PUT(request: NextRequest) {
         if (pubError) return NextResponse.json({ error: pubError.message }, { status: 500 });
         return NextResponse.json({ success: true });
     }
+
+    if (!id) {
+        return NextResponse.json({ error: 'Missing product id' }, { status: 400 });
+    }
+
+    const updates: Record<string, any> = { updated_at: new Date().toISOString() };
 
     const allowedFields = ['name', 'description', 'price_cents', 'compare_at_cents', 'currency', 'images', 'variants', 'inventory_count', 'is_active', 'sort_order', 'status', 'category', 'tags'];
 
