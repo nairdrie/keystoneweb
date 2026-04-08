@@ -51,6 +51,7 @@ interface ColumnMapping {
     // Products specific
     variants: string | null;
     inventory_count: string | null;
+    tags: string | null;
 }
 
 // ─── AI Column Mapping ────────────────────────────────────────────────────────
@@ -85,7 +86,9 @@ async function mapColumnsWithAI(
 - currency: Currency code (e.g. "CAD", "USD")
 - inventory_count: Stock quantity (-1 for unlimited)
 - status: Publication status ("draft" or "published")
-- variants: Product variants (e.g. "Size:S,M,L | Color:Red,Blue")`;
+- variants: Product variants (e.g. "Size:S,M,L | Color:Red,Blue")
+- category: Product category name (e.g. "Skin Care", "Clothing")
+- tags: Comma-separated tags (e.g. "gift set, retinol, holiday")`;
 
     const sampleText = sampleRows.slice(0, 3).map((row, i) =>
         `Row ${i + 1}: ${JSON.stringify(Object.fromEntries(headers.map((h, j) => [h, row[j] ?? ''])))}`
@@ -93,7 +96,7 @@ async function mapColumnsWithAI(
 
     const exampleFormat = importType === 'services'
         ? `{"name": "Service Name", "description": "Desc", "price": "Price", "compare_at_price": null, "currency": null, "status": null, "duration_minutes": null, "is_featured": null, "options": null, "options_required": null, "category": null, "variants": null, "inventory_count": null}`
-        : `{"name": "Product Name", "description": "Desc", "price": "Price", "compare_at_price": null, "currency": null, "status": null, "duration_minutes": null, "is_featured": null, "options": null, "options_required": null, "category": null, "variants": null, "inventory_count": null}`;
+        : `{"name": "Product Name", "description": "Desc", "price": "Price", "compare_at_price": null, "currency": null, "status": null, "duration_minutes": null, "is_featured": null, "options": null, "options_required": null, "category": null, "variants": null, "inventory_count": null, "tags": null}`;
 
     const prompt = `You are mapping CSV columns for a data import. The user is importing ${importType}.
 
@@ -154,6 +157,7 @@ Example: ${exampleFormat}`;
             category:         pick(parsed.category,         fallback.category),
             variants:         pick(parsed.variants,         fallback.variants),
             inventory_count:  pick(parsed.inventory_count,  fallback.inventory_count),
+            tags:             pick(parsed.tags,             fallback.tags),
         };
     } catch (err) {
         console.error('AI column mapping error, using fuzzy fallback:', err);
@@ -188,9 +192,10 @@ function fuzzyMapColumns(headers: string[], importType: ImportType): ColumnMappi
         is_featured:      find('featured', 'is_featured', 'is featured', 'highlight', 'promoted', 'star'),
         options:          importType === 'services' ? find('options', 'packages', 'tiers', 'add ons', 'addons') : null,
         options_required: importType === 'services' ? find('options_required', 'required', 'option required', 'mandatory', 'option type') : null,
-        category:         importType === 'services' ? find('category', 'cat', 'group', 'type', 'service type', 'service category') : null,
+        category:         find('category', 'cat', 'group', 'type', importType === 'services' ? 'service type' : 'product type', importType === 'services' ? 'service category' : 'product category'),
         variants:         importType === 'products' ? find('variants', 'options', 'variations') : null,
         inventory_count:  importType === 'products' ? find('inventory', 'stock', 'quantity', 'qty', 'inventory_count', 'count') : null,
+        tags:             importType === 'products' ? find('tags', 'tag', 'keywords', 'labels') : null,
     };
 }
 
@@ -509,6 +514,7 @@ export async function POST(req: NextRequest) {
         // Products
         const varIdx         = colIdx(mapping.variants);
         const invIdx         = colIdx(mapping.inventory_count);
+        const tagsIdx        = colIdx(mapping.tags);
 
         // ── Pre-load Existing Items (for duplicate detection) ────────────────
 
@@ -614,6 +620,10 @@ export async function POST(req: NextRequest) {
                     const inventoryCount = invIdx >= 0
                         ? (row[invIdx]?.trim() === '' ? -1 : (parseInt(row[invIdx] || '-1') ?? -1))
                         : -1;
+                    const productCategory = catIdx >= 0 ? row[catIdx]?.trim() || null : null;
+                    const productTags = tagsIdx >= 0 && row[tagsIdx]?.trim()
+                        ? row[tagsIdx].split(',').map((t: string) => t.trim()).filter(Boolean)
+                        : [];
 
                     const incoming = {
                         description,
@@ -623,6 +633,8 @@ export async function POST(req: NextRequest) {
                         status,
                         variants: variants || [],
                         inventory_count: inventoryCount,
+                        category: productCategory,
+                        tags: productTags,
                     };
 
                     if (existingItem) {
