@@ -21,17 +21,19 @@ async function getOpsUser() {
   const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
     .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
 
-  if (adminEmails.includes(user.email?.toLowerCase() ?? '')) {
-    return { user, isAdmin: true, agentContactEmail: null };
-  }
+  const isAdmin = adminEmails.includes(user.email?.toLowerCase() ?? '');
 
-  // Check agent
+  // Fetch contact email for all users (admins and agents)
   const db = createAdminClient();
   const { data: profile } = await db
     .from('users')
     .select('is_agent, agent_contact_email')
     .eq('id', user.id)
     .single();
+
+  if (isAdmin) {
+    return { user, isAdmin: true, agentContactEmail: profile?.agent_contact_email ?? null };
+  }
 
   if (!profile?.is_agent) throw new Error('Forbidden');
 
@@ -60,22 +62,25 @@ export async function POST(request: Request) {
 
     // Validate the "from" address
     const fromEmail = (from_email || 'ops@keystoneweb.ca').toLowerCase().trim();
-    const normalizedAgentEmail = agentContactEmail?.toLowerCase().trim() ?? null;
-    const isAgentOwnEmail = !isAdmin && normalizedAgentEmail && fromEmail === normalizedAgentEmail;
+    const normalizedContactEmail = agentContactEmail?.toLowerCase().trim() ?? null;
+    const isOwnContactEmail = normalizedContactEmail && fromEmail === normalizedContactEmail;
 
-    if (!ALLOWED_FROM_EMAILS.includes(fromEmail) && !isAgentOwnEmail) {
-      return NextResponse.json(
-        { error: `from_email must be one of: ${ALLOWED_FROM_EMAILS.join(', ')}` },
-        { status: 400 }
-      );
-    }
-
-    // Agents can only send from their own contact email
-    if (!isAdmin && normalizedAgentEmail && fromEmail !== normalizedAgentEmail) {
-      return NextResponse.json(
-        { error: `As an agent you can only send from ${agentContactEmail}` },
-        { status: 403 }
-      );
+    if (isAdmin) {
+      // Admins can use any standard address or their own personal @keystoneweb.ca
+      if (!ALLOWED_FROM_EMAILS.includes(fromEmail) && !isOwnContactEmail) {
+        return NextResponse.json(
+          { error: `from_email must be one of: ${ALLOWED_FROM_EMAILS.join(', ')}` },
+          { status: 400 }
+        );
+      }
+    } else {
+      // Agents can only send from their own contact email
+      if (!normalizedContactEmail || fromEmail !== normalizedContactEmail) {
+        return NextResponse.json(
+          { error: `As an agent you can only send from ${agentContactEmail}` },
+          { status: 403 }
+        );
+      }
     }
 
     const resend = new Resend(process.env.RESEND_API_KEY);
@@ -92,16 +97,30 @@ export async function POST(request: Request) {
       html: `
         <div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f2937;">
           <div style="margin: 0 0 24px 0;">${body.replace(/\n/g, '<br/>')}</div>
-          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
-            <p style="margin: 0; font-size: 14px; font-weight: 600; color: #111827;">${senderName}</p>
-            <p style="margin: 2px 0 0 0; font-size: 13px; color: #6b7280;">${fromEmail}</p>
-            <div style="margin-top: 10px;">
-              <img src="${logoUrl}" alt="Keystone Web Design" style="height: 36px; width: auto;" />
-            </div>
+          <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+            <table cellpadding="0" cellspacing="0" border="0" style="font-family: Arial, sans-serif;">
+              <tr>
+                <td style="padding-right: 16px; border-right: 2px solid #2563eb; vertical-align: top;">
+                  <a href="https://keystoneweb.ca" target="_blank" style="text-decoration: none;">
+                    <img src="${logoUrl}" alt="Keystone Web Design" style="height: 48px; width: auto; display: block;" />
+                  </a>
+                </td>
+                <td style="padding-left: 16px; vertical-align: top;">
+                  <p style="margin: 0; font-size: 15px; font-weight: 700; color: #111827;">${senderName}</p>
+                  <p style="margin: 2px 0 0 0; font-size: 13px; color: #6b7280;">Keystone Web Design</p>
+                  <p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;">
+                    <a href="mailto:${fromEmail}" style="color: #6b7280; text-decoration: none;">${fromEmail}</a>
+                  </p>
+                  <p style="margin: 4px 0 0 0; font-size: 12px;">
+                    <a href="https://keystoneweb.ca" style="color: #2563eb; text-decoration: none;">keystoneweb.ca</a>
+                  </p>
+                </td>
+              </tr>
+            </table>
           </div>
         </div>
       `,
-      text: `${body}\n\n--\n${senderName}\n${fromEmail}\nKeystone Web Design`,
+      text: `${body}\n\n--\n${senderName}\nKeystone Web Design\n${fromEmail}\nhttps://keystoneweb.ca`,
     });
 
     if (error) {
@@ -145,10 +164,13 @@ export async function GET() {
   try {
     const { isAdmin, agentContactEmail } = await getOpsUser();
     const fromEmails = isAdmin
-      ? ALLOWED_FROM_EMAILS
+      ? [
+          ...(agentContactEmail ? [agentContactEmail] : []),
+          ...ALLOWED_FROM_EMAILS,
+        ]
       : agentContactEmail
         ? [agentContactEmail]
-        : ALLOWED_FROM_EMAILS;
+        : [];
     return NextResponse.json({ from_emails: fromEmails });
   } catch (err: any) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
