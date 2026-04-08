@@ -82,6 +82,7 @@ export default async function CustomDomainDynamicPage({
         // Use precomputed flags from publish time
         const hasProductBlock = !!(sitePublishData as any).__hasProductBlock;
         const hasMembershipBlock = !!(sitePublishData as any).__hasMembershipBlock;
+        const hasChatSupportBlock = !!(sitePublishData as any).__hasChatSupportBlock;
 
         const mergedPublishData = {
             ...sitePublishData,
@@ -89,6 +90,7 @@ export default async function CustomDomainDynamicPage({
             __pages: (allPages || []).map(({ id, slug, title }: any) => ({ id, slug, title })),
             __hasProductBlock: hasProductBlock,
             __hasMembershipBlock: hasMembershipBlock,
+            __hasChatSupportBlock: hasChatSupportBlock,
         };
 
         const TemplateComp = await getTemplateComponent(site.selected_template_id);

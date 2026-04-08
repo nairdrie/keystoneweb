@@ -34,6 +34,7 @@ import FeaturedQuoteBlock from './FeaturedQuoteBlock';
 import CarouselBlock from './CarouselBlock';
 import TabBarBlock from './TabBarBlock';
 import UserProfileBlock from './UserProfileBlock';
+import ChatSupportBlock from './ChatSupportBlock';
 import VideoBlock from './VideoBlock';
 
 export const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
@@ -67,6 +68,7 @@ export const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     deliveryLinks: DeliveryLinksBlock,
     featuredQuote: FeaturedQuoteBlock,
     carousel: CarouselBlock,
+    chatSupport: ChatSupportBlock,
     video: VideoBlock,
 };
 
@@ -103,4 +105,5 @@ export const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: bo
     { type: 'video', label: '▶ Video Embed' },
     { type: 'tabBar', label: '🗂️ Tab Bar / Menu Bar' },
     { type: 'userProfile', label: '👤 User Profile', proOnly: true },
+    // { type: 'chatSupport', label: '💬 AI Chat Support', proOnly: true }, // Hidden — not yet released
 ];

@@ -47,6 +47,7 @@ const ALL_TABS: TabDef[] = [
   { id: 'blog',   label: 'Blog',   icon: BookOpen,    path: '/admin/blog',   requiresBlock: 'blog' },
   { id: 'menu',   label: 'Menu',   icon: UtensilsCrossed, path: '/admin/menu', requiresBlock: 'menu' },
   { id: 'membership', label: 'Members', icon: Users, path: '/admin/membership', requiresBlock: 'membershipGate' },
+  { id: 'chat-support', label: 'Chat Support', icon: MessageSquare, path: '/admin/chat-support', requiresBlock: 'chatSupport' },
 ];
 
 const SHOW_ALL_KEY = 'ks_admin_show_all_features';

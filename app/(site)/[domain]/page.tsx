@@ -59,6 +59,7 @@ export default async function CustomDomainPage({
     // Use precomputed flags from publish time, falling back to false for older sites
     const hasProductBlock = !!(sitePublishData as any).__hasProductBlock;
     const hasMembershipBlock = !!(sitePublishData as any).__hasMembershipBlock;
+    const hasChatSupportBlock = !!(sitePublishData as any).__hasChatSupportBlock;
 
     const translationsConfig = site.translations_config as any;
     const mergedPublishData = {
@@ -69,6 +70,7 @@ export default async function CustomDomainPage({
       __translationsConfig: translationsConfig || null,
       __hasProductBlock: hasProductBlock,
       __hasMembershipBlock: hasMembershipBlock,
+      __hasChatSupportBlock: hasChatSupportBlock,
     };
 
     // Preload template component and metadata for SSR
