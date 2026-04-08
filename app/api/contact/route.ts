@@ -2,7 +2,7 @@ import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendContactFormNotification } from '@/lib/email';
-import { triageContactSubmission } from '@/lib/contact/triage';
+import { triageContactSubmission, isObviousSpam } from '@/lib/contact/triage';
 import { isContactRateLimited, getRateLimitResetSecs } from '@/lib/contact/rate-limit';
 
 const MAX_MESSAGE_LENGTH = 2000;
@@ -76,6 +76,25 @@ export async function POST(request: NextRequest) {
         if (insertError || !submission) {
             console.error('Failed to persist contact submission:', insertError);
             // Non-fatal — still attempt email delivery below
+        }
+
+        // 1b. Pre-screen for obvious spam — skip notification email entirely
+        if (isObviousSpam(message, name)) {
+            if (submission?.id) {
+                await admin
+                    .from('contact_submissions')
+                    .update({
+                        ai_classification: 'spam',
+                        ai_confidence: 0,
+                        ai_summary: 'Pre-screened as spam (gibberish or known spam pattern).',
+                        ai_draft_reply: null,
+                        ai_auto_sent: false,
+                        status: 'spam',
+                    })
+                    .eq('id', submission.id);
+            }
+            // Return success so bots don't retry
+            return NextResponse.json({ success: true, message: 'Message sent successfully' });
         }
 
         // 2. Get site owner's notification email
