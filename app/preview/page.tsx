@@ -72,6 +72,9 @@ export default async function PreviewPage({
     const hasMembershipBlock = (allPages || []).some((p: any) =>
       (p.design_data?.blocks || []).some((b: any) => b.type === 'membershipGate')
     );
+    const hasChatSupportBlock = (allPages || []).some((p: any) =>
+      (p.design_data?.blocks || []).some((b: any) => b.type === 'chatSupport')
+    );
 
     const translationsConfig = site.translations_config as any;
     const mergedDesignData = {
@@ -82,6 +85,7 @@ export default async function PreviewPage({
       __translationsConfig: translationsConfig || null,
       __hasProductBlock: hasProductBlock,
       __hasMembershipBlock: hasMembershipBlock,
+      __hasChatSupportBlock: hasChatSupportBlock,
     };
 
     const TemplateComp = await getTemplateComponent(site.selected_template_id);

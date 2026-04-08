@@ -45,6 +45,28 @@ export async function GET(request: NextRequest) {
       return '';
     };
 
+    // Map style names to template preview images
+    const STYLE_IMAGES: Record<string, string> = {
+      luxe: '/templates/luxe.png',
+      vivid: '/templates/vivid.png',
+      airy: '/templates/airy.png',
+      edge: '/templates/edge.png',
+      classic: '/templates/classic.png',
+      organic: '/templates/organic.png',
+      sleek: '/templates/sleek.png',
+      vibrant: '/templates/vibrant.png',
+    };
+
+    const getStyleImage = (id: string): string | undefined => {
+      const styles = Object.keys(STYLE_IMAGES);
+      for (const style of styles) {
+        if (id.toLowerCase().includes(style)) {
+          return STYLE_IMAGES[style];
+        }
+      }
+      return undefined;
+    };
+
     // Convert to TemplatePreview format
     const templates: Template[] = dbTemplates.map((t) => {
       const styleTag = getStyleTag(t.template_id);
@@ -56,7 +78,7 @@ export async function GET(request: NextRequest) {
         name: t.name,
         category: t.category,
         tags,
-        imageUrl: t.thumbnail_url || `https://images.unsplash.com/photo-1460925895917-aeb19be489c7?w=400&h=300&fit=crop&t=${encodeURIComponent(t.template_id)}`,
+        imageUrl: t.thumbnail_url || getStyleImage(t.template_id) || `/templates/luxe.png`,
       };
     });
 

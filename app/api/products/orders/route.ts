@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
-import { sendOrderConfirmation, sendOrderNotification, sendOrderCancellationToCustomer, sendOrderCancellationToOwner } from '@/lib/email';
+import { sendOrderConfirmation, sendOrderNotification, sendOrderPaymentConfirmed, sendOrderCancellationToCustomer, sendOrderCancellationToOwner } from '@/lib/email';
 import Stripe from 'stripe';
 
 /**
@@ -73,10 +73,10 @@ export async function POST(request: NextRequest) {
     // Get site name for customer emails
     const { data: siteInfo } = await supabase
         .from('sites')
-        .select('title, site_slug')
+        .select('site_slug')
         .eq('id', siteId)
         .single();
-    const siteName = siteInfo?.title || siteInfo?.site_slug || undefined;
+    const siteName = siteInfo?.site_slug || undefined;
 
     // Get e-commerce settings for e-transfer email + notification email
     // Falls back to booking_settings for backwards compatibility
@@ -236,6 +236,32 @@ export async function PUT(request: NextRequest) {
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Send payment confirmed email for e-transfer orders when marked as paid
+    const isBeingMarkedPaid = payment_status === 'paid' && existingOrder.payment_status !== 'paid'
+        && existingOrder.payment_method === 'etransfer';
+    if (isBeingMarkedPaid) {
+        const { data: paidSiteInfo } = await supabase
+            .from('sites')
+            .select('title, site_slug')
+            .eq('id', existingOrder.site_id)
+            .single();
+        const paidSiteName = paidSiteInfo?.title || paidSiteInfo?.site_slug || undefined;
+
+        const emailData = {
+            orderId: existingOrder.id,
+            items: existingOrder.items,
+            subtotalCents: existingOrder.subtotal_cents,
+            currency: existingOrder.items[0]?.currency || 'CAD',
+            customerName: existingOrder.customer_name,
+            customerEmail: existingOrder.customer_email,
+            paymentMethod: existingOrder.payment_method,
+            siteName: paidSiteName,
+        };
+
+        sendOrderPaymentConfirmed(emailData)
+            .catch(err => console.error('Order payment confirmed email failed:', err));
     }
 
     // Restore inventory for cancelled orders

@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
+import { scanText } from '@/lib/moderation/text-scan';
+import { handleModerationResult } from '@/lib/moderation/report';
 
 /**
  * GET /api/products?siteId=...
@@ -14,13 +16,25 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Missing siteId' }, { status: 400 });
     }
 
+    const search = request.nextUrl.searchParams.get('search')?.trim() || '';
+
     const supabase = await createClient();
 
-    const { data, error } = await supabase
+    let query = supabase
         .from('products')
         .select('*')
-        .eq('site_id', siteId)
-        .order('sort_order', { ascending: true });
+        .eq('site_id', siteId);
+
+    if (search) {
+        // Fuzzy search across name and description
+        const pattern = `%${search}%`;
+        query = query.or(`name.ilike.${pattern},description.ilike.${pattern}`);
+        query = query.eq('is_active', true).eq('status', 'published');
+    }
+
+    query = query.order('sort_order', { ascending: true });
+
+    const { data, error } = await query;
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
@@ -48,6 +62,27 @@ export async function POST(request: NextRequest) {
     const { data: site } = await supabase.from('sites').select('user_id').eq('id', siteId).single();
     if (!site || site.user_id !== user.id) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Scan product text for illegal content before storing
+    const textToScan = [name, description].filter(Boolean).join('\n\n');
+    const textScanResult = await scanText(textToScan);
+    if (textScanResult.flagged) {
+        const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+            ?? request.headers.get('x-real-ip')
+            ?? null;
+        await handleModerationResult(
+            { ...textScanResult, severity: 'review' as const },
+            {
+                siteId:      siteId,
+                userId:      user.id,
+                ipAddress:   ip,
+                contentType: 'text',
+                contentRef:  null,
+                contentHash: null,
+            }
+        );
+        return NextResponse.json({ error: 'Content policy violation' }, { status: 422 });
     }
 
     // Generate slug

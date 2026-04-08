@@ -50,18 +50,16 @@ export default async function CustomDomainPage({
     const pagePublishData = homePage?.published_data || {};
     const sitePublishData = site.published_data || {};
 
-    // Fetch all pages for navigation links (include published_data to detect product blocks site-wide)
+    // Fetch all pages for navigation links (lightweight: no published_data needed)
     const { data: allPages } = await supabase
       .from('pages')
-      .select('id, slug, title, published_data')
+      .select('id, slug, title')
       .eq('site_id', site.id);
 
-    const hasProductBlock = (allPages || []).some((p: any) =>
-      (p.published_data?.blocks || []).some((b: any) => b.type === 'productGrid')
-    );
-    const hasMembershipBlock = (allPages || []).some((p: any) =>
-      (p.published_data?.blocks || []).some((b: any) => b.type === 'membershipGate')
-    );
+    // Use precomputed flags from publish time, falling back to false for older sites
+    const hasProductBlock = !!(sitePublishData as any).__hasProductBlock;
+    const hasMembershipBlock = !!(sitePublishData as any).__hasMembershipBlock;
+    const hasChatSupportBlock = !!(sitePublishData as any).__hasChatSupportBlock;
 
     const translationsConfig = site.translations_config as any;
     const mergedPublishData = {
@@ -72,6 +70,7 @@ export default async function CustomDomainPage({
       __translationsConfig: translationsConfig || null,
       __hasProductBlock: hasProductBlock,
       __hasMembershipBlock: hasMembershipBlock,
+      __hasChatSupportBlock: hasChatSupportBlock,
     };
 
     // Preload template component and metadata for SSR

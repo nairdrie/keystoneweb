@@ -20,7 +20,7 @@ export default async function BlogPostPage({
         // Fetch the published site by custom domain
         const { data: site, error: siteError } = await supabase
             .from('sites')
-            .select('id, selected_template_id, published_data')
+            .select('id, selected_template_id, published_data, site_slug')
             .eq('custom_domain', domain)
             .eq('is_published', true)
             .single();
@@ -131,7 +131,7 @@ export default async function BlogPostPage({
                             post={post}
                             recentPosts={recentPosts || []}
                             palette={paletteData}
-                            siteName={mergedPublishData.siteTitle || ''}
+                            siteName={site.site_slug || ''}
                         />
                     </TemplateComp>
                 ) : (
@@ -139,7 +139,7 @@ export default async function BlogPostPage({
                         post={post}
                         recentPosts={recentPosts || []}
                         palette={paletteData}
-                        siteName={mergedPublishData.siteTitle || ''}
+                        siteName={site.site_slug || ''}
                     />
                 )}
             </EditorContent>

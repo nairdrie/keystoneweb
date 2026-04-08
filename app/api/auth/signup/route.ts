@@ -68,7 +68,7 @@ export async function POST(request: Request) {
       await sendWelcomeEmail({
         customerEmail: email,
         customerName: name,
-        loginUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://keystoneweb.ca'}/login`
+        loginUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://keystoneweb.ca'}/signin`
       });
     } catch (emailErr) {
       console.error('Failed to send welcome email on signup:', emailErr);

@@ -90,7 +90,11 @@ export default function BlockSettingsModal({
             { id: 'grid', label: 'Card Grid' },
             { id: 'list', label: 'List View' },
             { id: 'magazine', label: 'Magazine (Featured + Grid)' },
-        ]
+        ],
+        video: [
+            { id: 'contained', label: 'Contained (Centered)' },
+            { id: 'fullWidth', label: 'Full Width' },
+        ],
     };
 
     const hasVariantSettings = !!VARIANTS[blockType];

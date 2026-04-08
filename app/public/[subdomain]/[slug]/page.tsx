@@ -16,7 +16,6 @@ import {
 } from '@/lib/translations/resolve';
 import {
     isMemberSystemRoute,
-    hasMembershipBlockInPages,
     renderMemberSystemPage,
 } from '@/lib/membership/system-routes';
 
@@ -51,15 +50,14 @@ export default async function PublicSiteDynamicPage({
         }
 
         // Check if this is a membership system route (signin, signup, member, forgot-password)
-        if (isMemberSystemRoute(slug)) {
+        // Use precomputed flag from publish time to avoid scanning all pages
+        if (isMemberSystemRoute(slug) && !!(site.published_data as any)?.__hasMembershipBlock) {
             const { data: allPagesCheck } = await supabase
                 .from('pages')
-                .select('id, slug, title, published_data')
+                .select('id, slug, title')
                 .eq('site_id', site.id);
-            if (hasMembershipBlockInPages(allPagesCheck || [])) {
-                const systemPage = await renderMemberSystemPage({ site, slug, allPages: allPagesCheck || [] });
-                if (systemPage) return systemPage;
-            }
+            const systemPage = await renderMemberSystemPage({ site, slug, allPages: allPagesCheck || [] });
+            if (systemPage) return systemPage;
         }
 
         const translationsConfig = site.translations_config as any;
@@ -120,18 +118,16 @@ async function renderHomePage(
         defaultLang,
     );
 
-    // Fetch all pages for navigation (include published_data to detect product blocks site-wide)
+    // Fetch all pages for navigation links (lightweight: no published_data needed)
     const { data: allPages } = await supabase
         .from('pages')
-        .select('id, slug, title, published_data')
+        .select('id, slug, title')
         .eq('site_id', site.id);
 
-    const hasProductBlock = (allPages || []).some((p: any) =>
-        (p.published_data?.blocks || []).some((b: any) => b.type === 'productGrid')
-    );
-    const hasMembershipBlock = (allPages || []).some((p: any) =>
-        (p.published_data?.blocks || []).some((b: any) => b.type === 'membershipGate')
-    );
+    // Use precomputed flags from publish time
+    const hasProductBlock = !!(sitePublishData as any).__hasProductBlock;
+    const hasMembershipBlock = !!(sitePublishData as any).__hasMembershipBlock;
+    const hasChatSupportBlock = !!(sitePublishData as any).__hasChatSupportBlock;
 
     const mergedPublishData = {
         ...translatedSiteData,
@@ -141,6 +137,7 @@ async function renderHomePage(
         __translationsConfig: config,
         __hasProductBlock: hasProductBlock,
         __hasMembershipBlock: hasMembershipBlock,
+        __hasChatSupportBlock: hasChatSupportBlock,
     };
 
     const TemplateComp = await getTemplateComponent(site.selected_template_id);
@@ -225,17 +222,16 @@ async function renderPage(
         defaultLang,
     );
 
+    // Fetch all pages for navigation links (lightweight: no published_data needed)
     const { data: allPages } = await supabase
         .from('pages')
-        .select('id, slug, title, published_data')
+        .select('id, slug, title')
         .eq('site_id', site.id);
 
-    const hasProductBlock = (allPages || []).some((p: any) =>
-        (p.published_data?.blocks || []).some((b: any) => b.type === 'productGrid')
-    );
-    const hasMembershipBlock = (allPages || []).some((p: any) =>
-        (p.published_data?.blocks || []).some((b: any) => b.type === 'membershipGate')
-    );
+    // Use precomputed flags from publish time
+    const hasProductBlock = !!(sitePublishData as any).__hasProductBlock;
+    const hasMembershipBlock = !!(sitePublishData as any).__hasMembershipBlock;
+    const hasChatSupportBlock = !!(sitePublishData as any).__hasChatSupportBlock;
 
     const mergedPublishData = {
         ...translatedSiteData,
@@ -245,6 +241,7 @@ async function renderPage(
         __translationsConfig: config,
         __hasProductBlock: hasProductBlock,
         __hasMembershipBlock: hasMembershipBlock,
+        __hasChatSupportBlock: hasChatSupportBlock,
     };
 
     const TemplateComp = await getTemplateComponent(site.selected_template_id);

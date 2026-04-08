@@ -168,6 +168,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Precompute site-wide block flags so page renders don't need to scan all pages
+    const hasProductBlock = (pages || []).some((p: any) =>
+      ((p.design_data as any)?.blocks || []).some((b: any) => b.type === 'productGrid')
+    );
+    const hasMembershipBlock = (pages || []).some((p: any) =>
+      ((p.design_data as any)?.blocks || []).some((b: any) => b.type === 'membershipGate')
+    );
+
+    // Store precomputed flags in site's published_data
+    if (hasProductBlock || hasMembershipBlock) {
+      const enrichedPublishedData = {
+        ...(site.design_data || {}),
+        __hasProductBlock: hasProductBlock,
+        __hasMembershipBlock: hasMembershipBlock,
+      };
+      await supabase
+        .from('sites')
+        .update({ published_data: enrichedPublishedData })
+        .eq('id', siteId);
+    }
+
     // Record history snapshot (publish event)
     try {
       await supabase.from('site_history').insert({

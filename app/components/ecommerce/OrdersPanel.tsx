@@ -255,13 +255,25 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
                                                     <div>
                                                         <p className="text-xs font-semibold text-slate-600 mb-1">Payment</p>
                                                         <p className="text-xs text-slate-700">
-                                                            Method: {order.payment_method === 'etransfer' ? 'e-Transfer' : order.payment_method === 'stripe' ? 'Stripe' : 'None (pay on delivery)'}
+                                                            Method: {order.payment_method === 'etransfer' ? 'Interac e-Transfer' : order.payment_method === 'stripe' ? 'Stripe' : order.payment_method}
                                                         </p>
                                                     </div>
 
                                                     {/* Actions */}
                                                     <div className="flex flex-wrap gap-1.5 pt-1">
-                                                        {order.payment_status !== 'paid' && (
+                                                        {/* Combined Mark Paid & Confirm for e-transfer pending orders */}
+                                                        {order.payment_method === 'etransfer' && order.payment_status !== 'paid' && order.status === 'pending' && (
+                                                            <button
+                                                                onClick={() => updateOrder(order.id, { status: 'confirmed', payment_status: 'paid' })}
+                                                                disabled={updatingId === order.id}
+                                                                className="px-2.5 py-1.5 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
+                                                            >
+                                                                {updatingId === order.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <DollarSign className="w-3 h-3" />}
+                                                                Mark Paid & Confirm
+                                                            </button>
+                                                        )}
+                                                        {/* Separate Mark Paid for non-etransfer or already confirmed orders */}
+                                                        {order.payment_status !== 'paid' && !(order.payment_method === 'etransfer' && order.status === 'pending') && (
                                                             <button
                                                                 onClick={() => updateOrder(order.id, { payment_status: 'paid' })}
                                                                 disabled={updatingId === order.id}
@@ -271,7 +283,8 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
                                                                 Mark Paid
                                                             </button>
                                                         )}
-                                                        {order.status === 'pending' && (
+                                                        {/* Separate Confirm for non-etransfer pending orders */}
+                                                        {order.status === 'pending' && order.payment_method !== 'etransfer' && (
                                                             <button
                                                                 onClick={() => updateOrder(order.id, { status: 'confirmed' })}
                                                                 disabled={updatingId === order.id}

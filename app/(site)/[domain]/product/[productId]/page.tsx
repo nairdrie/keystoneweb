@@ -20,7 +20,7 @@ export default async function CustomDomainProductDetailPage({
         // Fetch the published site by custom domain
         const { data: site, error: siteError } = await supabase
             .from('sites')
-            .select('id, selected_template_id, published_data')
+            .select('id, selected_template_id, published_data, site_slug')
             .eq('custom_domain', domain)
             .eq('is_published', true)
             .single();
@@ -129,7 +129,7 @@ export default async function CustomDomainProductDetailPage({
                             product={product}
                             siteId={site.id}
                             palette={paletteData}
-                            siteName={mergedPublishData.siteTitle || ''}
+                            siteName={site.site_slug || ''}
                             allProducts={allProducts || []}
                             navContent={mergedPublishData}
                             templateId={site.selected_template_id}
@@ -140,7 +140,7 @@ export default async function CustomDomainProductDetailPage({
                         product={product}
                         siteId={site.id}
                         palette={paletteData}
-                        siteName={mergedPublishData.siteTitle || ''}
+                        siteName={site.site_slug || ''}
                         allProducts={allProducts || []}
                         navContent={mergedPublishData}
                         templateId={site.selected_template_id}

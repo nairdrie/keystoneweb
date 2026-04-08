@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
+import { scanText } from '@/lib/moderation/text-scan';
+import { handleModerationResult } from '@/lib/moderation/report';
 
 const MAX_PDF_SIZE = 20 * 1024 * 1024; // 20MB
 
@@ -54,6 +56,30 @@ export async function POST(request: NextRequest) {
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+
+    // Scan PDF filename + basic metadata for illegal content signals.
+    // Note: deep PDF text extraction (e.g. via pdf-parse) would provide better
+    // coverage but requires an additional dependency. The filename scan catches
+    // obvious cases; full text scanning can be added once pdf-parse is installed.
+    const filenameText = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+    const textScanResult = await scanText(filenameText);
+    if (textScanResult.flagged) {
+      const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+        ?? request.headers.get('x-real-ip')
+        ?? null;
+      await handleModerationResult(
+        { ...textScanResult, severity: 'review' as const },
+        {
+          siteId:      siteId,
+          userId:      user.id,
+          ipAddress:   ip,
+          contentType: 'pdf',
+          contentRef:  null,
+          contentHash: null,
+        }
+      );
+      return NextResponse.json({ error: 'Content policy violation' }, { status: 422 });
+    }
 
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(7);
