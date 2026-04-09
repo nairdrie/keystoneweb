@@ -198,18 +198,28 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const body = await request.json();
-  const rawUpdates = Array.isArray(body.updates) ? body.updates : null;
+  const body: unknown = await request.json();
+  const rawUpdates = (
+    typeof body === 'object' &&
+    body !== null &&
+    'updates' in body &&
+    Array.isArray(body.updates)
+  )
+    ? body.updates
+    : null;
   if (!rawUpdates || rawUpdates.length === 0) {
     return NextResponse.json({ error: 'At least one update is required' }, { status: 400 });
   }
 
-  const updates = rawUpdates.map((entry) => {
-    const id = typeof entry?.id === 'string' ? entry.id : '';
-    const status = typeof entry?.status === 'string' && isOpsTicketStatus(entry.status)
-      ? (entry.status as OpsTicketStatus)
+  const updates = rawUpdates.map((entry: unknown) => {
+    const candidate = typeof entry === 'object' && entry !== null
+      ? (entry as Record<string, unknown>)
+      : {};
+    const id = typeof candidate.id === 'string' ? candidate.id : '';
+    const status = typeof candidate.status === 'string' && isOpsTicketStatus(candidate.status)
+      ? (candidate.status as OpsTicketStatus)
       : null;
-    const sortOrder = Number(entry?.sort_order);
+    const sortOrder = Number(candidate.sort_order);
 
     return {
       id,
@@ -222,8 +232,14 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Invalid reorder payload' }, { status: 400 });
   }
 
+  const validUpdates = updates as Array<{
+    id: string;
+    status: OpsTicketStatus;
+    sort_order: number;
+  }>;
+
   const db = createAdminClient();
-  const ids = [...new Set(updates.map((entry) => entry.id))];
+  const ids = [...new Set(validUpdates.map((entry) => entry.id))];
   const { data: existingTickets, error: loadError } = await db
     .from('ops_tickets')
     .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, sort_order, created_at, updated_at')
@@ -243,7 +259,7 @@ export async function PATCH(request: Request) {
 
   try {
     await Promise.all(
-      updates.map((entry) =>
+      validUpdates.map((entry) =>
         db
           .from('ops_tickets')
           .update({
@@ -261,7 +277,7 @@ export async function PATCH(request: Request) {
 
   try {
     const assignees = await loadOpsAssignees(db);
-    const logEntries = updates.flatMap((entry) => {
+    const logEntries = validUpdates.flatMap((entry) => {
       const previousTicket = existingTicketMap.get(entry.id);
       if (!previousTicket) return [];
 
@@ -288,5 +304,5 @@ export async function PATCH(request: Request) {
     console.error('[ops/kanban PATCH batch log]', logError);
   }
 
-  return NextResponse.json({ success: true, updatedAt, updated: updates.length });
+  return NextResponse.json({ success: true, updatedAt, updated: validUpdates.length });
 }

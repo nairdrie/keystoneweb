@@ -871,6 +871,23 @@ export default function KanbanBoard({
     startTransition(() => router.refresh());
   }
 
+  async function fetchStatusTickets(status: OpsTicketStatus, offset: number, limit: number) {
+    const sort = sortMode === 'priority' ? 'priority' : 'manual';
+    const response = await fetch(
+      `/api/ops/kanban?status=${status}&offset=${offset}&limit=${limit}&sort=${sort}`
+    );
+    const json = await response.json();
+
+    if (!response.ok) {
+      throw new Error(json.error || `Failed to load ${status} tickets.`);
+    }
+
+    return {
+      tickets: (json.tickets ?? []) as OpsTicket[],
+      total: Number(json.total ?? 0),
+    };
+  }
+
   async function loadMoreStatus(status: OpsTicketStatus) {
     if (loadingByStatus[status]) return;
     if ((loadedByStatus[status] ?? 0) >= (countsByStatus[status] ?? 0)) return;
@@ -878,17 +895,11 @@ export default function KanbanBoard({
     setLoadingByStatus((current) => ({ ...current, [status]: true }));
 
     try {
-      const sort = sortMode === 'priority' ? 'priority' : 'manual';
-      const response = await fetch(
-        `/api/ops/kanban?status=${status}&offset=${loadedByStatus[status] ?? 0}&limit=${STATUS_PAGE_SIZE}&sort=${sort}`
+      const { tickets: nextTickets, total } = await fetchStatusTickets(
+        status,
+        loadedByStatus[status] ?? 0,
+        STATUS_PAGE_SIZE
       );
-      const json = await response.json();
-
-      if (!response.ok) {
-        throw new Error(json.error || `Failed to load more ${status} tickets.`);
-      }
-
-      const nextTickets = (json.tickets ?? []) as OpsTicket[];
       setTickets((currentTickets) => {
         const ticketMap = new Map(currentTickets.map((ticket) => [ticket.id, ticket]));
         for (const ticket of nextTickets) {
@@ -902,7 +913,7 @@ export default function KanbanBoard({
       }));
       setCountsByStatus((current) => ({
         ...current,
-        [status]: json.total ?? current[status],
+        [status]: total || current[status],
       }));
     } catch (loadError) {
       const message = loadError instanceof Error ? loadError.message : 'Failed to load more tickets.';
@@ -910,6 +921,56 @@ export default function KanbanBoard({
     } finally {
       setLoadingByStatus((current) => ({ ...current, [status]: false }));
     }
+  }
+
+  async function ensureStatusesLoaded(statuses: OpsTicketStatus[]) {
+    const uniqueStatuses = [...new Set(statuses)];
+    const statusesToLoad = uniqueStatuses.filter(
+      (status) => (loadedByStatus[status] ?? 0) < (countsByStatus[status] ?? 0)
+    );
+
+    if (statusesToLoad.length === 0) {
+      return tickets;
+    }
+
+    const loadedStatusResults = await Promise.all(
+      statusesToLoad.map(async (status) => {
+        const offset = loadedByStatus[status] ?? 0;
+        const remaining = Math.max(0, (countsByStatus[status] ?? 0) - offset);
+        if (remaining === 0) {
+          return { status, tickets: [] as OpsTicket[], total: countsByStatus[status] ?? 0 };
+        }
+
+        const result = await fetchStatusTickets(status, offset, remaining);
+        return { status, ...result };
+      })
+    );
+
+    const ticketMap = new Map(tickets.map((ticket) => [ticket.id, ticket]));
+    for (const result of loadedStatusResults) {
+      for (const ticket of result.tickets) {
+        ticketMap.set(ticket.id, ticket);
+      }
+    }
+
+    const mergedTickets = sortOpsTickets([...ticketMap.values()]);
+    setTickets(mergedTickets);
+    setLoadedByStatus((current) => {
+      const next = { ...current };
+      for (const result of loadedStatusResults) {
+        next[result.status] = result.total;
+      }
+      return next;
+    });
+    setCountsByStatus((current) => {
+      const next = { ...current };
+      for (const result of loadedStatusResults) {
+        next[result.status] = result.total;
+      }
+      return next;
+    });
+
+    return mergedTickets;
   }
 
   function openNewTicket(status: OpsTicketStatus = 'backlog') {
@@ -1156,12 +1217,13 @@ export default function KanbanBoard({
   }
 
   function buildOrderedStatusUpdate(
+    ticketPool: OpsTicket[],
     sourceStatus: OpsTicketStatus,
     targetStatus: OpsTicketStatus,
     movingTicketId: string,
     overTicketId?: string
   ) {
-    const sourceTickets = getManualStatusTickets(tickets, sourceStatus);
+    const sourceTickets = getManualStatusTickets(ticketPool, sourceStatus);
     const movingTicket = sourceTickets.find((ticket) => ticket.id === movingTicketId);
     if (!movingTicket) return null;
 
@@ -1169,7 +1231,7 @@ export default function KanbanBoard({
     const targetTickets =
       sourceStatus === targetStatus
         ? [...sourceWithoutMoving]
-        : getManualStatusTickets(tickets, targetStatus);
+        : getManualStatusTickets(ticketPool, targetStatus);
 
     let insertIndex = targetTickets.length;
     if (overTicketId) {
@@ -1232,7 +1294,7 @@ export default function KanbanBoard({
     });
 
     const updateMap = new Map(nextUpdates.map((ticket) => [ticket.id, ticket]));
-    const nextTickets = tickets.map((ticket) => updateMap.get(ticket.id) ?? ticket);
+    const nextTickets = ticketPool.map((ticket) => updateMap.get(ticket.id) ?? ticket);
 
     return {
       nextTickets,
@@ -1241,15 +1303,16 @@ export default function KanbanBoard({
   }
 
   async function applyOrderedStatusUpdate(
+    ticketPool: OpsTicket[],
     sourceStatus: OpsTicketStatus,
     targetStatus: OpsTicketStatus,
     movingTicketId: string,
     overTicketId?: string
   ) {
-    const update = buildOrderedStatusUpdate(sourceStatus, targetStatus, movingTicketId, overTicketId);
+    const update = buildOrderedStatusUpdate(ticketPool, sourceStatus, targetStatus, movingTicketId, overTicketId);
     if (!update) return;
 
-    const previousTickets = tickets;
+    const previousTickets = ticketPool;
     const previousCountsByStatus = countsByStatus;
     setTickets(update.nextTickets);
     if (sourceStatus !== targetStatus) {
@@ -1306,7 +1369,7 @@ export default function KanbanBoard({
     void loadMoreStatus(status);
   }
 
-  function handleDragEnd(event: DragEndEvent) {
+  async function handleDragEnd(event: DragEndEvent) {
     setActiveTicketId(null);
     dragLoadStatusRef.current = null;
     const activeId = String(event.active.id);
@@ -1336,7 +1399,13 @@ export default function KanbanBoard({
     if (!overTicketId && nextStatus === ticket.status && sortMode !== 'manual') return;
     if (hasActiveFilters && nextStatus === ticket.status && !overTicketId && sortMode === 'manual') return;
 
-    void applyOrderedStatusUpdate(ticket.status, nextStatus, ticket.id, overTicketId);
+    try {
+      const ticketPool = await ensureStatusesLoaded([ticket.status, nextStatus]);
+      await applyOrderedStatusUpdate(ticketPool, ticket.status, nextStatus, ticket.id, overTicketId);
+    } catch (loadError) {
+      const message = loadError instanceof Error ? loadError.message : 'Failed to reorder tickets.';
+      setError(message);
+    }
   }
 
   return (
