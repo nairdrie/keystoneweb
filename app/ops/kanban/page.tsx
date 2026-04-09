@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { getOpsAccessContext, getOpsAdminEmails } from '@/lib/ops/access';
 import { OPS_TICKET_STATUSES, type OpsAssigneeOption, type OpsTicket, type OpsTicketStatus } from '@/lib/ops/kanban';
-import KanbanBoard from './KanbanBoard';
+import KanbanBoardClient from './KanbanBoardClient';
 
 export const metadata = { title: 'Keystone Ops Kanban' };
 const INITIAL_STATUS_PAGE_SIZE = 20;
@@ -128,7 +128,7 @@ export default async function OpsKanbanPage() {
   ) as Record<OpsTicketStatus, number>;
 
   return (
-    <KanbanBoard
+    <KanbanBoardClient
       initialTickets={initialTickets}
       statusCounts={statusCounts}
       assignees={assignees}
