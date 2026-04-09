@@ -130,6 +130,9 @@ export async function POST(request: NextRequest) {
       lineItems.push({ price: meteredPriceId });
     }
 
+    // Allow coupon/promotion codes for monthly plans only
+    const isMonthly = plan ? priceId === plan.stripe.monthly : false;
+
     // No existing subscription — create a new Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -140,7 +143,7 @@ export async function POST(request: NextRequest) {
           type: 'flexible',
         },
       },
-      // allow_promotion_codes: true,
+      ...(isMonthly && { allow_promotion_codes: true }),
       success_url: siteId
         ? `${process.env.NEXT_PUBLIC_APP_URL}/publish/domain-select?session_id={CHECKOUT_SESSION_ID}&siteId=${siteId}`
         : `${process.env.NEXT_PUBLIC_APP_URL}/onboarding?session_id={CHECKOUT_SESSION_ID}`,
