@@ -115,7 +115,6 @@ export async function GET() {
   let domainExpenseAllTime = 0;
   let domainExpenseYear = 0;
   let domainExpenseMonth = 0;
-  let domainRenewalMonthlyExpense = 0;
 
   for (const d of domains ?? []) {
     const created = d.created_at?.slice(0, 10) ?? '';
@@ -124,11 +123,6 @@ export async function GET() {
     domainExpenseAllTime += expense;
     if (created >= yearStartDate) domainExpenseYear += expense;
     if (created >= monthStartDate) domainExpenseMonth += expense;
-
-    // Estimate monthly renewal cost for auto-renewing domains
-    if (d.auto_renew && expense > 0) {
-      domainRenewalMonthlyExpense += Math.round(expense / 12);
-    }
   }
 
   // ── Manual entries aggregation ──────────────────────────────────────────
@@ -194,14 +188,13 @@ export async function GET() {
   // ── Combine into totals ─────────────────────────────────────────────────
 
   const mrr = subscriptionMrr + recurringRevenueMrr;
-  const totalExpenseMrr = domainRenewalMonthlyExpense + recurringExpenseMrr;
 
   const revenueMonth = stripeRevenueMonth + manualRevenueMonth;
   const revenueYear = stripeRevenueYear + manualRevenueYear;
   const revenueAllTime = stripeRevenueAllTime + manualRevenueAllTime;
 
-  const expenseMonth = totalExpenseMrr + domainExpenseMonth + manualExpenseMonth;
-  const expenseYear = totalExpenseMrr * now.getMonth() + domainExpenseYear + manualExpenseYear;
+  const expenseMonth = recurringExpenseMrr + domainExpenseMonth + manualExpenseMonth;
+  const expenseYear = recurringExpenseMrr * now.getMonth() + domainExpenseYear + manualExpenseYear;
   const expenseAllTime = domainExpenseAllTime + manualExpenseAllTime;
 
   // ── Active addons count (for display) ───────────────────────────────────
@@ -250,13 +243,11 @@ export async function GET() {
       },
       expenses: {
         month: {
-          domainRenewalEstimate: domainRenewalMonthlyExpense,
           recurringEntries: recurringExpenseMrr,
           domainPurchases: domainExpenseMonth,
           manual: manualExpenseMonth,
         },
         year: {
-          domainRenewalEstimate: domainRenewalMonthlyExpense * now.getMonth(),
           recurringEntries: recurringExpenseMrr * now.getMonth(),
           domainPurchases: domainExpenseYear,
           manual: manualExpenseYear,

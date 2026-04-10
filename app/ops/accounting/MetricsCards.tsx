@@ -19,8 +19,8 @@ interface Metrics {
       year: { stripe: number; manual: number };
     };
     expenses: {
-      month: { domainRenewalEstimate: number; recurringEntries: number; domainPurchases: number; manual: number };
-      year: { domainRenewalEstimate: number; recurringEntries: number; domainPurchases: number; manual: number };
+      month: { recurringEntries: number; domainPurchases: number; manual: number };
+      year: { recurringEntries: number; domainPurchases: number; manual: number };
     };
     mrr: { subscriptions: number; recurringManual: number };
   };
@@ -128,7 +128,6 @@ export default function MetricsCards({ refreshKey }: { refreshKey: number }) {
           value={formatCents(metrics.expenses.month)}
           accent="text-red-400"
           breakdownLines={b ? [
-            { label: 'Domain renewals (est.)', value: b.expenses.month.domainRenewalEstimate },
             { label: 'Recurring entries', value: b.expenses.month.recurringEntries },
             { label: 'Domain purchases', value: b.expenses.month.domainPurchases },
             { label: 'Manual entries', value: b.expenses.month.manual },
@@ -162,7 +161,6 @@ export default function MetricsCards({ refreshKey }: { refreshKey: number }) {
           value={formatCents(metrics.expenses.year)}
           accent="text-red-400"
           breakdownLines={b ? [
-            { label: 'Domain renewals (est.)', value: b.expenses.year.domainRenewalEstimate },
             { label: 'Recurring entries', value: b.expenses.year.recurringEntries },
             { label: 'Domain purchases', value: b.expenses.year.domainPurchases },
             { label: 'Manual entries', value: b.expenses.year.manual },
