@@ -1,20 +1,16 @@
 import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { requireOpsAccess } from '@/lib/ops/access';
-import { PLANS, getPlanByName } from '@/lib/plans';
-import { ADDON_PRICES, type AddonType } from '@/lib/addons';
+import { getPlanByName } from '@/lib/plans';
 import { getMonthlyEquivalent, type AccountingMetrics, type Frequency } from '@/lib/ops/accounting';
-
-function getStripeClient() {
-  if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY not set');
-  return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-02-25.clover' as any });
-}
 
 /**
  * GET /api/ops/accounting
  * Returns aggregate accounting metrics: revenue, expenses, net, tax, MRR/ARR.
- * Combines auto-tracked data from subscriptions/addons/domains with manual entries.
+ *
+ * Revenue is based entirely on confirmed Stripe payments cached in
+ * stripe_transactions (no live Stripe API calls). Manual entries and
+ * recurring entries are layered on top.
  */
 export async function GET() {
   const access = await requireOpsAccess();
@@ -24,90 +20,117 @@ export async function GET() {
 
   const db = createAdminClient();
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-  const yearStart = `${now.getFullYear()}-01-01`;
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const yearStart = `${now.getFullYear()}-01-01T00:00:00.000Z`;
 
-  // ── Auto-tracked: active subscriptions ──────────────────────────────────
+  // ── MRR from confirmed payments ─────────────────────────────────────────
+  // For each active subscription, use the latest confirmed invoice payment.
+  // Falls back to plan price only for subs created before transaction tracking.
+
   const { data: subs } = await db
     .from('user_subscriptions')
-    .select('user_id, subscription_plan, subscription_status, stripe_subscription_id')
+    .select('user_id, subscription_plan, subscription_status, stripe_subscription_id, billing_interval')
     .eq('subscription_status', 'active');
 
-  let subscriptionMrr = 0;
   const activeSubs = subs ?? [];
 
-  // Look up billing intervals from Stripe for accurate MRR
-  const stripe = getStripeClient();
-  const intervalCache = new Map<string, string>(); // subscription_id -> 'month' | 'year'
+  // Fetch latest confirmed payment per subscription from our local cache
+  const subIds = activeSubs
+    .map((s: any) => s.stripe_subscription_id)
+    .filter(Boolean);
 
-  // Fetch intervals in parallel (batched)
-  await Promise.all(
-    activeSubs
-      .filter((s) => s.stripe_subscription_id)
-      .map(async (sub) => {
-        try {
-          const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id, {
-            expand: [],
-          });
-          const interval = stripeSub.items.data[0]?.price?.recurring?.interval ?? 'month';
-          intervalCache.set(sub.stripe_subscription_id, interval);
-        } catch {
-          // If Stripe lookup fails, we'll fall back to monthly price
-        }
-      })
-  );
+  const latestPaymentMap = new Map<string, { amount_cents: number; billing_interval: string }>();
 
+  if (subIds.length > 0) {
+    const { data: payments } = await db
+      .from('stripe_transactions')
+      .select('stripe_subscription_id, amount_cents, billing_interval')
+      .in('stripe_subscription_id', subIds)
+      .eq('event_type', 'invoice.paid')
+      .eq('status', 'succeeded')
+      .order('created_at', { ascending: false });
+
+    for (const p of payments ?? []) {
+      // Only keep the most recent payment per subscription
+      if (p.stripe_subscription_id && !latestPaymentMap.has(p.stripe_subscription_id)) {
+        latestPaymentMap.set(p.stripe_subscription_id, p);
+      }
+    }
+  }
+
+  let subscriptionMrr = 0;
   for (const sub of activeSubs) {
-    const plan = getPlanByName(sub.subscription_plan);
-    if (!plan) continue;
-    const interval = intervalCache.get(sub.stripe_subscription_id) ?? 'month';
-    const monthlyRate = interval === 'year' ? plan.yearlyPrice : plan.monthlyPrice;
-    subscriptionMrr += monthlyRate * 100; // cents
+    const payment = sub.stripe_subscription_id
+      ? latestPaymentMap.get(sub.stripe_subscription_id)
+      : null;
+
+    if (payment) {
+      // Use confirmed payment amount (includes plan + any active addons)
+      subscriptionMrr += payment.billing_interval === 'year'
+        ? Math.round(payment.amount_cents / 12)
+        : payment.amount_cents;
+    } else {
+      // Fallback for subscriptions without confirmed payment data yet
+      const plan = getPlanByName(sub.subscription_plan);
+      if (plan) {
+        const interval = sub.billing_interval ?? 'month';
+        subscriptionMrr += (interval === 'year' ? plan.yearlyPrice : plan.monthlyPrice) * 100;
+      }
+    }
   }
 
-  // ── Auto-tracked: active add-ons ────────────────────────────────────────
-  const { data: addons } = await db
-    .from('user_addons')
-    .select('addon_type, quantity, monthly_price, yearly_price, status')
-    .eq('status', 'active');
+  // ── Confirmed Stripe revenue by period ──────────────────────────────────
+  // Sum actual payments from stripe_transactions for revenue totals.
 
-  let addonMrr = 0;
-  const activeAddons = addons ?? [];
-  for (const addon of activeAddons) {
-    const price = addon.monthly_price ?? ADDON_PRICES[addon.addon_type as AddonType]?.monthly ?? 0;
-    addonMrr += price * addon.quantity * 100; // cents
-  }
+  const revenueTypes = ['subscription_payment', 'domain_purchase', 'domain_transfer', 'ecommerce_order', 'one_time_payment'];
 
-  // ── Auto-tracked: domain purchases (revenue = amount_cents, expense = vercel_cost_cents) ──
+  const [
+    { data: txMonth },
+    { data: txYear },
+    { data: txAll },
+  ] = await Promise.all([
+    db.from('stripe_transactions')
+      .select('amount_cents')
+      .eq('status', 'succeeded')
+      .in('transaction_type', revenueTypes)
+      .gte('created_at', monthStart),
+    db.from('stripe_transactions')
+      .select('amount_cents')
+      .eq('status', 'succeeded')
+      .in('transaction_type', revenueTypes)
+      .gte('created_at', yearStart),
+    db.from('stripe_transactions')
+      .select('amount_cents')
+      .eq('status', 'succeeded')
+      .in('transaction_type', revenueTypes),
+  ]);
+
+  const stripeRevenueMonth = (txMonth ?? []).reduce((sum: number, t: any) => sum + t.amount_cents, 0);
+  const stripeRevenueYear = (txYear ?? []).reduce((sum: number, t: any) => sum + t.amount_cents, 0);
+  const stripeRevenueAllTime = (txAll ?? []).reduce((sum: number, t: any) => sum + t.amount_cents, 0);
+
+  // ── Auto-tracked: domain expenses (Vercel cost) ─────────────────────────
+
   const { data: domains } = await db
     .from('domain_purchases')
-    .select('amount_cents, vercel_cost_cents, is_free_with_pro, auto_renew, expires_at, created_at, status')
+    .select('vercel_cost_cents, auto_renew, expires_at, created_at, status')
     .in('status', ['active', 'completed']);
 
-  let domainRevenueAllTime = 0;
+  const monthStartDate = monthStart.slice(0, 10);
+  const yearStartDate = yearStart.slice(0, 10);
+
   let domainExpenseAllTime = 0;
-  let domainRevenueYear = 0;
   let domainExpenseYear = 0;
-  let domainRevenueMonth = 0;
   let domainExpenseMonth = 0;
-  let domainRenewalMonthlyExpense = 0; // estimated monthly cost for auto-renewing domains
+  let domainRenewalMonthlyExpense = 0;
 
   for (const d of domains ?? []) {
     const created = d.created_at?.slice(0, 10) ?? '';
-    const revenue = d.amount_cents ?? 0;
     const expense = d.vercel_cost_cents ?? 0;
 
-    domainRevenueAllTime += revenue;
     domainExpenseAllTime += expense;
-
-    if (created >= yearStart) {
-      domainRevenueYear += revenue;
-      domainExpenseYear += expense;
-    }
-    if (created >= monthStart) {
-      domainRevenueMonth += revenue;
-      domainExpenseMonth += expense;
-    }
+    if (created >= yearStartDate) domainExpenseYear += expense;
+    if (created >= monthStartDate) domainExpenseMonth += expense;
 
     // Estimate monthly renewal cost for auto-renewing domains
     if (d.auto_renew && expense > 0) {
@@ -116,6 +139,7 @@ export async function GET() {
   }
 
   // ── Manual entries aggregation ──────────────────────────────────────────
+
   const { data: manualEntries } = await db
     .from('accounting_entries')
     .select('type, amount_cents, tax_cents, date, source');
@@ -135,21 +159,21 @@ export async function GET() {
     const date = e.date ?? '';
     if (e.type === 'revenue') {
       manualRevenueAllTime += e.amount_cents;
-      if (date >= yearStart) {
+      if (date >= yearStartDate) {
         manualRevenueYear += e.amount_cents;
         taxCollectedYear += e.tax_cents ?? 0;
       }
-      if (date >= monthStart) {
+      if (date >= monthStartDate) {
         manualRevenueMonth += e.amount_cents;
         taxCollectedMonth += e.tax_cents ?? 0;
       }
     } else {
       manualExpenseAllTime += e.amount_cents;
-      if (date >= yearStart) {
+      if (date >= yearStartDate) {
         manualExpenseYear += e.amount_cents;
         taxPaidYear += e.tax_cents ?? 0;
       }
-      if (date >= monthStart) {
+      if (date >= monthStartDate) {
         manualExpenseMonth += e.amount_cents;
         taxPaidMonth += e.tax_cents ?? 0;
       }
@@ -157,6 +181,7 @@ export async function GET() {
   }
 
   // ── Recurring entries — monthly equivalent for expenses/revenue ─────────
+
   const { data: recurring } = await db
     .from('accounting_recurring')
     .select('type, amount_cents, frequency, is_active')
@@ -174,20 +199,24 @@ export async function GET() {
   }
 
   // ── Combine into totals ─────────────────────────────────────────────────
-  // For month/year metrics, auto revenue = subscription + addon MRR * months elapsed
-  // Simplified: use MRR for current month, accumulated for year/all-time from manual
-  const mrr = subscriptionMrr + addonMrr + recurringRevenueMrr;
+
+  const mrr = subscriptionMrr + recurringRevenueMrr;
   const totalExpenseMrr = domainRenewalMonthlyExpense + recurringExpenseMrr;
 
-  const revenueMonth = mrr + domainRevenueMonth + manualRevenueMonth;
-  const revenueYear = mrr * now.getMonth() + domainRevenueYear + manualRevenueYear;
-  const revenueAllTime = domainRevenueAllTime + manualRevenueAllTime;
-  // All-time auto revenue can't be precisely computed without historical data,
-  // so we report domain + manual all-time and show MRR separately.
+  const revenueMonth = stripeRevenueMonth + manualRevenueMonth;
+  const revenueYear = stripeRevenueYear + manualRevenueYear;
+  const revenueAllTime = stripeRevenueAllTime + manualRevenueAllTime;
 
   const expenseMonth = totalExpenseMrr + domainExpenseMonth + manualExpenseMonth;
   const expenseYear = totalExpenseMrr * now.getMonth() + domainExpenseYear + manualExpenseYear;
   const expenseAllTime = domainExpenseAllTime + manualExpenseAllTime;
+
+  // ── Active addons count (for display) ───────────────────────────────────
+
+  const { count: activeAddonCount } = await db
+    .from('user_addons')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'active');
 
   const metrics: AccountingMetrics = {
     revenue: {
@@ -210,7 +239,7 @@ export async function GET() {
     mrr,
     arr: mrr * 12,
     activeSubscriptions: activeSubs.length,
-    activeAddons: activeAddons.length,
+    activeAddons: activeAddonCount ?? 0,
   };
 
   return NextResponse.json(metrics);

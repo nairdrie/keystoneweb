@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { requireOpsAccess } from '@/lib/ops/access';
 import { getPlanByName } from '@/lib/plans';
-import { ADDON_PRICES, type AddonType } from '@/lib/addons';
 import {
   getMonthlyEquivalent,
   countOccurrencesInRange,
@@ -11,16 +9,13 @@ import {
   type Frequency,
 } from '@/lib/ops/accounting';
 
-function getStripeClient() {
-  if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY not set');
-  return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-02-25.clover' as any });
-}
-
 /**
  * GET /api/ops/accounting/forecast
  * Project revenue, expenses, and net for the next 12 months.
- * Based on: current subscribers, their billing schedules, active add-ons,
- * domain renewal costs, and manual recurring entries.
+ *
+ * MRR is based on confirmed Stripe payments cached in stripe_transactions.
+ * Falls back to plan price for subs without confirmed payment data.
+ * Domain renewals and manual recurring entries are layered on top.
  */
 export async function GET() {
   const access = await requireOpsAccess();
@@ -30,41 +25,55 @@ export async function GET() {
 
   const db = createAdminClient();
 
-  // ── Subscription MRR ────────────────────────────────────────────────────
+  // ── Subscription MRR from confirmed payments ───────────────────────────
   const { data: subs } = await db
     .from('user_subscriptions')
-    .select('subscription_plan, subscription_status, stripe_subscription_id')
+    .select('subscription_plan, subscription_status, stripe_subscription_id, billing_interval')
     .eq('subscription_status', 'active');
 
-  const stripe = getStripeClient();
-  let subscriptionMrr = 0;
+  const activeSubs = subs ?? [];
 
-  await Promise.all(
-    (subs ?? []).map(async (sub) => {
-      const plan = getPlanByName(sub.subscription_plan);
-      if (!plan) return;
-      let interval = 'month';
-      if (sub.stripe_subscription_id) {
-        try {
-          const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id);
-          interval = stripeSub.items.data[0]?.price?.recurring?.interval ?? 'month';
-        } catch { /* fallback to monthly */ }
+  // Fetch latest confirmed payment per subscription
+  const subIds = activeSubs
+    .map((s: any) => s.stripe_subscription_id)
+    .filter(Boolean);
+
+  const latestPaymentMap = new Map<string, { amount_cents: number; billing_interval: string }>();
+
+  if (subIds.length > 0) {
+    const { data: payments } = await db
+      .from('stripe_transactions')
+      .select('stripe_subscription_id, amount_cents, billing_interval')
+      .in('stripe_subscription_id', subIds)
+      .eq('event_type', 'invoice.paid')
+      .eq('status', 'succeeded')
+      .order('created_at', { ascending: false });
+
+    for (const p of payments ?? []) {
+      if (p.stripe_subscription_id && !latestPaymentMap.has(p.stripe_subscription_id)) {
+        latestPaymentMap.set(p.stripe_subscription_id, p);
       }
-      const monthlyRate = interval === 'year' ? plan.yearlyPrice : plan.monthlyPrice;
-      subscriptionMrr += monthlyRate * 100;
-    })
-  );
+    }
+  }
 
-  // ── Add-on MRR ──────────────────────────────────────────────────────────
-  const { data: addons } = await db
-    .from('user_addons')
-    .select('addon_type, quantity, monthly_price')
-    .eq('status', 'active');
+  let subscriptionMrr = 0;
+  for (const sub of activeSubs) {
+    const payment = sub.stripe_subscription_id
+      ? latestPaymentMap.get(sub.stripe_subscription_id)
+      : null;
 
-  let addonMrr = 0;
-  for (const addon of addons ?? []) {
-    const price = addon.monthly_price ?? ADDON_PRICES[addon.addon_type as AddonType]?.monthly ?? 0;
-    addonMrr += price * addon.quantity * 100;
+    if (payment) {
+      subscriptionMrr += payment.billing_interval === 'year'
+        ? Math.round(payment.amount_cents / 12)
+        : payment.amount_cents;
+    } else {
+      // Fallback for subs without confirmed payment data
+      const plan = getPlanByName(sub.subscription_plan);
+      if (plan) {
+        const interval = sub.billing_interval ?? 'month';
+        subscriptionMrr += (interval === 'year' ? plan.yearlyPrice : plan.monthlyPrice) * 100;
+      }
+    }
   }
 
   // ── Domain renewals ─────────────────────────────────────────────────────
@@ -94,9 +103,6 @@ export async function GET() {
   const forecast: ForecastPoint[] = [];
   let cumulative = 0;
 
-  // Start from the beginning of the current month
-  const startBalance = 0; // Could integrate with a "current balance" field later
-
   for (let i = 0; i < 12; i++) {
     const monthDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
     const monthKey = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
@@ -106,8 +112,8 @@ export async function GET() {
 
     const label = monthDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
-    // Base recurring revenue from subs + addons
-    let projectedRevenue = subscriptionMrr + addonMrr;
+    // Base recurring revenue from confirmed subscription MRR
+    let projectedRevenue = subscriptionMrr;
 
     // Base expenses from domain renewals
     let projectedExpenses = domainRenewalsByMonth.get(monthKey) ?? 0;
@@ -146,10 +152,8 @@ export async function GET() {
     forecast,
     assumptions: {
       subscriptionMrr,
-      addonMrr,
-      totalMrr: subscriptionMrr + addonMrr,
-      activeSubscriptions: (subs ?? []).length,
-      activeAddons: (addons ?? []).length,
+      totalMrr: subscriptionMrr,
+      activeSubscriptions: activeSubs.length,
       autoRenewDomains: (domains ?? []).length,
     },
   });
