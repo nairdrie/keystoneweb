@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { requireOpsAccess } from '@/lib/ops/access';
-import { getPlanByName } from '@/lib/plans';
 import {
-  getMonthlyEquivalent,
   countOccurrencesInRange,
   type ForecastPoint,
   type Frequency,
@@ -66,14 +64,8 @@ export async function GET() {
       subscriptionMrr += payment.billing_interval === 'year'
         ? Math.round(payment.amount_cents / 12)
         : payment.amount_cents;
-    } else {
-      // Fallback for subs without confirmed payment data
-      const plan = getPlanByName(sub.subscription_plan);
-      if (plan) {
-        const interval = sub.billing_interval ?? 'month';
-        subscriptionMrr += (interval === 'year' ? plan.yearlyPrice : plan.monthlyPrice) * 100;
-      }
     }
+    // No confirmed payment = $0 MRR contribution (e.g. 100% coupon)
   }
 
   // ── Domain renewals ─────────────────────────────────────────────────────
