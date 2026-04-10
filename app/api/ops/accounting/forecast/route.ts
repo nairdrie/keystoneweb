@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import Stripe from 'stripe';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { requireOpsAccess } from '@/lib/ops/access';
 import { getPlanByName } from '@/lib/plans';
@@ -9,6 +10,11 @@ import {
   type ForecastPoint,
   type Frequency,
 } from '@/lib/ops/accounting';
+
+function getStripeClient() {
+  if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY not set');
+  return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-02-25.clover' as any });
+}
 
 /**
  * GET /api/ops/accounting/forecast
@@ -27,14 +33,27 @@ export async function GET() {
   // ── Subscription MRR ────────────────────────────────────────────────────
   const { data: subs } = await db
     .from('user_subscriptions')
-    .select('subscription_plan, subscription_status')
+    .select('subscription_plan, subscription_status, stripe_subscription_id')
     .eq('subscription_status', 'active');
 
+  const stripe = getStripeClient();
   let subscriptionMrr = 0;
-  for (const sub of subs ?? []) {
-    const plan = getPlanByName(sub.subscription_plan);
-    if (plan) subscriptionMrr += plan.monthlyPrice * 100;
-  }
+
+  await Promise.all(
+    (subs ?? []).map(async (sub) => {
+      const plan = getPlanByName(sub.subscription_plan);
+      if (!plan) return;
+      let interval = 'month';
+      if (sub.stripe_subscription_id) {
+        try {
+          const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id);
+          interval = stripeSub.items.data[0]?.price?.recurring?.interval ?? 'month';
+        } catch { /* fallback to monthly */ }
+      }
+      const monthlyRate = interval === 'year' ? plan.yearlyPrice : plan.monthlyPrice;
+      subscriptionMrr += monthlyRate * 100;
+    })
+  );
 
   // ── Add-on MRR ──────────────────────────────────────────────────────────
   const { data: addons } = await db

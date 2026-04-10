@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
+import Stripe from 'stripe';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { requireOpsAccess } from '@/lib/ops/access';
 import { PLANS, getPlanByName } from '@/lib/plans';
 import { ADDON_PRICES, type AddonType } from '@/lib/addons';
 import { getMonthlyEquivalent, type AccountingMetrics, type Frequency } from '@/lib/ops/accounting';
+
+function getStripeClient() {
+  if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY not set');
+  return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-02-25.clover' as any });
+}
 
 /**
  * GET /api/ops/accounting
@@ -29,13 +35,34 @@ export async function GET() {
 
   let subscriptionMrr = 0;
   const activeSubs = subs ?? [];
+
+  // Look up billing intervals from Stripe for accurate MRR
+  const stripe = getStripeClient();
+  const intervalCache = new Map<string, string>(); // subscription_id -> 'month' | 'year'
+
+  // Fetch intervals in parallel (batched)
+  await Promise.all(
+    activeSubs
+      .filter((s) => s.stripe_subscription_id)
+      .map(async (sub) => {
+        try {
+          const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id, {
+            expand: [],
+          });
+          const interval = stripeSub.items.data[0]?.price?.recurring?.interval ?? 'month';
+          intervalCache.set(sub.stripe_subscription_id, interval);
+        } catch {
+          // If Stripe lookup fails, we'll fall back to monthly price
+        }
+      })
+  );
+
   for (const sub of activeSubs) {
     const plan = getPlanByName(sub.subscription_plan);
     if (!plan) continue;
-    // We can't easily tell monthly vs yearly from DB alone, so use monthly price as baseline.
-    // Stripe subscription ID format doesn't indicate interval.
-    // For accuracy, use the plan's monthly price as the MRR contribution.
-    subscriptionMrr += plan.monthlyPrice * 100; // cents
+    const interval = intervalCache.get(sub.stripe_subscription_id) ?? 'month';
+    const monthlyRate = interval === 'year' ? plan.yearlyPrice : plan.monthlyPrice;
+    subscriptionMrr += monthlyRate * 100; // cents
   }
 
   // ── Auto-tracked: active add-ons ────────────────────────────────────────
