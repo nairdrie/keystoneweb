@@ -235,5 +235,37 @@ export async function GET() {
     activeAddons: activeAddonCount ?? 0,
   };
 
-  return NextResponse.json(metrics);
+  return NextResponse.json({
+    ...metrics,
+    breakdown: {
+      revenue: {
+        month: {
+          stripe: stripeRevenueMonth,
+          manual: manualRevenueMonth,
+        },
+        year: {
+          stripe: stripeRevenueYear,
+          manual: manualRevenueYear,
+        },
+      },
+      expenses: {
+        month: {
+          domainRenewalEstimate: domainRenewalMonthlyExpense,
+          recurringEntries: recurringExpenseMrr,
+          domainPurchases: domainExpenseMonth,
+          manual: manualExpenseMonth,
+        },
+        year: {
+          domainRenewalEstimate: domainRenewalMonthlyExpense * now.getMonth(),
+          recurringEntries: recurringExpenseMrr * now.getMonth(),
+          domainPurchases: domainExpenseYear,
+          manual: manualExpenseYear,
+        },
+      },
+      mrr: {
+        subscriptions: subscriptionMrr,
+        recurringManual: recurringRevenueMrr,
+      },
+    },
+  });
 }
