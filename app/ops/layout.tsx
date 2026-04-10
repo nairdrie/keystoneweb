@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/db/supabase-admin';
 import OpsHeader from './OpsHeader';
 import '../(app)/globals.css';
 
+export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Keystone Ops' };
 
 export default async function OpsLayout({ children }: { children: React.ReactNode }) {
@@ -21,10 +22,10 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
   const isAdmin = adminEmails.includes(user.email?.toLowerCase() ?? '');
 
   // If not a hardcoded admin, check for agent role
+  const db = createAdminClient();
   let isAgent = false;
   let agentContactEmail: string | null = null;
   if (!isAdmin) {
-    const db = createAdminClient();
     const { data: profile } = await db
       .from('users')
       .select('is_agent, agent_contact_email')
@@ -38,8 +39,7 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
     redirect('https://keystoneweb.ca');
   }
 
-  // Fetch open support count (scoped by contact email for agents)
-  const db = createAdminClient();
+  // Fetch badge counts in parallel instead of sequentially
   let countQuery = db
     .from('support_requests')
     .select('id', { count: 'exact', head: true })
@@ -50,13 +50,13 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
     countQuery = countQuery.eq('from_email', agentContactEmail);
   }
 
-  const { count } = await countQuery;
-
-  // Fetch pending moderation count
-  const { count: moderationCount } = await db
-    .from('moderation_events')
-    .select('id', { count: 'exact', head: true })
-    .is('reviewed_at', null);
+  const [{ count }, { count: moderationCount }] = await Promise.all([
+    countQuery,
+    db
+      .from('moderation_events')
+      .select('id', { count: 'exact', head: true })
+      .is('reviewed_at', null),
+  ]);
 
   return (
     <html lang="en">
