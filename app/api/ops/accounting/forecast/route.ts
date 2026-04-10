@@ -75,13 +75,29 @@ export async function GET() {
     .eq('auto_renew', true)
     .in('status', ['active', 'completed']);
 
-  // Build a map of month -> domain renewal cost
+  // Build a map of month -> domain renewal cost.
+  // Domains renew annually — advance the expiry date forward until it falls
+  // within the 12-month forecast window so past-due renewals aren't missed.
+  const now = new Date();
+  const forecastStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const forecastEnd = new Date(now.getFullYear(), now.getMonth() + 12, 0);
   const domainRenewalsByMonth = new Map<string, number>();
+
   for (const d of domains ?? []) {
     if (!d.expires_at || !d.vercel_cost_cents) continue;
-    const expires = new Date(d.expires_at);
-    const monthKey = `${expires.getFullYear()}-${String(expires.getMonth() + 1).padStart(2, '0')}`;
-    domainRenewalsByMonth.set(monthKey, (domainRenewalsByMonth.get(monthKey) ?? 0) + d.vercel_cost_cents);
+    const renewalDate = new Date(d.expires_at);
+
+    // Advance past renewals forward by years until within the forecast window
+    while (renewalDate < forecastStart) {
+      renewalDate.setFullYear(renewalDate.getFullYear() + 1);
+    }
+
+    // Add all renewals that fall within the 12-month window
+    while (renewalDate <= forecastEnd) {
+      const monthKey = `${renewalDate.getFullYear()}-${String(renewalDate.getMonth() + 1).padStart(2, '0')}`;
+      domainRenewalsByMonth.set(monthKey, (domainRenewalsByMonth.get(monthKey) ?? 0) + d.vercel_cost_cents);
+      renewalDate.setFullYear(renewalDate.getFullYear() + 1);
+    }
   }
 
   // ── Manual recurring entries ────────────────────────────────────────────
@@ -91,7 +107,6 @@ export async function GET() {
     .eq('is_active', true);
 
   // ── Build 12-month forecast ─────────────────────────────────────────────
-  const now = new Date();
   const forecast: ForecastPoint[] = [];
   let cumulative = 0;
 
