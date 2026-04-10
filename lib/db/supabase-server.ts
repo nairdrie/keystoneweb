@@ -13,13 +13,9 @@ import { createAdminClient } from './supabase-admin';
  * Supports impersonation for admins via the x-impersonated-user-id header.
  */
 export async function createClient() {
-  const t0 = performance.now();
   const cookieStore = await cookies();
-  const t1 = performance.now();
   const headerList = await headers();
-  const t2 = performance.now();
   const impersonatedUserId = headerList.get('x-impersonated-user-id');
-  console.log(`[supabase-server] cookies: ${(t1 - t0).toFixed(0)}ms, headers: ${(t2 - t1).toFixed(0)}ms`);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -47,10 +43,9 @@ export async function createClient() {
   // If impersonation is active, override the client to use service role
   // so that queries bypass RLS and we can actually see the target user's data.
   if (impersonatedUserId) {
-    console.time('[supabase-server] impersonation check');
     // First verify the ACTUAL user is logged in via the anon client
     const { data: { user: actualUser } } = await supabase.auth.getUser();
-    
+
     if (actualUser) {
       const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
         .split(',')
@@ -60,31 +55,29 @@ export async function createClient() {
       if (adminEmails.includes(actualUser.email?.toLowerCase() ?? '')) {
         const adminClient = createAdminClient();
         const { data: { user: targetUser }, error } = await adminClient.auth.admin.getUserById(impersonatedUserId);
-        
+
         if (targetUser && !error) {
           console.log(`[Impersonation] Active: Admin ${actualUser.email} is impersonating ${targetUser.email}`);
           // Return the admin client but with auth.getUser() overridden to return the target user
           // tagged with impersonation metadata.
           const originalGetUser = adminClient.auth.getUser.bind(adminClient.auth);
           adminClient.auth.getUser = async (token?: string) => {
-            return { 
-              data: { 
-                user: { 
-                  ...targetUser, 
+            return {
+              data: {
+                user: {
+                  ...targetUser,
                   is_impersonated: true,
-                  original_admin_id: actualUser.id 
-                } as any 
-              }, 
-              error: null 
+                  original_admin_id: actualUser.id
+                } as any
+              },
+              error: null
             };
           };
 
-          console.timeEnd('[supabase-server] impersonation check');
           return adminClient;
         }
       }
     }
-    console.timeEnd('[supabase-server] impersonation check');
   }
 
   return supabase;

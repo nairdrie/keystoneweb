@@ -21,20 +21,14 @@ export default async function OpsSupportPage({
 }: {
   searchParams: Promise<{ status?: string; page?: string; q?: string; sort?: string }>;
 }) {
-  const pageStart = performance.now();
   const { status = 'open', page: pageStr = '1', q: search = '', sort = 'newest' } = await searchParams;
   const page = Math.max(parseInt(pageStr, 10) || 1, 1);
   const limit = 50;
   const offset = (page - 1) * limit;
 
   // Determine if the current user is an admin or an agent with a scoped email
-  console.time('[ops-support] createClient');
   const supabase = await createClient();
-  console.timeEnd('[ops-support] createClient');
-
-  console.time('[ops-support] auth.getUser');
   const { data: { user } } = await supabase.auth.getUser();
-  console.timeEnd('[ops-support] auth.getUser');
 
   const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
     .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
@@ -43,7 +37,6 @@ export default async function OpsSupportPage({
   let agentContactEmail: string | null = null;
 
   if (!isAdmin && user) {
-    console.time('[ops-support] agent check');
     const db = createAdminClient();
     const { data: profile } = await db
       .from('users')
@@ -51,7 +44,6 @@ export default async function OpsSupportPage({
       .eq('id', user.id)
       .single();
     agentContactEmail = profile?.agent_contact_email ?? null;
-    console.timeEnd('[ops-support] agent check');
   }
 
   const db = createAdminClient();
@@ -81,15 +73,12 @@ export default async function OpsSupportPage({
     );
   }
 
-  console.time('[ops-support] main query');
   const { data: requests, count } = await query;
-  console.timeEnd('[ops-support] main query');
 
   // Reply counts for each root thread
   const rootIds = (requests ?? []).map((r: any) => r.id);
   let replyCountMap: Record<string, number> = {};
   if (rootIds.length > 0) {
-    console.time('[ops-support] reply counts');
     const { data: replies } = await db
       .from('support_requests')
       .select('thread_id')
@@ -97,7 +86,6 @@ export default async function OpsSupportPage({
     for (const r of replies ?? []) {
       replyCountMap[r.thread_id] = (replyCountMap[r.thread_id] ?? 0) + 1;
     }
-    console.timeEnd('[ops-support] reply counts');
   }
 
   // Counts per status for tabs — scoped the same way
@@ -113,15 +101,12 @@ export default async function OpsSupportPage({
     return q;
   }
 
-  console.time('[ops-support] status tab counts');
   const [openCount, inProgressCount, resolvedCount, closedCount] = await Promise.all([
     scopedCount('open'),
     scopedCount('in_progress'),
     scopedCount('resolved'),
     scopedCount('closed'),
   ]);
-  console.timeEnd('[ops-support] status tab counts');
-  console.log(`[ops-support] TOTAL: ${(performance.now() - pageStart).toFixed(0)}ms`);
 
   const tabs = [
     { label: 'All', value: 'all', count: null },

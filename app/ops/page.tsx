@@ -74,7 +74,6 @@ function StatCard({
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function OpsOverviewPage() {
-  const pageStart = performance.now();
   const db = createAdminClient();
   const now = new Date();
   const day7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -106,7 +105,6 @@ export default async function OpsOverviewPage() {
     db.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'site_publish').gte('created_at', day30),
     db.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'subscription_upgrade').gte('created_at', day30),
   ]);
-  console.log(`[ops-overview] stats queries: ${(performance.now() - pageStart).toFixed(0)}ms`);
 
   // Build 30-day daily buckets for charts
   const dates: string[] = [];
@@ -191,8 +189,6 @@ export default async function OpsOverviewPage() {
     subscription_cancel: 'cancelled',
     domain_purchase: 'bought a domain',
   };
-
-  console.log(`[ops-overview] TOTAL: ${(performance.now() - pageStart).toFixed(0)}ms`);
 
   return (
     <div className="space-y-8">
