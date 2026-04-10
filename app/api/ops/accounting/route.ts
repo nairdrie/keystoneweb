@@ -171,11 +171,13 @@ export async function GET() {
 
   const { data: recurring } = await db
     .from('accounting_recurring')
-    .select('type, amount_cents, frequency, is_active')
+    .select('type, amount_cents, frequency, start_date, is_active')
     .eq('is_active', true);
 
   let recurringRevenueMrr = 0;
   let recurringExpenseMrr = 0;
+  let recurringRevenueYtd = 0;
+  let recurringExpenseYtd = 0;
   for (const r of recurring ?? []) {
     const monthly = getMonthlyEquivalent(r.amount_cents, r.frequency as Frequency);
     if (r.type === 'revenue') {
@@ -183,18 +185,33 @@ export async function GET() {
     } else {
       recurringExpenseMrr += monthly;
     }
+
+    // YTD: count months active this year (from max(start_date, Jan 1) to now)
+    const startDate = new Date(r.start_date + 'T00:00:00');
+    const ytdStart = new Date(now.getFullYear(), 0, 1);
+    const activeFrom = startDate > ytdStart ? startDate : ytdStart;
+    const monthsActive = Math.max(0,
+      (now.getFullYear() - activeFrom.getFullYear()) * 12
+      + now.getMonth() - activeFrom.getMonth()
+    );
+    const ytdAmount = monthly * monthsActive;
+    if (r.type === 'revenue') {
+      recurringRevenueYtd += ytdAmount;
+    } else {
+      recurringExpenseYtd += ytdAmount;
+    }
   }
 
   // ── Combine into totals ─────────────────────────────────────────────────
 
   const mrr = subscriptionMrr + recurringRevenueMrr;
 
-  const revenueMonth = stripeRevenueMonth + manualRevenueMonth;
-  const revenueYear = stripeRevenueYear + manualRevenueYear;
+  const revenueMonth = stripeRevenueMonth + recurringRevenueMrr + manualRevenueMonth;
+  const revenueYear = stripeRevenueYear + recurringRevenueYtd + manualRevenueYear;
   const revenueAllTime = stripeRevenueAllTime + manualRevenueAllTime;
 
   const expenseMonth = recurringExpenseMrr + domainExpenseMonth + manualExpenseMonth;
-  const expenseYear = recurringExpenseMrr * now.getMonth() + domainExpenseYear + manualExpenseYear;
+  const expenseYear = recurringExpenseYtd + domainExpenseYear + manualExpenseYear;
   const expenseAllTime = domainExpenseAllTime + manualExpenseAllTime;
 
   // ── Active addons count (for display) ───────────────────────────────────
@@ -234,10 +251,12 @@ export async function GET() {
       revenue: {
         month: {
           stripe: stripeRevenueMonth,
+          recurringEntries: recurringRevenueMrr,
           manual: manualRevenueMonth,
         },
         year: {
           stripe: stripeRevenueYear,
+          recurringEntries: recurringRevenueYtd,
           manual: manualRevenueYear,
         },
       },
@@ -248,7 +267,7 @@ export async function GET() {
           manual: manualExpenseMonth,
         },
         year: {
-          recurringEntries: recurringExpenseMrr * now.getMonth(),
+          recurringEntries: recurringExpenseYtd,
           domainPurchases: domainExpenseYear,
           manual: manualExpenseYear,
         },

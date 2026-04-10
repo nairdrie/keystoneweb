@@ -15,8 +15,8 @@ interface Metrics {
   activeAddons: number;
   breakdown?: {
     revenue: {
-      month: { stripe: number; manual: number };
-      year: { stripe: number; manual: number };
+      month: { stripe: number; recurringEntries: number; manual: number };
+      year: { stripe: number; recurringEntries: number; manual: number };
     };
     expenses: {
       month: { recurringEntries: number; domainPurchases: number; manual: number };
@@ -120,6 +120,7 @@ export default function MetricsCards({ refreshKey }: { refreshKey: number }) {
           accent="text-emerald-400"
           breakdownLines={b ? [
             { label: 'Stripe payments', value: b.revenue.month.stripe },
+            { label: 'Recurring entries', value: b.revenue.month.recurringEntries },
             { label: 'Manual entries', value: b.revenue.month.manual },
           ] : undefined}
         />
@@ -153,6 +154,7 @@ export default function MetricsCards({ refreshKey }: { refreshKey: number }) {
           accent="text-emerald-400"
           breakdownLines={b ? [
             { label: 'Stripe payments', value: b.revenue.year.stripe },
+            { label: 'Recurring entries', value: b.revenue.year.recurringEntries },
             { label: 'Manual entries', value: b.revenue.year.manual },
           ] : undefined}
         />
