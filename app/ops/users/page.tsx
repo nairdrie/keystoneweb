@@ -26,6 +26,7 @@ export default async function OpsUsersPage({
 }: {
   searchParams: Promise<{ search?: string; plan?: string; page?: string }>;
 }) {
+  const pageStart = performance.now();
   const { search = '', plan = '', page: pageStr = '1' } = await searchParams;
   const page = Math.max(parseInt(pageStr, 10) || 1, 1);
   const limit = 50;
@@ -37,12 +38,14 @@ export default async function OpsUsersPage({
 
   // If plan filter is active, fetch matching user IDs first
   if (plan) {
+    console.time('[ops-users] plan filter');
     const { data: subData } = await db
       .from('user_subscriptions')
       .select('user_id')
       .ilike('subscription_plan', `%${plan}%`);
-    
+
     filteredUserIds = (subData ?? []).map(s => s.user_id);
+    console.timeEnd('[ops-users] plan filter');
   }
 
   let query = db
@@ -61,7 +64,9 @@ export default async function OpsUsersPage({
     }
   }
 
+  console.time('[ops-users] main query');
   const { data: users, count, error } = await query;
+  console.timeEnd('[ops-users] main query');
 
   if (error) {
     console.error('[OpsUsers] Error fetching users:', error);
@@ -76,10 +81,12 @@ export default async function OpsUsersPage({
   const phoneNumbers: Record<string, string> = {};
 
   if (userIds.length) {
+    console.time('[ops-users] sites + subs');
     const [sitesRes, subsRes] = await Promise.all([
       db.from('sites').select('user_id, is_published, business_profile').in('user_id', userIds).not('user_id', 'is', null),
       db.from('user_subscriptions').select('*').in('user_id', userIds)
     ]);
+    console.timeEnd('[ops-users] sites + subs');
 
     if (sitesRes.data) {
       for (const row of sitesRes.data) {
@@ -120,6 +127,7 @@ export default async function OpsUsersPage({
   });
 
   const totalPages = Math.ceil((count ?? 0) / limit);
+  console.log(`[ops-users] TOTAL: ${(performance.now() - pageStart).toFixed(0)}ms`);
 
   return (
     <div className="space-y-6">

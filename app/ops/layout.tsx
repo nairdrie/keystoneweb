@@ -8,9 +8,16 @@ export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Keystone Ops' };
 
 export default async function OpsLayout({ children }: { children: React.ReactNode }) {
+  const layoutStart = performance.now();
+
   // Verify authenticated
+  console.time('[ops-layout] createClient');
   const supabase = await createClient();
+  console.timeEnd('[ops-layout] createClient');
+
+  console.time('[ops-layout] auth.getUser');
   const { data: { user } } = await supabase.auth.getUser();
+  console.timeEnd('[ops-layout] auth.getUser');
 
   if (!user) {
     redirect('https://keystoneweb.ca');
@@ -26,6 +33,7 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
   let isAgent = false;
   let agentContactEmail: string | null = null;
   if (!isAdmin) {
+    console.time('[ops-layout] agent check');
     const { data: profile } = await db
       .from('users')
       .select('is_agent, agent_contact_email')
@@ -33,6 +41,7 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
       .single();
     isAgent = profile?.is_agent ?? false;
     agentContactEmail = profile?.agent_contact_email ?? null;
+    console.timeEnd('[ops-layout] agent check');
   }
 
   if (!isAdmin && !isAgent) {
@@ -50,6 +59,7 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
     countQuery = countQuery.eq('from_email', agentContactEmail);
   }
 
+  console.time('[ops-layout] badge counts');
   const [{ count }, { count: moderationCount }] = await Promise.all([
     countQuery,
     db
@@ -57,6 +67,8 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
       .select('id', { count: 'exact', head: true })
       .is('reviewed_at', null),
   ]);
+  console.timeEnd('[ops-layout] badge counts');
+  console.log(`[ops-layout] TOTAL: ${(performance.now() - layoutStart).toFixed(0)}ms`);
 
   return (
     <html lang="en">
