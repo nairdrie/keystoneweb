@@ -13,7 +13,7 @@ import { getMonthlyEquivalent, type AccountingMetrics, type Frequency } from '@/
  */
 export async function GET() {
   const access = await requireOpsAccess();
-  if (!access || !access.isAdmin) {
+  if (!access || (!access.isAdmin && !access.isAgent)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

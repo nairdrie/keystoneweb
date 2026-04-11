@@ -1,17 +1,11 @@
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { createClient } from '@/lib/db/supabase-server';
 import { redirect } from 'next/navigation';
+import { getOpsAccessContext } from '@/lib/ops/access';
 import AccountingDashboard from './AccountingDashboard';
 
 export default async function AccountingPage() {
-  // Admin-only gate
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('https://keystoneweb.ca');
-
-  const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
-    .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-  if (!adminEmails.includes(user.email?.toLowerCase() ?? '')) {
+  const access = await getOpsAccessContext();
+  if (!access || (!access.isAdmin && !access.isAgent)) {
     redirect('/ops');
   }
 
