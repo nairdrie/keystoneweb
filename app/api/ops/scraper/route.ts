@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireOpsAccess } from '@/lib/ops/access';
 import { runOpsScraper } from '@/lib/ops/scraper';
-import type { ScraperPreset } from '@/lib/ops/scraper/types';
+import { isSupportedContentNormalizationModel } from '@/lib/ops/scraper/models';
+import type { ContentNormalizationModel, ScraperMode, ScraperPreset } from '@/lib/ops/scraper/types';
 
 const SUPPORTED_PRESETS: ScraperPreset[] = ['products', 'services', 'content', 'other'];
 
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  let body: { url?: unknown; type?: unknown };
+  let body: { url?: unknown; type?: unknown; mode?: unknown; includeBlog?: unknown; llmModel?: unknown; aiOnly?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -20,6 +21,12 @@ export async function POST(req: NextRequest) {
 
   const url = typeof body.url === 'string' ? body.url.trim() : '';
   const preset = typeof body.type === 'string' ? (body.type as ScraperPreset) : 'products';
+  const mode = typeof body.mode === 'string' ? (body.mode as ScraperMode) : undefined;
+  const includeBlog = typeof body.includeBlog === 'boolean' ? body.includeBlog : undefined;
+  const aiOnly = typeof body.aiOnly === 'boolean' ? body.aiOnly : undefined;
+  const llmModel = typeof body.llmModel === 'string' && (body.llmModel === 'auto' || isSupportedContentNormalizationModel(body.llmModel))
+    ? (body.llmModel as ContentNormalizationModel)
+    : undefined;
 
   if (!url) {
     return NextResponse.json({ error: 'Missing url' }, { status: 400 });
@@ -30,7 +37,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await runOpsScraper(url, preset);
+    const result = await runOpsScraper(url, preset, { mode, includeBlog, llmModel, aiOnly });
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Scraper failed.';
