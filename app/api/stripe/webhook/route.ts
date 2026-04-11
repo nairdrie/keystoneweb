@@ -545,7 +545,9 @@ export async function POST(request: NextRequest) {
 
       // ── Invoice paid: confirmed payment for revenue tracking ──────────
       case 'invoice.paid': {
-        const invoice = event.data.object as Stripe.Invoice;
+        // Cast to any: the 2026-02-25 Stripe API version restructured Invoice types
+        // but the runtime object still has these fields.
+        const invoice = event.data.object as any;
         const customerId = typeof invoice.customer === 'string' ? invoice.customer : '';
         const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : '';
         const interval = invoice.lines?.data?.[0]?.price?.recurring?.interval ?? null;
@@ -612,7 +614,7 @@ export async function POST(request: NextRequest) {
 
       // ── Invoice payment failed ────────────────────────────────────────
       case 'invoice.payment_failed': {
-        const failedInvoice = event.data.object as Stripe.Invoice;
+        const failedInvoice = event.data.object as any;
         const failedCustomerId = typeof failedInvoice.customer === 'string' ? failedInvoice.customer : '';
         const failedSubscriptionId = typeof failedInvoice.subscription === 'string' ? failedInvoice.subscription : '';
 

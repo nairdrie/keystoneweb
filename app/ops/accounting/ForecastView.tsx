@@ -14,10 +14,8 @@ interface ForecastPoint {
 
 interface Assumptions {
   subscriptionMrr: number;
-  addonMrr: number;
   totalMrr: number;
   activeSubscriptions: number;
-  activeAddons: number;
   autoRenewDomains: number;
 }
 
@@ -71,18 +69,10 @@ export default function ForecastView({ refreshKey }: { refreshKey: number }) {
       {assumptions && (
         <div className="rounded-lg border border-gray-800 bg-gray-900 p-4">
           <h3 className="text-sm font-semibold text-gray-300 mb-3">Forecast Assumptions</h3>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5 text-sm">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 text-sm">
             <div>
-              <p className="text-xs text-gray-500">Subscription MRR</p>
-              <p className="text-emerald-400 font-mono">{formatCents(assumptions.subscriptionMrr)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Add-on MRR</p>
-              <p className="text-emerald-400 font-mono">{formatCents(assumptions.addonMrr)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Total MRR</p>
-              <p className="text-white font-bold font-mono">{formatCents(assumptions.totalMrr)}</p>
+              <p className="text-xs text-gray-500">MRR (confirmed)</p>
+              <p className="text-emerald-400 font-bold font-mono">{formatCents(assumptions.totalMrr)}</p>
             </div>
             <div>
               <p className="text-xs text-gray-500">Active Subs</p>
