@@ -86,8 +86,8 @@ export default function MetricsCards({ refreshKey }: { refreshKey: number }) {
     return (
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {Array.from({ length: 10 }).map((_, i) => (
-          <div key={i} className="rounded-lg border border-gray-800 bg-gray-900 p-4 animate-pulse">
-            <div className="h-3 w-20 bg-gray-800 rounded mb-2" />
+          <div key={i} className="rounded-lg border border-gray-800 bg-gray-900 p-4 h-[88px] animate-pulse">
+            <div className="h-3 w-20 bg-gray-800 rounded mb-3" />
             <div className="h-7 w-24 bg-gray-800 rounded" />
           </div>
         ))}
@@ -101,91 +101,91 @@ export default function MetricsCards({ refreshKey }: { refreshKey: number }) {
   const netAccent = (v: number) => (v >= 0 ? 'text-emerald-400' : 'text-red-400');
 
   return (
-    <div className="space-y-4">
-      {/* Primary metrics row */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        <MetricCard
-          label="MRR"
-          value={formatCents(metrics.mrr)}
-          accent="text-emerald-400"
-          sub={`ARR: ${formatCents(metrics.arr)}`}
-          breakdownLines={b ? [
-            { label: 'Subscriptions', value: b.mrr.subscriptions },
-            { label: 'Recurring (manual)', value: b.mrr.recurringManual },
-          ] : undefined}
-        />
-        <MetricCard
-          label="Revenue (Month)"
-          value={formatCents(metrics.revenue.month)}
-          accent="text-emerald-400"
-          breakdownLines={b ? [
-            { label: 'Stripe payments', value: b.revenue.month.stripe },
-            { label: 'Recurring entries', value: b.revenue.month.recurringEntries },
-            { label: 'Manual entries', value: b.revenue.month.manual },
-          ] : undefined}
-        />
-        <MetricCard
-          label="Expenses (Month)"
-          value={formatCents(metrics.expenses.month)}
-          accent="text-red-400"
-          breakdownLines={b ? [
-            { label: 'Recurring entries', value: b.expenses.month.recurringEntries },
-            { label: 'Domain purchases', value: b.expenses.month.domainPurchases },
-            { label: 'Manual entries', value: b.expenses.month.manual },
-          ] : undefined}
-        />
-        <MetricCard
-          label="Net (Month)"
-          value={formatCents(metrics.net.month)}
-          accent={netAccent(metrics.net.month)}
-        />
-        <MetricCard
-          label="Active Subs"
-          value={String(metrics.activeSubscriptions)}
-          sub={`${metrics.activeAddons} add-ons`}
-        />
-      </div>
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      {/* Col 1: MRR / Active Subs */}
+      <MetricCard
+        label="MRR"
+        value={formatCents(metrics.mrr)}
+        accent="text-emerald-400"
+        sub={`ARR: ${formatCents(metrics.arr)}`}
+        breakdownLines={b ? [
+          { label: 'Subscriptions', value: b.mrr.subscriptions },
+          { label: 'Recurring (manual)', value: b.mrr.recurringManual },
+        ] : undefined}
+      />
+      {/* Col 2: Revenue Month / YTD */}
+      <MetricCard
+        label="Revenue (Month)"
+        value={formatCents(metrics.revenue.month)}
+        accent="text-emerald-400"
+        breakdownLines={b ? [
+          { label: 'Stripe payments', value: b.revenue.month.stripe },
+          { label: 'Recurring entries', value: b.revenue.month.recurringEntries },
+          { label: 'Manual entries', value: b.revenue.month.manual },
+        ] : undefined}
+      />
+      {/* Col 3: Expenses Month / YTD */}
+      <MetricCard
+        label="Expenses (Month)"
+        value={formatCents(metrics.expenses.month)}
+        accent="text-red-400"
+        breakdownLines={b ? [
+          { label: 'Recurring entries', value: b.expenses.month.recurringEntries },
+          { label: 'Domain purchases', value: b.expenses.month.domainPurchases },
+          { label: 'Manual entries', value: b.expenses.month.manual },
+        ] : undefined}
+      />
+      {/* Col 4: Net Month / YTD */}
+      <MetricCard
+        label="Net (Month)"
+        value={formatCents(metrics.net.month)}
+        accent={netAccent(metrics.net.month)}
+      />
+      {/* Col 5: Tax Collected / Tax Paid */}
+      <MetricCard
+        label="Tax Collected (YTD)"
+        value={formatCents(metrics.taxCollected.year)}
+        accent="text-amber-400"
+        sub={`This month: ${formatCents(metrics.taxCollected.month)}`}
+      />
 
-      {/* Year / all-time row */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        <MetricCard
-          label="Revenue (YTD)"
-          value={formatCents(metrics.revenue.year)}
-          accent="text-emerald-400"
-          breakdownLines={b ? [
-            { label: 'Stripe payments', value: b.revenue.year.stripe },
-            { label: 'Recurring entries', value: b.revenue.year.recurringEntries },
-            { label: 'Manual entries', value: b.revenue.year.manual },
-          ] : undefined}
-        />
-        <MetricCard
-          label="Expenses (YTD)"
-          value={formatCents(metrics.expenses.year)}
-          accent="text-red-400"
-          breakdownLines={b ? [
-            { label: 'Recurring entries', value: b.expenses.year.recurringEntries },
-            { label: 'Domain purchases', value: b.expenses.year.domainPurchases },
-            { label: 'Manual entries', value: b.expenses.year.manual },
-          ] : undefined}
-        />
-        <MetricCard
-          label="Net (YTD)"
-          value={formatCents(metrics.net.year)}
-          accent={netAccent(metrics.net.year)}
-        />
-        <MetricCard
-          label="Tax Collected (YTD)"
-          value={formatCents(metrics.taxCollected.year)}
-          accent="text-amber-400"
-          sub={`This month: ${formatCents(metrics.taxCollected.month)}`}
-        />
-        <MetricCard
-          label="Tax Paid (YTD)"
-          value={formatCents(metrics.taxPaid.year)}
-          accent="text-sky-400"
-          sub={`GST refund eligible: ${formatCents(metrics.taxPaid.year)}`}
-        />
-      </div>
+      {/* Row 2 */}
+      <MetricCard
+        label="Active Subs"
+        value={String(metrics.activeSubscriptions)}
+        sub={`${metrics.activeAddons} add-ons`}
+      />
+      <MetricCard
+        label="Revenue (YTD)"
+        value={formatCents(metrics.revenue.year)}
+        accent="text-emerald-400"
+        breakdownLines={b ? [
+          { label: 'Stripe payments', value: b.revenue.year.stripe },
+          { label: 'Recurring entries', value: b.revenue.year.recurringEntries },
+          { label: 'Manual entries', value: b.revenue.year.manual },
+        ] : undefined}
+      />
+      <MetricCard
+        label="Expenses (YTD)"
+        value={formatCents(metrics.expenses.year)}
+        accent="text-red-400"
+        breakdownLines={b ? [
+          { label: 'Recurring entries', value: b.expenses.year.recurringEntries },
+          { label: 'Domain purchases', value: b.expenses.year.domainPurchases },
+          { label: 'Manual entries', value: b.expenses.year.manual },
+        ] : undefined}
+      />
+      <MetricCard
+        label="Net (YTD)"
+        value={formatCents(metrics.net.year)}
+        accent={netAccent(metrics.net.year)}
+      />
+      <MetricCard
+        label="Tax Paid (YTD)"
+        value={formatCents(metrics.taxPaid.year)}
+        accent="text-sky-400"
+        sub={`This month: ${formatCents(metrics.taxPaid.month)}`}
+      />
     </div>
   );
 }
