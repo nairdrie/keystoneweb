@@ -11,7 +11,7 @@ const VALID_FREQUENCIES: Frequency[] = ['weekly', 'biweekly', 'monthly', 'quarte
  */
 export async function GET() {
   const access = await requireOpsAccess();
-  if (!access || !access.isAdmin) {
+  if (!access || (!access.isAdmin && !access.isAgent)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -84,7 +84,7 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   const access = await requireOpsAccess();
-  if (!access || !access.isAdmin) {
+  if (!access || (!access.isAdmin && !access.isAgent)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   const access = await requireOpsAccess();
-  if (!access || !access.isAdmin) {
+  if (!access || (!access.isAdmin && !access.isAgent)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -194,7 +194,7 @@ export async function PATCH(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   const access = await requireOpsAccess();
-  if (!access || !access.isAdmin) {
+  if (!access || (!access.isAdmin && !access.isAgent)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

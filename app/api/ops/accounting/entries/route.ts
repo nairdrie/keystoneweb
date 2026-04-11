@@ -9,7 +9,7 @@ import type { EntryType, EntrySource, TaxType } from '@/lib/ops/accounting';
  */
 export async function GET(request: NextRequest) {
   const access = await requireOpsAccess();
-  if (!access || !access.isAdmin) {
+  if (!access || (!access.isAdmin && !access.isAgent)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   const access = await requireOpsAccess();
-  if (!access || !access.isAdmin) {
+  if (!access || (!access.isAdmin && !access.isAgent)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   const access = await requireOpsAccess();
-  if (!access || !access.isAdmin) {
+  if (!access || (!access.isAdmin && !access.isAgent)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -194,7 +194,7 @@ export async function PATCH(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   const access = await requireOpsAccess();
-  if (!access || !access.isAdmin) {
+  if (!access || (!access.isAdmin && !access.isAgent)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
