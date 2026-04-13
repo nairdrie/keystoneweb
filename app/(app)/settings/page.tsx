@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/context';
 import { useRouter } from 'next/navigation';
 import KeystoneLogo from '@/app/components/KeystoneLogo';
-import { ArrowLeft, CreditCard, ExternalLink, Loader2, User, History, Globe, Link2, AlertCircle, CheckCircle2, Lock, Puzzle, Zap } from 'lucide-react';
+import { ArrowLeft, CreditCard, ExternalLink, Loader2, User, History, Globe, Link2, AlertCircle, CheckCircle2, Lock, Puzzle, Zap, Receipt, Download, FileText } from 'lucide-react';
 
 interface SubscriptionData {
     subscription_status: string;
@@ -46,6 +46,35 @@ interface OwnedDomain {
     created_at: string;
 }
 
+interface Transaction {
+    id: string;
+    transaction_type: string;
+    description: string | null;
+    amount_cents: number;
+    currency: string;
+    status: 'succeeded' | 'failed' | 'refunded' | 'pending';
+    invoice_url: string | null;
+    invoice_pdf: string | null;
+    period_start: string | null;
+    period_end: string | null;
+    created_at: string;
+}
+
+const TRANSACTION_TYPE_LABELS: Record<string, string> = {
+    subscription: 'Subscription',
+    domain_purchase: 'Domain Purchase',
+    domain_transfer: 'Domain Transfer',
+    ecommerce_order: 'E-commerce Order',
+    addon: 'Add-on',
+};
+
+const STATUS_STYLES: Record<string, string> = {
+    succeeded: 'bg-green-100 text-green-800 border-green-200',
+    failed: 'bg-red-100 text-red-800 border-red-200',
+    refunded: 'bg-slate-100 text-slate-800 border-slate-200',
+    pending: 'bg-amber-100 text-amber-800 border-amber-200',
+};
+
 export default function SettingsPage() {
     const { user, loading: authLoading } = useAuth();
     const router = useRouter();
@@ -63,6 +92,10 @@ export default function SettingsPage() {
     // Domain state
     const [domains, setDomains] = useState<OwnedDomain[]>([]);
     const [loadingDomains, setLoadingDomains] = useState(true);
+
+    // Billing history state
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [loadingTransactions, setLoadingTransactions] = useState(true);
 
     useEffect(() => {
         if (!authLoading && !user) {
@@ -128,6 +161,26 @@ export default function SettingsPage() {
             };
 
             fetchDomains();
+        }
+    }, [user]);
+
+    // Fetch billing history
+    useEffect(() => {
+        if (user) {
+            const fetchTransactions = async () => {
+                try {
+                    const res = await fetch('/api/user/billing-history');
+                    if (res.ok) {
+                        const data = await res.json();
+                        setTransactions(data.transactions || []);
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch billing history:', err);
+                } finally {
+                    setLoadingTransactions(false);
+                }
+            };
+            fetchTransactions();
         }
     }, [user]);
 
@@ -571,6 +624,119 @@ export default function SettingsPage() {
                                                 </p>
                                             )}
                                         </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* ═══════════════════════════════════════════════ */}
+                        {/* Billing History Block                           */}
+                        {/* ═══════════════════════════════════════════════ */}
+                        <div className="border border-slate-200 bg-white rounded-2xl shadow-sm overflow-hidden">
+                            <div className="p-6 border-b border-slate-100">
+                                <h2 className="text-xl font-bold flex items-center gap-2 mb-1">
+                                    <Receipt className="w-5 h-5 text-red-500" />
+                                    Billing History
+                                </h2>
+                                <p className="text-sm text-slate-500">
+                                    View your past payments, invoices, and transactions.
+                                </p>
+                            </div>
+
+                            <div className="p-6 bg-slate-50/50">
+                                {loadingTransactions ? (
+                                    <div className="flex items-center justify-center py-8">
+                                        <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+                                    </div>
+                                ) : transactions.length === 0 ? (
+                                    <div className="text-center py-6">
+                                        <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                            <Receipt className="w-6 h-6 text-slate-400" />
+                                        </div>
+                                        <h3 className="text-slate-900 font-semibold mb-1">No Transactions Yet</h3>
+                                        <p className="text-sm text-slate-500 max-w-sm mx-auto">
+                                            Your billing history will appear here once you make a payment.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {transactions.map((tx) => (
+                                            <div
+                                                key={tx.id}
+                                                className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white border border-slate-200 rounded-xl gap-3"
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                                        tx.status === 'succeeded' ? 'bg-green-100' :
+                                                        tx.status === 'refunded' ? 'bg-slate-100' :
+                                                        tx.status === 'failed' ? 'bg-red-100' : 'bg-amber-100'
+                                                    }`}>
+                                                        {tx.status === 'succeeded' ? (
+                                                            <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                                        ) : tx.status === 'refunded' ? (
+                                                            <History className="w-4 h-4 text-slate-500" />
+                                                        ) : tx.status === 'failed' ? (
+                                                            <AlertCircle className="w-4 h-4 text-red-600" />
+                                                        ) : (
+                                                            <Loader2 className="w-4 h-4 text-amber-600" />
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-semibold text-slate-900">
+                                                            {tx.description || TRANSACTION_TYPE_LABELS[tx.transaction_type] || tx.transaction_type}
+                                                        </p>
+                                                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                            <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                                                                {TRANSACTION_TYPE_LABELS[tx.transaction_type] || tx.transaction_type}
+                                                            </span>
+                                                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_STYLES[tx.status] || STATUS_STYLES.pending}`}>
+                                                                {tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}
+                                                            </span>
+                                                            {tx.period_start && tx.period_end && (
+                                                                <span className="text-xs text-slate-400">
+                                                                    {new Date(tx.period_start).toLocaleDateString()} &ndash; {new Date(tx.period_end).toLocaleDateString()}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                                                    <p className={`font-semibold tabular-nums ${tx.status === 'refunded' ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+                                                        ${(tx.amount_cents / 100).toFixed(2)} {tx.currency.toUpperCase()}
+                                                    </p>
+                                                    <p className="text-xs text-slate-500">
+                                                        {new Date(tx.created_at).toLocaleDateString()}
+                                                    </p>
+                                                    {(tx.invoice_url || tx.invoice_pdf) && (
+                                                        <div className="flex items-center gap-2">
+                                                            {tx.invoice_url && (
+                                                                <a
+                                                                    href={tx.invoice_url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 transition-colors"
+                                                                >
+                                                                    <FileText className="w-3 h-3" />
+                                                                    Invoice
+                                                                </a>
+                                                            )}
+                                                            {tx.invoice_pdf && (
+                                                                <a
+                                                                    href={tx.invoice_pdf}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 transition-colors"
+                                                                >
+                                                                    <Download className="w-3 h-3" />
+                                                                    PDF
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
                             </div>
