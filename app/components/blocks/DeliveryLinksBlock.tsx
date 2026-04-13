@@ -1,10 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useEditorContext } from '@/lib/editor-context';
 import EditableText from '../EditableText';
 import Reveal from '@/app/components/Reveal';
-import { Plus, Trash2, ExternalLink, ShoppingBag } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
+import UELogo from '@/assets/UE_logo.png';
+import DDLogo from '@/assets/DD_logo.png';
+import SKLogo from '@/assets/SK_logo.png';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,65 +32,41 @@ interface DeliveryLinksBlockProps {
 
 // ─── Platform Config ──────────────────────────────────────────────────────────
 
-const PLATFORM_CONFIG: Record<PlatformId, { name: string; color: string; bg: string; textColor: string; logo: React.ReactNode }> = {
+const PLATFORM_CONFIG: Record<PlatformId, { name: string; color: string; bg: string; textColor: string; logoImage: any | null }> = {
   ubereats: {
     name: 'Uber Eats',
     color: '#06C167',
     bg: '#06C167',
     textColor: '#ffffff',
-    logo: (
-      <svg viewBox="0 0 48 48" fill="none" className="w-8 h-8" aria-hidden="true">
-        <circle cx="24" cy="24" r="24" fill="#06C167" />
-        <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="14" fontWeight="800" fontFamily="sans-serif">Ue</text>
-      </svg>
-    ),
+    logoImage: UELogo,
   },
   doordash: {
     name: 'DoorDash',
     color: '#FF3008',
-    bg: '#FF3008',
-    textColor: '#ffffff',
-    logo: (
-      <svg viewBox="0 0 48 48" fill="none" className="w-8 h-8" aria-hidden="true">
-        <circle cx="24" cy="24" r="24" fill="#FF3008" />
-        <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="14" fontWeight="800" fontFamily="sans-serif">DD</text>
-      </svg>
-    ),
+    bg: '#ffffff',
+    textColor: '#1f2937',
+    logoImage: DDLogo,
   },
   skipthedishes: {
     name: 'Skip the Dishes',
     color: '#F96714',
     bg: '#F96714',
     textColor: '#ffffff',
-    logo: (
-      <svg viewBox="0 0 48 48" fill="none" className="w-8 h-8" aria-hidden="true">
-        <circle cx="24" cy="24" r="24" fill="#F96714" />
-        <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="14" fontWeight="800" fontFamily="sans-serif">Sk</text>
-      </svg>
-    ),
+    logoImage: SKLogo,
   },
   grubhub: {
     name: 'Grubhub',
     color: '#F63440',
     bg: '#F63440',
     textColor: '#ffffff',
-    logo: (
-      <svg viewBox="0 0 48 48" fill="none" className="w-8 h-8" aria-hidden="true">
-        <circle cx="24" cy="24" r="24" fill="#F63440" />
-        <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle" fill="white" fontSize="14" fontWeight="800" fontFamily="sans-serif">Gh</text>
-      </svg>
-    ),
+    logoImage: null,
   },
   custom: {
     name: 'Custom Link',
     color: '#6366f1',
     bg: '#6366f1',
     textColor: '#ffffff',
-    logo: (
-      <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-        <ShoppingBag className="w-4 h-4 text-white" />
-      </div>
-    ),
+    logoImage: null,
   },
 };
 
@@ -112,32 +92,34 @@ function DeliveryCard({ link, palette }: { link: DeliveryLink; palette: Record<s
   const cfg = PLATFORM_CONFIG[link.platform];
   const bg = link.platform === 'custom' ? (palette.secondary || cfg.bg) : cfg.bg;
   const label = link.label || cfg.name;
+  const hasLogo = !!cfg.logoImage;
 
   return (
     <a
       href={link.url || '#'}
       target="_blank"
       rel="noopener noreferrer"
-      className="group relative flex items-center gap-4 rounded-2xl px-6 py-5 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+      className="group relative flex flex-col items-center justify-center rounded-2xl px-6 py-6 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden"
       style={{ backgroundColor: bg, color: cfg.textColor }}
       aria-label={`Order on ${label}`}
     >
       {/* Subtle shine overlay on hover */}
       <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity duration-300 rounded-2xl" />
 
-      {/* Logo badge */}
-      <div className="relative flex-shrink-0">
-        {cfg.logo}
-      </div>
+      {/* "Order on" text */}
+      <p className="relative text-xs font-medium opacity-80 uppercase tracking-widest mb-3">Order on</p>
 
-      {/* Text */}
-      <div className="relative flex-1 min-w-0">
-        <p className="text-xs font-medium opacity-80 uppercase tracking-widest mb-0.5">Order on</p>
-        <p className="text-lg font-bold leading-tight truncate">{label}</p>
-      </div>
-
-      {/* Arrow */}
-      <ExternalLink className="relative w-5 h-5 opacity-70 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+      {/* Official logo or fallback text */}
+      {hasLogo ? (
+        <Image
+          src={cfg.logoImage}
+          alt={cfg.name}
+          className="relative h-10 w-auto object-contain"
+          style={link.platform === 'doordash' ? {} : { filter: 'brightness(0) invert(1)' }}
+        />
+      ) : (
+        <p className="relative text-xl font-bold leading-tight">{label}</p>
+      )}
     </a>
   );
 }
