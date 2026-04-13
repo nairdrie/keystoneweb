@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, Settings, LogOut } from 'lucide-react';
+import { ChevronDown, Settings, LogOut, Paintbrush, LayoutDashboard } from 'lucide-react';
 import KeystoneLogo from './KeystoneLogo';
 import { useAuth } from '@/lib/auth/context';
 import ProfileDropdown from './ProfileDropdown';
@@ -72,7 +72,7 @@ export default function Header() {
                 href="/onboarding"
                 className="px-6 py-2.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-colors shadow-md hover:shadow-lg"
               >
-                Continue Building
+                Get Started
               </Link>
               <ProfileDropdown />
             </div>
@@ -93,7 +93,7 @@ export default function Header() {
               href="/onboarding"
               className="px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shadow-md"
             >
-              Continue Building
+              Get Started
             </Link>
           ) : (
             <Link
@@ -177,6 +177,22 @@ export default function Header() {
                   <div className="text-sm text-slate-900 font-bold truncate">{user.email}</div>
                 </div>
                 <div className="pt-2 space-y-1">
+                  <Link
+                    href="/design"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-bold"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <Paintbrush className="w-4 h-4" />
+                    Design
+                  </Link>
+                  <Link
+                    href="/admin"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-bold"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    Admin
+                  </Link>
                   <Link
                     href="/settings"
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors font-medium"
