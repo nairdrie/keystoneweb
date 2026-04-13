@@ -448,32 +448,32 @@ function SortableMobileItem({
                         {item.label}
                     </Link>
                 )}
-                {isEditMode && (
-                    <div className="ml-1 flex items-center gap-0.5">
-                        <button
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(item, null); }}
-                            className="p-0.5 hover:bg-blue-100 rounded-full"
-                            title="Edit"
-                        >
-                            <Pencil className="w-3 h-3 text-blue-500" />
-                        </button>
-                        <button
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddSubItem(item.id); }}
-                            className="p-0.5 hover:bg-green-100 rounded-full"
-                            title="Add sub-item"
-                        >
-                            <Plus className="w-3 h-3 text-green-600" />
-                        </button>
-                        <button
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(item.id); }}
-                            className="p-0.5 hover:bg-red-100 rounded-full"
-                            title="Remove"
-                        >
-                            <X className="w-3 h-3 text-red-500" />
-                        </button>
-                    </div>
-                )}
             </span>
+            {isEditMode && (
+                <div className="flex items-center gap-0.5 pl-6 -mt-0.5 pb-0.5">
+                    <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(item, null); }}
+                        className="p-0.5 hover:bg-blue-100 rounded-full"
+                        title="Edit"
+                    >
+                        <Pencil className="w-3 h-3 text-blue-500" />
+                    </button>
+                    <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddSubItem(item.id); }}
+                        className="p-0.5 hover:bg-green-100 rounded-full"
+                        title="Add sub-item"
+                    >
+                        <Plus className="w-3 h-3 text-green-600" />
+                    </button>
+                    <button
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(item.id); }}
+                        className="p-0.5 hover:bg-red-100 rounded-full"
+                        title="Remove"
+                    >
+                        <X className="w-3 h-3 text-red-500" />
+                    </button>
+                </div>
+            )}
 
             {/* Mobile sub-items (accordion) */}
             {hasChildren && (isMobileExpanded || isEditMode) && (
@@ -590,31 +590,32 @@ function SortableSubItemRow({
 
     // mobile variant
     return (
-        <span
+        <div
             ref={setNodeRef}
             style={style}
-            className="relative flex items-center"
         >
-            {isEditMode && (
-                <span
-                    {...attributes}
-                    {...listeners}
-                    className="cursor-grab active:cursor-grabbing touch-none p-0.5 mr-0.5 flex-shrink-0"
-                    title="Drag to reorder"
+            <span className="relative flex items-center">
+                {isEditMode && (
+                    <span
+                        {...attributes}
+                        {...listeners}
+                        className="cursor-grab active:cursor-grabbing touch-none p-0.5 mr-0.5 flex-shrink-0"
+                        title="Drag to reorder"
+                    >
+                        <GripVertical className="w-3 h-3 text-gray-400" />
+                    </span>
+                )}
+                <Link
+                    href={resolveHref(sub)}
+                    target={sub.linkType === 'custom' && sub.href.startsWith('http') ? '_blank' : undefined}
+                    className={`${itemClassName} text-[0.8125rem] opacity-80 ${isEditMode ? 'hover:text-blue-500 transition-colors' : ''}`}
+                    onClick={isEditMode ? (e) => { e.preventDefault(); e.stopPropagation(); onEdit(sub, parentId); } : undefined}
                 >
-                    <GripVertical className="w-3 h-3 text-gray-400" />
-                </span>
-            )}
-            <Link
-                href={resolveHref(sub)}
-                target={sub.linkType === 'custom' && sub.href.startsWith('http') ? '_blank' : undefined}
-                className={`${itemClassName} text-[0.8125rem] opacity-80 ${isEditMode ? 'hover:text-blue-500 transition-colors' : ''}`}
-                onClick={isEditMode ? (e) => { e.preventDefault(); e.stopPropagation(); onEdit(sub, parentId); } : undefined}
-            >
-                {sub.label}
-            </Link>
+                    {sub.label}
+                </Link>
+            </span>
             {isEditMode && (
-                <div className="ml-1 flex items-center gap-0.5">
+                <div className="flex items-center gap-0.5 pl-5 -mt-0.5 pb-0.5">
                     <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(sub, parentId); }}
                         className="p-0.5 hover:bg-blue-100 rounded-full"
@@ -631,7 +632,7 @@ function SortableSubItemRow({
                     </button>
                 </div>
             )}
-        </span>
+        </div>
     );
 }
 
@@ -697,7 +698,7 @@ function DesktopNavItem({
                 <span
                     {...dragHandleAttributes}
                     {...dragHandleListeners}
-                    className="cursor-grab active:cursor-grabbing touch-none p-0.5 mr-0.5 opacity-0 group-hover/navitem:opacity-100 transition-opacity flex-shrink-0"
+                    className="absolute right-full top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing touch-none p-0.5 opacity-0 group-hover/navitem:opacity-100 transition-opacity z-[70]"
                     title="Drag to reorder"
                 >
                     <GripVertical className="w-3.5 h-3.5 text-gray-400" />
@@ -717,7 +718,7 @@ function DesktopNavItem({
             </Link>
 
             {isEditMode && (
-                <div className="ml-1 flex items-center gap-0.5 opacity-0 group-hover/navitem:opacity-100 transition-opacity">
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1 flex items-center gap-0.5 opacity-0 pointer-events-none group-hover/navitem:opacity-100 group-hover/navitem:pointer-events-auto transition-opacity z-[70] bg-white rounded-lg shadow-md border border-gray-200 px-1.5 py-0.5">
                     <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(item, null); }}
                         className="p-0.5 hover:bg-blue-100 rounded-full"
