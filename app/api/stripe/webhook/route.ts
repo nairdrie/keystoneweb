@@ -413,12 +413,19 @@ export async function POST(request: NextRequest) {
 
         planName = planName || 'Unknown Plan';
 
+        // Resolve plan config so we can keep storage/visitor limits in sync
+        const updatedPlanConfig = getPlanByName(planName);
+
         const { data: userSub, error } = await supabase
           .from('user_subscriptions')
           .update({
             subscription_status: status,
             subscription_plan: planName,
             billing_interval: billingInterval,
+            ...(updatedPlanConfig ? {
+              visitor_limit: updatedPlanConfig.visitorLimit,
+              storage_limit_mb: updatedPlanConfig.storageLimitMb,
+            } : {}),
             updated_at: new Date().toISOString(),
           })
           .eq('stripe_subscription_id', subscription.id)

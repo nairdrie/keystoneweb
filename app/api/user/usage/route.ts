@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { getPlanByName, calculateOverageCost } from '@/lib/plans';
+import { getPlanByName, calculateOverageCost, PLANS } from '@/lib/plans';
 
 /**
  * GET /api/user/usage
@@ -33,8 +33,8 @@ export async function GET(request: NextRequest) {
     }
 
     const plan = getPlanByName(subscription.subscription_plan);
-    const visitorLimit = subscription.visitor_limit || plan?.visitorLimit || 10_000;
-    const storageLimitMb = subscription.storage_limit_mb || plan?.storageLimitMb || 1024;
+    const visitorLimit = plan?.visitorLimit ?? subscription.visitor_limit ?? PLANS.basic.visitorLimit;
+    const storageLimitMb = plan?.storageLimitMb ?? subscription.storage_limit_mb ?? PLANS.basic.storageLimitMb;
 
     // Current billing period (calendar month)
     const now = new Date();
