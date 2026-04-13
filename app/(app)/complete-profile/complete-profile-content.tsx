@@ -20,6 +20,23 @@ export default function CompleteProfileContent() {
         return;
       }
 
+      // Record consent stored before OAuth redirect
+      const tosAccepted = localStorage.getItem('ks_tos_accepted');
+      if (tosAccepted === 'true') {
+        const marketingOptIn = localStorage.getItem('ks_marketing_opt_in') === 'true';
+        localStorage.removeItem('ks_tos_accepted');
+        localStorage.removeItem('ks_marketing_opt_in');
+        try {
+          await fetch('/api/auth/record-consent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tosAccepted: true, marketingOptIn }),
+          });
+        } catch {
+          // Non-blocking
+        }
+      }
+
       // Check if name was provided by OAuth provider (Google sends full_name or name)
       const existingName =
         user.user_metadata?.full_name ||
