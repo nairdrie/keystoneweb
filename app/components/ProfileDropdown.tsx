@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { User, Settings, LogOut } from 'lucide-react';
+import { User, Settings, LogOut, Paintbrush, LayoutDashboard } from 'lucide-react';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth/context';
 import { useRouter } from 'next/navigation';
 
@@ -99,9 +100,27 @@ export default function ProfileDropdown({ onSettingsClick, buttonClassName }: Pr
             </div>
           </div>
           <div className="p-2 space-y-1">
+            <Link
+              href="/design"
+              onClick={() => setIsOpen(false)}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-bold"
+            >
+              <Paintbrush className="w-4 h-4" />
+              Design
+            </Link>
+            <Link
+              href="/admin"
+              onClick={() => setIsOpen(false)}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-bold"
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              Admin
+            </Link>
+          </div>
+          <div className="p-2 pt-0 space-y-1 border-t border-slate-100">
             <button
               onClick={handleSettingsClick}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors font-medium text-left"
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors font-medium text-left mt-1"
             >
               <Settings className="w-4 h-4" />
               Settings
