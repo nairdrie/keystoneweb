@@ -302,6 +302,8 @@ export function DomainManager({
     customDomain: string | null;
     pendingCustomDomain: string | null;
     transferStatus: string | null;
+    isPublished: boolean;
+    linkedDomain: string | null;
   } | null>(null);
   const [loadingSiteStatus, setLoadingSiteStatus] = useState(true);
 
@@ -414,6 +416,8 @@ export function DomainManager({
           customDomain: data.customDomain,
           pendingCustomDomain: data.pendingCustomDomain,
           transferStatus: data.transferStatus,
+          isPublished: data.isPublished ?? true,
+          linkedDomain: data.linkedDomain ?? null,
         });
         // Pre-populate subdomain input if site already has one
         if (data.publishedDomain && !subdomain) {
@@ -565,6 +569,55 @@ export function DomainManager({
           siteId,
           publishedDomain: domainCheck.fullDomain,
         }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        if (errorData.publishLimitReached) {
+          setPublishLimitInfo({ plan: errorData.plan, limit: errorData.limit });
+          return;
+        }
+        throw new Error(errorData.error || 'Failed to publish site');
+      }
+
+      const result = await res.json();
+      setSuccess(true);
+      setPublishedUrl(result.publicUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to publish site');
+      console.error(err);
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  // ─── Republish / Reattach Domain ─────────────────────────────────────────
+
+  const handleRepublish = async () => {
+    if (!siteId || !siteStatus?.publishedDomain) return;
+
+    setPublishing(true);
+    setError(null);
+
+    try {
+      const baseDomain = process.env.NEXT_PUBLIC_PUBLISHED_DOMAIN_BASE || 'kswd.ca';
+      const fullDomain = `${siteStatus.publishedDomain}.${baseDomain}`;
+
+      const body: Record<string, string> = {
+        siteId,
+        publishedDomain: fullDomain,
+      };
+
+      // If there's a linked domain from purchases, request reattachment
+      if (siteStatus.linkedDomain && isPro) {
+        body.reattachCustomDomain = siteStatus.linkedDomain;
+      }
+
+      const res = await fetch('/api/sites/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -1010,7 +1063,9 @@ export function DomainManager({
     );
   }
 
-  const hasActiveSubdomain = !!siteStatus?.publishedDomain;
+  const hasActiveSubdomain = !!siteStatus?.publishedDomain && siteStatus.isPublished;
+  const hasConfiguredSubdomain = !!siteStatus?.publishedDomain && !siteStatus.isPublished;
+  const hasLinkedDomainOnly = !siteStatus?.customDomain && !!siteStatus?.linkedDomain;
   const baseDomainDisplay = process.env.NEXT_PUBLIC_PUBLISHED_DOMAIN_BASE || 'kswd.ca';
 
   const outerWrapperClass = embedded
@@ -1043,8 +1098,16 @@ export function DomainManager({
         {/* ═══════════════════════════════════════════════════════════ */}
         {/* SECTION: Free Subdomain (always visible)                    */}
         {/* ═══════════════════════════════════════════════════════════ */}
-        <div className={`rounded-xl border ${hasActiveSubdomain ? 'border-green-200 bg-green-50/30' : 'border-slate-200 bg-white'} overflow-hidden`}>
-          <div className={`px-5 py-3 border-b ${hasActiveSubdomain ? 'border-green-100 bg-green-50' : 'border-slate-100 bg-slate-50'} flex items-center justify-between`}>
+        <div className={`rounded-xl border ${
+          hasActiveSubdomain ? 'border-green-200 bg-green-50/30'
+          : hasConfiguredSubdomain ? 'border-amber-200 bg-amber-50/30'
+          : 'border-slate-200 bg-white'
+        } overflow-hidden`}>
+          <div className={`px-5 py-3 border-b ${
+            hasActiveSubdomain ? 'border-green-100 bg-green-50'
+            : hasConfiguredSubdomain ? 'border-amber-100 bg-amber-50'
+            : 'border-slate-100 bg-slate-50'
+          } flex items-center justify-between`}>
             <div className="flex items-center gap-2">
               <Globe className="w-4 h-4 text-slate-600" />
               <h3 className="text-sm font-bold text-slate-900">Free Subdomain</h3>
@@ -1053,6 +1116,12 @@ export function DomainManager({
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
                 <span className="text-xs font-semibold text-green-700">Currently active</span>
+              </div>
+            )}
+            {hasConfiguredSubdomain && (
+              <div className="flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+                <span className="text-xs font-semibold text-amber-700">Not published</span>
               </div>
             )}
           </div>
@@ -1064,9 +1133,16 @@ export function DomainManager({
                 <span className="text-[10px] text-green-700 font-medium ml-auto">Live</span>
               </div>
             )}
+            {hasConfiguredSubdomain && (
+              <div className="flex items-center gap-2 p-2.5 bg-amber-50 rounded-lg border border-amber-100">
+                <Globe className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                <span className="font-mono text-sm font-semibold text-slate-900">{siteStatus.publishedDomain}.{baseDomainDisplay}</span>
+                <span className="text-[10px] text-amber-700 font-medium ml-auto">Configured</span>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-semibold text-slate-900 mb-2">
-                {hasActiveSubdomain ? 'Change Subdomain' : 'Website Address'}
+                {hasActiveSubdomain || hasConfiguredSubdomain ? 'Change Subdomain' : 'Website Address'}
               </label>
               <div className="flex items-center gap-2">
                 <input
@@ -1119,69 +1195,70 @@ export function DomainManager({
               className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {publishing && <Loader2 className="w-4 h-4 animate-spin" />}
-              {publishing ? 'Publishing...' : hasActiveSubdomain ? 'Update Subdomain' : 'Publish Site'}
+              {publishing ? 'Publishing...' : (hasActiveSubdomain || hasConfiguredSubdomain) ? 'Update Subdomain' : 'Publish Site'}
             </button>
           </div>
         </div>
 
         {/* ═══════════════════════════════════════════════════════════ */}
-        {/* SECTION: Unpublish Site                                     */}
+        {/* SECTION: Unpublish Site (compact)                           */}
         {/* ═══════════════════════════════════════════════════════════ */}
         {hasActiveSubdomain && (
-          <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
-              <Globe className="w-4 h-4 text-slate-500" />
-              <h3 className="text-sm font-bold text-slate-900">Unpublish Site</h3>
-            </div>
-            <div className="px-5 py-4">
-              {!showUnpublishConfirm ? (
-                <div className="flex items-center justify-between gap-4">
-                  <p className="text-sm text-slate-600">
-                    Take your site offline and free up your publish slot.
+          <div className="rounded-lg border border-slate-200 bg-white px-4 py-2.5">
+            {!showUnpublishConfirm ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-slate-700">Unpublish Site</span>
+                  <div className="relative group">
+                    <HelpCircle className="w-3.5 h-3.5 text-slate-400 cursor-help" />
+                    <div className="absolute left-0 bottom-full mb-2 w-64 p-2.5 bg-slate-800 text-white text-xs rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                      <p>
+                        Take your site offline and free up your publish slot.
+                        {siteStatus?.customDomain && (
+                          <> Your custom domain <span className="font-mono font-semibold">{siteStatus.customDomain}</span> will be parked (you keep ownership).</>
+                        )}
+                      </p>
+                      <div className="absolute left-3 -bottom-1 w-2 h-2 bg-slate-800 rotate-45" />
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowUnpublishConfirm(true)}
+                  className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition-colors"
+                >
+                  Unpublish
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-sm font-semibold text-amber-900 mb-1">Unpublish this site?</p>
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    Your site at <span className="font-mono font-semibold">{siteStatus?.publishedDomain}.{baseDomainDisplay}</span> will go offline.
                     {siteStatus?.customDomain && (
-                      <span className="block text-xs text-slate-500 mt-0.5">
-                        Your custom domain <span className="font-mono font-semibold">{siteStatus.customDomain}</span> will be parked (you keep ownership).
-                      </span>
+                      <> <span className="font-mono font-semibold">{siteStatus.customDomain}</span> will be parked — you keep ownership and can reassign it anytime.</>
                     )}
                   </p>
+                </div>
+                <div className="flex gap-2">
                   <button
-                    onClick={() => setShowUnpublishConfirm(true)}
-                    className="flex-shrink-0 px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 transition-colors"
+                    onClick={() => setShowUnpublishConfirm(false)}
+                    disabled={unpublishing}
+                    className="flex-1 py-2 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
                   >
-                    Unpublish
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUnpublish}
+                    disabled={unpublishing}
+                    className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {unpublishing && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    {unpublishing ? 'Unpublishing...' : 'Confirm Unpublish'}
                   </button>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <p className="text-sm font-semibold text-amber-900 mb-1">Unpublish this site?</p>
-                    <p className="text-xs text-amber-800 leading-relaxed">
-                      Your site at <span className="font-mono font-semibold">{siteStatus?.publishedDomain}.{baseDomainDisplay}</span> will go offline.
-                      {siteStatus?.customDomain && (
-                        <> <span className="font-mono font-semibold">{siteStatus.customDomain}</span> will be parked — you keep ownership and can reassign it anytime.</>
-                      )}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setShowUnpublishConfirm(false)}
-                      disabled={unpublishing}
-                      className="flex-1 py-2 border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleUnpublish}
-                      disabled={unpublishing}
-                      className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      {unpublishing && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                      {unpublishing ? 'Unpublishing...' : 'Confirm Unpublish'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1205,6 +1282,44 @@ export function DomainManager({
               <a href={`https://${siteStatus.customDomain}`} target="_blank" rel="noopener noreferrer" className="text-xs text-red-600 hover:text-red-700 font-semibold flex items-center gap-1">
                 Visit <ExternalLink className="w-3 h-3" />
               </a>
+            </div>
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* SECTION: Linked Custom Domain (domain_purchases linked but  */}
+        {/*          sites.custom_domain is null — post-transfer state) */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {hasLinkedDomainOnly && (
+          <div className="rounded-xl border border-green-200 bg-green-50/30 overflow-hidden">
+            <div className="px-5 py-3 border-b border-green-100 bg-green-50 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Crown className="w-4 h-4 text-green-600" />
+                <h3 className="text-sm font-bold text-slate-900">Custom Domain</h3>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Link2 className="w-4 h-4 text-green-500" />
+                <span className="text-xs font-semibold text-green-700">Linked to this site</span>
+              </div>
+            </div>
+            <div className="px-5 py-4">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-sm font-semibold text-slate-900">{siteStatus.linkedDomain}</span>
+                <span className="text-xs text-amber-700 font-medium">
+                  {siteStatus.isPublished ? 'Activate below' : 'Will activate on publish'}
+                </span>
+              </div>
+              {!isPro && (
+                <p className="text-xs text-amber-700 mt-2">
+                  <button
+                    onClick={() => router.push(`/pricing?action=publish&siteId=${siteId}`)}
+                    className="text-red-600 font-semibold hover:underline"
+                  >
+                    Upgrade to Pro
+                  </button>{' '}
+                  to reactivate this custom domain.
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -2158,6 +2273,25 @@ export function DomainManager({
             )}
           </div>
         </div>
+
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* Publish / Reattach Domain Button                             */}
+        {/* Shows when site needs publishing OR has a detached domain    */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {!embedded && siteStatus && (hasConfiguredSubdomain || (hasLinkedDomainOnly && siteStatus.isPublished)) && (
+          <button
+            onClick={handleRepublish}
+            disabled={publishing}
+            className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {publishing && <Loader2 className="w-4 h-4 animate-spin" />}
+            {publishing
+              ? 'Publishing...'
+              : hasConfiguredSubdomain
+                ? (hasLinkedDomainOnly ? 'Publish Site & Activate Domain' : 'Publish Site')
+                : 'Activate Custom Domain'}
+          </button>
+        )}
 
         {/* Cancel button */}
         {!embedded && (

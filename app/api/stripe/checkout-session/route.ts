@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
       }
 
       const returnUrl = siteId
-        ? `${process.env.NEXT_PUBLIC_APP_URL}/publish/domain-select?siteId=${siteId}`
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/publish/plan-activated?siteId=${siteId}`
         : `${process.env.NEXT_PUBLIC_APP_URL}/settings`;
 
       // Use the portal's subscription_update_confirm flow so the user sees a proration
@@ -145,7 +145,7 @@ export async function POST(request: NextRequest) {
       },
       ...(isMonthly && { allow_promotion_codes: true }),
       success_url: siteId
-        ? `${process.env.NEXT_PUBLIC_APP_URL}/publish/domain-select?session_id={CHECKOUT_SESSION_ID}&siteId=${siteId}`
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/publish/plan-activated?session_id={CHECKOUT_SESSION_ID}&siteId=${siteId}`
         : `${process.env.NEXT_PUBLIC_APP_URL}/onboarding?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: siteId
         ? `${process.env.NEXT_PUBLIC_APP_URL}/pricing?action=publish&siteId=${siteId}&canceled=true`
