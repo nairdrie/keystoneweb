@@ -20,6 +20,8 @@ interface Submission {
   admin_reply: string | null;
   admin_reply_at: string | null;
   created_at: string;
+  source_type: string;
+  metadata: any;
 }
 
 const STATUS_STYLE: Record<string, string> = {
@@ -246,15 +248,52 @@ export default function InboxDetailPage({ params }: { params: Promise<{ id: stri
               })}
             </time>
           </div>
-          <span className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLE[submission.status]}`}>
-            {STATUS_LABEL[submission.status] ?? submission.status}
-          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            {submission.source_type === 'estimate_form' && (
+              <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[11px] font-bold">Estimate</span>
+            )}
+            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLE[submission.status]}`}>
+              {STATUS_LABEL[submission.status] ?? submission.status}
+            </span>
+          </div>
         </div>
 
         {/* Message body */}
         <div className="px-5 py-4">
           <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{submission.message}</p>
         </div>
+
+        {/* Structured fields (estimate form submissions) */}
+        {submission.source_type === 'estimate_form' && submission.metadata?.fields?.length > 0 && (
+          <div className="px-5 py-4 border-t border-slate-100">
+            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Form Details</h4>
+            <table className="w-full text-sm">
+              <tbody>
+                {submission.metadata.fields.map((f: any, i: number) => (
+                  <tr key={i} className="border-b border-slate-50 last:border-0">
+                    <td className="py-1.5 text-slate-500 font-medium pr-4 w-1/3">{f.label}</td>
+                    <td className="py-1.5 text-slate-800">
+                      {f.value != null ? String(f.value) : '—'}
+                      {f.unit ? <span className="text-slate-400 ml-1">{f.unit}</span> : ''}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Estimate range shown to visitor */}
+        {submission.metadata?.estimate_shown && (
+          <div className="px-5 py-3 bg-emerald-50 border-t border-emerald-100 flex items-center gap-2">
+            <span className="text-xs font-bold text-emerald-700">Estimate Shown:</span>
+            <span className="text-sm font-bold text-emerald-800">
+              {new Intl.NumberFormat('en-US', { style: 'currency', currency: submission.metadata.estimate_currency || 'CAD', minimumFractionDigits: 0 }).format(submission.metadata.estimate_low_cents / 100)}
+              {' \u2013 '}
+              {new Intl.NumberFormat('en-US', { style: 'currency', currency: submission.metadata.estimate_currency || 'CAD', minimumFractionDigits: 0 }).format(submission.metadata.estimate_high_cents / 100)}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* AI pending indicator */}

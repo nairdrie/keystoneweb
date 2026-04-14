@@ -122,6 +122,30 @@ export function isObviousSpam(message: string, name: string): boolean {
 }
 
 /**
+ * Build the user message for AI triage, including structured fields for estimate form submissions.
+ */
+function buildTriageUserMessage(submission: any): string {
+  let msg = `Contact form message from ${submission.sender_name} <${submission.sender_email}>:\n\n`;
+
+  if (submission.source_type === 'estimate_form' && submission.metadata?.fields?.length) {
+    msg += 'Structured form fields:\n';
+    for (const f of submission.metadata.fields) {
+      msg += `- ${f.label}: ${f.value != null ? String(f.value) : '—'}${f.unit ? ` ${f.unit}` : ''}\n`;
+    }
+    if (submission.metadata.estimate_shown) {
+      const low = (submission.metadata.estimate_low_cents / 100).toFixed(0);
+      const high = (submission.metadata.estimate_high_cents / 100).toFixed(0);
+      const currency = submission.metadata.estimate_currency || 'CAD';
+      msg += `\nCustomer was shown an estimate range of $${low} - $${high} ${currency}.\n`;
+    }
+    msg += '\n';
+  }
+
+  msg += submission.message.slice(0, 1500);
+  return msg;
+}
+
+/**
  * Run AI triage on a stored contact_submission.
  * Classifies the message, generates a draft reply, and auto-sends if confident.
  * Safe to call fire-and-forget — all errors are caught internally.
@@ -242,7 +266,7 @@ Respond with valid JSON only, no markdown fences:
           {
             role: 'user',
             // Truncate to 1500 chars max to cap token usage; real messages are shorter
-            content: `Contact form message from ${submission.sender_name} <${submission.sender_email}>:\n\n${submission.message.slice(0, 1500)}`,
+            content: buildTriageUserMessage(submission),
           },
         ],
       }),

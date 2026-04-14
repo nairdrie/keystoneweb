@@ -26,14 +26,38 @@ export async function POST(request: NextRequest) {
 
     try {
         const body = await request.json();
-        const { siteId, name, email, phone, message, _hp } = body;
+        const { siteId, name, email, phone, message, _hp, source_type, metadata } = body;
 
         // Honeypot: bots fill hidden fields; humans leave them blank
         if (_hp) {
             return NextResponse.json({ success: true, message: 'Message sent successfully' });
         }
 
-        if (!siteId || !name || !email || !message) {
+        // Validate optional source_type
+        const ALLOWED_SOURCE_TYPES = ['contact_form', 'estimate_form', 'booking', 'inbound_email'];
+        if (source_type && !ALLOWED_SOURCE_TYPES.includes(source_type)) {
+            return NextResponse.json({ error: 'Invalid source_type.' }, { status: 400 });
+        }
+
+        // Validate metadata size (max 10KB)
+        if (metadata && JSON.stringify(metadata).length > 10240) {
+            return NextResponse.json({ error: 'Metadata is too large (max 10KB).' }, { status: 400 });
+        }
+
+        // Auto-compose message from structured fields for estimate form submissions
+        let composedMessage = message;
+        if (source_type === 'estimate_form' && metadata?.fields && Array.isArray(metadata.fields)) {
+            const fieldLines = metadata.fields
+                .map((f: { label: string; value: any; unit?: string }) =>
+                    `${f.label}: ${f.value ?? '—'}${f.unit ? ` ${f.unit}` : ''}`)
+                .join('\n');
+            composedMessage = `Estimate form submission:\n${fieldLines}`;
+            if (message && message.trim()) {
+                composedMessage += `\n\nAdditional notes:\n${message}`;
+            }
+        }
+
+        if (!siteId || !name || !email || !composedMessage) {
             return NextResponse.json(
                 { error: 'Missing required fields: name, email, message' },
                 { status: 400 }
@@ -47,13 +71,13 @@ export async function POST(request: NextRequest) {
         if (email.length > MAX_EMAIL_LENGTH) {
             return NextResponse.json({ error: 'Email address is too long.' }, { status: 400 });
         }
-        if (message.length > MAX_MESSAGE_LENGTH) {
+        if (composedMessage.length > MAX_MESSAGE_LENGTH) {
             return NextResponse.json(
                 { error: `Message must be ${MAX_MESSAGE_LENGTH} characters or fewer.` },
                 { status: 400 }
             );
         }
-        if (message.trim().length < 5) {
+        if (composedMessage.trim().length < 5) {
             return NextResponse.json({ error: 'Message is too short.' }, { status: 400 });
         }
 
@@ -67,8 +91,10 @@ export async function POST(request: NextRequest) {
                 sender_name: name,
                 sender_email: email,
                 sender_phone: phone ?? null,
-                message,
+                message: composedMessage,
                 status: 'new',
+                source_type: source_type || 'contact_form',
+                metadata: metadata || {},
             })
             .select('id')
             .single();
@@ -79,7 +105,7 @@ export async function POST(request: NextRequest) {
         }
 
         // 1b. Pre-screen for obvious spam — skip notification email entirely
-        if (isObviousSpam(message, name)) {
+        if (isObviousSpam(composedMessage, name)) {
             if (submission?.id) {
                 await admin
                     .from('contact_submissions')
@@ -137,7 +163,7 @@ export async function POST(request: NextRequest) {
 
         // 3. Send email notification to owner (existing behaviour)
         const result = await sendContactFormNotification(
-            { siteName, customerName: name, customerEmail: email, customerPhone: phone, message, submissionId: submission?.id, siteId },
+            { siteName, customerName: name, customerEmail: email, customerPhone: phone, message: composedMessage, submissionId: submission?.id, siteId, sourceType: source_type, metadata },
             ownerEmail
         );
 
