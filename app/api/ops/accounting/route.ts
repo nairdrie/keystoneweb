@@ -127,12 +127,9 @@ export async function GET() {
 
   // ── Manual entries aggregation ──────────────────────────────────────────
 
-  // Exclude auto-synced entries (is_auto = true) because their revenue is
-  // already counted via stripe_transactions above. Only sum manual entries.
   const { data: manualEntries } = await db
     .from('accounting_entries')
-    .select('type, amount_cents, tax_cents, date, source')
-    .eq('is_auto', false);
+    .select('type, amount_cents, tax_cents, date, source');
 
   let manualRevenueAllTime = 0;
   let manualExpenseAllTime = 0;
