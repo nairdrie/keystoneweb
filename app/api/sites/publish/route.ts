@@ -7,6 +7,7 @@ import { getUserEffectiveLimits } from '@/lib/addons';
 interface PublishRequest {
   siteId: string;
   publishedDomain: string; // e.g., "mysite.keystoneweb.ca"
+  reattachCustomDomain?: string; // domain from domain_purchases to reattach to sites.custom_domain
 }
 
 /**
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: PublishRequest = await request.json();
-    let { siteId, publishedDomain } = body;
+    let { siteId, publishedDomain, reattachCustomDomain } = body;
 
     if (!siteId || !publishedDomain) {
       return NextResponse.json(
@@ -189,6 +190,37 @@ export async function POST(request: NextRequest) {
         .eq('id', siteId);
     }
 
+    // Reattach custom domain from domain_purchases if requested
+    // This handles the post-transfer scenario where custom_domain was cleared but domain_purchases.site_id stayed linked
+    let reattachedDomain: string | null = null;
+    if (reattachCustomDomain) {
+      // Verify the user is Pro (custom domains require Pro)
+      const isPro = subscription.subscription_plan?.toLowerCase().includes('pro');
+      if (isPro) {
+        // Verify the domain exists in domain_purchases linked to this site and owned by this user
+        const { data: domainPurchase } = await supabase
+          .from('domain_purchases')
+          .select('id, domain, status, transfer_status')
+          .eq('site_id', siteId)
+          .eq('user_id', user.id)
+          .eq('domain', reattachCustomDomain)
+          .single();
+
+        if (domainPurchase && (domainPurchase.status === 'completed' || domainPurchase.transfer_status === 'completed')) {
+          // Reattach the custom domain to the site
+          await supabase
+            .from('sites')
+            .update({ custom_domain: reattachCustomDomain })
+            .eq('id', siteId);
+
+          reattachedDomain = reattachCustomDomain;
+          console.log(`✅ Reattached custom domain: ${reattachCustomDomain} → site ${siteId}`);
+        } else {
+          console.warn(`⚠️ Could not reattach domain ${reattachCustomDomain}: not found or not completed for site ${siteId}`);
+        }
+      }
+    }
+
     // Record history snapshot (publish event)
     try {
       await supabase.from('site_history').insert({
@@ -217,8 +249,11 @@ export async function POST(request: NextRequest) {
       success: true,
       siteId: updatedSite.id,
       publishedDomain: updatedSite.published_domain,
-      publicUrl: `https://${fullPublishedDomain}`,
-      message: `Your site is now live at https://${fullPublishedDomain}`,
+      publicUrl: reattachedDomain ? `https://${reattachedDomain}` : `https://${fullPublishedDomain}`,
+      message: reattachedDomain
+        ? `Your site is now live at https://${reattachedDomain}`
+        : `Your site is now live at https://${fullPublishedDomain}`,
+      reattachedDomain,
     });
   } catch (error) {
     console.error('Error publishing site:', error);
