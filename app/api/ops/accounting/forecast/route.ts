@@ -36,19 +36,22 @@ export async function GET() {
     .map((s: any) => s.stripe_subscription_id)
     .filter(Boolean);
 
-  const latestPaymentMap = new Map<string, { amount_cents: number; billing_interval: string }>();
+  const latestPaymentMap = new Map<string, { amount_cents: number; billing_interval: string; event_type: string }>();
 
   if (subIds.length > 0) {
     const { data: payments } = await db
       .from('stripe_transactions')
-      .select('stripe_subscription_id, amount_cents, billing_interval')
+      .select('stripe_subscription_id, amount_cents, billing_interval, event_type')
       .in('stripe_subscription_id', subIds)
-      .eq('event_type', 'invoice.paid')
+      .in('event_type', ['invoice.paid', 'checkout.session.completed'])
       .eq('status', 'succeeded')
       .order('created_at', { ascending: false });
 
     for (const p of payments ?? []) {
-      if (p.stripe_subscription_id && !latestPaymentMap.has(p.stripe_subscription_id)) {
+      if (!p.stripe_subscription_id) continue;
+      const existing = latestPaymentMap.get(p.stripe_subscription_id);
+      // Prefer invoice.paid over checkout.session.completed; otherwise keep most recent
+      if (!existing || (existing.event_type !== 'invoice.paid' && p.event_type === 'invoice.paid')) {
         latestPaymentMap.set(p.stripe_subscription_id, p);
       }
     }
@@ -61,7 +64,8 @@ export async function GET() {
       : null;
 
     if (payment) {
-      subscriptionMrr += payment.billing_interval === 'year'
+      const interval = payment.billing_interval || sub.billing_interval || 'month';
+      subscriptionMrr += interval === 'year'
         ? Math.round(payment.amount_cents / 12)
         : payment.amount_cents;
     }

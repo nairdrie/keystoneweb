@@ -38,20 +38,22 @@ export async function GET() {
     .map((s: any) => s.stripe_subscription_id)
     .filter(Boolean);
 
-  const latestPaymentMap = new Map<string, { amount_cents: number; billing_interval: string }>();
+  const latestPaymentMap = new Map<string, { amount_cents: number; billing_interval: string; event_type: string }>();
 
   if (subIds.length > 0) {
     const { data: payments } = await db
       .from('stripe_transactions')
-      .select('stripe_subscription_id, amount_cents, billing_interval')
+      .select('stripe_subscription_id, amount_cents, billing_interval, event_type')
       .in('stripe_subscription_id', subIds)
-      .eq('event_type', 'invoice.paid')
+      .in('event_type', ['invoice.paid', 'checkout.session.completed'])
       .eq('status', 'succeeded')
       .order('created_at', { ascending: false });
 
     for (const p of payments ?? []) {
-      // Only keep the most recent payment per subscription
-      if (p.stripe_subscription_id && !latestPaymentMap.has(p.stripe_subscription_id)) {
+      if (!p.stripe_subscription_id) continue;
+      const existing = latestPaymentMap.get(p.stripe_subscription_id);
+      // Prefer invoice.paid over checkout.session.completed; otherwise keep most recent
+      if (!existing || (existing.event_type !== 'invoice.paid' && p.event_type === 'invoice.paid')) {
         latestPaymentMap.set(p.stripe_subscription_id, p);
       }
     }
@@ -64,8 +66,10 @@ export async function GET() {
       : null;
 
     if (payment) {
-      // Use confirmed payment amount (includes plan + any active addons)
-      subscriptionMrr += payment.billing_interval === 'year'
+      // Use confirmed payment amount; fall back to sub's billing_interval
+      // when the transaction doesn't have one (e.g. checkout.session.completed)
+      const interval = payment.billing_interval || sub.billing_interval || 'month';
+      subscriptionMrr += interval === 'year'
         ? Math.round(payment.amount_cents / 12)
         : payment.amount_cents;
     }
@@ -75,7 +79,7 @@ export async function GET() {
   // ── Confirmed Stripe revenue by period ──────────────────────────────────
   // Sum actual payments from stripe_transactions for revenue totals.
 
-  const revenueTypes = ['subscription_payment', 'domain_purchase', 'domain_transfer', 'ecommerce_order', 'one_time_payment'];
+  const revenueTypes = ['subscription_payment', 'subscription_created', 'domain_purchase', 'domain_transfer', 'ecommerce_order', 'one_time_payment'];
 
   const [
     { data: txMonth },
