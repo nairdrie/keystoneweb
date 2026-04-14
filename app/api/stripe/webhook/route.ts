@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { sendOrderConfirmation, sendOrderNotification, sendSubscriptionPurchaseEmail, sendSubscriptionCancelledEmail } from '@/lib/email';
 import { completeDomainPurchase } from '@/app/api/domains/purchase/route';
@@ -22,7 +21,22 @@ const getStripeClient = () => {
  * Record a Stripe event as a transaction in our DB.
  * Uses upsert with stripe_event_id as the unique key for idempotency —
  * if Stripe retries a webhook, we won't create duplicate records.
+ *
+ * Also syncs succeeded revenue transactions to accounting_entries so they
+ * appear in the ops/accounting transaction list alongside manual entries.
  */
+
+/** Map Stripe transaction_type to accounting entry source. */
+const ACCOUNTING_SOURCE_MAP: Record<string, string> = {
+  subscription_payment: 'subscription',
+  domain_purchase: 'domain_sale',
+  domain_transfer: 'domain_sale',
+  one_time_payment: 'manual',
+};
+
+/** Revenue transaction types that should be synced to accounting_entries. */
+const REVENUE_TRANSACTION_TYPES = new Set(Object.keys(ACCOUNTING_SOURCE_MAP));
+
 async function recordStripeTransaction(data: {
   stripe_event_id: string;
   stripe_subscription_id?: string | null;
@@ -53,6 +67,45 @@ async function recordStripeTransaction(data: {
     });
     if (error) {
       console.error('Failed to record stripe transaction:', error);
+    }
+
+    // Sync revenue transactions to accounting_entries so they appear in
+    // the ops/accounting transaction list (not just in aggregate metrics).
+    if (
+      data.status === 'succeeded' &&
+      data.amount_cents > 0 &&
+      REVENUE_TRANSACTION_TYPES.has(data.transaction_type)
+    ) {
+      const source = ACCOUNTING_SOURCE_MAP[data.transaction_type] ?? 'manual';
+      const entryDate = data.period_start
+        ? new Date(data.period_start).toISOString().slice(0, 10)
+        : new Date().toISOString().slice(0, 10);
+
+      const { error: entryError } = await db.from('accounting_entries').upsert(
+        {
+          type: 'revenue',
+          source,
+          title: data.description || `${data.transaction_type} payment`,
+          description: data.plan_name ? `Plan: ${data.plan_name}` : null,
+          amount_cents: data.amount_cents,
+          tax_cents: 0,
+          currency: (data.currency || 'cad').toUpperCase(),
+          category: source === 'subscription' ? 'Subscriptions' : source === 'domain_sale' ? 'Domains' : null,
+          date: entryDate,
+          reference_id: data.stripe_event_id,
+          reference_type: 'stripe_event',
+          user_id: data.user_id || null,
+          is_auto: true,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: 'reference_id',
+          ignoreDuplicates: true,
+        },
+      );
+      if (entryError) {
+        console.error('Failed to sync accounting entry:', entryError);
+      }
     }
   } catch (err) {
     // Non-blocking — don't fail the webhook if transaction recording fails
@@ -92,7 +145,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabase = await createClient();
+  // Use admin client for all DB operations — the webhook runs without an
+  // authenticated user session, so the anon client would hit RLS restrictions
+  // (e.g. user_subscriptions lookups in invoice.paid would silently return null).
+  const supabase = createAdminClient();
 
   try {
     switch (event.type) {
