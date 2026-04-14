@@ -75,6 +75,7 @@ interface BookingSettings {
     confirmation_message: string | null;
     notification_email: string | null;
     cancellation_notice_hours: number;
+    tax_enabled: boolean;
 }
 
 interface Slot {
@@ -1229,6 +1230,31 @@ function SettingsEditor({ siteId, settings, setSettings }: {
                                 Connect with Stripe
                             </button>
                         </>
+                    )}
+                </div>
+            )}
+
+            {/* Tax Collection */}
+            {local.payment_methods?.stripe && stripeConnected && (
+                <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-2">Tax Collection</label>
+                    <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-slate-50">
+                        <div>
+                            <span className="text-sm text-slate-700 font-medium">Collect tax automatically</span>
+                            <p className="text-xs text-slate-400 mt-0.5">Stripe calculates tax at checkout based on customer location</p>
+                        </div>
+                        <button
+                            onClick={() => setLocal({ ...local, tax_enabled: !local.tax_enabled })}
+                            className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ml-3 ${local.tax_enabled ? 'bg-green-500' : 'bg-slate-300'}`}
+                        >
+                            <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${local.tax_enabled ? 'translate-x-5' : ''}`} />
+                        </button>
+                    </div>
+                    {local.tax_enabled && (
+                        <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
+                            <DollarSign className="w-3 h-3" />
+                            Ensure tax registrations are set up in your Stripe Dashboard
+                        </p>
                     )}
                 </div>
             )}

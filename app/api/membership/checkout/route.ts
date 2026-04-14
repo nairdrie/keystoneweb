@@ -79,6 +79,15 @@ export async function POST(request: NextRequest) {
         .eq('id', member.id);
     }
 
+    // Check if the site has tax enabled (uses ecommerce_settings)
+    const { data: ecomSettings } = await supabase
+      .from('ecommerce_settings')
+      .select('tax_enabled')
+      .eq('site_id', siteId)
+      .single();
+
+    const taxEnabled = ecomSettings?.tax_enabled === true;
+
     // Determine mode
     const isRecurring = pkg.billing_interval === 'month' || pkg.billing_interval === 'year';
     const mode = isRecurring ? 'subscription' : 'payment';
@@ -88,6 +97,7 @@ export async function POST(request: NextRequest) {
       payment_method_types: ['card'],
       line_items: [{ price: pkg.stripe_price_id, quantity: 1 }],
       mode: mode as any,
+      ...(taxEnabled && { automatic_tax: { enabled: true } }),
       allow_promotion_codes: true,
       success_url: successUrl,
       cancel_url: cancelUrl,

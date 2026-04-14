@@ -138,6 +138,7 @@ export async function POST(request: NextRequest) {
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'subscription',
+      automatic_tax: { enabled: true },
       subscription_data: {
         billing_mode: {
           type: 'flexible',
