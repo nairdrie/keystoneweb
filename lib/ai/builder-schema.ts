@@ -191,14 +191,14 @@ AVAILABLE BLOCK TYPES AND THEIR DATA SCHEMAS:
       variant: "contained" | "fullWidth"  // "contained" = centered max-w-4xl; "fullWidth" = edge-to-edge
     }
 
-25. "deliveryLinks" — Delivery app link buttons (Uber Eats, DoorDash, Skip the Dishes, Grubhub, custom)
+25. "deliveryLinks" — Delivery app link buttons (Uber Eats, DoorDash, Skip the Dishes, custom)
     data: {
       title: string,          // e.g. "Order Online"
       subtitle: string,       // e.g. "Fresh food delivered to your door"
       backgroundColor: string, // Optional hex. Leave blank for default accent.
       links: Array<{
         id: string,
-        platform: "ubereats" | "doordash" | "skipthedishes" | "grubhub" | "custom",
+        platform: "ubereats" | "doordash" | "skipthedishes" | "custom",
         label: string,        // Display name (auto-filled for known platforms, required for "custom")
         url: string,          // Full URL to the restaurant's page on that platform
         enabled: boolean      // Only enabled links with a URL are shown to visitors

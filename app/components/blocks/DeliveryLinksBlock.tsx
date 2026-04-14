@@ -5,14 +5,14 @@ import Image from 'next/image';
 import { useEditorContext } from '@/lib/editor-context';
 import EditableText from '../EditableText';
 import Reveal from '@/app/components/Reveal';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, ExternalLink } from 'lucide-react';
 import UELogo from '@/assets/UE_logo.png';
 import DDLogo from '@/assets/DD_logo.png';
 import SKLogo from '@/assets/SK_logo.png';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type PlatformId = 'ubereats' | 'doordash' | 'skipthedishes' | 'grubhub' | 'custom';
+type PlatformId = 'ubereats' | 'doordash' | 'skipthedishes' | 'custom';
 
 interface DeliveryLink {
   id: string;
@@ -49,17 +49,10 @@ const PLATFORM_CONFIG: Record<PlatformId, { name: string; color: string; bg: str
   },
   skipthedishes: {
     name: 'Skip the Dishes',
-    color: '#F96714',
-    bg: '#F96714',
+    color: 'rgb(255, 129, 0)',
+    bg: 'rgb(255, 129, 0)',
     textColor: '#ffffff',
     logoImage: SKLogo,
-  },
-  grubhub: {
-    name: 'Grubhub',
-    color: '#F63440',
-    bg: '#F63440',
-    textColor: '#ffffff',
-    logoImage: null,
   },
   custom: {
     name: 'Custom Link',
@@ -70,7 +63,7 @@ const PLATFORM_CONFIG: Record<PlatformId, { name: string; color: string; bg: str
   },
 };
 
-const KNOWN_PLATFORMS: Exclude<PlatformId, 'custom'>[] = ['ubereats', 'doordash', 'skipthedishes', 'grubhub'];
+const KNOWN_PLATFORMS: Exclude<PlatformId, 'custom'>[] = ['ubereats', 'doordash', 'skipthedishes'];
 
 function generateId() {
   return Math.random().toString(36).slice(2, 10);
@@ -93,33 +86,39 @@ function DeliveryCard({ link, palette }: { link: DeliveryLink; palette: Record<s
   const bg = link.platform === 'custom' ? (palette.secondary || cfg.bg) : cfg.bg;
   const label = link.label || cfg.name;
   const hasLogo = !!cfg.logoImage;
+  const isCustom = link.platform === 'custom';
 
   return (
     <a
       href={link.url || '#'}
       target="_blank"
       rel="noopener noreferrer"
-      className="group relative flex flex-col items-center justify-center rounded-2xl px-6 py-6 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+      className="group flex items-center rounded-2xl px-4 py-3 shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden"
       style={{ backgroundColor: bg, color: cfg.textColor }}
       aria-label={`Order on ${label}`}
     >
-      {/* Subtle shine overlay on hover */}
-      <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity duration-300 rounded-2xl" />
+      {/* Left-aligned content */}
+      <div className="flex flex-col items-start flex-1 min-w-0">
+        {isCustom ? (
+          <p className="text-sm font-bold leading-tight">{label}</p>
+        ) : (
+          <>
+            <p className="text-[10px] font-medium opacity-80 uppercase tracking-widest mb-1">Order on</p>
+            {hasLogo ? (
+              <Image
+                src={cfg.logoImage}
+                alt={cfg.name}
+                className={`${link.platform === 'skipthedishes' ? 'h-6' : 'h-7'} w-auto object-contain`}
+              />
+            ) : (
+              <p className="text-sm font-bold leading-tight">{label}</p>
+            )}
+          </>
+        )}
+      </div>
 
-      {/* "Order on" text */}
-      <p className="relative text-xs font-medium opacity-80 uppercase tracking-widest mb-3">Order on</p>
-
-      {/* Official logo or fallback text */}
-      {hasLogo ? (
-        <Image
-          src={cfg.logoImage}
-          alt={cfg.name}
-          className="relative h-10 w-auto object-contain"
-          style={link.platform === 'doordash' ? {} : { filter: 'brightness(0) invert(1)' }}
-        />
-      ) : (
-        <p className="relative text-xl font-bold leading-tight">{label}</p>
-      )}
+      {/* External link icon on the right */}
+      <ExternalLink className="w-4 h-4 flex-shrink-0 opacity-60 ml-2" />
     </a>
   );
 }
@@ -127,7 +126,9 @@ function DeliveryCard({ link, palette }: { link: DeliveryLink; palette: Record<s
 // ─── Main Block ───────────────────────────────────────────────────────────────
 
 export default function DeliveryLinksBlock({ id, data, isEditMode, palette, updateContent }: DeliveryLinksBlockProps) {
-  const links: DeliveryLink[] = data.links && data.links.length > 0 ? data.links : buildDefaultLinks();
+  const links: DeliveryLink[] = data.links && data.links.length > 0
+    ? (data.links as DeliveryLink[]).filter((l) => (l.platform as string) !== 'grubhub')
+    : buildDefaultLinks();
   const bgColor = data.backgroundColor || '';
   const pPrimary = palette.primary || '#1f2937';
 
@@ -319,7 +320,7 @@ export default function DeliveryLinksBlock({ id, data, isEditMode, palette, upda
           {activeLinks.length > 0 && (
             <div className="mt-8 pt-6 border-t border-slate-200/60">
               <p className="text-xs font-medium text-slate-500 uppercase tracking-widest mb-4 text-center">Preview</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {activeLinks.map((link) => (
                   <DeliveryCard key={link.id} link={link} palette={palette} />
                 ))}
@@ -350,7 +351,7 @@ export default function DeliveryLinksBlock({ id, data, isEditMode, palette, upda
           </p>
         </Reveal>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           {activeLinks.map((link, i) => (
             <Reveal key={link.id} delay={i * 0.08}>
               <DeliveryCard link={link} palette={palette} />
