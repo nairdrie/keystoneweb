@@ -718,28 +718,30 @@ function DesktopNavItem({
             </Link>
 
             {isEditMode && (
-                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1 flex items-center gap-0.5 opacity-0 pointer-events-none group-hover/navitem:opacity-100 group-hover/navitem:pointer-events-auto transition-opacity z-[70] bg-white rounded-lg shadow-md border border-gray-200 px-1.5 py-0.5">
-                    <button
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(item, null); }}
-                        className="p-0.5 hover:bg-blue-100 rounded-full"
-                        title="Edit"
-                    >
-                        <Pencil className="w-3 h-3 text-blue-500" />
-                    </button>
-                    <button
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddSubItem(item.id); }}
-                        className="p-0.5 hover:bg-green-100 rounded-full"
-                        title="Add sub-item"
-                    >
-                        <Plus className="w-3 h-3 text-green-600" />
-                    </button>
-                    <button
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(item.id); }}
-                        className="p-0.5 hover:bg-red-100 rounded-full"
-                        title="Remove"
-                    >
-                        <X className="w-3 h-3 text-red-500" />
-                    </button>
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-full pb-2 opacity-0 pointer-events-none group-hover/navitem:opacity-100 group-hover/navitem:pointer-events-auto transition-opacity z-[70]">
+                    <div className="flex items-center gap-0.5 bg-white rounded-lg shadow-md border border-gray-200 px-1.5 py-0.5">
+                        <button
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(item, null); }}
+                            className="p-0.5 hover:bg-blue-100 rounded-full"
+                            title="Edit"
+                        >
+                            <Pencil className="w-3 h-3 text-blue-500" />
+                        </button>
+                        <button
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddSubItem(item.id); }}
+                            className="p-0.5 hover:bg-green-100 rounded-full"
+                            title="Add sub-item"
+                        >
+                            <Plus className="w-3 h-3 text-green-600" />
+                        </button>
+                        <button
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(item.id); }}
+                            className="p-0.5 hover:bg-red-100 rounded-full"
+                            title="Remove"
+                        >
+                            <X className="w-3 h-3 text-red-500" />
+                        </button>
+                    </div>
                 </div>
             )}
 
