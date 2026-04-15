@@ -18,6 +18,14 @@
     {
       "path": "/api/cron/parked-domain-renewal",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/marketing-sync",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/marketing-budget-check",
+      "schedule": "0 */2 * * *"
     }
   ]
 }

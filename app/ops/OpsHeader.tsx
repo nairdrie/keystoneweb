@@ -30,6 +30,7 @@ export default function OpsHeader({
     { href: '/moderation', label: 'Moderation', count: pendingModerationCount },
     ...(isAdmin ? [{ href: '/agents', label: 'Agents' }] : []),
     { href: '/email', label: 'Email' },
+    ...(isAdmin ? [{ href: '/marketing', label: 'Marketing' }] : []),
     { href: '/scraper', label: 'Scraper' },
   ];
 
