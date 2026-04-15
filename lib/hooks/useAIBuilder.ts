@@ -30,6 +30,7 @@ interface SiteState {
   palette: string;
   headingFont?: string;
   bodyFont?: string;
+  pages?: Array<Record<string, any>>;
 }
 
 interface AIBuilderCallbacks {
@@ -43,6 +44,7 @@ interface AIBuilderCallbacks {
   onSetTemplate: (templateId: string) => void;
   onReplaceBlocks: (blocks: any[]) => void;
   onSetHeaderConfig: (config: Record<string, any>) => void;
+  onSetPages?: (pages: any[], navigation?: any[]) => Promise<void> | void;
 }
 
 export function useAIBuilder(
@@ -66,7 +68,7 @@ export function useAIBuilder(
       .catch(() => {});
   }, []);
 
-  const sendMessage = useCallback(async (prompt: string, options?: { isNewSite?: boolean }) => {
+  const sendMessage = useCallback(async (prompt: string, options?: { isNewSite?: boolean; enableMultiPage?: boolean }) => {
     if (!prompt.trim() || isLoading) return;
 
     wasCancelledRef.current = false;
@@ -96,6 +98,7 @@ export function useAIBuilder(
           siteState,
           availablePalettes,
           ...(options?.isNewSite ? { isNewSite: true } : {}),
+          enableMultiPage: options?.enableMultiPage ?? true,
         }),
       });
 
@@ -154,7 +157,7 @@ export function useAIBuilder(
 
       // Apply operations
       for (const op of operations) {
-        applyOperation(op, callbacks);
+        await applyOperation(op, callbacks);
       }
 
       const assistantMsg: AIMessage = {
@@ -208,7 +211,7 @@ export function useAIBuilder(
   return { messages, isLoading, sendMessage, cancel, clearMessages, showUpgradeModal, dismissUpgradeModal, authExpired, remaining };
 }
 
-function applyOperation(op: AIOperation, callbacks: AIBuilderCallbacks) {
+async function applyOperation(op: AIOperation, callbacks: AIBuilderCallbacks) {
   switch (op.op) {
     case 'setTemplate':
       if (op.templateId) {
@@ -259,6 +262,11 @@ function applyOperation(op: AIOperation, callbacks: AIBuilderCallbacks) {
     case 'setHeaderConfig':
       if (op.config && typeof op.config === 'object') {
         callbacks.onSetHeaderConfig(op.config);
+      }
+      break;
+    case 'setPages':
+      if (callbacks.onSetPages && Array.isArray(op.pages)) {
+        await callbacks.onSetPages(op.pages, Array.isArray(op.navigation) ? op.navigation : undefined);
       }
       break;
   }

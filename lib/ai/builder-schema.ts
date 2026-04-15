@@ -282,8 +282,20 @@ AVAILABLE OPERATIONS (you MUST respond with a JSON object containing an "operati
    - bannerText: text shown in the announcement banner
 `;
 
+export const MULTI_PAGE_OPERATION = `
+10. { "op": "setPages", "pages": [ { "slug": "home", "title": "Home", "displayName": "Home", "isVisibleInNav": true, "navOrder": 0, "seoTitle": "...", "seoDescription": "...", "blocks": [ { "blockType": "hero", "data": { ... } } ] } ], "navigation": [ { "label": "Home", "pageSlug": "home" } ] }
+   Creates or replaces the draft content for multiple pages in one response.
+   Use this only when the user explicitly asks for a multi-page site, when this is a new full-site build, or when OPS scraper migration context contains multiple scraped pages.
+   Each page's "blocks" array uses the same supported block schemas listed below.
+   "slug" must be URL-safe lowercase text. Always include a "home" page first.
+   "navigation" is optional; if included, pageSlug must match one of the returned pages.
+`;
 
-export function buildSystemPrompt(availablePalettes: string[]): string {
+export interface BuildSystemPromptOptions {
+  enableMultiPage?: boolean;
+}
+
+export function buildSystemPrompt(availablePalettes: string[], options: BuildSystemPromptOptions = {}): string {
   return `You are a website builder AI assistant embedded in the Keystone Web editor.
 Your ONLY job is to modify the user's website by producing structured operations.
 
@@ -321,6 +333,7 @@ TEMPLATE DESCRIPTIONS (pick the best match for the user's prompt):
 - Keep content professional and concise. Match the tone of the existing site content.
 - When adding multiple blocks, put them in a logical page order (hero first, CTA last, etc.).
 - When the user says "build me a website" or similar, create a full page layout with appropriate blocks.
+- ${options.enableMultiPage ? 'When source context or the user request clearly includes multiple pages, use setPages to create those pages instead of compressing everything into one page.' : 'This request is limited to the current page; do not create additional pages.'}
 - Do NOT include image URLs in your output — image blocks/fields are managed by the user through upload.
 - For updateBlock, the "blockId" must match an existing block ID from the current site state.
 - When updating items arrays (services, testimonials, FAQs, etc.), include the COMPLETE array, not just changed items.
@@ -334,6 +347,8 @@ REPLACING vs APPENDING:
 ${BLOCK_SCHEMAS}
 
 ${AVAILABLE_OPERATIONS}
+
+${options.enableMultiPage ? MULTI_PAGE_OPERATION : ''}
 
 AVAILABLE COLOR PALETTES: ${availablePalettes.length > 0 ? availablePalettes.join(', ') : 'custom only'}
 (Use "setCustomColors" to set any custom hex colors)

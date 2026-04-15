@@ -928,6 +928,93 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     });
   }, [addChange]);
 
+  const aiSetPages = useCallback(async (incomingPages: any[], incomingNavigation?: any[]) => {
+    if (!Array.isArray(incomingPages) || incomingPages.length === 0) return;
+
+    const existingBySlug = new Map(pages.map((page) => [page.slug, page]));
+    const resolvedPages: Array<{ id: string; slug: string; title: string; display_name: string; is_visible_in_nav: boolean; nav_order: number; design_data: Record<string, any> }> = [];
+
+    for (const [index, page] of incomingPages.slice(0, 30).entries()) {
+      const slug = String(page.slug || (index === 0 ? 'home' : `page-${index + 1}`))
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || (index === 0 ? 'home' : `page-${index + 1}`);
+      const title = String(page.title || (slug === 'home' ? 'Home' : `Page ${index + 1}`)).slice(0, 160);
+      const displayName = String(page.displayName || page.display_name || title).slice(0, 160);
+      const blocks = Array.isArray(page.blocks) ? page.blocks : [];
+      const designData = {
+        seoTitle: String(page.seoTitle || page.seo_title || title).slice(0, 200),
+        seoDescription: String(page.seoDescription || page.seo_description || '').slice(0, 500),
+        blocks,
+      };
+      const isVisibleInNav = typeof page.isVisibleInNav === 'boolean' ? page.isVisibleInNav : index < 8;
+      const navOrder = typeof page.navOrder === 'number' ? page.navOrder : index;
+      const existingPage = existingBySlug.get(slug);
+
+      if (existingPage) {
+        const updatedPage = await updatePage(existingPage.id, {
+          title,
+          display_name: displayName,
+          is_visible_in_nav: isVisibleInNav,
+          nav_order: navOrder,
+          design_data: designData,
+        });
+        resolvedPages.push(updatedPage);
+        if (existingPage.id === currentPageId) {
+          setEditableContent(designData);
+          editableContentRef.current = designData;
+        }
+      } else {
+        const newPage = await createPage(slug, title, displayName);
+        const updatedPage = await updatePage(newPage.id, {
+          is_visible_in_nav: isVisibleInNav,
+          nav_order: navOrder,
+          design_data: designData,
+        });
+        resolvedPages.push(updatedPage);
+      }
+    }
+
+    const pageBySlug = new Map(resolvedPages.map((page) => [page.slug, page]));
+    const nextNavItems = Array.isArray(incomingNavigation) && incomingNavigation.length > 0
+      ? incomingNavigation
+        .map((item, index) => {
+          const pageSlug = String(item.pageSlug || item.page_slug || item.slug || '').toLowerCase();
+          const page = pageBySlug.get(pageSlug);
+          if (!page) return null;
+          return {
+            id: `nav-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+            label: String(item.label || page.display_name),
+            linkType: 'page' as const,
+            href: page.slug === 'home' ? '/' : `/${page.slug}`,
+            pageId: page.id,
+          };
+        })
+        .filter(Boolean) as NavItem[]
+      : resolvedPages
+        .filter((page) => page.is_visible_in_nav)
+        .sort((left, right) => left.nav_order - right.nav_order)
+        .map((page, index) => ({
+          id: `nav-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+          label: page.display_name,
+          linkType: 'page' as const,
+          href: page.slug === 'home' ? '/' : `/${page.slug}`,
+          pageId: page.id,
+        }));
+
+    addChange('siteContent:navItems', 'AI: Generated pages', JSON.stringify(navItems), JSON.stringify(nextNavItems));
+    setSiteContent((prev) => ({ ...prev, __navItems: nextNavItems }));
+
+    const homePage = resolvedPages.find((page) => page.slug === 'home') || resolvedPages[0];
+    if (homePage) {
+      setCurrentPageId(homePage.id);
+      setEditableContent(homePage.design_data || {});
+      editableContentRef.current = homePage.design_data || {};
+    }
+
+    await fetchPages();
+  }, [addChange, createPage, currentPageId, fetchPages, navItems, pages, setCurrentPageId, updatePage]);
+
   const aiCallbacks = useMemo(() => ({
     onAddBlock: aiAddBlock,
     onUpdateBlock: aiUpdateBlock,
@@ -939,7 +1026,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     onSetCustomColors: aiSetCustomColors,
     onSetTemplate: aiSetTemplate,
     onSetHeaderConfig: aiSetHeaderConfig,
-  }), [aiAddBlock, aiUpdateBlock, aiRemoveBlock, aiReorderBlocks, aiReplaceBlocks, aiSetSiteTitle, aiSetFont, aiSetCustomColors, aiSetTemplate, aiSetHeaderConfig]);
+    onSetPages: aiSetPages,
+  }), [aiAddBlock, aiUpdateBlock, aiRemoveBlock, aiReorderBlocks, aiReplaceBlocks, aiSetSiteTitle, aiSetFont, aiSetCustomColors, aiSetTemplate, aiSetHeaderConfig, aiSetPages]);
 
   const getAiSiteState = useCallback(() => ({
     title: siteTitle,
@@ -947,7 +1035,12 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     palette: selectedPaletteKey,
     headingFont: siteContent.titleFont,
     bodyFont: siteContent.bodyFont,
-  }), [siteTitle, editableContent.blocks, selectedPaletteKey, siteContent.titleFont, siteContent.bodyFont]);
+    pages: pages.map((page) => ({
+      slug: page.slug,
+      title: page.title,
+      blocks: page.design_data?.blocks || [],
+    })),
+  }), [siteTitle, editableContent.blocks, selectedPaletteKey, siteContent.titleFont, siteContent.bodyFont, pages]);
 
   const aiPaletteNames = useMemo(() => Object.keys(availablePalettes), [availablePalettes]);
 

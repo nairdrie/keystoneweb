@@ -144,7 +144,7 @@ export default function ScraperPage() {
       const response = await fetch('/api/ops/scraper/build-site', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ builderImport: result.builderImport }),
+        body: JSON.stringify({ builderImport: result.builderImport, rawJson: result.rawJson }),
       });
       const data = await response.json();
       if (!response.ok) {
