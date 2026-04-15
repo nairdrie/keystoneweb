@@ -62,9 +62,13 @@ interface Transaction {
 
 const TRANSACTION_TYPE_LABELS: Record<string, string> = {
     subscription: 'Subscription',
+    subscription_created: 'Subscription',
+    subscription_payment: 'Subscription',
+    subscription_status_change: 'Subscription',
     domain_purchase: 'Domain Purchase',
     domain_transfer: 'Domain Transfer',
     ecommerce_order: 'E-commerce Order',
+    one_time_payment: 'Payment',
     addon: 'Add-on',
 };
 
