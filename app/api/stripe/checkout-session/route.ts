@@ -139,6 +139,7 @@ export async function POST(request: NextRequest) {
       line_items: lineItems,
       mode: 'subscription',
       automatic_tax: { enabled: true },
+      billing_address_collection: 'required',
       subscription_data: {
         billing_mode: {
           type: 'flexible',
