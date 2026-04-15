@@ -214,6 +214,8 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: 'payment',
+      automatic_tax: { enabled: true },
+      billing_address_collection: 'required',
       customer: subscription?.stripe_customer_id || undefined,
       customer_email: !subscription?.stripe_customer_id ? (user.email ?? undefined) : undefined,
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/publish/domain-select?siteId=${siteId}&session_id={CHECKOUT_SESSION_ID}&domain_purchased=true`,
