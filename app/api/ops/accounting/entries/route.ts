@@ -3,9 +3,37 @@ import { createAdminClient } from '@/lib/db/supabase-admin';
 import { requireOpsAccess } from '@/lib/ops/access';
 import type { EntryType, EntrySource, TaxType } from '@/lib/ops/accounting';
 
+// Revenue transaction types that appear as auto-entries in the transaction list
+const STRIPE_REVENUE_TYPES = [
+  'subscription_payment', 'subscription_created',
+  'domain_purchase', 'domain_transfer',
+  'ecommerce_order', 'one_time_payment',
+];
+
+const STRIPE_SOURCE_MAP: Record<string, string> = {
+  subscription_payment: 'subscription',
+  subscription_created: 'subscription',
+  domain_purchase: 'domain_sale',
+  domain_transfer: 'domain_sale',
+  ecommerce_order: 'manual',
+  one_time_payment: 'manual',
+};
+
+const STRIPE_CATEGORY_MAP: Record<string, string> = {
+  subscription_payment: 'Subscriptions',
+  subscription_created: 'Subscriptions',
+  domain_purchase: 'Domains',
+  domain_transfer: 'Domains',
+  ecommerce_order: 'Other',
+  one_time_payment: 'Other',
+};
+
 /**
  * GET /api/ops/accounting/entries
  * List accounting entries with filters.
+ * Merges manual accounting_entries with auto-generated entries from
+ * stripe_transactions so that subscription/domain payments appear
+ * alongside manual entries in a single, sortable list.
  */
 export async function GET(request: NextRequest) {
   const access = await requireOpsAccess();
@@ -24,57 +52,116 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '50', 10) || 50));
 
   const db = createAdminClient();
-  let query = db
+
+  // ── Manual accounting entries ──────────────────────────────────────────
+  let manualQuery = db
     .from('accounting_entries')
     .select('*')
     .order('date', { ascending: false })
     .order('created_at', { ascending: false });
 
-  let countQuery = db
-    .from('accounting_entries')
-    .select('id', { count: 'exact', head: true });
-
   if (type && (type === 'revenue' || type === 'expense')) {
-    query = query.eq('type', type);
-    countQuery = countQuery.eq('type', type);
+    manualQuery = manualQuery.eq('type', type);
   }
   if (source) {
-    query = query.eq('source', source);
-    countQuery = countQuery.eq('source', source);
+    manualQuery = manualQuery.eq('source', source);
   }
   if (category) {
-    query = query.eq('category', category);
-    countQuery = countQuery.eq('category', category);
+    manualQuery = manualQuery.eq('category', category);
   }
   if (dateFrom) {
-    query = query.gte('date', dateFrom);
-    countQuery = countQuery.gte('date', dateFrom);
+    manualQuery = manualQuery.gte('date', dateFrom);
   }
   if (dateTo) {
-    query = query.lte('date', dateTo);
-    countQuery = countQuery.lte('date', dateTo);
+    manualQuery = manualQuery.lte('date', dateTo);
   }
   if (search) {
-    query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,notes.ilike.%${search}%`);
-    countQuery = countQuery.or(`title.ilike.%${search}%,description.ilike.%${search}%,notes.ilike.%${search}%`);
+    manualQuery = manualQuery.or(`title.ilike.%${search}%,description.ilike.%${search}%,notes.ilike.%${search}%`);
   }
 
-  const [{ data, error }, { count, error: countError }] = await Promise.all([
-    query.range(offset, offset + limit - 1),
-    countQuery,
-  ]);
+  // ── Stripe revenue transactions (auto-entries) ─────────────────────────
+  // Skip if filtering to expenses only, since Stripe transactions are revenue.
+  const includeStripe = type !== 'expense';
 
-  if (error || countError) {
-    console.error('[accounting/entries GET]', error || countError);
+  let stripeEntries: any[] = [];
+  if (includeStripe) {
+    let stripeQuery = db
+      .from('stripe_transactions')
+      .select('id, stripe_event_id, transaction_type, description, plan_name, amount_cents, currency, status, user_id, created_at')
+      .eq('status', 'succeeded')
+      .in('transaction_type', STRIPE_REVENUE_TYPES)
+      .gt('amount_cents', 0)
+      .order('created_at', { ascending: false });
+
+    if (dateFrom) {
+      stripeQuery = stripeQuery.gte('created_at', dateFrom);
+    }
+    if (dateTo) {
+      stripeQuery = stripeQuery.lte('created_at', dateTo + 'T23:59:59.999Z');
+    }
+    if (search) {
+      stripeQuery = stripeQuery.or(`description.ilike.%${search}%,plan_name.ilike.%${search}%`);
+    }
+
+    const { data: stripeTx } = await stripeQuery;
+
+    stripeEntries = (stripeTx ?? [])
+      .filter((tx: any) => {
+        // Apply source/category filters
+        if (source && STRIPE_SOURCE_MAP[tx.transaction_type] !== source) return false;
+        if (category && STRIPE_CATEGORY_MAP[tx.transaction_type] !== category) return false;
+        return true;
+      })
+      .map((tx: any) => ({
+        id: tx.id,
+        type: 'revenue' as const,
+        source: STRIPE_SOURCE_MAP[tx.transaction_type] ?? 'manual',
+        title: tx.description || `${tx.transaction_type} payment`,
+        description: tx.plan_name ? `Plan: ${tx.plan_name}` : null,
+        amount_cents: tx.amount_cents,
+        tax_cents: 0,
+        tax_type: null,
+        currency: (tx.currency || 'cad').toUpperCase(),
+        category: STRIPE_CATEGORY_MAP[tx.transaction_type] ?? null,
+        date: tx.created_at?.slice(0, 10) ?? '',
+        reference_id: tx.stripe_event_id,
+        reference_type: 'stripe_event',
+        user_id: tx.user_id,
+        recurring_entry_id: null,
+        invoice_storage_path: null,
+        invoice_filename: null,
+        notes: null,
+        is_auto: true,
+        created_by: null,
+        created_at: tx.created_at,
+        updated_at: tx.created_at,
+      }));
+  }
+
+  const { data: manualData, error } = await manualQuery;
+
+  if (error) {
+    console.error('[accounting/entries GET]', error);
     return NextResponse.json({ error: 'Failed to load entries' }, { status: 500 });
   }
 
+  // ── Merge, sort, and paginate ──────────────────────────────────────────
+  const merged = [...(manualData ?? []), ...stripeEntries]
+    .sort((a, b) => {
+      // Sort by date descending, then created_at descending
+      if (a.date !== b.date) return a.date > b.date ? -1 : 1;
+      return (a.created_at ?? '') > (b.created_at ?? '') ? -1 : 1;
+    });
+
+  const total = merged.length;
+  const paged = merged.slice(offset, offset + limit);
+
   return NextResponse.json({
-    entries: data ?? [],
-    total: count ?? 0,
+    entries: paged,
+    total,
     offset,
     limit,
-    hasMore: offset + (data?.length ?? 0) < (count ?? 0),
+    hasMore: offset + paged.length < total,
   });
 }
 
