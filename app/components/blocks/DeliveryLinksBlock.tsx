@@ -45,7 +45,6 @@ const PLATFORM_CONFIG: Record<PlatformId, { name: string; color: string; bg: str
     color: '#FF3008',
     bg: '#ffffff',
     textColor: '#1f2937',
-    h:6,
     logoImage: DDLogo,
   },
   skipthedishes: {
