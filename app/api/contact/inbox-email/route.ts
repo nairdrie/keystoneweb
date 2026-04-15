@@ -7,101 +7,161 @@ const VERCEL_API_BASE = 'https://api.vercel.com';
 const VERCEL_API_TOKEN = process.env.VERCEL_API_TOKEN;
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID;
 
-// MX record value for Resend inbound email receiving
-const RESEND_INBOUND_MX = 'feedback.resend.com';
+// Shape of a DNS record returned by Resend's domain API
+interface ResendDnsRecord {
+  record: string;
+  name: string;
+  value: string;
+  type: 'MX' | 'TXT' | 'CNAME';
+  ttl: string;
+  status: string;
+  priority?: number;
+}
 
 /**
- * Add an MX record to a Vercel-managed domain for Resend inbound email.
- * Returns { success, error?, alreadyExists? }.
+ * Add ALL required DNS records (SPF, DKIM, MX/Receiving) to a Vercel-managed
+ * domain so that Resend can verify the domain and route inbound email.
+ *
+ * Takes the `records` array straight from Resend's domain create / get response.
  */
-async function addVercelMxRecord(domain: string): Promise<{ success: boolean; error?: string; alreadyExists?: boolean }> {
+async function addVercelDnsRecords(
+  domain: string,
+  resendRecords: ResendDnsRecord[],
+): Promise<{ success: boolean; errors: string[]; configured: number }> {
   if (!VERCEL_API_TOKEN) {
-    return { success: false, error: 'VERCEL_API_TOKEN not configured' };
+    return { success: false, errors: ['VERCEL_API_TOKEN not configured'], configured: 0 };
   }
 
   const teamParam = VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : '';
 
-  // First, check if the MX record already exists to avoid duplicates
+  // Fetch existing records once so we can skip duplicates
+  let existingRecords: any[] = [];
   try {
     const listRes = await fetch(
       `${VERCEL_API_BASE}/v4/domains/${encodeURIComponent(domain)}/records${teamParam}`,
-      { headers: { Authorization: `Bearer ${VERCEL_API_TOKEN}` } }
+      { headers: { Authorization: `Bearer ${VERCEL_API_TOKEN}` } },
     );
-
     if (listRes.ok) {
-      const { records } = await listRes.json();
-      const existing = (records ?? []).find(
-        (r: any) => r.type === 'MX' && r.value?.toLowerCase().includes('resend')
-      );
-      if (existing) {
-        console.log(`[inbox-email] MX record for ${domain} already points to Resend`);
-        return { success: true, alreadyExists: true };
-      }
+      const body = await listRes.json();
+      existingRecords = body.records ?? [];
     }
   } catch {
-    // Non-fatal — proceed to add
+    // Non-fatal — we'll try to add anyway
   }
 
-  const res = await fetch(
-    `${VERCEL_API_BASE}/v2/domains/${encodeURIComponent(domain)}/dns${teamParam}`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${VERCEL_API_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        name: '',                  // empty = root/@
-        type: 'MX',
-        value: RESEND_INBOUND_MX,
-        mxPriority: 10,
-        ttl: 300,
-      }),
-    }
-  );
+  const errors: string[] = [];
+  let configured = 0;
 
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    // Treat "already exists" responses as success
-    if (res.status === 409 || body?.error?.code === 'record_already_exists') {
-      return { success: true, alreadyExists: true };
+  for (const rec of resendRecords) {
+    const recordName = rec.name; // subdomain part, e.g. "bounces", "resend._domainkey", or empty
+
+    // Duplicate check — match type + name (+ value for MX to allow multiple priorities)
+    const alreadyExists = existingRecords.some((existing: any) => {
+      if (existing.type !== rec.type) return false;
+      // Vercel stores root records with name="" or the domain itself
+      const existingName = existing.name === domain ? '' : (existing.name ?? '');
+      const targetName = recordName === domain ? '' : (recordName ?? '');
+      if (existingName !== targetName) return false;
+      if (rec.type === 'MX') {
+        return existing.value?.toLowerCase() === rec.value?.toLowerCase();
+      }
+      return true;
+    });
+
+    if (alreadyExists) {
+      console.log(`[inbox-email] DNS record already exists: ${rec.type} ${recordName || '@'} → ${rec.value}`);
+      configured++;
+      continue;
     }
-    console.error(`[inbox-email] Vercel DNS add MX failed for ${domain}:`, res.status, body);
-    return { success: false, error: body?.error?.message || 'Failed to add MX record' };
+
+    const body: Record<string, unknown> = {
+      name: recordName,
+      type: rec.type,
+      value: rec.value,
+      ttl: 300,
+    };
+    if (rec.type === 'MX' && rec.priority != null) {
+      body.mxPriority = rec.priority;
+    }
+
+    try {
+      const res = await fetch(
+        `${VERCEL_API_BASE}/v2/domains/${encodeURIComponent(domain)}/dns${teamParam}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${VERCEL_API_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        },
+      );
+
+      if (res.ok) {
+        console.log(`[inbox-email] Added DNS record: ${rec.type} ${recordName || '@'} → ${rec.value}`);
+        configured++;
+      } else {
+        const resBody = await res.json().catch(() => ({}));
+        if (res.status === 409 || resBody?.error?.code === 'record_already_exists') {
+          configured++;
+        } else {
+          const msg = `Failed to add ${rec.type} record for ${recordName || '@'}: ${resBody?.error?.message || res.status}`;
+          console.error(`[inbox-email] ${msg}`);
+          errors.push(msg);
+        }
+      }
+    } catch (err: any) {
+      const msg = `Error adding ${rec.type} record for ${recordName || '@'}: ${err.message}`;
+      console.error(`[inbox-email] ${msg}`);
+      errors.push(msg);
+    }
   }
 
-  console.log(`[inbox-email] Added Resend inbound MX record for ${domain}`);
-  return { success: true };
+  return { success: errors.length === 0, errors, configured };
 }
 
 /**
  * Register a domain with Resend for inbound email receiving.
- * Returns { success, domainId?, error? }.
+ * Returns the domainId **and** the DNS records that must be configured.
  */
-async function ensureResendDomain(domain: string): Promise<{ success: boolean; domainId?: string; error?: string }> {
+async function ensureResendDomain(domain: string): Promise<{
+  success: boolean;
+  domainId?: string;
+  records?: ResendDnsRecord[];
+  error?: string;
+}> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return { success: false, error: 'RESEND_API_KEY not configured' };
 
   const resend = new Resend(apiKey);
 
-  // Try to create the domain; if it already exists we'll get a conflict
   try {
     const { data, error } = await resend.domains.create({ name: domain });
 
     if (error) {
-      // Domain might already be registered — try to find it by listing
+      // Domain might already be registered — find it, then fetch its records
       const { data: list } = await resend.domains.list();
       const existing = (list?.data ?? []).find((d: any) => d.name === domain);
       if (existing) {
         console.log(`[inbox-email] Domain ${domain} already registered in Resend (id: ${existing.id})`);
-        return { success: true, domainId: existing.id };
+        // domains.list() doesn't include records — fetch them explicitly
+        const { data: domainDetail } = await resend.domains.get(existing.id);
+        return {
+          success: true,
+          domainId: existing.id,
+          records: (domainDetail?.records ?? []) as ResendDnsRecord[],
+        };
       }
       console.error(`[inbox-email] Resend domain create error for ${domain}:`, error);
       return { success: false, error: (error as any)?.message || 'Failed to register domain with Resend' };
     }
 
     console.log(`[inbox-email] Registered domain ${domain} in Resend (id: ${data?.id})`);
-    return { success: true, domainId: data?.id };
+    return {
+      success: true,
+      domainId: data?.id,
+      records: (data?.records ?? []) as ResendDnsRecord[],
+    };
   } catch (err: any) {
     console.error(`[inbox-email] Unexpected error registering ${domain} in Resend:`, err);
     return { success: false, error: err?.message || 'Unexpected error' };
@@ -174,7 +234,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'That email address is already in use' }, { status: 409 });
   }
 
-  // Step 1: Register/link the domain with Resend
+  // Step 1: Register/link the domain with Resend (returns required DNS records)
   const resendResult = await ensureResendDomain(domain);
   if (!resendResult.success) {
     return NextResponse.json(
@@ -183,17 +243,38 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Step 2: Auto-configure Vercel DNS (MX record) if token is available
+  // Step 2: Auto-configure ALL Resend DNS records in Vercel (SPF, DKIM, MX)
   let dnsConfigured = false;
   let dnsError: string | null = null;
 
-  if (VERCEL_API_TOKEN) {
-    const dnsResult = await addVercelMxRecord(domain);
+  const resendRecords = resendResult.records ?? [];
+
+  if (VERCEL_API_TOKEN && resendRecords.length > 0) {
+    const dnsResult = await addVercelDnsRecords(domain, resendRecords);
     dnsConfigured = dnsResult.success;
     if (!dnsResult.success) {
-      dnsError = dnsResult.error ?? null;
-      console.warn(`[inbox-email] Vercel MX config failed for ${domain}: ${dnsError}`);
-      // Non-fatal — the domain may not be on Vercel DNS, or may have records already
+      dnsError = dnsResult.errors.join('; ');
+      console.warn(`[inbox-email] Vercel DNS config partially failed for ${domain}: ${dnsError} (${dnsResult.configured}/${resendRecords.length} records configured)`);
+      // Non-fatal — the domain may not be on Vercel DNS
+    } else {
+      console.log(`[inbox-email] All ${dnsResult.configured} DNS records configured for ${domain}`);
+    }
+  } else if (!VERCEL_API_TOKEN) {
+    console.warn(`[inbox-email] VERCEL_API_TOKEN not set — skipping DNS auto-configuration for ${domain}`);
+  }
+
+  // Step 2b: Trigger Resend domain verification so it checks the newly added records
+  if (resendResult.domainId) {
+    try {
+      const apiKey = process.env.RESEND_API_KEY;
+      if (apiKey) {
+        const resend = new Resend(apiKey);
+        await resend.domains.verify(resendResult.domainId);
+        console.log(`[inbox-email] Triggered domain verification for ${domain}`);
+      }
+    } catch (err) {
+      // Non-fatal — verification can also happen automatically on Resend's side
+      console.warn(`[inbox-email] Failed to trigger domain verification for ${domain}:`, err);
     }
   }
 
