@@ -347,6 +347,25 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        // ── Attach metered overage price to the subscription ────────
+        // This is done post-checkout because Stripe Checkout doesn't allow
+        // mixed billing intervals. The metered price is always monthly so
+        // overage is billed monthly regardless of the base plan interval.
+        const meteredPriceId = planConfig?.stripe.metered;
+        if (meteredPriceId && session.subscription) {
+          try {
+            const stripeClient = getStripeClient();
+            await stripeClient.subscriptionItems.create({
+              subscription: session.subscription as string,
+              price: meteredPriceId,
+            });
+            console.log(`✅ Metered overage price attached to subscription ${session.subscription}`);
+          } catch (meteredErr) {
+            // Non-blocking — subscription still works, overage just won't be tracked
+            console.error('Failed to attach metered price to subscription:', meteredErr);
+          }
+        }
+
         try {
           const adminClient = createAdminClient();
           const { data: { user } } = await adminClient.auth.admin.getUserById(userId);

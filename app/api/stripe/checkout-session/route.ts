@@ -117,26 +117,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ url: portalSession.url });
     }
 
-    // Get metered price for overage billing (single price per plan, works for both intervals)
+    // Metered overage price is added to the subscription after checkout via
+    // the webhook (checkout.session.completed) — Stripe Checkout doesn't allow
+    // mixed billing intervals, and we want overage billed monthly regardless
+    // of whether the base plan is monthly or yearly.
     const plan = getPlanByName(planName);
-    const meteredPriceId = plan?.stripe.metered || '';
-
-    // Build line items: base recurring + metered overage (if configured)
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
-      { price: priceId, quantity: 1 },
-    ];
-
-    if (meteredPriceId) {
-      lineItems.push({ price: meteredPriceId });
-    }
-
-    // Allow coupon/promotion codes for monthly plans only
     const isMonthly = plan ? priceId === plan.stripe.monthly : false;
 
     // No existing subscription — create a new Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: lineItems,
+      line_items: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
       automatic_tax: { enabled: true },
       billing_address_collection: 'required',
