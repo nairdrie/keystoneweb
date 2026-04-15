@@ -45,6 +45,7 @@ const PLATFORM_CONFIG: Record<PlatformId, { name: string; color: string; bg: str
     color: '#FF3008',
     bg: '#ffffff',
     textColor: '#1f2937',
+    h:6,
     logoImage: DDLogo,
   },
   skipthedishes: {
@@ -87,6 +88,17 @@ function DeliveryCard({ link, palette }: { link: DeliveryLink; palette: Record<s
   const label = link.label || cfg.name;
   const hasLogo = !!cfg.logoImage;
   const isCustom = link.platform === 'custom';
+  const getHByPlatform = (platform: PlatformId) => {
+    switch (platform) {
+      case 'doordash':
+        return 'h-6';
+      case 'skipthedishes':
+        return 'h-8';
+      default:
+        return 'h-7';
+    }
+  };
+
 
   return (
     <a
@@ -108,7 +120,7 @@ function DeliveryCard({ link, palette }: { link: DeliveryLink; palette: Record<s
               <Image
                 src={cfg.logoImage}
                 alt={cfg.name}
-                className={`${link.platform === 'skipthedishes' ? 'h-6' : 'h-7'} w-auto object-contain`}
+                className={`${getHByPlatform(link.platform)} w-auto object-contain`}
               />
             ) : (
               <p className="text-sm font-bold leading-tight">{label}</p>
@@ -118,7 +130,7 @@ function DeliveryCard({ link, palette }: { link: DeliveryLink; palette: Record<s
       </div>
 
       {/* External link icon on the right */}
-      <ExternalLink className="w-4 h-4 flex-shrink-0 opacity-60 ml-2" />
+      <ExternalLink className="w-4 h-12 flex-shrink-0 opacity-60 ml-2" />
     </a>
   );
 }
