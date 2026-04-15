@@ -279,6 +279,15 @@ export async function GET(request: NextRequest) {
     // Create server-side Supabase client
     const supabase = await createClient();
 
+    // Authenticate the user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     // Fetch from Supabase
     const { data, error } = await supabase
       .from('sites')
@@ -291,6 +300,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: 'Site not found' },
         { status: 404 }
+      );
+    }
+
+    // Verify ownership — only the site owner can access site data via this endpoint
+    if (data.user_id !== user.id) {
+      return NextResponse.json(
+        { error: 'Forbidden: You do not own this site' },
+        { status: 403 }
       );
     }
 
