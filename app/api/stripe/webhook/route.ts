@@ -61,6 +61,47 @@ async function recordStripeTransaction(data: {
 }
 
 /**
+ * Fetch invoice or receipt URLs from a completed checkout session.
+ * - Subscription sessions: retrieves the Stripe Invoice for hosted_invoice_url + invoice_pdf
+ * - One-time payment sessions: retrieves the Charge receipt_url as a fallback
+ */
+async function getCheckoutInvoiceUrls(session: Stripe.Checkout.Session): Promise<{
+  invoice_url: string | null;
+  invoice_pdf: string | null;
+}> {
+  try {
+    const stripe = getStripeClient();
+
+    // Subscription checkout — fetch the associated invoice
+    if (session.invoice) {
+      const invoiceId = typeof session.invoice === 'string' ? session.invoice : (session.invoice as any).id;
+      const invoice = await stripe.invoices.retrieve(invoiceId) as any;
+      return {
+        invoice_url: invoice.hosted_invoice_url || null,
+        invoice_pdf: invoice.invoice_pdf || null,
+      };
+    }
+
+    // One-time payment — fetch receipt URL from the charge
+    if (session.payment_intent) {
+      const piId = typeof session.payment_intent === 'string' ? session.payment_intent : (session.payment_intent as any).id;
+      const pi = await stripe.paymentIntents.retrieve(piId, { expand: ['latest_charge'] }) as any;
+      const charge = pi.latest_charge;
+      if (charge?.receipt_url) {
+        return {
+          invoice_url: charge.receipt_url,
+          invoice_pdf: null,
+        };
+      }
+    }
+  } catch (err) {
+    // Non-blocking — transaction still records, just without invoice links
+    console.error('Failed to retrieve checkout invoice/receipt URLs:', err);
+  }
+  return { invoice_url: null, invoice_pdf: null };
+}
+
+/**
  * POST /api/stripe/webhook
  * Handle Stripe webhook events for subscription and payment lifecycle.
  *
@@ -99,6 +140,9 @@ export async function POST(request: NextRequest) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
 
+        // Fetch invoice/receipt URLs so billing history entries have direct Stripe links
+        const checkoutUrls = await getCheckoutInvoiceUrls(session);
+
         // ── Domain Purchase Payment ─────────────────────────────────
         if (session.metadata?.type === 'domain_purchase') {
           const { domainPurchaseId, domain, siteId, userId, isDomainSwitch } = session.metadata;
@@ -136,6 +180,8 @@ export async function POST(request: NextRequest) {
             amount_cents: session.amount_total ?? 0,
             currency: session.currency ?? 'cad',
             status: result.success ? 'succeeded' : 'failed',
+            invoice_url: checkoutUrls.invoice_url,
+            invoice_pdf: checkoutUrls.invoice_pdf,
             metadata: { domain, domainPurchaseId, siteId },
           });
 
@@ -212,6 +258,8 @@ export async function POST(request: NextRequest) {
             amount_cents: session.amount_total ?? 0,
             currency: session.currency ?? 'cad',
             status: result.success ? 'succeeded' : 'failed',
+            invoice_url: checkoutUrls.invoice_url,
+            invoice_pdf: checkoutUrls.invoice_pdf,
             metadata: { domain, domainPurchaseId, freeCreditApplied },
           });
 
@@ -303,6 +351,8 @@ export async function POST(request: NextRequest) {
             amount_cents: session.amount_total ?? 0,
             currency: session.currency ?? 'cad',
             status: 'succeeded',
+            invoice_url: checkoutUrls.invoice_url,
+            invoice_pdf: checkoutUrls.invoice_pdf,
             metadata: { orderId, siteId },
           });
 
@@ -401,6 +451,8 @@ export async function POST(request: NextRequest) {
           amount_cents: session.amount_total ?? 0,
           currency: session.currency ?? 'cad',
           status: 'succeeded',
+          invoice_url: checkoutUrls.invoice_url,
+          invoice_pdf: checkoutUrls.invoice_pdf,
           metadata: { planName },
         });
 
