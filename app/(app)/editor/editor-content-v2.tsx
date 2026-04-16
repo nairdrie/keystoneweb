@@ -964,8 +964,11 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   const aiOnboardingSentRef = useRef(false);
   const [aiOnboardingBuilding, setAiOnboardingBuilding] = useState(() => {
     // Check synchronously on mount — if there's a pending AI prompt, start in loading state
-    if (typeof window !== 'undefined' && sessionStorage.getItem('keystoneAiOnboardingPrompt')) {
-      return true;
+    if (typeof window !== 'undefined') {
+      if (sessionStorage.getItem('keystoneAiOnboardingPrompt')) return true;
+      // Also check URL param (used by ops AI builder which redirects cross-origin)
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('aiPrompt')) return true;
     }
     return false;
   });
@@ -973,7 +976,18 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
 
   useEffect(() => {
     if (aiOnboardingSentRef.current || !templateComponent) return;
-    const prompt = sessionStorage.getItem('keystoneAiOnboardingPrompt');
+    // Check sessionStorage first, then fall back to URL param (ops cross-origin flow)
+    let prompt = sessionStorage.getItem('keystoneAiOnboardingPrompt');
+    if (!prompt) {
+      const params = new URLSearchParams(window.location.search);
+      prompt = params.get('aiPrompt');
+      if (prompt) {
+        // Clean the aiPrompt param from the URL without a reload
+        params.delete('aiPrompt');
+        const cleanUrl = `${window.location.pathname}?${params.toString()}`;
+        window.history.replaceState({}, '', cleanUrl);
+      }
+    }
     if (prompt) {
       aiOnboardingSentRef.current = true;
       sessionStorage.removeItem('keystoneAiOnboardingPrompt');
@@ -981,7 +995,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
       // Open sidebar and focus AI builder, then send the prompt
       setSidebarOpen(true);
       setTimeout(() => {
-        aiBuilder.sendMessage(prompt, { isNewSite: true });
+        aiBuilder.sendMessage(prompt!, { isNewSite: true });
       }, 500);
     }
   }, [templateComponent]);

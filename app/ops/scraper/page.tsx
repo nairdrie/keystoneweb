@@ -188,9 +188,11 @@ export default function ScraperPage() {
         return;
       }
 
-      sessionStorage.setItem('keystoneAiOnboardingPrompt', aiPrompt.trim());
-      console.log('[Ops AI Builder] Prompt stored in sessionStorage, redirecting to editor...');
-      router.push(`/editor?siteId=${data.siteId}`);
+      const editorUrl = new URL('/editor', 'https://keystoneweb.ca');
+      editorUrl.searchParams.set('siteId', data.siteId);
+      editorUrl.searchParams.set('aiPrompt', aiPrompt.trim());
+      console.log('[Ops AI Builder] Redirecting to editor at %s', editorUrl.origin);
+      window.location.href = editorUrl.toString();
     } catch (err) {
       console.error('[Ops AI Builder] Unexpected error:', err);
       setAiError(err instanceof Error ? err.message : 'Unexpected error.');
