@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle2, Download, FileJson, Globe, Loader2, Sparkles } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { AlertCircle, CheckCircle2, Download, FileJson, Globe, Loader2, Sparkles, Wand2 } from 'lucide-react';
 
 type ScraperType = 'products' | 'services' | 'content' | 'other';
 
@@ -42,9 +43,9 @@ const TYPE_OPTIONS: { value: ScraperType; label: string; available: boolean; des
   },
   {
     value: 'content',
-    label: 'Content',
-    available: false,
-    description: 'Future preset for general site content and reusable page copy.',
+    label: 'AI Site Builder',
+    available: true,
+    description: 'Generate a full site from a text prompt using the AI builder — no length limit.',
   },
   {
     value: 'other',
@@ -88,12 +89,16 @@ function isValidHttpUrl(value: string) {
 }
 
 export default function ScraperPage() {
+  const router = useRouter();
   const [scraperType, setScraperType] = useState<ScraperType>('products');
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ScraperResult | null>(null);
   const [activeStep, setActiveStep] = useState(0);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const selectedPreset = TYPE_OPTIONS.find((option) => option.value === scraperType) ?? TYPE_OPTIONS[0];
   const progressSteps = useMemo(
@@ -139,6 +144,57 @@ export default function ScraperPage() {
       setError(scrapeError instanceof Error ? scrapeError.message : 'Unexpected error.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleAiBuild() {
+    if (!aiPrompt.trim() || aiLoading) return;
+
+    setAiLoading(true);
+    setAiError(null);
+
+    console.log('[Ops AI Builder] Starting — promptLen=%d', aiPrompt.trim().length);
+
+    try {
+      console.log('[Ops AI Builder] Creating site via /api/sites...');
+      const res = await fetch('/api/sites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          selectedTemplateId: 'airy_general',
+          businessType: 'services',
+          category: 'general',
+        }),
+      });
+
+      console.log('[Ops AI Builder] /api/sites responded — status=%d', res.status);
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.error('[Ops AI Builder] /api/sites error:', errData);
+        setAiError(errData?.error || 'Failed to create site.');
+        setAiLoading(false);
+        return;
+      }
+
+      const data = await res.json();
+      console.log('[Ops AI Builder] Site created — siteId=%s', data.siteId);
+
+      if (!data.siteId) {
+        console.error('[Ops AI Builder] No siteId in response:', data);
+        setAiError('No siteId returned. Please try again.');
+        setAiLoading(false);
+        return;
+      }
+
+      sessionStorage.setItem('keystoneAiOnboardingPrompt', aiPrompt.trim());
+      console.log('[Ops AI Builder] Prompt stored in sessionStorage, redirecting to editor...');
+      router.push(`/editor?siteId=${data.siteId}`);
+    } catch (err) {
+      console.error('[Ops AI Builder] Unexpected error:', err);
+      setAiError(err instanceof Error ? err.message : 'Unexpected error.');
+      setAiLoading(false);
     }
   }
 
@@ -196,41 +252,77 @@ export default function ScraperPage() {
             </div>
           </div>
 
-          <div className="mt-6">
-            <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">
-              Store or page URL
-            </label>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="relative flex-1">
-                <Globe className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-                <input
-                  type="url"
-                  value={url}
-                  onChange={(event) => setUrl(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') handleScrape();
-                  }}
-                  placeholder={scraperType === 'products' ? 'https://example.com/shop' : 'https://example.com/services'}
-                  className="w-full rounded-xl border border-gray-700 bg-gray-950 py-3 pl-10 pr-4 text-sm text-white placeholder:text-gray-500 focus:border-emerald-500 focus:outline-none"
-                />
+          {scraperType === 'content' ? (
+            <div className="mt-6">
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">
+                Describe the site you want to build
+              </label>
+              <textarea
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    handleAiBuild();
+                  }
+                }}
+                placeholder="e.g. A modern plumbing business website with a hero section, services grid, testimonials, and contact form. Include a pricing table with three tiers..."
+                rows={6}
+                className="w-full rounded-xl border border-gray-700 bg-gray-950 p-4 text-sm text-white placeholder:text-gray-500 focus:border-violet-500 focus:outline-none resize-y"
+              />
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-xs text-gray-500">{aiPrompt.length.toLocaleString()} characters &middot; Ctrl+Enter to submit</span>
+                <button
+                  type="button"
+                  onClick={handleAiBuild}
+                  disabled={!aiPrompt.trim() || aiLoading}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                  {aiLoading ? 'Creating site...' : 'Build Site'}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleScrape}
-                disabled={!canSubmit}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Scrape
-              </button>
+              {aiError && (
+                <p className="mt-2 text-xs text-red-400">{aiError}</p>
+              )}
             </div>
-            {!selectedPreset.available && (
-              <p className="mt-2 text-xs text-amber-400">This preset is not enabled yet.</p>
-            )}
-            {!loading && url.trim() && !isValidHttpUrl(url.trim()) && (
-              <p className="mt-2 text-xs text-red-400">Enter a full `http://` or `https://` URL.</p>
-            )}
-          </div>
+          ) : (
+            <div className="mt-6">
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">
+                Store or page URL
+              </label>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="relative flex-1">
+                  <Globe className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+                  <input
+                    type="url"
+                    value={url}
+                    onChange={(event) => setUrl(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') handleScrape();
+                    }}
+                    placeholder={scraperType === 'products' ? 'https://example.com/shop' : 'https://example.com/services'}
+                    className="w-full rounded-xl border border-gray-700 bg-gray-950 py-3 pl-10 pr-4 text-sm text-white placeholder:text-gray-500 focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleScrape}
+                  disabled={!canSubmit}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Scrape
+                </button>
+              </div>
+              {!selectedPreset.available && (
+                <p className="mt-2 text-xs text-amber-400">This preset is not enabled yet.</p>
+              )}
+              {!loading && url.trim() && !isValidHttpUrl(url.trim()) && (
+                <p className="mt-2 text-xs text-red-400">Enter a full `http://` or `https://` URL.</p>
+              )}
+            </div>
+          )}
 
           {loading && (
             <div className="mt-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
@@ -273,13 +365,24 @@ export default function ScraperPage() {
           <p className="mt-3 text-lg font-semibold text-white">{selectedPreset.label}</p>
           <p className="mt-2 text-sm leading-6 text-gray-400">{selectedPreset.description}</p>
           <div className="mt-6 rounded-xl border border-gray-800 bg-gray-950/70 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">Expected output</p>
-            <ul className="mt-3 space-y-2 text-sm text-gray-300">
-              <li>Stable CSV schema across supported providers</li>
-              <li>Warnings when pages fail or structure is weak</li>
-              <li>Preview rows before download</li>
-              <li>Raw JSON debug export for inspection</li>
-            </ul>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
+              {scraperType === 'content' ? 'How it works' : 'Expected output'}
+            </p>
+            {scraperType === 'content' ? (
+              <ul className="mt-3 space-y-2 text-sm text-gray-300">
+                <li>Creates a new site with the airy template</li>
+                <li>Sends your prompt to the AI builder in the editor</li>
+                <li>No character limit on prompts</li>
+                <li>Same AI flow as onboarding, just unrestricted</li>
+              </ul>
+            ) : (
+              <ul className="mt-3 space-y-2 text-sm text-gray-300">
+                <li>Stable CSV schema across supported providers</li>
+                <li>Warnings when pages fail or structure is weak</li>
+                <li>Preview rows before download</li>
+                <li>Raw JSON debug export for inspection</li>
+              </ul>
+            )}
           </div>
         </aside>
       </div>

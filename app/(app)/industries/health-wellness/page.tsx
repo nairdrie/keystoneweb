@@ -13,7 +13,7 @@ const FEATURES = [
   {
     title: 'Online Booking',
     description: 'Clients book appointments directly on your site — choose your services, pick a time, done. No phone tag.',
-    icon: <CalendarCheck className="w-6 h-6 text-pink-500" />,
+    icon: <CalendarCheck className="w-6 h-6 text-teal-500" />,
   },
   {
     title: 'AI-Written Content',
@@ -54,7 +54,7 @@ export default function HealthWellnessIndustryPage() {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-pink-50 text-pink-700 font-bold text-sm mb-6 border border-pink-200 shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-teal-50 text-teal-700 font-bold text-sm mb-6 border border-teal-200 shadow-sm"
           >
             <Heart className="w-4 h-4" />
             Salons, Spas, Fitness & Wellness
@@ -68,7 +68,7 @@ export default function HealthWellnessIndustryPage() {
           >
             A Website as
             <br />
-            <span className="text-pink-600">Beautiful as Your Work.</span>
+            <span className="text-teal-600">Beautiful as Your Work.</span>
           </motion.h1>
 
           <motion.p
@@ -89,7 +89,7 @@ export default function HealthWellnessIndustryPage() {
           >
             <Link
               href="/onboarding"
-              className="inline-block px-8 py-4 rounded-full bg-pink-600 hover:bg-pink-700 text-white font-bold text-lg transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1"
+              className="inline-block px-8 py-4 rounded-full bg-teal-600 hover:bg-teal-700 text-white font-bold text-lg transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1"
             >
               Build My Wellness Site
             </Link>
@@ -104,7 +104,7 @@ export default function HealthWellnessIndustryPage() {
       </section>
 
       {/* Features */}
-      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-pink-50 border-t border-pink-100">
+      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-teal-50 border-t border-teal-100">
         <div className="mx-auto max-w-6xl">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -127,9 +127,9 @@ export default function HealthWellnessIndustryPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-50px' }}
                 transition={{ duration: 0.5, delay: i * 0.1 }}
-                className="bg-white rounded-2xl p-8 shadow-sm border border-pink-100 hover:border-pink-300 hover:shadow-lg transition-all duration-300"
+                className="bg-white rounded-2xl p-8 shadow-sm border border-teal-100 hover:border-teal-300 hover:shadow-lg transition-all duration-300"
               >
-                <div className="mb-5 w-12 h-12 rounded-xl bg-pink-50 border border-pink-100 flex items-center justify-center">
+                <div className="mb-5 w-12 h-12 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center">
                   {feature.icon}
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 mb-2">{feature.title}</h3>
@@ -179,7 +179,7 @@ export default function HealthWellnessIndustryPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-60px' }}
                 transition={{ duration: 0.5, delay: i * 0.15 }}
-                className="group bg-white rounded-3xl border border-slate-200 overflow-hidden hover:border-pink-300 hover:shadow-xl transition-all duration-300"
+                className="group bg-white rounded-3xl border border-slate-200 overflow-hidden hover:border-teal-300 hover:shadow-xl transition-all duration-300"
               >
                 <div className="relative aspect-video overflow-hidden">
                   <Image
@@ -215,7 +215,7 @@ export default function HealthWellnessIndustryPage() {
       </section>
 
       {/* Footer CTA */}
-      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-slate-900 border-t-8 border-pink-500 text-center">
+      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-slate-900 border-t-8 border-teal-500 text-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           whileInView={{ opacity: 1, scale: 1 }}
@@ -228,7 +228,7 @@ export default function HealthWellnessIndustryPage() {
           </p>
           <Link
             href="/onboarding"
-            className="inline-block px-10 py-5 rounded-full bg-pink-500 text-white font-bold text-lg hover:bg-pink-400 transition-all shadow-2xl hover:shadow-pink-500/30"
+            className="inline-block px-10 py-5 rounded-full bg-teal-500 text-white font-bold text-lg hover:bg-teal-400 transition-all shadow-2xl hover:shadow-teal-500/30"
           >
             Get Started Free
           </Link>
