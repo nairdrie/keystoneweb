@@ -131,6 +131,9 @@ export default function OnboardingWizard() {
   // Use a ref to prevent re-fetching on tab-switch (Supabase auth token refresh
   // fires onAuthStateChange which creates a new user object reference)
   const hasFetchedSitesRef = useRef(false);
+  // Track whether the searchParams effect has run once (to distinguish initial
+  // mount from subsequent soft navigations back to clean /onboarding)
+  const hasInitializedRef = useRef(false);
 
   // Check for existing sites if user is authenticated
   useEffect(() => {
@@ -225,7 +228,7 @@ export default function OnboardingWizard() {
     }, 100);
   }, [user, authLoading, searchParams]);
 
-  // Load from URL on mount
+  // Load from URL on mount / reset when navigating back to clean /onboarding
   useEffect(() => {
     const paramBusinessType = searchParams.get('businessType') as BusinessType;
     const paramCategory = searchParams.get('category') as Category;
@@ -239,7 +242,19 @@ export default function OnboardingWizard() {
     } else if (paramBusinessType) {
       setBusinessType(paramBusinessType);
       setStep(2);
+    } else if (hasInitializedRef.current) {
+      // Navigated back to clean /onboarding (e.g. via header CTA) — full reset
+      setStep(1);
+      setBusinessType(null);
+      setCategory(null);
+      setPage(1);
+      if (user) {
+        hasFetchedSitesRef.current = false;
+        setCheckingSites(true);
+        checkUserSites();
+      }
     }
+    hasInitializedRef.current = true;
   }, [searchParams]);
 
   // Fetch templates when step 3 is reached

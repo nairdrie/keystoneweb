@@ -557,6 +557,8 @@ interface ContactEmailData {
     message: string;
     submissionId?: string;
     siteId?: string;
+    sourceType?: string;
+    metadata?: any;
 }
 
 /**
@@ -572,7 +574,7 @@ export async function sendContactFormNotification(data: ContactEmailData, ownerE
         await resend.emails.send({
             from: 'Keystone Web Design <contact@keystoneweb.ca>',
             to: ownerEmail,
-            subject: `New Message — ${data.siteName}`,
+            subject: data.sourceType === 'estimate_form' ? `New Estimate Request — ${data.siteName}` : `New Message — ${data.siteName}`,
             html: `
                 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px 0;">
                     <!-- Keystone branding -->
@@ -581,13 +583,38 @@ export async function sendContactFormNotification(data: ContactEmailData, ownerE
                     </div>
 
                     <div style="text-align: center; padding-bottom: 20px;">
-                        <h1 style="margin: 0 0 4px; font-size: 22px; color: #111827;">New Message</h1>
+                        <h1 style="margin: 0 0 4px; font-size: 22px; color: #111827;">${data.sourceType === 'estimate_form' ? 'New Estimate Request' : 'New Message'}</h1>
                         <p style="margin: 0; color: #6b7280; font-size: 14px;">Someone reached out from <strong>${data.siteName}</strong></p>
                     </div>
 
+                    ${data.sourceType === 'estimate_form' && data.metadata?.estimate_shown ? `
+                    <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 16px; margin-bottom: 16px; text-align: center;">
+                        <p style="margin: 0 0 4px; font-size: 12px; color: #047857; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Estimate Shown to Visitor</p>
+                        <p style="margin: 0; font-size: 24px; font-weight: 700; color: #065f46;">
+                            ${new Intl.NumberFormat('en-US', { style: 'currency', currency: data.metadata.estimate_currency || 'CAD', minimumFractionDigits: 0 }).format(data.metadata.estimate_low_cents / 100)}
+                            &ndash;
+                            ${new Intl.NumberFormat('en-US', { style: 'currency', currency: data.metadata.estimate_currency || 'CAD', minimumFractionDigits: 0 }).format(data.metadata.estimate_high_cents / 100)}
+                        </p>
+                    </div>
+                    ` : ''}
+
+                    ${data.sourceType === 'estimate_form' && data.metadata?.fields?.length ? `
+                    <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                        <h3 style="margin: 0 0 10px; font-size: 13px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Form Details</h3>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                            ${data.metadata.fields.map((f: any) => `
+                            <tr>
+                                <td style="padding: 6px 8px 6px 0; color: #6b7280; font-weight: 500; border-bottom: 1px solid #f3f4f6; width: 40%;">${f.label}</td>
+                                <td style="padding: 6px 0; color: #111827; border-bottom: 1px solid #f3f4f6;">${f.value != null ? String(f.value) : '—'}${f.unit ? ` ${f.unit}` : ''}</td>
+                            </tr>
+                            `).join('')}
+                        </table>
+                    </div>
+                    ` : `
                     <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
                         <p style="margin: 0; font-size: 15px; color: #111827; white-space: pre-wrap; line-height: 1.5;">${data.message}</p>
                     </div>
+                    `}
 
                     <div style="background: #f0f9ff; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
                         <h3 style="margin: 0 0 8px; font-size: 14px; color: #0c4a6e;">Contact Details</h3>

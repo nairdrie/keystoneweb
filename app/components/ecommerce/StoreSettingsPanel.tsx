@@ -12,6 +12,7 @@ interface EcommerceSettings {
     payment_methods: { etransfer?: boolean; stripe?: boolean };
     etransfer_email: string | null;
     notification_email: string | null;
+    tax_enabled: boolean;
 }
 
 interface StoreSettingsPanelProps {
@@ -24,6 +25,7 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
         payment_methods: { etransfer: false, stripe: false },
         etransfer_email: null,
         notification_email: null,
+        tax_enabled: false,
     });
     const [stripeConnected, setStripeConnected] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -69,6 +71,7 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                     payment_methods: settings.payment_methods,
                     etransfer_email: settings.etransfer_email,
                     notification_email: settings.notification_email,
+                    tax_enabled: settings.tax_enabled,
                 }),
             });
             if (res.ok) {
@@ -409,6 +412,34 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                         />
                         <p className="text-xs text-slate-400 mt-1">Get notified when new orders come in</p>
                     </div>
+
+                    {/* Tax Collection */}
+                    {pm.stripe && stripeConnected && (
+                        <div>
+                            <label className="text-sm font-semibold text-slate-700 block mb-2 flex items-center gap-1.5">
+                                <DollarSign className="w-4 h-4 text-green-600" />
+                                Tax Collection
+                            </label>
+                            <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-slate-50">
+                                <div>
+                                    <span className="text-sm text-slate-700 font-medium">Collect tax automatically</span>
+                                    <p className="text-xs text-slate-400 mt-0.5">Stripe will calculate and add tax at checkout based on your customer's location</p>
+                                </div>
+                                <button
+                                    onClick={() => setSettings({ ...settings, tax_enabled: !settings.tax_enabled })}
+                                    className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ml-3 ${settings.tax_enabled ? 'bg-green-500' : 'bg-slate-300'}`}
+                                >
+                                    <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${settings.tax_enabled ? 'translate-x-5' : ''}`} />
+                                </button>
+                            </div>
+                            {settings.tax_enabled && (
+                                <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
+                                    <AlertCircle className="w-3 h-3" />
+                                    Make sure tax registrations are configured in your Stripe Dashboard
+                                </p>
+                            )}
+                        </div>
+                    )}
 
                     {/* Save */}
                     <button

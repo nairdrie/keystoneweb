@@ -19,6 +19,89 @@ const getStripeClient = () => {
 };
 
 /**
+ * Record a Stripe event as a transaction in our DB.
+ * Uses upsert with stripe_event_id as the unique key for idempotency —
+ * if Stripe retries a webhook, we won't create duplicate records.
+ */
+async function recordStripeTransaction(data: {
+  stripe_event_id: string;
+  stripe_subscription_id?: string | null;
+  stripe_customer_id?: string | null;
+  stripe_invoice_id?: string | null;
+  stripe_payment_intent_id?: string | null;
+  stripe_charge_id?: string | null;
+  user_id?: string | null;
+  event_type: string;
+  transaction_type: string;
+  description?: string | null;
+  plan_name?: string | null;
+  billing_interval?: string | null;
+  amount_cents: number;
+  currency: string;
+  status: string;
+  invoice_url?: string | null;
+  invoice_pdf?: string | null;
+  period_start?: string | null;
+  period_end?: string | null;
+  metadata?: Record<string, any>;
+}) {
+  try {
+    const db = createAdminClient();
+    const { error } = await db.from('stripe_transactions').upsert(data, {
+      onConflict: 'stripe_event_id',
+      ignoreDuplicates: true,
+    });
+    if (error) {
+      console.error('Failed to record stripe transaction:', error);
+    }
+  } catch (err) {
+    // Non-blocking — don't fail the webhook if transaction recording fails
+    console.error('Error recording stripe transaction:', err);
+  }
+}
+
+/**
+ * Fetch invoice or receipt URLs from a completed checkout session.
+ * - Subscription sessions: retrieves the Stripe Invoice for hosted_invoice_url + invoice_pdf
+ * - One-time payment sessions: retrieves the Charge receipt_url as a fallback
+ */
+async function getCheckoutInvoiceUrls(session: Stripe.Checkout.Session): Promise<{
+  invoice_url: string | null;
+  invoice_pdf: string | null;
+}> {
+  try {
+    const stripe = getStripeClient();
+
+    // Subscription checkout — fetch the associated invoice
+    if (session.invoice) {
+      const invoiceId = typeof session.invoice === 'string' ? session.invoice : (session.invoice as any).id;
+      const invoice = await stripe.invoices.retrieve(invoiceId) as any;
+      return {
+        invoice_url: invoice.hosted_invoice_url || null,
+        invoice_pdf: invoice.invoice_pdf || null,
+      };
+    }
+
+    // One-time payment — fetch receipt URL from the charge
+    if (session.payment_intent) {
+      const piId = typeof session.payment_intent === 'string' ? session.payment_intent : (session.payment_intent as any).id;
+      const pi = await stripe.paymentIntents.retrieve(piId, { expand: ['latest_charge'] }) as any;
+      const charge = pi.latest_charge;
+      if (charge?.receipt_url) {
+        return {
+          invoice_url: charge.receipt_url,
+          invoice_pdf: null,
+        };
+      }
+    }
+  } catch (err) {
+    // Non-blocking — transaction still records, just without invoice links
+    console.error('Failed to retrieve checkout invoice/receipt URLs:', err);
+  }
+  return { invoice_url: null, invoice_pdf: null };
+}
+
+/**
  * POST /api/stripe/webhook
  * Handle Stripe webhook events for subscription and payment lifecycle.
  *
@@ -26,6 +109,8 @@ const getStripeClient = () => {
  * - checkout.session.completed: Store subscription info / trigger domain purchase on payment success
  * - customer.subscription.updated: Sync status; tag customer as refund-ineligible if free domain was claimed
  * - customer.subscription.deleted: Same as above + marks subscription as canceled
+ * - invoice.paid: Record confirmed payment for revenue tracking / billing history
+ * - invoice.payment_failed: Record failed payment attempt
  */
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -55,6 +140,9 @@ export async function POST(request: NextRequest) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
 
+        // Fetch invoice/receipt URLs so billing history entries have direct Stripe links
+        const checkoutUrls = await getCheckoutInvoiceUrls(session);
+
         // ── Domain Purchase Payment ─────────────────────────────────
         if (session.metadata?.type === 'domain_purchase') {
           const { domainPurchaseId, domain, siteId, userId, isDomainSwitch } = session.metadata;
@@ -78,8 +166,24 @@ export async function POST(request: NextRequest) {
             console.log(`✅ Domain ${domain} purchased and linked successfully`);
           } else {
             console.error(`❌ Domain purchase failed for ${domain}:`, result.error);
-            // The purchase record is already marked as 'failed' by completeDomainPurchase
           }
+
+          // Record domain purchase transaction
+          await recordStripeTransaction({
+            stripe_event_id: event.id,
+            stripe_customer_id: typeof session.customer === 'string' ? session.customer : '',
+            stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+            user_id: userId,
+            event_type: 'checkout.session.completed',
+            transaction_type: 'domain_purchase',
+            description: `Domain purchase: ${domain}`,
+            amount_cents: session.amount_total ?? 0,
+            currency: session.currency ?? 'cad',
+            status: result.success ? 'succeeded' : 'failed',
+            invoice_url: checkoutUrls.invoice_url,
+            invoice_pdf: checkoutUrls.invoice_pdf,
+            metadata: { domain, domainPurchaseId, siteId },
+          });
 
           break;
         }
@@ -141,6 +245,23 @@ export async function POST(request: NextRequest) {
           } else {
             console.error(`❌ Domain transfer failed for ${domain}:`, result.error);
           }
+
+          // Record domain transfer transaction
+          await recordStripeTransaction({
+            stripe_event_id: event.id,
+            stripe_customer_id: typeof session.customer === 'string' ? session.customer : '',
+            stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+            user_id: userId,
+            event_type: 'checkout.session.completed',
+            transaction_type: 'domain_transfer',
+            description: `Domain transfer: ${domain}`,
+            amount_cents: session.amount_total ?? 0,
+            currency: session.currency ?? 'cad',
+            status: result.success ? 'succeeded' : 'failed',
+            invoice_url: checkoutUrls.invoice_url,
+            invoice_pdf: checkoutUrls.invoice_pdf,
+            metadata: { domain, domainPurchaseId, freeCreditApplied },
+          });
 
           break;
         }
@@ -217,12 +338,30 @@ export async function POST(request: NextRequest) {
           }
 
           console.log(`✅ Order ${orderId} marked as paid via Stripe.`);
+
+          // Record ecommerce order transaction
+          await recordStripeTransaction({
+            stripe_event_id: event.id,
+            stripe_customer_id: typeof session.customer === 'string' ? session.customer : '',
+            stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : null,
+            user_id: session.metadata?.userId || null,
+            event_type: 'checkout.session.completed',
+            transaction_type: 'ecommerce_order',
+            description: `Order ${orderId}`,
+            amount_cents: session.amount_total ?? 0,
+            currency: session.currency ?? 'cad',
+            status: 'succeeded',
+            invoice_url: checkoutUrls.invoice_url,
+            invoice_pdf: checkoutUrls.invoice_pdf,
+            metadata: { orderId, siteId },
+          });
+
           break;
         }
 
+        // ── Subscription Checkout ─────────────────────────────────
         const userId = session.metadata?.userId;
         const planName = session.metadata?.planName;
-        // Optionally capture customer email/id for future referencing
         const customerId = typeof session.customer === 'string' ? session.customer : '';
 
         if (!userId) {
@@ -258,6 +397,25 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        // ── Attach metered overage price to the subscription ────────
+        // This is done post-checkout because Stripe Checkout doesn't allow
+        // mixed billing intervals. The metered price is always monthly so
+        // overage is billed monthly regardless of the base plan interval.
+        const meteredPriceId = planConfig?.stripe.metered;
+        if (meteredPriceId && session.subscription) {
+          try {
+            const stripeClient = getStripeClient();
+            await stripeClient.subscriptionItems.create({
+              subscription: session.subscription as string,
+              price: meteredPriceId,
+            });
+            console.log(`✅ Metered overage price attached to subscription ${session.subscription}`);
+          } catch (meteredErr) {
+            // Non-blocking — subscription still works, overage just won't be tracked
+            console.error('Failed to attach metered price to subscription:', meteredErr);
+          }
+        }
+
         try {
           const adminClient = createAdminClient();
           const { data: { user } } = await adminClient.auth.admin.getUserById(userId);
@@ -279,13 +437,36 @@ export async function POST(request: NextRequest) {
           metadata: { plan: planName, customerId },
         });
 
+        // Record subscription creation transaction
+        // (Revenue is tracked via invoice.paid — this is informational only)
+        await recordStripeTransaction({
+          stripe_event_id: event.id,
+          stripe_subscription_id: session.subscription as string,
+          stripe_customer_id: customerId,
+          user_id: userId,
+          event_type: 'checkout.session.completed',
+          transaction_type: 'subscription_created',
+          description: `Subscription created: ${planName}`,
+          plan_name: planName,
+          amount_cents: session.amount_total ?? 0,
+          currency: session.currency ?? 'cad',
+          status: 'succeeded',
+          invoice_url: checkoutUrls.invoice_url,
+          invoice_pdf: checkoutUrls.invoice_pdf,
+          metadata: { planName },
+        });
+
         console.log(`✅ Subscription activated for user ${userId}, plan: ${planName}`);
         break;
       }
+
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
         const status = subscription.status; // 'active', 'past_due', 'canceled', etc.
+
+        // Extract billing interval from subscription items
+        const billingInterval = subscription.items.data[0]?.price?.recurring?.interval ?? 'month';
 
         // Safely extract a plan name. If nickname fails, try to fetch the product name, or default to generic.
         let planName = subscription.items.data[0]?.price.nickname;
@@ -303,15 +484,23 @@ export async function POST(request: NextRequest) {
 
         planName = planName || 'Unknown Plan';
 
+        // Resolve plan config so we can keep storage/visitor limits in sync
+        const updatedPlanConfig = getPlanByName(planName);
+
         const { data: userSub, error } = await supabase
           .from('user_subscriptions')
           .update({
             subscription_status: status,
             subscription_plan: planName,
+            billing_interval: billingInterval,
+            ...(updatedPlanConfig ? {
+              visitor_limit: updatedPlanConfig.visitorLimit,
+              storage_limit_mb: updatedPlanConfig.storageLimitMb,
+            } : {}),
             updated_at: new Date().toISOString(),
           })
           .eq('stripe_subscription_id', subscription.id)
-          .select('stripe_customer_id, free_domain_claimed, free_domain_claimed_at')
+          .select('user_id, stripe_customer_id, free_domain_claimed, free_domain_claimed_at')
           .maybeSingle();
 
         if (error) {
@@ -324,6 +513,23 @@ export async function POST(request: NextRequest) {
           console.warn(`Subscription ${subscription.id} not found in user_subscriptions; skipping sync.`);
           break;
         }
+
+        // Record subscription status change
+        await recordStripeTransaction({
+          stripe_event_id: event.id,
+          stripe_subscription_id: subscription.id,
+          stripe_customer_id: userSub.stripe_customer_id,
+          user_id: userSub.user_id,
+          event_type: event.type,
+          transaction_type: 'subscription_status_change',
+          description: `Subscription ${status}: ${planName}`,
+          plan_name: planName,
+          billing_interval: billingInterval,
+          amount_cents: 0,
+          currency: subscription.currency ?? 'cad',
+          status: status === 'active' ? 'succeeded' : status,
+          metadata: { status, cancel_at_period_end: subscription.cancel_at_period_end },
+        });
 
         // ── Refund abuse prevention ────────────────────────────────────────
         // If this subscription is being cancelled/lapsed and the user already
@@ -412,6 +618,113 @@ export async function POST(request: NextRequest) {
         }
 
         console.log(`✅ Subscription ${subscription.id} updated to status: ${status}, plan: ${planName}`);
+        break;
+      }
+
+      // ── Invoice paid: confirmed payment for revenue tracking ──────────
+      case 'invoice.paid': {
+        // Cast to any: the 2026-02-25 Stripe API version restructured Invoice types
+        // but the runtime object still has these fields.
+        const invoice = event.data.object as any;
+        const customerId = typeof invoice.customer === 'string' ? invoice.customer : '';
+        const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : '';
+        const interval = invoice.lines?.data?.[0]?.price?.recurring?.interval ?? null;
+
+        // Look up user_id from stripe_customer_id
+        const { data: invoiceSubRow } = await supabase
+          .from('user_subscriptions')
+          .select('user_id, subscription_plan')
+          .eq('stripe_customer_id', customerId)
+          .maybeSingle();
+
+        // Update billing_interval on user_subscriptions if this is a subscription invoice
+        if (subscriptionId && interval) {
+          await supabase
+            .from('user_subscriptions')
+            .update({ billing_interval: interval, updated_at: new Date().toISOString() })
+            .eq('stripe_subscription_id', subscriptionId);
+        }
+
+        // Determine period from line items
+        const firstLine = invoice.lines?.data?.[0];
+        const periodStart = firstLine?.period?.start
+          ? new Date(firstLine.period.start * 1000).toISOString()
+          : null;
+        const periodEnd = firstLine?.period?.end
+          ? new Date(firstLine.period.end * 1000).toISOString()
+          : null;
+
+        // Build description from line item descriptions
+        const lineDescriptions = invoice.lines?.data
+          ?.map((l: any) => l.description)
+          .filter(Boolean)
+          .join(', ');
+
+        await recordStripeTransaction({
+          stripe_event_id: event.id,
+          stripe_subscription_id: subscriptionId || null,
+          stripe_customer_id: customerId,
+          stripe_invoice_id: invoice.id,
+          stripe_payment_intent_id: typeof invoice.payment_intent === 'string' ? invoice.payment_intent : null,
+          stripe_charge_id: typeof invoice.charge === 'string' ? invoice.charge : null,
+          user_id: invoiceSubRow?.user_id ?? null,
+          event_type: 'invoice.paid',
+          transaction_type: subscriptionId ? 'subscription_payment' : 'one_time_payment',
+          description: lineDescriptions || `Invoice ${invoice.id}`,
+          plan_name: invoiceSubRow?.subscription_plan ?? null,
+          billing_interval: interval,
+          amount_cents: invoice.amount_paid,
+          currency: invoice.currency,
+          status: 'succeeded',
+          invoice_url: invoice.hosted_invoice_url,
+          invoice_pdf: invoice.invoice_pdf,
+          period_start: periodStart,
+          period_end: periodEnd,
+          metadata: {
+            invoice_number: invoice.number,
+            billing_reason: invoice.billing_reason,
+          },
+        });
+
+        console.log(`✅ Invoice ${invoice.id} paid — $${(invoice.amount_paid / 100).toFixed(2)} ${invoice.currency}`);
+        break;
+      }
+
+      // ── Invoice payment failed ────────────────────────────────────────
+      case 'invoice.payment_failed': {
+        const failedInvoice = event.data.object as any;
+        const failedCustomerId = typeof failedInvoice.customer === 'string' ? failedInvoice.customer : '';
+        const failedSubscriptionId = typeof failedInvoice.subscription === 'string' ? failedInvoice.subscription : '';
+
+        const { data: failedSubRow } = await supabase
+          .from('user_subscriptions')
+          .select('user_id, subscription_plan')
+          .eq('stripe_customer_id', failedCustomerId)
+          .maybeSingle();
+
+        await recordStripeTransaction({
+          stripe_event_id: event.id,
+          stripe_subscription_id: failedSubscriptionId || null,
+          stripe_customer_id: failedCustomerId,
+          stripe_invoice_id: failedInvoice.id,
+          user_id: failedSubRow?.user_id ?? null,
+          event_type: 'invoice.payment_failed',
+          transaction_type: failedSubscriptionId ? 'subscription_payment' : 'one_time_payment',
+          description: `Payment failed: Invoice ${failedInvoice.id}`,
+          plan_name: failedSubRow?.subscription_plan ?? null,
+          amount_cents: failedInvoice.amount_due,
+          currency: failedInvoice.currency,
+          status: 'failed',
+          invoice_url: failedInvoice.hosted_invoice_url,
+          invoice_pdf: failedInvoice.invoice_pdf,
+          metadata: {
+            invoice_number: failedInvoice.number,
+            billing_reason: failedInvoice.billing_reason,
+            attempt_count: failedInvoice.attempt_count,
+          },
+        });
+
+        console.error(`❌ Invoice ${failedInvoice.id} payment failed — $${(failedInvoice.amount_due / 100).toFixed(2)} ${failedInvoice.currency}`);
         break;
       }
 

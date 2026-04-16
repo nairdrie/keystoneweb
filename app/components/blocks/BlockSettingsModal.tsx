@@ -95,6 +95,10 @@ export default function BlockSettingsModal({
             { id: 'contained', label: 'Contained (Centered)' },
             { id: 'fullWidth', label: 'Full Width' },
         ],
+        estimateForm: [
+            { id: 'simple', label: 'Inquiry Form' },
+            { id: 'calculator', label: 'Estimate Calculator' },
+        ],
     };
 
     const hasVariantSettings = !!VARIANTS[blockType];

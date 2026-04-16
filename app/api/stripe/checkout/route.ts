@@ -22,10 +22,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
         }
 
-        // Fetch the order
+        // Fetch the order (join site + ecommerce settings for tax config)
         const { data: order, error: orderError } = await supabase
             .from('orders')
-            .select('*, sites!inner(stripe_account_id)')
+            .select('*, sites!inner(stripe_account_id, id)')
             .eq('id', orderId)
             .single();
 
@@ -69,11 +69,21 @@ export async function POST(request: NextRequest) {
             });
         }
 
+        // Check if the site has tax enabled
+        const { data: ecomSettings } = await supabase
+            .from('ecommerce_settings')
+            .select('tax_enabled')
+            .eq('site_id', order.site_id)
+            .single();
+
+        const taxEnabled = ecomSettings?.tax_enabled === true;
+
         // 0% platform fee - everything goes to the connected account (minus Stripe fees)
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
             line_items: lineItems,
             mode: 'payment',
+            ...(taxEnabled && { automatic_tax: { enabled: true } }),
             success_url: successUrl,
             cancel_url: cancelUrl,
             customer_email: order.customer_email || undefined,

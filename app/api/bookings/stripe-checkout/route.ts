@@ -85,6 +85,15 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Check if the site has tax enabled for bookings
+        const { data: bookingSettings } = await supabase
+            .from('booking_settings')
+            .select('tax_enabled')
+            .eq('site_id', siteId)
+            .single();
+
+        const taxEnabled = bookingSettings?.tax_enabled === true;
+
         // Base URL for success/cancel redirects
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
@@ -120,6 +129,7 @@ export async function POST(request: NextRequest) {
                     },
                 ],
                 mode: 'payment',
+                ...(taxEnabled && { automatic_tax: { enabled: true } }),
                 success_url: `${appUrl}/api/bookings/stripe-success?session_id={CHECKOUT_SESSION_ID}&${bookingParams.toString()}`,
                 cancel_url: request.headers.get('referer') || appUrl,
                 customer_email: customerEmail,

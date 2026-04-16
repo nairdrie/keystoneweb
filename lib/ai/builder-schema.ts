@@ -191,14 +191,14 @@ AVAILABLE BLOCK TYPES AND THEIR DATA SCHEMAS:
       variant: "contained" | "fullWidth"  // "contained" = centered max-w-4xl; "fullWidth" = edge-to-edge
     }
 
-25. "deliveryLinks" — Delivery app link buttons (Uber Eats, DoorDash, Skip the Dishes, Grubhub, custom)
+25. "deliveryLinks" — Delivery app link buttons (Uber Eats, DoorDash, Skip the Dishes, custom)
     data: {
       title: string,          // e.g. "Order Online"
       subtitle: string,       // e.g. "Fresh food delivered to your door"
       backgroundColor: string, // Optional hex. Leave blank for default accent.
       links: Array<{
         id: string,
-        platform: "ubereats" | "doordash" | "skipthedishes" | "grubhub" | "custom",
+        platform: "ubereats" | "doordash" | "skipthedishes" | "custom",
         label: string,        // Display name (auto-filled for known platforms, required for "custom")
         url: string,          // Full URL to the restaurant's page on that platform
         enabled: boolean      // Only enabled links with a URL are shown to visitors
@@ -242,6 +242,32 @@ AVAILABLE BLOCK TYPES AND THEIR DATA SCHEMAS:
       imagePosition: "left" | "right",  // Image position for "split" and "essay" variants (default: "right")
       // "multiGrid" variant uses a people array instead of single quote:
       people: Array<{ name: string, title: string, quote: string }>  // 2-6 people for multiGrid variant
+    }
+
+30. "estimateForm" — Quote & estimate request form with optional live pricing calculator
+    data: {
+      title: string,               // Form heading
+      description: string,         // Supporting text
+      submitText: string,          // Submit button label (default: "Get My Estimate")
+      successMessage: string,      // Success message after submission
+      variant: "simple" | "calculator",  // "simple" = inquiry form, "calculator" = with live pricing (default: "simple")
+      fields: Array<{              // 1-20 custom intake fields
+        id: string,                // Unique field ID (use UUID)
+        label: string,             // Field label
+        type: "select" | "number" | "text" | "textarea" | "checkbox",
+        required: boolean,
+        options: string[],         // For "select" type only
+        unit: string               // Optional unit label (e.g. "sq ft", "hours")
+      }>,
+      pricingEnabled: boolean,     // Enable live pricing (only for "calculator" variant)
+      pricingBasePrice: number,    // Base price in cents
+      pricingCurrency: string,     // Currency code (default: "CAD")
+      pricingRangeSpread: number,  // Spread percentage as decimal (default: 0.15 = 15%)
+      pricingDisclaimer: string,   // Mandatory disclaimer text
+      showName: boolean,           // Show name field (default: true)
+      showEmail: boolean,          // Show email field (default: true)
+      showPhone: boolean,          // Show phone field (default: true)
+      showMessage: boolean         // Show additional notes field (default: false)
     }
 `;
 
