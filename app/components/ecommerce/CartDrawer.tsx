@@ -199,14 +199,15 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                 return;
             }
 
-            // Handle Stripe payment
-            if (selectedPayment === 'stripe' && orderData.order?.id) {
+            // Handle Stripe payment — use stripeOrderId for self-fulfilled items in a split order
+            const stripeOrderId = orderData.stripeOrderId || orderData.order?.id;
+            if (selectedPayment === 'stripe' && stripeOrderId && !orderData.childOrders) {
                 const currentUrl = window.location.href;
                 const stripeRes = await fetch('/api/stripe/checkout', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        orderId: orderData.order.id,
+                        orderId: stripeOrderId,
                         successUrl: `${currentUrl}${currentUrl.includes('?') ? '&' : '?'}order_success=${orderData.order.id}`,
                         cancelUrl: currentUrl,
                     }),
@@ -222,7 +223,51 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                 }
             }
 
-            // For e-transfer / none: show confirmation
+            // Handle split orders with Stripe for self-fulfilled portion
+            if (orderData.stripeOrderId && orderData.childOrders) {
+                const currentUrl = window.location.href;
+                const stripeRes = await fetch('/api/stripe/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        orderId: orderData.stripeOrderId,
+                        successUrl: `${currentUrl}${currentUrl.includes('?') ? '&' : '?'}order_success=${orderData.order.id}`,
+                        cancelUrl: currentUrl,
+                    }),
+                });
+
+                const stripeData = await stripeRes.json();
+                if (stripeData.url) {
+                    cart.clearCart();
+                    window.location.href = stripeData.url;
+                    return;
+                }
+            }
+
+            // Handle vendor Stripe checkout sessions (sequential for each vendor)
+            if (orderData.vendorStripeOrders?.length > 0) {
+                for (const vendorOrder of orderData.vendorStripeOrders) {
+                    const currentUrl = window.location.href;
+                    const stripeRes = await fetch('/api/stripe/checkout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            orderId: vendorOrder.orderId,
+                            successUrl: `${currentUrl}${currentUrl.includes('?') ? '&' : '?'}order_success=${orderData.order.id}`,
+                            cancelUrl: currentUrl,
+                        }),
+                    });
+
+                    const stripeData = await stripeRes.json();
+                    if (stripeData.url) {
+                        cart.clearCart();
+                        window.location.href = stripeData.url;
+                        return;
+                    }
+                }
+            }
+
+            // For e-transfer / none / mixed with external: show confirmation
             setConfirmation(orderData);
             setStep('confirmation');
             cart.clearCart();
@@ -591,6 +636,27 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                     <p className="text-sm font-mono font-bold text-amber-900 my-1">{confirmation.paymentInstructions.email}</p>
                                     <p className="text-xs text-amber-600">Reference: <strong>{confirmation.paymentInstructions.reference}</strong></p>
                                     <p className="text-xs text-amber-500 mt-2">Your order will be confirmed once payment is received.</p>
+                                </div>
+                            )}
+
+                            {/* Mixed cart: show vendor items pending external payment */}
+                            {confirmation.childOrders?.some((co: any) => co.paymentMethod === 'external') && (
+                                <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4 text-left">
+                                    <h3 className="font-bold text-blue-800 text-sm mb-2 flex items-center gap-1.5">
+                                        <Mail className="w-4 h-4" />
+                                        Next Steps
+                                    </h3>
+                                    <p className="text-sm text-blue-700 mb-2">
+                                        Some items in your order are fulfilled by a partner. You'll receive a separate email with payment instructions for:
+                                    </p>
+                                    {confirmation.childOrders
+                                        .filter((co: any) => co.paymentMethod === 'external')
+                                        .map((co: any, i: number) => (
+                                            <p key={i} className="text-sm text-blue-900 font-medium">
+                                                {co.vendorName} — ${(co.subtotalCents / 100).toFixed(2)}
+                                            </p>
+                                        ))
+                                    }
                                 </div>
                             )}
                         </div>

@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
-import { sendOrderConfirmation, sendOrderNotification, sendOrderPaymentConfirmed, sendOrderCancellationToCustomer, sendOrderCancellationToOwner } from '@/lib/email';
+import { sendOrderConfirmation, sendOrderNotification, sendOrderPaymentConfirmed, sendOrderCancellationToCustomer, sendOrderCancellationToOwner, sendMixedOrderConfirmation, sendVendorOrderNotification, sendOwnerVendorOrderNotification } from '@/lib/email';
 import { findMatchingZone, type ShippingZone } from '@/lib/shipping-data';
 import Stripe from 'stripe';
 
@@ -60,6 +60,341 @@ export async function POST(request: NextRequest) {
         }
     }
 
+    // ── Check for vendor products & determine if we need to split ──────────────
+    // Look up vendor_id for each item's productId
+    const productIds = items.filter((i: any) => i.productId).map((i: any) => i.productId);
+    let productVendorMap: Record<string, string | null> = {};
+
+    if (productIds.length > 0) {
+        const { data: products } = await supabase
+            .from('products')
+            .select('id, vendor_id')
+            .in('id', productIds);
+
+        if (products) {
+            for (const p of products) {
+                productVendorMap[p.id] = p.vendor_id;
+            }
+        }
+    }
+
+    // Group items by vendor (null = self-fulfilled)
+    const itemsByVendor: Record<string, any[]> = {};
+    for (const item of items) {
+        const vendorId = productVendorMap[item.productId] || 'self';
+        if (!itemsByVendor[vendorId]) itemsByVendor[vendorId] = [];
+        itemsByVendor[vendorId].push(item);
+    }
+
+    const vendorKeys = Object.keys(itemsByVendor);
+    const isMixedCart = vendorKeys.length > 1;
+    const hasVendorItems = vendorKeys.some(k => k !== 'self');
+    const hasSelfItems = vendorKeys.includes('self');
+
+    // If not a mixed cart and no vendor items, use the original flow
+    if (!isMixedCart && !hasVendorItems) {
+        return await createSingleOrder(supabase, {
+            siteId, items, customerName, customerEmail, customerPhone,
+            shippingAddress, validatedShippingCents, validatedShippingMethod,
+            notes, paymentMethod, shippingRequired,
+        });
+    }
+
+    // ── Mixed cart / vendor cart: split into separate orders ──────────────────
+    // Fetch vendor info for all vendor IDs
+    const vendorIds = vendorKeys.filter(k => k !== 'self');
+    let vendors: Record<string, any> = {};
+    if (vendorIds.length > 0) {
+        const { data: vendorRows } = await supabase
+            .from('vendors')
+            .select('*')
+            .in('id', vendorIds);
+        if (vendorRows) {
+            for (const v of vendorRows) vendors[v.id] = v;
+        }
+    }
+
+    // Create a parent order (groups all sub-orders)
+    const { data: parentOrder, error: parentError } = await supabase
+        .from('orders')
+        .insert({
+            site_id: siteId,
+            items, // full item list
+            subtotal_cents: subtotalCents,
+            shipping_cents: validatedShippingCents,
+            shipping_method: validatedShippingMethod,
+            customer_name: customerName,
+            customer_email: customerEmail,
+            customer_phone: customerPhone || null,
+            shipping_address: shippingAddress || null,
+            status: 'pending',
+            payment_method: 'none',
+            payment_status: 'unpaid',
+            notes: notes || null,
+        })
+        .select()
+        .single();
+
+    if (parentError || !parentOrder) {
+        console.error('Parent order creation error:', parentError);
+        return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
+    }
+
+    const childOrders: any[] = [];
+    const stripeOrders: any[] = []; // orders that need Stripe checkout
+    const externalOrders: any[] = []; // orders handled externally by vendor
+
+    for (const [vendorKey, vendorItems] of Object.entries(itemsByVendor)) {
+        const isSelf = vendorKey === 'self';
+        const vendor = isSelf ? null : vendors[vendorKey];
+        const groupSubtotal = vendorItems.reduce((sum: number, item: any) => sum + (item.price_cents * item.qty), 0);
+
+        // Shipping only goes on the first / self-fulfilled order
+        const groupShipping = isSelf ? validatedShippingCents : 0;
+        const groupShippingMethod = isSelf ? validatedShippingMethod : null;
+
+        let orderPaymentMethod: string;
+        let orderStatus: string;
+        let orderPaymentStatus: string;
+
+        if (isSelf) {
+            // Self items use the customer-selected payment method
+            orderPaymentMethod = paymentMethod;
+            orderStatus = paymentMethod === 'none' ? 'confirmed' : 'pending';
+            orderPaymentStatus = paymentMethod === 'none' ? 'paid' : 'unpaid';
+        } else if (vendor?.payment_mode === 'stripe' && vendor?.stripe_account_id) {
+            // Vendor with Stripe — process via Stripe
+            orderPaymentMethod = 'stripe';
+            orderStatus = 'pending';
+            orderPaymentStatus = 'unpaid';
+        } else {
+            // Vendor with external payment — email-based flow
+            orderPaymentMethod = 'external';
+            orderStatus = 'pending_external';
+            orderPaymentStatus = 'unpaid';
+        }
+
+        const { data: childOrder, error: childError } = await supabase
+            .from('orders')
+            .insert({
+                site_id: siteId,
+                items: vendorItems,
+                subtotal_cents: groupSubtotal,
+                shipping_cents: groupShipping,
+                shipping_method: groupShippingMethod,
+                customer_name: customerName,
+                customer_email: customerEmail,
+                customer_phone: customerPhone || null,
+                shipping_address: shippingAddress || null,
+                status: orderStatus,
+                payment_method: orderPaymentMethod,
+                payment_status: orderPaymentStatus,
+                notes: notes || null,
+                parent_order_id: parentOrder.id,
+                vendor_id: isSelf ? null : vendorKey,
+            })
+            .select()
+            .single();
+
+        if (childError || !childOrder) {
+            console.error('Child order creation error:', childError);
+            continue;
+        }
+
+        childOrders.push({ ...childOrder, vendor });
+
+        if (!isSelf && orderPaymentMethod === 'stripe') {
+            stripeOrders.push({ order: childOrder, vendor });
+        }
+        if (!isSelf && orderPaymentMethod === 'external') {
+            externalOrders.push({ order: childOrder, vendor });
+        }
+    }
+
+    // Decrement inventory for all purchased products
+    for (const item of items) {
+        if (item.productId) {
+            const { data: product } = await supabase
+                .from('products')
+                .select('inventory_count')
+                .eq('id', item.productId)
+                .single();
+
+            if (product && product.inventory_count > 0) {
+                await supabase
+                    .from('products')
+                    .update({ inventory_count: product.inventory_count - item.qty })
+                    .eq('id', item.productId);
+            }
+        }
+    }
+
+    // ── Send emails ──────────────────────────────────────────────────────────
+    const { data: siteInfo } = await supabase
+        .from('sites')
+        .select('site_slug')
+        .eq('id', siteId)
+        .single();
+    const siteName = siteInfo?.site_slug || undefined;
+
+    const { data: ecomSettings } = await supabase
+        .from('ecommerce_settings')
+        .select('etransfer_email, notification_email')
+        .eq('site_id', siteId)
+        .single();
+
+    const { data: bookingSettings } = !ecomSettings ? await supabase
+        .from('booking_settings')
+        .select('etransfer_email, notification_email')
+        .eq('site_id', siteId)
+        .single() : { data: null };
+
+    const paymentConfig = ecomSettings || bookingSettings;
+
+    // Build per-item payment status for customer email
+    const itemStatuses = items.map((item: any) => {
+        const vendorId = productVendorMap[item.productId] || null;
+        const vendor = vendorId ? vendors[vendorId] : null;
+        if (!vendor) {
+            return { ...item, fulfillment: 'self' as const, paymentConfirmed: paymentMethod === 'none' || paymentMethod === 'stripe' };
+        }
+        return {
+            ...item,
+            fulfillment: 'vendor' as const,
+            vendorName: vendor.name,
+            paymentConfirmed: vendor.payment_mode === 'stripe' && vendor.stripe_account_id,
+        };
+    });
+
+    // Customer mixed-order confirmation
+    sendMixedOrderConfirmation({
+        orderId: parentOrder.id,
+        items: itemStatuses,
+        subtotalCents,
+        shippingCents: validatedShippingCents,
+        shippingMethod: validatedShippingMethod || undefined,
+        currency: items[0]?.currency || 'CAD',
+        customerName,
+        customerEmail,
+        paymentMethod,
+        etransferEmail: paymentConfig?.etransfer_email,
+        siteName,
+    }).catch(err => console.error('Mixed order customer email failed:', err));
+
+    // Notify each external vendor
+    for (const { order: vendorOrder, vendor } of externalOrders) {
+        // Fetch vendor portal token
+        const { data: tokenRow } = await supabase
+            .from('vendor_order_tokens')
+            .select('token')
+            .eq('vendor_id', vendor.id)
+            .eq('site_id', siteId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        sendVendorOrderNotification({
+            orderId: vendorOrder.id,
+            vendorName: vendor.name,
+            vendorEmail: vendor.contact_email,
+            customerName,
+            customerEmail,
+            customerPhone,
+            shippingAddress,
+            items: vendorOrder.items,
+            subtotalCents: vendorOrder.subtotal_cents,
+            currency: items[0]?.currency || 'CAD',
+            portalToken: tokenRow?.token,
+            siteName,
+        }).catch(err => console.error('Vendor notification email failed:', err));
+
+        // Mark vendor as notified
+        await supabase
+            .from('orders')
+            .update({ vendor_notified_at: new Date().toISOString() })
+            .eq('id', vendorOrder.id);
+    }
+
+    // Notify site owner about vendor orders
+    if (paymentConfig?.notification_email && (externalOrders.length > 0 || stripeOrders.length > 0)) {
+        sendOwnerVendorOrderNotification({
+            parentOrderId: parentOrder.id,
+            childOrders: childOrders.map(co => ({
+                orderId: co.id,
+                vendorName: co.vendor?.name || 'Your Store',
+                items: co.items,
+                subtotalCents: co.subtotal_cents,
+                paymentMethod: co.payment_method,
+                status: co.status,
+            })),
+            customerName,
+            customerEmail,
+            currency: items[0]?.currency || 'CAD',
+            ownerEmail: paymentConfig.notification_email,
+            siteName,
+        }).catch(err => console.error('Owner vendor order email failed:', err));
+    }
+
+    // Build response
+    const selfOrder = childOrders.find(co => !co.vendor);
+    const response: any = {
+        order: parentOrder,
+        childOrders: childOrders.map(co => ({
+            id: co.id,
+            vendorId: co.vendor_id,
+            vendorName: co.vendor?.name || null,
+            paymentMethod: co.payment_method,
+            status: co.status,
+            subtotalCents: co.subtotal_cents,
+        })),
+        confirmationMessage: 'Thank you for your order!',
+    };
+
+    // If self-fulfilled items exist with e-transfer, include payment instructions
+    if (selfOrder && paymentMethod === 'etransfer' && paymentConfig?.etransfer_email) {
+        response.paymentInstructions = {
+            type: 'etransfer',
+            email: paymentConfig.etransfer_email,
+            amount: ((selfOrder.subtotal_cents + (selfOrder.shipping_cents || 0)) / 100).toFixed(2),
+            currency: items[0]?.currency || 'CAD',
+            reference: `ORDER-${selfOrder.id.slice(0, 8).toUpperCase()}`,
+        };
+    }
+
+    // Stripe orders for self-fulfilled items
+    if (selfOrder && paymentMethod === 'stripe') {
+        response.stripeOrderId = selfOrder.id;
+    }
+
+    // Stripe orders for vendor items (returned so frontend can create separate checkout sessions)
+    if (stripeOrders.length > 0) {
+        response.vendorStripeOrders = stripeOrders.map(so => ({
+            orderId: so.order.id,
+            vendorName: so.vendor.name,
+            vendorStripeAccountId: so.vendor.stripe_account_id,
+        }));
+    }
+
+    return NextResponse.json(response);
+}
+
+/**
+ * Original single-order creation (no vendor splitting needed)
+ */
+async function createSingleOrder(supabase: any, params: {
+    siteId: string; items: any[]; customerName: string; customerEmail: string;
+    customerPhone?: string; shippingAddress?: any; validatedShippingCents: number;
+    validatedShippingMethod: string | null; notes?: string; paymentMethod: string;
+    shippingRequired: boolean;
+}) {
+    const {
+        siteId, items, customerName, customerEmail, customerPhone,
+        shippingAddress, validatedShippingCents, validatedShippingMethod,
+        notes, paymentMethod,
+    } = params;
+
+    const subtotalCents = items.reduce((sum: number, item: any) => sum + (item.price_cents * item.qty), 0);
+
     // Determine status based on payment
     const status = paymentMethod === 'none' ? 'confirmed' : 'pending';
     const paymentStatus = paymentMethod === 'none' ? 'paid' : 'unpaid';
@@ -116,7 +451,6 @@ export async function POST(request: NextRequest) {
     const siteName = siteInfo?.site_slug || undefined;
 
     // Get e-commerce settings for e-transfer email + notification email
-    // Falls back to booking_settings for backwards compatibility
     const { data: ecomSettings } = await supabase
         .from('ecommerce_settings')
         .select('etransfer_email, notification_email')
@@ -150,7 +484,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (paymentMethod === 'stripe') {
-        // Stripe webhook will handle emails once paid
         return NextResponse.json(response);
     }
 
@@ -201,13 +534,20 @@ export async function GET(request: NextRequest) {
     }
 
     const status = request.nextUrl.searchParams.get('status');
+    const includeChildren = request.nextUrl.searchParams.get('includeChildren') === 'true';
+
     let query = supabase
         .from('orders')
-        .select('*')
+        .select('*, vendors(id, name, contact_email, payment_mode)')
         .eq('site_id', siteId)
         .order('created_at', { ascending: false });
 
     if (status) query = query.eq('status', status);
+
+    // By default, hide child orders (they're shown nested under parent)
+    if (!includeChildren) {
+        query = query.is('parent_order_id', null);
+    }
 
     const { data, error } = await query;
 
@@ -215,7 +555,36 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ orders: data });
+    // For parent orders, fetch their child orders
+    const orders = data || [];
+    const parentIds = orders.filter(o => {
+        // A parent order has children if other orders reference it
+        return true; // We'll fetch children for all orders — the join is cheap
+    }).map(o => o.id);
+
+    let childOrderMap: Record<string, any[]> = {};
+    if (parentIds.length > 0) {
+        const { data: children } = await supabase
+            .from('orders')
+            .select('*, vendors(id, name, contact_email, payment_mode)')
+            .in('parent_order_id', parentIds)
+            .order('created_at', { ascending: true });
+
+        if (children) {
+            for (const child of children) {
+                if (!childOrderMap[child.parent_order_id]) childOrderMap[child.parent_order_id] = [];
+                childOrderMap[child.parent_order_id].push(child);
+            }
+        }
+    }
+
+    // Attach children to their parent orders
+    const enrichedOrders = orders.map(order => ({
+        ...order,
+        childOrders: childOrderMap[order.id] || [],
+    }));
+
+    return NextResponse.json({ orders: enrichedOrders });
 }
 
 export async function PUT(request: NextRequest) {

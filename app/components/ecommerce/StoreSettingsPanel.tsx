@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import {
     Settings, CreditCard, Mail, Loader2, Check, ExternalLink,
     AlertCircle, ChevronDown, ChevronRight, DollarSign, Link2,
-    Download, Package, X
+    Download, Package, X, Plus, Trash2, Users, Copy
 } from 'lucide-react';
 
 interface EcommerceSettings {
@@ -42,15 +42,33 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
     const [syncResult, setSyncResult] = useState<{ imported: number; skipped: number } | null>(null);
     const [checkingProducts, setCheckingProducts] = useState(false);
 
+    // Vendor management state
+    const [vendors, setVendors] = useState<any[]>([]);
+    const [vendorsLoading, setVendorsLoading] = useState(false);
+    const [showAddVendor, setShowAddVendor] = useState(false);
+    const [newVendorName, setNewVendorName] = useState('');
+    const [newVendorEmail, setNewVendorEmail] = useState('');
+    const [newVendorPaymentMode, setNewVendorPaymentMode] = useState<'external' | 'stripe'>('external');
+    const [savingVendor, setSavingVendor] = useState(false);
+    const [vendorPortalTokens, setVendorPortalTokens] = useState<Record<string, string>>({});
+    const [copiedToken, setCopiedToken] = useState<string | null>(null);
+    const [connectingVendorStripe, setConnectingVendorStripe] = useState<string | null>(null);
+
     useEffect(() => {
         (async () => {
             try {
-                const res = await fetch(`/api/products/settings?siteId=${siteId}`);
-                const data = await res.json();
-                if (data.settings) {
-                    setSettings(data.settings);
+                const [settingsRes, vendorsRes] = await Promise.all([
+                    fetch(`/api/products/settings?siteId=${siteId}`),
+                    fetch(`/api/vendors?siteId=${siteId}`),
+                ]);
+                const settingsData = await settingsRes.json();
+                if (settingsData.settings) {
+                    setSettings(settingsData.settings);
                 }
-                setStripeConnected(data.stripeConnected || false);
+                setStripeConnected(settingsData.stripeConnected || false);
+
+                const vendorsData = await vendorsRes.json();
+                setVendors(vendorsData.vendors || []);
             } catch (err) {
                 console.error('Failed to load ecommerce settings:', err);
             } finally {
@@ -58,6 +76,84 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
             }
         })();
     }, [siteId]);
+
+    const loadVendors = async () => {
+        const res = await fetch(`/api/vendors?siteId=${siteId}`);
+        const data = await res.json();
+        setVendors(data.vendors || []);
+    };
+
+    const handleAddVendor = async () => {
+        if (!newVendorName.trim() || !newVendorEmail.trim()) return;
+        setSavingVendor(true);
+        try {
+            const res = await fetch('/api/vendors', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    siteId,
+                    name: newVendorName,
+                    contactEmail: newVendorEmail,
+                    paymentMode: newVendorPaymentMode,
+                }),
+            });
+            const data = await res.json();
+            if (data.vendor) {
+                setVendors([...vendors, data.vendor]);
+                if (data.portalToken) {
+                    setVendorPortalTokens(prev => ({ ...prev, [data.vendor.id]: data.portalToken }));
+                }
+                setNewVendorName('');
+                setNewVendorEmail('');
+                setNewVendorPaymentMode('external');
+                setShowAddVendor(false);
+            }
+        } catch (err) {
+            console.error('Failed to add vendor:', err);
+        } finally {
+            setSavingVendor(false);
+        }
+    };
+
+    const handleDeleteVendor = async (vendorId: string) => {
+        try {
+            await fetch(`/api/vendors?id=${vendorId}`, { method: 'DELETE' });
+            setVendors(vendors.filter(v => v.id !== vendorId));
+        } catch (err) {
+            console.error('Failed to delete vendor:', err);
+        }
+    };
+
+    const handleConnectVendorStripe = async (vendorId: string) => {
+        setConnectingVendorStripe(vendorId);
+        try {
+            const res = await fetch('/api/vendors/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    vendorId,
+                    returnUrl: window.location.href,
+                }),
+            });
+            const data = await res.json();
+            if (data.url) {
+                window.open(data.url, '_blank');
+            }
+        } catch (err) {
+            console.error('Failed to initiate vendor Stripe Connect:', err);
+        } finally {
+            setConnectingVendorStripe(null);
+        }
+    };
+
+    const copyPortalLink = async (vendorId: string) => {
+        const token = vendorPortalTokens[vendorId];
+        if (!token) return;
+        const url = `${window.location.origin}/vendor-portal?token=${token}`;
+        await navigator.clipboard.writeText(url);
+        setCopiedToken(vendorId);
+        setTimeout(() => setCopiedToken(null), 2000);
+    };
 
     const handleSave = async () => {
         setSaving(true);
@@ -440,6 +536,140 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                             )}
                         </div>
                     )}
+
+                    {/* Vendors / Suppliers */}
+                    <div>
+                        <label className="text-sm font-semibold text-slate-700 block mb-2 flex items-center gap-1.5">
+                            <Users className="w-4 h-4 text-indigo-600" />
+                            Vendors / Suppliers
+                        </label>
+                        <p className="text-xs text-slate-400 mb-3">
+                            Add vendors who fulfill products on your behalf. Vendor products can be paid via their Stripe or handled externally.
+                        </p>
+
+                        {/* Existing vendors */}
+                        {vendors.length > 0 && (
+                            <div className="space-y-2 mb-3">
+                                {vendors.map(vendor => (
+                                    <div key={vendor.id} className="flex items-center gap-2 p-3 rounded-lg border border-slate-200 bg-white">
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-slate-800 truncate">{vendor.name}</p>
+                                            <p className="text-xs text-slate-500">{vendor.contact_email}</p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                                    vendor.payment_mode === 'stripe'
+                                                        ? vendor.stripe_account_id
+                                                            ? 'bg-green-50 text-green-700'
+                                                            : 'bg-amber-50 text-amber-700'
+                                                        : 'bg-slate-100 text-slate-600'
+                                                }`}>
+                                                    {vendor.payment_mode === 'stripe'
+                                                        ? vendor.stripe_account_id ? 'Stripe Connected' : 'Stripe Pending'
+                                                        : 'External Payment'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            {vendor.payment_mode === 'stripe' && !vendor.stripe_account_id && (
+                                                <button
+                                                    onClick={() => handleConnectVendorStripe(vendor.id)}
+                                                    disabled={connectingVendorStripe === vendor.id}
+                                                    className="px-2 py-1 text-xs font-medium bg-violet-600 text-white rounded hover:bg-violet-700 disabled:opacity-50"
+                                                >
+                                                    {connectingVendorStripe === vendor.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Connect Stripe'}
+                                                </button>
+                                            )}
+                                            {vendorPortalTokens[vendor.id] && (
+                                                <button
+                                                    onClick={() => copyPortalLink(vendor.id)}
+                                                    className="px-2 py-1 text-xs font-medium bg-blue-50 text-blue-600 rounded hover:bg-blue-100 flex items-center gap-1"
+                                                >
+                                                    {copiedToken === vendor.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                                                    {copiedToken === vendor.id ? 'Copied!' : 'Portal Link'}
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => handleDeleteVendor(vendor.id)}
+                                                className="px-2 py-1 text-xs text-red-500 hover:bg-red-50 rounded"
+                                            >
+                                                <Trash2 className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Add vendor form */}
+                        {showAddVendor ? (
+                            <div className="border border-indigo-200 bg-indigo-50/30 rounded-lg p-3 space-y-2">
+                                <input
+                                    type="text"
+                                    placeholder="Vendor name"
+                                    value={newVendorName}
+                                    onChange={e => setNewVendorName(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                />
+                                <input
+                                    type="email"
+                                    placeholder="Vendor contact email"
+                                    value={newVendorEmail}
+                                    onChange={e => setNewVendorEmail(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                />
+                                <div>
+                                    <label className="text-xs font-medium text-slate-600 block mb-1">Payment Mode</label>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setNewVendorPaymentMode('external')}
+                                            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border-2 transition-colors ${
+                                                newVendorPaymentMode === 'external'
+                                                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                                                    : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                                            }`}
+                                        >
+                                            External Payment
+                                            <p className="text-[10px] text-slate-400 mt-0.5">Vendor handles payment</p>
+                                        </button>
+                                        <button
+                                            onClick={() => setNewVendorPaymentMode('stripe')}
+                                            className={`flex-1 px-3 py-2 text-xs font-medium rounded-lg border-2 transition-colors ${
+                                                newVendorPaymentMode === 'stripe'
+                                                    ? 'border-violet-500 bg-violet-50 text-violet-700'
+                                                    : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                                            }`}
+                                        >
+                                            Stripe
+                                            <p className="text-[10px] text-slate-400 mt-0.5">Vendor's Stripe account</p>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2 pt-1">
+                                    <button
+                                        onClick={handleAddVendor}
+                                        disabled={savingVendor || !newVendorName.trim() || !newVendorEmail.trim()}
+                                        className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg disabled:opacity-50 flex items-center justify-center gap-1"
+                                    >
+                                        {savingVendor ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                                        Add Vendor
+                                    </button>
+                                    <button
+                                        onClick={() => setShowAddVendor(false)}
+                                        className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => setShowAddVendor(true)}
+                                className="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+                            >
+                                <Plus className="w-3.5 h-3.5" /> Add vendor
+                            </button>
+                        )}
+                    </div>
 
                     {/* Save */}
                     <button

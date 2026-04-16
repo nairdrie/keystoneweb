@@ -289,6 +289,35 @@ export async function POST(request: NextRequest) {
               .catch(err => console.error('Stripe webhook owner email failed:', err));
           }
 
+          // If this is a vendor order, notify the site owner
+          if (order.vendor_id) {
+            const { data: vendor } = await supabase
+              .from('vendors')
+              .select('name')
+              .eq('id', order.vendor_id)
+              .single();
+
+            if (webhookPaymentConfig?.notification_email) {
+              const { sendOwnerVendorOrderNotification } = await import('@/lib/email');
+              sendOwnerVendorOrderNotification({
+                parentOrderId: order.parent_order_id || order.id,
+                childOrders: [{
+                  orderId: order.id,
+                  vendorName: vendor?.name || 'Vendor',
+                  items: order.items,
+                  subtotalCents: order.subtotal_cents,
+                  paymentMethod: 'stripe',
+                  status: 'confirmed',
+                }],
+                customerName: order.customer_name,
+                customerEmail: order.customer_email,
+                currency: order.items[0]?.currency || 'CAD',
+                ownerEmail: webhookPaymentConfig.notification_email,
+                siteName: webhookSiteName,
+              }).catch(err => console.error('Vendor order owner notification failed:', err));
+            }
+          }
+
           console.log(`✅ Order ${orderId} marked as paid via Stripe.`);
 
           // Record ecommerce order transaction
