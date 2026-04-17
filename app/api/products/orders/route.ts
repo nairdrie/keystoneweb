@@ -61,6 +61,16 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Check for vendor products & determine if we need to split ──────────────
+    // Fetch the site's default vendor (if configured). Products with vendor_id=null
+    // fall back to the default vendor; if no default exists, they're self-fulfilled.
+    const { data: defaultVendorRow } = await supabase
+        .from('vendors')
+        .select('id')
+        .eq('site_id', siteId)
+        .eq('is_default', true)
+        .maybeSingle();
+    const defaultVendorId: string | null = defaultVendorRow?.id || null;
+
     // Look up vendor_id for each item's productId
     const productIds = items.filter((i: any) => i.productId).map((i: any) => i.productId);
     let productVendorMap: Record<string, string | null> = {};
@@ -73,12 +83,13 @@ export async function POST(request: NextRequest) {
 
         if (products) {
             for (const p of products) {
-                productVendorMap[p.id] = p.vendor_id;
+                // Fall back to default vendor if product has no explicit vendor
+                productVendorMap[p.id] = p.vendor_id || defaultVendorId;
             }
         }
     }
 
-    // Group items by vendor (null = self-fulfilled)
+    // Group items by vendor (null/undefined = self-fulfilled if no default; otherwise default vendor)
     const itemsByVendor: Record<string, any[]> = {};
     for (const item of items) {
         const vendorId = productVendorMap[item.productId] || 'self';
@@ -141,8 +152,10 @@ export async function POST(request: NextRequest) {
     }
 
     const childOrders: any[] = [];
-    const stripeOrders: any[] = []; // orders that need Stripe checkout
-    const externalOrders: any[] = []; // orders handled externally by vendor
+    const stripeOrders: any[] = [];     // orders needing Stripe checkout
+    const convergeOrders: any[] = [];   // orders needing Converge Lightbox
+    const cloverOrders: any[] = [];     // orders needing Clover Hosted Checkout
+    const externalOrders: any[] = [];   // orders handled externally (email-based)
 
     for (const [vendorKey, vendorItems] of Object.entries(itemsByVendor)) {
         const isSelf = vendorKey === 'self';
@@ -163,12 +176,19 @@ export async function POST(request: NextRequest) {
             orderStatus = paymentMethod === 'none' ? 'confirmed' : 'pending';
             orderPaymentStatus = paymentMethod === 'none' ? 'paid' : 'unpaid';
         } else if (vendor?.payment_mode === 'stripe' && vendor?.stripe_account_id) {
-            // Vendor with Stripe — process via Stripe
             orderPaymentMethod = 'stripe';
             orderStatus = 'pending';
             orderPaymentStatus = 'unpaid';
+        } else if (vendor?.payment_mode === 'converge' && vendor?.converge_merchant_id && vendor?.converge_user_id && vendor?.converge_pin) {
+            orderPaymentMethod = 'converge';
+            orderStatus = 'pending';
+            orderPaymentStatus = 'unpaid';
+        } else if (vendor?.payment_mode === 'clover' && vendor?.clover_merchant_id && vendor?.clover_private_token) {
+            orderPaymentMethod = 'clover';
+            orderStatus = 'pending';
+            orderPaymentStatus = 'unpaid';
         } else {
-            // Vendor with external payment — email-based flow
+            // Vendor with external payment or incomplete credentials — email-based flow
             orderPaymentMethod = 'external';
             orderStatus = 'pending_external';
             orderPaymentStatus = 'unpaid';
@@ -203,12 +223,10 @@ export async function POST(request: NextRequest) {
 
         childOrders.push({ ...childOrder, vendor });
 
-        if (!isSelf && orderPaymentMethod === 'stripe') {
-            stripeOrders.push({ order: childOrder, vendor });
-        }
-        if (!isSelf && orderPaymentMethod === 'external') {
-            externalOrders.push({ order: childOrder, vendor });
-        }
+        if (!isSelf && orderPaymentMethod === 'stripe') stripeOrders.push({ order: childOrder, vendor });
+        if (!isSelf && orderPaymentMethod === 'converge') convergeOrders.push({ order: childOrder, vendor });
+        if (!isSelf && orderPaymentMethod === 'clover') cloverOrders.push({ order: childOrder, vendor });
+        if (!isSelf && orderPaymentMethod === 'external') externalOrders.push({ order: childOrder, vendor });
     }
 
     // Decrement inventory for all purchased products
@@ -252,17 +270,27 @@ export async function POST(request: NextRequest) {
     const paymentConfig = ecomSettings || bookingSettings;
 
     // Build per-item payment status for customer email
+    // A "paymentConfirmed" item is one paid in-checkout (Stripe / Converge / Clover / self with Stripe/none).
+    // External-vendor items are still pending after checkout (customer hears from vendor separately).
     const itemStatuses = items.map((item: any) => {
         const vendorId = productVendorMap[item.productId] || null;
         const vendor = vendorId ? vendors[vendorId] : null;
         if (!vendor) {
-            return { ...item, fulfillment: 'self' as const, paymentConfirmed: paymentMethod === 'none' || paymentMethod === 'stripe' };
+            return {
+                ...item,
+                fulfillment: 'self' as const,
+                paymentConfirmed: paymentMethod === 'none' || paymentMethod === 'stripe',
+            };
         }
+        const willBePaidInCheckout =
+            (vendor.payment_mode === 'stripe' && vendor.stripe_account_id) ||
+            (vendor.payment_mode === 'converge' && vendor.converge_merchant_id) ||
+            (vendor.payment_mode === 'clover' && vendor.clover_merchant_id);
         return {
             ...item,
             fulfillment: 'vendor' as const,
             vendorName: vendor.name,
-            paymentConfirmed: vendor.payment_mode === 'stripe' && vendor.stripe_account_id,
+            paymentConfirmed: willBePaidInCheckout,
         };
     });
 
@@ -281,9 +309,8 @@ export async function POST(request: NextRequest) {
         siteName,
     }).catch(err => console.error('Mixed order customer email failed:', err));
 
-    // Notify each external vendor
+    // Notify each external vendor (email-only flow — they collect payment themselves)
     for (const { order: vendorOrder, vendor } of externalOrders) {
-        // Fetch vendor portal token
         const { data: tokenRow } = await supabase
             .from('vendor_order_tokens')
             .select('token')
@@ -291,24 +318,28 @@ export async function POST(request: NextRequest) {
             .eq('site_id', siteId)
             .order('created_at', { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
 
-        sendVendorOrderNotification({
-            orderId: vendorOrder.id,
-            vendorName: vendor.name,
-            vendorEmail: vendor.contact_email,
-            customerName,
-            customerEmail,
-            customerPhone,
-            shippingAddress,
-            items: vendorOrder.items,
-            subtotalCents: vendorOrder.subtotal_cents,
-            currency: items[0]?.currency || 'CAD',
-            portalToken: tokenRow?.token,
-            siteName,
-        }).catch(err => console.error('Vendor notification email failed:', err));
+        const ccEmails = Array.isArray(vendor.cc_notification_emails) ? vendor.cc_notification_emails : [];
+        const recipients = [vendor.contact_email, ...ccEmails].filter(Boolean);
 
-        // Mark vendor as notified
+        for (const recipient of recipients) {
+            sendVendorOrderNotification({
+                orderId: vendorOrder.id,
+                vendorName: vendor.name,
+                vendorEmail: recipient,
+                customerName,
+                customerEmail,
+                customerPhone,
+                shippingAddress,
+                items: vendorOrder.items,
+                subtotalCents: vendorOrder.subtotal_cents,
+                currency: items[0]?.currency || 'CAD',
+                portalToken: tokenRow?.token,
+                siteName,
+            }).catch(err => console.error('Vendor notification email failed:', err));
+        }
+
         await supabase
             .from('orders')
             .update({ vendor_notified_at: new Date().toISOString() })
@@ -372,6 +403,28 @@ export async function POST(request: NextRequest) {
             orderId: so.order.id,
             vendorName: so.vendor.name,
             vendorStripeAccountId: so.vendor.stripe_account_id,
+        }));
+    }
+
+    // Converge orders — frontend will open the Converge Lightbox for each
+    if (convergeOrders.length > 0) {
+        response.vendorConvergeOrders = convergeOrders.map(co => ({
+            orderId: co.order.id,
+            vendorName: co.vendor.name,
+            subtotalCents: co.order.subtotal_cents,
+            shippingCents: co.order.shipping_cents || 0,
+            demoMode: !!co.vendor.converge_demo_mode,
+        }));
+    }
+
+    // Clover orders — frontend will redirect to Clover Hosted Checkout for each
+    if (cloverOrders.length > 0) {
+        response.vendorCloverOrders = cloverOrders.map(co => ({
+            orderId: co.order.id,
+            vendorName: co.vendor.name,
+            subtotalCents: co.order.subtotal_cents,
+            shippingCents: co.order.shipping_cents || 0,
+            sandboxMode: !!co.vendor.clover_sandbox_mode,
         }));
     }
 

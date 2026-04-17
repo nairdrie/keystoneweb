@@ -427,7 +427,7 @@ function AddProductForm({ siteId, onAdded, onCancel }: {
     const [uploading, setUploading] = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
     const [vendorId, setVendorId] = useState<string>('');
-    const [vendors, setVendors] = useState<Array<{ id: string; name: string }>>([]);
+    const [vendors, setVendors] = useState<Array<{ id: string; name: string; payment_mode: string; is_default: boolean }>>([]);
 
     // Load vendors for this site
     useEffect(() => {
@@ -441,6 +441,8 @@ function AddProductForm({ siteId, onAdded, onCancel }: {
             }
         })();
     }, [siteId]);
+
+    const defaultVendor = vendors.find(v => v.is_default);
 
     // Image upload
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -617,12 +619,20 @@ function AddProductForm({ siteId, onAdded, onCancel }: {
                         onChange={e => setVendorId(e.target.value)}
                         className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                     >
-                        <option value="">Your Store (self-fulfilled)</option>
+                        <option value="">
+                            {defaultVendor ? `Use default (${defaultVendor.name})` : 'Your Store (self-fulfilled)'}
+                        </option>
                         {vendors.map(v => (
-                            <option key={v.id} value={v.id}>{v.name}</option>
+                            <option key={v.id} value={v.id}>
+                                {v.name}{v.is_default ? ' ★ default' : ''} — {v.payment_mode}
+                            </option>
                         ))}
                     </select>
-                    <p className="text-xs text-slate-400 mt-1">Select a vendor if this product is fulfilled by a third party</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                        {defaultVendor
+                            ? `Leave as "Use default" to fulfill through ${defaultVendor.name}. Pick a specific vendor to override.`
+                            : 'Select a vendor if this product is fulfilled by a third party.'}
+                    </p>
                 </div>
             )}
 
