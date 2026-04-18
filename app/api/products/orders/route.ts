@@ -2,6 +2,8 @@ import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendOrderConfirmation, sendOrderNotification, sendOrderPaymentConfirmed, sendOrderCancellationToCustomer, sendOrderCancellationToOwner } from '@/lib/email';
 import { findMatchingZone, type ShippingZone } from '@/lib/shipping-data';
+import { getCurrentMemberFromRequest } from '@/lib/membership/current-member';
+import { resolveProductAccess } from '@/lib/ecommerce/resolve-price';
 import Stripe from 'stripe';
 
 /**
@@ -24,8 +26,61 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Calculate subtotal from items
-    const subtotalCents = items.reduce((sum: number, item: any) => sum + (item.price_cents * item.qty), 0);
+    // ── Server-side price + access resolution ────────────────────────────────
+    // Never trust `price_cents` from the client. For each item we re-fetch the
+    // product, identify the current member via the member cookie, and run the
+    // shared resolver. Gated products block the order entirely.
+    const member = await getCurrentMemberFromRequest(request, siteId);
+
+    const productIds = Array.from(new Set(
+        items.map((i: any) => i?.productId).filter((v: any) => typeof v === 'string' && v.length > 0)
+    ));
+    if (productIds.length !== items.length) {
+        return NextResponse.json({ error: 'Each item must reference a productId' }, { status: 400 });
+    }
+    const { data: productRows, error: productFetchError } = await supabase
+        .from('products')
+        .select('id, site_id, name, price_cents, currency, tier_prices, allowed_package_ids, is_active')
+        .in('id', productIds as string[]);
+    if (productFetchError) {
+        return NextResponse.json({ error: 'Failed to validate items' }, { status: 500 });
+    }
+    const productById = new Map((productRows || []).map((p: any) => [p.id, p]));
+
+    const resolvedItems: any[] = [];
+    for (const rawItem of items) {
+        const product = productById.get(rawItem.productId);
+        if (!product || product.site_id !== siteId || !product.is_active) {
+            return NextResponse.json({ error: 'Invalid product in cart' }, { status: 400 });
+        }
+        const qty = Math.max(1, Math.floor(Number(rawItem.qty) || 0));
+        if (qty <= 0) {
+            return NextResponse.json({ error: 'Invalid item quantity' }, { status: 400 });
+        }
+        const resolved = resolveProductAccess(product, member);
+        if (!resolved.canPurchase) {
+            return NextResponse.json({
+                error: resolved.gateReason === 'guest'
+                    ? 'Sign in with an eligible membership to purchase this item'
+                    : 'Your membership does not grant access to this item',
+                productId: product.id,
+                gateReason: resolved.gateReason,
+            }, { status: 403 });
+        }
+        resolvedItems.push({
+            productId: product.id,
+            name: product.name,
+            price_cents: resolved.priceCents,
+            public_price_cents: resolved.publicPriceCents,
+            matched_package_id: resolved.matchedPackageId,
+            currency: product.currency,
+            qty,
+            image: rawItem.image,
+            variants: rawItem.variants,
+        });
+    }
+
+    const subtotalCents = resolvedItems.reduce((sum, item) => sum + item.price_cents * item.qty, 0);
 
     // Server-side shipping validation: re-calculate shipping from zones to prevent tampering
     let validatedShippingCents = 0;
@@ -68,7 +123,7 @@ export async function POST(request: NextRequest) {
         .from('orders')
         .insert({
             site_id: siteId,
-            items,
+            items: resolvedItems,
             subtotal_cents: subtotalCents,
             shipping_cents: validatedShippingCents,
             shipping_method: validatedShippingMethod,
@@ -90,7 +145,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Decrement inventory for purchased products
-    for (const item of items) {
+    for (const item of resolvedItems) {
         if (item.productId) {
             const { data: product } = await supabase
                 .from('products')
@@ -144,7 +199,7 @@ export async function POST(request: NextRequest) {
             type: 'etransfer',
             email: paymentConfig?.etransfer_email,
             amount: (orderTotalCents / 100).toFixed(2),
-            currency: items[0]?.currency || 'CAD',
+            currency: resolvedItems[0]?.currency || 'CAD',
             reference: `ORDER-${order.id.slice(0, 8).toUpperCase()}`,
         };
     }
@@ -157,11 +212,11 @@ export async function POST(request: NextRequest) {
     // Send emails (fire-and-forget) for non-Stripe methods
     const emailData = {
         orderId: order.id,
-        items,
+        items: resolvedItems,
         subtotalCents,
         shippingCents: validatedShippingCents,
         shippingMethod: validatedShippingMethod || undefined,
-        currency: items[0]?.currency || 'CAD',
+        currency: resolvedItems[0]?.currency || 'CAD',
         customerName,
         customerEmail,
         customerPhone,

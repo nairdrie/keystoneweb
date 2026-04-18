@@ -1,7 +1,10 @@
 import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 import { NextRequest, NextResponse } from 'next/server';
 import { scanText } from '@/lib/moderation/text-scan';
 import { handleModerationResult } from '@/lib/moderation/report';
+import { getCurrentMemberFromRequest } from '@/lib/membership/current-member';
+import { resolveProductAccess } from '@/lib/ecommerce/resolve-price';
 
 /**
  * GET /api/products?siteId=...
@@ -67,8 +70,25 @@ export async function GET(request: NextRequest) {
 
     const categories = [...new Set((catData || []).map(r => r.category).filter(Boolean))];
 
+    // Resolve per-product pricing/access for the current member (if any).
+    // We keep `price_cents` as the stored public price so the admin UI can edit it;
+    // storefront consumers should read `effective_price_cents` / `can_purchase` for
+    // the member-aware display.
+    const member = await getCurrentMemberFromRequest(request, siteId);
+    const products = (data || []).map(p => {
+        const resolved = resolveProductAccess(p, member);
+        return {
+            ...p,
+            effective_price_cents: resolved.priceCents,
+            public_price_cents: resolved.publicPriceCents,
+            matched_package_id: resolved.matchedPackageId,
+            can_purchase: resolved.canPurchase,
+            gate_reason: resolved.gateReason,
+        };
+    });
+
     return NextResponse.json({
-        products: data,
+        products,
         categories,
         pagination: {
             page,
@@ -77,6 +97,67 @@ export async function GET(request: NextRequest) {
             totalPages: Math.ceil((count ?? 0) / limit),
         },
     });
+}
+
+/**
+ * Validate tier_prices and allowed_package_ids for a product update.
+ * Returns a normalized value or an error string.
+ */
+async function validateMembershipFields(
+    siteId: string,
+    tierPrices: unknown,
+    allowedPackageIds: unknown,
+    publicPriceCents: number,
+): Promise<{ tierPrices?: Array<{ packageId: string; priceCents: number }>; allowedPackageIds?: string[]; error?: string }> {
+    const out: { tierPrices?: Array<{ packageId: string; priceCents: number }>; allowedPackageIds?: string[] } = {};
+    const referencedIds = new Set<string>();
+
+    if (tierPrices !== undefined) {
+        if (!Array.isArray(tierPrices)) return { error: 'tier_prices must be an array' };
+        const normalized: Array<{ packageId: string; priceCents: number }> = [];
+        for (const entry of tierPrices) {
+            if (!entry || typeof entry !== 'object') return { error: 'Invalid tier_prices entry' };
+            const packageId = (entry as any).packageId;
+            const priceCents = (entry as any).priceCents;
+            if (typeof packageId !== 'string' || !packageId) return { error: 'Invalid tier_prices.packageId' };
+            if (typeof priceCents !== 'number' || !Number.isFinite(priceCents) || priceCents < 0) {
+                return { error: 'Invalid tier_prices.priceCents' };
+            }
+            if (priceCents > publicPriceCents) {
+                return { error: 'Tier price cannot exceed the public price' };
+            }
+            referencedIds.add(packageId);
+            normalized.push({ packageId, priceCents: Math.round(priceCents) });
+        }
+        out.tierPrices = normalized;
+    }
+
+    if (allowedPackageIds !== undefined) {
+        if (!Array.isArray(allowedPackageIds)) return { error: 'allowed_package_ids must be an array' };
+        const normalized: string[] = [];
+        for (const id of allowedPackageIds) {
+            if (typeof id !== 'string' || !id) return { error: 'Invalid allowed_package_ids entry' };
+            referencedIds.add(id);
+            normalized.push(id);
+        }
+        out.allowedPackageIds = normalized;
+    }
+
+    if (referencedIds.size > 0) {
+        const admin = createAdminClient();
+        const { data: pkgs, error } = await admin
+            .from('membership_packages')
+            .select('id')
+            .eq('site_id', siteId)
+            .in('id', Array.from(referencedIds));
+        if (error) return { error: 'Failed to validate membership packages' };
+        const validIds = new Set((pkgs || []).map((p: any) => p.id));
+        for (const id of referencedIds) {
+            if (!validIds.has(id)) return { error: `Package ${id} does not belong to this site` };
+        }
+    }
+
+    return out;
 }
 
 export async function POST(request: NextRequest) {
@@ -88,7 +169,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { siteId, name, description, price_cents, compare_at_cents, currency, images, variants, inventory_count } = body;
+    const { siteId, name, description, price_cents, compare_at_cents, currency, images, variants, inventory_count, tier_prices, allowed_package_ids } = body;
 
     if (!siteId || !name) {
         return NextResponse.json({ error: 'Missing siteId or name' }, { status: 400 });
@@ -98,6 +179,16 @@ export async function POST(request: NextRequest) {
     const { data: site } = await supabase.from('sites').select('user_id').eq('id', siteId).single();
     if (!site || site.user_id !== user.id) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const membershipValidation = await validateMembershipFields(
+        siteId,
+        tier_prices,
+        allowed_package_ids,
+        price_cents || 0,
+    );
+    if (membershipValidation.error) {
+        return NextResponse.json({ error: membershipValidation.error }, { status: 400 });
     }
 
     // Scan product text for illegal content before storing
@@ -148,6 +239,8 @@ export async function POST(request: NextRequest) {
             inventory_count: inventory_count ?? -1,
             slug,
             sort_order: nextOrder,
+            tier_prices: membershipValidation.tierPrices ?? [],
+            allowed_package_ids: membershipValidation.allowedPackageIds ?? [],
         })
         .select()
         .single();
@@ -200,6 +293,34 @@ export async function PUT(request: NextRequest) {
     // Regenerate slug if name changed
     if (fields.name) {
         updates.slug = fields.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    }
+
+    // Validate and apply membership pricing / gating updates, if provided.
+    if (fields.tier_prices !== undefined || fields.allowed_package_ids !== undefined) {
+        const { data: existing, error: existingError } = await supabase
+            .from('products')
+            .select('site_id, price_cents')
+            .eq('id', id)
+            .single();
+        if (existingError || !existing) {
+            return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+        }
+        const { data: siteOwner } = await supabase.from('sites').select('user_id').eq('id', existing.site_id).single();
+        if (!siteOwner || siteOwner.user_id !== user.id) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+        const publicPriceCents = updates.price_cents ?? existing.price_cents ?? 0;
+        const membershipValidation = await validateMembershipFields(
+            existing.site_id,
+            fields.tier_prices,
+            fields.allowed_package_ids,
+            publicPriceCents,
+        );
+        if (membershipValidation.error) {
+            return NextResponse.json({ error: membershipValidation.error }, { status: 400 });
+        }
+        if (membershipValidation.tierPrices !== undefined) updates.tier_prices = membershipValidation.tierPrices;
+        if (membershipValidation.allowedPackageIds !== undefined) updates.allowed_package_ids = membershipValidation.allowedPackageIds;
     }
 
     const { data, error } = await supabase
