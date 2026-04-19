@@ -78,9 +78,12 @@ jobs:
           # a freshly-created empty schema, so cleanup statements aren't needed
           # (and pg_dump's DROP TRIGGER IF EXISTS ... ON <table> errors if the
           # table doesn't exist — the IF EXISTS guards only the trigger).
+          # Don't pass --no-privileges — we want prod's GRANTs on the public
+          # schema (USAGE for anon/authenticated, etc.) to carry over, so
+          # Supabase's API exposure matches prod.
           pg_dump "$PROD_DB_URL" \
             --schema=public \
-            --no-owner --no-privileges \
+            --no-owner \
             --file=public.sql
 
           # auth: data only. We can't use --disable-triggers here because the
@@ -110,14 +113,12 @@ jobs:
         run: |
           set -euo pipefail
           # Wipe everything we're about to restore. Public is dropped wholesale
-          # (CASCADE takes its triggers/functions/FKs with it). Auth/storage
-          # schemas are Supabase-managed, so we only TRUNCATE their data tables.
+          # (CASCADE takes its triggers/functions/FKs with it). The dump will
+          # recreate the schema itself with prod's GRANTs. Auth/storage schemas
+          # are Supabase-managed, so we only TRUNCATE their data tables.
           psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
           BEGIN;
           DROP SCHEMA IF EXISTS public CASCADE;
-          CREATE SCHEMA public;
-          GRANT ALL ON SCHEMA public TO postgres;
-          GRANT ALL ON SCHEMA public TO public;
           TRUNCATE auth.identities, auth.users CASCADE;
           TRUNCATE storage.objects, storage.buckets CASCADE;
           COMMIT;
