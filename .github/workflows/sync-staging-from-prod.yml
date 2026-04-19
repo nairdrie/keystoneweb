@@ -83,17 +83,22 @@ jobs:
             --no-owner --no-privileges \
             --file=public.sql
 
-          # auth: data only. --disable-triggers avoids FK/trigger noise during COPY.
+          # auth: data only. We can't use --disable-triggers here because the
+          # pooler user doesn't own auth.users (it's supabase_auth_admin's).
+          # That's OK — we dropped public schema first, which cascade-dropped
+          # public.handle_new_user() and its trigger on auth.users, so no
+          # triggers fire during this COPY.
           pg_dump "$PROD_DB_URL" \
-            --data-only --disable-triggers \
+            --data-only \
             --table=auth.users \
             --table=auth.identities \
             --no-owner --no-privileges \
             --file=auth-data.sql
 
-          # storage metadata: data only (rclone handles file bytes).
+          # storage metadata: data only (rclone handles file bytes). Same
+          # ownership reasoning as auth — no --disable-triggers.
           pg_dump "$PROD_DB_URL" \
-            --data-only --disable-triggers \
+            --data-only \
             --table=storage.buckets \
             --table=storage.objects \
             --no-owner --no-privileges \
