@@ -86,6 +86,7 @@ export default async function OpsOverviewPage() {
     { count: totalSites },
     { count: publishedSites },
     { count: openSupport },
+    { count: newLaunchRequests },
     { count: signups7d },
     { count: signups30d },
     { count: siteCreates30d },
@@ -98,6 +99,7 @@ export default async function OpsOverviewPage() {
     db.from('sites').select('id', { count: 'exact', head: true }).not('user_id', 'is', null),
     db.from('sites').select('id', { count: 'exact', head: true }).eq('is_published', true),
     db.from('support_requests').select('id', { count: 'exact', head: true }).in('status', ['open', 'in_progress']),
+    db.from('launch_requests').select('id', { count: 'exact', head: true }).eq('status', 'new'),
     db.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'user_signup').gte('created_at', day7),
     db.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'user_signup').gte('created_at', day30),
     db.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'site_create').gte('created_at', day30),
@@ -223,6 +225,12 @@ export default async function OpsOverviewPage() {
           value={openSupport ?? 0}
           accent={(openSupport ?? 0) > 0 ? 'text-amber-400' : 'text-white'}
           href="/support"
+        />
+        <StatCard
+          label="New Launch Requests"
+          value={newLaunchRequests ?? 0}
+          accent={(newLaunchRequests ?? 0) > 0 ? 'text-amber-400' : 'text-white'}
+          href="/launch"
         />
       </div>
 

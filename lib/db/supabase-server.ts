@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies, headers } from 'next/headers';
 import { createAdminClient } from './supabase-admin';
+import { COOKIE_DOMAIN } from '@/lib/env/domain';
 
 /**
  * Server-side Supabase client for use in:
@@ -26,11 +27,9 @@ export async function createClient() {
           return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
-          const cookieDomain =
-            process.env.NODE_ENV === 'production' ? '.keystoneweb.ca' : undefined;
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, { ...options, domain: cookieDomain });
+              cookieStore.set(name, value, { ...options, domain: COOKIE_DOMAIN });
             });
           } catch (error) {
             console.error('Error setting cookies:', error);

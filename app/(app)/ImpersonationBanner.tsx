@@ -2,6 +2,7 @@
 
 import { X, UserCircle } from 'lucide-react';
 import { useState } from 'react';
+import { OPS_URL } from '@/lib/env/domain';
 
 export default function ImpersonationBanner({ userEmail }: { userEmail: string }) {
   const [loading, setLoading] = useState(false);
@@ -14,7 +15,7 @@ export default function ImpersonationBanner({ userEmail }: { userEmail: string }
       });
       if (res.ok) {
         // Redirect back to ops dashboard
-        window.location.href = 'https://ops.keystoneweb.ca/users';
+        window.location.href = `${OPS_URL}/users`;
       }
     } catch (err) {
       console.error(err);

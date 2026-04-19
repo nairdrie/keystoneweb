@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
+import { CUSTOM_DOMAIN_CNAME_TARGET } from '@/lib/env/domain';
 
 interface LinkRequest {
   siteId: string;
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest) {
         site_id: siteId,
         record_type: 'CNAME',
         name: domain,
-        value: 'sites.kswd.ca',
+        value: CUSTOM_DOMAIN_CNAME_TARGET,
         ttl: 3600,
       },
       {
@@ -163,7 +164,7 @@ export async function POST(request: NextRequest) {
           {
             type: 'CNAME',
             name: 'www',
-            value: 'sites.kswd.ca',
+            value: CUSTOM_DOMAIN_CNAME_TARGET,
             description: 'Points the www version of your domain (e.g., www.yourdomain.com) to our servers',
           },
           {

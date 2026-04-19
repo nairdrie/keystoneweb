@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
-import { Resend } from 'resend';
+import { resend } from '@/lib/email/resend';
 
 async function assertAdmin(): Promise<boolean> {
   try {
@@ -14,8 +14,6 @@ async function assertAdmin(): Promise<boolean> {
     return false;
   }
 }
-
-const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
  * POST /api/ops/contact

@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Plus, Minus, ShoppingBag, Trash2, Loader2, Check, ArrowRight, User, Mail, Phone, CreditCard, DollarSign, Truck, AlertCircle, Package } from 'lucide-react';
+import { X, Plus, Minus, ShoppingBag, Trash2, Loader2, Check, ArrowRight, User, Mail, Phone, CreditCard, DollarSign, Truck, AlertCircle, Package, Building2 } from 'lucide-react';
 import { useCart } from './CartProvider';
 import AddressAutocomplete from './AddressAutocomplete';
 import { COUNTRIES, REGIONS, getCountryName } from '@/lib/shipping-data';
+import ConvergeLightbox from './ConvergeLightbox';
 
 interface PaymentMethods {
     etransfer?: boolean;
@@ -25,7 +26,19 @@ interface ShippingResult {
     freeThresholdCents: number | null;
 }
 
-type Step = 'cart' | 'address' | 'payment' | 'confirmation';
+type Step = 'cart' | 'address' | 'payment' | 'split-pay' | 'confirmation';
+
+/** A pending payment step in a mixed-cart checkout. */
+interface PaymentStep {
+    orderId: string;
+    vendorName: string;
+    subtotalCents: number;
+    shippingCents: number;
+    processor: 'stripe-self' | 'stripe-vendor' | 'converge' | 'clover' | 'external';
+    demoMode?: boolean;
+    sandboxMode?: boolean;
+    status: 'pending' | 'processing' | 'completed' | 'failed' | 'skipped';
+}
 
 interface CartDrawerProps {
     siteId: string;
@@ -51,6 +64,13 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
     const [shippingError, setShippingError] = useState<string | null>(null);
     const [shippingLoading, setShippingLoading] = useState(false);
     const [noZonesConfigured, setNoZonesConfigured] = useState(false);
+
+    // Mixed-cart orchestration
+    const [paymentSteps, setPaymentSteps] = useState<PaymentStep[]>([]);
+    const [currentStepIdx, setCurrentStepIdx] = useState(0);
+    const [convergeToken, setConvergeToken] = useState<string | null>(null);
+    const [convergeDemoMode, setConvergeDemoMode] = useState(false);
+    const [stepError, setStepError] = useState<string | null>(null);
 
     const shippingRequired = ecomSettings?.shipping_required !== false;
 
@@ -160,6 +180,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
     const handleCheckout = async () => {
         if (!canPlaceOrder) return;
         setSubmitting(true);
+        setStepError(null);
 
         try {
             const orderRes = await fetch('/api/products/orders', {
@@ -195,42 +216,256 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
             const orderData = await orderRes.json();
             if (!orderRes.ok) {
                 console.error('Order creation failed:', orderData);
+                setStepError(orderData.error || 'Failed to create order');
                 setSubmitting(false);
                 return;
             }
 
-            // Handle Stripe payment
-            if (selectedPayment === 'stripe' && orderData.order?.id) {
-                const currentUrl = window.location.href;
-                const stripeRes = await fetch('/api/stripe/checkout', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        orderId: orderData.order.id,
-                        successUrl: `${currentUrl}${currentUrl.includes('?') ? '&' : '?'}order_success=${orderData.order.id}`,
-                        cancelUrl: currentUrl,
-                    }),
-                });
+            setConfirmation(orderData);
 
-                const stripeData = await stripeRes.json();
-                if (stripeData.url) {
-                    cart.clearCart();
-                    window.location.href = stripeData.url;
-                    return;
-                } else {
-                    console.error('Stripe checkout failed:', stripeData);
+            // Build an ordered list of payment steps. Single-source orders have 0 or 1 step.
+            const steps: PaymentStep[] = [];
+
+            // Non-split single order (no childOrders)
+            if (!orderData.childOrders) {
+                if (selectedPayment === 'stripe') {
+                    steps.push({
+                        orderId: orderData.order.id,
+                        vendorName: 'Your Order',
+                        subtotalCents: orderData.order.subtotal_cents,
+                        shippingCents: orderData.order.shipping_cents || 0,
+                        processor: 'stripe-self',
+                        status: 'pending',
+                    });
+                }
+                // etransfer / none — no payment step, go straight to confirmation
+            } else {
+                // Split order — one step per payment source
+                if (orderData.stripeOrderId) {
+                    steps.push({
+                        orderId: orderData.stripeOrderId,
+                        vendorName: 'Your Store',
+                        subtotalCents: 0, // filled below
+                        shippingCents: 0,
+                        processor: 'stripe-self',
+                        status: 'pending',
+                    });
+                }
+                for (const vs of (orderData.vendorStripeOrders || [])) {
+                    steps.push({
+                        orderId: vs.orderId,
+                        vendorName: vs.vendorName,
+                        subtotalCents: 0,
+                        shippingCents: 0,
+                        processor: 'stripe-vendor',
+                        status: 'pending',
+                    });
+                }
+                for (const vc of (orderData.vendorConvergeOrders || [])) {
+                    steps.push({
+                        orderId: vc.orderId,
+                        vendorName: vc.vendorName,
+                        subtotalCents: vc.subtotalCents,
+                        shippingCents: vc.shippingCents,
+                        processor: 'converge',
+                        demoMode: vc.demoMode,
+                        status: 'pending',
+                    });
+                }
+                for (const vcl of (orderData.vendorCloverOrders || [])) {
+                    steps.push({
+                        orderId: vcl.orderId,
+                        vendorName: vcl.vendorName,
+                        subtotalCents: vcl.subtotalCents,
+                        shippingCents: vcl.shippingCents,
+                        processor: 'clover',
+                        sandboxMode: vcl.sandboxMode,
+                        status: 'pending',
+                    });
+                }
+                for (const co of (orderData.childOrders || [])) {
+                    if (co.paymentMethod === 'external') {
+                        steps.push({
+                            orderId: co.id,
+                            vendorName: co.vendorName || 'Vendor',
+                            subtotalCents: co.subtotalCents,
+                            shippingCents: 0,
+                            processor: 'external',
+                            status: 'completed', // external = no in-checkout payment; treated as done immediately
+                        });
+                    }
                 }
             }
 
-            // For e-transfer / none: show confirmation
-            setConfirmation(orderData);
-            setStep('confirmation');
             cart.clearCart();
+
+            if (steps.length === 0) {
+                // No payment steps (e-transfer or none) — show confirmation directly
+                setStep('confirmation');
+                setSubmitting(false);
+                return;
+            }
+
+            if (steps.length === 1) {
+                // Single payment — execute directly without showing split-pay UI
+                setPaymentSteps(steps);
+                setCurrentStepIdx(0);
+                setSubmitting(false);
+                await executePaymentStep(steps[0]);
+                return;
+            }
+
+            // Multi-step: show the split-pay UI
+            setPaymentSteps(steps);
+            setCurrentStepIdx(0);
+            setStep('split-pay');
+            setSubmitting(false);
+
+            // Kick off the first non-completed step
+            const firstPending = steps.findIndex(s => s.status === 'pending');
+            if (firstPending >= 0) {
+                setCurrentStepIdx(firstPending);
+                await executePaymentStep(steps[firstPending]);
+            } else {
+                setStep('confirmation');
+            }
         } catch (err) {
             console.error('Checkout error:', err);
-        } finally {
+            setStepError('An unexpected error occurred.');
             setSubmitting(false);
         }
+    };
+
+    const updateStepStatus = (idx: number, status: PaymentStep['status']) => {
+        setPaymentSteps(prev => prev.map((s, i) => i === idx ? { ...s, status } : s));
+    };
+
+    /**
+     * Execute a single payment step. For stripe/clover this redirects the browser;
+     * for converge it fetches a token and opens the Lightbox inline.
+     */
+    const executePaymentStep = async (step: PaymentStep) => {
+        setStepError(null);
+        const idx = paymentSteps.findIndex(s => s.orderId === step.orderId);
+
+        if (step.processor === 'stripe-self' || step.processor === 'stripe-vendor') {
+            updateStepStatus(idx, 'processing');
+            const currentUrl = window.location.href;
+            const stripeRes = await fetch('/api/stripe/checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    orderId: step.orderId,
+                    successUrl: `${currentUrl}${currentUrl.includes('?') ? '&' : '?'}order_success=${confirmation?.order?.id || step.orderId}&step=${idx + 1}`,
+                    cancelUrl: currentUrl,
+                }),
+            });
+            const stripeData = await stripeRes.json();
+            if (stripeData.url) {
+                window.location.href = stripeData.url;
+            } else {
+                updateStepStatus(idx, 'failed');
+                setStepError(stripeData.error || 'Stripe checkout failed to start');
+            }
+            return;
+        }
+
+        if (step.processor === 'converge') {
+            updateStepStatus(idx, 'processing');
+            try {
+                const res = await fetch('/api/converge/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId: step.orderId }),
+                });
+                const data = await res.json();
+                if (!res.ok || !data.token) {
+                    updateStepStatus(idx, 'failed');
+                    setStepError(data.error || 'Failed to prepare Converge payment');
+                    return;
+                }
+                setConvergeDemoMode(!!data.demoMode);
+                setConvergeToken(data.token);
+                // Lightbox opens via the ConvergeLightbox component
+            } catch (err: any) {
+                updateStepStatus(idx, 'failed');
+                setStepError(err.message || 'Converge error');
+            }
+            return;
+        }
+
+        if (step.processor === 'clover') {
+            updateStepStatus(idx, 'processing');
+            const res = await fetch('/api/clover/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: step.orderId }),
+            });
+            const data = await res.json();
+            if (data.href) {
+                window.location.href = data.href;
+            } else {
+                updateStepStatus(idx, 'failed');
+                setStepError(data.error || 'Failed to start Clover checkout');
+            }
+            return;
+        }
+
+        if (step.processor === 'external') {
+            updateStepStatus(idx, 'completed');
+            advanceToNextStep(idx + 1);
+        }
+    };
+
+    const advanceToNextStep = (fromIdx: number) => {
+        const next = paymentSteps.slice(fromIdx).findIndex(s => s.status === 'pending');
+        if (next < 0) {
+            setStep('confirmation');
+            return;
+        }
+        const nextIdx = fromIdx + next;
+        setCurrentStepIdx(nextIdx);
+        executePaymentStep(paymentSteps[nextIdx]);
+    };
+
+    const handleConvergeApproval = async (response: any) => {
+        const idx = currentStepIdx;
+        const step = paymentSteps[idx];
+        setConvergeToken(null);
+        try {
+            const verifyRes = await fetch('/api/converge/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    orderId: step.orderId,
+                    sslTxnId: response.ssl_txn_id,
+                }),
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyRes.ok && verifyData.success) {
+                updateStepStatus(idx, 'completed');
+                // Advance
+                setTimeout(() => advanceToNextStep(idx + 1), 300);
+            } else {
+                updateStepStatus(idx, 'failed');
+                setStepError(verifyData.error || 'Payment verification failed');
+            }
+        } catch (err: any) {
+            updateStepStatus(idx, 'failed');
+            setStepError(err.message || 'Verification error');
+        }
+    };
+
+    const handleRetryStep = () => {
+        setStepError(null);
+        updateStepStatus(currentStepIdx, 'pending');
+        executePaymentStep(paymentSteps[currentStepIdx]);
+    };
+
+    const handleSkipStep = () => {
+        setStepError(null);
+        updateStepStatus(currentStepIdx, 'skipped');
+        advanceToNextStep(currentStepIdx + 1);
     };
 
     const handleClose = () => {
@@ -243,7 +478,12 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
         }, 300);
     };
 
-    const stepTitle = step === 'cart' ? 'Your Cart' : step === 'address' ? 'Shipping Address' : step === 'payment' ? 'Review & Pay' : 'Order Confirmed';
+    const stepTitle =
+        step === 'cart' ? 'Your Cart' :
+        step === 'address' ? 'Shipping Address' :
+        step === 'payment' ? 'Review & Pay' :
+        step === 'split-pay' ? `Payment ${currentStepIdx + 1} of ${paymentSteps.length}` :
+        'Order Confirmed';
 
     return createPortal(
         <div className="fixed inset-0 z-[9999] flex justify-end" onClick={handleClose}>
@@ -263,7 +503,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                 </div>
 
                 {/* Step indicator */}
-                {step !== 'confirmation' && cart.items.length > 0 && (
+                {step !== 'confirmation' && step !== 'split-pay' && cart.items.length > 0 && (
                     <div className="px-5 pt-3 pb-1 flex items-center gap-1.5 text-xs">
                         {(['cart', ...(shippingRequired ? ['address'] : []), 'payment'] as Step[]).map((s, i, arr) => (
                             <span key={s} className="flex items-center gap-1.5">
@@ -569,6 +809,159 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                         </div>
                     )}
 
+                    {/* ── Split-Pay step (mixed cart orchestration) ── */}
+                    {step === 'split-pay' && (
+                        <div className="p-5 space-y-4">
+                            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center flex-shrink-0">
+                                        <AlertCircle className="w-4 h-4" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="text-sm font-bold text-blue-900">Split Checkout</h3>
+                                        <p className="text-xs text-blue-700 mt-1">
+                                            Your cart contains items from multiple sources, each with its own secure payment step. We'll guide you through each one. Your shipping address is already saved.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Steps list */}
+                            <div className="space-y-2">
+                                {paymentSteps.map((ps, i) => {
+                                    const isCurrent = i === currentStepIdx && step === 'split-pay';
+                                    const stepColor =
+                                        ps.status === 'completed' ? 'green' :
+                                        ps.status === 'failed' ? 'red' :
+                                        ps.status === 'processing' ? 'blue' :
+                                        ps.status === 'skipped' ? 'slate' :
+                                        isCurrent ? 'blue' : 'slate';
+                                    const procLabel =
+                                        ps.processor === 'stripe-self' ? 'Credit/Debit' :
+                                        ps.processor === 'stripe-vendor' ? 'Stripe' :
+                                        ps.processor === 'converge' ? 'Credit Card' :
+                                        ps.processor === 'clover' ? 'Credit Card' :
+                                        'Vendor contacts you';
+                                    const statusLabel =
+                                        ps.status === 'completed' ? 'Paid' :
+                                        ps.status === 'failed' ? 'Failed' :
+                                        ps.status === 'processing' ? 'Processing…' :
+                                        ps.status === 'skipped' ? 'Skipped' :
+                                        isCurrent ? 'Current' : 'Pending';
+
+                                    const total = (ps.subtotalCents + ps.shippingCents) / 100;
+                                    return (
+                                        <div
+                                            key={ps.orderId}
+                                            className={`border-2 rounded-xl p-3 transition-colors ${
+                                                isCurrent
+                                                    ? 'border-blue-500 bg-blue-50/50'
+                                                    : ps.status === 'completed'
+                                                        ? 'border-green-200 bg-green-50/30'
+                                                        : ps.status === 'failed'
+                                                            ? 'border-red-200 bg-red-50/30'
+                                                            : 'border-slate-200 bg-white'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold bg-${stepColor}-100 text-${stepColor}-700`}>
+                                                    {ps.status === 'completed' ? <Check className="w-4 h-4" /> :
+                                                     ps.status === 'processing' ? <Loader2 className="w-4 h-4 animate-spin" /> :
+                                                     ps.status === 'failed' ? <X className="w-4 h-4" /> :
+                                                     i + 1}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                                                        <p className="text-sm font-semibold text-slate-800 truncate">{ps.vendorName}</p>
+                                                    </div>
+                                                    <p className="text-xs text-slate-500">{procLabel}{total > 0 ? ` — $${total.toFixed(2)}` : ''}</p>
+                                                </div>
+                                                <span className={`text-[10px] font-bold px-2 py-1 rounded-full bg-${stepColor}-100 text-${stepColor}-700`}>
+                                                    {statusLabel}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Current step detail */}
+                            {paymentSteps[currentStepIdx] && (
+                                <div className="bg-slate-50 rounded-xl p-4">
+                                    {paymentSteps[currentStepIdx].processor === 'external' ? (
+                                        <div className="flex items-start gap-2">
+                                            <Mail className="w-4 h-4 text-slate-500 mt-0.5 flex-shrink-0" />
+                                            <p className="text-sm text-slate-600">
+                                                <strong>{paymentSteps[currentStepIdx].vendorName}</strong> will contact you by email to arrange payment and delivery. No action needed right now.
+                                            </p>
+                                        </div>
+                                    ) : paymentSteps[currentStepIdx].processor === 'converge' ? (
+                                        <div className="flex flex-col items-center gap-2">
+                                            <p className="text-sm text-slate-600 text-center">
+                                                Paying <strong>{paymentSteps[currentStepIdx].vendorName}</strong> via secure card form.
+                                            </p>
+                                            {paymentSteps[currentStepIdx].status === 'processing' && (
+                                                <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-slate-600 text-center">
+                                            Redirecting to secure payment for <strong>{paymentSteps[currentStepIdx].vendorName}</strong>…
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Error display */}
+                            {stepError && (
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                                    <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                                    <div className="flex-1">
+                                        <p className="text-sm text-red-700">{stepError}</p>
+                                        <div className="flex gap-2 mt-2">
+                                            <button
+                                                onClick={handleRetryStep}
+                                                className="text-xs font-semibold text-red-700 hover:underline"
+                                            >
+                                                Retry
+                                            </button>
+                                            <button
+                                                onClick={handleSkipStep}
+                                                className="text-xs text-slate-500 hover:underline"
+                                            >
+                                                Skip this step
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Converge Lightbox trigger */}
+                            {convergeToken && paymentSteps[currentStepIdx]?.processor === 'converge' && (
+                                <ConvergeLightbox
+                                    token={convergeToken}
+                                    demoMode={convergeDemoMode}
+                                    onApproval={handleConvergeApproval}
+                                    onDeclined={(r) => {
+                                        setConvergeToken(null);
+                                        updateStepStatus(currentStepIdx, 'failed');
+                                        setStepError(r.ssl_result_message || 'Card declined');
+                                    }}
+                                    onError={(e) => {
+                                        setConvergeToken(null);
+                                        updateStepStatus(currentStepIdx, 'failed');
+                                        setStepError(typeof e === 'string' ? e : 'Payment error');
+                                    }}
+                                    onCancelled={() => {
+                                        setConvergeToken(null);
+                                        updateStepStatus(currentStepIdx, 'pending');
+                                    }}
+                                />
+                            )}
+                        </div>
+                    )}
+
                     {/* ── Confirmation step ── */}
                     {step === 'confirmation' && confirmation && (
                         <div className="p-5 text-center py-12">
@@ -591,6 +984,27 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                     <p className="text-sm font-mono font-bold text-amber-900 my-1">{confirmation.paymentInstructions.email}</p>
                                     <p className="text-xs text-amber-600">Reference: <strong>{confirmation.paymentInstructions.reference}</strong></p>
                                     <p className="text-xs text-amber-500 mt-2">Your order will be confirmed once payment is received.</p>
+                                </div>
+                            )}
+
+                            {/* Mixed cart: show vendor items pending external payment */}
+                            {confirmation.childOrders?.some((co: any) => co.paymentMethod === 'external') && (
+                                <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4 text-left">
+                                    <h3 className="font-bold text-blue-800 text-sm mb-2 flex items-center gap-1.5">
+                                        <Mail className="w-4 h-4" />
+                                        Next Steps
+                                    </h3>
+                                    <p className="text-sm text-blue-700 mb-2">
+                                        Some items in your order are fulfilled by a partner. You'll receive a separate email with payment instructions for:
+                                    </p>
+                                    {confirmation.childOrders
+                                        .filter((co: any) => co.paymentMethod === 'external')
+                                        .map((co: any, i: number) => (
+                                            <p key={i} className="text-sm text-blue-900 font-medium">
+                                                {co.vendorName} — ${(co.subtotalCents / 100).toFixed(2)}
+                                            </p>
+                                        ))
+                                    }
                                 </div>
                             )}
                         </div>

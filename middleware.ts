@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import {
+  APP_URL,
+  COOKIE_DOMAIN,
+  parseHost,
+} from '@/lib/env/domain';
 
 /**
  * Middleware for handling:
  * 1. Supabase Auth token validation and refresh (via cookies)
- * 2. Subdomain routing (published sites at *.kswd.ca)
+ * 2. Subdomain routing (published sites at *.kswd.ca / *.staging.kswd.ca)
  * 3. Custom domain routing (user-owned domains pointed via DNS)
- * 4. Ops dashboard routing (ops.keystoneweb.ca → /ops/*)
+ * 4. Ops dashboard routing (ops.keystoneweb.ca / ops.staging.keystoneweb.ca → /ops/*)
+ *
+ * Environment-specific domains live in lib/env/domain.ts.
  */
-
-// Auth cookies must be shared across keystoneweb.ca subdomains (e.g. ops.keystoneweb.ca).
-// In production, set domain=.keystoneweb.ca so the cookie is sent on all subdomains.
-const COOKIE_DOMAIN =
-  process.env.NODE_ENV === 'production' ? '.keystoneweb.ca' : undefined;
 
 export async function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
@@ -20,17 +22,14 @@ export async function middleware(request: NextRequest) {
 
   console.log(`[Middleware] Incoming: ${hostname}${pathname}`);
 
-  // ============================================================
-  // STEP 1: Detect published site subdomains (.kswd.ca)
-  // ============================================================
-  const domain = hostname.split(':')[0]; // Remove port if present
+  const parsed = parseHost(hostname);
 
   // ============================================================
-  // STEP 1a: Ops dashboard — ops.keystoneweb.ca
+  // STEP 1a: Ops dashboard — ops.{BASE_DOMAIN}
   // Only admin emails (OPS_ADMIN_EMAILS env var) are allowed in.
-  // Everyone else is hard-redirected to keystoneweb.ca.
+  // Everyone else is hard-redirected to the app root.
   // ============================================================
-  if (domain === 'ops.keystoneweb.ca') {
+  if (parsed.kind === 'ops') {
     // API routes pass through without redirect so the ops pages can call them
     if (pathname.startsWith('/api/')) {
       return NextResponse.next();
@@ -85,16 +84,16 @@ export async function middleware(request: NextRequest) {
 
     if (!userEmail || (!isAdmin && !isAgent)) {
       console.log(`[Middleware] Ops access denied for: ${userEmail ?? 'unauthenticated'}`);
-      return NextResponse.redirect(new URL('https://keystoneweb.ca'));
+      return NextResponse.redirect(new URL(APP_URL));
     }
 
-    // Admin confirmed — rewrite ops.keystoneweb.ca/* → /ops/*
+    // Admin confirmed — rewrite ops.{BASE_DOMAIN}/* → /ops/*
     const rewriteUrl = request.nextUrl.clone();
     rewriteUrl.pathname = `/ops${pathname === '/' ? '' : pathname}`;
     if (!rewriteUrl.pathname.startsWith('/ops')) {
       rewriteUrl.pathname = '/ops';
     }
-    
+
     console.log(`[Middleware] Ops rewrite → ${rewriteUrl.pathname}${rewriteUrl.search}`);
     const rewriteResponse = NextResponse.rewrite(rewriteUrl);
     // Forward any refreshed auth cookies
@@ -104,9 +103,11 @@ export async function middleware(request: NextRequest) {
     return rewriteResponse;
   }
 
-  if (domain.endsWith('.kswd.ca') && !domain.startsWith('www.')) {
-    // Extract subdomain: akdesigns.kswd.ca → akdesigns
-    const subdomain = domain.split('.kswd.ca')[0];
+  // ============================================================
+  // STEP 1b: Published site subdomain — *.{PUBLISHED_ROOT}
+  // ============================================================
+  if (parsed.kind === 'published' && parsed.subdomain) {
+    const subdomain = parsed.subdomain;
 
     console.log(`[Middleware] Detected published subdomain: '${subdomain}'`);
 
@@ -116,11 +117,11 @@ export async function middleware(request: NextRequest) {
     }
 
     // ── /admin and /design shortcuts ──────────────────────────────────────────
-    // Visiting mysite.kswd.ca/admin or /design redirects to keystoneweb.ca/admin?siteId=...
+    // Visiting mysite.kswd.ca/admin or /design redirects to the app with siteId=...
     const isAdminPath = pathname === '/admin' || pathname.startsWith('/admin/');
     const isDesignPath = pathname === '/design';
     if (isAdminPath || isDesignPath) {
-      const appRoot = process.env.NEXT_PUBLIC_APP_URL || 'https://keystoneweb.ca';
+      const appRoot = APP_URL;
 
       // Look up the siteId from the published_domain
       let siteId: string | null = null;
@@ -168,20 +169,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // ============================================================
-  // STEP 1b: Detect custom domain routing
+  // STEP 1c: Custom domain routing
   // ============================================================
-  const isAppDomain =
-    hostname.includes('localhost') ||
-    hostname.includes('app.') ||
-    hostname.includes('vercel.app') ||
-    hostname.includes('keystoneweb.ca') ||
-    hostname.includes('keystoneweb.com') ||
-    hostname.startsWith('127.0.0.1');
-
-  if (!isAppDomain && !domain.endsWith('.kswd.ca')) {
-    // This could be a custom domain — rewrite to the custom domain route
-    // Strip www. prefix if present
-    const cleanDomain = domain.startsWith('www.') ? domain.slice(4) : domain;
+  if (parsed.kind === 'custom' && parsed.cleanDomain) {
+    const cleanDomain = parsed.cleanDomain;
 
     console.log(`[Middleware] Detected possible custom domain: '${cleanDomain}'`);
 
@@ -190,11 +181,11 @@ export async function middleware(request: NextRequest) {
     }
 
     // ── /admin and /design shortcuts ──────────────────────────────────────────
-    // Visiting customdomain.com/admin or /design redirects to keystoneweb.ca/admin?siteId=...
+    // Visiting customdomain.com/admin or /design redirects to the app with siteId=...
     const isAdminPath = pathname === '/admin' || pathname.startsWith('/admin/');
     const isDesignPath = pathname === '/design';
     if (isAdminPath || isDesignPath) {
-      const appRoot = process.env.NEXT_PUBLIC_APP_URL || 'https://keystoneweb.ca';
+      const appRoot = APP_URL;
 
       // Look up the siteId from the custom_domain
       let siteId: string | null = null;
@@ -232,8 +223,6 @@ export async function middleware(request: NextRequest) {
     rewriteUrl.pathname = `/${cleanDomain}${pathname}`;
     console.log(`[Middleware] Rewriting custom domain to: ${rewriteUrl.pathname}${rewriteUrl.search}`);
     const customDomainResponse = NextResponse.rewrite(rewriteUrl);
-    // Cache published site pages at Vercel's edge CDN to reduce serverless
-    // invocations and DB queries from repeated/abusive requests.
     customDomainResponse.headers.set(
       'Cache-Control',
       'public, s-maxage=60, stale-while-revalidate=300'
@@ -241,10 +230,9 @@ export async function middleware(request: NextRequest) {
     return customDomainResponse;
   }
 
-  if (!isAppDomain) {
-    return NextResponse.next();
-  }
-
+  // ============================================================
+  // STEP 2: Main app domain — auth session refresh
+  // ============================================================
   const response = NextResponse.next();
 
   try {
@@ -305,11 +293,11 @@ export async function middleware(request: NextRequest) {
 
       if (profile?.is_banned) {
         console.log(`[Middleware] Banned user attempted access: ${user.email}`);
-        return NextResponse.redirect(new URL('https://keystoneweb.ca?error=account_blocked'));
+        return NextResponse.redirect(new URL(`${APP_URL}?error=account_blocked`));
       }
 
       // ============================================================
-      // STEP 2: Impersonation check
+      // STEP 3: Impersonation check
       // ============================================================
       const impersonateId = request.cookies.get('ksw_impersonate')?.value;
       const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')

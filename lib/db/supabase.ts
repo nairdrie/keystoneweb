@@ -8,10 +8,22 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('Supabase environment variables not set. Database operations will fail.');
 }
 
-const cookieDomain =
-  typeof window !== 'undefined' && window.location.hostname.endsWith('keystoneweb.ca')
-    ? '.keystoneweb.ca'
-    : undefined;
+// Browser can't read server env vars, so derive the cookie domain from the
+// hostname it's actually running on. This keeps staging cookies scoped to
+// .staging.keystoneweb.ca and prod cookies to .keystoneweb.ca.
+function browserCookieDomain(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  const host = window.location.hostname;
+  if (host.endsWith('.staging.keystoneweb.ca') || host === 'staging.keystoneweb.ca') {
+    return '.staging.keystoneweb.ca';
+  }
+  if (host.endsWith('.keystoneweb.ca') || host === 'keystoneweb.ca') {
+    return '.keystoneweb.ca';
+  }
+  return undefined;
+}
+
+const cookieDomain = browserCookieDomain();
 
 export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey, {
   cookieOptions: {

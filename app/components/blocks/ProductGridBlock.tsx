@@ -478,6 +478,23 @@ function AddProductForm({ siteId, onAdded, onCancel }: {
     const [tierError, setTierError] = useState<string | null>(null);
     const fileRef = useRef<HTMLInputElement>(null);
     const packages = useMembershipPackages(siteId);
+    const [vendorId, setVendorId] = useState<string>('');
+    const [vendors, setVendors] = useState<Array<{ id: string; name: string; payment_mode: string; is_default: boolean }>>([]);
+
+    // Load vendors for this site
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await fetch(`/api/vendors?siteId=${siteId}`);
+                const data = await res.json();
+                setVendors(data.vendors || []);
+            } catch (err) {
+                // Vendors not available — that's fine
+            }
+        })();
+    }, [siteId]);
+
+    const defaultVendor = vendors.find(v => v.is_default);
 
     // Image upload
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -571,6 +588,7 @@ function AddProductForm({ siteId, onAdded, onCancel }: {
                 images,
                 variants: structuredVariants,
                 inventory_count: parseInt(inventory),
+                vendor_id: vendorId || null,
                 tier_prices,
                 allowed_package_ids: gateEnabled ? allowedPackageIds : [],
             }),
@@ -670,6 +688,32 @@ function AddProductForm({ siteId, onAdded, onCancel }: {
                     className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 />
             </div>
+
+            {/* Vendor / Fulfillment */}
+            {vendors.length > 0 && (
+                <div>
+                    <label className="text-xs font-semibold text-slate-700 mb-1 block">Fulfilled by</label>
+                    <select
+                        value={vendorId}
+                        onChange={e => setVendorId(e.target.value)}
+                        className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    >
+                        <option value="">
+                            {defaultVendor ? `Use default (${defaultVendor.name})` : 'Your Store (self-fulfilled)'}
+                        </option>
+                        {vendors.map(v => (
+                            <option key={v.id} value={v.id}>
+                                {v.name}{v.is_default ? ' ★ default' : ''} — {v.payment_mode}
+                            </option>
+                        ))}
+                    </select>
+                    <p className="text-xs text-slate-400 mt-1">
+                        {defaultVendor
+                            ? `Leave as "Use default" to fulfill through ${defaultVendor.name}. Pick a specific vendor to override.`
+                            : 'Select a vendor if this product is fulfilled by a third party.'}
+                    </p>
+                </div>
+            )}
 
             {/* Variants */}
             <div>

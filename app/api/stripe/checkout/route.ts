@@ -22,10 +22,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
         }
 
-        // Fetch the order (join site + ecommerce settings for tax config)
+        // Fetch the order (join site + vendor for Stripe account routing)
         const { data: order, error: orderError } = await supabase
             .from('orders')
-            .select('*, sites!inner(stripe_account_id, id)')
+            .select('*, sites!inner(stripe_account_id, id), vendors(stripe_account_id)')
             .eq('id', orderId)
             .single();
 
@@ -33,7 +33,11 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Order not found' }, { status: 404 });
         }
 
-        const stripeAccountId = order.sites?.stripe_account_id;
+        // Use vendor's Stripe account if this is a vendor order, otherwise site's account
+        const stripeAccountId = order.vendor_id && order.vendors?.stripe_account_id
+            ? order.vendors.stripe_account_id
+            : order.sites?.stripe_account_id;
+
         if (!stripeAccountId) {
             return NextResponse.json({ error: 'This site is not fully connected to Stripe yet' }, { status: 400 });
         }
