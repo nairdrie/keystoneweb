@@ -8,6 +8,7 @@ import { BusinessProfile } from '@/lib/types/sites';
 import { fetchTranslationsConfig } from '@/lib/translations/resolve';
 import SiteNotFound from '@/app/components/SiteNotFound';
 import { extractTestimonials } from '@/lib/seo/testimonials';
+import { PUBLISHED_ROOT } from '@/lib/env/domain';
 
 export const dynamic = 'force-dynamic'; // Always fetch fresh data
 
@@ -34,7 +35,7 @@ export default async function PublicSitePage({
         <SiteNotFound 
           message="Start building to claim this subdomain."
           ctaText="Login to start building"
-          domain={`${subdomain}.kswd.ca`}
+          domain={`${subdomain}.${PUBLISHED_ROOT}`}
         />
       );
     }

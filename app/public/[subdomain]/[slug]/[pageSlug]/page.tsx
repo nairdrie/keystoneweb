@@ -4,6 +4,7 @@ import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import SiteNotFound from '@/app/components/SiteNotFound';
+import { PUBLISHED_ROOT } from '@/lib/env/domain';
 import {
     isLanguageCode,
     resolveTranslatedContent,
@@ -40,7 +41,7 @@ export default async function PublicSiteTranslatedPage({
                 <SiteNotFound 
                     message="Start building to claim this subdomain."
                     ctaText="Login to start building"
-                    domain={`${subdomain}.kswd.ca`}
+                    domain={`${subdomain}.${PUBLISHED_ROOT}`}
                 />
             );
         }
