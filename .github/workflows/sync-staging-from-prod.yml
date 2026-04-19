@@ -74,24 +74,26 @@ jobs:
       - name: Dump prod
         run: |
           set -euo pipefail
-          # public: full schema + data, drop-and-recreate on restore
+          # public: full schema + data. No --clean/--if-exists — we restore into
+          # a freshly-created empty schema, so cleanup statements aren't needed
+          # (and pg_dump's DROP TRIGGER IF EXISTS ... ON <table> errors if the
+          # table doesn't exist — the IF EXISTS guards only the trigger).
           pg_dump "$PROD_DB_URL" \
             --schema=public \
             --no-owner --no-privileges \
-            --clean --if-exists \
             --file=public.sql
 
-          # auth: data only (keep Supabase-managed schema intact)
+          # auth: data only. --disable-triggers avoids FK/trigger noise during COPY.
           pg_dump "$PROD_DB_URL" \
-            --data-only \
+            --data-only --disable-triggers \
             --table=auth.users \
             --table=auth.identities \
             --no-owner --no-privileges \
             --file=auth-data.sql
 
-          # storage metadata: data only (rclone handles file bytes)
+          # storage metadata: data only (rclone handles file bytes).
           pg_dump "$PROD_DB_URL" \
-            --data-only \
+            --data-only --disable-triggers \
             --table=storage.buckets \
             --table=storage.objects \
             --no-owner --no-privileges \
@@ -102,21 +104,24 @@ jobs:
       - name: Restore to staging
         run: |
           set -euo pipefail
-          # Order matters: wipe auth/storage data first (CASCADE drops FK rows in
-          # public), then drop public, then restore public, then auth, then storage.
+          # Wipe everything we're about to restore. Public is dropped wholesale
+          # (CASCADE takes its triggers/functions/FKs with it). Auth/storage
+          # schemas are Supabase-managed, so we only TRUNCATE their data tables.
           psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
           BEGIN;
-          TRUNCATE auth.identities, auth.users CASCADE;
-          TRUNCATE storage.objects, storage.buckets CASCADE;
           DROP SCHEMA IF EXISTS public CASCADE;
           CREATE SCHEMA public;
           GRANT ALL ON SCHEMA public TO postgres;
           GRANT ALL ON SCHEMA public TO public;
+          TRUNCATE auth.identities, auth.users CASCADE;
+          TRUNCATE storage.objects, storage.buckets CASCADE;
           COMMIT;
           SQL
 
-          psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 -f public.sql
+          # Order: auth first so public's FKs to auth.users(id) validate when
+          # ADD CONSTRAINT fires at the end of public.sql. Storage last.
           psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 -f auth-data.sql
+          psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 -f public.sql
           psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 -f storage-data.sql
 
       - name: Sync storage bucket contents (prod → staging)
