@@ -1,7 +1,5 @@
-import { Resend } from 'resend';
 import { buildMemberEmailHtml, type EmailBranding } from '@/lib/membership/email-template';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { resend } from '@/lib/email/resend';
 
 interface BookingEmailData {
     serviceName: string;

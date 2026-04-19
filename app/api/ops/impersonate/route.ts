@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
+import { COOKIE_DOMAIN } from '@/lib/env/domain';
 
 const COOKIE_NAME = 'ksw_impersonate';
-const COOKIE_DOMAIN = process.env.NODE_ENV === 'production' ? '.keystoneweb.ca' : undefined;
 
 async function isAdmin() {
   const supabase = await createClient();

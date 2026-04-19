@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
+import { APP_URL } from '@/lib/env/domain';
 import OpsHeader from './OpsHeader';
 import '../(app)/globals.css';
 
@@ -12,7 +13,7 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('https://keystoneweb.ca');
+    redirect(APP_URL);
   }
 
   const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
@@ -35,7 +36,7 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
   }
 
   if (!isAdmin && !isAgent) {
-    redirect('https://keystoneweb.ca');
+    redirect(APP_URL);
   }
 
   // Fetch open support count (scoped by contact email for agents)

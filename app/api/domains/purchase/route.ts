@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import { FREE_DOMAIN_MAX_USD } from '@/lib/domains/pricing';
+import { CUSTOM_DOMAIN_CNAME_TARGET } from '@/lib/env/domain';
 
 const VERCEL_API_TOKEN = process.env.VERCEL_API_TOKEN;
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID;
@@ -162,7 +163,7 @@ async function buyDomainFromVercel(
     site_id: siteId,
     record_type: 'CNAME',
     name: domain,
-    value: 'sites.kswd.ca',
+    value: CUSTOM_DOMAIN_CNAME_TARGET,
     ttl: 3600,
   });
 

@@ -2,9 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-
-const COOKIE_DOMAIN =
-  process.env.NODE_ENV === 'production' ? '.keystoneweb.ca' : undefined;
+import { COOKIE_DOMAIN } from '@/lib/env/domain';
 
 // POST /api/auth/agent-signup
 // Body: { token, password, name }
