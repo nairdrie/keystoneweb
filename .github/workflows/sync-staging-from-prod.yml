@@ -36,6 +36,18 @@ jobs:
             echo "::error::Missing PROD_DB_URL or STAGING_DB_URL secret."
             exit 1
           fi
+          # Print shape (not value) so we can diagnose URL-parse failures without
+          # leaking credentials. Connection strings should start with postgres(ql)://.
+          echo "PROD_DB_URL    length=${#PROD_DB_URL}    starts=$(printf '%s' "$PROD_DB_URL" | head -c 13)"
+          echo "STAGING_DB_URL length=${#STAGING_DB_URL} starts=$(printf '%s' "$STAGING_DB_URL" | head -c 13)"
+          case "$PROD_DB_URL" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::PROD_DB_URL does not start with postgres:// or postgresql://"; exit 1 ;;
+          esac
+          case "$STAGING_DB_URL" in
+            postgres://*|postgresql://*) ;;
+            *) echo "::error::STAGING_DB_URL does not start with postgres:// or postgresql://"; exit 1 ;;
+          esac
 
       - name: Install postgres 16 client + rclone
         run: |
