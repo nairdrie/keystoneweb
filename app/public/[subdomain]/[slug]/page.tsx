@@ -8,6 +8,7 @@ import JsonLdScript from '@/app/components/JsonLdScript';
 import { BusinessProfile } from '@/lib/types/sites';
 import SiteNotFound from '@/app/components/SiteNotFound';
 import { extractTestimonials } from '@/lib/seo/testimonials';
+import { PUBLISHED_ROOT } from '@/lib/env/domain';
 import {
     fetchTranslationsConfig,
     fetchSiteTranslations,
@@ -102,7 +103,7 @@ export default async function PublicSiteDynamicPage({
                 <SiteNotFound 
                     message="Start building to claim this subdomain."
                     ctaText="Login to start building"
-                    domain={`${subdomain}.kswd.ca`}
+                    domain={`${subdomain}.${PUBLISHED_ROOT}`}
                 />
             );
         }
