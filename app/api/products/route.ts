@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { siteId, name, description, price_cents, compare_at_cents, currency, images, variants, inventory_count } = body;
+    const { siteId, name, description, price_cents, compare_at_cents, currency, images, variants, inventory_count, vendor_id } = body;
 
     if (!siteId || !name) {
         return NextResponse.json({ error: 'Missing siteId or name' }, { status: 400 });
@@ -146,6 +146,7 @@ export async function POST(request: NextRequest) {
             images: images || [],
             variants: variants || [],
             inventory_count: inventory_count ?? -1,
+            vendor_id: vendor_id || null,
             slug,
             sort_order: nextOrder,
         })
@@ -191,7 +192,7 @@ export async function PUT(request: NextRequest) {
 
     const updates: Record<string, any> = { updated_at: new Date().toISOString() };
 
-    const allowedFields = ['name', 'description', 'price_cents', 'compare_at_cents', 'currency', 'images', 'variants', 'inventory_count', 'is_active', 'sort_order', 'status', 'category', 'tags'];
+    const allowedFields = ['name', 'description', 'price_cents', 'compare_at_cents', 'currency', 'images', 'variants', 'inventory_count', 'is_active', 'sort_order', 'status', 'category', 'tags', 'vendor_id'];
 
     for (const key of allowedFields) {
         if (fields[key] !== undefined) updates[key] = fields[key];

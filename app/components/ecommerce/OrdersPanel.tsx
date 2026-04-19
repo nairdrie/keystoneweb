@@ -16,15 +16,20 @@ interface Order {
     customer_email: string;
     customer_phone: string | null;
     shipping_address: { line1?: string; city?: string; region?: string; province?: string; postal?: string; country?: string } | null;
-    status: 'pending' | 'confirmed' | 'shipped' | 'completed' | 'cancelled';
-    payment_method: 'none' | 'etransfer' | 'stripe';
+    status: 'pending' | 'pending_external' | 'confirmed' | 'shipped' | 'completed' | 'cancelled';
+    payment_method: 'none' | 'etransfer' | 'stripe' | 'external';
     payment_status: 'unpaid' | 'pending' | 'paid';
     notes: string | null;
     created_at: string;
+    vendor_id: string | null;
+    parent_order_id: string | null;
+    vendors: { id: string; name: string; contact_email: string; payment_mode: string } | null;
+    childOrders?: Order[];
 }
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG: Record<string, { label: string; icon: any; color: string; bg: string }> = {
     pending: { label: 'Pending', icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50 border-amber-200' },
+    pending_external: { label: 'Awaiting Vendor', icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50 border-orange-200' },
     confirmed: { label: 'Confirmed', icon: CheckCircle2, color: 'text-blue-600', bg: 'bg-blue-50 border-blue-200' },
     shipped: { label: 'Shipped', icon: Truck, color: 'text-violet-600', bg: 'bg-violet-50 border-violet-200' },
     completed: { label: 'Completed', icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50 border-green-200' },
@@ -169,7 +174,7 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
                         <>
                             {/* Filter tabs */}
                             <div className="flex gap-1 px-4 pt-3 pb-2 overflow-x-auto">
-                                {['all', 'pending', 'confirmed', 'shipped', 'completed', 'cancelled'].map(s => (
+                                {['all', 'pending', 'pending_external', 'confirmed', 'shipped', 'completed', 'cancelled'].map(s => (
                                     <button
                                         key={s}
                                         onClick={() => setFilterStatus(s)}
@@ -179,7 +184,7 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
                                                 : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                                         }`}
                                     >
-                                        {s === 'all' ? `All (${orders.length})` : `${s.charAt(0).toUpperCase() + s.slice(1)} (${orders.filter(o => o.status === s).length})`}
+                                        {s === 'all' ? `All (${orders.length})` : `${s === 'pending_external' ? 'Vendor' : s.charAt(0).toUpperCase() + s.slice(1)} (${orders.filter(o => o.status === s).length})`}
                                     </button>
                                 ))}
                             </div>
@@ -267,11 +272,59 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
                                                         </div>
                                                     </div>
 
+                                                    {/* Vendor info */}
+                                                    {order.vendors && (
+                                                        <div>
+                                                            <p className="text-xs font-semibold text-slate-600 mb-1">Vendor</p>
+                                                            <p className="text-xs text-slate-700 font-medium">{order.vendors.name}</p>
+                                                            <p className="text-xs text-slate-500">{order.vendors.contact_email}</p>
+                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                                                                order.vendors.payment_mode === 'stripe' ? 'bg-violet-50 text-violet-600' : 'bg-slate-100 text-slate-500'
+                                                            }`}>
+                                                                {order.vendors.payment_mode === 'stripe' ? 'Stripe' : 'External Payment'}
+                                                            </span>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Child orders (split order) */}
+                                                    {order.childOrders && order.childOrders.length > 0 && (
+                                                        <div>
+                                                            <p className="text-xs font-semibold text-slate-600 mb-1">Split Order Details</p>
+                                                            <div className="space-y-1.5">
+                                                                {order.childOrders.map(child => {
+                                                                    const childSc = STATUS_CONFIG[child.status] || STATUS_CONFIG.pending;
+                                                                    const childPs = PAYMENT_STATUS_LABELS[child.payment_status];
+                                                                    const childTotal = `$${((child.subtotal_cents + (child.shipping_cents || 0)) / 100).toFixed(2)}`;
+                                                                    return (
+                                                                        <div key={child.id} className="flex items-center justify-between p-2 rounded bg-slate-50 border border-slate-200">
+                                                                            <div>
+                                                                                <p className="text-xs font-medium text-slate-800">
+                                                                                    {child.vendors?.name || 'Your Store'} — {childTotal}
+                                                                                </p>
+                                                                                <p className="text-[10px] text-slate-500">
+                                                                                    {child.items.map((i: any) => `${i.qty}x ${i.name}`).join(', ')}
+                                                                                </p>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-1">
+                                                                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${childSc.bg} ${childSc.color}`}>
+                                                                                    {childSc.label}
+                                                                                </span>
+                                                                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${childPs.cls}`}>
+                                                                                    {childPs.label}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
                                                     {/* Payment info */}
                                                     <div>
                                                         <p className="text-xs font-semibold text-slate-600 mb-1">Payment</p>
                                                         <p className="text-xs text-slate-700">
-                                                            Method: {order.payment_method === 'etransfer' ? 'Interac e-Transfer' : order.payment_method === 'stripe' ? 'Stripe' : order.payment_method}
+                                                            Method: {order.payment_method === 'etransfer' ? 'Interac e-Transfer' : order.payment_method === 'stripe' ? 'Stripe' : order.payment_method === 'external' ? 'External (Vendor)' : order.payment_method}
                                                         </p>
                                                     </div>
 

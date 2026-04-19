@@ -488,6 +488,334 @@ export async function sendOrderPaymentConfirmed(data: OrderEmailData) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Vendor / Mixed-Cart Order Emails
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface MixedOrderItem {
+    name: string;
+    price_cents: number;
+    qty: number;
+    variants?: Record<string, string>;
+    fulfillment: 'self' | 'vendor';
+    vendorName?: string;
+    paymentConfirmed?: boolean;
+}
+
+/**
+ * Send a mixed-order confirmation to the customer.
+ * Shows per-item payment status: "Payment confirmed" vs "Look out for email from [Vendor]"
+ */
+export async function sendMixedOrderConfirmation(data: {
+    orderId: string;
+    items: MixedOrderItem[];
+    subtotalCents: number;
+    shippingCents?: number;
+    shippingMethod?: string;
+    currency: string;
+    customerName: string;
+    customerEmail: string;
+    paymentMethod: string;
+    etransferEmail?: string;
+    siteName?: string;
+}) {
+    try {
+        const refId = `ORDER-${data.orderId.slice(0, 8).toUpperCase()}`;
+        const orderTotalCents = data.subtotalCents + (data.shippingCents || 0);
+        const total = `$${(orderTotalCents / 100).toFixed(2)} ${data.currency}`;
+
+        const itemsHtml = data.items.map(item => {
+            const varStr = item.variants ? Object.values(item.variants).join(', ') : '';
+            const statusBadge = item.fulfillment === 'vendor' && !item.paymentConfirmed
+                ? `<span style="display:inline-block;background:#fef3c7;color:#92400e;font-size:11px;padding:2px 8px;border-radius:4px;margin-left:8px;">Pending — look out for email from ${item.vendorName}</span>`
+                : `<span style="display:inline-block;background:#dcfce7;color:#166534;font-size:11px;padding:2px 8px;border-radius:4px;margin-left:8px;">Payment confirmed</span>`;
+
+            return `<tr>
+                <td style="padding:8px 0;color:#111827;font-size:14px;">
+                    ${item.name}${varStr ? ` <span style="color:#6b7280">(${varStr})</span>` : ''}
+                    <br/>${statusBadge}
+                </td>
+                <td style="padding:8px 0;text-align:center;color:#6b7280;font-size:14px;">x${item.qty}</td>
+                <td style="padding:8px 0;text-align:right;font-weight:600;color:#111827;font-size:14px;">$${(item.price_cents * item.qty / 100).toFixed(2)}</td>
+            </tr>`;
+        }).join('');
+
+        const hasExternalItems = data.items.some(i => i.fulfillment === 'vendor' && !i.paymentConfirmed);
+        const externalVendors = [...new Set(data.items.filter(i => i.fulfillment === 'vendor' && !i.paymentConfirmed).map(i => i.vendorName))];
+
+        let externalNote = '';
+        if (hasExternalItems) {
+            externalNote = `
+                <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:16px;margin-top:16px;">
+                    <h3 style="margin:0 0 8px;color:#92400e;font-size:14px;">Next Steps</h3>
+                    <p style="margin:0;color:#78350f;font-size:14px;">Some items in your order require separate payment processing. You'll receive an email from <strong>${externalVendors.join(', ')}</strong> with payment instructions for those items.</p>
+                </div>`;
+        }
+
+        await resend.emails.send({
+            from: `${data.siteName || 'Keystone Web Design'} <orders@keystoneweb.ca>`,
+            to: data.customerEmail,
+            subject: `Order Received — ${refId}`,
+            html: `
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
+                    <div style="text-align:center;padding:24px 0;">
+                        <div style="width:48px;height:48px;background:#dbeafe;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">🛍️</div>
+                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">Order Received</h1>
+                        <p style="margin:0;color:#6b7280;font-size:14px;">Thank you for your order, ${data.customerName}!</p>
+                    </div>
+                    <div style="background:#f9fafb;border-radius:8px;padding:16px;">
+                        <table style="width:100%;border-collapse:collapse;">${itemsHtml}
+                            <tr><td colspan="3" style="padding:8px 0 4px;border-top:1px solid #e5e7eb;text-align:right;font-weight:700;color:#111827;font-size:16px;">${total}</td></tr>
+                        </table>
+                    </div>
+                    ${externalNote}
+                    <p style="margin-top:16px;font-size:12px;color:#9ca3af;text-align:center;">Ref: ${refId}</p>
+                    <p style="margin-top:8px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
+                </div>`,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send mixed order confirmation:', error);
+        return { success: false, error };
+    }
+}
+
+/**
+ * Notify a vendor about a new order that needs their attention.
+ * Includes customer info + a link to the vendor portal.
+ */
+export async function sendVendorOrderNotification(data: {
+    orderId: string;
+    vendorName: string;
+    vendorEmail: string;
+    customerName: string;
+    customerEmail: string;
+    customerPhone?: string;
+    shippingAddress?: any;
+    items: Array<{ name: string; price_cents: number; qty: number }>;
+    subtotalCents: number;
+    currency: string;
+    portalToken?: string;
+    siteName?: string;
+}) {
+    try {
+        const refId = `ORDER-${data.orderId.slice(0, 8).toUpperCase()}`;
+        const total = `$${(data.subtotalCents / 100).toFixed(2)} ${data.currency}`;
+        const itemsSummary = data.items.map(i => `${i.qty}x ${i.name}`).join(', ');
+
+        const portalUrl = data.portalToken
+            ? `${process.env.NEXT_PUBLIC_APP_URL || 'https://keystoneweb.ca'}/vendor-portal?token=${data.portalToken}`
+            : null;
+
+        const portalButton = portalUrl
+            ? `<div style="text-align:center;margin-top:20px;">
+                    <a href="${portalUrl}" style="display:inline-block;background:#2563eb;color:white;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none;">View & Manage Orders</a>
+                    <p style="margin:8px 0 0;font-size:12px;color:#6b7280;">Use this link to mark orders as paid, shipped, or completed</p>
+               </div>`
+            : '';
+
+        const addressHtml = data.shippingAddress
+            ? `<p style="margin:8px 0 0;font-size:13px;color:#6b7280;">📍 ${[data.shippingAddress.line1, data.shippingAddress.city, data.shippingAddress.region || data.shippingAddress.province, data.shippingAddress.postal, data.shippingAddress.country].filter(Boolean).join(', ')}</p>`
+            : '';
+
+        await resend.emails.send({
+            from: `${data.siteName || 'Keystone Web Design'} <orders@keystoneweb.ca>`,
+            to: data.vendorEmail,
+            subject: `New Order from ${data.siteName || 'Store'} — ${refId}`,
+            html: `
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
+                    <div style="text-align:center;padding:24px 0;">
+                        <div style="width:48px;height:48px;background:#dbeafe;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">📦</div>
+                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">New Order</h1>
+                        <p style="margin:0;color:#6b7280;font-size:14px;">${refId} — ${total}</p>
+                    </div>
+                    <div style="background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:16px;">
+                        <p style="margin:0;font-size:14px;color:#111827;"><strong>Items:</strong> ${itemsSummary}</p>
+                        <p style="margin:8px 0 0;font-size:14px;color:#111827;"><strong>Total:</strong> ${total}</p>
+                    </div>
+                    <div style="background:#f0f9ff;border-radius:8px;padding:16px;">
+                        <h3 style="margin:0 0 8px;font-size:14px;color:#0c4a6e;">Customer</h3>
+                        <p style="margin:2px 0;font-size:14px;color:#111827;"><strong>${data.customerName}</strong></p>
+                        <p style="margin:2px 0;font-size:14px;color:#111827;">📧 ${data.customerEmail}</p>
+                        ${data.customerPhone ? `<p style="margin:2px 0;font-size:14px;color:#111827;">📱 ${data.customerPhone}</p>` : ''}
+                        ${addressHtml}
+                    </div>
+                    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px;margin-top:16px;">
+                        <h3 style="margin:0 0 8px;color:#92400e;font-size:14px;">Action Required</h3>
+                        <p style="margin:0;color:#78350f;font-size:14px;">Please reach out to the customer to collect payment and process this order.</p>
+                    </div>
+                    ${portalButton}
+                    <p style="margin-top:24px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
+                </div>`,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send vendor order notification:', error);
+        return { success: false, error };
+    }
+}
+
+/**
+ * Notify the site owner about vendor order(s) within a split order.
+ */
+export async function sendOwnerVendorOrderNotification(data: {
+    parentOrderId: string;
+    childOrders: Array<{
+        orderId: string;
+        vendorName: string;
+        items: Array<{ name: string; price_cents: number; qty: number }>;
+        subtotalCents: number;
+        paymentMethod: string;
+        status: string;
+    }>;
+    customerName: string;
+    customerEmail: string;
+    currency: string;
+    ownerEmail: string;
+    siteName?: string;
+}) {
+    try {
+        const refId = `ORDER-${data.parentOrderId.slice(0, 8).toUpperCase()}`;
+
+        const ordersHtml = data.childOrders.map(co => {
+            const coTotal = `$${(co.subtotalCents / 100).toFixed(2)}`;
+            const itemsList = co.items.map(i => `${i.qty}x ${i.name}`).join(', ');
+            const statusColor = co.status === 'pending_external' ? '#92400e' : co.status === 'confirmed' ? '#166534' : '#1e40af';
+            const statusBg = co.status === 'pending_external' ? '#fef3c7' : co.status === 'confirmed' ? '#dcfce7' : '#dbeafe';
+            const statusLabel = co.status === 'pending_external' ? 'Pending External Payment' : co.status.charAt(0).toUpperCase() + co.status.slice(1);
+            const paymentLabel = co.paymentMethod === 'external' ? 'External (vendor handles)' : co.paymentMethod === 'stripe' ? 'Stripe' : co.paymentMethod;
+
+            return `<div style="background:#f9fafb;border-radius:8px;padding:12px;margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <strong style="font-size:14px;color:#111827;">${co.vendorName}</strong>
+                    <span style="background:${statusBg};color:${statusColor};font-size:11px;padding:2px 8px;border-radius:4px;">${statusLabel}</span>
+                </div>
+                <p style="margin:0;font-size:13px;color:#6b7280;">${itemsList} — ${coTotal}</p>
+                <p style="margin:4px 0 0;font-size:12px;color:#9ca3af;">Payment: ${paymentLabel}</p>
+            </div>`;
+        }).join('');
+
+        await resend.emails.send({
+            from: 'Keystone Web Design <orders@keystoneweb.ca>',
+            to: data.ownerEmail,
+            subject: `Split Order Summary — ${refId} from ${data.customerName}`,
+            html: `
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
+                    <div style="text-align:center;padding:24px 0;">
+                        <div style="width:48px;height:48px;background:#e0e7ff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">📋</div>
+                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">Split Order Summary</h1>
+                        <p style="margin:0;color:#6b7280;font-size:14px;">${refId} — ${data.customerName} (${data.customerEmail})</p>
+                    </div>
+                    <p style="font-size:14px;color:#374151;margin-bottom:12px;">This order has been split across multiple fulfillment sources:</p>
+                    ${ordersHtml}
+                    <p style="margin-top:24px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
+                </div>`,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send owner vendor order notification:', error);
+        return { success: false, error };
+    }
+}
+
+/**
+ * Notify the site owner when a vendor updates an order status via the portal.
+ */
+export async function sendVendorOrderStatusUpdate(data: {
+    orderId: string;
+    vendorName: string;
+    newStatus: string;
+    newPaymentStatus: string;
+    customerName: string;
+    items: Array<{ name: string; price_cents: number; qty: number }>;
+    ownerEmail: string;
+    siteName?: string;
+}) {
+    try {
+        const refId = `ORDER-${data.orderId.slice(0, 8).toUpperCase()}`;
+        const itemsSummary = data.items.map(i => `${i.qty}x ${i.name}`).join(', ');
+
+        await resend.emails.send({
+            from: 'Keystone Web Design <orders@keystoneweb.ca>',
+            to: data.ownerEmail,
+            subject: `Vendor Update — ${data.vendorName} updated ${refId}`,
+            html: `
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
+                    <div style="text-align:center;padding:24px 0;">
+                        <div style="width:48px;height:48px;background:#dcfce7;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">🔔</div>
+                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">Vendor Order Update</h1>
+                        <p style="margin:0;color:#6b7280;font-size:14px;">${data.vendorName} updated ${refId}</p>
+                    </div>
+                    <div style="background:#f9fafb;border-radius:8px;padding:16px;">
+                        <p style="margin:0;font-size:14px;color:#111827;"><strong>Customer:</strong> ${data.customerName}</p>
+                        <p style="margin:4px 0;font-size:14px;color:#111827;"><strong>Items:</strong> ${itemsSummary}</p>
+                        <p style="margin:4px 0;font-size:14px;color:#111827;"><strong>Status:</strong> ${data.newStatus}</p>
+                        <p style="margin:4px 0;font-size:14px;color:#111827;"><strong>Payment:</strong> ${data.newPaymentStatus}</p>
+                    </div>
+                    <p style="margin-top:24px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
+                </div>`,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send vendor order status update:', error);
+        return { success: false, error };
+    }
+}
+
+/**
+ * Notify the customer when a vendor updates their order (e.g., payment collected, shipped).
+ */
+export async function sendVendorOrderCustomerUpdate(data: {
+    orderId: string;
+    vendorName: string;
+    customerName: string;
+    customerEmail: string;
+    items: Array<{ name: string; price_cents: number; qty: number }>;
+    status: string;
+    paymentStatus: string;
+    siteName?: string;
+}) {
+    try {
+        const refId = `ORDER-${data.orderId.slice(0, 8).toUpperCase()}`;
+        const itemsSummary = data.items.map(i => `${i.qty}x ${i.name}`).join(', ');
+
+        const statusMessage = data.paymentStatus === 'paid'
+            ? 'Payment has been received and your order is being processed.'
+            : data.status === 'shipped'
+                ? 'Your order has been shipped!'
+                : data.status === 'completed'
+                    ? 'Your order has been completed.'
+                    : `Your order status has been updated to: ${data.status}`;
+
+        await resend.emails.send({
+            from: `${data.siteName || 'Keystone Web Design'} <orders@keystoneweb.ca>`,
+            to: data.customerEmail,
+            subject: `Order Update — ${refId}`,
+            html: `
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
+                    <div style="text-align:center;padding:24px 0;">
+                        <div style="width:48px;height:48px;background:#dcfce7;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">✅</div>
+                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">Order Update</h1>
+                        <p style="margin:0;color:#6b7280;font-size:14px;">${refId}</p>
+                    </div>
+                    <div style="background:#dcfce7;border-radius:8px;padding:14px;margin-bottom:16px;">
+                        <p style="margin:0;color:#166534;font-size:14px;text-align:center;">${statusMessage}</p>
+                    </div>
+                    <div style="background:#f9fafb;border-radius:8px;padding:16px;">
+                        <p style="margin:0;font-size:14px;color:#111827;"><strong>Items:</strong> ${itemsSummary}</p>
+                        <p style="margin:4px 0;font-size:13px;color:#6b7280;">Fulfilled by: ${data.vendorName}</p>
+                    </div>
+                    <p style="margin-top:16px;font-size:12px;color:#9ca3af;text-align:center;">Ref: ${refId}</p>
+                    <p style="margin-top:8px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
+                </div>`,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send vendor order customer update:', error);
+        return { success: false, error };
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Support Request Emails
 // ═══════════════════════════════════════════════════════════════════════════════
 

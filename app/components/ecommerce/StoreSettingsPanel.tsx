@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import {
     Settings, CreditCard, Mail, Loader2, Check, ExternalLink,
     AlertCircle, ChevronDown, ChevronRight, DollarSign, Link2,
-    Download, Package, X
+    Download, Package, X, Plus, Trash2, Users, Copy
 } from 'lucide-react';
+import VendorEditor, { Vendor, PaymentMode } from './VendorEditor';
 
 interface EcommerceSettings {
     site_id: string;
@@ -42,15 +43,34 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
     const [syncResult, setSyncResult] = useState<{ imported: number; skipped: number } | null>(null);
     const [checkingProducts, setCheckingProducts] = useState(false);
 
+    // Vendor management state
+    const [vendors, setVendors] = useState<Vendor[]>([]);
+    const [vendorsLoading, setVendorsLoading] = useState(false);
+    const [showAddVendor, setShowAddVendor] = useState(false);
+    const [newVendorName, setNewVendorName] = useState('');
+    const [newVendorEmail, setNewVendorEmail] = useState('');
+    const [newVendorPaymentMode, setNewVendorPaymentMode] = useState<PaymentMode>('external');
+    const [newVendorIsDefault, setNewVendorIsDefault] = useState(false);
+    const [savingVendor, setSavingVendor] = useState(false);
+    const [vendorPortalTokens, setVendorPortalTokens] = useState<Record<string, string>>({});
+    const [copiedToken, setCopiedToken] = useState<string | null>(null);
+    const [connectingVendorStripe, setConnectingVendorStripe] = useState<string | null>(null);
+
     useEffect(() => {
         (async () => {
             try {
-                const res = await fetch(`/api/products/settings?siteId=${siteId}`);
-                const data = await res.json();
-                if (data.settings) {
-                    setSettings(data.settings);
+                const [settingsRes, vendorsRes] = await Promise.all([
+                    fetch(`/api/products/settings?siteId=${siteId}`),
+                    fetch(`/api/vendors?siteId=${siteId}`),
+                ]);
+                const settingsData = await settingsRes.json();
+                if (settingsData.settings) {
+                    setSettings(settingsData.settings);
                 }
-                setStripeConnected(data.stripeConnected || false);
+                setStripeConnected(settingsData.stripeConnected || false);
+
+                const vendorsData = await vendorsRes.json();
+                setVendors(vendorsData.vendors || []);
             } catch (err) {
                 console.error('Failed to load ecommerce settings:', err);
             } finally {
@@ -58,6 +78,112 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
             }
         })();
     }, [siteId]);
+
+    const loadVendors = async () => {
+        const res = await fetch(`/api/vendors?siteId=${siteId}`);
+        const data = await res.json();
+        setVendors(data.vendors || []);
+    };
+
+    const handleAddVendor = async () => {
+        if (!newVendorName.trim() || !newVendorEmail.trim()) return;
+        setSavingVendor(true);
+        try {
+            const res = await fetch('/api/vendors', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    siteId,
+                    name: newVendorName,
+                    contactEmail: newVendorEmail,
+                    paymentMode: newVendorPaymentMode,
+                    isDefault: newVendorIsDefault,
+                }),
+            });
+            const data = await res.json();
+            if (data.vendor) {
+                await loadVendors();
+                if (data.portalToken) {
+                    setVendorPortalTokens(prev => ({ ...prev, [data.vendor.id]: data.portalToken }));
+                }
+                setNewVendorName('');
+                setNewVendorEmail('');
+                setNewVendorPaymentMode('external');
+                setNewVendorIsDefault(false);
+                setShowAddVendor(false);
+            }
+        } catch (err) {
+            console.error('Failed to add vendor:', err);
+        } finally {
+            setSavingVendor(false);
+        }
+    };
+
+    const handleUpdateVendor = async (vendorId: string, updates: any) => {
+        const payload: any = { id: vendorId };
+        // Map camelCase/snake_case to the API format
+        if (updates.name !== undefined) payload.name = updates.name;
+        if (updates.contact_email !== undefined) payload.contactEmail = updates.contact_email;
+        if (updates.payment_mode !== undefined) payload.paymentMode = updates.payment_mode;
+        if (updates.is_default !== undefined) payload.isDefault = updates.is_default;
+        if (updates.cc_notification_emails !== undefined) payload.ccNotificationEmails = updates.cc_notification_emails;
+        if (updates.converge_merchant_id !== undefined) payload.convergeMerchantId = updates.converge_merchant_id;
+        if (updates.converge_user_id !== undefined) payload.convergeUserId = updates.converge_user_id;
+        if (updates.convergePin !== undefined) payload.convergePin = updates.convergePin;
+        if (updates.converge_demo_mode !== undefined) payload.convergeDemoMode = updates.converge_demo_mode;
+        if (updates.clover_merchant_id !== undefined) payload.cloverMerchantId = updates.clover_merchant_id;
+        if (updates.clover_public_key !== undefined) payload.cloverPublicKey = updates.clover_public_key;
+        if (updates.cloverPrivateToken !== undefined) payload.cloverPrivateToken = updates.cloverPrivateToken;
+        if (updates.cloverWebhookSecret !== undefined) payload.cloverWebhookSecret = updates.cloverWebhookSecret;
+        if (updates.clover_sandbox_mode !== undefined) payload.cloverSandboxMode = updates.clover_sandbox_mode;
+
+        await fetch('/api/vendors', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        await loadVendors();
+    };
+
+    const handleDeleteVendor = async (vendorId: string) => {
+        try {
+            await fetch(`/api/vendors?id=${vendorId}`, { method: 'DELETE' });
+            setVendors(vendors.filter(v => v.id !== vendorId));
+        } catch (err) {
+            console.error('Failed to delete vendor:', err);
+        }
+    };
+
+    const handleConnectVendorStripe = async (vendorId: string) => {
+        setConnectingVendorStripe(vendorId);
+        try {
+            const res = await fetch('/api/vendors/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    vendorId,
+                    returnUrl: window.location.href,
+                }),
+            });
+            const data = await res.json();
+            if (data.url) {
+                window.open(data.url, '_blank');
+            }
+        } catch (err) {
+            console.error('Failed to initiate vendor Stripe Connect:', err);
+        } finally {
+            setConnectingVendorStripe(null);
+        }
+    };
+
+    const copyPortalLink = async (vendorId: string) => {
+        const token = vendorPortalTokens[vendorId];
+        if (!token) return;
+        const url = `${window.location.origin}/vendor-portal?token=${token}`;
+        await navigator.clipboard.writeText(url);
+        setCopiedToken(vendorId);
+        setTimeout(() => setCopiedToken(null), 2000);
+    };
 
     const handleSave = async () => {
         setSaving(true);
@@ -440,6 +566,120 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                             )}
                         </div>
                     )}
+
+                    {/* Vendors / Suppliers */}
+                    <div>
+                        <label className="text-sm font-semibold text-slate-700 block mb-2 flex items-center gap-1.5">
+                            <Users className="w-4 h-4 text-indigo-600" />
+                            Vendors / Fulfillment Sources
+                        </label>
+                        <p className="text-xs text-slate-400 mb-3">
+                            Vendors fulfill products on your behalf. Each vendor can process payment through Stripe, Converge, Clover, or handle it externally. Mark one as "default" to use for any product without a specific vendor.
+                        </p>
+
+                        {/* Existing vendors */}
+                        {vendors.length > 0 && (
+                            <div className="space-y-2 mb-3">
+                                {vendors.map(vendor => (
+                                    <VendorEditor
+                                        key={vendor.id}
+                                        vendor={vendor}
+                                        portalToken={vendorPortalTokens[vendor.id]}
+                                        connecting={connectingVendorStripe === vendor.id}
+                                        copied={copiedToken === vendor.id}
+                                        onSave={async (updates) => handleUpdateVendor(vendor.id, updates)}
+                                        onDelete={() => handleDeleteVendor(vendor.id)}
+                                        onConnectStripe={() => handleConnectVendorStripe(vendor.id)}
+                                        onCopyPortal={() => copyPortalLink(vendor.id)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Add vendor form */}
+                        {showAddVendor ? (
+                            <div className="border border-indigo-200 bg-indigo-50/30 rounded-lg p-3 space-y-2">
+                                <input
+                                    type="text"
+                                    placeholder="Vendor name (e.g. Robbie's Medical Supply)"
+                                    value={newVendorName}
+                                    onChange={e => setNewVendorName(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                />
+                                <input
+                                    type="email"
+                                    placeholder="Primary contact email"
+                                    value={newVendorEmail}
+                                    onChange={e => setNewVendorEmail(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                />
+                                <div>
+                                    <label className="text-xs font-medium text-slate-600 block mb-1">Payment Mode</label>
+                                    <div className="grid grid-cols-2 gap-1.5">
+                                        {(['external', 'stripe', 'converge', 'clover'] as PaymentMode[]).map(mode => {
+                                            const labels: Record<PaymentMode, { title: string; desc: string }> = {
+                                                external: { title: 'External', desc: 'Vendor handles payment' },
+                                                stripe:   { title: 'Stripe', desc: "Vendor's Stripe account" },
+                                                converge: { title: 'Converge', desc: "Vendor's Elavon account" },
+                                                clover:   { title: 'Clover', desc: "Vendor's Clover account" },
+                                            };
+                                            const info = labels[mode];
+                                            const selected = newVendorPaymentMode === mode;
+                                            return (
+                                                <button
+                                                    key={mode}
+                                                    onClick={() => setNewVendorPaymentMode(mode)}
+                                                    className={`px-3 py-2 text-xs font-medium rounded-lg border-2 transition-colors text-left ${
+                                                        selected
+                                                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                                                            : 'border-slate-200 text-slate-600 hover:border-slate-300 bg-white'
+                                                    }`}
+                                                >
+                                                    {info.title}
+                                                    <p className="text-[10px] text-slate-400 mt-0.5 font-normal">{info.desc}</p>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                                <label className="flex items-center gap-2 text-xs text-slate-600">
+                                    <input
+                                        type="checkbox"
+                                        checked={newVendorIsDefault}
+                                        onChange={e => setNewVendorIsDefault(e.target.checked)}
+                                        className="rounded"
+                                    />
+                                    Set as default fulfiller (used for products without a specific vendor)
+                                </label>
+                                <p className="text-[11px] text-slate-500 italic">
+                                    After saving, click "Edit" on the vendor to add payment credentials, CC emails, etc.
+                                </p>
+                                <div className="flex gap-2 pt-1">
+                                    <button
+                                        onClick={handleAddVendor}
+                                        disabled={savingVendor || !newVendorName.trim() || !newVendorEmail.trim()}
+                                        className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg disabled:opacity-50 flex items-center justify-center gap-1"
+                                    >
+                                        {savingVendor ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                                        Add Vendor
+                                    </button>
+                                    <button
+                                        onClick={() => setShowAddVendor(false)}
+                                        className="px-4 py-2 text-sm text-slate-500 hover:text-slate-700"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => setShowAddVendor(true)}
+                                className="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+                            >
+                                <Plus className="w-3.5 h-3.5" /> Add vendor
+                            </button>
+                        )}
+                    </div>
 
                     {/* Save */}
                     <button
