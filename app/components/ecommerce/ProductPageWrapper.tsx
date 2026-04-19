@@ -22,6 +22,11 @@ interface Product {
     is_active: boolean;
     category?: string | null;
     tags?: string[];
+    effective_price_cents?: number;
+    public_price_cents?: number;
+    matched_package_id?: string | null;
+    can_purchase?: boolean;
+    gate_reason?: 'guest' | 'wrong-tier' | null;
 }
 
 interface Props {
