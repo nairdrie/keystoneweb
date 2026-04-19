@@ -60,6 +60,16 @@ jobs:
             sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17 rclone
+          # Ubuntu ships pg_dump 16 on the default PATH; put 17 ahead so the
+          # dump/restore steps actually use it.
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Verify pg client version
+        run: |
+          which pg_dump
+          pg_dump --version
+          which psql
+          psql --version
 
       - name: Dump prod
         run: |
