@@ -86,6 +86,13 @@ jobs:
             --no-owner \
             --file=public.sql
 
+          # Strip ALTER DEFAULT PRIVILEGES — these require membership in the
+          # target role (e.g. supabase_admin), which the pooler user lacks.
+          # They only affect privileges of FUTURE objects in public, and since
+          # we wipe-and-reload the schema nightly, all actual tables get their
+          # grants directly from the dump's GRANT statements above.
+          sed -i '/^ALTER DEFAULT PRIVILEGES/d' public.sql
+
           # auth: data only. We can't use --disable-triggers here because the
           # pooler user doesn't own auth.users (it's supabase_auth_admin's).
           # That's OK — we dropped public schema first, which cascade-dropped
