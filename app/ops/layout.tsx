@@ -59,6 +59,16 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
     .select('id', { count: 'exact', head: true })
     .is('reviewed_at', null);
 
+  // Fetch new launch request count (admin-only nav item)
+  let newLaunchCount = 0;
+  if (isAdmin) {
+    const { count: launchNew } = await db
+      .from('launch_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'new');
+    newLaunchCount = launchNew ?? 0;
+  }
+
   return (
     <html lang="en">
       <body className="antialiased">
@@ -68,6 +78,7 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
             openSupportCount={count ?? 0}
             isAdmin={isAdmin}
             pendingModerationCount={moderationCount ?? 0}
+            newLaunchCount={newLaunchCount}
           />
 
           <main className="w-full px-4 py-8 sm:px-6 lg:px-8">

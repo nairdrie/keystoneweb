@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
+import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Check, Loader2, ChevronDown, ArrowRight } from 'lucide-react';
+import { Check, Loader2, ChevronDown, ArrowRight, Sparkles } from 'lucide-react';
 import Header from '../../components/Header';
 import MarketingFooter from '@/app/components/MarketingFooter';
 
@@ -418,7 +419,7 @@ function PricingContent() {
           </button>
         </motion.div>
 
-        {/* Custom / Enterprise Panel */}
+        {/* Launch Service Panel (done-for-you setup) */}
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -426,38 +427,64 @@ function PricingContent() {
           className="bg-white rounded-3xl p-8 border-2 border-dashed border-slate-200 relative flex flex-col"
         >
           <div>
-            <h3 className="text-2xl font-bold text-slate-900 mb-1">Custom</h3>
-            <p className="text-slate-500 mb-6">Need more? Let&apos;s build something together.</p>
-            <div className="mb-8">
-              <span className="text-3xl font-black text-slate-900">Let&apos;s talk</span>
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-50 px-2 py-0.5 rounded-full mb-3">
+              <Sparkles className="w-3 h-3" /> For non-technical owners
+            </span>
+            <h3 className="text-2xl font-bold text-slate-900 mb-1">Launch Service</h3>
+            <p className="text-slate-500 mb-6">We build your site. You approve. Then you pay.</p>
+            <div className="mb-2">
+              <div className="flex items-end gap-2 flex-wrap">
+                <span className="text-4xl font-black text-slate-900">From $299</span>
+                <span className="text-slate-500 font-medium pb-1">one-time</span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1 leading-snug">
+                + Basic or Pro subscription. Final price depends on scope — quoted after a free intake call.
+              </p>
             </div>
 
-            <ul className="space-y-3 mb-8">
+            <ul className="space-y-3 mt-6 mb-8">
               {[
-                'More than 5 published sites',
-                'Multiple custom domains',
-                'Dedicated priority support',
-                'Custom integrations',
-                'Volume pricing',
-                'White-label options',
+                '45-min discovery call',
+                'Up to 5 pages, built to your brand',
+                'Domain, contact form, Google Maps setup',
+                'Preview before you pay',
+                '14 days of post-launch tweaks included',
               ].map((feature) => (
                 <li key={feature} className="flex items-start gap-3 text-slate-700 text-sm">
-                  <Check className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                  <Check className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
                   {feature}
                 </li>
               ))}
             </ul>
           </div>
 
-          <a
-            href="/contact"
+          <Link
+            href="/setup"
             className="mt-auto flex items-center justify-center gap-2 w-full py-4 px-6 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-center transition-colors"
           >
-            Contact Us
+            Book a free intake call
             <ArrowRight className="w-4 h-4" />
-          </a>
+          </Link>
         </motion.div>
       </div>
+
+      {/* Agency / multi-site strip */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.5 }}
+        className="max-w-5xl mx-auto mt-10 px-6 py-5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+      >
+        <p className="text-sm text-slate-600">
+          Running multiple sites, an agency, or need white-label?
+        </p>
+        <Link
+          href="/contact"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-900 hover:text-red-600 transition-colors"
+        >
+          Contact our team <ArrowRight className="w-4 h-4" />
+        </Link>
+      </motion.div>
 
       {/* Fine print */}
       <div className="max-w-5xl mx-auto mt-6 px-2">
@@ -479,6 +506,16 @@ function PricingContent() {
 
         <div className="space-y-3">
           {[
+            {
+              id: 'build-for-me',
+              q: 'Can you build my site for me?',
+              a: 'Yes — that\'s our Launch Service. We meet for a 45-minute call to capture your business, build your site in about a week, and share a private preview link. You only pay the one-time setup fee plus your subscription after you approve the draft. Starting at $299 depending on scope. Head to /setup to tell us about your business.',
+            },
+            {
+              id: 'complex-project',
+              q: 'What if my project is more complex?',
+              a: 'Multi-location businesses, online stores with real inventory, custom integrations, brand-new copywriting, or brand identity work all push beyond the standard Launch scope. On the intake call we\'ll talk through what you need and give you a tailored setup quote. Your subscription pricing (Basic or Pro) doesn\'t change — only the one-time build fee does.',
+            },
             {
               id: 'fair-use',
               q: 'What happens if I go over my visitor limit?',
