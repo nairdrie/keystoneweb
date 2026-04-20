@@ -434,7 +434,7 @@ function PricingContent() {
             <p className="text-slate-500 mb-6">We build your site. You approve. Then you pay.</p>
             <div className="mb-2">
               <div className="flex items-end gap-2 flex-wrap">
-                <span className="text-4xl font-black text-slate-900">From $299</span>
+                <span className="text-4xl font-black text-slate-900">From $399</span>
                 <span className="text-slate-500 font-medium pb-1">one-time</span>
               </div>
               <p className="text-xs text-slate-400 mt-1 leading-snug">
@@ -509,7 +509,7 @@ function PricingContent() {
             {
               id: 'build-for-me',
               q: 'Can you build my site for me?',
-              a: 'Yes — that\'s our Launch Service. We meet for a 45-minute call to capture your business, build your site in about a week, and share a private preview link. You only pay the one-time setup fee plus your subscription after you approve the draft. Starting at $299 depending on scope. Head to /setup to tell us about your business.',
+              a: 'Yes — that\'s our Launch Service. We meet for a 45-minute call to capture your business, build your site in about a week, and share a private preview link. You only pay the one-time setup fee plus your subscription after you approve the draft. Starting at $399 depending on scope. Head to /setup to tell us about your business.',
             },
             {
               id: 'complex-project',
