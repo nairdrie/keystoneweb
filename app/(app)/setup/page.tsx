@@ -7,7 +7,7 @@ import { Check, Eye, Handshake, Rocket } from 'lucide-react';
 export const metadata: Metadata = {
   title: 'Launch Service — We build your site for you | Keystone',
   description:
-    'Done-for-you Keystone website setup. Tell us about your business, we build it, you preview, then pay. Starting at $299.',
+    'Done-for-you Keystone website setup. Tell us about your business, we build it, you preview, then pay. Starting at $399.',
 };
 
 const INCLUDED = [
@@ -51,7 +51,7 @@ export default function LaunchServicePage() {
             build your site, and you&apos;ll see it before any money changes hands.
           </p>
           <p className="mt-6 text-sm text-slate-500">
-            Starting at <span className="font-bold text-slate-900">$299 one-time</span>{' '}
+            Starting at <span className="font-bold text-slate-900">$399 one-time</span>{' '}
             + your Basic or Pro subscription. Final price depends on scope —
             quoted on the intake call.
           </p>
