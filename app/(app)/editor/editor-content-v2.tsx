@@ -1276,19 +1276,27 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
             }}
           >
             <div className="w-full">
-              {previewProductId ? (
-                <PreviewProductPage
-                  productId={previewProductId}
-                  siteId={siteId!}
-                  palette={paletteData}
-                  siteName={siteTitle}
-                />
-              ) : templateComponent ? (
-                createElement(templateComponent, {
-                  palette: paletteData,
-                  isEditMode: editMode,
-                })
-              ) : null}
+              {templateComponent
+                ? createElement(
+                    templateComponent,
+                    { palette: paletteData, isEditMode: editMode },
+                    previewProductId ? (
+                      <PreviewProductPage
+                        productId={previewProductId}
+                        siteId={siteId!}
+                        palette={paletteData}
+                        siteName={siteTitle}
+                      />
+                    ) : undefined
+                  )
+                : previewProductId ? (
+                  <PreviewProductPage
+                    productId={previewProductId}
+                    siteId={siteId!}
+                    palette={paletteData}
+                    siteName={siteTitle}
+                  />
+                ) : null}
             </div>
           </EditorProvider>
           </MemberProvider>

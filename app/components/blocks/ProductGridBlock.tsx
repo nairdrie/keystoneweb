@@ -6,7 +6,7 @@ import { useCart } from '../ecommerce/CartProvider';
 import {
     Package, Plus, Trash2, Loader2, ShoppingCart, X,
     ImageIcon, Upload, Send, Search,
-    ChevronLeft, ChevronRight, Tag,
+    ChevronLeft, ChevronRight, Tag, Pencil,
 } from 'lucide-react';
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
 import { useRouter, usePathname } from 'next/navigation';
@@ -71,7 +71,7 @@ export default function ProductGridBlock({ id, data, isEditMode, palette, update
         );
     }
 
-    return <ProductGrid siteId={siteId} palette={palette} />;
+    return <ProductGrid siteId={siteId} palette={palette} data={data} />;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -83,9 +83,11 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
     const [categories, setCategories] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAdd, setShowAdd] = useState(false);
+    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [publishing, setPublishing] = useState(false);
     const [showDraftModal, setShowDraftModal] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
+    const formRef = useRef<HTMLDivElement>(null);
 
     // Search, filter & pagination
     const [searchQuery, setSearchQuery] = useState('');
@@ -338,6 +340,17 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                                 <button onClick={() => handleToggle(product)} className="text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600 shrink-0">
                                     {product.is_active ? 'Hide' : 'Show'}
                                 </button>
+                                <button
+                                    onClick={() => {
+                                        setShowAdd(false);
+                                        setEditingProduct(product);
+                                        requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+                                    }}
+                                    className="p-1 hover:bg-blue-50 rounded text-slate-500 hover:text-blue-600 shrink-0"
+                                    title="Edit product"
+                                >
+                                    <Pencil className="w-4 h-4" />
+                                </button>
                                 <button onClick={() => handleDelete(product.id)} className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600 shrink-0">
                                     <Trash2 className="w-4 h-4" />
                                 </button>
@@ -369,20 +382,29 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                             </div>
                         )}
 
-                        {!showAdd ? (
-                            <button
-                                onClick={() => setShowAdd(true)}
-                                className="w-full py-3 border-2 border-dashed border-blue-300 rounded-lg text-blue-600 font-bold text-sm hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
-                            >
-                                <Plus className="w-4 h-4" /> Add Product
-                            </button>
-                        ) : (
-                            <AddProductForm
-                                siteId={siteId}
-                                onAdded={product => { fetchProducts(currentPage, searchQuery, filterCategory, filterStatus); setShowAdd(false); }}
-                                onCancel={() => setShowAdd(false)}
-                            />
-                        )}
+                        <div ref={formRef}>
+                            {editingProduct ? (
+                                <ProductForm
+                                    siteId={siteId}
+                                    product={editingProduct}
+                                    onSaved={() => { fetchProducts(currentPage, searchQuery, filterCategory, filterStatus); setEditingProduct(null); }}
+                                    onCancel={() => setEditingProduct(null)}
+                                />
+                            ) : !showAdd ? (
+                                <button
+                                    onClick={() => setShowAdd(true)}
+                                    className="w-full py-3 border-2 border-dashed border-blue-300 rounded-lg text-blue-600 font-bold text-sm hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <Plus className="w-4 h-4" /> Add Product
+                                </button>
+                            ) : (
+                                <ProductForm
+                                    siteId={siteId}
+                                    onSaved={() => { fetchProducts(currentPage, searchQuery, filterCategory, filterStatus); setShowAdd(false); }}
+                                    onCancel={() => setShowAdd(false)}
+                                />
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -409,20 +431,24 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
     );
 }
 
-// ─── Add Product Form (with image upload + variants) ────────────────────────────
+// ─── Product Form (add + edit, with image upload + variants) ───────────────────
 
-function AddProductForm({ siteId, onAdded, onCancel }: {
+function ProductForm({ siteId, product, onSaved, onCancel }: {
     siteId: string;
-    onAdded: (p: Product) => void;
+    product?: Product;
+    onSaved: (p: Product) => void;
     onCancel: () => void;
 }) {
-    const [name, setName] = useState('');
-    const [description, setDescription] = useState('');
-    const [price, setPrice] = useState('');
-    const [compareAt, setCompareAt] = useState('');
-    const [images, setImages] = useState<string[]>([]);
-    const [inventory, setInventory] = useState('-1');
-    const [variants, setVariants] = useState<Array<{ name: string; options: string }>>([]);
+    const isEdit = !!product;
+    const [name, setName] = useState(product?.name ?? '');
+    const [description, setDescription] = useState(product?.description ?? '');
+    const [price, setPrice] = useState(product ? (product.price_cents / 100).toFixed(2) : '');
+    const [compareAt, setCompareAt] = useState(product?.compare_at_cents ? (product.compare_at_cents / 100).toFixed(2) : '');
+    const [images, setImages] = useState<string[]>(product?.images ?? []);
+    const [inventory, setInventory] = useState(product ? String(product.inventory_count) : '-1');
+    const [variants, setVariants] = useState<Array<{ name: string; options: string }>>(
+        product?.variants?.map(v => ({ name: v.name, options: (v.options ?? []).join(', ') })) ?? []
+    );
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
@@ -487,30 +513,31 @@ function AddProductForm({ siteId, onAdded, onCancel }: {
                 options: v.options.split(',').map(o => o.trim()).filter(Boolean),
             }));
 
+        const payload = {
+            name,
+            description: description || null,
+            price_cents: Math.round(parseFloat(price) * 100),
+            compare_at_cents: compareAt ? Math.round(parseFloat(compareAt) * 100) : null,
+            images,
+            variants: structuredVariants,
+            inventory_count: parseInt(inventory),
+        };
+
         const res = await fetch('/api/products', {
-            method: 'POST',
+            method: isEdit ? 'PUT' : 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                siteId,
-                name,
-                description: description || null,
-                price_cents: Math.round(parseFloat(price) * 100),
-                compare_at_cents: compareAt ? Math.round(parseFloat(compareAt) * 100) : null,
-                images,
-                variants: structuredVariants,
-                inventory_count: parseInt(inventory),
-            }),
+            body: JSON.stringify(isEdit ? { id: product!.id, ...payload } : { siteId, ...payload }),
         });
 
         const data = await res.json();
-        if (data.product) onAdded(data.product);
+        if (data.product) onSaved(data.product);
         setSaving(false);
     };
 
     return (
         <div className="border-2 border-blue-200 bg-blue-50/30 rounded-xl p-5 space-y-4">
             <div className="flex items-center justify-between">
-                <h4 className="text-sm font-bold text-slate-800">Add Product</h4>
+                <h4 className="text-sm font-bold text-slate-800">{isEdit ? 'Edit Product' : 'Add Product'}</h4>
                 <button onClick={onCancel} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>
             </div>
 
@@ -630,8 +657,8 @@ function AddProductForm({ siteId, onAdded, onCancel }: {
                 disabled={saving || !name.trim() || !price}
                 className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
             >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                Add Product
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEdit ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />)}
+                {isEdit ? 'Save Changes' : 'Add Product'}
             </button>
         </div>
     );
@@ -641,14 +668,17 @@ function AddProductForm({ siteId, onAdded, onCancel }: {
 // CUSTOMER: Product Grid (links to product pages)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function ProductGrid({ siteId, palette }: { siteId: string; palette: Record<string, string> }) {
+function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Record<string, string>; data?: any }) {
     const [products, setProducts] = useState<Product[]>([]);
+    const [categories, setCategories] = useState<string[]>([]);
+    const [activeCategory, setActiveCategory] = useState<string>('');
     const [loading, setLoading] = useState(true);
     const cart = useCart();
     const router = useRouter();
     const pathname = usePathname();
     const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
+    const variant: 'grid' | 'gridWithSidebar' | 'list' = data?.variant || 'grid';
     const pSecondary = palette.secondary || '#dc2626';
 
     useEffect(() => {
@@ -658,6 +688,7 @@ function ProductGrid({ siteId, palette }: { siteId: string; palette: Record<stri
                 if (!res.ok) throw new Error('Failed to fetch');
                 const data = await res.json();
                 setProducts((data.products || []).filter((p: Product) => p.is_active));
+                setCategories(data.categories || []);
             } catch (err) {
                 console.error(err);
             } finally {
@@ -701,78 +732,180 @@ function ProductGrid({ siteId, palette }: { siteId: string; palette: Record<stri
         });
     };
 
+    const handleProductNav = (e: React.MouseEvent, product: Product) => {
+        if (isEditor) {
+            e.preventDefault();
+            const url = new URL(window.location.href);
+            url.searchParams.set('productId', product.id);
+            router.push(url.pathname + url.search, { scroll: true });
+        }
+    };
+
+    const productHref = (product: Product) => isEditor ? '#' : `/product/${product.id}`;
+
+    const visibleProducts = activeCategory
+        ? products.filter(p => (p.category || '').toLowerCase() === activeCategory.toLowerCase())
+        : products;
+
+    const renderCard = (product: Product) => {
+        const hasDiscount = !!product.compare_at_cents && product.compare_at_cents > product.price_cents;
+        const outOfStock = product.inventory_count === 0;
+        return (
+            <a
+                key={product.id}
+                href={productHref(product)}
+                onClick={(e) => handleProductNav(e, product)}
+                className="group rounded-xl border border-slate-200 overflow-hidden hover:shadow-xl transition-all hover:border-slate-300 bg-white"
+            >
+                <div className="aspect-square bg-slate-50 relative overflow-hidden">
+                    {product.images?.[0] ? (
+                        <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                            <Package className="w-12 h-12 text-slate-200" />
+                        </div>
+                    )}
+                    {hasDiscount && (
+                        <span className="absolute top-2.5 left-2.5 px-2.5 py-1 text-xs font-bold text-white rounded-lg shadow-md" style={{ backgroundColor: pSecondary }}>
+                            SALE
+                        </span>
+                    )}
+                    {outOfStock && (
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                            <span className="text-white font-bold text-sm tracking-wide">SOLD OUT</span>
+                        </div>
+                    )}
+                    {!outOfStock && (
+                        <button
+                            onClick={(e) => handleQuickAdd(e, product)}
+                            className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
+                            style={{ color: pSecondary }}
+                        >
+                            <ShoppingCart className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
+                <div className="p-3.5">
+                    <h3 className="font-semibold text-slate-900 text-sm truncate group-hover:text-blue-700 transition-colors">{product.name}</h3>
+                    {product.description && (
+                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{product.description}</p>
+                    )}
+                    <div className="flex items-center gap-2 mt-2">
+                        <span className="font-bold text-base" style={{ color: pSecondary }}>${(product.price_cents / 100).toFixed(2)}</span>
+                        {hasDiscount && (
+                            <span className="text-xs text-slate-400 line-through">${(product.compare_at_cents! / 100).toFixed(2)}</span>
+                        )}
+                    </div>
+                </div>
+            </a>
+        );
+    };
+
+    const renderListRow = (product: Product) => {
+        const hasDiscount = !!product.compare_at_cents && product.compare_at_cents > product.price_cents;
+        const outOfStock = product.inventory_count === 0;
+        return (
+            <a
+                key={product.id}
+                href={productHref(product)}
+                onClick={(e) => handleProductNav(e, product)}
+                className="group flex items-center gap-4 sm:gap-6 p-4 rounded-xl border border-slate-200 hover:shadow-lg transition-all hover:border-slate-300 bg-white"
+            >
+                <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-lg bg-slate-50 relative overflow-hidden flex-shrink-0">
+                    {product.images?.[0] ? (
+                        <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                            <Package className="w-8 h-8 text-slate-200" />
+                        </div>
+                    )}
+                    {outOfStock && (
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                            <span className="text-white font-bold text-[10px] tracking-wide">SOLD OUT</span>
+                        </div>
+                    )}
+                </div>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-slate-900 text-base sm:text-lg group-hover:text-blue-700 transition-colors">{product.name}</h3>
+                        {hasDiscount && (
+                            <span className="px-2 py-0.5 text-[10px] font-bold text-white rounded" style={{ backgroundColor: pSecondary }}>SALE</span>
+                        )}
+                    </div>
+                    {product.description && (
+                        <p className="text-sm text-slate-500 mt-1 line-clamp-2">{product.description}</p>
+                    )}
+                    <div className="flex items-center gap-3 mt-2">
+                        <span className="font-bold text-lg" style={{ color: pSecondary }}>${(product.price_cents / 100).toFixed(2)}</span>
+                        {hasDiscount && (
+                            <span className="text-sm text-slate-400 line-through">${(product.compare_at_cents! / 100).toFixed(2)}</span>
+                        )}
+                    </div>
+                </div>
+                {!outOfStock && (
+                    <button
+                        onClick={(e) => handleQuickAdd(e, product)}
+                        className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold shadow-md hover:shadow-lg transition-all flex-shrink-0"
+                        style={{ backgroundColor: pSecondary }}
+                    >
+                        <ShoppingCart className="w-4 h-4" /> Add
+                    </button>
+                )}
+            </a>
+        );
+    };
+
+    if (variant === 'list') {
+        return (
+            <section className="py-16 px-4" id="products">
+                <div className="max-w-5xl mx-auto space-y-4">
+                    {visibleProducts.map(renderListRow)}
+                </div>
+            </section>
+        );
+    }
+
+    if (variant === 'gridWithSidebar') {
+        return (
+            <section className="py-16 px-4" id="products">
+                <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-8">
+                    <aside className="lg:sticky lg:top-24 lg:self-start">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Categories</h4>
+                        <ul className="space-y-1">
+                            <li>
+                                <button
+                                    onClick={() => setActiveCategory('')}
+                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${!activeCategory ? 'bg-slate-900 text-white font-semibold' : 'text-slate-700 hover:bg-slate-100'}`}
+                                >
+                                    All Products
+                                </button>
+                            </li>
+                            {categories.map(cat => (
+                                <li key={cat}>
+                                    <button
+                                        onClick={() => setActiveCategory(cat)}
+                                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${activeCategory === cat ? 'bg-slate-900 text-white font-semibold' : 'text-slate-700 hover:bg-slate-100'}`}
+                                    >
+                                        {cat}
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </aside>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+                        {visibleProducts.map(renderCard)}
+                    </div>
+                </div>
+            </section>
+        );
+    }
+
+    // Default: grid
     return (
         <section className="py-16 px-4" id="products">
             <div className="max-w-7xl mx-auto">
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                    {products.map(product => {
-                        const hasDiscount = product.compare_at_cents && product.compare_at_cents > product.price_cents;
-                        const outOfStock = product.inventory_count === 0;
-
-                        return (
-                            <a
-                                key={product.id}
-                                href={isEditor ? `#` : `/product/${product.id}`}
-                                onClick={(e) => {
-                                    if (isEditor) {
-                                        e.preventDefault();
-                                        const url = new URL(window.location.href);
-                                        url.searchParams.set('productId', product.id);
-                                        router.push(url.pathname + url.search, { scroll: true });
-                                    }
-                                }}
-                                className="group rounded-xl border border-slate-200 overflow-hidden hover:shadow-xl transition-all hover:border-slate-300 bg-white"
-                            >
-                                {/* Image */}
-                                <div className="aspect-square bg-slate-50 relative overflow-hidden">
-                                    {product.images?.[0] ? (
-                                        <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center">
-                                            <Package className="w-12 h-12 text-slate-200" />
-                                        </div>
-                                    )}
-
-                                    {hasDiscount && (
-                                        <span className="absolute top-2.5 left-2.5 px-2.5 py-1 text-xs font-bold text-white rounded-lg shadow-md" style={{ backgroundColor: pSecondary }}>
-                                            SALE
-                                        </span>
-                                    )}
-
-                                    {outOfStock && (
-                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                            <span className="text-white font-bold text-sm tracking-wide">SOLD OUT</span>
-                                        </div>
-                                    )}
-
-                                    {/* Quick add button */}
-                                    {!outOfStock && (
-                                        <button
-                                            onClick={(e) => handleQuickAdd(e, product)}
-                                            className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
-                                            style={{ color: pSecondary }}
-                                        >
-                                            <ShoppingCart className="w-4 h-4" />
-                                        </button>
-                                    )}
-                                </div>
-
-                                {/* Info */}
-                                <div className="p-3.5">
-                                    <h3 className="font-semibold text-slate-900 text-sm truncate group-hover:text-blue-700 transition-colors">{product.name}</h3>
-                                    {product.description && (
-                                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{product.description}</p>
-                                    )}
-                                    <div className="flex items-center gap-2 mt-2">
-                                        <span className="font-bold text-base" style={{ color: pSecondary }}>${(product.price_cents / 100).toFixed(2)}</span>
-                                        {hasDiscount && (
-                                            <span className="text-xs text-slate-400 line-through">${(product.compare_at_cents! / 100).toFixed(2)}</span>
-                                        )}
-                                    </div>
-                                </div>
-                            </a>
-                        );
-                    })}
+                    {visibleProducts.map(renderCard)}
                 </div>
             </div>
         </section>
