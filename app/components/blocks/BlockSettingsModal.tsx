@@ -99,6 +99,11 @@ export default function BlockSettingsModal({
             { id: 'simple', label: 'Inquiry Form' },
             { id: 'calculator', label: 'Estimate Calculator' },
         ],
+        productGrid: [
+            { id: 'grid', label: 'Grid' },
+            { id: 'gridWithSidebar', label: 'Grid + Category Sidebar' },
+            { id: 'list', label: 'List View' },
+        ],
     };
 
     const hasVariantSettings = !!VARIANTS[blockType];
