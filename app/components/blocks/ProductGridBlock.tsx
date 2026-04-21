@@ -10,8 +10,6 @@ import {
 } from 'lucide-react';
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
 import { useRouter, usePathname } from 'next/navigation';
-import StoreSettingsPanel from '../ecommerce/StoreSettingsPanel';
-import OrdersPanel from '../ecommerce/OrdersPanel';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -51,27 +49,63 @@ export default function ProductGridBlock({ id, data, isEditMode, palette, update
     }
 
     if (isEditMode) {
-        return (
-            <div className="py-12 px-6 flex flex-col items-center justify-center text-center gap-4 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
-                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
-                    <ShoppingCart className="w-6 h-6 text-slate-400" />
-                </div>
-                <div>
-                    <div className="font-bold text-slate-800 mb-1">Manage Products in Admin</div>
-                    <div className="text-sm text-slate-500 mb-4">Add, edit, and manage your products and store settings from your Admin Dashboard.</div>
-                    <button
-                        onClick={() => window.open(`/admin/ecommerce?siteId=${siteId}`, '_blank')}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold rounded-lg transition-colors"
-                    >
-                        <Package className="w-4 h-4" />
-                        Manage Products
-                    </button>
-                </div>
-            </div>
-        );
+        return <ProductGridBlockEditMode siteId={siteId} data={data} updateContent={updateContent} />;
     }
 
     return <ProductGrid siteId={siteId} palette={palette} data={data} />;
+}
+
+function ProductGridBlockEditMode({ siteId, data, updateContent }: { siteId: string; data: any; updateContent: (key: string, value: any) => void }) {
+    const [categories, setCategories] = useState<string[]>([]);
+    const categoryFilter: string = data?.categoryFilter || '';
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await fetch(`/api/products?siteId=${siteId}&limit=1`);
+                if (!res.ok) return;
+                const d = await res.json();
+                setCategories(d.categories || []);
+            } catch {}
+        })();
+    }, [siteId]);
+
+    return (
+        <div className="py-12 px-6 flex flex-col items-center justify-center text-center gap-4 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+                <ShoppingCart className="w-6 h-6 text-slate-400" />
+            </div>
+            <div className="w-full max-w-sm">
+                <div className="font-bold text-slate-800 mb-1">Manage Products in Admin</div>
+                <div className="text-sm text-slate-500 mb-4">Add, edit, and manage your products and store settings from your Admin Dashboard.</div>
+
+                <div className="text-left mb-4">
+                    <label className="text-xs font-semibold text-slate-600 mb-1 block">Show category</label>
+                    <select
+                        value={categoryFilter}
+                        onChange={e => updateContent('categoryFilter', e.target.value)}
+                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="">All categories</option>
+                        {categories.map(c => (
+                            <option key={c} value={c}>{c}</option>
+                        ))}
+                    </select>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                        When a specific category is selected, the sidebar is hidden on the live site.
+                    </p>
+                </div>
+
+                <button
+                    onClick={() => window.open(`/admin/ecommerce?siteId=${siteId}`, '_blank')}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold rounded-lg transition-colors"
+                >
+                    <Package className="w-4 h-4" />
+                    Manage Products
+                </button>
+            </div>
+        </div>
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -416,16 +450,6 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                         onImported={handleImported}
                     />
                 )}
-
-                {/* Store Settings */}
-                <div className="mt-4">
-                    <StoreSettingsPanel siteId={siteId} />
-                </div>
-
-                {/* Orders */}
-                <div className="mt-4">
-                    <OrdersPanel siteId={siteId} />
-                </div>
             </div>
         </section>
     );
@@ -668,17 +692,24 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
 // CUSTOMER: Product Grid (links to product pages)
 // ═══════════════════════════════════════════════════════════════════════════════
 
+type SortKey = 'featured' | 'popular' | 'az' | 'za';
+
 function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Record<string, string>; data?: any }) {
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<string[]>([]);
+    const [popularity, setPopularity] = useState<Record<string, number>>({});
     const [activeCategory, setActiveCategory] = useState<string>('');
+    const [sortBy, setSortBy] = useState<SortKey>('featured');
     const [loading, setLoading] = useState(true);
     const cart = useCart();
     const router = useRouter();
     const pathname = usePathname();
     const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
+    const blockCategory: string = data?.categoryFilter || '';
+    const lockedToCategory = !!blockCategory;
     const variant: 'grid' | 'gridWithSidebar' | 'list' = data?.variant || 'grid';
+    const effectiveVariant = lockedToCategory && variant === 'gridWithSidebar' ? 'grid' : variant;
     const pSecondary = palette.secondary || '#dc2626';
 
     useEffect(() => {
@@ -696,6 +727,18 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
             }
         })();
     }, [siteId]);
+
+    useEffect(() => {
+        if (sortBy !== 'popular' || Object.keys(popularity).length > 0) return;
+        (async () => {
+            try {
+                const res = await fetch(`/api/products/popularity?siteId=${siteId}`);
+                if (!res.ok) return;
+                const d = await res.json();
+                setPopularity(d.popularity || {});
+            } catch {}
+        })();
+    }, [sortBy, siteId, popularity]);
 
     if (loading) {
         return <section className="py-16 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-400" /></section>;
@@ -743,9 +786,46 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
 
     const productHref = (product: Product) => isEditor ? '#' : `/product/${product.id}`;
 
-    const visibleProducts = activeCategory
-        ? products.filter(p => (p.category || '').toLowerCase() === activeCategory.toLowerCase())
-        : products;
+    const normalizedBlockCategory = blockCategory.toLowerCase();
+    const normalizedActiveCategory = activeCategory.toLowerCase();
+
+    const filteredProducts = products.filter(p => {
+        const cat = (p.category || '').toLowerCase();
+        if (lockedToCategory && cat !== normalizedBlockCategory) return false;
+        if (!lockedToCategory && normalizedActiveCategory && cat !== normalizedActiveCategory) return false;
+        return true;
+    });
+
+    const visibleProducts = [...filteredProducts].sort((a, b) => {
+        switch (sortBy) {
+            case 'az': return a.name.localeCompare(b.name);
+            case 'za': return b.name.localeCompare(a.name);
+            case 'popular': return (popularity[b.id] || 0) - (popularity[a.id] || 0);
+            case 'featured':
+            default: return (a.sort_order || 0) - (b.sort_order || 0);
+        }
+    });
+
+    const Toolbar = () => (
+        <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+            <p className="text-sm text-slate-500">
+                {visibleProducts.length} {visibleProducts.length === 1 ? 'product' : 'products'}
+            </p>
+            <label className="flex items-center gap-2 text-sm">
+                <span className="text-slate-500">Sort by</span>
+                <select
+                    value={sortBy}
+                    onChange={e => setSortBy(e.target.value as SortKey)}
+                    className="px-3 py-1.5 border border-slate-200 rounded-lg bg-white text-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+                >
+                    <option value="featured">Featured</option>
+                    <option value="popular">Popular</option>
+                    <option value="az">Alphabetical: A–Z</option>
+                    <option value="za">Alphabetical: Z–A</option>
+                </select>
+            </label>
+        </div>
+    );
 
     const renderCard = (product: Product) => {
         const hasDiscount = !!product.compare_at_cents && product.compare_at_cents > product.price_cents;
@@ -855,17 +935,20 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
         );
     };
 
-    if (variant === 'list') {
+    if (effectiveVariant === 'list') {
         return (
             <section className="py-16 px-4" id="products">
-                <div className="max-w-5xl mx-auto space-y-4">
-                    {visibleProducts.map(renderListRow)}
+                <div className="max-w-5xl mx-auto">
+                    <Toolbar />
+                    <div className="space-y-4">
+                        {visibleProducts.map(renderListRow)}
+                    </div>
                 </div>
             </section>
         );
     }
 
-    if (variant === 'gridWithSidebar') {
+    if (effectiveVariant === 'gridWithSidebar') {
         return (
             <section className="py-16 px-4" id="products">
                 <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-8">
@@ -892,8 +975,11 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
                             ))}
                         </ul>
                     </aside>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-                        {visibleProducts.map(renderCard)}
+                    <div>
+                        <Toolbar />
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+                            {visibleProducts.map(renderCard)}
+                        </div>
                     </div>
                 </div>
             </section>
@@ -904,6 +990,7 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
     return (
         <section className="py-16 px-4" id="products">
             <div className="max-w-7xl mx-auto">
+                <Toolbar />
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
                     {visibleProducts.map(renderCard)}
                 </div>
