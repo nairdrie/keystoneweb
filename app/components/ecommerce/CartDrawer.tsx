@@ -16,6 +16,9 @@ interface EcommerceSettings {
     payment_methods: PaymentMethods;
     etransfer_email: string | null;
     shipping_required?: boolean;
+    tax_rate_bps?: number;
+    tax_label?: string | null;
+    tax_enabled?: boolean;
 }
 
 interface ShippingResult {
@@ -40,6 +43,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
     const [form, setForm] = useState({
         name: '', email: '', phone: '',
         line1: '', city: '', region: '', postal: '', country: 'CA',
+        notes: '',
     });
     const [selectedPayment, setSelectedPayment] = useState<'etransfer' | 'stripe'>('etransfer');
     const [ecomSettings, setEcomSettings] = useState<EcommerceSettings | null>(null);
@@ -121,9 +125,17 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
     const currency = cart.items[0]?.currency || 'CAD';
     const subtotal = cart.subtotalCents;
     const shippingCents = shippingResult?.shippingCents ?? 0;
-    const totalCents = subtotal + (shippingRequired ? shippingCents : 0);
+    // Flat-rate tax: applied to e-transfer checkouts always; applied to Stripe
+    // only when Stripe automatic_tax is OFF (otherwise Stripe calculates it).
+    const taxRateBps = ecomSettings?.tax_rate_bps || 0;
+    const taxLabel = ecomSettings?.tax_label || 'Tax';
+    const shouldApplyFlatTax = taxRateBps > 0 && !(selectedPayment === 'stripe' && ecomSettings?.tax_enabled);
+    const taxableBaseCents = subtotal + (shippingRequired ? shippingCents : 0);
+    const taxCents = shouldApplyFlatTax ? Math.round(taxableBaseCents * taxRateBps / 10000) : 0;
+    const totalCents = subtotal + (shippingRequired ? shippingCents : 0) + taxCents;
     const subtotalStr = `$${(subtotal / 100).toFixed(2)}`;
     const totalStr = `$${(totalCents / 100).toFixed(2)}`;
+    const taxStr = `$${(taxCents / 100).toFixed(2)}`;
 
     // Available payment methods
     const pm = ecomSettings?.payment_methods || {};
@@ -189,6 +201,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                     shippingCents: shippingRequired ? shippingCents : 0,
                     shippingMethod: shippingRequired ? (shippingResult?.shippingLabel || '') : undefined,
                     paymentMethod: selectedPayment,
+                    notes: form.notes.trim() || undefined,
                 }),
             });
 
@@ -448,6 +461,18 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                 </>
                             )}
 
+                            {/* Order notes */}
+                            <div>
+                                <label className="text-sm font-medium text-slate-700 block mb-1">Order notes (optional)</label>
+                                <textarea
+                                    value={form.notes}
+                                    onChange={e => setForm({ ...form, notes: e.target.value.slice(0, 500) })}
+                                    rows={2}
+                                    placeholder="Allergy info, delivery instructions, gift message..."
+                                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                />
+                            </div>
+
                             {/* Order summary */}
                             <div className="bg-slate-50 rounded-xl p-3 text-sm">
                                 {cart.items.map((item, i) => (
@@ -477,6 +502,13 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                         ) : (
                                             <span className="text-xs text-slate-400">—</span>
                                         )}
+                                    </div>
+                                )}
+
+                                {taxCents > 0 && (
+                                    <div className="flex justify-between py-1">
+                                        <span className="text-slate-600">{taxLabel}</span>
+                                        <span className="font-medium text-slate-900">{taxStr}</span>
                                     </div>
                                 )}
 

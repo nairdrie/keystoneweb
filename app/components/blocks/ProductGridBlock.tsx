@@ -5,7 +5,7 @@ import { useEditorContext } from '@/lib/editor-context';
 import { useCart } from '../ecommerce/CartProvider';
 import {
     Package, Plus, Trash2, Loader2, ShoppingCart, X,
-    ImageIcon, Upload, Send, Search,
+    ImageIcon, Upload, Download, Send, Search,
     ChevronLeft, ChevronRight, Tag, Pencil,
 } from 'lucide-react';
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
@@ -249,6 +249,13 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                                     <Upload className="w-3.5 h-3.5" />
                                     Import
                                 </button>
+                                <a
+                                    href={`/api/products/export?siteId=${siteId}`}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg transition-colors"
+                                >
+                                    <Download className="w-3.5 h-3.5" />
+                                    Export
+                                </a>
                                 {/* Draft count badge + popover */}
                                 <div className="relative">
                                     <button

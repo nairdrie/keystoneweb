@@ -5,10 +5,12 @@ import { useAdminContext } from '../admin-context';
 import StoreSettingsPanel from '@/app/components/ecommerce/StoreSettingsPanel';
 import ShippingPanel from '@/app/components/ecommerce/ShippingPanel';
 import OrdersPanel from '@/app/components/ecommerce/OrdersPanel';
+import LowStockPanel from '@/app/components/ecommerce/LowStockPanel';
+import SalesAnalyticsPanel from '@/app/components/ecommerce/SalesAnalyticsPanel';
 import { ProductManager } from '@/app/components/blocks/ProductGridBlock';
-import { ShoppingBag, Package, ClipboardList, CreditCard, Truck } from 'lucide-react';
+import { ShoppingBag, Package, ClipboardList, CreditCard, Truck, BarChart3 } from 'lucide-react';
 
-type TabId = 'products' | 'orders' | 'payments' | 'shipping';
+type TabId = 'analytics' | 'products' | 'orders' | 'payments' | 'shipping';
 
 export default function AdminEcommercePage() {
   const { siteId, palette, siteBlockTypes } = useAdminContext();
@@ -64,6 +66,7 @@ export default function AdminEcommercePage() {
   }
 
   const tabs: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'products', label: 'Products', icon: Package },
     { id: 'orders', label: 'Orders', icon: ClipboardList },
     { id: 'payments', label: 'Payments', icon: CreditCard },
@@ -92,8 +95,14 @@ export default function AdminEcommercePage() {
       </div>
 
       <div className="max-w-3xl mx-auto">
+        {activeTab === 'analytics' && (
+          <SalesAnalyticsPanel siteId={siteId} />
+        )}
         {activeTab === 'products' && (
-          <ProductManager siteId={siteId} palette={palette} />
+          <>
+            <LowStockPanel siteId={siteId} />
+            <ProductManager siteId={siteId} palette={palette} />
+          </>
         )}
         {activeTab === 'orders' && (
           <OrdersPanel siteId={siteId} />

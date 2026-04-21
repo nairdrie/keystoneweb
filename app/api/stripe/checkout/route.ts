@@ -69,6 +69,22 @@ export async function POST(request: NextRequest) {
             });
         }
 
+        // Add flat-rate tax as a line item if recorded on the order
+        // (Stripe automatic_tax handles this when enabled, see below.)
+        if (order.tax_cents && order.tax_cents > 0) {
+            lineItems.push({
+                price_data: {
+                    currency: order.items?.[0]?.currency || 'cad',
+                    product_data: {
+                        name: order.tax_label || 'Tax',
+                        images: [],
+                    },
+                    unit_amount: order.tax_cents,
+                },
+                quantity: 1,
+            });
+        }
+
         // Check if the site has tax enabled
         const { data: ecomSettings } = await supabase
             .from('ecommerce_settings')
