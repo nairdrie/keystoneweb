@@ -477,12 +477,27 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
     const [compareAt, setCompareAt] = useState(product?.compare_at_cents ? (product.compare_at_cents / 100).toFixed(2) : '');
     const [images, setImages] = useState<string[]>(product?.images ?? []);
     const [inventory, setInventory] = useState(product ? String(product.inventory_count) : '-1');
+    const [category, setCategory] = useState(product?.category ?? '');
+    const [tags, setTags] = useState((product?.tags ?? []).join(', '));
+    const [existingCategories, setExistingCategories] = useState<string[]>([]);
     const [variants, setVariants] = useState<Array<{ name: string; options: string }>>(
         product?.variants?.map(v => ({ name: v.name, options: (v.options ?? []).join(', ') })) ?? []
     );
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
+
+    // Pull existing categories so the user can quickly pick one rather than retyping.
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await fetch(`/api/products?siteId=${siteId}&limit=1`);
+                if (!res.ok) return;
+                const d = await res.json();
+                setExistingCategories(d.categories || []);
+            } catch {}
+        })();
+    }, [siteId]);
 
     // Image upload
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -544,6 +559,11 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
                 options: v.options.split(',').map(o => o.trim()).filter(Boolean),
             }));
 
+        const parsedTags = tags
+            .split(',')
+            .map(t => t.trim())
+            .filter(Boolean);
+
         const payload = {
             name,
             description: description || null,
@@ -552,6 +572,8 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
             images,
             variants: structuredVariants,
             inventory_count: parseInt(inventory),
+            category: category.trim() || null,
+            tags: parsedTags,
         };
 
         const res = await fetch('/api/products', {
@@ -648,6 +670,40 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
                 <input type="number" value={inventory} onChange={e => setInventory(e.target.value)}
                     className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 />
+            </div>
+
+            {/* Category */}
+            <div>
+                <label className="text-xs font-semibold text-slate-700 mb-1 block">Category</label>
+                <input
+                    type="text"
+                    value={category}
+                    onChange={e => setCategory(e.target.value)}
+                    list={`product-categories-${isEdit ? product!.id : 'new'}`}
+                    placeholder="e.g. Apparel, Accessories"
+                    className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                />
+                {existingCategories.length > 0 && (
+                    <datalist id={`product-categories-${isEdit ? product!.id : 'new'}`}>
+                        {existingCategories.map(c => <option key={c} value={c} />)}
+                    </datalist>
+                )}
+                <p className="text-[11px] text-slate-400 mt-1">
+                    Type a new category or pick from existing ones. Used for the storefront sidebar filter and block-level category scoping.
+                </p>
+            </div>
+
+            {/* Tags */}
+            <div>
+                <label className="text-xs font-semibold text-slate-700 mb-1 block">Tags</label>
+                <input
+                    type="text"
+                    value={tags}
+                    onChange={e => setTags(e.target.value)}
+                    placeholder="comma-separated (e.g. sale, new, summer)"
+                    className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">Used to suggest related products on the detail page.</p>
             </div>
 
             {/* Variants */}
