@@ -654,7 +654,7 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
     };
 
     return (
-        <div className="border-2 border-blue-200 bg-blue-50/30 rounded-xl p-5 space-y-4">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-2xl p-5 space-y-4">
             <div className="flex items-center justify-between">
                 <h4 className="text-sm font-bold text-slate-800">{isEdit ? 'Edit Product' : 'Add Product'}</h4>
                 <button onClick={onCancel} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>
@@ -831,15 +831,24 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
                 </button>
             </div>
 
-            {/* Save */}
-            <button
-                onClick={handleSave}
-                disabled={saving || !name.trim() || !price}
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
-            >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEdit ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />)}
-                {isEdit ? 'Save Changes' : 'Add Product'}
-            </button>
+            {/* Save / Cancel */}
+            <div className="flex gap-2 pt-2 border-t border-slate-100">
+                <button
+                    onClick={onCancel}
+                    disabled={saving}
+                    className="flex-1 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-semibold rounded-lg disabled:opacity-40 transition-colors"
+                >
+                    Cancel
+                </button>
+                <button
+                    onClick={handleSave}
+                    disabled={saving || !name.trim() || !price}
+                    className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
+                >
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEdit ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />)}
+                    {isEdit ? 'Save Changes' : 'Add Product'}
+                </button>
+            </div>
         </div>
     );
 }
