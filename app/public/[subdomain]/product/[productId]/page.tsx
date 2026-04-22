@@ -4,9 +4,56 @@ import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import ProductPageClient from '@/app/components/ecommerce/ProductPageWrapper';
+import ProductJsonLd from '@/app/components/ProductJsonLd';
 import SiteNotFound from '@/app/components/SiteNotFound';
+import { PUBLISHED_ROOT } from '@/lib/env/domain';
+import type { Metadata } from 'next';
+import { buildSiteMetadata, buildCanonicalUrl, cleanSeoTitle } from '@/lib/seo/metadata';
 
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata({
+    params,
+}: {
+    params: Promise<{ subdomain: string; productId: string }>;
+}): Promise<Metadata> {
+    const { subdomain, productId } = await params;
+    const supabase = await createClient();
+
+    const { data: site } = await supabase
+        .from('sites')
+        .select('id, published_data, custom_domain, site_slug')
+        .eq('published_domain', subdomain)
+        .eq('is_published', true)
+        .single();
+
+    if (!site) return { title: 'Product Not Found' };
+
+    const { data: product } = await supabase
+        .from('products')
+        .select('name, description, images')
+        .eq('id', productId)
+        .eq('site_id', site.id)
+        .eq('is_active', true)
+        .single();
+
+    if (!product) return { title: 'Product Not Found' };
+
+    const sitePublishData = (site.published_data as any) || {};
+    const siteTitle = cleanSeoTitle(sitePublishData, site.site_slug || subdomain);
+    const description = (product.description || product.name).slice(0, 160);
+    const productImage = product.images?.[0];
+    const canonicalUrl = `${buildCanonicalUrl(subdomain, site.custom_domain)}/product/${productId}`;
+
+    return buildSiteMetadata({
+        siteTitle,
+        pageTitle: `${product.name} — ${siteTitle}`,
+        description,
+        canonicalUrl,
+        ogImage: productImage || null,
+        publishedData: sitePublishData,
+    });
+}
 
 export default async function ProductDetailPage({
     params,
@@ -31,7 +78,7 @@ export default async function ProductDetailPage({
                 <SiteNotFound 
                     message="Start building to claim this subdomain."
                     ctaText="Login to start building"
-                    domain={`${subdomain}.kswd.ca`}
+                    domain={`${subdomain}.${PUBLISHED_ROOT}`}
                 />
             );
         }
@@ -116,9 +163,16 @@ export default async function ProductDetailPage({
             }
         }
 
+        const productUrl = `${buildCanonicalUrl(subdomain, null)}/product/${productId}`;
+
         return (
             <>
             <SiteAnalyticsTracker siteId={site.id} />
+            <ProductJsonLd
+                product={product}
+                productUrl={productUrl}
+                siteName={site.site_slug || subdomain}
+            />
             <EditorContent
                 isPublicView={true}
                 publicSiteData={{

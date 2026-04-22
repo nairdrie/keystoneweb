@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
-import { sendOrderConfirmation, sendOrderNotification, sendOrderPaymentConfirmed, sendOrderCancellationToCustomer, sendOrderCancellationToOwner, sendMixedOrderConfirmation, sendVendorOrderNotification, sendOwnerVendorOrderNotification } from '@/lib/email';
+import { sendOrderConfirmation, sendOrderNotification, sendOrderPaymentConfirmed, sendOrderCancellationToCustomer, sendOrderCancellationToOwner, sendOrderShipped, sendMixedOrderConfirmation, sendVendorOrderNotification, sendOwnerVendorOrderNotification } from '@/lib/email';
 import { findMatchingZone, type ShippingZone } from '@/lib/shipping-data';
 import Stripe from 'stripe';
 
@@ -452,6 +452,21 @@ async function createSingleOrder(supabase: any, params: {
     const status = paymentMethod === 'none' ? 'confirmed' : 'pending';
     const paymentStatus = paymentMethod === 'none' ? 'paid' : 'unpaid';
 
+    // Server-side tax: look up flat-rate tax config and compute tax_cents.
+    // Stripe's automatic_tax (when enabled) handles tax via Stripe Checkout,
+    // so we skip flat-rate tax in that case to avoid double-charging.
+    const { data: taxSettings } = await supabase
+        .from('ecommerce_settings')
+        .select('tax_rate_bps, tax_label, tax_enabled')
+        .eq('site_id', siteId)
+        .single();
+
+    const taxRateBps = taxSettings?.tax_rate_bps || 0;
+    const stripeAutomaticTax = paymentMethod === 'stripe' && taxSettings?.tax_enabled === true;
+    const applyFlatTax = taxRateBps > 0 && !stripeAutomaticTax;
+    const taxCents = applyFlatTax ? Math.round((subtotalCents + validatedShippingCents) * taxRateBps / 10000) : 0;
+    const orderTaxLabel = applyFlatTax ? (taxSettings?.tax_label || 'Tax') : null;
+
     const { data: order, error } = await supabase
         .from('orders')
         .insert({
@@ -460,6 +475,8 @@ async function createSingleOrder(supabase: any, params: {
             subtotal_cents: subtotalCents,
             shipping_cents: validatedShippingCents,
             shipping_method: validatedShippingMethod,
+            tax_cents: taxCents,
+            tax_label: orderTaxLabel,
             customer_name: customerName,
             customer_email: customerEmail,
             customer_phone: customerPhone || null,
@@ -555,6 +572,9 @@ async function createSingleOrder(supabase: any, params: {
         paymentMethod,
         etransferEmail: paymentConfig?.etransfer_email,
         siteName,
+        notes: notes || undefined,
+        taxCents: taxCents || undefined,
+        taxLabel: orderTaxLabel || undefined,
     };
 
     sendOrderConfirmation(emailData).catch(err => console.error('Order customer email failed:', err));
@@ -649,7 +669,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { orderId, status, payment_status, cancellationReason } = body;
+    const { orderId, status, payment_status, cancellationReason, tracking_number, tracking_carrier } = body;
 
     if (!orderId) {
         return NextResponse.json({ error: 'Missing orderId' }, { status: 400 });
@@ -670,6 +690,10 @@ export async function PUT(request: NextRequest) {
     if (status) updates.status = status;
     if (payment_status) updates.payment_status = payment_status;
     if (cancellationReason) updates.cancellation_reason = cancellationReason;
+    if (tracking_number !== undefined) updates.tracking_number = tracking_number || null;
+    if (tracking_carrier !== undefined) updates.tracking_carrier = tracking_carrier || null;
+
+    const isBeingMarkedShipped = status === 'shipped' && existingOrder.status !== 'shipped';
 
     const isBeingCancelled = status === 'cancelled' && existingOrder.status !== 'cancelled';
 
@@ -718,6 +742,8 @@ export async function PUT(request: NextRequest) {
             subtotalCents: existingOrder.subtotal_cents,
             shippingCents: existingOrder.shipping_cents || 0,
             shippingMethod: existingOrder.shipping_method || undefined,
+            taxCents: existingOrder.tax_cents || undefined,
+            taxLabel: existingOrder.tax_label || undefined,
             currency: existingOrder.items[0]?.currency || 'CAD',
             customerName: existingOrder.customer_name,
             customerEmail: existingOrder.customer_email,
@@ -727,6 +753,35 @@ export async function PUT(request: NextRequest) {
 
         sendOrderPaymentConfirmed(emailData)
             .catch(err => console.error('Order payment confirmed email failed:', err));
+    }
+
+    // Send shipped email (with tracking info) when status transitions to 'shipped'
+    if (isBeingMarkedShipped) {
+        const { data: shippedSiteInfo } = await supabase
+            .from('sites')
+            .select('title, site_slug')
+            .eq('id', existingOrder.site_id)
+            .single();
+        const shippedSiteName = shippedSiteInfo?.title || shippedSiteInfo?.site_slug || undefined;
+
+        const emailData = {
+            orderId: existingOrder.id,
+            items: existingOrder.items,
+            subtotalCents: existingOrder.subtotal_cents,
+            shippingCents: existingOrder.shipping_cents || 0,
+            shippingMethod: existingOrder.shipping_method || undefined,
+            currency: existingOrder.items[0]?.currency || 'CAD',
+            customerName: existingOrder.customer_name,
+            customerEmail: existingOrder.customer_email,
+            paymentMethod: existingOrder.payment_method,
+            siteName: shippedSiteName,
+            shippingAddress: existingOrder.shipping_address || undefined,
+            trackingNumber: data.tracking_number || undefined,
+            trackingCarrier: data.tracking_carrier || undefined,
+        };
+
+        sendOrderShipped(emailData)
+            .catch(err => console.error('Order shipped email failed:', err));
     }
 
     // Restore inventory for cancelled orders

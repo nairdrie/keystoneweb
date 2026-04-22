@@ -43,7 +43,12 @@ function clearSupabaseAuthCookies() {
   if (!projectId) return;
 
   const prefix = `sb-${projectId}-auth-token`;
-  const domains = [window.location.hostname, '.keystoneweb.ca', ''];
+  const domains = [
+    window.location.hostname,
+    '.keystoneweb.ca',
+    '.staging.keystoneweb.ca',
+    '',
+  ];
 
   document.cookie.split(';').forEach((c) => {
     const name = c.split('=')[0].trim();

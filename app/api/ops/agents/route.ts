@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { randomBytes } from 'crypto';
+import { APP_URL } from '@/lib/env/domain';
+import { resend } from '@/lib/email/resend';
 
 function assertAdmin(userEmail: string | undefined) {
   const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
@@ -86,13 +88,9 @@ export async function POST(request: Request) {
 
     if (error) throw error;
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://keystoneweb.ca';
-    const inviteUrl = `${appUrl}/agent-signup/${token}`;
+    const inviteUrl = `${APP_URL}/agent-signup/${token}`;
 
     // Send invite email via Resend
-    const { Resend } = await import('resend');
-    const resend = new Resend(process.env.RESEND_API_KEY);
-
     await resend.emails.send({
       from: 'Keystone Operations <ops@keystoneweb.ca>',
       to: personal_email,

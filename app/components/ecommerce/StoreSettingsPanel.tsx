@@ -14,6 +14,8 @@ interface EcommerceSettings {
     etransfer_email: string | null;
     notification_email: string | null;
     tax_enabled: boolean;
+    tax_rate_bps: number;
+    tax_label: string | null;
 }
 
 interface StoreSettingsPanelProps {
@@ -27,6 +29,8 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
         etransfer_email: null,
         notification_email: null,
         tax_enabled: false,
+        tax_rate_bps: 0,
+        tax_label: null,
     });
     const [stripeConnected, setStripeConnected] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -198,6 +202,8 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                     etransfer_email: settings.etransfer_email,
                     notification_email: settings.notification_email,
                     tax_enabled: settings.tax_enabled,
+                    tax_rate_bps: settings.tax_rate_bps || 0,
+                    tax_label: settings.tax_label || null,
                 }),
             });
             if (res.ok) {
@@ -564,6 +570,44 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                                     Make sure tax registrations are configured in your Stripe Dashboard
                                 </p>
                             )}
+
+                            <div className="mt-4 pt-4 border-t border-slate-200">
+                                <p className="text-sm font-semibold text-slate-800 mb-1">Flat-rate tax</p>
+                                <p className="text-xs text-slate-500 mb-3">
+                                    Charge a fixed tax percentage on every order (applies to e-transfer checkouts
+                                    {settings.tax_enabled ? ', and to Stripe checkouts only if Stripe automatic tax is off' : ', and to Stripe checkouts'}).
+                                </p>
+                                <div className="flex gap-2">
+                                    <div className="flex-1">
+                                        <label className="text-xs font-semibold text-slate-600 block mb-1">Rate (%)</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            step="0.01"
+                                            value={settings.tax_rate_bps ? (settings.tax_rate_bps / 100).toString() : ''}
+                                            onChange={e => {
+                                                const pct = parseFloat(e.target.value);
+                                                const bps = isNaN(pct) ? 0 : Math.round(pct * 100);
+                                                setSettings({ ...settings, tax_rate_bps: Math.max(0, Math.min(10000, bps)) });
+                                            }}
+                                            placeholder="0"
+                                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="text-xs font-semibold text-slate-600 block mb-1">Label</label>
+                                        <input
+                                            type="text"
+                                            value={settings.tax_label || ''}
+                                            onChange={e => setSettings({ ...settings, tax_label: e.target.value || null })}
+                                            placeholder="HST, GST+PST..."
+                                            maxLength={20}
+                                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )}
 

@@ -8,6 +8,7 @@ import { useEditorContext } from '@/lib/editor-context';
 export default function PreviewProductPage({ productId, siteId, palette, siteName }: { productId: string, siteId: string, palette: Record<string, string>, siteName: string }) {
     const [product, setProduct] = useState<any>(null);
     const [allProducts, setAllProducts] = useState<any[]>([]);
+    const [productsPagePath, setProductsPagePath] = useState<string | undefined>(undefined);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -18,7 +19,7 @@ export default function PreviewProductPage({ productId, siteId, palette, siteNam
         let mounted = true;
         const fetchProduct = async () => {
             try {
-                // Fetch the specific product 
+                // Fetch the specific product
                 const res = await fetch(`/api/products?siteId=${siteId}`);
                 if (!res.ok) throw new Error('Failed to load products');
 
@@ -44,6 +45,30 @@ export default function PreviewProductPage({ productId, siteId, palette, siteNam
         fetchProduct();
         return () => { mounted = false; };
     }, [productId, siteId]);
+
+    // Resolve the editor URL for the page that contains the productGrid block,
+    // so the product breadcrumb links back to it instead of "/#products".
+    useEffect(() => {
+        let mounted = true;
+        (async () => {
+            try {
+                const res = await fetch(`/api/pages?siteId=${siteId}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                const pages = data.pages || [];
+                const productsPage = pages.find((p: any) => {
+                    const blocks = (p.design_data || p.published_data || {})?.blocks || [];
+                    return blocks.some((b: any) => b.type === 'productGrid');
+                });
+                if (mounted && productsPage) {
+                    setProductsPagePath(`/editor?siteId=${siteId}&pageId=${productsPage.id}#products`);
+                }
+            } catch {
+                // leave undefined — ProductPage falls back to '/#products'
+            }
+        })();
+        return () => { mounted = false; };
+    }, [siteId]);
 
     if (loading) {
         return (
@@ -81,6 +106,7 @@ export default function PreviewProductPage({ productId, siteId, palette, siteNam
             palette={palette}
             siteName={siteName}
             allProducts={allProducts}
+            productsPagePath={productsPagePath}
         />
     );
 }

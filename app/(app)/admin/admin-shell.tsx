@@ -85,7 +85,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [usagePlan, setUsagePlan] = useState<UsagePlan | null>(null);
   const [siteBreakdown, setSiteBreakdown] = useState<SiteUsageBreakdown[]>([]);
   const [siteBlockTypes, setSiteBlockTypes] = useState<Set<string>>(new Set());
-  const [showAllFeatures, setShowAllFeatures] = useState(true);
+  const [showAllFeatures, setShowAllFeatures] = useState(false);
 
   const hasFetchedRef = useRef<string | null>(null);
   const [showWalkthrough, setShowWalkthrough] = useState(false);
@@ -97,8 +97,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(SHOW_ALL_KEY);
-      // default is true; only false if explicitly stored as '0'
-      setShowAllFeatures(stored !== '0');
+      // default is false (active-only); only true if user explicitly toggled on
+      setShowAllFeatures(stored === '1');
     }
   }, []);
 

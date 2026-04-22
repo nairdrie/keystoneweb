@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { COOKIE_DOMAIN } from '@/lib/env/domain';
 
 export async function POST(request: Request) {
   const cookieStore = await cookies();
@@ -24,10 +25,8 @@ export async function POST(request: Request) {
 
   function jsonWithPendingCookies(body: unknown, init?: ResponseInit) {
     const response = NextResponse.json(body, init);
-    const domain =
-      process.env.NODE_ENV === 'production' ? '.keystoneweb.ca' : undefined;
     pendingCookies.forEach(({ name, value, options }) => {
-      response.cookies.set(name, value, { ...(options as any), domain });
+      response.cookies.set(name, value, { ...(options as any), domain: COOKIE_DOMAIN });
     });
     return response;
   }

@@ -215,6 +215,7 @@ export async function POST(request: NextRequest) {
       ],
       mode: 'payment',
       automatic_tax: { enabled: true },
+      invoice_creation: { enabled: true },
       billing_address_collection: 'required',
       customer: subscription?.stripe_customer_id || undefined,
       customer_email: !subscription?.stripe_customer_id ? (user.email ?? undefined) : undefined,

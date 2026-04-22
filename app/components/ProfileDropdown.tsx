@@ -99,21 +99,21 @@ export default function ProfileDropdown({ onSettingsClick, buttonClassName }: Pr
               )}
             </div>
           </div>
-          <div className="p-2 space-y-1">
+          <div className="p-2 flex gap-2">
             <Link
               href="/design"
               onClick={() => setIsOpen(false)}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-bold"
+              className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 rounded-md transition-colors font-medium"
             >
-              <Paintbrush className="w-4 h-4" />
+              <Paintbrush className="w-3.5 h-3.5" />
               Design
             </Link>
             <Link
               href="/admin"
               onClick={() => setIsOpen(false)}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-bold"
+              className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 rounded-md transition-colors font-medium"
             >
-              <LayoutDashboard className="w-4 h-4" />
+              <LayoutDashboard className="w-3.5 h-3.5" />
               Admin
             </Link>
           </div>

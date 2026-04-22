@@ -4,6 +4,14 @@ import React, { useState } from 'react';
 import EditableText from '../EditableText';
 import { Phone, Mail, MapPin, Clock, Facebook, Instagram, Twitter, Linkedin, Youtube, X } from 'lucide-react';
 
+function TikTokIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5" />
+        </svg>
+    );
+}
+
 interface ContactBlockProps {
     id: string;
     data: any;
@@ -18,6 +26,7 @@ const SOCIAL_LINKS = [
     { key: 'twitterUrl', icon: Twitter, label: 'Twitter / X' },
     { key: 'linkedinUrl', icon: Linkedin, label: 'LinkedIn' },
     { key: 'youtubeUrl', icon: Youtube, label: 'YouTube' },
+    { key: 'tiktokUrl', icon: TikTokIcon, label: 'TikTok' },
     { key: 'xUrl', icon: X, label: 'X (new)' },
 ] as const;
 

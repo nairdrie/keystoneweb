@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import dns from 'dns';
 import { promisify } from 'util';
+import { CUSTOM_DOMAIN_CNAME_TARGET } from '@/lib/env/domain';
 
 const resolveCname = promisify(dns.resolveCname);
 const resolveTxt = promisify(dns.resolveTxt);
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
     try {
       const cnameRecords = await resolveCname(`www.${domain}`);
       checks.cname = cnameRecords.some(
-        (record) => record.toLowerCase() === 'sites.kswd.ca'
+        (record) => record.toLowerCase() === CUSTOM_DOMAIN_CNAME_TARGET
       );
     } catch {
       // CNAME not found

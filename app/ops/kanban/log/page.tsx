@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/db/supabase-admin';
 import { getOpsAccessContext } from '@/lib/ops/access';
 import { formatOpsTicketLogMessage } from '@/lib/ops/kanban-log';
 import type { OpsTicketLogEntry } from '@/lib/ops/kanban';
+import { APP_URL } from '@/lib/env/domain';
 import LocalTimestamp from '../LocalTimestamp';
 
 export const metadata = { title: 'Keystone Ops Kanban Log' };
@@ -27,7 +28,7 @@ function formatValue(value: string | null, label: string | null) {
 export default async function OpsKanbanLogPage() {
   const access = await getOpsAccessContext();
   if (!access || (!access.isAdmin && !access.isAgent)) {
-    redirect('https://keystoneweb.ca');
+    redirect(APP_URL);
   }
 
   const db = createAdminClient();
