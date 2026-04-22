@@ -705,6 +705,7 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<string[]>([]);
     const [popularity, setPopularity] = useState<Record<string, number>>({});
+    const [popularityLoaded, setPopularityLoaded] = useState(false);
     const [activeCategory, setActiveCategory] = useState<string>('');
     const [sortBy, setSortBy] = useState<SortKey>('featured');
     const [loading, setLoading] = useState(true);
@@ -736,16 +737,21 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
     }, [siteId]);
 
     useEffect(() => {
-        if (sortBy !== 'popular' || Object.keys(popularity).length > 0) return;
+        if (sortBy !== 'popular' || popularityLoaded) return;
         (async () => {
             try {
                 const res = await fetch(`/api/products/popularity?siteId=${siteId}`);
-                if (!res.ok) return;
-                const d = await res.json();
-                setPopularity(d.popularity || {});
-            } catch {}
+                if (res.ok) {
+                    const d = await res.json();
+                    setPopularity(d.popularity || {});
+                }
+            } catch {
+                // ignore — sort falls back to 0-counts (stable order)
+            } finally {
+                setPopularityLoaded(true);
+            }
         })();
-    }, [sortBy, siteId, popularity]);
+    }, [sortBy, siteId, popularityLoaded]);
 
     if (loading) {
         return <section className="py-16 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-400" /></section>;
