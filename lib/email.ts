@@ -294,6 +294,8 @@ interface OrderEmailData {
     subtotalCents: number;
     shippingCents?: number;
     shippingMethod?: string;
+    taxCents?: number;
+    taxLabel?: string;
     currency: string;
     customerName: string;
     customerEmail: string;
@@ -302,15 +304,19 @@ interface OrderEmailData {
     paymentMethod: string;
     etransferEmail?: string;
     siteName?: string;
+    notes?: string;
+    trackingNumber?: string;
+    trackingCarrier?: string;
 }
 
 export async function sendOrderConfirmation(data: OrderEmailData) {
     try {
         const refId = `ORDER-${data.orderId.slice(0, 8).toUpperCase()}`;
-        const orderTotalCents = data.subtotalCents + (data.shippingCents || 0);
+        const orderTotalCents = data.subtotalCents + (data.shippingCents || 0) + (data.taxCents || 0);
         const total = `$${(orderTotalCents / 100).toFixed(2)} ${data.currency}`;
         const subtotalStr = `$${(data.subtotalCents / 100).toFixed(2)}`;
         const shippingStr = data.shippingCents ? `$${(data.shippingCents / 100).toFixed(2)}` : 'Free';
+        const taxStr = data.taxCents ? `$${(data.taxCents / 100).toFixed(2)}` : '';
 
         const itemsHtml = data.items.map(item => {
             const varStr = item.variants ? Object.values(item.variants).join(', ') : '';
@@ -362,6 +368,7 @@ export async function sendOrderConfirmation(data: OrderEmailData) {
                         <table style="width:100%;border-collapse:collapse;">${itemsHtml}
                             <tr><td colspan="2" style="padding:8px 0 4px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:14px;">Subtotal</td><td style="padding:8px 0 4px;border-top:1px solid #e5e7eb;text-align:right;font-weight:600;color:#111827;font-size:14px;">${subtotalStr}</td></tr>
                             ${data.shippingCents !== undefined ? `<tr><td colspan="2" style="padding:4px 0;color:#6b7280;font-size:14px;">Shipping${data.shippingMethod ? ` (${data.shippingMethod})` : ''}</td><td style="padding:4px 0;text-align:right;color:#111827;font-size:14px;">${shippingStr}</td></tr>` : ''}
+                            ${data.taxCents ? `<tr><td colspan="2" style="padding:4px 0;color:#6b7280;font-size:14px;">${data.taxLabel || 'Tax'}</td><td style="padding:4px 0;text-align:right;color:#111827;font-size:14px;">${taxStr}</td></tr>` : ''}
                             <tr><td colspan="2" style="padding:8px 0 4px;border-top:1px solid #e5e7eb;color:#111827;font-size:14px;font-weight:700;">Total</td><td style="padding:8px 0 4px;border-top:1px solid #e5e7eb;text-align:right;font-weight:700;color:#111827;font-size:16px;">${total}</td></tr>
                         </table>
                     </div>
@@ -380,7 +387,7 @@ export async function sendOrderConfirmation(data: OrderEmailData) {
 export async function sendOrderNotification(data: OrderEmailData, ownerEmail: string) {
     try {
         const refId = `ORDER-${data.orderId.slice(0, 8).toUpperCase()}`;
-        const orderTotalCents = data.subtotalCents + (data.shippingCents || 0);
+        const orderTotalCents = data.subtotalCents + (data.shippingCents || 0) + (data.taxCents || 0);
         const total = `$${(orderTotalCents / 100).toFixed(2)} ${data.currency}`;
         const itemsSummary = data.items.map(i => `${i.qty}x ${i.name}`).join(', ');
 
@@ -415,6 +422,7 @@ export async function sendOrderNotification(data: OrderEmailData, ownerEmail: st
                     <div style="background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:16px;">
                         <p style="margin:0;font-size:14px;color:#111827;"><strong>Items:</strong> ${itemsSummary}</p>
                         ${data.shippingCents ? `<p style="margin:4px 0 0;font-size:14px;color:#111827;"><strong>Shipping:</strong> $${(data.shippingCents / 100).toFixed(2)}${data.shippingMethod ? ` (${data.shippingMethod})` : ''}</p>` : ''}
+                        ${data.taxCents ? `<p style="margin:4px 0 0;font-size:14px;color:#111827;"><strong>${data.taxLabel || 'Tax'}:</strong> $${(data.taxCents / 100).toFixed(2)}</p>` : ''}
                         <p style="margin:8px 0 0;font-size:14px;color:#111827;"><strong>Payment:</strong> ${paymentLabel}</p>
                     </div>
                     <div style="background:#f0f9ff;border-radius:8px;padding:16px;">
@@ -424,6 +432,11 @@ export async function sendOrderNotification(data: OrderEmailData, ownerEmail: st
                         ${data.customerPhone ? `<p style="margin:2px 0;font-size:14px;color:#111827;">📱 ${data.customerPhone}</p>` : ''}
                         ${data.shippingAddress ? `<p style="margin:8px 0 0;font-size:13px;color:#6b7280;">📍 ${[data.shippingAddress.line1, data.shippingAddress.city, data.shippingAddress.region || data.shippingAddress.province, data.shippingAddress.postal, data.shippingAddress.country].filter(Boolean).join(', ')}</p>` : ''}
                     </div>
+                    ${data.notes ? `
+                    <div style="background:#fefce8;border:1px solid #fef08a;border-radius:8px;padding:14px;margin-top:16px;">
+                        <h3 style="margin:0 0 6px;font-size:13px;color:#713f12;">📝 Customer notes</h3>
+                        <p style="margin:0;font-size:14px;color:#422006;white-space:pre-wrap;">${data.notes.replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' } as any)[c])}</p>
+                    </div>` : ''}
                     ${awaitingPaymentSection}
                     <p style="margin-top:24px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
                 </div>`,
@@ -442,7 +455,7 @@ export async function sendOrderNotification(data: OrderEmailData, ownerEmail: st
 export async function sendOrderPaymentConfirmed(data: OrderEmailData) {
     try {
         const refId = `ORDER-${data.orderId.slice(0, 8).toUpperCase()}`;
-        const orderTotalCents = data.subtotalCents + (data.shippingCents || 0);
+        const orderTotalCents = data.subtotalCents + (data.shippingCents || 0) + (data.taxCents || 0);
         const total = `$${(orderTotalCents / 100).toFixed(2)} ${data.currency}`;
 
         const itemsHtml = data.items.map(item => {
@@ -468,6 +481,7 @@ export async function sendOrderPaymentConfirmed(data: OrderEmailData) {
                     <div style="background:#f9fafb;border-radius:8px;padding:16px;">
                         <table style="width:100%;border-collapse:collapse;">${itemsHtml}
                             ${data.shippingCents ? `<tr><td colspan="2" style="padding:4px 0;border-top:1px solid #e5e7eb;color:#6b7280;font-size:14px;">Shipping${data.shippingMethod ? ` (${data.shippingMethod})` : ''}</td><td style="padding:4px 0;border-top:1px solid #e5e7eb;text-align:right;color:#111827;font-size:14px;">$${(data.shippingCents / 100).toFixed(2)}</td></tr>` : ''}
+                            ${data.taxCents ? `<tr><td colspan="2" style="padding:4px 0;color:#6b7280;font-size:14px;">${data.taxLabel || 'Tax'}</td><td style="padding:4px 0;text-align:right;color:#111827;font-size:14px;">$${(data.taxCents / 100).toFixed(2)}</td></tr>` : ''}
                             <tr><td colspan="2" style="padding:8px 0 4px;border-top:1px solid #e5e7eb;color:#111827;font-size:14px;font-weight:700;">Amount Paid</td><td style="padding:8px 0 4px;border-top:1px solid #e5e7eb;text-align:right;font-weight:700;color:#111827;font-size:16px;">${total}</td></tr>
                         </table>
                     </div>
@@ -483,6 +497,69 @@ export async function sendOrderPaymentConfirmed(data: OrderEmailData) {
         return { success: true };
     } catch (error) {
         console.error('Failed to send order payment confirmed email:', error);
+        return { success: false, error };
+    }
+}
+
+/**
+ * Build a tracking URL for common carriers from a bare tracking number.
+ * Falls back to a Google search so any carrier name still produces a clickable link.
+ */
+function buildTrackingUrl(trackingNumber: string, carrier?: string): string | null {
+    if (!trackingNumber) return null;
+    const c = (carrier || '').trim().toLowerCase();
+    if (!c) return `https://www.google.com/search?q=${encodeURIComponent('track ' + trackingNumber)}`;
+    if (c.includes('canada post')) return `https://www.canadapost-postescanada.ca/track-reperage/en#/search?searchFor=${encodeURIComponent(trackingNumber)}`;
+    if (c.includes('ups')) return `https://www.ups.com/track?tracknum=${encodeURIComponent(trackingNumber)}`;
+    if (c.includes('fedex')) return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(trackingNumber)}`;
+    if (c.includes('usps')) return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(trackingNumber)}`;
+    if (c.includes('purolator')) return `https://www.purolator.com/en/shipping/tracker?pin=${encodeURIComponent(trackingNumber)}`;
+    if (c.includes('dhl')) return `https://www.dhl.com/ca-en/home/tracking.html?tracking-id=${encodeURIComponent(trackingNumber)}`;
+    return `https://www.google.com/search?q=${encodeURIComponent((carrier || '') + ' ' + trackingNumber)}`;
+}
+
+/**
+ * Sent to the customer when the owner marks an order as shipped.
+ * Includes tracking number/carrier + a deep-link to the carrier's tracker.
+ */
+export async function sendOrderShipped(data: OrderEmailData) {
+    try {
+        const refId = `ORDER-${data.orderId.slice(0, 8).toUpperCase()}`;
+        const trackingUrl = data.trackingNumber ? buildTrackingUrl(data.trackingNumber, data.trackingCarrier) : null;
+
+        const trackingBlock = data.trackingNumber ? `
+            <div style="background:#ede9fe;border:1px solid #c4b5fd;border-radius:8px;padding:16px;margin-top:16px;">
+                <h3 style="margin:0 0 8px;color:#5b21b6;font-size:14px;">📬 Tracking</h3>
+                ${data.trackingCarrier ? `<p style="margin:2px 0;color:#4c1d95;font-size:14px;"><strong>Carrier:</strong> ${data.trackingCarrier}</p>` : ''}
+                <p style="margin:2px 0;color:#4c1d95;font-size:14px;"><strong>Tracking #:</strong> <span style="font-family:monospace;">${data.trackingNumber}</span></p>
+                ${trackingUrl ? `<p style="margin:10px 0 0;"><a href="${trackingUrl}" style="background:#7c3aed;color:#ffffff;text-decoration:none;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;display:inline-block;">Track your package →</a></p>` : ''}
+            </div>
+        ` : '';
+
+        await resend.emails.send({
+            from: `${data.siteName || 'Keystone Web Design'} <orders@keystoneweb.ca>`,
+            to: data.customerEmail,
+            subject: `Your order has shipped — ${refId}`,
+            html: `
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
+                    <div style="text-align:center;padding:24px 0;">
+                        <div style="width:48px;height:48px;background:#ede9fe;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">🚚</div>
+                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">Your order has shipped</h1>
+                        <p style="margin:0;color:#6b7280;font-size:14px;">Thanks ${data.customerName} — it's on its way!</p>
+                    </div>
+                    ${trackingBlock}
+                    ${data.shippingAddress ? `
+                    <div style="background:#f9fafb;border-radius:8px;padding:14px;margin-top:16px;">
+                        <h3 style="margin:0 0 6px;color:#111827;font-size:13px;">Shipping to</h3>
+                        <p style="margin:0;font-size:14px;color:#111827;">${[data.shippingAddress.line1, data.shippingAddress.city, data.shippingAddress.region || data.shippingAddress.province, data.shippingAddress.postal, data.shippingAddress.country].filter(Boolean).join(', ')}</p>
+                    </div>` : ''}
+                    <p style="margin-top:16px;font-size:12px;color:#9ca3af;text-align:center;">Ref: ${refId}</p>
+                    <p style="margin-top:8px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
+                </div>`,
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send order shipped email:', error);
         return { success: false, error };
     }
 }

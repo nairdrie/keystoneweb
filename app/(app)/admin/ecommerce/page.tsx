@@ -4,14 +4,19 @@ import { useState, useEffect } from 'react';
 import { useAdminContext } from '../admin-context';
 import StoreSettingsPanel from '@/app/components/ecommerce/StoreSettingsPanel';
 import ShippingPanel from '@/app/components/ecommerce/ShippingPanel';
+import OrdersPanel from '@/app/components/ecommerce/OrdersPanel';
+import LowStockPanel from '@/app/components/ecommerce/LowStockPanel';
+import SalesAnalyticsPanel from '@/app/components/ecommerce/SalesAnalyticsPanel';
 import { ProductManager } from '@/app/components/blocks/ProductGridBlock';
-import { ShoppingBag } from 'lucide-react';
+import { ShoppingBag, Package, ClipboardList, CreditCard, Truck, BarChart3 } from 'lucide-react';
+
+type TabId = 'analytics' | 'products' | 'orders' | 'payments' | 'shipping';
 
 export default function AdminEcommercePage() {
   const { siteId, palette, siteBlockTypes } = useAdminContext();
+  const [activeTab, setActiveTab] = useState<TabId>('products');
   const [shippingRequired, setShippingRequired] = useState(true);
 
-  // Fetch initial shipping_required value
   useEffect(() => {
     if (!siteId) return;
     fetch(`/api/products/settings?siteId=${siteId}`)
@@ -34,7 +39,7 @@ export default function AdminEcommercePage() {
       });
     } catch (err) {
       console.error('Failed to update shipping_required:', err);
-      setShippingRequired(!val); // revert on error
+      setShippingRequired(!val);
     }
   };
 
@@ -60,27 +65,63 @@ export default function AdminEcommercePage() {
     );
   }
 
+  const tabs: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+    { id: 'products', label: 'Products', icon: Package },
+    { id: 'orders', label: 'Orders', icon: ClipboardList },
+    { id: 'payments', label: 'Payments', icon: CreditCard },
+    { id: 'shipping', label: 'Shipping', icon: Truck },
+  ];
+
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
+    <div className="p-6 space-y-6">
       <h2 className="text-base font-bold text-slate-900">Ecommerce</h2>
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
-          <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wide">Store Settings</h3>
-        </div>
-        <StoreSettingsPanel siteId={siteId} />
+
+      <div className="flex items-center gap-1 border-b border-slate-200 overflow-x-auto">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === tab.id
+                ? 'border-slate-900 text-slate-900'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
       </div>
-      <ShippingPanel
-        siteId={siteId}
-        shippingRequired={shippingRequired}
-        onShippingRequiredChange={handleShippingRequiredChange}
-      />
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
-          <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wide">Products</h3>
-        </div>
-        <div className="p-4">
-          <ProductManager siteId={siteId} palette={palette} />
-        </div>
+
+      <div className="max-w-3xl mx-auto">
+        {activeTab === 'analytics' && (
+          <SalesAnalyticsPanel siteId={siteId} />
+        )}
+        {activeTab === 'products' && (
+          <>
+            <LowStockPanel siteId={siteId} />
+            <ProductManager siteId={siteId} palette={palette} />
+          </>
+        )}
+        {activeTab === 'orders' && (
+          <OrdersPanel siteId={siteId} />
+        )}
+        {activeTab === 'payments' && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
+              <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wide">Payment Settings</h3>
+            </div>
+            <StoreSettingsPanel siteId={siteId} />
+          </div>
+        )}
+        {activeTab === 'shipping' && (
+          <ShippingPanel
+            siteId={siteId}
+            shippingRequired={shippingRequired}
+            onShippingRequiredChange={handleShippingRequiredChange}
+          />
+        )}
       </div>
     </div>
   );
