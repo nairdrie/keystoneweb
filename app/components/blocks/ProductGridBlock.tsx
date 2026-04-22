@@ -27,6 +27,7 @@ interface Product {
     sort_order: number;
     status: string;
     category: string | null;
+    subcategory: string | null;
     tags: string[];
 }
 
@@ -56,8 +57,9 @@ export default function ProductGridBlock({ id, data, isEditMode, palette, update
 }
 
 function ProductGridBlockEditMode({ siteId, data, updateContent }: { siteId: string; data: any; updateContent: (key: string, value: any) => void }) {
-    const [categories, setCategories] = useState<string[]>([]);
+    const [categoryTree, setCategoryTree] = useState<Record<string, string[]>>({});
     const categoryFilter: string = data?.categoryFilter || '';
+    const subcategoryFilter: string = data?.subcategoryFilter || '';
 
     useEffect(() => {
         (async () => {
@@ -65,10 +67,13 @@ function ProductGridBlockEditMode({ siteId, data, updateContent }: { siteId: str
                 const res = await fetch(`/api/products?siteId=${siteId}&limit=1`);
                 if (!res.ok) return;
                 const d = await res.json();
-                setCategories(d.categories || []);
+                setCategoryTree(d.categoryTree || {});
             } catch {}
         })();
     }, [siteId]);
+
+    const categories = Object.keys(categoryTree).sort();
+    const subcategories = categoryFilter ? (categoryTree[categoryFilter] || []) : [];
 
     return (
         <div className="py-12 px-6 flex flex-col items-center justify-center text-center gap-4 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
@@ -79,20 +84,42 @@ function ProductGridBlockEditMode({ siteId, data, updateContent }: { siteId: str
                 <div className="font-bold text-slate-800 mb-1">Manage Products in Admin</div>
                 <div className="text-sm text-slate-500 mb-4">Add, edit, and manage your products and store settings from your Admin Dashboard.</div>
 
-                <div className="text-left mb-4">
-                    <label className="text-xs font-semibold text-slate-600 mb-1 block">Show category</label>
-                    <select
-                        value={categoryFilter}
-                        onChange={e => updateContent('categoryFilter', e.target.value)}
-                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="">All categories</option>
-                        {categories.map(c => (
-                            <option key={c} value={c}>{c}</option>
-                        ))}
-                    </select>
-                    <p className="text-[11px] text-slate-400 mt-1">
-                        When a specific category is selected, the sidebar is hidden on the live site.
+                <div className="text-left mb-4 space-y-2">
+                    <div>
+                        <label className="text-xs font-semibold text-slate-600 mb-1 block">Show category</label>
+                        <select
+                            value={categoryFilter}
+                            onChange={e => {
+                                const next = e.target.value;
+                                updateContent('categoryFilter', next);
+                                // Clear subcategory when category changes, since it's scoped to the parent.
+                                if (subcategoryFilter) updateContent('subcategoryFilter', '');
+                            }}
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">All categories</option>
+                            {categories.map(c => (
+                                <option key={c} value={c}>{c}</option>
+                            ))}
+                        </select>
+                    </div>
+                    {categoryFilter && subcategories.length > 0 && (
+                        <div>
+                            <label className="text-xs font-semibold text-slate-600 mb-1 block">Show subcategory</label>
+                            <select
+                                value={subcategoryFilter}
+                                onChange={e => updateContent('subcategoryFilter', e.target.value)}
+                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">All {categoryFilter}</option>
+                                {subcategories.map(s => (
+                                    <option key={s} value={s}>{s}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                    <p className="text-[11px] text-slate-400">
+                        When scoped to a specific category or subcategory, the sidebar is hidden on the live site.
                     </p>
                 </div>
 
@@ -357,7 +384,9 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                                             <span className="text-xs text-slate-400 line-through">${(product.compare_at_cents / 100).toFixed(2)}</span>
                                         )}
                                         {product.category && (
-                                            <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">{product.category}</span>
+                                            <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                                                {product.category}{product.subcategory ? ` › ${product.subcategory}` : ''}
+                                            </span>
                                         )}
                                         {product.variants?.length > 0 && (
                                             <span className="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{product.variants.map(v => v.name).join(', ')}</span>
@@ -478,8 +507,9 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
     const [images, setImages] = useState<string[]>(product?.images ?? []);
     const [inventory, setInventory] = useState(product ? String(product.inventory_count) : '-1');
     const [category, setCategory] = useState(product?.category ?? '');
+    const [subcategory, setSubcategory] = useState(product?.subcategory ?? '');
     const [tags, setTags] = useState((product?.tags ?? []).join(', '));
-    const [existingCategories, setExistingCategories] = useState<string[]>([]);
+    const [categoryTree, setCategoryTree] = useState<Record<string, string[]>>({});
     const [variants, setVariants] = useState<Array<{ name: string; options: string }>>(
         product?.variants?.map(v => ({ name: v.name, options: (v.options ?? []).join(', ') })) ?? []
     );
@@ -487,17 +517,21 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
     const [uploading, setUploading] = useState(false);
     const fileRef = useRef<HTMLInputElement>(null);
 
-    // Pull existing categories so the user can quickly pick one rather than retyping.
+    // Pull the category tree so the user can quickly pick an existing
+    // category and auto-populate the subcategory autocomplete options.
     useEffect(() => {
         (async () => {
             try {
                 const res = await fetch(`/api/products?siteId=${siteId}&limit=1`);
                 if (!res.ok) return;
                 const d = await res.json();
-                setExistingCategories(d.categories || []);
+                setCategoryTree(d.categoryTree || {});
             } catch {}
         })();
     }, [siteId]);
+
+    const existingCategories = Object.keys(categoryTree).sort();
+    const subcategorySuggestions = category ? (categoryTree[category] || []) : [];
 
     // Image upload
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -573,6 +607,7 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
             variants: structuredVariants,
             inventory_count: parseInt(inventory),
             category: category.trim() || null,
+            subcategory: category.trim() && subcategory.trim() ? subcategory.trim() : null,
             tags: parsedTags,
         };
 
@@ -672,26 +707,53 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
                 />
             </div>
 
-            {/* Category */}
-            <div>
-                <label className="text-xs font-semibold text-slate-700 mb-1 block">Category</label>
-                <input
-                    type="text"
-                    value={category}
-                    onChange={e => setCategory(e.target.value)}
-                    list={`product-categories-${isEdit ? product!.id : 'new'}`}
-                    placeholder="e.g. Apparel, Accessories"
-                    className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                />
-                {existingCategories.length > 0 && (
-                    <datalist id={`product-categories-${isEdit ? product!.id : 'new'}`}>
-                        {existingCategories.map(c => <option key={c} value={c} />)}
-                    </datalist>
-                )}
-                <p className="text-[11px] text-slate-400 mt-1">
-                    Type a new category or pick from existing ones. Used for the storefront sidebar filter and block-level category scoping.
-                </p>
+            {/* Category + Subcategory */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label className="text-xs font-semibold text-slate-700 mb-1 block">Category</label>
+                    <input
+                        type="text"
+                        value={category}
+                        onChange={e => {
+                            const next = e.target.value;
+                            setCategory(next);
+                            // Clear subcategory if it no longer fits under the new category.
+                            if (next.trim() !== category.trim() && subcategory) {
+                                const list = categoryTree[next.trim()] || [];
+                                if (!list.includes(subcategory)) setSubcategory('');
+                            }
+                        }}
+                        list={`product-categories-${isEdit ? product!.id : 'new'}`}
+                        placeholder="e.g. Apparel"
+                        className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    />
+                    {existingCategories.length > 0 && (
+                        <datalist id={`product-categories-${isEdit ? product!.id : 'new'}`}>
+                            {existingCategories.map(c => <option key={c} value={c} />)}
+                        </datalist>
+                    )}
+                </div>
+                <div>
+                    <label className="text-xs font-semibold text-slate-700 mb-1 block">Subcategory</label>
+                    <input
+                        type="text"
+                        value={subcategory}
+                        onChange={e => setSubcategory(e.target.value)}
+                        list={`product-subcategories-${isEdit ? product!.id : 'new'}`}
+                        placeholder={category ? 'e.g. T-Shirts' : 'Pick a category first'}
+                        disabled={!category.trim()}
+                        className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-slate-50 disabled:text-slate-400"
+                    />
+                    {subcategorySuggestions.length > 0 && (
+                        <datalist id={`product-subcategories-${isEdit ? product!.id : 'new'}`}>
+                            {subcategorySuggestions.map(s => <option key={s} value={s} />)}
+                        </datalist>
+                    )}
+                </div>
             </div>
+            <p className="text-[11px] text-slate-400 -mt-2">
+                Used for the storefront sidebar tree and block-level scoping. Subcategories are scoped to their parent category — the same name under different categories is treated as distinct.
+            </p>
 
             {/* Tags */}
             <div>
@@ -759,10 +821,13 @@ type SortKey = 'featured' | 'popular' | 'az' | 'za';
 
 function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Record<string, string>; data?: any }) {
     const [products, setProducts] = useState<Product[]>([]);
-    const [categories, setCategories] = useState<string[]>([]);
+    const [categoryTree, setCategoryTree] = useState<Record<string, string[]>>({});
     const [popularity, setPopularity] = useState<Record<string, number>>({});
     const [popularityLoaded, setPopularityLoaded] = useState(false);
+    // Sidebar navigation state: the currently-selected category/subcategory.
+    // Subcategory is scoped to a category (cleared when category changes).
     const [activeCategory, setActiveCategory] = useState<string>('');
+    const [activeSubcategory, setActiveSubcategory] = useState<string>('');
     const [sortBy, setSortBy] = useState<SortKey>('featured');
     const [loading, setLoading] = useState(true);
     const cart = useCart();
@@ -771,6 +836,7 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
     const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const blockCategory: string = data?.categoryFilter || '';
+    const blockSubcategory: string = data?.subcategoryFilter || '';
     const lockedToCategory = !!blockCategory;
     const variant: 'grid' | 'gridWithSidebar' | 'list' = data?.variant || 'grid';
     const effectiveVariant = lockedToCategory && variant === 'gridWithSidebar' ? 'grid' : variant;
@@ -783,7 +849,7 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
                 if (!res.ok) throw new Error('Failed to fetch');
                 const data = await res.json();
                 setProducts((data.products || []).filter((p: Product) => p.is_active));
-                setCategories(data.categories || []);
+                setCategoryTree(data.categoryTree || {});
             } catch (err) {
                 console.error(err);
             } finally {
@@ -855,13 +921,21 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
 
     const productHref = (product: Product) => isEditor ? '#' : `/product/${product.id}`;
 
-    const normalizedBlockCategory = blockCategory.toLowerCase();
-    const normalizedActiveCategory = activeCategory.toLowerCase();
+    const nbc = blockCategory.toLowerCase();
+    const nbs = blockSubcategory.toLowerCase();
+    const nac = activeCategory.toLowerCase();
+    const nas = activeSubcategory.toLowerCase();
 
     const filteredProducts = products.filter(p => {
         const cat = (p.category || '').toLowerCase();
-        if (lockedToCategory && cat !== normalizedBlockCategory) return false;
-        if (!lockedToCategory && normalizedActiveCategory && cat !== normalizedActiveCategory) return false;
+        const sub = (p.subcategory || '').toLowerCase();
+        if (lockedToCategory) {
+            if (cat !== nbc) return false;
+            if (nbs && sub !== nbs) return false;
+            return true;
+        }
+        if (nac && cat !== nac) return false;
+        if (nas && sub !== nas) return false;
         return true;
     });
 
@@ -1018,30 +1092,58 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
     }
 
     if (effectiveVariant === 'gridWithSidebar') {
+        const sidebarCategories = Object.keys(categoryTree).sort();
         return (
             <section className="py-16 px-4" id="products">
-                <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-8">
+                <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-8">
                     <aside className="lg:sticky lg:top-24 lg:self-start">
                         <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Categories</h4>
                         <ul className="space-y-1">
                             <li>
                                 <button
-                                    onClick={() => setActiveCategory('')}
+                                    onClick={() => { setActiveCategory(''); setActiveSubcategory(''); }}
                                     className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${!activeCategory ? 'bg-slate-900 text-white font-semibold' : 'text-slate-700 hover:bg-slate-100'}`}
                                 >
                                     All Products
                                 </button>
                             </li>
-                            {categories.map(cat => (
-                                <li key={cat}>
-                                    <button
-                                        onClick={() => setActiveCategory(cat)}
-                                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${activeCategory === cat ? 'bg-slate-900 text-white font-semibold' : 'text-slate-700 hover:bg-slate-100'}`}
-                                    >
-                                        {cat}
-                                    </button>
-                                </li>
-                            ))}
+                            {sidebarCategories.map(cat => {
+                                const subs = categoryTree[cat] || [];
+                                const isActive = activeCategory === cat;
+                                return (
+                                    <li key={cat}>
+                                        <button
+                                            onClick={() => {
+                                                if (activeCategory === cat) {
+                                                    // Re-clicking the active category clears the subcategory filter
+                                                    // (show everything in the category).
+                                                    setActiveSubcategory('');
+                                                } else {
+                                                    setActiveCategory(cat);
+                                                    setActiveSubcategory('');
+                                                }
+                                            }}
+                                            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${isActive && !activeSubcategory ? 'bg-slate-900 text-white font-semibold' : isActive ? 'bg-slate-100 text-slate-900 font-semibold' : 'text-slate-700 hover:bg-slate-100'}`}
+                                        >
+                                            {cat}
+                                        </button>
+                                        {isActive && subs.length > 0 && (
+                                            <ul className="mt-1 mb-1 ml-3 border-l border-slate-200 space-y-0.5">
+                                                {subs.map(sub => (
+                                                    <li key={sub}>
+                                                        <button
+                                                            onClick={() => setActiveSubcategory(activeSubcategory === sub ? '' : sub)}
+                                                            className={`w-full text-left pl-3 pr-2 py-1.5 rounded-md text-xs transition-colors ${activeSubcategory === sub ? 'bg-slate-900 text-white font-semibold' : 'text-slate-600 hover:bg-slate-100'}`}
+                                                        >
+                                                            {sub}
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </li>
+                                );
+                            })}
                         </ul>
                     </aside>
                     <div>
