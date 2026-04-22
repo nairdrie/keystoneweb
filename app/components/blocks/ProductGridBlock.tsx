@@ -148,7 +148,26 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
     const [publishing, setPublishing] = useState(false);
     const [showDraftModal, setShowDraftModal] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
-    const formRef = useRef<HTMLDivElement>(null);
+    const modalBackdropDown = useRef(false);
+
+    const isFormOpen = !!editingProduct || showAdd;
+    const closeForm = useCallback(() => {
+        setEditingProduct(null);
+        setShowAdd(false);
+    }, []);
+
+    // ESC-to-close + body scroll lock while the edit/add modal is open.
+    useEffect(() => {
+        if (!isFormOpen) return;
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeForm(); };
+        window.addEventListener('keydown', onKey);
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            window.removeEventListener('keydown', onKey);
+            document.body.style.overflow = prevOverflow;
+        };
+    }, [isFormOpen, closeForm]);
 
     // Search, filter & pagination
     const [searchQuery, setSearchQuery] = useState('');
@@ -255,6 +274,30 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
 
     const draftCount = products.filter(p => p.status === 'draft').length;
 
+    const paginationBar = totalPages > 1 ? (
+        <div className="flex items-center justify-between py-2">
+            <p className="text-xs text-slate-400">
+                Page {currentPage} of {totalPages} ({totalProducts} total)
+            </p>
+            <div className="flex items-center gap-1">
+                <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                    <ChevronLeft className="w-3.5 h-3.5 text-slate-600" />
+                </button>
+                <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
+                </button>
+            </div>
+        </div>
+    ) : null;
+
     return (
         <section className="py-12 px-4">
             <div className="max-w-2xl mx-auto">
@@ -354,8 +397,10 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                     </div>
 
                     <div className="p-6 space-y-3">
+                        {paginationBar}
+
                         {products.length === 0 && !searchQuery && !filterCategory && !filterStatus && (
-                            <p className="text-sm text-slate-400 text-center py-4">No products yet. Add your first product below.</p>
+                            <p className="text-sm text-slate-400 text-center py-4">No products yet. Click "Add Product" below to create your first one.</p>
                         )}
 
                         {products.length === 0 && (searchQuery || filterCategory || filterStatus) && (
@@ -414,7 +459,6 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                                     onClick={() => {
                                         setShowAdd(false);
                                         setEditingProduct(product);
-                                        requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
                                     }}
                                     className="p-1 hover:bg-blue-50 rounded text-slate-500 hover:text-blue-600 shrink-0"
                                     title="Edit product"
@@ -427,56 +471,43 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                             </div>
                         ))}
 
-                        {/* Pagination */}
-                        {totalPages > 1 && (
-                            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                                <p className="text-xs text-slate-400">
-                                    Page {currentPage} of {totalPages} ({totalProducts} total)
-                                </p>
-                                <div className="flex items-center gap-1">
-                                    <button
-                                        onClick={() => handlePageChange(currentPage - 1)}
-                                        disabled={currentPage === 1}
-                                        className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                                    >
-                                        <ChevronLeft className="w-3.5 h-3.5 text-slate-600" />
-                                    </button>
-                                    <button
-                                        onClick={() => handlePageChange(currentPage + 1)}
-                                        disabled={currentPage === totalPages}
-                                        className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                                    >
-                                        <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                        {paginationBar && <div className="pt-3 border-t border-slate-100">{paginationBar}</div>}
 
-                        <div ref={formRef}>
-                            {editingProduct ? (
-                                <ProductForm
-                                    siteId={siteId}
-                                    product={editingProduct}
-                                    onSaved={() => { fetchProducts(currentPage, searchQuery, filterCategory, filterStatus); setEditingProduct(null); }}
-                                    onCancel={() => setEditingProduct(null)}
-                                />
-                            ) : !showAdd ? (
-                                <button
-                                    onClick={() => setShowAdd(true)}
-                                    className="w-full py-3 border-2 border-dashed border-blue-300 rounded-lg text-blue-600 font-bold text-sm hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
-                                >
-                                    <Plus className="w-4 h-4" /> Add Product
-                                </button>
-                            ) : (
-                                <ProductForm
-                                    siteId={siteId}
-                                    onSaved={() => { fetchProducts(currentPage, searchQuery, filterCategory, filterStatus); setShowAdd(false); }}
-                                    onCancel={() => setShowAdd(false)}
-                                />
-                            )}
-                        </div>
+                        <button
+                            onClick={() => { setEditingProduct(null); setShowAdd(true); }}
+                            className="w-full py-3 border-2 border-dashed border-blue-300 rounded-lg text-blue-600 font-bold text-sm hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
+                        >
+                            <Plus className="w-4 h-4" /> Add Product
+                        </button>
                     </div>
                 </div>
+
+                {/* Add / Edit product modal */}
+                {isFormOpen && (
+                    <div
+                        className="fixed inset-0 z-[10000] flex items-start justify-center overflow-y-auto bg-black/50 backdrop-blur-sm p-4"
+                        onMouseDown={(e) => { modalBackdropDown.current = e.target === e.currentTarget; }}
+                        onClick={(e) => {
+                            if (modalBackdropDown.current && e.target === e.currentTarget) {
+                                closeForm();
+                            }
+                            modalBackdropDown.current = false;
+                        }}
+                    >
+                        <div className="w-full max-w-lg my-8" onClick={e => e.stopPropagation()}>
+                            <ProductForm
+                                key={editingProduct?.id ?? 'new'}
+                                siteId={siteId}
+                                product={editingProduct ?? undefined}
+                                onSaved={() => {
+                                    fetchProducts(currentPage, searchQuery, filterCategory, filterStatus);
+                                    closeForm();
+                                }}
+                                onCancel={closeForm}
+                            />
+                        </div>
+                    </div>
+                )}
 
                 {showImportModal && (
                     <CsvImportModal
