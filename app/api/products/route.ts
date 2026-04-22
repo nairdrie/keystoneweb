@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
 
     const search = request.nextUrl.searchParams.get('search')?.trim() || '';
     const category = request.nextUrl.searchParams.get('category')?.trim() || '';
+    const subcategory = request.nextUrl.searchParams.get('subcategory')?.trim() || '';
     const status = request.nextUrl.searchParams.get('status')?.trim() || '';
     const page = Math.max(1, parseInt(request.nextUrl.searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(request.nextUrl.searchParams.get('limit') || '50')));
@@ -39,6 +40,10 @@ export async function GET(request: NextRequest) {
         query = query.eq('category', category);
     }
 
+    if (subcategory) {
+        query = query.eq('subcategory', subcategory);
+    }
+
     if (status === 'draft' || status === 'published') {
         query = query.eq('status', status);
     }
@@ -57,19 +62,31 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Fetch distinct categories for this site (for filter dropdown)
+    // Fetch distinct category + subcategory pairs for this site
+    // (used to build both the flat categories list and the tree for two-level UI).
     const { data: catData } = await supabase
         .from('products')
-        .select('category')
+        .select('category, subcategory')
         .eq('site_id', siteId)
         .not('category', 'is', null)
         .order('category');
 
     const categories = [...new Set((catData || []).map(r => r.category).filter(Boolean))];
 
+    const categoryTree: Record<string, string[]> = {};
+    for (const row of catData || []) {
+        if (!row.category) continue;
+        if (!categoryTree[row.category]) categoryTree[row.category] = [];
+        if (row.subcategory && !categoryTree[row.category].includes(row.subcategory)) {
+            categoryTree[row.category].push(row.subcategory);
+        }
+    }
+    for (const k of Object.keys(categoryTree)) categoryTree[k].sort();
+
     return NextResponse.json({
         products: data,
         categories,
+        categoryTree,
         pagination: {
             page,
             limit,
@@ -88,7 +105,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { siteId, name, description, price_cents, compare_at_cents, currency, images, variants, inventory_count } = body;
+    const { siteId, name, description, price_cents, compare_at_cents, currency, images, variants, inventory_count, category, subcategory, tags } = body;
 
     if (!siteId || !name) {
         return NextResponse.json({ error: 'Missing siteId or name' }, { status: 400 });
@@ -146,6 +163,9 @@ export async function POST(request: NextRequest) {
             images: images || [],
             variants: variants || [],
             inventory_count: inventory_count ?? -1,
+            category: category || null,
+            subcategory: subcategory || null,
+            tags: Array.isArray(tags) ? tags : [],
             slug,
             sort_order: nextOrder,
         })
@@ -191,7 +211,7 @@ export async function PUT(request: NextRequest) {
 
     const updates: Record<string, any> = { updated_at: new Date().toISOString() };
 
-    const allowedFields = ['name', 'description', 'price_cents', 'compare_at_cents', 'currency', 'images', 'variants', 'inventory_count', 'is_active', 'sort_order', 'status', 'category', 'tags'];
+    const allowedFields = ['name', 'description', 'price_cents', 'compare_at_cents', 'currency', 'images', 'variants', 'inventory_count', 'is_active', 'sort_order', 'status', 'category', 'subcategory', 'tags'];
 
     for (const key of allowedFields) {
         if (fields[key] !== undefined) updates[key] = fields[key];
