@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { BlockData, useEditorContext } from '@/lib/editor-context';
 import { useLangPrefix, prefixInternalLinks } from '@/lib/hooks/useLangPrefix';
 import { Lock, Crown } from 'lucide-react';
-import DOMPurify from 'isomorphic-dompurify';
+import sanitizeHtml from 'sanitize-html';
 
 export default function CustomHTMLBlock({ block, palette }: { block: BlockData, palette: Record<string, string> }) {
     const context = useEditorContext();
@@ -16,10 +16,18 @@ export default function CustomHTMLBlock({ block, palette }: { block: BlockData, 
     const [localHtml, setLocalHtml] = useState(htmlContent);
     const [isEditing, setIsEditing] = useState(false);
 
-    // Configure DOMPurify to allow safe layout tags but block scripts/event handlers entirely
-    const safeHTML = DOMPurify.sanitize(htmlContent, {
-        ADD_TAGS: ['style', 'iframe'],
-        ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling']
+    // Allow safe layout tags (including style/iframe for embeds) but strip scripts and event handlers
+    const safeHTML = sanitizeHtml(htmlContent, {
+        allowedTags: [...sanitizeHtml.defaults.allowedTags, 'style', 'iframe', 'img', 'svg', 'path'],
+        allowedAttributes: {
+            ...sanitizeHtml.defaults.allowedAttributes,
+            '*': ['class', 'style', 'id'],
+            iframe: ['src', 'width', 'height', 'allow', 'allowfullscreen', 'frameborder', 'scrolling'],
+            img: ['src', 'alt', 'title', 'width', 'height', 'loading'],
+        },
+        allowedSchemes: ['http', 'https', 'mailto', 'tel', 'data'],
+        allowedSchemesByTag: { iframe: ['http', 'https'] },
+        allowVulnerableTags: true,
     });
 
     const handleSave = () => {
