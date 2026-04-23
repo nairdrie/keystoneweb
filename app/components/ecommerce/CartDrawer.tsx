@@ -5,11 +5,13 @@ import { createPortal } from 'react-dom';
 import { X, Plus, Minus, ShoppingBag, Trash2, Loader2, Check, ArrowRight, User, Mail, Phone, CreditCard, DollarSign, Truck, AlertCircle, Package } from 'lucide-react';
 import { useCart } from './CartProvider';
 import AddressAutocomplete from './AddressAutocomplete';
+import PayPalButton from './PayPalButton';
 import { COUNTRIES, REGIONS, getCountryName } from '@/lib/shipping-data';
 
 interface PaymentMethods {
     etransfer?: boolean;
     stripe?: boolean;
+    paypal?: boolean;
 }
 
 interface EcommerceSettings {
@@ -45,9 +47,13 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
         line1: '', city: '', region: '', postal: '', country: 'CA',
         notes: '',
     });
-    const [selectedPayment, setSelectedPayment] = useState<'etransfer' | 'stripe'>('etransfer');
+    const [selectedPayment, setSelectedPayment] = useState<'etransfer' | 'stripe' | 'paypal'>('etransfer');
     const [ecomSettings, setEcomSettings] = useState<EcommerceSettings | null>(null);
     const [stripeConnected, setStripeConnected] = useState(false);
+    const [paypalConnected, setPaypalConnected] = useState(false);
+    const [paypalMerchantId, setPaypalMerchantId] = useState<string | null>(null);
+    const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+    const [paypalError, setPaypalError] = useState<string | null>(null);
     const [settingsLoaded, setSettingsLoaded] = useState(false);
 
     // Shipping
@@ -67,10 +73,14 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                 const data = await res.json();
                 setEcomSettings(data.settings);
                 setStripeConnected(data.stripeConnected || false);
+                setPaypalConnected(data.paypalConnected || false);
+                setPaypalMerchantId(data.paypalMerchantId || null);
 
                 const pm = data.settings?.payment_methods || {};
                 if (pm.stripe && data.stripeConnected) {
                     setSelectedPayment('stripe');
+                } else if (pm.paypal && data.paypalConnected) {
+                    setSelectedPayment('paypal');
                 } else {
                     setSelectedPayment('etransfer');
                 }
@@ -139,9 +149,12 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
 
     // Available payment methods
     const pm = ecomSettings?.payment_methods || {};
-    const availableMethods: Array<{ key: 'etransfer' | 'stripe'; label: string; desc: string; icon: typeof CreditCard }> = [];
+    const availableMethods: Array<{ key: 'etransfer' | 'stripe' | 'paypal'; label: string; desc: string; icon: typeof CreditCard }> = [];
     if (pm.stripe && stripeConnected) {
         availableMethods.push({ key: 'stripe', label: 'Credit / Debit Card', desc: 'Pay securely with Stripe', icon: CreditCard });
+    }
+    if (pm.paypal && paypalConnected) {
+        availableMethods.push({ key: 'paypal', label: 'PayPal or Card', desc: 'PayPal wallet or pay as guest with a card', icon: CreditCard });
     }
     if (pm.etransfer) {
         availableMethods.push({ key: 'etransfer', label: 'Interac e-Transfer', desc: 'Send payment via Interac', icon: DollarSign });
@@ -169,48 +182,51 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
         setStep('payment');
     };
 
+    const createOrderRow = async (paymentMethod: 'etransfer' | 'stripe' | 'paypal') => {
+        const orderRes = await fetch('/api/products/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                siteId,
+                items: cart!.items.map(i => ({
+                    productId: i.productId,
+                    name: i.name,
+                    price_cents: i.price_cents,
+                    qty: i.qty,
+                    currency: i.currency,
+                    variants: i.variants,
+                    image: i.image,
+                })),
+                customerName: form.name,
+                customerEmail: form.email,
+                customerPhone: form.phone || undefined,
+                shippingAddress: shippingRequired ? {
+                    line1: form.line1,
+                    city: form.city,
+                    region: form.region,
+                    postal: form.postal,
+                    country: form.country,
+                } : undefined,
+                shippingCents: shippingRequired ? shippingCents : 0,
+                shippingMethod: shippingRequired ? (shippingResult?.shippingLabel || '') : undefined,
+                paymentMethod,
+                notes: form.notes.trim() || undefined,
+            }),
+        });
+
+        const orderData = await orderRes.json();
+        if (!orderRes.ok) {
+            throw new Error(orderData?.error || 'Order creation failed');
+        }
+        return orderData;
+    };
+
     const handleCheckout = async () => {
         if (!canPlaceOrder) return;
         setSubmitting(true);
 
         try {
-            const orderRes = await fetch('/api/products/orders', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    siteId,
-                    items: cart.items.map(i => ({
-                        productId: i.productId,
-                        name: i.name,
-                        price_cents: i.price_cents,
-                        qty: i.qty,
-                        currency: i.currency,
-                        variants: i.variants,
-                        image: i.image,
-                    })),
-                    customerName: form.name,
-                    customerEmail: form.email,
-                    customerPhone: form.phone || undefined,
-                    shippingAddress: shippingRequired ? {
-                        line1: form.line1,
-                        city: form.city,
-                        region: form.region,
-                        postal: form.postal,
-                        country: form.country,
-                    } : undefined,
-                    shippingCents: shippingRequired ? shippingCents : 0,
-                    shippingMethod: shippingRequired ? (shippingResult?.shippingLabel || '') : undefined,
-                    paymentMethod: selectedPayment,
-                    notes: form.notes.trim() || undefined,
-                }),
-            });
-
-            const orderData = await orderRes.json();
-            if (!orderRes.ok) {
-                console.error('Order creation failed:', orderData);
-                setSubmitting(false);
-                return;
-            }
+            const orderData = await createOrderRow(selectedPayment);
 
             // Handle Stripe payment
             if (selectedPayment === 'stripe' && orderData.order?.id) {
@@ -246,6 +262,52 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
         }
     };
 
+    // PayPal: the create-order callback must return a PayPal order id.
+    // If we don't yet have a local order row, create one first.
+    const handlePaypalCreateOrder = async (): Promise<string> => {
+        setPaypalError(null);
+        let orderId = pendingOrderId;
+        if (!orderId) {
+            const orderData = await createOrderRow('paypal');
+            orderId = orderData.order?.id;
+            if (!orderId) throw new Error('Could not create order');
+            setPendingOrderId(orderId);
+        }
+        const res = await fetch('/api/paypal/create-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.paypalOrderId) {
+            throw new Error(data?.error || 'Failed to create PayPal order');
+        }
+        return data.paypalOrderId;
+    };
+
+    const handlePaypalApprove = async (paypalOrderId: string) => {
+        if (!pendingOrderId) {
+            setPaypalError('Missing order reference');
+            return;
+        }
+        const res = await fetch('/api/paypal/capture-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: pendingOrderId, paypalOrderId }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            setPaypalError(data?.error || 'PayPal capture failed');
+            return;
+        }
+        setConfirmation({
+            order: data.order || { id: pendingOrderId },
+            confirmationMessage: 'Your payment has been processed.',
+        });
+        setStep('confirmation');
+        cart.clearCart();
+    };
+
     const handleClose = () => {
         cart.setCartOpen(false);
         setTimeout(() => {
@@ -253,6 +315,8 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
             setConfirmation(null);
             setShippingResult(null);
             setShippingError(null);
+            setPendingOrderId(null);
+            setPaypalError(null);
         }, 300);
     };
 
@@ -571,7 +635,11 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                             return (
                                                 <button
                                                     key={method.key}
-                                                    onClick={() => setSelectedPayment(method.key)}
+                                                    onClick={() => {
+                                                        setSelectedPayment(method.key);
+                                                        setPendingOrderId(null);
+                                                        setPaypalError(null);
+                                                    }}
                                                     className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl border-2 transition-all text-left ${
                                                         isSelected
                                                             ? 'border-blue-500 bg-blue-50'
@@ -665,24 +733,48 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
 
                 {step === 'payment' && (
                     <div className="border-t border-slate-200 px-5 py-4 space-y-2">
-                        <button
-                            onClick={handleCheckout}
-                            disabled={submitting || !canPlaceOrder || (shippingRequired && (!!shippingError || noZonesConfigured))}
-                            className="w-full py-3 text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-40"
-                            style={{ backgroundColor: selectedPayment === 'stripe' ? '#635BFF' : pSecondary }}
-                        >
-                            {submitting ? (
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                            ) : selectedPayment === 'stripe' ? (
-                                <CreditCard className="w-5 h-5" />
-                            ) : (
-                                <Check className="w-5 h-5" />
-                            )}
-                            {selectedPayment === 'stripe'
-                                ? `Pay ${totalStr} with Card`
-                                : `Place Order — ${totalStr} (e-Transfer)`
-                            }
-                        </button>
+                        {selectedPayment === 'paypal' && paypalMerchantId ? (
+                            <div>
+                                {canPlaceOrder && !(shippingRequired && (!!shippingError || noZonesConfigured)) ? (
+                                    <PayPalButton
+                                        merchantId={paypalMerchantId}
+                                        currency={currency}
+                                        createOrder={handlePaypalCreateOrder}
+                                        onApprove={handlePaypalApprove}
+                                        onError={err => setPaypalError(err?.message || 'PayPal error')}
+                                        onCancel={() => setPaypalError(null)}
+                                    />
+                                ) : (
+                                    <div className="py-3 text-center text-sm text-slate-400">
+                                        Complete the form above to continue to PayPal.
+                                    </div>
+                                )}
+                                {paypalError && (
+                                    <p className="text-xs text-red-600 mt-2 flex items-center gap-1">
+                                        <AlertCircle className="w-3 h-3" /> {paypalError}
+                                    </p>
+                                )}
+                            </div>
+                        ) : (
+                            <button
+                                onClick={handleCheckout}
+                                disabled={submitting || !canPlaceOrder || (shippingRequired && (!!shippingError || noZonesConfigured))}
+                                className="w-full py-3 text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-40"
+                                style={{ backgroundColor: selectedPayment === 'stripe' ? '#635BFF' : pSecondary }}
+                            >
+                                {submitting ? (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : selectedPayment === 'stripe' ? (
+                                    <CreditCard className="w-5 h-5" />
+                                ) : (
+                                    <Check className="w-5 h-5" />
+                                )}
+                                {selectedPayment === 'stripe'
+                                    ? `Pay ${totalStr} with Card`
+                                    : `Place Order — ${totalStr} (e-Transfer)`
+                                }
+                            </button>
+                        )}
                         <button onClick={() => setStep(shippingRequired ? 'address' : 'cart')} className="w-full py-2 text-sm text-slate-500 hover:text-slate-700">
                             &#8592; Back
                         </button>
