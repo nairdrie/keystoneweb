@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { sendOrderConfirmation, sendOrderNotification, sendSubscriptionPurchaseEmail, sendSubscriptionCancelledEmail } from '@/lib/email';
 import { completeDomainPurchase } from '@/app/api/domains/purchase/route';
@@ -133,7 +132,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabase = await createClient();
+  // Webhooks have no user JWT; use the admin client so all table writes succeed under RLS.
+  const supabase = createAdminClient();
 
   try {
     switch (event.type) {
