@@ -8,6 +8,7 @@ import {
     Edit2, Search, X, CreditCard, Package, Star, Send, GripVertical, Upload
 } from 'lucide-react';
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
+import PayPalButton from '@/app/components/ecommerce/PayPalButton';
 import {
     DndContext, closestCenter, MouseSensor, TouchSensor, useSensor, useSensors,
     type DragEndEvent,
@@ -70,7 +71,7 @@ interface BookingSettings {
     buffer_minutes: number;
     max_advance_days: number;
     require_payment: boolean;
-    payment_methods: { none: boolean; etransfer: boolean; stripe: boolean };
+    payment_methods: { none: boolean; etransfer: boolean; stripe: boolean; paypal?: boolean };
     etransfer_email: string | null;
     confirmation_message: string | null;
     notification_email: string | null;
@@ -1105,8 +1106,10 @@ function SettingsEditor({ siteId, settings, setSettings }: {
     const [local, setLocal] = useState(settings);
     const [stripeConnected, setStripeConnected] = useState(false);
     const [connectingStripe, setConnectingStripe] = useState(false);
+    const [paypalConnected, setPaypalConnected] = useState(false);
+    const [connectingPaypal, setConnectingPaypal] = useState(false);
 
-    // Check if Stripe is already connected for this site
+    // Check if Stripe / PayPal is already connected for this site
     useEffect(() => {
         fetch(`/api/bookings/settings?siteId=${siteId}`)
             .then(r => r.json())
@@ -1116,6 +1119,10 @@ function SettingsEditor({ siteId, settings, setSettings }: {
                     .then(r => r.ok ? r.json() : { connected: false })
                     .then(d => setStripeConnected(d.connected || false))
                     .catch(() => setStripeConnected(false));
+                fetch(`/api/paypal/connect?siteId=${siteId}`)
+                    .then(r => r.ok ? r.json() : { connected: false })
+                    .then(d => setPaypalConnected(d.connected || false))
+                    .catch(() => setPaypalConnected(false));
             });
     }, [siteId]);
 
@@ -1142,6 +1149,19 @@ function SettingsEditor({ siteId, settings, setSettings }: {
         const data = await res.json();
         if (data.url) window.location.href = data.url;
         else setConnectingStripe(false);
+    };
+
+    const handleConnectPaypal = async () => {
+        setConnectingPaypal(true);
+        const returnUrl = window.location.href;
+        const res = await fetch('/api/paypal/connect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ siteId, returnUrl }),
+        });
+        const data = await res.json();
+        if (data.url) window.open(data.url, '_blank');
+        setConnectingPaypal(false);
     };
 
     return (
@@ -1198,6 +1218,12 @@ function SettingsEditor({ siteId, settings, setSettings }: {
                             className="rounded accent-blue-600" />
                         <span className="text-sm text-slate-700">Stripe (card payments online)</span>
                     </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={local.payment_methods?.paypal || false}
+                            onChange={() => setLocal({ ...local, payment_methods: { ...local.payment_methods, paypal: !local.payment_methods?.paypal } })}
+                            className="rounded accent-blue-600" />
+                        <span className="text-sm text-slate-700">PayPal (PayPal wallet + card as guest)</span>
+                    </label>
                 </div>
             </div>
 
@@ -1228,6 +1254,30 @@ function SettingsEditor({ siteId, settings, setSettings }: {
                                 className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg disabled:opacity-50 transition-colors">
                                 {connectingStripe ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
                                 Connect with Stripe
+                            </button>
+                        </>
+                    )}
+                </div>
+            )}
+
+            {local.payment_methods?.paypal && (
+                <div className="p-3 rounded-lg border border-slate-200 bg-slate-50">
+                    <p className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
+                        <CreditCard className="w-4 h-4" /> PayPal Connect
+                    </p>
+                    {paypalConnected ? (
+                        <div className="flex items-center gap-2 text-sm text-green-700">
+                            <Check className="w-4 h-4" />
+                            <span className="font-medium">Connected</span>
+                            <span className="text-slate-500">— customers can pay with PayPal or card at booking time</span>
+                        </div>
+                    ) : (
+                        <>
+                            <p className="text-xs text-slate-500 mb-2">Connect your PayPal business account to accept PayPal and guest card payments.</p>
+                            <button onClick={handleConnectPaypal} disabled={connectingPaypal}
+                                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg disabled:opacity-50 transition-colors">
+                                {connectingPaypal ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+                                Connect with PayPal
                             </button>
                         </>
                     )}
@@ -1313,7 +1363,10 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
     const [blockedDates, setBlockedDates] = useState<string[]>([]);
 
     // Payment method selection (shown in form step)
-    const [chosenPaymentMethod, setChosenPaymentMethod] = useState<'none' | 'etransfer' | 'stripe'>('none');
+    const [chosenPaymentMethod, setChosenPaymentMethod] = useState<'none' | 'etransfer' | 'stripe' | 'paypal'>('none');
+    const [paypalMerchantId, setPaypalMerchantId] = useState<string | null>(null);
+    const [pendingPaypalOrderId, setPendingPaypalOrderId] = useState<string | null>(null);
+    const [paypalError, setPaypalError] = useState<string | null>(null);
 
     // Customer form
     const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '' });
@@ -1358,7 +1411,21 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
         if (settings.payment_methods?.none !== false) setChosenPaymentMethod('none');
         else if (settings.payment_methods?.etransfer) setChosenPaymentMethod('etransfer');
         else if (settings.payment_methods?.stripe) setChosenPaymentMethod('stripe');
+        else if (settings.payment_methods?.paypal) setChosenPaymentMethod('paypal');
     }, [settings]);
+
+    // Fetch the site's PayPal merchant id (only needed when we'll render the button).
+    useEffect(() => {
+        if (!settings?.payment_methods?.paypal) return;
+        fetch(`/api/bookings/settings?siteId=${siteId}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(d => {
+                if (d?.paypalConnected && d.paypalMerchantId) {
+                    setPaypalMerchantId(d.paypalMerchantId);
+                }
+            })
+            .catch(() => {});
+    }, [settings, siteId]);
 
     // Load slots when date selected
     useEffect(() => {
@@ -1378,6 +1445,70 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
             ? (selectedService?.price_cents ?? 0) + selectedOption.price_cents
             : selectedOption.price_cents)
         : (selectedService?.price_cents ?? 0);
+
+    const handlePaypalCreateOrder = async (): Promise<string> => {
+        if (!selectedService || !selectedDate || !selectedSlot) {
+            throw new Error('Missing booking details');
+        }
+        setPaypalError(null);
+        const res = await fetch('/api/bookings/paypal-create-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                siteId,
+                serviceId: selectedService.id,
+                optionId: selectedOption?.id,
+                selectedOptionName: selectedOption?.name,
+                selectedPriceCents: effectivePriceCents,
+                date: selectedDate,
+                startTime: selectedSlot.startTime,
+                customerName: form.name,
+                customerEmail: form.email,
+                customerPhone: form.phone || undefined,
+                notes: form.notes || undefined,
+            }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.paypalOrderId) {
+            throw new Error(data?.error || 'Failed to create PayPal order');
+        }
+        setPendingPaypalOrderId(data.paypalOrderId);
+        return data.paypalOrderId;
+    };
+
+    const handlePaypalApprove = async (paypalOrderId: string) => {
+        if (!selectedService || !selectedDate || !selectedSlot) return;
+        setSubmitting(true);
+        const res = await fetch('/api/bookings/paypal-capture-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                paypalOrderId,
+                siteId,
+                serviceId: selectedService.id,
+                optionId: selectedOption?.id,
+                selectedOptionName: selectedOption?.name,
+                date: selectedDate,
+                startTime: selectedSlot.startTime,
+                customerName: form.name,
+                customerEmail: form.email,
+                customerPhone: form.phone || undefined,
+                notes: form.notes || undefined,
+            }),
+        });
+        const data = await res.json();
+        setSubmitting(false);
+        if (!res.ok || !data.success) {
+            setPaypalError(data?.error || 'Payment captured but booking failed.');
+            return;
+        }
+        setConfirmation({
+            booking: data.booking,
+            service: selectedService,
+            confirmationMessage: data.confirmationMessage,
+        });
+        setStep('confirmation');
+    };
 
     const handleSubmit = async () => {
         if (!selectedService || !selectedDate || !selectedSlot) return;
@@ -1761,15 +1892,37 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                             </div>
                         </div>
 
-                        <button
-                            onClick={handleSubmit}
-                            disabled={submitting || !form.name.trim() || !validateEmail(form.email)}
-                            className="w-full mt-6 py-3 text-white font-bold rounded-xl shadow-lg hover:opacity-90 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
-                            style={{ backgroundColor: pSecondary }}
-                        >
-                            {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
-                            Confirm Booking
-                        </button>
+                        {chosenPaymentMethod === 'paypal' && paypalMerchantId ? (
+                            <div className="mt-6">
+                                {form.name.trim() && validateEmail(form.email) ? (
+                                    <PayPalButton
+                                        merchantId={paypalMerchantId}
+                                        currency={selectedService?.currency || 'USD'}
+                                        createOrder={handlePaypalCreateOrder}
+                                        onApprove={handlePaypalApprove}
+                                        onError={err => setPaypalError(err?.message || 'PayPal error')}
+                                        onCancel={() => setPaypalError(null)}
+                                    />
+                                ) : (
+                                    <p className="text-sm text-slate-400 text-center py-3">
+                                        Enter your name and email above to continue to PayPal.
+                                    </p>
+                                )}
+                                {paypalError && (
+                                    <p className="text-xs text-red-600 mt-2 text-center">{paypalError}</p>
+                                )}
+                            </div>
+                        ) : (
+                            <button
+                                onClick={handleSubmit}
+                                disabled={submitting || !form.name.trim() || !validateEmail(form.email)}
+                                className="w-full mt-6 py-3 text-white font-bold rounded-xl shadow-lg hover:opacity-90 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                                style={{ backgroundColor: pSecondary }}
+                            >
+                                {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+                                Confirm Booking
+                            </button>
+                        )}
                     </div>
                 )}
 

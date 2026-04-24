@@ -39,7 +39,7 @@ ALTER TABLE public.orders ADD CONSTRAINT orders_status_check
 -- Update orders payment_method check to include 'external'
 ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_payment_method_check;
 ALTER TABLE public.orders ADD CONSTRAINT orders_payment_method_check
-    CHECK (payment_method IN ('none', 'etransfer', 'stripe', 'external'));
+    CHECK (payment_method IN ('none', 'etransfer', 'stripe', 'paypal', 'external'));
 
 -- Indexes for order lookups
 CREATE INDEX IF NOT EXISTS idx_orders_vendor ON public.orders(vendor_id);
