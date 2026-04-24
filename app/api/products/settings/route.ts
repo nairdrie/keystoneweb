@@ -27,16 +27,20 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Also fetch stripe_account_id from sites table
+    // Also fetch stripe_account_id and paypal fields from sites table
     const { data: site } = await supabase
         .from('sites')
-        .select('stripe_account_id')
+        .select('stripe_account_id, paypal_merchant_id, paypal_onboarding_status, paypal_advanced_card_enabled')
         .eq('id', siteId)
         .single();
 
     return NextResponse.json({
         settings: data || null,
         stripeConnected: !!site?.stripe_account_id,
+        paypalConnected:
+            !!site?.paypal_merchant_id && site?.paypal_onboarding_status === 'active',
+        paypalMerchantId: site?.paypal_merchant_id || null,
+        paypalAdvancedCardEnabled: !!site?.paypal_advanced_card_enabled,
     });
 }
 

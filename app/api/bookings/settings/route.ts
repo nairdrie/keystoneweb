@@ -27,7 +27,21 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ settings: data || null });
+    // Also expose the site's PayPal merchant id publicly so the customer-side
+    // booking flow can initialize the PayPal Smart Buttons with merchant-id.
+    const { data: site } = await supabase
+        .from('sites')
+        .select('paypal_merchant_id, paypal_onboarding_status, stripe_account_id')
+        .eq('id', siteId)
+        .single();
+
+    return NextResponse.json({
+        settings: data || null,
+        paypalConnected:
+            !!site?.paypal_merchant_id && site?.paypal_onboarding_status === 'active',
+        paypalMerchantId: site?.paypal_merchant_id || null,
+        stripeConnected: !!site?.stripe_account_id,
+    });
 }
 
 export async function PUT(request: NextRequest) {
