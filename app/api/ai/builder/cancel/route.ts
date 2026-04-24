@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 import { refundLastUsage, checkCancelRateLimit } from '../rate-limit';
 
 export async function POST(req: NextRequest) {
@@ -15,8 +16,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Too many cancel requests.' }, { status: 429 });
     }
 
-    // Delete the most recent usage row for this user
-    await refundLastUsage(user.id, supabase);
+    // Delete the most recent usage row for this user.
+    // Admin client: ai_prompt_usage has no user-level policies (prevents users
+    // from DELETE-ing rows to reset their own rate-limit counter via PostgREST).
+    await refundLastUsage(user.id, createAdminClient());
 
     return NextResponse.json({ ok: true });
   } catch {
