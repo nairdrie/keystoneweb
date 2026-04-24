@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import DOMPurify from 'isomorphic-dompurify';
+import sanitizeHtml from 'sanitize-html';
 
 type ThreadMessage = {
   id: string;
@@ -243,7 +243,7 @@ export default function SupportTicketPage() {
                 ) : msg.body_html ? (
                   <div
                     className="prose prose-invert prose-sm max-w-none text-gray-300"
-                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg.body_html) }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(msg.body_html) }}
                   />
                 ) : (
                   <p className="text-gray-600 text-sm italic">No message body.</p>
@@ -262,7 +262,7 @@ export default function SupportTicketPage() {
           ) : ticket.body_html ? (
             <div
               className="prose prose-invert prose-sm max-w-none text-gray-300"
-              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(ticket.body_html) }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(ticket.body_html) }}
             />
           ) : (
             <p className="text-gray-600 text-sm italic">No message body content found.</p>
