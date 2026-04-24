@@ -35,20 +35,27 @@ export async function POST(request: NextRequest) {
     if (order.payment_status === 'paid') {
         return NextResponse.json({ order, alreadyPaid: true });
     }
-    if (!order.vendors) {
-        return NextResponse.json({ error: 'Order has no vendor configured' }, { status: 400 });
+
+    let creds: { merchantId: string; userId: string; pin: string; demoMode: boolean };
+    const vendor = order.vendors;
+
+    if (order.vendor_id && vendor?.converge_merchant_id && vendor?.converge_user_id && vendor?.converge_pin) {
+        creds = { merchantId: vendor.converge_merchant_id, userId: vendor.converge_user_id, pin: vendor.converge_pin, demoMode: !!vendor.converge_demo_mode };
+    } else if (!order.vendor_id) {
+        const { data: site } = await supabase
+            .from('sites')
+            .select('converge_merchant_id, converge_user_id, converge_pin, converge_demo_mode')
+            .eq('id', order.site_id)
+            .single();
+        if (!site?.converge_merchant_id || !site?.converge_user_id || !site?.converge_pin) {
+            return NextResponse.json({ error: 'Converge credentials not configured' }, { status: 400 });
+        }
+        creds = { merchantId: site.converge_merchant_id, userId: site.converge_user_id, pin: site.converge_pin, demoMode: !!site.converge_demo_mode };
+    } else {
+        return NextResponse.json({ error: 'Converge credentials not configured' }, { status: 400 });
     }
 
-    const vendor = order.vendors;
-    const result = await verifyTransaction(
-        {
-            merchantId: vendor.converge_merchant_id,
-            userId: vendor.converge_user_id,
-            pin: vendor.converge_pin,
-            demoMode: !!vendor.converge_demo_mode,
-        },
-        sslTxnId
-    );
+    const result = await verifyTransaction(creds, sslTxnId);
 
     if (!result.approved) {
         return NextResponse.json({
@@ -83,7 +90,7 @@ export async function POST(request: NextRequest) {
         .single();
 
     // Fire-and-forget emails
-    await sendConvergeOrderEmails(supabase, updated || order, vendor).catch(e => console.error('Converge email failure:', e));
+    await sendConvergeOrderEmails(supabase, updated || order, vendor || null).catch(e => console.error('Converge email failure:', e));
 
     return NextResponse.json({
         success: true,
@@ -97,7 +104,7 @@ export async function POST(request: NextRequest) {
     });
 }
 
-async function sendConvergeOrderEmails(supabase: any, order: any, vendor: any) {
+async function sendConvergeOrderEmails(supabase: any, order: any, vendor: any | null) {
     const { data: siteInfo } = await supabase
         .from('sites')
         .select('site_slug, title')
@@ -113,42 +120,43 @@ async function sendConvergeOrderEmails(supabase: any, order: any, vendor: any) {
 
     const currency = order.items?.[0]?.currency || 'CAD';
 
-    // Always notify the vendor — they need to fulfill even though payment went through their processor
-    const { data: tokenRow } = await supabase
-        .from('vendor_order_tokens')
-        .select('token')
-        .eq('vendor_id', vendor.id)
-        .eq('site_id', order.site_id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    // If this is a vendor order, notify the vendor
+    if (vendor) {
+        const { data: tokenRow } = await supabase
+            .from('vendor_order_tokens')
+            .select('token')
+            .eq('vendor_id', vendor.id)
+            .eq('site_id', order.site_id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-    const ccEmails = Array.isArray(vendor.cc_notification_emails) ? vendor.cc_notification_emails : [];
-    const vendorRecipients = [vendor.contact_email, ...ccEmails].filter(Boolean);
-    for (const recipient of vendorRecipients) {
-        sendVendorOrderNotification({
-            orderId: order.id,
-            vendorName: vendor.name,
-            vendorEmail: recipient,
-            customerName: order.customer_name,
-            customerEmail: order.customer_email,
-            customerPhone: order.customer_phone,
-            shippingAddress: order.shipping_address,
-            items: order.items,
-            subtotalCents: order.subtotal_cents,
-            currency,
-            portalToken: tokenRow?.token,
-            siteName,
-        }).catch(e => console.error(e));
+        const ccEmails = Array.isArray(vendor.cc_notification_emails) ? vendor.cc_notification_emails : [];
+        const vendorRecipients = [vendor.contact_email, ...ccEmails].filter(Boolean);
+        for (const recipient of vendorRecipients) {
+            sendVendorOrderNotification({
+                orderId: order.id,
+                vendorName: vendor.name,
+                vendorEmail: recipient,
+                customerName: order.customer_name,
+                customerEmail: order.customer_email,
+                customerPhone: order.customer_phone,
+                shippingAddress: order.shipping_address,
+                items: order.items,
+                subtotalCents: order.subtotal_cents,
+                currency,
+                portalToken: tokenRow?.token,
+                siteName,
+            }).catch(e => console.error(e));
+        }
+
+        await supabase
+            .from('orders')
+            .update({ vendor_notified_at: new Date().toISOString() })
+            .eq('id', order.id);
     }
 
-    await supabase
-        .from('orders')
-        .update({ vendor_notified_at: new Date().toISOString() })
-        .eq('id', order.id);
-
     // If this is a child order of a split cart, the customer mixed-order email was sent at creation.
-    // Just refresh the owner summary so they see payment status.
     if (order.parent_order_id) {
         const { data: parent } = await supabase
             .from('orders')

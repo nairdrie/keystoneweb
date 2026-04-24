@@ -13,6 +13,8 @@ interface PaymentMethods {
     etransfer?: boolean;
     stripe?: boolean;
     paypal?: boolean;
+    converge?: boolean;
+    clover?: boolean;
 }
 
 interface EcommerceSettings {
@@ -60,13 +62,16 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
         line1: '', city: '', region: '', postal: '', country: 'CA',
         notes: '',
     });
-    const [selectedPayment, setSelectedPayment] = useState<'etransfer' | 'stripe' | 'paypal'>('etransfer');
+    const [selectedPayment, setSelectedPayment] = useState<'etransfer' | 'stripe' | 'paypal' | 'converge' | 'clover'>('etransfer');
     const [ecomSettings, setEcomSettings] = useState<EcommerceSettings | null>(null);
     const [stripeConnected, setStripeConnected] = useState(false);
     const [paypalConnected, setPaypalConnected] = useState(false);
     const [paypalMerchantId, setPaypalMerchantId] = useState<string | null>(null);
     const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
     const [paypalError, setPaypalError] = useState<string | null>(null);
+    const [convergeConnected, setConvergeConnected] = useState(false);
+    const [convergeDemoModeSite, setConvergeDemoModeSite] = useState(false);
+    const [cloverConnected, setCloverConnected] = useState(false);
     const [settingsLoaded, setSettingsLoaded] = useState(false);
 
     // Shipping
@@ -95,12 +100,19 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                 setStripeConnected(data.stripeConnected || false);
                 setPaypalConnected(data.paypalConnected || false);
                 setPaypalMerchantId(data.paypalMerchantId || null);
+                setConvergeConnected(data.convergeConnected || false);
+                setConvergeDemoModeSite(data.convergeDemoMode || false);
+                setCloverConnected(data.cloverConnected || false);
 
                 const pm = data.settings?.payment_methods || {};
                 if (pm.stripe && data.stripeConnected) {
                     setSelectedPayment('stripe');
                 } else if (pm.paypal && data.paypalConnected) {
                     setSelectedPayment('paypal');
+                } else if (pm.converge && data.convergeConnected) {
+                    setSelectedPayment('converge');
+                } else if (pm.clover && data.cloverConnected) {
+                    setSelectedPayment('clover');
                 } else {
                     setSelectedPayment('etransfer');
                 }
@@ -169,12 +181,18 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
 
     // Available payment methods
     const pm = ecomSettings?.payment_methods || {};
-    const availableMethods: Array<{ key: 'etransfer' | 'stripe' | 'paypal'; label: string; desc: string; icon: typeof CreditCard }> = [];
+    const availableMethods: Array<{ key: 'etransfer' | 'stripe' | 'paypal' | 'converge' | 'clover'; label: string; desc: string; icon: typeof CreditCard }> = [];
     if (pm.stripe && stripeConnected) {
         availableMethods.push({ key: 'stripe', label: 'Credit / Debit Card', desc: 'Pay securely with Stripe', icon: CreditCard });
     }
     if (pm.paypal && paypalConnected) {
         availableMethods.push({ key: 'paypal', label: 'PayPal or Card', desc: 'PayPal wallet or pay as guest with a card', icon: CreditCard });
+    }
+    if (pm.converge && convergeConnected) {
+        availableMethods.push({ key: 'converge', label: 'Credit / Debit Card', desc: 'Pay securely via Converge', icon: CreditCard });
+    }
+    if (pm.clover && cloverConnected) {
+        availableMethods.push({ key: 'clover', label: 'Credit / Debit Card', desc: 'Pay securely via Clover', icon: CreditCard });
     }
     if (pm.etransfer) {
         availableMethods.push({ key: 'etransfer', label: 'Interac e-Transfer', desc: 'Send payment via Interac', icon: DollarSign });
@@ -302,8 +320,26 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                         processor: 'stripe-self',
                         status: 'pending',
                     });
+                } else if (selectedPayment === 'converge') {
+                    steps.push({
+                        orderId: orderData.order.id,
+                        vendorName: 'Your Order',
+                        subtotalCents: orderData.order.subtotal_cents,
+                        shippingCents: orderData.order.shipping_cents || 0,
+                        processor: 'converge',
+                        status: 'pending',
+                    });
+                } else if (selectedPayment === 'clover') {
+                    steps.push({
+                        orderId: orderData.order.id,
+                        vendorName: 'Your Order',
+                        subtotalCents: orderData.order.subtotal_cents,
+                        shippingCents: orderData.order.shipping_cents || 0,
+                        processor: 'clover',
+                        status: 'pending',
+                    });
                 }
-                // etransfer / none — no payment step, go straight to confirmation
+                // etransfer / paypal / none — no step needed here (PayPal has its own button, etransfer goes to confirmation)
             } else {
                 // Split order — one step per payment source
                 if (orderData.stripeOrderId) {
@@ -1229,16 +1265,16 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                 onClick={handleCheckout}
                                 disabled={submitting || !canPlaceOrder || (shippingRequired && (!!shippingError || noZonesConfigured))}
                                 className="w-full py-3 text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-40"
-                                style={{ backgroundColor: selectedPayment === 'stripe' ? '#635BFF' : pSecondary }}
+                                style={{ backgroundColor: (selectedPayment === 'stripe' || selectedPayment === 'converge' || selectedPayment === 'clover') ? '#635BFF' : pSecondary }}
                             >
                                 {submitting ? (
                                     <Loader2 className="w-5 h-5 animate-spin" />
-                                ) : selectedPayment === 'stripe' ? (
+                                ) : (selectedPayment === 'stripe' || selectedPayment === 'converge' || selectedPayment === 'clover') ? (
                                     <CreditCard className="w-5 h-5" />
                                 ) : (
                                     <Check className="w-5 h-5" />
                                 )}
-                                {selectedPayment === 'stripe'
+                                {selectedPayment === 'stripe' || selectedPayment === 'converge' || selectedPayment === 'clover'
                                     ? `Pay ${totalStr} with Card`
                                     : `Place Order — ${totalStr} (e-Transfer)`
                                 }

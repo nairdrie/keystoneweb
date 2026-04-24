@@ -10,7 +10,7 @@ import VendorEditor, { Vendor, PaymentMode } from './VendorEditor';
 
 interface EcommerceSettings {
     site_id: string;
-    payment_methods: { etransfer?: boolean; stripe?: boolean; paypal?: boolean };
+    payment_methods: { etransfer?: boolean; stripe?: boolean; paypal?: boolean; converge?: boolean; clover?: boolean };
     etransfer_email: string | null;
     notification_email: string | null;
     tax_enabled: boolean;
@@ -25,7 +25,7 @@ interface StoreSettingsPanelProps {
 export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) {
     const [settings, setSettings] = useState<EcommerceSettings>({
         site_id: siteId,
-        payment_methods: { etransfer: false, stripe: false, paypal: false },
+        payment_methods: { etransfer: false, stripe: false, paypal: false, converge: false, clover: false },
         etransfer_email: null,
         notification_email: null,
         tax_enabled: false,
@@ -34,6 +34,11 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
     });
     const [stripeConnected, setStripeConnected] = useState(false);
     const [paypalConnected, setPaypalConnected] = useState(false);
+    const [convergeConnected, setConvergeConnected] = useState(false);
+    const [cloverConnected, setCloverConnected] = useState(false);
+    const [convergeCreds, setConvergeCreds] = useState({ merchant_id: '', user_id: '', pin: '', demo_mode: false });
+    const [cloverCreds, setCloverCreds] = useState({ merchant_id: '', public_key: '', private_token: '', webhook_secret: '', sandbox_mode: false });
+    const [savingProcessor, setSavingProcessor] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
@@ -75,9 +80,21 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                 }
                 setStripeConnected(settingsData.stripeConnected || false);
                 setPaypalConnected(settingsData.paypalConnected || false);
+                setConvergeConnected(settingsData.convergeConnected || false);
+                setCloverConnected(settingsData.cloverConnected || false);
 
                 const vendorsData = await vendorsRes.json();
                 setVendors(vendorsData.vendors || []);
+
+                // Load site-level processor credentials
+                try {
+                    const procRes = await fetch(`/api/site-payment?siteId=${siteId}`);
+                    if (procRes.ok) {
+                        const procData = await procRes.json();
+                        if (procData.converge) setConvergeCreds(procData.converge);
+                        if (procData.clover) setCloverCreds(procData.clover);
+                    }
+                } catch {};
             } catch (err) {
                 console.error('Failed to load ecommerce settings:', err);
             } finally {
@@ -205,6 +222,8 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                         etransfer: !!settings.payment_methods?.etransfer,
                         stripe: !!settings.payment_methods?.stripe,
                         paypal: !!settings.payment_methods?.paypal,
+                        converge: !!settings.payment_methods?.converge,
+                        clover: !!settings.payment_methods?.clover,
                     },
                     etransfer_email: settings.etransfer_email,
                     notification_email: settings.notification_email,
@@ -335,7 +354,7 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
     }
 
     const pm = settings.payment_methods || {};
-    const hasAnyPayment = pm.etransfer || pm.stripe || pm.paypal;
+    const hasAnyPayment = pm.etransfer || pm.stripe || pm.paypal || pm.converge || pm.clover;
 
     return (
         <div className="border-2 border-slate-200 rounded-xl overflow-hidden">
@@ -404,6 +423,38 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                                 <div>
                                     <span className="text-sm text-slate-700 font-medium">PayPal & Cards (PayPal)</span>
                                     <p className="text-xs text-slate-400">PayPal wallet + debit/credit card as guest — funds settle to your PayPal account</p>
+                                </div>
+                            </label>
+
+                            <label className="flex items-center gap-2.5 cursor-pointer group">
+                                <input
+                                    type="checkbox"
+                                    checked={pm.converge || false}
+                                    onChange={() => setSettings({
+                                        ...settings,
+                                        payment_methods: { ...pm, converge: !pm.converge }
+                                    })}
+                                    className="rounded accent-blue-600 w-4 h-4"
+                                />
+                                <div>
+                                    <span className="text-sm text-slate-700 font-medium">Credit / Debit Card (Converge / Elavon)</span>
+                                    <p className="text-xs text-slate-400">Accept cards via your Elavon Converge merchant account — secure Lightbox overlay</p>
+                                </div>
+                            </label>
+
+                            <label className="flex items-center gap-2.5 cursor-pointer group">
+                                <input
+                                    type="checkbox"
+                                    checked={pm.clover || false}
+                                    onChange={() => setSettings({
+                                        ...settings,
+                                        payment_methods: { ...pm, clover: !pm.clover }
+                                    })}
+                                    className="rounded accent-blue-600 w-4 h-4"
+                                />
+                                <div>
+                                    <span className="text-sm text-slate-700 font-medium">Credit / Debit Card (Clover)</span>
+                                    <p className="text-xs text-slate-400">Accept cards via your Clover merchant account — hosted checkout page</p>
                                 </div>
                             </label>
                         </div>
@@ -616,6 +667,114 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                                     <AlertCircle className="w-3 h-3" /> Connect PayPal to accept PayPal and card payments
                                 </p>
                             )}
+                        </div>
+                    )}
+
+                    {/* Converge (Elavon) Credentials */}
+                    {pm.converge && (
+                        <div>
+                            <label className="text-sm font-semibold text-slate-700 block mb-1.5 flex items-center gap-1.5">
+                                <CreditCard className="w-4 h-4 text-emerald-600" />
+                                Converge (Elavon) Credentials
+                            </label>
+                            {convergeConnected && (
+                                <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg mb-2">
+                                    <Check className="w-4 h-4 text-green-600" />
+                                    <span className="text-sm text-green-700 font-medium">Converge configured</span>
+                                </div>
+                            )}
+                            <div className="space-y-2">
+                                <input type="text" placeholder="Merchant ID" value={convergeCreds.merchant_id}
+                                    onChange={e => setConvergeCreds({ ...convergeCreds, merchant_id: e.target.value })}
+                                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                <input type="text" placeholder="User ID" value={convergeCreds.user_id}
+                                    onChange={e => setConvergeCreds({ ...convergeCreds, user_id: e.target.value })}
+                                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                <input type="password" placeholder="PIN" value={convergeCreds.pin}
+                                    onChange={e => setConvergeCreds({ ...convergeCreds, pin: e.target.value })}
+                                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                <label className="flex items-center gap-2 text-sm text-slate-600">
+                                    <input type="checkbox" checked={convergeCreds.demo_mode}
+                                        onChange={e => setConvergeCreds({ ...convergeCreds, demo_mode: e.target.checked })}
+                                        className="rounded accent-blue-600 w-4 h-4" />
+                                    Demo / sandbox mode
+                                </label>
+                                <button
+                                    onClick={async () => {
+                                        setSavingProcessor('converge');
+                                        try {
+                                            const res = await fetch('/api/site-payment', {
+                                                method: 'PUT',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ siteId, processor: 'converge', ...convergeCreds }),
+                                            });
+                                            if (res.ok) setConvergeConnected(!!(convergeCreds.merchant_id && convergeCreds.user_id && convergeCreds.pin && convergeCreds.pin !== '••••••••'));
+                                        } catch {}
+                                        setSavingProcessor(null);
+                                    }}
+                                    disabled={savingProcessor === 'converge'}
+                                    className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg disabled:opacity-50"
+                                >
+                                    {savingProcessor === 'converge' ? 'Saving...' : 'Save Converge Credentials'}
+                                </button>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-1.5">
+                                Find these in your Converge Virtual Terminal under Settings &gt; API Credentials.
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Clover Credentials */}
+                    {pm.clover && (
+                        <div>
+                            <label className="text-sm font-semibold text-slate-700 block mb-1.5 flex items-center gap-1.5">
+                                <CreditCard className="w-4 h-4 text-green-600" />
+                                Clover Credentials
+                            </label>
+                            {cloverConnected && (
+                                <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg mb-2">
+                                    <Check className="w-4 h-4 text-green-600" />
+                                    <span className="text-sm text-green-700 font-medium">Clover configured</span>
+                                </div>
+                            )}
+                            <div className="space-y-2">
+                                <input type="text" placeholder="Merchant ID" value={cloverCreds.merchant_id}
+                                    onChange={e => setCloverCreds({ ...cloverCreds, merchant_id: e.target.value })}
+                                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                <input type="password" placeholder="Private API Token" value={cloverCreds.private_token}
+                                    onChange={e => setCloverCreds({ ...cloverCreds, private_token: e.target.value })}
+                                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                <input type="password" placeholder="Webhook Secret (optional)" value={cloverCreds.webhook_secret}
+                                    onChange={e => setCloverCreds({ ...cloverCreds, webhook_secret: e.target.value })}
+                                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                <label className="flex items-center gap-2 text-sm text-slate-600">
+                                    <input type="checkbox" checked={cloverCreds.sandbox_mode}
+                                        onChange={e => setCloverCreds({ ...cloverCreds, sandbox_mode: e.target.checked })}
+                                        className="rounded accent-blue-600 w-4 h-4" />
+                                    Sandbox mode
+                                </label>
+                                <button
+                                    onClick={async () => {
+                                        setSavingProcessor('clover');
+                                        try {
+                                            const res = await fetch('/api/site-payment', {
+                                                method: 'PUT',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ siteId, processor: 'clover', ...cloverCreds }),
+                                            });
+                                            if (res.ok) setCloverConnected(!!(cloverCreds.merchant_id && cloverCreds.private_token && cloverCreds.private_token !== '••••••••'));
+                                        } catch {}
+                                        setSavingProcessor(null);
+                                    }}
+                                    disabled={savingProcessor === 'clover'}
+                                    className="px-3 py-1.5 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
+                                >
+                                    {savingProcessor === 'clover' ? 'Saving...' : 'Save Clover Credentials'}
+                                </button>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-1.5">
+                                Find these in your Clover Dashboard under Setup &gt; API Tokens.
+                            </p>
                         </div>
                     )}
 

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
 import PayPalButton from '@/app/components/ecommerce/PayPalButton';
+import ConvergeLightbox from '@/app/components/ecommerce/ConvergeLightbox';
 import {
     DndContext, closestCenter, MouseSensor, TouchSensor, useSensor, useSensors,
     type DragEndEvent,
@@ -71,7 +72,7 @@ interface BookingSettings {
     buffer_minutes: number;
     max_advance_days: number;
     require_payment: boolean;
-    payment_methods: { none: boolean; etransfer: boolean; stripe: boolean; paypal?: boolean };
+    payment_methods: { none: boolean; etransfer: boolean; stripe: boolean; paypal?: boolean; converge?: boolean; clover?: boolean };
     etransfer_email: string | null;
     confirmation_message: string | null;
     notification_email: string | null;
@@ -1224,6 +1225,18 @@ function SettingsEditor({ siteId, settings, setSettings }: {
                             className="rounded accent-blue-600" />
                         <span className="text-sm text-slate-700">PayPal (PayPal wallet + card as guest)</span>
                     </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={local.payment_methods?.converge || false}
+                            onChange={() => setLocal({ ...local, payment_methods: { ...local.payment_methods, converge: !local.payment_methods?.converge } })}
+                            className="rounded accent-blue-600" />
+                        <span className="text-sm text-slate-700">Credit / Debit Card (Converge / Elavon)</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={local.payment_methods?.clover || false}
+                            onChange={() => setLocal({ ...local, payment_methods: { ...local.payment_methods, clover: !local.payment_methods?.clover } })}
+                            className="rounded accent-blue-600" />
+                        <span className="text-sm text-slate-700">Credit / Debit Card (Clover)</span>
+                    </label>
                 </div>
             </div>
 
@@ -1363,10 +1376,14 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
     const [blockedDates, setBlockedDates] = useState<string[]>([]);
 
     // Payment method selection (shown in form step)
-    const [chosenPaymentMethod, setChosenPaymentMethod] = useState<'none' | 'etransfer' | 'stripe' | 'paypal'>('none');
+    const [chosenPaymentMethod, setChosenPaymentMethod] = useState<'none' | 'etransfer' | 'stripe' | 'paypal' | 'converge' | 'clover'>('none');
     const [paypalMerchantId, setPaypalMerchantId] = useState<string | null>(null);
     const [pendingPaypalOrderId, setPendingPaypalOrderId] = useState<string | null>(null);
     const [paypalError, setPaypalError] = useState<string | null>(null);
+    const [convergeConnected, setConvergeConnected] = useState(false);
+    const [convergeDemoMode, setConvergeDemoMode] = useState(false);
+    const [convergeToken, setConvergeToken] = useState<string | null>(null);
+    const [cloverConnected, setCloverConnected] = useState(false);
 
     // Customer form
     const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '' });
@@ -1412,6 +1429,8 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
         else if (settings.payment_methods?.etransfer) setChosenPaymentMethod('etransfer');
         else if (settings.payment_methods?.stripe) setChosenPaymentMethod('stripe');
         else if (settings.payment_methods?.paypal) setChosenPaymentMethod('paypal');
+        else if (settings.payment_methods?.converge) setChosenPaymentMethod('converge');
+        else if (settings.payment_methods?.clover) setChosenPaymentMethod('clover');
     }, [settings]);
 
     // Fetch the site's PayPal merchant id (only needed when we'll render the button).
@@ -1422,6 +1441,20 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
             .then(d => {
                 if (d?.paypalConnected && d.paypalMerchantId) {
                     setPaypalMerchantId(d.paypalMerchantId);
+                }
+            })
+            .catch(() => {});
+    }, [settings, siteId]);
+
+    useEffect(() => {
+        if (!settings?.payment_methods?.converge && !settings?.payment_methods?.clover) return;
+        fetch(`/api/bookings/settings?siteId=${siteId}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(d => {
+                if (d) {
+                    setConvergeConnected(!!d.convergeConnected);
+                    setConvergeDemoMode(!!d.convergeDemoMode);
+                    setCloverConnected(!!d.cloverConnected);
                 }
             })
             .catch(() => {});
@@ -1510,11 +1543,129 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
         setStep('confirmation');
     };
 
+    const handleConvergeBooking = async () => {
+        if (!selectedService || !selectedDate || !selectedSlot) return;
+        if (!form.name.trim() || !validateEmail(form.email)) return;
+        setSubmitting(true);
+        try {
+            const res = await fetch('/api/bookings/converge-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    siteId,
+                    serviceId: selectedService.id,
+                    selectedOptionName: selectedOption?.name,
+                    selectedPriceCents: effectivePriceCents,
+                    date: selectedDate,
+                    startTime: selectedSlot.startTime,
+                    customerName: form.name,
+                    customerEmail: form.email,
+                    customerPhone: form.phone || undefined,
+                    notes: form.notes || undefined,
+                }),
+            });
+            const data = await res.json();
+            if (data.token) {
+                setConvergeToken(data.token);
+            } else {
+                setPaypalError(data.error || 'Failed to get payment token');
+            }
+        } catch {
+            setPaypalError('Failed to initiate payment');
+        }
+        setSubmitting(false);
+    };
+
+    const handleConvergeApproval = async (response: any) => {
+        setConvergeToken(null);
+        setSubmitting(true);
+        try {
+            const res = await fetch('/api/bookings/converge-verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    siteId,
+                    serviceId: selectedService!.id,
+                    selectedOptionName: selectedOption?.name,
+                    selectedPriceCents: effectivePriceCents,
+                    date: selectedDate,
+                    startTime: selectedSlot!.startTime,
+                    customerName: form.name,
+                    customerEmail: form.email,
+                    customerPhone: form.phone || undefined,
+                    notes: form.notes || undefined,
+                    sslTxnId: response.ssl_txn_id,
+                }),
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setConfirmation({
+                    booking: data.booking,
+                    service: selectedService,
+                    confirmationMessage: data.confirmationMessage,
+                });
+                setStep('confirmation');
+            } else {
+                setPaypalError(data.error || 'Payment verification failed');
+            }
+        } catch {
+            setPaypalError('Verification error');
+        }
+        setSubmitting(false);
+    };
+
+    const handleCloverBooking = async () => {
+        if (!selectedService || !selectedDate || !selectedSlot) return;
+        if (!form.name.trim() || !validateEmail(form.email)) return;
+        setSubmitting(true);
+        try {
+            const res = await fetch('/api/bookings/clover-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    siteId,
+                    serviceId: selectedService.id,
+                    selectedOptionName: selectedOption?.name,
+                    selectedPriceCents: effectivePriceCents,
+                    date: selectedDate,
+                    startTime: selectedSlot.startTime,
+                    customerName: form.name,
+                    customerEmail: form.email,
+                    customerPhone: form.phone || undefined,
+                    notes: form.notes || undefined,
+                    returnUrl: window.location.href,
+                }),
+            });
+            const data = await res.json();
+            if (data.href) {
+                window.location.href = data.href;
+                return;
+            }
+            setPaypalError(data.error || 'Failed to start Clover checkout');
+        } catch {
+            setPaypalError('Failed to initiate Clover payment');
+        }
+        setSubmitting(false);
+    };
+
     const handleSubmit = async () => {
         if (!selectedService || !selectedDate || !selectedSlot) return;
         if (!form.name.trim() || !validateEmail(form.email)) return;
 
         setSubmitting(true);
+
+        // Converge Lightbox flow
+        if (chosenPaymentMethod === 'converge') {
+            setSubmitting(false);
+            handleConvergeBooking();
+            return;
+        }
+
+        // Clover redirect flow
+        if (chosenPaymentMethod === 'clover') {
+            handleCloverBooking();
+            return;
+        }
 
         // Stripe redirect flow
         if (chosenPaymentMethod === 'stripe') {
@@ -1892,6 +2043,39 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                             </div>
                         </div>
 
+                        {/* Payment method selector */}
+                        {effectivePriceCents > 0 && (() => {
+                            const pm = settings?.payment_methods;
+                            const methods: { key: typeof chosenPaymentMethod; label: string }[] = [];
+                            if (pm?.none !== false) methods.push({ key: 'none', label: 'Pay Later' });
+                            if (pm?.etransfer) methods.push({ key: 'etransfer', label: 'Interac e-Transfer' });
+                            if (pm?.stripe) methods.push({ key: 'stripe', label: 'Credit Card (Stripe)' });
+                            if (pm?.paypal && paypalMerchantId) methods.push({ key: 'paypal', label: 'PayPal' });
+                            if (pm?.converge && convergeConnected) methods.push({ key: 'converge', label: 'Credit Card (Converge)' });
+                            if (pm?.clover && cloverConnected) methods.push({ key: 'clover', label: 'Credit Card (Clover)' });
+                            if (methods.length <= 1) return null;
+                            return (
+                                <div className="mt-4">
+                                    <label className="text-sm font-medium text-slate-700 block mb-2">Payment Method</label>
+                                    <div className="space-y-2">
+                                        {methods.map(m => (
+                                            <label key={m.key} className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${chosenPaymentMethod === m.key ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-slate-300'}`}>
+                                                <input
+                                                    type="radio"
+                                                    name="bookingPaymentMethod"
+                                                    value={m.key}
+                                                    checked={chosenPaymentMethod === m.key}
+                                                    onChange={() => setChosenPaymentMethod(m.key)}
+                                                    className="accent-blue-600"
+                                                />
+                                                <span className="text-sm font-medium text-slate-700">{m.label}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
                         {chosenPaymentMethod === 'paypal' && paypalMerchantId ? (
                             <div className="mt-6">
                                 {form.name.trim() && validateEmail(form.email) ? (
@@ -1920,8 +2104,32 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                                 style={{ backgroundColor: pSecondary }}
                             >
                                 {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
-                                Confirm Booking
+                                {chosenPaymentMethod === 'converge' ? 'Pay with Converge' :
+                                 chosenPaymentMethod === 'clover' ? 'Pay with Clover' :
+                                 chosenPaymentMethod === 'stripe' ? 'Pay with Card' :
+                                 'Confirm Booking'}
                             </button>
+                        )}
+
+                        {paypalError && chosenPaymentMethod !== 'paypal' && (
+                            <p className="text-xs text-red-600 mt-2 text-center">{paypalError}</p>
+                        )}
+
+                        {convergeToken && (
+                            <ConvergeLightbox
+                                token={convergeToken}
+                                demoMode={convergeDemoMode}
+                                onApproval={handleConvergeApproval}
+                                onDeclined={(r) => {
+                                    setConvergeToken(null);
+                                    setPaypalError(r.ssl_result_message || 'Card declined');
+                                }}
+                                onError={(e) => {
+                                    setConvergeToken(null);
+                                    setPaypalError(typeof e === 'string' ? e : 'Payment error');
+                                }}
+                                onCancelled={() => setConvergeToken(null)}
+                            />
                         )}
                     </div>
                 )}

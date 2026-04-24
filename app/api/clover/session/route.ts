@@ -29,21 +29,31 @@ export async function POST(request: NextRequest) {
     if (order.payment_status === 'paid') {
         return NextResponse.json({ error: 'Order already paid' }, { status: 400 });
     }
-    if (!order.vendors || !hasValidCloverCredentials(order.vendors)) {
-        return NextResponse.json({ error: 'Vendor Clover credentials not configured' }, { status: 400 });
+
+    let creds: { merchantId: string; privateToken: string; sandboxMode: boolean };
+
+    if (order.vendor_id && order.vendors && hasValidCloverCredentials(order.vendors)) {
+        const v = order.vendors;
+        creds = { merchantId: v.clover_merchant_id, privateToken: v.clover_private_token, sandboxMode: !!v.clover_sandbox_mode };
+    } else if (!order.vendor_id) {
+        const { data: site } = await supabase
+            .from('sites')
+            .select('clover_merchant_id, clover_private_token, clover_sandbox_mode')
+            .eq('id', order.site_id)
+            .single();
+        if (!site?.clover_merchant_id || !site?.clover_private_token) {
+            return NextResponse.json({ error: 'Site Clover credentials not configured' }, { status: 400 });
+        }
+        creds = { merchantId: site.clover_merchant_id, privateToken: site.clover_private_token, sandboxMode: !!site.clover_sandbox_mode };
+    } else {
+        return NextResponse.json({ error: 'Clover credentials not configured' }, { status: 400 });
     }
 
-    const vendor = order.vendors;
     const [firstName, ...lastNameParts] = (order.customer_name || '').split(' ');
     const lastName = lastNameParts.join(' ') || undefined;
 
     try {
-        const session = await createCheckoutSession(
-            {
-                merchantId: vendor.clover_merchant_id,
-                privateToken: vendor.clover_private_token,
-                sandboxMode: !!vendor.clover_sandbox_mode,
-            },
+        const session = await createCheckoutSession(creds,
             {
                 customer: {
                     email: order.customer_email,
