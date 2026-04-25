@@ -29,17 +29,17 @@ export default function HomePage() {
       <section className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
         <AnimatedGridPattern />
 
-        <div className="mx-auto max-w-4xl text-center relative z-10">
+        <div className="mx-auto max-w-6xl text-center relative z-10">
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
-            className="text-6xl md:text-7xl font-black tracking-tight mb-6 leading-tight text-black"
+            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight mb-6 leading-[1.05] text-black"
           >
-            Your Website,
+            Your business deserves a website
             <br />
-            <span className="text-red-600">
-              Built in Minutes
+            <span className="bg-gradient-to-r from-red-700 via-red-600 to-rose-500 bg-clip-text text-transparent">
+              that <em className="italic">actually</em> works.
             </span>
           </motion.h1>
 
