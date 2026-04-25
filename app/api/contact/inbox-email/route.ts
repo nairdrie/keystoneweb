@@ -136,14 +136,28 @@ async function ensureResendDomain(domain: string): Promise<{
   const resend = new Resend(apiKey);
 
   try {
-    const { data, error } = await resend.domains.create({ name: domain });
+    const { data, error } = await resend.domains.create({
+      name: domain,
+      capabilities: { sending: 'enabled', receiving: 'enabled' },
+    });
 
     if (error) {
-      // Domain might already be registered — find it, then fetch its records
+      // Domain might already be registered — find it, ensure receiving is enabled
       const { data: list } = await resend.domains.list();
       const existing = (list?.data ?? []).find((d: any) => d.name === domain);
       if (existing) {
         console.log(`[inbox-email] Domain ${domain} already registered in Resend (id: ${existing.id})`);
+
+        // Enable receiving if it wasn't already
+        if (existing.capabilities?.receiving !== 'enabled') {
+          try {
+            await resend.domains.update({ id: existing.id, capabilities: { receiving: 'enabled' } });
+            console.log(`[inbox-email] Enabled receiving capability for ${domain}`);
+          } catch (err) {
+            console.warn(`[inbox-email] Failed to enable receiving for ${domain}:`, err);
+          }
+        }
+
         // domains.list() doesn't include records — fetch them explicitly
         const { data: domainDetail } = await resend.domains.get(existing.id);
         return {
