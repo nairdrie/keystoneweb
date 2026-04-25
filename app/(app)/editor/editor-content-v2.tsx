@@ -992,7 +992,9 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
       aiOnboardingSentRef.current = true;
       sessionStorage.removeItem('keystoneAiOnboardingPrompt');
       setAiOnboardingBuilding(true);
-      // Open sidebar and focus AI builder, then send the prompt
+      // Open the sidebar — the AI Builder section is already requested via
+      // focusAiBuilder's initial state, which makes the toolbar's mount
+      // effect expand it on the very first commit.
       setSidebarOpen(true);
       setTimeout(() => {
         aiBuilder.sendMessage(prompt!, { isNewSite: true });
@@ -1031,8 +1033,19 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     return () => clearTimeout(timeout);
   }, [aiOnboardingBuilding]);
 
-  // Whether to tell the toolbar to focus/scroll to the AI builder section
-  const [focusAiBuilder, setFocusAiBuilder] = useState(false);
+  // Whether to tell the toolbar to focus/scroll to the AI builder section.
+  // Initialized eagerly from the same pending-prompt signal as
+  // aiOnboardingBuilding so the toolbar's *mount* effect fires with the
+  // section already requested — otherwise the open happens on a later
+  // render and can race with the user before the section appears.
+  const [focusAiBuilder, setFocusAiBuilder] = useState(() => {
+    if (typeof window !== 'undefined') {
+      if (sessionStorage.getItem('keystoneAiOnboardingPrompt')) return true;
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('aiPrompt')) return true;
+    }
+    return false;
+  });
   useEffect(() => {
     // Once onboarding building finishes, focus the AI panel in the toolbar
     if (aiOnboardingSentRef.current && !aiOnboardingBuilding && aiOnboardingDidStartRef.current) {
@@ -1042,8 +1055,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     }
   }, [aiOnboardingBuilding]);
 
-  if (loading || pagesLoading || aiOnboardingBuilding) {
-    return <EditorLoadingScreen message={aiOnboardingBuilding ? 'AI is building your site...' : undefined} />;
+  if (loading || pagesLoading) {
+    return <EditorLoadingScreen />;
   }
 
   if (error) {
@@ -1276,7 +1289,9 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
             }}
           >
             <div className="w-full">
-              {templateComponent
+              {aiOnboardingBuilding ? (
+                <EditorLoadingScreen variant="fill" message="AI is building your site..." />
+              ) : templateComponent
                 ? createElement(
                     templateComponent,
                     { palette: paletteData, isEditMode: editMode },
