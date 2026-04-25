@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { EmailOtpType } from '@supabase/supabase-js';
+import { COOKIE_DOMAIN } from '@/lib/env/domain';
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -28,8 +29,6 @@ export async function GET(request: Request) {
   // and getSession() on the next page would always return null.
   const cookieStore = await cookies();
   const pendingCookies: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
-  const cookieDomain =
-    process.env.NODE_ENV === 'production' ? '.keystoneweb.ca' : undefined;
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -78,7 +77,7 @@ export async function GET(request: Request) {
   // Apply the session cookies directly to the redirect response so the browser
   // receives them and getSession() works on the destination page.
   pendingCookies.forEach(({ name, value, options }) => {
-    response.cookies.set(name, value, { ...(options as any), domain: cookieDomain });
+    response.cookies.set(name, value, { ...(options as any), domain: COOKIE_DOMAIN });
   });
 
   return response;

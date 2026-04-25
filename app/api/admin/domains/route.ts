@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     // Get site domain info
     const { data: site, error: siteError } = await supabase
       .from('sites')
-      .select('id, user_id, published_domain, custom_domain, pending_custom_domain')
+      .select('id, user_id, published_domain, custom_domain, pending_custom_domain, is_published')
       .eq('id', siteId)
       .single();
 
@@ -71,21 +71,35 @@ export async function GET(request: NextRequest) {
     // Re-fetch site info to reflect any changes (promotion OR demotion)
     const { data: refreshedSite } = await supabase
         .from('sites')
-        .select('id, user_id, published_domain, custom_domain, pending_custom_domain')
+        .select('id, user_id, published_domain, custom_domain, pending_custom_domain, is_published')
         .eq('id', siteId)
         .single();
     
     if (refreshedSite) {
         site.custom_domain = refreshedSite.custom_domain;
         site.pending_custom_domain = refreshedSite.pending_custom_domain;
+        site.is_published = refreshedSite.is_published;
     }
 
-    // Get owned domains linked to this site
+    // Get owned domains linked to this site (only current user's domains)
     const { data: ownedDomains } = await supabase
       .from('domain_purchases')
       .select('id, domain, status, purchase_type, transfer_status, expires_at, auto_renew, is_free_with_pro')
       .eq('site_id', siteId)
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false });
+
+    // Detect a linked custom domain from domain_purchases when sites.custom_domain is null
+    // This happens after site transfer: custom_domain is cleared but domain_purchases.site_id stays linked
+    let linkedDomain: string | null = null;
+    if (!site.custom_domain && ownedDomains && ownedDomains.length > 0) {
+      const completedDomain = ownedDomains.find(
+        (d) => d.status === 'completed' || d.transfer_status === 'completed'
+      );
+      if (completedDomain) {
+        linkedDomain = completedDomain.domain;
+      }
+    }
 
     // Check transfer status for pending domain
     let transferStatus: string | null = null;
@@ -112,6 +126,8 @@ export async function GET(request: NextRequest) {
       publishedDomain: site.published_domain,
       customDomain: site.custom_domain,
       pendingCustomDomain: site.pending_custom_domain,
+      isPublished: site.is_published ?? false,
+      linkedDomain,
       dnsChecks: null, // Will be populated by verify-dns calls
       transferStatus,
       transferDomain,

@@ -1,12 +1,17 @@
 /**
  * Plan definitions: limits, pricing, and Stripe price IDs.
  *
- * Each plan has a single metered price for overage billing. The metered price
- * is set to $0.001/unit (Basic) or $0.0005/unit (Pro) where 1 unit = 1 visitor.
+ * Each plan has a single metered price for overage billing (monthly interval).
+ * Basic: $0.001/unit, Pro: $0.0005/unit where 1 unit = 1 visitor.
  * This means 1,000 overage visitors = $1.00 (Basic) or $0.50 (Pro).
  *
+ * The metered price is NOT included in the checkout session (Stripe doesn't
+ * allow mixed billing intervals in Checkout). Instead, it's added to the
+ * subscription after checkout via the webhook. This keeps overage billing
+ * monthly regardless of whether the base plan is monthly or yearly.
+ *
  * In Stripe Dashboard, create one metered price per product:
- *   - Usage-based, metered, per-unit
+ *   - Usage-based, metered, per-unit, monthly interval
  *   - Aggregate usage: "Last value during period" (we use action: 'set')
  *   - Basic: $0.001/unit, Pro: $0.0005/unit
  */
@@ -22,7 +27,7 @@ export interface PlanConfig {
   stripe: {
     monthly: string;
     yearly: string;
-    metered: string;           // single metered price ID for overage (works for both billing intervals)
+    metered: string;           // metered price ID for overage (always monthly interval)
   };
   features: string[];
 }
@@ -30,16 +35,15 @@ export interface PlanConfig {
 export const PLANS: Record<string, PlanConfig> = {
   basic: {
     name: 'Basic',
-    monthlyPrice: 30,
+    monthlyPrice: 25,
     yearlyPrice: 15,
     visitorLimit: 10_000,
     storageLimitMb: 1024,
     overagePerThousand: 1.0,
     publishLimit: 1,
     stripe: {
-      monthly: 'price_1TCZSU9e8C5naDN47tc8rB74',
+      monthly: 'price_1TH93Y9e8C5naDN4tlQtEYaM',
       yearly: 'price_1TCZSm9e8C5naDN4d8Zctb6D',
-      // Create in Stripe Dashboard: Usage-based, $0.001/unit, metered, "last value during period"
       metered: process.env.STRIPE_BASIC_METERED_PRICE || '',
     },
     features: [
@@ -55,16 +59,15 @@ export const PLANS: Record<string, PlanConfig> = {
   },
   pro: {
     name: 'Pro',
-    monthlyPrice: 60,
+    monthlyPrice: 50,
     yearlyPrice: 30,
     visitorLimit: 50_000,
     storageLimitMb: 5120,
     overagePerThousand: 0.5,
     publishLimit: 5,
     stripe: {
-      monthly: 'price_1TCZRk9e8C5naDN44O78PCfh',
+      monthly: 'price_1TH92v9e8C5naDN4lr3kV5P3',
       yearly: 'price_1TCZRS9e8C5naDN4LtllOW7G',
-      // Create in Stripe Dashboard: Usage-based, $0.0005/unit, metered, "last value during period"
       metered: process.env.STRIPE_PRO_METERED_PRICE || '',
     },
     features: [

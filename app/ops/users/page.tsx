@@ -41,7 +41,7 @@ export default async function OpsUsersPage({
       .from('user_subscriptions')
       .select('user_id')
       .ilike('subscription_plan', `%${plan}%`);
-    
+
     filteredUserIds = (subData ?? []).map(s => s.user_id);
   }
 

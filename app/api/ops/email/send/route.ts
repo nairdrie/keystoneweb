@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { Resend } from 'resend';
+import { resend } from '@/lib/email/resend';
 
 // Allowed @keystoneweb.ca sender addresses
 const ALLOWED_FROM_EMAILS = [
@@ -82,8 +82,6 @@ export async function POST(request: Request) {
         );
       }
     }
-
-    const resend = new Resend(process.env.RESEND_API_KEY);
 
     const senderLabel = isAdmin ? 'Keystone Operations' : 'Keystone';
     const senderName = nameFromEmail(user.email ?? fromEmail);

@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
   let query = db
     .from('contact_submissions')
     .select(
-      'id, sender_name, sender_email, sender_phone, message, status, ai_classification, ai_confidence, ai_summary, ai_draft_reply, ai_auto_sent, admin_reply, admin_reply_at, created_at',
+      'id, sender_name, sender_email, sender_phone, message, status, ai_classification, ai_confidence, ai_summary, ai_draft_reply, ai_auto_sent, admin_reply, admin_reply_at, created_at, metadata, source_type',
       { count: 'exact' }
     )
     .eq('site_id', siteId)

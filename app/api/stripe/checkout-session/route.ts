@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
       }
 
       const returnUrl = siteId
-        ? `${process.env.NEXT_PUBLIC_APP_URL}/publish/domain-select?siteId=${siteId}`
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/publish/plan-activated?siteId=${siteId}`
         : `${process.env.NEXT_PUBLIC_APP_URL}/settings`;
 
       // Use the portal's subscription_update_confirm flow so the user sees a proration
@@ -117,32 +117,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ url: portalSession.url });
     }
 
-    // Get metered price for overage billing (single price per plan, works for both intervals)
+    // Metered overage price is added to the subscription after checkout via
+    // the webhook (checkout.session.completed) — Stripe Checkout doesn't allow
+    // mixed billing intervals, and we want overage billed monthly regardless
+    // of whether the base plan is monthly or yearly.
     const plan = getPlanByName(planName);
-    const meteredPriceId = plan?.stripe.metered || '';
-
-    // Build line items: base recurring + metered overage (if configured)
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
-      { price: priceId, quantity: 1 },
-    ];
-
-    if (meteredPriceId) {
-      lineItems.push({ price: meteredPriceId });
-    }
+    const isMonthly = plan ? priceId === plan.stripe.monthly : false;
 
     // No existing subscription — create a new Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: lineItems,
+      line_items: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
+      automatic_tax: { enabled: true },
+      billing_address_collection: 'required',
       subscription_data: {
         billing_mode: {
           type: 'flexible',
         },
       },
-      // allow_promotion_codes: true,
+      ...(isMonthly && { allow_promotion_codes: true }),
       success_url: siteId
-        ? `${process.env.NEXT_PUBLIC_APP_URL}/publish/domain-select?session_id={CHECKOUT_SESSION_ID}&siteId=${siteId}`
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/publish/plan-activated?session_id={CHECKOUT_SESSION_ID}&siteId=${siteId}`
         : `${process.env.NEXT_PUBLIC_APP_URL}/onboarding?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: siteId
         ? `${process.env.NEXT_PUBLIC_APP_URL}/pricing?action=publish&siteId=${siteId}&canceled=true`

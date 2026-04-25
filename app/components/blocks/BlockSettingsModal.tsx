@@ -95,6 +95,15 @@ export default function BlockSettingsModal({
             { id: 'contained', label: 'Contained (Centered)' },
             { id: 'fullWidth', label: 'Full Width' },
         ],
+        estimateForm: [
+            { id: 'simple', label: 'Inquiry Form' },
+            { id: 'calculator', label: 'Estimate Calculator' },
+        ],
+        productGrid: [
+            { id: 'grid', label: 'Grid' },
+            { id: 'gridWithSidebar', label: 'Grid + Category Sidebar' },
+            { id: 'list', label: 'List View' },
+        ],
     };
 
     const hasVariantSettings = !!VARIANTS[blockType];
@@ -113,6 +122,7 @@ export default function BlockSettingsModal({
     const [bgImage, setBgImage] = useState<string>(blockData?.bgImage || '');
     const [bgCarouselImages, setBgCarouselImages] = useState<string[]>(blockData?.bgCarouselImages || []);
     const [bgCarouselTiming, setBgCarouselTiming] = useState<number>(blockData?.bgCarouselTiming || 5);
+    const [bgCarouselTransition, setBgCarouselTransition] = useState<string>(blockData?.bgCarouselTransition || 'fade');
     const [isUploading, setIsUploading] = useState(false);
 
     // Menu Style State
@@ -138,6 +148,7 @@ export default function BlockSettingsModal({
             setBgImage(blockData?.bgImage || '');
             setBgCarouselImages(blockData?.bgCarouselImages || []);
             setBgCarouselTiming(blockData?.bgCarouselTiming || 5);
+            setBgCarouselTransition(blockData?.bgCarouselTransition || 'fade');
             setMenuShowPrices(blockData?.showPrices !== false);
             setMenuShowDescriptions(blockData?.showDescriptions !== false);
             setMenuShowImages(blockData?.showImages === true);
@@ -164,6 +175,7 @@ export default function BlockSettingsModal({
             updates['bgImage'] = bgImage;
             updates['bgCarouselImages'] = bgCarouselImages;
             updates['bgCarouselTiming'] = bgCarouselTiming;
+            updates['bgCarouselTransition'] = bgCarouselTransition;
         }
 
         if (blockType === 'menu') {
@@ -196,6 +208,7 @@ export default function BlockSettingsModal({
                 onUpdateBlockData('bgImage', bgImage);
                 onUpdateBlockData('bgCarouselImages', bgCarouselImages);
                 onUpdateBlockData('bgCarouselTiming', bgCarouselTiming);
+                onUpdateBlockData('bgCarouselTransition', bgCarouselTransition);
             }
         }
         onClose();
@@ -535,6 +548,33 @@ export default function BlockSettingsModal({
                                         <span>Faster (2s)</span>
                                         <span>Slower (15s)</span>
                                     </div>
+
+                                    <label className="block text-sm font-medium text-slate-700 mt-6 mb-2">Transition Style</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {[
+                                            { value: 'fade', label: 'Fade' },
+                                            { value: 'swipe', label: 'Swipe' },
+                                            { value: 'scroll', label: 'Smooth Scroll' },
+                                        ].map((opt) => (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => setBgCarouselTransition(opt.value)}
+                                                className={`px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                                                    bgCarouselTransition === opt.value
+                                                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                                                }`}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="text-xs text-slate-500 mt-2">
+                                        {bgCarouselTransition === 'fade' && 'Images crossfade into each other.'}
+                                        {bgCarouselTransition === 'swipe' && 'Images slide in from the right.'}
+                                        {bgCarouselTransition === 'scroll' && 'Images scroll continuously from right to left.'}
+                                    </p>
                                 </div>
                             )}
 

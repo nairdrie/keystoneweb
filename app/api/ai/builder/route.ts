@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 import { buildSystemPrompt } from '@/lib/ai/builder-schema';
 import { checkAndRecordUsage, getUsageRemaining, UserPlan } from './rate-limit';
 import { getUserEffectiveLimits } from '@/lib/addons';
@@ -30,11 +31,13 @@ export async function GET(_req: NextRequest) {
 
     const plan = getPlan(subscription?.subscription_status, subscription?.subscription_plan);
     const effectiveLimits = await getUserEffectiveLimits(user.id, supabase);
+    // ai_prompt_usage has no user-level policies; read/write via the admin client.
+    const admin = createAdminClient();
     const remaining = await getUsageRemaining(
       user.id,
       plan,
       subscription?.subscription_started_at ?? null,
-      supabase,
+      admin,
       effectiveLimits.aiMultiplier,
     );
 
@@ -56,6 +59,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Ops admin check — admins bypass rate limits and prompt length restrictions
+    const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
+      .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+    const isOpsAdmin = adminEmails.includes(user.email?.toLowerCase() ?? '');
+
     // Subscription check
     const { data: subscription } = await supabase
       .from('user_subscriptions')
@@ -65,15 +73,22 @@ export async function POST(req: NextRequest) {
 
     const plan = getPlan(subscription?.subscription_status, subscription?.subscription_plan);
 
-    // Rate limit check + record usage in DB
-    const aiLimits = await getUserEffectiveLimits(user.id, supabase);
-    const rateLimitResult = await checkAndRecordUsage(
-      user.id,
-      plan,
-      subscription?.subscription_started_at ?? null,
-      supabase,
-      aiLimits.aiMultiplier,
-    );
+    // Rate limit check + record usage in DB (ops admins skip).
+    // ai_prompt_usage has no user-level policies; read/write via the admin client.
+    let rateLimitResult: { allowed: boolean; remaining?: any; message?: string; upgradeRequired?: boolean };
+    if (isOpsAdmin) {
+      rateLimitResult = { allowed: true };
+    } else {
+      const aiLimits = await getUserEffectiveLimits(user.id, supabase);
+      const admin = createAdminClient();
+      rateLimitResult = await checkAndRecordUsage(
+        user.id,
+        plan,
+        subscription?.subscription_started_at ?? null,
+        admin,
+        aiLimits.aiMultiplier,
+      );
+    }
 
     if (!rateLimitResult.allowed) {
       return NextResponse.json({
@@ -98,8 +113,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing prompt.' }, { status: 400 });
     }
 
-    // Limit prompt length to prevent abuse / excessive token usage
-    if (prompt.length > 1000) {
+    // Limit prompt length to prevent abuse / excessive token usage.
+    // Ops admins get an unlimited prompt length for internal site building.
+    if (!isOpsAdmin && prompt.length > 1000) {
       return NextResponse.json({ error: 'Prompt is too long. Please keep it under 1000 characters.' }, { status: 400 });
     }
 
@@ -132,11 +148,29 @@ USER REQUEST: ${prompt}`;
 
     let aiResponse: string;
 
-    if (apiProvider === 'anthropic') {
-      aiResponse = await callAnthropic(apiKey, modelId, systemPrompt, sanitizedHistory, latestUserMessage);
-    } else {
-      aiResponse = await callOpenAI(apiKey, modelId, systemPrompt, sanitizedHistory, latestUserMessage);
+    const startTime = Date.now();
+    console.log(`[AI Builder] Request started — provider=${apiProvider} model=${modelId} promptLen=${prompt.length} historyLen=${sanitizedHistory.length} isNewSite=${!!isNewSite} isOpsAdmin=${isOpsAdmin} userId=${user.id}`);
+    console.log(`[AI Builder] Prompt: ${prompt.slice(0, 500)}${prompt.length > 500 ? `... (${prompt.length} chars total)` : ''}`);
+
+    try {
+      if (apiProvider === 'anthropic') {
+        aiResponse = await callAnthropic(apiKey, modelId, systemPrompt, sanitizedHistory, latestUserMessage);
+      } else {
+        aiResponse = await callOpenAI(apiKey, modelId, systemPrompt, sanitizedHistory, latestUserMessage);
+      }
+    } catch (providerErr: any) {
+      const elapsed = Date.now() - startTime;
+      const isTimeout = providerErr?.name === 'AbortError' || /timed?\s*out|timeout|ETIMEDOUT|ECONNRESET|socket hang up/i.test(providerErr?.message || '');
+      console.error(`[AI Builder] ${isTimeout ? 'TIMEOUT' : 'Provider error'} after ${elapsed}ms — provider=${apiProvider} model=${modelId} promptLen=${prompt.length}`, providerErr?.message || providerErr);
+      return NextResponse.json({
+        error: isTimeout
+          ? 'The AI took too long to respond. Try a shorter or simpler prompt.'
+          : 'Something went wrong. Please try again in a moment.',
+      }, { status: isTimeout ? 504 : 500 });
     }
+
+    const elapsed = Date.now() - startTime;
+    console.log(`[AI Builder] Response received in ${elapsed}ms — responseLen=${aiResponse.length}`);
 
     // Parse the AI response as JSON — try multiple extraction strategies
     let parsed;
@@ -144,7 +178,7 @@ USER REQUEST: ${prompt}`;
       parsed = extractJSON(aiResponse);
     } catch {
       // Never expose raw AI response to the client — log it server-side for debugging
-      console.error('AI Builder: failed to parse response as JSON. Raw response:', aiResponse.slice(0, 1000));
+      console.error(`[AI Builder] Failed to parse JSON after ${elapsed}ms. Raw response (first 1000 chars):`, aiResponse.slice(0, 1000));
       return NextResponse.json({
         operations: [],
         message: 'Sorry, I had trouble processing that request. Please try again.',
@@ -157,6 +191,8 @@ USER REQUEST: ${prompt}`;
     // Even if the LLM is manipulated via prompt injection, only valid operations
     // with valid block types can pass through.
     const sanitized = sanitizeOperations(parsed.operations || []);
+
+    console.log(`[AI Builder] Done in ${elapsed}ms — operations=${sanitized.length} message="${(parsed.message || '').slice(0, 100)}"`);
 
     // Sanitize the message: if it looks like raw JSON or contains JSON objects, replace with a generic message
     let safeMessage = typeof parsed.message === 'string' ? parsed.message.slice(0, 1000) : 'Done.';
@@ -173,39 +209,57 @@ USER REQUEST: ${prompt}`;
     });
   } catch (err: any) {
     // Log full error server-side only — never expose raw provider messages to the client
-    console.error('AI Builder error:', err);
+    console.error('[AI Builder] Unhandled error:', err?.message || err, err?.stack);
     return NextResponse.json({ error: 'Something went wrong. Please try again in a moment.' }, { status: 500 });
   }
 }
 
+const AI_FETCH_TIMEOUT_MS = 120_000; // 2 minutes
+
 async function callAnthropic(apiKey: string, model: string, system: string, history: any[], latestUserMessage: string): Promise<string> {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 4096,
-      system,
-      messages: [
-        ...history,
-        { role: 'user', content: latestUserMessage }
-      ],
-    }),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AI_FETCH_TIMEOUT_MS);
 
-  if (!res.ok) {
-    const errBody = await res.text();
-    // Log full details server-side only
-    console.error(`Anthropic API error ${res.status}:`, errBody);
-    throw new Error('AI service unavailable.');
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model,
+        max_tokens: 4096,
+        system,
+        messages: [
+          ...history,
+          { role: 'user', content: latestUserMessage }
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text();
+      console.error(`[AI Builder] Anthropic API error ${res.status}:`, errBody.slice(0, 500));
+      if (res.status === 529 || res.status === 503) {
+        throw new Error(`Anthropic overloaded (${res.status})`);
+      }
+      if (res.status === 408 || res.status === 504) {
+        throw new Error(`Anthropic timeout (${res.status})`);
+      }
+      throw new Error(`Anthropic API error ${res.status}`);
+    }
+
+    const data = await res.json();
+    const text = data.content?.[0]?.text || '';
+    const stopReason = data.stop_reason || 'unknown';
+    console.log(`[AI Builder] Anthropic response — stopReason=${stopReason} inputTokens=${data.usage?.input_tokens} outputTokens=${data.usage?.output_tokens}`);
+    return text;
+  } finally {
+    clearTimeout(timer);
   }
-
-  const data = await res.json();
-  return data.content?.[0]?.text || '';
 }
 
 // ---- Server-side operation sanitizer ----
@@ -397,29 +451,39 @@ function extractJSON(raw: string): { operations: any[]; message: string } {
 }
 
 async function callOpenAI(apiKey: string, model: string, system: string, history: any[], latestUserMessage: string): Promise<string> {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 4096,
-      messages: [
-        { role: 'system', content: system },
-        ...history,
-        { role: 'user', content: latestUserMessage },
-      ],
-    }),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AI_FETCH_TIMEOUT_MS);
 
-  if (!res.ok) {
-    const errBody = await res.text();
-    console.error(`OpenAI API error ${res.status}:`, errBody);
-    throw new Error('AI service unavailable.');
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model,
+        max_tokens: 4096,
+        messages: [
+          { role: 'system', content: system },
+          ...history,
+          { role: 'user', content: latestUserMessage },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text();
+      console.error(`[AI Builder] OpenAI API error ${res.status}:`, errBody.slice(0, 500));
+      throw new Error(`OpenAI API error ${res.status}`);
+    }
+
+    const data = await res.json();
+    const finishReason = data.choices?.[0]?.finish_reason || 'unknown';
+    console.log(`[AI Builder] OpenAI response — finishReason=${finishReason} totalTokens=${data.usage?.total_tokens}`);
+    return data.choices?.[0]?.message?.content || '';
+  } finally {
+    clearTimeout(timer);
   }
-
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || '';
 }

@@ -36,6 +36,7 @@ import TabBarBlock from './TabBarBlock';
 import UserProfileBlock from './UserProfileBlock';
 import ChatSupportBlock from './ChatSupportBlock';
 import VideoBlock from './VideoBlock';
+import EstimateFormBlock from './EstimateFormBlock';
 
 export const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     tabBar: TabBarBlock,
@@ -70,6 +71,7 @@ export const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     carousel: CarouselBlock,
     chatSupport: ChatSupportBlock,
     video: VideoBlock,
+    estimateForm: EstimateFormBlock,
 };
 
 /** All addable block types (used in both main renderer and inside gates). */
@@ -89,6 +91,7 @@ export const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: bo
     { type: 'booking', label: '📅 Booking / Appointments' },
     { type: 'productGrid', label: '🛍️ Product Catalog' },
     { type: 'contact_form', label: 'Contact Form' },
+    { type: 'estimateForm', label: 'Estimate / Quote Form' },
     { type: 'logoCloud', label: 'Logo Cloud / Partners' },
     { type: 'pricing', label: 'Pricing Table' },
     { type: 'team', label: 'Team Members' },

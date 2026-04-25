@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { getOpsAccessContext } from '@/lib/ops/access';
+import { APP_URL } from '@/lib/env/domain';
 import ModerationQueue from './ModerationQueue';
 
 export const metadata = { title: 'Keystone Ops — Content Moderation' };
@@ -33,7 +34,7 @@ export default async function OpsModerationPage({
 }) {
   const access = await getOpsAccessContext();
   if (!access || (!access.isAdmin && !access.isAgent)) {
-    redirect('https://keystoneweb.ca');
+    redirect(APP_URL);
   }
 
   const { reviewed } = await searchParams;

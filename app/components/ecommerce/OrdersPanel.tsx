@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
     Package, Loader2, ChevronDown, ChevronRight, Clock,
-    CheckCircle2, Truck, XCircle, DollarSign, Mail, Phone, MapPin, AlertTriangle
+    CheckCircle2, Truck, XCircle, DollarSign, Mail, Phone, MapPin, AlertTriangle, Download
 } from 'lucide-react';
 
 interface Order {
@@ -20,6 +20,10 @@ interface Order {
     payment_method: 'none' | 'etransfer' | 'stripe';
     payment_status: 'unpaid' | 'pending' | 'paid';
     notes: string | null;
+    tracking_number: string | null;
+    tracking_carrier: string | null;
+    tax_cents: number | null;
+    tax_label: string | null;
     created_at: string;
 }
 
@@ -52,6 +56,11 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
     const [cancelTarget, setCancelTarget] = useState<string | null>(null);
     const [cancelReason, setCancelReason] = useState('');
     const [cancelling, setCancelling] = useState(false);
+    // Ship (tracking) modal
+    const [shipTarget, setShipTarget] = useState<string | null>(null);
+    const [shipCarrier, setShipCarrier] = useState('');
+    const [shipTracking, setShipTracking] = useState('');
+    const [shipping, setShipping] = useState(false);
 
     useEffect(() => {
         if (!expanded) return;
@@ -71,7 +80,7 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
         }
     };
 
-    const updateOrder = async (orderId: string, updates: { status?: string; payment_status?: string; cancellationReason?: string }) => {
+    const updateOrder = async (orderId: string, updates: { status?: string; payment_status?: string; cancellationReason?: string; tracking_number?: string; tracking_carrier?: string }) => {
         setUpdatingId(orderId);
         try {
             const res = await fetch('/api/products/orders', {
@@ -99,12 +108,73 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
         setCancelReason('');
     };
 
+    const handleShipConfirm = async () => {
+        if (!shipTarget) return;
+        setShipping(true);
+        await updateOrder(shipTarget, {
+            status: 'shipped',
+            tracking_number: shipTracking.trim() || undefined,
+            tracking_carrier: shipCarrier.trim() || undefined,
+        });
+        setShipping(false);
+        setShipTarget(null);
+        setShipTracking('');
+        setShipCarrier('');
+    };
+
     const filteredOrders = filterStatus === 'all'
         ? orders
         : orders.filter(o => o.status === filterStatus);
 
     return (
         <>
+        {/* Tracking number modal (Mark Shipped) */}
+        {shipTarget && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                        <Truck className="w-5 h-5 text-violet-500 flex-shrink-0" />
+                        <h3 className="text-sm font-bold text-slate-900">Mark Shipped</h3>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-3">
+                        Add tracking info (optional) — the customer will receive a shipping notification email with a link to the carrier's tracker.
+                    </p>
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Carrier</label>
+                    <input
+                        type="text"
+                        value={shipCarrier}
+                        onChange={e => setShipCarrier(e.target.value)}
+                        placeholder="Canada Post, UPS, FedEx..."
+                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-violet-400"
+                    />
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Tracking number</label>
+                    <input
+                        type="text"
+                        value={shipTracking}
+                        onChange={e => setShipTracking(e.target.value)}
+                        placeholder="e.g. 1Z999AA10123456784"
+                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-violet-400 font-mono"
+                    />
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => { setShipTarget(null); setShipCarrier(''); setShipTracking(''); }}
+                            className="flex-1 px-3 py-2 text-sm font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleShipConfirm}
+                            disabled={shipping}
+                            className="flex-1 px-3 py-2 text-sm font-medium bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 flex items-center justify-center gap-1"
+                        >
+                            {shipping ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Truck className="w-3.5 h-3.5" />}
+                            Mark Shipped
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         {/* Cancel / Refund reason modal */}
         {cancelTarget && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -167,21 +237,31 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
                         </div>
                     ) : (
                         <>
-                            {/* Filter tabs */}
-                            <div className="flex gap-1 px-4 pt-3 pb-2 overflow-x-auto">
-                                {['all', 'pending', 'confirmed', 'shipped', 'completed', 'cancelled'].map(s => (
-                                    <button
-                                        key={s}
-                                        onClick={() => setFilterStatus(s)}
-                                        className={`px-2.5 py-1 text-xs font-medium rounded-full whitespace-nowrap transition-colors ${
-                                            filterStatus === s
-                                                ? 'bg-slate-800 text-white'
-                                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                        }`}
-                                    >
-                                        {s === 'all' ? `All (${orders.length})` : `${s.charAt(0).toUpperCase() + s.slice(1)} (${orders.filter(o => o.status === s).length})`}
-                                    </button>
-                                ))}
+                            {/* Filter tabs + export */}
+                            <div className="flex items-center gap-2 px-4 pt-3 pb-2">
+                                <div className="flex gap-1 overflow-x-auto flex-1">
+                                    {['all', 'pending', 'confirmed', 'shipped', 'completed', 'cancelled'].map(s => (
+                                        <button
+                                            key={s}
+                                            onClick={() => setFilterStatus(s)}
+                                            className={`px-2.5 py-1 text-xs font-medium rounded-full whitespace-nowrap transition-colors ${
+                                                filterStatus === s
+                                                    ? 'bg-slate-800 text-white'
+                                                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                            }`}
+                                        >
+                                            {s === 'all' ? `All (${orders.length})` : `${s.charAt(0).toUpperCase() + s.slice(1)} (${orders.filter(o => o.status === s).length})`}
+                                        </button>
+                                    ))}
+                                </div>
+                                <a
+                                    href={`/api/products/orders/export?siteId=${siteId}`}
+                                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg whitespace-nowrap"
+                                    title="Export orders to CSV"
+                                >
+                                    <Download className="w-3 h-3" />
+                                    Export
+                                </a>
                             </div>
 
                             {/* Order list */}
@@ -191,7 +271,7 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
                                     const ps = PAYMENT_STATUS_LABELS[order.payment_status];
                                     const StatusIcon = sc.icon;
                                     const isOpen = expandedOrder === order.id;
-                                    const orderTotal = order.subtotal_cents + (order.shipping_cents || 0);
+                                    const orderTotal = order.subtotal_cents + (order.shipping_cents || 0) + (order.tax_cents || 0);
                                     const total = `$${(orderTotal / 100).toFixed(2)}`;
                                     const refId = `ORDER-${order.id.slice(0, 8).toUpperCase()}`;
                                     const date = new Date(order.created_at).toLocaleDateString('en-US', {
@@ -251,6 +331,12 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
                                                             </span>
                                                         </div>
                                                     )}
+                                                    {order.tax_cents && order.tax_cents > 0 ? (
+                                                        <div className="flex justify-between text-xs">
+                                                            <span className="text-slate-600">{order.tax_label || 'Tax'}</span>
+                                                            <span className="text-slate-900 font-medium">${(order.tax_cents / 100).toFixed(2)}</span>
+                                                        </div>
+                                                    ) : null}
 
                                                     {/* Customer info */}
                                                     <div>
@@ -274,6 +360,26 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
                                                             Method: {order.payment_method === 'etransfer' ? 'Interac e-Transfer' : order.payment_method === 'stripe' ? 'Stripe' : order.payment_method}
                                                         </p>
                                                     </div>
+
+                                                    {/* Tracking info */}
+                                                    {order.tracking_number && (
+                                                        <div>
+                                                            <p className="text-xs font-semibold text-slate-600 mb-1">Tracking</p>
+                                                            <p className="text-xs text-slate-700 flex items-center gap-1">
+                                                                <Truck className="w-3 h-3 text-slate-400" />
+                                                                {order.tracking_carrier ? `${order.tracking_carrier} · ` : ''}
+                                                                <span className="font-mono">{order.tracking_number}</span>
+                                                            </p>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Customer notes */}
+                                                    {order.notes && (
+                                                        <div>
+                                                            <p className="text-xs font-semibold text-slate-600 mb-1">Customer notes</p>
+                                                            <p className="text-xs text-slate-700 whitespace-pre-wrap">{order.notes}</p>
+                                                        </div>
+                                                    )}
 
                                                     {/* Actions */}
                                                     <div className="flex flex-wrap gap-1.5 pt-1">
@@ -311,7 +417,7 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
                                                         )}
                                                         {order.status === 'confirmed' && (
                                                             <button
-                                                                onClick={() => updateOrder(order.id, { status: 'shipped' })}
+                                                                onClick={() => { setShipTarget(order.id); setShipCarrier(order.tracking_carrier || ''); setShipTracking(order.tracking_number || ''); }}
                                                                 disabled={updatingId === order.id}
                                                                 className="px-2.5 py-1.5 text-xs font-medium bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50"
                                                             >

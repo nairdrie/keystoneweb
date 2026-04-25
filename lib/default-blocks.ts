@@ -52,6 +52,30 @@ export const DEFAULT_TEMPLATE_BLOCKS: Record<string, any[]> = {
         },
         {
             id: uuidv4(),
+            type: 'estimateForm',
+            data: {
+                title: "Request an Estimate",
+                description: "Tell us about your project and we'll provide a custom quote.",
+                submitText: "Get My Estimate",
+                successMessage: "Thank you! We'll review your request and get back to you shortly.",
+                variant: 'simple',
+                fields: [
+                    { id: uuidv4(), label: 'Service Type', type: 'select', required: true, options: ['Consultation', 'Installation', 'Repair', 'Other'] },
+                    { id: uuidv4(), label: 'Project Details', type: 'textarea', required: true },
+                ],
+                pricingEnabled: false,
+                pricingBasePrice: 0,
+                pricingCurrency: 'CAD',
+                pricingRangeSpread: 0.15,
+                pricingDisclaimer: 'This is an estimate only. Final pricing may vary.',
+                showName: true,
+                showEmail: true,
+                showPhone: true,
+                showMessage: false,
+            }
+        },
+        {
+            id: uuidv4(),
             type: 'cta',
             data: {
                 title: "Ready to start your project?",

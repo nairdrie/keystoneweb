@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/db/supabase-admin';
 import { getOpsAccessContext } from '@/lib/ops/access';
 import { formatOpsTicketLogMessage } from '@/lib/ops/kanban-log';
 import type { OpsTicketLogEntry } from '@/lib/ops/kanban';
+import { APP_URL } from '@/lib/env/domain';
+import LocalTimestamp from '../LocalTimestamp';
 
 export const metadata = { title: 'Keystone Ops Kanban Log' };
 
@@ -26,7 +28,7 @@ function formatValue(value: string | null, label: string | null) {
 export default async function OpsKanbanLogPage() {
   const access = await getOpsAccessContext();
   if (!access || (!access.isAdmin && !access.isAgent)) {
-    redirect('https://keystoneweb.ca');
+    redirect(APP_URL);
   }
 
   const db = createAdminClient();
@@ -63,7 +65,7 @@ export default async function OpsKanbanLogPage() {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-950/70">
-        <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,2.4fr)_180px] gap-4 border-b border-gray-800 px-5 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
+        <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,2.4fr)_220px] gap-4 border-b border-gray-800 px-5 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">
           <div>Actor</div>
           <div>Ticket</div>
           <div>Change</div>
@@ -76,7 +78,7 @@ export default async function OpsKanbanLogPage() {
             return (
               <div
                 key={entry.id}
-                className="grid grid-cols-1 gap-4 px-5 py-4 text-sm text-gray-200 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,2.4fr)_180px]"
+                className="grid grid-cols-1 gap-4 px-5 py-4 text-sm text-gray-200 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1.4fr)_minmax(0,2.4fr)_220px]"
               >
                 <div className="min-w-0">
                   <div className="font-medium text-white">
@@ -117,15 +119,7 @@ export default async function OpsKanbanLogPage() {
                 </div>
 
                 <div className="text-xs text-gray-500">
-                  <time dateTime={entry.created_at}>
-                    {new Date(entry.created_at).toLocaleString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}
-                  </time>
+                  <LocalTimestamp value={entry.created_at} className="whitespace-nowrap" />
                 </div>
               </div>
             );

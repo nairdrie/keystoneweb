@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 import { FREE_DOMAIN_MAX_USD } from '@/lib/domains/pricing';
+import { CUSTOM_DOMAIN_CNAME_TARGET } from '@/lib/env/domain';
 
 const VERCEL_API_TOKEN = process.env.VERCEL_API_TOKEN;
 const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID;
@@ -65,7 +67,7 @@ async function buyDomainFromVercel(
   userId: string,
   email: string,
   businessName: string | null,
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createAdminClient>,
   maxPriceUsd?: number,
 ): Promise<{ success: boolean; orderId?: string; error?: string; status?: number }> {
   const teamParam = VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : '';
@@ -162,7 +164,7 @@ async function buyDomainFromVercel(
     site_id: siteId,
     record_type: 'CNAME',
     name: domain,
-    value: 'sites.kswd.ca',
+    value: CUSTOM_DOMAIN_CNAME_TARGET,
     ttl: 3600,
   });
 
@@ -184,7 +186,9 @@ export async function completeDomainPurchase(
   userId: string,
   isDomainSwitch?: boolean,
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient();
+  // Called from the Stripe webhook (no user JWT); use the admin client so all
+  // writes succeed under RLS.
+  const supabase = createAdminClient();
 
   // If this is a domain switch, disconnect old custom domain from any other site
   if (isDomainSwitch) {
@@ -405,8 +409,11 @@ export async function POST(request: NextRequest) {
       auto_renew: true,
     });
 
-    // Flag the subscription so refund-review logic (webhook) knows a digital good was delivered
-    await supabase
+    // Flag the subscription so refund-review logic (webhook) knows a digital good was delivered.
+    // Admin client: user_subscriptions RLS allows self SELECT but not self UPDATE (prevents
+    // users from raising their own visitor_limit / publish_limit via direct PostgREST).
+    const admin = createAdminClient();
+    await admin
       .from('user_subscriptions')
       .update({ free_domain_claimed: true, free_domain_claimed_at: claimedAt, last_domain_claimed_at: claimedAt })
       .eq('user_id', user.id);

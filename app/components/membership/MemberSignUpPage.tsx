@@ -79,7 +79,7 @@ export default function MemberSignUpPage({ siteId, siteName, palette, branding }
   const [multiData, setMultiData] = useState<Record<string, string[]>>({});
   const [selectedPackage, setSelectedPackage] = useState<string>('');
   const [showPassword, setShowPassword] = useState(false);
-  const [marketingOptIn, setMarketingOptIn] = useState(true);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [currentStage, setCurrentStage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);

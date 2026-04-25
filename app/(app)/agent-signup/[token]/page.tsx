@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import KeystoneLogoImage from '@/assets/logo/keystone-logo.png';
+import { OPS_URL } from '@/lib/env/domain';
 
 type InviteState =
   | { status: 'loading' }
@@ -68,7 +69,7 @@ export default function AgentSignupPage() {
 
     setInvite({ status: 'done' });
     // Redirect to ops after a moment
-    setTimeout(() => router.push('https://ops.keystoneweb.ca'), 2000);
+    setTimeout(() => router.push(OPS_URL), 2000);
   }
 
   return (

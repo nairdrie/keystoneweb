@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { requireOpsAccess } from '@/lib/ops/access';
-import { buildCreateTicketLog, insertOpsTicketLogs } from '@/lib/ops/kanban-log';
+import {
+  buildCreateTicketLog,
+  buildUpdateTicketLogs,
+  insertOpsTicketLogs,
+} from '@/lib/ops/kanban-log';
 import {
   getNextSortOrder,
   isOpsTicketPriority,
@@ -17,6 +21,29 @@ function cleanOptionalText(value: unknown) {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+async function loadOpsAssignees(db: ReturnType<typeof createAdminClient>) {
+  const { data, error } = await db
+    .from('users')
+    .select('id, email, business_name, is_agent, is_admin')
+    .or('is_agent.eq.true,is_admin.eq.true')
+    .order('email', { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return ((data ?? []).filter((row) => row.id && row.email).map((row) => ({
+    id: row.id as string,
+    email: String(row.email).toLowerCase(),
+    name: row.business_name ? String(row.business_name) : null,
+    kind: row.is_admin && row.is_agent
+      ? 'admin_agent'
+      : row.is_admin
+        ? 'admin'
+        : 'agent',
+  })) as import('@/lib/ops/kanban').OpsAssigneeOption[]);
 }
 
 export async function GET(request: Request) {
@@ -163,4 +190,119 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json(data);
+}
+
+export async function PATCH(request: Request) {
+  const access = await requireOpsAccess();
+  if (!access) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const body: unknown = await request.json();
+  const rawUpdates = (
+    typeof body === 'object' &&
+    body !== null &&
+    'updates' in body &&
+    Array.isArray(body.updates)
+  )
+    ? body.updates
+    : null;
+  if (!rawUpdates || rawUpdates.length === 0) {
+    return NextResponse.json({ error: 'At least one update is required' }, { status: 400 });
+  }
+
+  const updates = rawUpdates.map((entry: unknown) => {
+    const candidate = typeof entry === 'object' && entry !== null
+      ? (entry as Record<string, unknown>)
+      : {};
+    const id = typeof candidate.id === 'string' ? candidate.id : '';
+    const status = typeof candidate.status === 'string' && isOpsTicketStatus(candidate.status)
+      ? (candidate.status as OpsTicketStatus)
+      : null;
+    const sortOrder = Number(candidate.sort_order);
+
+    return {
+      id,
+      status,
+      sort_order: Number.isFinite(sortOrder) && sortOrder >= 0 ? Math.round(sortOrder) : null,
+    };
+  });
+
+  if (updates.some((entry) => !entry.id || !entry.status || entry.sort_order === null)) {
+    return NextResponse.json({ error: 'Invalid reorder payload' }, { status: 400 });
+  }
+
+  const validUpdates = updates as Array<{
+    id: string;
+    status: OpsTicketStatus;
+    sort_order: number;
+  }>;
+
+  const db = createAdminClient();
+  const ids = [...new Set(validUpdates.map((entry) => entry.id))];
+  const { data: existingTickets, error: loadError } = await db
+    .from('ops_tickets')
+    .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, sort_order, created_at, updated_at')
+    .in('id', ids);
+
+  if (loadError) {
+    console.error('[ops/kanban PATCH batch load]', loadError);
+    return NextResponse.json({ error: 'Failed to update tickets' }, { status: 500 });
+  }
+
+  const existingTicketMap = new Map(((existingTickets ?? []) as OpsTicket[]).map((ticket) => [ticket.id, ticket]));
+  if (ids.some((id) => !existingTicketMap.has(id))) {
+    return NextResponse.json({ error: 'One or more tickets were not found' }, { status: 404 });
+  }
+
+  const updatedAt = new Date().toISOString();
+
+  try {
+    await Promise.all(
+      validUpdates.map((entry) =>
+        db
+          .from('ops_tickets')
+          .update({
+            status: entry.status,
+            sort_order: entry.sort_order,
+            updated_at: updatedAt,
+          })
+          .eq('id', entry.id)
+      )
+    );
+  } catch (error) {
+    console.error('[ops/kanban PATCH batch]', error);
+    return NextResponse.json({ error: 'Failed to update tickets' }, { status: 500 });
+  }
+
+  try {
+    const assignees = await loadOpsAssignees(db);
+    const logEntries = validUpdates.flatMap((entry) => {
+      const previousTicket = existingTicketMap.get(entry.id);
+      if (!previousTicket) return [];
+
+      const nextTicket: OpsTicket = {
+        ...previousTicket,
+        status: entry.status,
+        sort_order: entry.sort_order,
+        updated_at: updatedAt,
+      };
+
+      return buildUpdateTicketLogs(
+        previousTicket,
+        nextTicket,
+        {
+          userId: access.userId,
+          userEmail: access.userEmail,
+        },
+        assignees
+      );
+    });
+
+    await insertOpsTicketLogs(db, logEntries);
+  } catch (logError) {
+    console.error('[ops/kanban PATCH batch log]', logError);
+  }
+
+  return NextResponse.json({ success: true, updatedAt, updated: validUpdates.length });
 }

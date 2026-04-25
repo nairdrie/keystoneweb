@@ -9,9 +9,12 @@ import {
 
 interface EcommerceSettings {
     site_id: string;
-    payment_methods: { etransfer?: boolean; stripe?: boolean };
+    payment_methods: { etransfer?: boolean; stripe?: boolean; paypal?: boolean };
     etransfer_email: string | null;
     notification_email: string | null;
+    tax_enabled: boolean;
+    tax_rate_bps: number;
+    tax_label: string | null;
 }
 
 interface StoreSettingsPanelProps {
@@ -21,15 +24,20 @@ interface StoreSettingsPanelProps {
 export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) {
     const [settings, setSettings] = useState<EcommerceSettings>({
         site_id: siteId,
-        payment_methods: { etransfer: false, stripe: false },
+        payment_methods: { etransfer: false, stripe: false, paypal: false },
         etransfer_email: null,
         notification_email: null,
+        tax_enabled: false,
+        tax_rate_bps: 0,
+        tax_label: null,
     });
     const [stripeConnected, setStripeConnected] = useState(false);
+    const [paypalConnected, setPaypalConnected] = useState(false);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [connectingStripe, setConnectingStripe] = useState(false);
+    const [connectingPaypal, setConnectingPaypal] = useState(false);
     const [expanded, setExpanded] = useState(false);
 
     // Stripe product sync state
@@ -49,6 +57,7 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                     setSettings(data.settings);
                 }
                 setStripeConnected(data.stripeConnected || false);
+                setPaypalConnected(data.paypalConnected || false);
             } catch (err) {
                 console.error('Failed to load ecommerce settings:', err);
             } finally {
@@ -66,9 +75,16 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     siteId,
-                    payment_methods: settings.payment_methods,
+                    payment_methods: {
+                        etransfer: !!settings.payment_methods?.etransfer,
+                        stripe: !!settings.payment_methods?.stripe,
+                        paypal: !!settings.payment_methods?.paypal,
+                    },
                     etransfer_email: settings.etransfer_email,
                     notification_email: settings.notification_email,
+                    tax_enabled: settings.tax_enabled,
+                    tax_rate_bps: settings.tax_rate_bps || 0,
+                    tax_label: settings.tax_label || null,
                 }),
             });
             if (res.ok) {
@@ -101,6 +117,28 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
             console.error('Failed to initiate Stripe Connect:', err);
         } finally {
             setConnectingStripe(false);
+        }
+    };
+
+    const handleConnectPaypal = async () => {
+        setConnectingPaypal(true);
+        try {
+            const res = await fetch('/api/paypal/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    siteId,
+                    returnUrl: window.location.href,
+                }),
+            });
+            const data = await res.json();
+            if (data.url) {
+                window.open(data.url, '_blank');
+            }
+        } catch (err) {
+            console.error('Failed to initiate PayPal Connect:', err);
+        } finally {
+            setConnectingPaypal(false);
         }
     };
 
@@ -171,7 +209,7 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
     }
 
     const pm = settings.payment_methods || {};
-    const hasAnyPayment = pm.etransfer || pm.stripe;
+    const hasAnyPayment = pm.etransfer || pm.stripe || pm.paypal;
 
     return (
         <div className="border-2 border-slate-200 rounded-xl overflow-hidden">
@@ -224,6 +262,22 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                                 <div>
                                     <span className="text-sm text-slate-700 font-medium">Credit / Debit Card (Stripe)</span>
                                     <p className="text-xs text-slate-400">Accept Visa, Mastercard, Amex via Stripe</p>
+                                </div>
+                            </label>
+
+                            <label className="flex items-center gap-2.5 cursor-pointer group">
+                                <input
+                                    type="checkbox"
+                                    checked={pm.paypal || false}
+                                    onChange={() => setSettings({
+                                        ...settings,
+                                        payment_methods: { ...pm, paypal: !pm.paypal }
+                                    })}
+                                    className="rounded accent-blue-600 w-4 h-4"
+                                />
+                                <div>
+                                    <span className="text-sm text-slate-700 font-medium">PayPal & Cards (PayPal)</span>
+                                    <p className="text-xs text-slate-400">PayPal wallet + debit/credit card as guest — funds settle to your PayPal account</p>
                                 </div>
                             </label>
                         </div>
@@ -394,6 +448,51 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                         </div>
                     )}
 
+                    {/* PayPal Connect */}
+                    {pm.paypal && (
+                        <div>
+                            <label className="text-sm font-semibold text-slate-700 block mb-1.5 flex items-center gap-1.5">
+                                <Link2 className="w-4 h-4 text-indigo-600" />
+                                PayPal Account
+                            </label>
+                            {paypalConnected ? (
+                                <div className="flex items-center gap-2 px-3 py-2.5 bg-green-50 border border-green-200 rounded-lg">
+                                    <Check className="w-4 h-4 text-green-600" />
+                                    <span className="text-sm text-green-700 font-medium">PayPal account connected</span>
+                                    <button
+                                        onClick={handleConnectPaypal}
+                                        className="ml-auto text-xs text-green-600 hover:text-green-800 underline"
+                                    >
+                                        Manage
+                                    </button>
+                                </div>
+                            ) : (
+                                <div>
+                                    <button
+                                        onClick={handleConnectPaypal}
+                                        disabled={connectingPaypal}
+                                        className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        {connectingPaypal ? (
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                            <ExternalLink className="w-4 h-4" />
+                                        )}
+                                        Connect PayPal Account
+                                    </button>
+                                    <p className="text-xs text-slate-400 mt-1.5">
+                                        You'll be redirected to PayPal to connect or create a business account. Funds go directly to your PayPal account.
+                                    </p>
+                                </div>
+                            )}
+                            {pm.paypal && !paypalConnected && (
+                                <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
+                                    <AlertCircle className="w-3 h-3" /> Connect PayPal to accept PayPal and card payments
+                                </p>
+                            )}
+                        </div>
+                    )}
+
                     {/* Notification Email */}
                     <div>
                         <label className="text-sm font-semibold text-slate-700 block mb-1.5 flex items-center gap-1.5">
@@ -409,6 +508,72 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                         />
                         <p className="text-xs text-slate-400 mt-1">Get notified when new orders come in</p>
                     </div>
+
+                    {/* Tax Collection */}
+                    {pm.stripe && stripeConnected && (
+                        <div>
+                            <label className="text-sm font-semibold text-slate-700 block mb-2 flex items-center gap-1.5">
+                                <DollarSign className="w-4 h-4 text-green-600" />
+                                Tax Collection
+                            </label>
+                            <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-slate-50">
+                                <div>
+                                    <span className="text-sm text-slate-700 font-medium">Collect tax automatically</span>
+                                    <p className="text-xs text-slate-400 mt-0.5">Stripe will calculate and add tax at checkout based on your customer's location</p>
+                                </div>
+                                <button
+                                    onClick={() => setSettings({ ...settings, tax_enabled: !settings.tax_enabled })}
+                                    className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ml-3 ${settings.tax_enabled ? 'bg-green-500' : 'bg-slate-300'}`}
+                                >
+                                    <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${settings.tax_enabled ? 'translate-x-5' : ''}`} />
+                                </button>
+                            </div>
+                            {settings.tax_enabled && (
+                                <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
+                                    <AlertCircle className="w-3 h-3" />
+                                    Make sure tax registrations are configured in your Stripe Dashboard
+                                </p>
+                            )}
+
+                            <div className="mt-4 pt-4 border-t border-slate-200">
+                                <p className="text-sm font-semibold text-slate-800 mb-1">Flat-rate tax</p>
+                                <p className="text-xs text-slate-500 mb-3">
+                                    Charge a fixed tax percentage on every order (applies to e-transfer checkouts
+                                    {settings.tax_enabled ? ', and to Stripe checkouts only if Stripe automatic tax is off' : ', and to Stripe checkouts'}).
+                                </p>
+                                <div className="flex gap-2">
+                                    <div className="flex-1">
+                                        <label className="text-xs font-semibold text-slate-600 block mb-1">Rate (%)</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            step="0.01"
+                                            value={settings.tax_rate_bps ? (settings.tax_rate_bps / 100).toString() : ''}
+                                            onChange={e => {
+                                                const pct = parseFloat(e.target.value);
+                                                const bps = isNaN(pct) ? 0 : Math.round(pct * 100);
+                                                setSettings({ ...settings, tax_rate_bps: Math.max(0, Math.min(10000, bps)) });
+                                            }}
+                                            placeholder="0"
+                                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="text-xs font-semibold text-slate-600 block mb-1">Label</label>
+                                        <input
+                                            type="text"
+                                            value={settings.tax_label || ''}
+                                            onChange={e => setSettings({ ...settings, tax_label: e.target.value || null })}
+                                            placeholder="HST, GST+PST..."
+                                            maxLength={20}
+                                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Save */}
                     <button

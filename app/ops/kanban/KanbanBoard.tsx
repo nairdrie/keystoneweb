@@ -19,7 +19,7 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { ArrowDownUp, Filter, Flag, GripVertical, Plus, Sparkles, Upload, UserRound, X } from 'lucide-react';
+import { ArrowDownUp, Filter, Flag, GripVertical, Plus, Search, Sparkles, Upload, UserRound, X } from 'lucide-react';
 import {
   getOpsTicketPriorityMeta,
   getOpsTicketStatusMeta,
@@ -31,6 +31,8 @@ import {
   type OpsTicketPriority,
   type OpsTicketStatus,
 } from '@/lib/ops/kanban';
+import LocalTimestamp from './LocalTimestamp';
+import { formatLocalTimestamp, formatUtcTimestamp } from './timestamp';
 
 type TicketDraft = {
   name: string;
@@ -68,8 +70,18 @@ type CsvImportRow = {
 };
 
 type StatusCounts = Record<OpsTicketStatus, number>;
+export type KanbanBoardProps = {
+  initialTickets: OpsTicket[];
+  statusCounts: StatusCounts;
+  assignees: OpsAssigneeOption[];
+  currentUserId: string;
+  canDelete: boolean;
+};
 
 const STATUS_PAGE_SIZE = 20;
+const minuteTickerListeners = new Set<() => void>();
+let minuteTickerIntervalId: number | null = null;
+let minuteTickerSnapshot = 0;
 
 function getManualStatusTickets(tickets: OpsTicket[], status: OpsTicketStatus) {
   return tickets
@@ -126,6 +138,18 @@ function getSortGroupKey(
   return 'manual:all';
 }
 
+function getPriorityGroupStartIndex(targetTickets: OpsTicket[], priority: OpsTicketPriority) {
+  const samePriorityIndex = targetTickets.findIndex((ticket) => ticket.priority === priority);
+  if (samePriorityIndex >= 0) return samePriorityIndex;
+
+  const lowerPriorityIndex = targetTickets.findIndex(
+    (ticket) => PRIORITY_RANK[ticket.priority] > PRIORITY_RANK[priority]
+  );
+  if (lowerPriorityIndex >= 0) return lowerPriorityIndex;
+
+  return targetTickets.length;
+}
+
 function relativeUpdatedAt(value: string) {
   const diffMs = Date.now() - new Date(value).getTime();
   const diffMinutes = Math.max(1, Math.round(diffMs / 60000));
@@ -139,23 +163,37 @@ function relativeUpdatedAt(value: string) {
   return `${diffDays}d ago`;
 }
 
-function formatUtcTimestamp(value: string) {
-  const date = new Date(value);
-  const year = date.getUTCFullYear();
-  const month = `${date.getUTCMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getUTCDate()}`.padStart(2, '0');
-  const hours = `${date.getUTCHours()}`.padStart(2, '0');
-  const minutes = `${date.getUTCMinutes()}`.padStart(2, '0');
-  return `${year}-${month}-${day} ${hours}:${minutes} UTC`;
-}
-
 function subscribeToMinuteTicker(onStoreChange: () => void) {
-  const intervalId = window.setInterval(onStoreChange, 60_000);
-  return () => window.clearInterval(intervalId);
+  minuteTickerListeners.add(onStoreChange);
+
+  if (minuteTickerIntervalId === null) {
+    minuteTickerIntervalId = window.setInterval(() => {
+      minuteTickerSnapshot = Date.now();
+      for (const listener of minuteTickerListeners) {
+        listener();
+      }
+    }, 60_000);
+
+    window.setTimeout(() => {
+      minuteTickerSnapshot = Date.now();
+      for (const listener of minuteTickerListeners) {
+        listener();
+      }
+    }, 0);
+  }
+
+  return () => {
+    minuteTickerListeners.delete(onStoreChange);
+
+    if (minuteTickerListeners.size === 0 && minuteTickerIntervalId !== null) {
+      window.clearInterval(minuteTickerIntervalId);
+      minuteTickerIntervalId = null;
+    }
+  };
 }
 
 function getMinuteTickerSnapshot() {
-  return Date.now();
+  return minuteTickerSnapshot;
 }
 
 function getMinuteTickerServerSnapshot() {
@@ -169,9 +207,10 @@ function RelativeUpdatedAt({ value }: { value: string }) {
     getMinuteTickerServerSnapshot
   );
   const label = currentTime > 0 ? relativeUpdatedAt(value) : 'Updated recently';
+  const absoluteLabel = currentTime > 0 ? formatLocalTimestamp(value) : formatUtcTimestamp(value);
 
   return (
-    <span className="shrink-0" title={formatUtcTimestamp(value)}>
+    <span className="shrink-0" title={absoluteLabel}>
       {label}
     </span>
   );
@@ -661,7 +700,7 @@ function TicketModal({
 
           {editingTicket && (
             <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-xs text-gray-500">
-              Created {formatUtcTimestamp(editingTicket.created_at)}
+              Created <LocalTimestamp value={editingTicket.created_at} />
             </div>
           )}
 
@@ -707,19 +746,22 @@ function TicketModal({
   );
 }
 
-async function persistTicketOrder(tickets: OpsTicket[], updates: OpsTicket[]) {
-  await Promise.all(
-    updates.map((ticket) =>
-      fetch(`/api/ops/kanban/${ticket.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: ticket.status,
-          sort_order: ticket.sort_order,
-        }),
-      })
-    )
-  );
+async function persistTicketOrder(updates: OpsTicket[]) {
+  const response = await fetch('/api/ops/kanban', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      updates: updates.map((ticket) => ({
+        id: ticket.id,
+        status: ticket.status,
+        sort_order: ticket.sort_order,
+      })),
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to save ticket order');
+  }
 }
 
 export default function KanbanBoard({
@@ -728,13 +770,7 @@ export default function KanbanBoard({
   assignees,
   currentUserId,
   canDelete,
-}: {
-  initialTickets: OpsTicket[];
-  statusCounts: StatusCounts;
-  assignees: OpsAssigneeOption[];
-  currentUserId: string;
-  canDelete: boolean;
-}) {
+}: KanbanBoardProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const sensors = useSensors(
@@ -751,6 +787,7 @@ export default function KanbanBoard({
   const [sortMode, setSortMode] = useState<SortMode>('priority');
   const [priorityFilter, setPriorityFilter] = useState<OpsTicketPriority[]>([]);
   const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [countsByStatus, setCountsByStatus] = useState<StatusCounts>(statusCounts);
   const [loadedByStatus, setLoadedByStatus] = useState<StatusCounts>(() =>
     Object.fromEntries(
@@ -778,6 +815,7 @@ export default function KanbanBoard({
   }, [sortMode]);
 
   const assigneeMap = new Map(assignees.map((assignee) => [assignee.id, assignee]));
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const editingTicket = editingTicketId
     ? tickets.find((ticket) => ticket.id === editingTicketId) ?? null
     : null;
@@ -806,13 +844,48 @@ export default function KanbanBoard({
       return false;
     }
 
+    if (normalizedSearchQuery) {
+      const assigneeLabel = ticket.assignee_user_id
+        ? formatAssigneeLabel(assigneeMap.get(ticket.assignee_user_id))
+        : 'Unassigned';
+      const searchTarget = [
+        ticket.name,
+        ticket.description,
+        assigneeLabel,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      if (!searchTarget.includes(normalizedSearchQuery)) {
+        return false;
+      }
+    }
+
     return true;
   });
 
-  const hasActiveFilters = priorityFilter.length > 0 || assigneeFilter !== 'all';
+  const hasActiveFilters = priorityFilter.length > 0 || assigneeFilter !== 'all' || normalizedSearchQuery.length > 0;
 
   function refreshServerState() {
     startTransition(() => router.refresh());
+  }
+
+  async function fetchStatusTickets(status: OpsTicketStatus, offset: number, limit: number) {
+    const sort = sortMode === 'priority' ? 'priority' : 'manual';
+    const response = await fetch(
+      `/api/ops/kanban?status=${status}&offset=${offset}&limit=${limit}&sort=${sort}`
+    );
+    const json = await response.json();
+
+    if (!response.ok) {
+      throw new Error(json.error || `Failed to load ${status} tickets.`);
+    }
+
+    return {
+      tickets: (json.tickets ?? []) as OpsTicket[],
+      total: Number(json.total ?? 0),
+    };
   }
 
   async function loadMoreStatus(status: OpsTicketStatus) {
@@ -822,17 +895,11 @@ export default function KanbanBoard({
     setLoadingByStatus((current) => ({ ...current, [status]: true }));
 
     try {
-      const sort = sortMode === 'priority' ? 'priority' : 'manual';
-      const response = await fetch(
-        `/api/ops/kanban?status=${status}&offset=${loadedByStatus[status] ?? 0}&limit=${STATUS_PAGE_SIZE}&sort=${sort}`
+      const { tickets: nextTickets, total } = await fetchStatusTickets(
+        status,
+        loadedByStatus[status] ?? 0,
+        STATUS_PAGE_SIZE
       );
-      const json = await response.json();
-
-      if (!response.ok) {
-        throw new Error(json.error || `Failed to load more ${status} tickets.`);
-      }
-
-      const nextTickets = (json.tickets ?? []) as OpsTicket[];
       setTickets((currentTickets) => {
         const ticketMap = new Map(currentTickets.map((ticket) => [ticket.id, ticket]));
         for (const ticket of nextTickets) {
@@ -846,7 +913,7 @@ export default function KanbanBoard({
       }));
       setCountsByStatus((current) => ({
         ...current,
-        [status]: json.total ?? current[status],
+        [status]: total || current[status],
       }));
     } catch (loadError) {
       const message = loadError instanceof Error ? loadError.message : 'Failed to load more tickets.';
@@ -854,6 +921,56 @@ export default function KanbanBoard({
     } finally {
       setLoadingByStatus((current) => ({ ...current, [status]: false }));
     }
+  }
+
+  async function ensureStatusesLoaded(statuses: OpsTicketStatus[]) {
+    const uniqueStatuses = [...new Set(statuses)];
+    const statusesToLoad = uniqueStatuses.filter(
+      (status) => (loadedByStatus[status] ?? 0) < (countsByStatus[status] ?? 0)
+    );
+
+    if (statusesToLoad.length === 0) {
+      return tickets;
+    }
+
+    const loadedStatusResults = await Promise.all(
+      statusesToLoad.map(async (status) => {
+        const offset = loadedByStatus[status] ?? 0;
+        const remaining = Math.max(0, (countsByStatus[status] ?? 0) - offset);
+        if (remaining === 0) {
+          return { status, tickets: [] as OpsTicket[], total: countsByStatus[status] ?? 0 };
+        }
+
+        const result = await fetchStatusTickets(status, offset, remaining);
+        return { status, ...result };
+      })
+    );
+
+    const ticketMap = new Map(tickets.map((ticket) => [ticket.id, ticket]));
+    for (const result of loadedStatusResults) {
+      for (const ticket of result.tickets) {
+        ticketMap.set(ticket.id, ticket);
+      }
+    }
+
+    const mergedTickets = sortOpsTickets([...ticketMap.values()]);
+    setTickets(mergedTickets);
+    setLoadedByStatus((current) => {
+      const next = { ...current };
+      for (const result of loadedStatusResults) {
+        next[result.status] = result.total;
+      }
+      return next;
+    });
+    setCountsByStatus((current) => {
+      const next = { ...current };
+      for (const result of loadedStatusResults) {
+        next[result.status] = result.total;
+      }
+      return next;
+    });
+
+    return mergedTickets;
   }
 
   function openNewTicket(status: OpsTicketStatus = 'backlog') {
@@ -1100,12 +1217,13 @@ export default function KanbanBoard({
   }
 
   function buildOrderedStatusUpdate(
+    ticketPool: OpsTicket[],
     sourceStatus: OpsTicketStatus,
     targetStatus: OpsTicketStatus,
     movingTicketId: string,
     overTicketId?: string
   ) {
-    const sourceTickets = getManualStatusTickets(tickets, sourceStatus);
+    const sourceTickets = getManualStatusTickets(ticketPool, sourceStatus);
     const movingTicket = sourceTickets.find((ticket) => ticket.id === movingTicketId);
     if (!movingTicket) return null;
 
@@ -1113,7 +1231,7 @@ export default function KanbanBoard({
     const targetTickets =
       sourceStatus === targetStatus
         ? [...sourceWithoutMoving]
-        : getManualStatusTickets(tickets, targetStatus);
+        : getManualStatusTickets(ticketPool, targetStatus);
 
     let insertIndex = targetTickets.length;
     if (overTicketId) {
@@ -1133,18 +1251,27 @@ export default function KanbanBoard({
         .map((ticket, index) => ({ ticket, index }))
         .filter(({ ticket }) => getSortGroupKey(ticket, sortMode, assigneeMap) === movedGroupKey)
         .map(({ index }) => index);
+      const overTicket = overTicketId
+        ? targetTickets.find((ticket) => ticket.id === overTicketId)
+        : null;
+      const overTicketInMovedGroup = overTicket
+        ? getSortGroupKey(overTicket, sortMode, assigneeMap) === movedGroupKey
+        : false;
 
-      if (sourceStatus === targetStatus && overTicketId) {
-        const overTicket = targetTickets.find((ticket) => ticket.id === overTicketId);
-        if (overTicket && getSortGroupKey(overTicket, sortMode, assigneeMap) !== movedGroupKey) {
+      if (sourceStatus === targetStatus && overTicket && !overTicketInMovedGroup) {
           return null;
-        }
       }
 
       if (groupedTargetIndexes.length > 0) {
         const groupStart = groupedTargetIndexes[0];
         const groupEnd = groupedTargetIndexes[groupedTargetIndexes.length - 1] + 1;
-        insertIndex = Math.min(Math.max(insertIndex, groupStart), groupEnd);
+        if (sortMode === 'priority' && sourceStatus !== targetStatus && !overTicketInMovedGroup) {
+          insertIndex = groupStart;
+        } else {
+          insertIndex = Math.min(Math.max(insertIndex, groupStart), groupEnd);
+        }
+      } else if (sortMode === 'priority') {
+        insertIndex = getPriorityGroupStartIndex(targetTickets, movedTicket.priority);
       } else if (sourceStatus !== targetStatus) {
         insertIndex = targetTickets.length;
       } else {
@@ -1167,7 +1294,7 @@ export default function KanbanBoard({
     });
 
     const updateMap = new Map(nextUpdates.map((ticket) => [ticket.id, ticket]));
-    const nextTickets = tickets.map((ticket) => updateMap.get(ticket.id) ?? ticket);
+    const nextTickets = ticketPool.map((ticket) => updateMap.get(ticket.id) ?? ticket);
 
     return {
       nextTickets,
@@ -1176,17 +1303,24 @@ export default function KanbanBoard({
   }
 
   async function applyOrderedStatusUpdate(
+    ticketPool: OpsTicket[],
     sourceStatus: OpsTicketStatus,
     targetStatus: OpsTicketStatus,
     movingTicketId: string,
     overTicketId?: string
   ) {
-    const update = buildOrderedStatusUpdate(sourceStatus, targetStatus, movingTicketId, overTicketId);
+    const update = buildOrderedStatusUpdate(ticketPool, sourceStatus, targetStatus, movingTicketId, overTicketId);
     if (!update) return;
 
-    const previousTickets = tickets;
+    const previousTickets = ticketPool;
+    const previousCountsByStatus = countsByStatus;
     setTickets(update.nextTickets);
     if (sourceStatus !== targetStatus) {
+      setCountsByStatus((current) => ({
+        ...current,
+        [sourceStatus]: Math.max(0, (current[sourceStatus] ?? 1) - 1),
+        [targetStatus]: (current[targetStatus] ?? 0) + 1,
+      }));
       setLoadedByStatus((current) => ({
         ...current,
         [sourceStatus]: Math.max(0, (current[sourceStatus] ?? 1) - 1),
@@ -1195,10 +1329,10 @@ export default function KanbanBoard({
     }
 
     try {
-      await persistTicketOrder(update.nextTickets, update.changedTickets);
-      refreshServerState();
+      await persistTicketOrder(update.changedTickets);
     } catch {
       setTickets(previousTickets);
+      setCountsByStatus(previousCountsByStatus);
       if (sourceStatus !== targetStatus) {
         setLoadedByStatus((current) => ({
           ...current,
@@ -1235,7 +1369,7 @@ export default function KanbanBoard({
     void loadMoreStatus(status);
   }
 
-  function handleDragEnd(event: DragEndEvent) {
+  async function handleDragEnd(event: DragEndEvent) {
     setActiveTicketId(null);
     dragLoadStatusRef.current = null;
     const activeId = String(event.active.id);
@@ -1265,7 +1399,13 @@ export default function KanbanBoard({
     if (!overTicketId && nextStatus === ticket.status && sortMode !== 'manual') return;
     if (hasActiveFilters && nextStatus === ticket.status && !overTicketId && sortMode === 'manual') return;
 
-    void applyOrderedStatusUpdate(ticket.status, nextStatus, ticket.id, overTicketId);
+    try {
+      const ticketPool = await ensureStatusesLoaded([ticket.status, nextStatus]);
+      await applyOrderedStatusUpdate(ticketPool, ticket.status, nextStatus, ticket.id, overTicketId);
+    } catch (loadError) {
+      const message = loadError instanceof Error ? loadError.message : 'Failed to reorder tickets.';
+      setError(message);
+    }
   }
 
   return (
@@ -1337,6 +1477,21 @@ export default function KanbanBoard({
             My issues
           </button>
 
+          <div className="min-w-[220px] flex-1 sm:max-w-sm">
+            <label className="sr-only" htmlFor="kanban-search">Search tickets</label>
+            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-gray-300 transition focus-within:border-white/20">
+              <Search className="h-4 w-4 shrink-0 text-gray-500" />
+              <input
+                id="kanban-search"
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search tickets"
+                className="w-full bg-transparent text-sm text-white placeholder:text-gray-500 focus:outline-none"
+              />
+            </div>
+          </div>
+
           <div className="ml-auto text-sm text-gray-500">
             {visibleTickets.length} {visibleTickets.length === 1 ? 'ticket' : 'tickets'}
           </div>
@@ -1403,6 +1558,7 @@ export default function KanbanBoard({
               onClick={() => {
                 setPriorityFilter([]);
                 setAssigneeFilter('all');
+                setSearchQuery('');
                 setSortMode('priority');
               }}
               className="rounded-2xl border border-white/10 px-4 py-3 text-sm text-gray-300 transition hover:border-white/20 hover:text-white"

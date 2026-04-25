@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies, headers } from 'next/headers';
 import { createAdminClient } from './supabase-admin';
+import { COOKIE_DOMAIN } from '@/lib/env/domain';
 
 /**
  * Server-side Supabase client for use in:
@@ -26,11 +27,9 @@ export async function createClient() {
           return cookieStore.getAll();
         },
         setAll(cookiesToSet) {
-          const cookieDomain =
-            process.env.NODE_ENV === 'production' ? '.keystoneweb.ca' : undefined;
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, { ...options, domain: cookieDomain });
+              cookieStore.set(name, value, { ...options, domain: COOKIE_DOMAIN });
             });
           } catch (error) {
             console.error('Error setting cookies:', error);
@@ -45,7 +44,7 @@ export async function createClient() {
   if (impersonatedUserId) {
     // First verify the ACTUAL user is logged in via the anon client
     const { data: { user: actualUser } } = await supabase.auth.getUser();
-    
+
     if (actualUser) {
       const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
         .split(',')
@@ -55,22 +54,22 @@ export async function createClient() {
       if (adminEmails.includes(actualUser.email?.toLowerCase() ?? '')) {
         const adminClient = createAdminClient();
         const { data: { user: targetUser }, error } = await adminClient.auth.admin.getUserById(impersonatedUserId);
-        
+
         if (targetUser && !error) {
           console.log(`[Impersonation] Active: Admin ${actualUser.email} is impersonating ${targetUser.email}`);
           // Return the admin client but with auth.getUser() overridden to return the target user
           // tagged with impersonation metadata.
           const originalGetUser = adminClient.auth.getUser.bind(adminClient.auth);
           adminClient.auth.getUser = async (token?: string) => {
-            return { 
-              data: { 
-                user: { 
-                  ...targetUser, 
+            return {
+              data: {
+                user: {
+                  ...targetUser,
                   is_impersonated: true,
-                  original_admin_id: actualUser.id 
-                } as any 
-              }, 
-              error: null 
+                  original_admin_id: actualUser.id
+                } as any
+              },
+              error: null
             };
           };
 

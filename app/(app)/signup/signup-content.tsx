@@ -17,6 +17,8 @@ export default function SignUpContent() {
   const [step, setStep] = useState<'email' | 'password' | 'name'>('email');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [tosAccepted, setTosAccepted] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
 
   // Redirect to editor after signup
   const siteId = searchParams.get('siteId');
@@ -72,6 +74,17 @@ export default function SignUpContent() {
         return;
       }
 
+      // Record ToS and marketing consent
+      try {
+        await fetch('/api/auth/record-consent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tosAccepted, marketingOptIn }),
+        });
+      } catch {
+        // Non-blocking — consent will still be enforceable via the UI flow
+      }
+
       // Move to name collection step
       setStep('name');
     } catch (err: any) {
@@ -115,6 +128,9 @@ export default function SignUpContent() {
   const handleGoogleSignUp = async () => {
     setError('');
     setLoading(true);
+    // Store consent in localStorage so it can be recorded after OAuth callback
+    localStorage.setItem('ks_tos_accepted', 'true');
+    localStorage.setItem('ks_marketing_opt_in', marketingOptIn ? 'true' : 'false');
     const { error } = await signInWithGoogle();
     if (error) {
       setError(error.message || 'Failed to sign up with Google');
@@ -126,6 +142,9 @@ export default function SignUpContent() {
   const handleAppleSignUp = async () => {
     setError('');
     setLoading(true);
+    // Store consent in localStorage so it can be recorded after OAuth callback
+    localStorage.setItem('ks_tos_accepted', 'true');
+    localStorage.setItem('ks_marketing_opt_in', marketingOptIn ? 'true' : 'false');
     const { error } = await signInWithApple();
     if (error) {
       setError(error.message || 'Failed to sign up with Apple');
@@ -163,9 +182,41 @@ export default function SignUpContent() {
                   />
                 </div>
 
+                <div className="space-y-3">
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={tosAccepted}
+                      onChange={e => setTosAccepted(e.target.checked)}
+                      className="mt-1 rounded border-white/30"
+                    />
+                    <span className="text-sm text-slate-300">
+                      I agree to the{' '}
+                      <Link href="/terms" target="_blank" className="text-blue-400 hover:text-blue-300 underline">
+                        Terms of Service
+                      </Link>{' '}
+                      and{' '}
+                      <Link href="/privacy" target="_blank" className="text-blue-400 hover:text-blue-300 underline">
+                        Privacy Policy
+                      </Link>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={marketingOptIn}
+                      onChange={e => setMarketingOptIn(e.target.checked)}
+                      className="mt-1 rounded border-white/30"
+                    />
+                    <span className="text-sm text-slate-300">
+                      Send me product updates and news
+                    </span>
+                  </label>
+                </div>
+
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || !tosAccepted}
                   className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 disabled:bg-slate-600 text-white font-bold rounded-lg transition-colors"
                 >
                   {loading ? 'Checking...' : 'Continue'}
@@ -180,7 +231,7 @@ export default function SignUpContent() {
                 <button
                   type="button"
                   onClick={handleGoogleSignUp}
-                  disabled={loading}
+                  disabled={loading || !tosAccepted}
                   className="w-full px-4 py-3 bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 font-bold rounded-lg transition-colors flex items-center justify-center gap-3 disabled:opacity-50"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -197,7 +248,7 @@ export default function SignUpContent() {
                 <button
                   type="button"
                   onClick={handleAppleSignUp}
-                  disabled={loading}
+                  disabled={loading || !tosAccepted}
                   className="w-full px-4 py-3 bg-black hover:bg-black/80 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-3 disabled:opacity-50"
                 >
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">

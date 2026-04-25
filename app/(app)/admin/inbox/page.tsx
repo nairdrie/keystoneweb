@@ -24,6 +24,8 @@ interface Submission {
   admin_reply: string | null;
   admin_reply_at: string | null;
   created_at: string;
+  source_type: string;
+  metadata: any;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -389,7 +391,7 @@ export default function AdminInboxPage() {
 
   if (!siteId) return null;
 
-  if (!siteBlockTypes.has('contact_form') && !site?.publishedDomain) {
+  if (!siteBlockTypes.has('contact_form') && !siteBlockTypes.has('estimateForm') && !site?.publishedDomain) {
     return (
       <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
         <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
@@ -540,6 +542,11 @@ export default function AdminInboxPage() {
                       {sub.status === 'replied' && <User className="w-3 h-3 mr-1" />}
                       {STATUS_LABEL[sub.status] ?? sub.status}
                     </span>
+                    {sub.source_type === 'estimate_form' && (
+                      <span className="text-[11px] px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-bold">
+                        Estimate
+                      </span>
+                    )}
                     {sub.ai_classification && sub.ai_classification !== 'spam' && (
                       <span className="text-[11px] text-slate-400">
                         {CLASS_ICON[sub.ai_classification] ?? '💬'} {sub.ai_classification.replace('_', ' ')}
@@ -551,6 +558,14 @@ export default function AdminInboxPage() {
                     <span className="text-xs text-slate-400 truncate">{sub.sender_email}</span>
                   </div>
                   <p className="text-xs text-slate-600 line-clamp-2">
+                    {sub.metadata?.estimate_shown && (
+                      <span className="font-semibold text-emerald-700 mr-1">
+                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: sub.metadata.estimate_currency || 'CAD', minimumFractionDigits: 0 }).format(sub.metadata.estimate_low_cents / 100)}
+                        {' \u2013 '}
+                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: sub.metadata.estimate_currency || 'CAD', minimumFractionDigits: 0 }).format(sub.metadata.estimate_high_cents / 100)}
+                        {' \u00B7 '}
+                      </span>
+                    )}
                     {sub.ai_summary || sub.message.slice(0, 160)}
                   </p>
                 </div>

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { User, Settings, LogOut } from 'lucide-react';
+import { User, Settings, LogOut, Paintbrush, LayoutDashboard } from 'lucide-react';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth/context';
 import { useRouter } from 'next/navigation';
 
@@ -98,10 +99,28 @@ export default function ProfileDropdown({ onSettingsClick, buttonClassName }: Pr
               )}
             </div>
           </div>
-          <div className="p-2 space-y-1">
+          <div className="p-2 flex gap-2">
+            <Link
+              href="/design"
+              onClick={() => setIsOpen(false)}
+              className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 rounded-md transition-colors font-medium"
+            >
+              <Paintbrush className="w-3.5 h-3.5" />
+              Design
+            </Link>
+            <Link
+              href="/admin"
+              onClick={() => setIsOpen(false)}
+              className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 rounded-md transition-colors font-medium"
+            >
+              <LayoutDashboard className="w-3.5 h-3.5" />
+              Admin
+            </Link>
+          </div>
+          <div className="p-2 pt-0 space-y-1 border-t border-slate-100">
             <button
               onClick={handleSettingsClick}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors font-medium text-left"
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors font-medium text-left mt-1"
             >
               <Settings className="w-4 h-4" />
               Settings

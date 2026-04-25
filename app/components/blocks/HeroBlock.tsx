@@ -38,15 +38,17 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
     // Advanced Background Carousel State
     const carouselImages: string[] = Array.isArray(block.data.bgCarouselImages) ? block.data.bgCarouselImages : [];
     const carouselInterval = (block.data.bgCarouselTiming || 5) * 1000;
+    const carouselTransition: 'fade' | 'swipe' | 'scroll' = block.data.bgCarouselTransition || 'fade';
     const [currentSlide, setCurrentSlide] = useState(0);
 
     useEffect(() => {
-        if (block.data.bgType !== 'carousel' || carouselImages.length <= 1) return;
+        // Smooth scroll mode uses CSS animation, no JS interval needed
+        if (block.data.bgType !== 'carousel' || carouselImages.length <= 1 || carouselTransition === 'scroll') return;
         const interval = setInterval(() => {
             setCurrentSlide(s => (s + 1) % carouselImages.length);
         }, carouselInterval);
         return () => clearInterval(interval);
-    }, [block.data.bgType, carouselImages.length, carouselInterval]);
+    }, [block.data.bgType, carouselImages.length, carouselInterval, carouselTransition]);
 
     // Minimal variant — large typography, no image, clean background
     if (variant === 'minimal') {
@@ -252,9 +254,28 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                 )}
                 {bgType === 'carousel' && carouselImages.length > 0 && (
                     <>
-                        {carouselImages.map((img, i) => (
+                        {carouselTransition === 'fade' && carouselImages.map((img, i) => (
                             <div key={i} className={`absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-opacity duration-1000 ${i === currentSlide ? 'opacity-100' : 'opacity-0'}`} style={{ backgroundImage: `url(${img})` }} />
                         ))}
+                        {carouselTransition === 'swipe' && (
+                            <div className="absolute inset-0 z-0 overflow-hidden">
+                                <div className="flex h-full transition-transform duration-700 ease-in-out" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
+                                    {carouselImages.map((img, i) => (
+                                        <div key={i} className="w-full h-full flex-shrink-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${img})` }} />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        {carouselTransition === 'scroll' && (
+                            <div className="absolute inset-0 z-0 overflow-hidden">
+                                <style>{`@keyframes heroCarouselScroll { from { transform: translateX(0) } to { transform: translateX(-50%) } }`}</style>
+                                <div className="flex h-full" style={{ width: `${carouselImages.length * 200}%`, animation: `heroCarouselScroll ${carouselImages.length * (block.data.bgCarouselTiming || 5)}s linear infinite` }}>
+                                    {[...carouselImages, ...carouselImages].map((img, i) => (
+                                        <div key={i} className="h-full flex-shrink-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${img})`, width: `${100 / (carouselImages.length * 2)}%` }} />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         <div className="absolute inset-0 z-0 bg-black/60" />
                     </>
                 )}
