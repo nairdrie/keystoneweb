@@ -1042,8 +1042,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     }
   }, [aiOnboardingBuilding]);
 
-  if (loading || pagesLoading || aiOnboardingBuilding) {
-    return <EditorLoadingScreen message={aiOnboardingBuilding ? 'AI is building your site...' : undefined} />;
+  if (loading || pagesLoading) {
+    return <EditorLoadingScreen />;
   }
 
   if (error) {
@@ -1276,7 +1276,9 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
             }}
           >
             <div className="w-full">
-              {templateComponent
+              {aiOnboardingBuilding ? (
+                <EditorLoadingScreen variant="fill" message="AI is building your site..." />
+              ) : templateComponent
                 ? createElement(
                     templateComponent,
                     { palette: paletteData, isEditMode: editMode },

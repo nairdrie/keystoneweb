@@ -2,9 +2,9 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Hammer, Check, ArrowRight, Loader2 } from 'lucide-react';
+import { Hammer, Check, ArrowRight, Loader2 } from 'lucide-react';
 import Header from '../components/Header';
 import MarketingFooter from '../components/MarketingFooter';
 import mapleLeaf from '../../assets/maple-leaf.png';
@@ -18,6 +18,8 @@ import t7 from '../../assets/templates/7.png';
 import t8 from '../../assets/templates/8.png';
 
 const TEMPLATE_IMAGES = [t1, t2, t3, t4, t5, t6, t7, t8];
+
+const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
 export default function HomePage() {
   return (
@@ -76,7 +78,7 @@ function HeroSlab() {
             className="mb-7 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-900 shadow-sm"
           >
             <Image src={mapleLeaf} alt="" className="h-3.5 w-3.5 object-contain" />
-            Built in Canada · 5,200+ businesses online
+            Built in Canada · For Canadian Small Business
           </motion.div>
 
           <motion.h1
@@ -97,8 +99,9 @@ function HeroSlab() {
             transition={{ duration: 0.6, delay: 0.15 }}
             className="mb-9 max-w-[520px] text-lg font-medium leading-relaxed text-slate-700"
           >
-            One sentence. Five minutes. A real website that books real customers — for{' '}
-            <strong className="text-slate-900">$15 a month</strong>, no surprises.
+            One sentence. Five minutes. A real website that books real customers — from{' '}
+            <strong className="text-slate-900">$15 a month</strong>
+            <a href="#pricing-note" className="align-super text-[10px] text-slate-500 no-underline hover:text-red-600">*</a>, no surprises.
           </motion.p>
 
           <motion.div
@@ -127,7 +130,7 @@ function HeroSlab() {
           >
             {[
               ['5 min', 'to launch'],
-              ['$15', '/mo · all-in'],
+              ['from $15', '/mo'],
               ['24/7', 'support'],
             ].map(([n, l]) => (
               <div key={l}>
@@ -200,8 +203,9 @@ function BuilderDemo({ step }: { step: number }) {
           {/* LEFT: chat */}
           <div className="flex flex-col border-r border-slate-100 bg-slate-50 p-3.5">
             <div className="mb-3 flex items-center gap-1.5">
-              <Sparkles className="h-3 w-3 text-red-600" />
-              <span className="text-[11px] font-bold text-slate-900">AI Builder</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/assets/archie.png" alt="Archie" className="h-4 w-4 object-contain" />
+              <span className="text-[11px] font-bold text-slate-900">Archie</span>
             </div>
 
             {/* user bubble */}
@@ -212,9 +216,12 @@ function BuilderDemo({ step }: { step: number }) {
 
             {step >= 2 && (
               <div className="flex items-start gap-1.5">
-                <div className="flex h-[18px] w-[18px] flex-none items-center justify-center rounded-full bg-gradient-to-br from-red-500 to-amber-400">
-                  <Sparkles className="h-2 w-2 text-white" />
-                </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/assets/archie.png"
+                  alt="Archie"
+                  className="h-5 w-5 flex-none object-contain"
+                />
                 <div className="flex-1 rounded-[3px_12px_12px_12px] border border-slate-200 bg-white px-2.5 py-2 text-[11px] leading-snug text-slate-900">
                   {step === 2 ? (
                     <span className="text-slate-400">
@@ -341,36 +348,39 @@ function FakeSitePreview() {
 
 // ── PROOF STRIP ─────────────────────────────────────────────────────────
 const PROOF_NAMES = [
-  'Hargrove Plumbing · Boise',
+  'AK Designs · Mississauga',
+  'Mike the Mechanic · Bolton',
+  'Aqua Mer Spa · Bolton',
+  "Clancy's Chippery · Toronto",
+  'Canadian Association of Paediatric Nurses · Toronto',
+  'North Hill Florist · Calgary',
   'Folk & Tide Cafe · Halifax',
   'Maple & Steel Studio · Toronto',
-  'North Hill Florist · Calgary',
-  'Bayview Pilates · Vancouver',
-  'Fox & Falcon Books · Kingston',
-  'Ridgeline Roofing · Kamloops',
-  'Crescent Bakery · Montréal',
 ];
 
 function ProofStrip() {
+  // Dot lives BETWEEN labels — rendered after each item so spacing is equidistant
+  // and the marquee seam reads "… Nlast · N1 · N2 …" rather than overlapping.
   const Row = (
-    <div className="flex flex-shrink-0 items-center gap-12 py-6">
+    <ul className="flex flex-shrink-0 items-center py-6">
       {PROOF_NAMES.map((n, i) => (
-        <div
-          key={n + i}
-          className="flex items-center gap-3 whitespace-nowrap text-[17px] font-bold tracking-tight text-slate-400"
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
-          {n}
-        </div>
+        <Fragment key={i}>
+          <li className="whitespace-nowrap text-[17px] font-bold tracking-tight text-slate-400">
+            {n}
+          </li>
+          <li aria-hidden="true" className="px-7">
+            <span className="block h-1.5 w-1.5 rounded-full bg-red-600" />
+          </li>
+        </Fragment>
       ))}
-    </div>
+    </ul>
   );
 
   return (
     <section className="overflow-hidden border-y border-slate-800 bg-slate-900 text-slate-300">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-6 px-6 pt-5 pb-2">
         <span className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-slate-400">
-          5,200+ Canadian businesses online
+          Powering Canadian small business
         </span>
         <span className="text-[11px] text-slate-600">·</span>
         <span className="text-[11px] text-slate-400">From the trades to the table.</span>
@@ -409,9 +419,9 @@ const REASONS = [
     n: '02',
     title: "It doesn't get expensive.",
     body:
-      'Fifteen dollars a month. That includes hosting, the domain, the AI edits, and a real human if you get stuck. No tier creep, no per-seat surprises.',
-    stat: '$15',
-    statLabel: 'per month, all-in',
+      'Fifteen dollars a month covers hosting, the AI edits, and a real human if you get stuck. Add a custom domain for $30/mo on Pro. No tier creep, no per-seat surprises.',
+    stat: 'from $15',
+    statLabel: 'per month, no upcharges',
   },
   {
     n: '03',
@@ -496,10 +506,42 @@ const UPGRADE_BULLETS = [
 function BeforeAfter() {
   const [pos, setPos] = useState(50);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const interactedRef = useRef(false);
+
+  // One-time auto-demo so it's obvious the divider is grabbable.
+  // Cancels as soon as the user touches the slider.
+  useEffect(() => {
+    let raf = 0;
+    const start = performance.now() + 700;
+    const dur = 2400;
+    const tick = (now: number) => {
+      if (interactedRef.current) return;
+      const t = (now - start) / dur;
+      if (t < 0) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      if (t >= 1) {
+        setPos(50);
+        return;
+      }
+      // ease in-out triangle: 50 → 72 → 28 → 50
+      const k = t * 4;
+      let p: number;
+      if (k < 1) p = 50 + 22 * easeInOut(k);
+      else if (k < 3) p = 72 - 44 * easeInOut((k - 1) / 2);
+      else p = 28 + 22 * easeInOut(k - 3);
+      setPos(p);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const el = wrapRef.current;
     if (!el) return;
+    interactedRef.current = true;
     el.setPointerCapture(e.pointerId);
     const rect = el.getBoundingClientRect();
     const update = (clientX: number) => {
@@ -566,17 +608,31 @@ function BeforeAfter() {
             <div className="absolute left-4 top-4 rounded-full bg-slate-900 px-3 py-1.5 text-[10px] font-extrabold tracking-[0.08em] text-white">
               BEFORE
             </div>
-            <div className="absolute right-4 top-4 rounded-full bg-red-600 px-3 py-1.5 text-[10px] font-extrabold tracking-[0.08em] text-white">
-              AFTER · KEYSTONE
-            </div>
+            {/* AFTER badge is the CTA — placed bottom-right so it doesn't overlap the preview's nav */}
+            <Link
+              href="/onboarding"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              className="absolute bottom-4 right-4 inline-flex items-center gap-1.5 rounded-full bg-red-600 px-4 py-2 text-[11px] font-extrabold tracking-[0.08em] text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-red-700"
+            >
+              BUILD YOURS — FREE <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
             <div
-              className="absolute inset-y-0 w-0.5 bg-white shadow-[0_0_0_1px_rgba(0,0,0,.1)]"
+              className="ksw-divider absolute inset-y-0 w-0.5 bg-white shadow-[0_0_0_1px_rgba(0,0,0,.1)]"
               style={{ left: `${pos}%`, cursor: 'ew-resize' }}
             >
-              <div className="absolute left-1/2 top-1/2 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-sm font-extrabold text-slate-900 shadow-[0_4px_12px_rgba(0,0,0,.18)]">
-                ‹›
+              <div className="ksw-handle absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-base font-extrabold text-slate-900 shadow-[0_4px_12px_rgba(0,0,0,.22)]">
+                <span aria-hidden="true">‹</span>
+                <span aria-hidden="true">›</span>
               </div>
             </div>
+            <style jsx>{`
+              :global(.ksw-handle) { animation: ksw-handle-pulse 2.2s ease-in-out infinite; }
+              @keyframes ksw-handle-pulse {
+                0%, 100% { box-shadow: 0 4px 12px rgba(0,0,0,.22), 0 0 0 0 rgba(254,69,69,.55); }
+                50%      { box-shadow: 0 4px 12px rgba(0,0,0,.22), 0 0 0 10px rgba(254,69,69,0); }
+              }
+            `}</style>
           </div>
         </div>
       </div>
@@ -649,9 +705,7 @@ function KeystoneSiteMock() {
           <span>Reviews</span>
           <span>Contact</span>
         </div>
-        <button className="rounded-full bg-red-600 px-3.5 py-1.5 text-[11px] font-bold text-white">
-          Get Quote
-        </button>
+        <span className="text-xs font-bold text-slate-900">(555) 010-2244</span>
       </div>
       <div className="flex flex-1 items-center gap-5 bg-gradient-to-br from-red-50 to-white px-5 py-8">
         <div className="flex-1">
@@ -748,15 +802,15 @@ function TemplateSection() {
 }
 
 // ── PRICE SLAB ──────────────────────────────────────────────────────────
-const PRICE_FEATURES = [
-  'Custom domain',
-  'Unlimited AI edits',
-  'Mobile-first design',
-  'Forms + reviews',
-  'Lighthouse 95+ speed',
-  'Real human support',
-  'Daily backups',
-  'No ad surprises',
+const PRICE_FEATURES: Array<[string, boolean]> = [
+  ['Unlimited AI edits', false],
+  ['Mobile-first design', false],
+  ['Forms + reviews', false],
+  ['Lighthouse 95+ speed', false],
+  ['Real human support', false],
+  ['Daily backups', false],
+  ['No ad surprises', false],
+  ['Custom domain', true],
 ];
 
 function PriceSlab() {
@@ -767,7 +821,7 @@ function PriceSlab() {
 
       <div className="relative mx-auto max-w-6xl text-center">
         <div className="mb-6 text-xs font-extrabold uppercase tracking-[0.18em] opacity-85">
-          ONE PRICE · NO TIERS · NO TRICKS
+          STRAIGHTFORWARD PRICING · CANCEL ANYTIME
         </div>
         <div
           className="mb-3 font-black tracking-[-0.05em]"
@@ -782,23 +836,28 @@ function PriceSlab() {
             className="font-bold opacity-70"
             style={{ fontSize: '0.35em', letterSpacing: 0, marginLeft: 8, verticalAlign: 'top' }}
           >
-            /mo
+            /mo*
           </span>
         </div>
         <div
           className="mx-auto mb-9 max-w-[720px] font-semibold italic opacity-95"
           style={{ fontSize: 'clamp(20px, 2.5vw, 28px)', lineHeight: 1.4 }}
         >
-          Hosting, domain, AI edits, and an actual person on the other end of an email. Cancel anytime — really.
+          Hosting, AI edits, fast templates, and an actual person on the other end of an email. Cancel anytime — really.
         </div>
 
         <div className="mx-auto mb-10 grid max-w-[760px] gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {PRICE_FEATURES.map((f) => (
+          {PRICE_FEATURES.map(([f, isPro]) => (
             <div key={f} className="flex items-center gap-2 text-sm font-semibold">
               <div className="flex h-5 w-5 flex-none items-center justify-center rounded-full bg-white">
                 <Check className="h-3 w-3 text-red-600" />
               </div>
-              <span className="text-left">{f}</span>
+              <span className="text-left">
+                {f}
+                {isPro && (
+                  <a href="#pricing-note" className="align-super text-[10px] no-underline opacity-80 hover:opacity-100">†</a>
+                )}
+              </span>
             </div>
           ))}
         </div>
@@ -809,6 +868,16 @@ function PriceSlab() {
         >
           Start Building — Free <ArrowRight className="h-4.5 w-4.5" />
         </Link>
+
+        <p
+          id="pricing-note"
+          className="mx-auto mt-10 max-w-[680px] text-[12px] leading-relaxed text-white/80"
+        >
+          * <strong>$15/mo Basic</strong> publishes your site on a Keystone subdomain
+          (<span className="font-mono">yoursite.kswd.ca</span>). <strong>$30/mo Pro</strong>{' '}
+          (<span>†</span>) unlocks a custom domain — one free registration included — plus more
+          published sites and storage. <Link href="/pricing" className="underline underline-offset-2 hover:text-white">See full pricing →</Link>
+        </p>
       </div>
     </section>
   );

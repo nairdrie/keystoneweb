@@ -23,7 +23,18 @@ const ARCH_ANIM_DURATION_MS = 2200;
 // Interval at which the arch replays
 const ARCH_REPLAY_MS = 5500;
 
-export default function EditorLoadingScreen({ message }: { message?: string } = {}) {
+interface Props {
+    message?: string;
+    /**
+     * 'fullscreen' (default): occupies the entire viewport (min-h-screen).
+     * 'fill': fills the parent container — used when the loader is shown in
+     * place of the editor preview while the AI builder is still running on
+     * the left sidebar.
+     */
+    variant?: 'fullscreen' | 'fill';
+}
+
+export default function EditorLoadingScreen({ message, variant = 'fullscreen' }: Props = {}) {
     const isAiBuilding = !!message; // if a message is passed, we're in AI building mode
     const [messageIndex, setMessageIndex] = useState(0);
     const [archKey, setArchKey] = useState(0); // changing key forces re-mount → replays animation
@@ -76,8 +87,12 @@ export default function EditorLoadingScreen({ message }: { message?: string } = 
         { points: "78.5,21 121.5,21 108.5,58 91.5,58", cx: 100, cy: 39.5, isKeystone: true },
     ];
 
+    const sizingClass = variant === 'fill'
+        ? 'w-full h-full min-h-[60vh]'
+        : 'w-full min-h-screen';
+
     return (
-        <div className="w-full min-h-screen flex flex-col items-center justify-center bg-red-600 relative overflow-hidden">
+        <div className={`${sizingClass} flex flex-col items-center justify-center bg-red-600 relative overflow-hidden`}>
             {/* Background glow behind arch */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-red-500 rounded-full blur-[100px] opacity-50 pointer-events-none" />
 
