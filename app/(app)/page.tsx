@@ -34,9 +34,11 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
-            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight mb-6 leading-[1.05] text-black"
+            className="text-5xl sm:text-6xl md:text-7xl font-black tracking-tight mb-6 leading-[1.05] text-black"
           >
-            Your business deserves a website
+            Your business
+            <br />
+            deserves a website
             <br />
             <span className="bg-gradient-to-r from-red-700 via-red-600 to-rose-500 bg-clip-text text-transparent">
               that <em className="italic">actually</em> works.
