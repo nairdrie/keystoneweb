@@ -86,7 +86,7 @@ async function addVercelDnsRecords(
 
     try {
       const res = await fetch(
-        `${VERCEL_API_BASE}/v2/domains/${encodeURIComponent(domain)}/dns${teamParam}`,
+        `${VERCEL_API_BASE}/v4/domains/${encodeURIComponent(domain)}/records${teamParam}`,
         {
           method: 'POST',
           headers: {
