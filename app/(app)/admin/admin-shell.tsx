@@ -227,10 +227,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     try {
       const res = await fetch('/api/user/latest-site', { credentials: 'include' });
       if (res.ok) {
-        const { siteId: id } = await res.json();
-        if (id) {
+        const { site: data } = await res.json();
+        if (data?.id) {
           const tab = ALL_TABS.find(t => pathname.startsWith(t.path))?.path ?? '/admin/analytics';
-          router.replace(`${tab}?siteId=${id}`);
+          router.replace(`${tab}?siteId=${data.id}`);
           return;
         }
       }
