@@ -4,6 +4,7 @@ import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
 import { renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
+import { TemplateFonts } from './TemplateFonts';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -30,16 +31,13 @@ export function EdgeTemplate({ palette, isEditMode, children }: MasterTemplatePr
 
     return (
         <div className="template-wrapper min-h-screen text-gray-200" style={{ backgroundColor: pAccent, fontFamily: `"${bodyFont}", sans-serif` }}>
-            <style dangerouslySetInnerHTML={{
-                __html: `
-                @import url('https://fonts.googleapis.com/css2?family=${titleFont.replace(/ /g, '+')}:wght@400;500;600;700;800&family=${bodyFont.replace(/ /g, '+')}:wght@400;500;600;700&display=swap');
-                .template-wrapper h1, .template-wrapper h2, .template-wrapper h3, .template-wrapper h4, .template-wrapper h5, .template-wrapper h6 {
-                    font-family: "${titleFont}", monospace !important;
-                }
-                .template-wrapper .font-title {
-                    font-family: "${titleFont}", monospace;
-                }
-            `}} />
+            <TemplateFonts
+                titleFont={titleFont}
+                bodyFont={bodyFont}
+                titleWeights="400;500;600;700;800"
+                bodyWeights="400;500;600;700"
+                fallback="monospace"
+            />
 
             <SiteHeader
                 palette={palette}
