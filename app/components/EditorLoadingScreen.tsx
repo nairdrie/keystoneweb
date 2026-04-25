@@ -87,12 +87,16 @@ export default function EditorLoadingScreen({ message, variant = 'fullscreen' }:
         { points: "78.5,21 121.5,21 108.5,58 91.5,58", cx: 100, cy: 39.5, isKeystone: true },
     ];
 
+    // 'fill' uses absolute positioning so it spans the nearest positioned
+    // ancestor (the editor's relative scroll container) instead of the
+    // viewport — no white gap below if the inner wrapper has no explicit
+    // height. 'fullscreen' still needs `relative` to anchor the inner glow.
     const sizingClass = variant === 'fill'
-        ? 'w-full h-full min-h-[60vh]'
-        : 'w-full min-h-screen';
+        ? 'absolute inset-0'
+        : 'w-full min-h-screen relative';
 
     return (
-        <div className={`${sizingClass} flex flex-col items-center justify-center bg-red-600 relative overflow-hidden`}>
+        <div className={`${sizingClass} flex flex-col items-center justify-center bg-red-600 overflow-hidden`}>
             {/* Background glow behind arch */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-red-500 rounded-full blur-[100px] opacity-50 pointer-events-none" />
 

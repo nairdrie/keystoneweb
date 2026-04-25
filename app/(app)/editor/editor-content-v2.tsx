@@ -992,8 +992,13 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
       aiOnboardingSentRef.current = true;
       sessionStorage.removeItem('keystoneAiOnboardingPrompt');
       setAiOnboardingBuilding(true);
-      // Open sidebar and focus AI builder, then send the prompt
+      // Open the sidebar and expand the AI Builder section so the chat
+      // panel is what the user lands on while Archie is working. The
+      // pulse (true → false) lets the toolbar's effect run again on
+      // build-complete to re-focus the panel.
       setSidebarOpen(true);
+      setFocusAiBuilder(true);
+      setTimeout(() => setFocusAiBuilder(false), 100);
       setTimeout(() => {
         aiBuilder.sendMessage(prompt!, { isNewSite: true });
       }, 500);
