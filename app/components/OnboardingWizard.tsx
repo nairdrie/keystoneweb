@@ -134,6 +134,10 @@ export default function OnboardingWizard() {
   // Track whether the searchParams effect has run once (to distinguish initial
   // mount from subsequent soft navigations back to clean /onboarding)
   const hasInitializedRef = useRef(false);
+  // Set when the user explicitly clicked "Create New Site" on the welcome-back
+  // screen, so the next searchParams reset effect doesn't re-fetch sites and
+  // pop the welcome-back modal back open.
+  const skipNextWelcomeCheckRef = useRef(false);
 
   // Check for existing sites if user is authenticated
   useEffect(() => {
@@ -248,11 +252,15 @@ export default function OnboardingWizard() {
       setBusinessType(null);
       setCategory(null);
       setPage(1);
-      if (user) {
+      // If the user explicitly clicked "Create New Site" we already cleared
+      // showWelcomeBack — skip re-fetching sites here so the modal doesn't
+      // immediately pop back open.
+      if (user && !skipNextWelcomeCheckRef.current) {
         hasFetchedSitesRef.current = false;
         setCheckingSites(true);
         checkUserSites();
       }
+      skipNextWelcomeCheckRef.current = false;
     }
     hasInitializedRef.current = true;
   }, [searchParams]);
@@ -502,6 +510,7 @@ export default function OnboardingWizard() {
 
               <button
                 onClick={() => {
+                  skipNextWelcomeCheckRef.current = true;
                   setShowWelcomeBack(false);
                   setStep(1);
                   setBusinessType(null);
