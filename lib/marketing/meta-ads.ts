@@ -1,16 +1,19 @@
 /**
- * Meta Marketing API Wrapper (Facebook + Instagram)
+ * Meta Marketing API Wrapper — Agency Model (Facebook + Instagram)
  *
- * Reusable functions for creating/managing Meta ad campaigns.
- * Uses the facebook-nodejs-business-sdk npm package (Meta Marketing API v21).
- * A single Meta integration covers both Facebook and Instagram placements.
+ * All credentials come from env vars — Keystone runs ads on behalf of
+ * customers from a single Business Manager account.
  *
  * Required env vars:
  *   META_APP_ID
  *   META_APP_SECRET
+ *   META_ACCESS_TOKEN
+ *   META_AD_ACCOUNT_ID
+ *   META_PAGE_ID
+ *   META_INSTAGRAM_ACTOR_ID  (optional)
  */
 
-import type { Campaign as AppCampaign, MarketingSettings, MetaAdContent } from './types';
+import type { Campaign as AppCampaign, MetaAdContent } from './types';
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
@@ -18,19 +21,27 @@ function getConfig() {
   return {
     appId: process.env.META_APP_ID || '',
     appSecret: process.env.META_APP_SECRET || '',
+    accessToken: process.env.META_ACCESS_TOKEN || '',
+    adAccountId: process.env.META_AD_ACCOUNT_ID || '',
+    pageId: process.env.META_PAGE_ID || '',
+    instagramActorId: process.env.META_INSTAGRAM_ACTOR_ID || '',
   };
 }
 
 function isConfigured(): boolean {
   const cfg = getConfig();
-  return !!(cfg.appId && cfg.appSecret);
+  return !!(cfg.appId && cfg.appSecret && cfg.accessToken && cfg.adAccountId);
 }
 
 // ── Lazy SDK init ────────────────────────────────────────────────────────────
 
 let _sdk: any = null;
 
-async function initSdk(accessToken: string) {
+async function initSdk() {
+  const cfg = getConfig();
+  if (!cfg.accessToken) {
+    throw new Error('META_ACCESS_TOKEN env var is not set.');
+  }
   if (!_sdk) {
     try {
       _sdk = await import('facebook-nodejs-business-sdk');
@@ -38,7 +49,7 @@ async function initSdk(accessToken: string) {
       throw new Error('facebook-nodejs-business-sdk package is not installed. Run: npm install facebook-nodejs-business-sdk');
     }
   }
-  _sdk.FacebookAdsApi.init(accessToken);
+  _sdk.FacebookAdsApi.init(cfg.accessToken);
   return _sdk;
 }
 
@@ -50,27 +61,22 @@ export interface MetaCampaignResult {
   adId: string;
 }
 
-/**
- * Create a Meta ad campaign (Facebook + Instagram).
- * Creates: Campaign → Ad Set → Ad Creative → Ad.
- */
 export async function createAdCampaign(
-  settings: MarketingSettings,
   campaign: AppCampaign,
 ): Promise<MetaCampaignResult> {
-  if (!settings.meta_access_token || !settings.meta_ad_account_id) {
-    throw new Error('Meta ad account not connected. Link an account in Marketing Settings.');
+  const cfg = getConfig();
+  if (!isConfigured()) {
+    throw new Error('Meta Ads not configured. Set META_APP_ID, META_APP_SECRET, META_ACCESS_TOKEN, and META_AD_ACCOUNT_ID.');
   }
 
-  const sdk = await initSdk(settings.meta_access_token);
+  const sdk = await initSdk();
   const { AdAccount, Campaign: MetaCampaign } = sdk;
   const content = campaign.content as MetaAdContent;
-  const adAccountId = settings.meta_ad_account_id.startsWith('act_')
-    ? settings.meta_ad_account_id
-    : `act_${settings.meta_ad_account_id}`;
+  const adAccountId = cfg.adAccountId.startsWith('act_')
+    ? cfg.adAccountId
+    : `act_${cfg.adAccountId}`;
   const account = new AdAccount(adAccountId);
 
-  // Map our campaign type to Meta objective
   const objectiveMap: Record<string, string> = {
     feed: 'OUTCOME_TRAFFIC',
     stories: 'OUTCOME_AWARENESS',
@@ -88,10 +94,9 @@ export async function createAdCampaign(
   });
   const campaignId = metaCampaign.id;
 
-  // 2. Create Ad Set (targeting + budget + placements)
+  // 2. Create Ad Set
   const targeting: any = {};
 
-  // Geographic targeting
   if (campaign.targeting?.locations?.length) {
     targeting.geo_locations = {
       countries: campaign.targeting.locations.filter(l => l.length === 2),
@@ -100,10 +105,9 @@ export async function createAdCampaign(
         .map(l => ({ key: l })),
     };
   } else {
-    targeting.geo_locations = { countries: ['CA'] }; // Default to Canada
+    targeting.geo_locations = { countries: ['CA'] };
   }
 
-  // Demographic targeting
   if (campaign.targeting?.ageMin) targeting.age_min = campaign.targeting.ageMin;
   if (campaign.targeting?.ageMax) targeting.age_max = campaign.targeting.ageMax;
   if (campaign.targeting?.interests?.length) {
@@ -112,7 +116,6 @@ export async function createAdCampaign(
     }];
   }
 
-  // Map placements
   const publisherPlatforms: string[] = [];
   const facebookPositions: string[] = [];
   const instagramPositions: string[] = [];
@@ -130,7 +133,7 @@ export async function createAdCampaign(
   const adSet = await account.createAdSet([], {
     name: `${campaign.name} — Ad Set`,
     campaign_id: campaignId,
-    daily_budget: (campaign.daily_budget_cents || 1000), // In cents
+    daily_budget: (campaign.daily_budget_cents || 1000),
     billing_event: 'IMPRESSIONS',
     optimization_goal: objective === 'OUTCOME_TRAFFIC' ? 'LINK_CLICKS' : 'REACH',
     targeting,
@@ -147,7 +150,7 @@ export async function createAdCampaign(
   const creativeData: any = {
     name: `${campaign.name} — Creative`,
     object_story_spec: {
-      page_id: settings.meta_page_id,
+      page_id: cfg.pageId,
       link_data: {
         message: content.primaryText,
         name: content.headline,
@@ -161,9 +164,8 @@ export async function createAdCampaign(
     },
   };
 
-  // Add Instagram actor if available
-  if (settings.meta_instagram_actor_id) {
-    creativeData.object_story_spec.instagram_actor_id = settings.meta_instagram_actor_id;
+  if (cfg.instagramActorId) {
+    creativeData.object_story_spec.instagram_actor_id = cfg.instagramActorId;
   }
 
   const creative = await account.createAdCreative([], creativeData);
@@ -182,35 +184,19 @@ export async function createAdCampaign(
 
 // ── Campaign Management ──────────────────────────────────────────────────────
 
-/**
- * Pause a Meta ad campaign.
- */
 export async function pauseCampaign(
-  settings: MarketingSettings,
   externalCampaignId: string,
 ): Promise<void> {
-  if (!settings.meta_access_token) {
-    throw new Error('Meta access token not available');
-  }
-
-  const sdk = await initSdk(settings.meta_access_token);
+  const sdk = await initSdk();
   const { Campaign: MetaCampaign } = sdk;
   const campaign = new MetaCampaign(externalCampaignId);
   await campaign.update([], { status: MetaCampaign.Status.paused });
 }
 
-/**
- * Resume a paused Meta ad campaign.
- */
 export async function resumeCampaign(
-  settings: MarketingSettings,
   externalCampaignId: string,
 ): Promise<void> {
-  if (!settings.meta_access_token) {
-    throw new Error('Meta access token not available');
-  }
-
-  const sdk = await initSdk(settings.meta_access_token);
+  const sdk = await initSdk();
   const { Campaign: MetaCampaign } = sdk;
   const campaign = new MetaCampaign(externalCampaignId);
   await campaign.update([], { status: MetaCampaign.Status.active });
@@ -227,20 +213,12 @@ export interface MetaPerformanceMetrics {
   cpcCents: number;
 }
 
-/**
- * Fetch performance insights for a Meta campaign.
- */
 export async function getCampaignPerformance(
-  settings: MarketingSettings,
   externalCampaignId: string,
-  startDate: string,            // YYYY-MM-DD
-  endDate: string,              // YYYY-MM-DD
+  startDate: string,
+  endDate: string,
 ): Promise<MetaPerformanceMetrics> {
-  if (!settings.meta_access_token) {
-    throw new Error('Meta access token not available');
-  }
-
-  const sdk = await initSdk(settings.meta_access_token);
+  const sdk = await initSdk();
   const { Campaign: MetaCampaign } = sdk;
   const campaign = new MetaCampaign(externalCampaignId);
 
@@ -270,9 +248,6 @@ export async function getCampaignPerformance(
   };
 }
 
-/**
- * Check if the Meta Marketing API is configured.
- */
 export function isMetaAdsConfigured(): boolean {
   return isConfigured();
 }

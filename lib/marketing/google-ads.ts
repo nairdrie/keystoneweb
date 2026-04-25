@@ -1,19 +1,20 @@
 /**
- * Google Ads API Wrapper
+ * Google Ads API Wrapper (Agency Model)
  *
- * Reusable functions for creating/managing Google Ads campaigns.
- * Uses the google-ads-api npm package (wraps Google Ads API v17).
+ * All credentials come from env vars — Keystone runs ads on behalf of
+ * customers from a single MCC account.
  *
  * Required env vars:
  *   GOOGLE_ADS_DEVELOPER_TOKEN
  *   GOOGLE_ADS_CLIENT_ID
  *   GOOGLE_ADS_CLIENT_SECRET
  *   GOOGLE_ADS_MANAGER_CUSTOMER_ID
+ *   GOOGLE_ADS_CUSTOMER_ID
+ *   GOOGLE_ADS_REFRESH_TOKEN
  */
 
 import type {
   Campaign,
-  MarketingSettings,
   GoogleSearchContent,
   GoogleDisplayContent,
 } from './types';
@@ -26,24 +27,24 @@ function getConfig() {
     clientId: process.env.GOOGLE_ADS_CLIENT_ID || '',
     clientSecret: process.env.GOOGLE_ADS_CLIENT_SECRET || '',
     managerCustomerId: process.env.GOOGLE_ADS_MANAGER_CUSTOMER_ID || '',
+    customerId: process.env.GOOGLE_ADS_CUSTOMER_ID || '',
+    refreshToken: process.env.GOOGLE_ADS_REFRESH_TOKEN || '',
   };
 }
 
 function isConfigured(): boolean {
   const cfg = getConfig();
-  return !!(cfg.developerToken && cfg.clientId && cfg.clientSecret);
+  return !!(cfg.developerToken && cfg.clientId && cfg.clientSecret && cfg.customerId && cfg.refreshToken);
 }
 
 // ── Lazy client factory ──────────────────────────────────────────────────────
 
 let _GoogleAdsApi: any = null;
 
-async function getClient(settings: MarketingSettings) {
+async function getClient() {
+  const cfg = getConfig();
   if (!isConfigured()) {
-    throw new Error('Google Ads API is not configured. Set GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_CLIENT_ID, and GOOGLE_ADS_CLIENT_SECRET.');
-  }
-  if (!settings.google_ads_customer_id || !settings.google_ads_refresh_token) {
-    throw new Error('Google Ads account not connected. Link an account in Marketing Settings.');
+    throw new Error('Google Ads API is not configured. Set GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET, GOOGLE_ADS_CUSTOMER_ID, and GOOGLE_ADS_REFRESH_TOKEN.');
   }
 
   if (!_GoogleAdsApi) {
@@ -55,7 +56,6 @@ async function getClient(settings: MarketingSettings) {
     }
   }
 
-  const cfg = getConfig();
   const api = new _GoogleAdsApi({
     client_id: cfg.clientId,
     client_secret: cfg.clientSecret,
@@ -63,8 +63,8 @@ async function getClient(settings: MarketingSettings) {
   });
 
   return api.Customer({
-    customer_id: settings.google_ads_customer_id,
-    refresh_token: settings.google_ads_refresh_token,
+    customer_id: cfg.customerId,
+    refresh_token: cfg.refreshToken,
     login_customer_id: cfg.managerCustomerId || undefined,
   });
 }
@@ -77,30 +77,24 @@ export interface GoogleCampaignResult {
   adId: string;
 }
 
-/**
- * Create a search campaign with a responsive search ad.
- */
 export async function createSearchCampaign(
-  settings: MarketingSettings,
   campaign: Campaign,
 ): Promise<GoogleCampaignResult> {
-  const customer = await getClient(settings);
+  const customer = await getClient();
   const content = campaign.content as GoogleSearchContent;
 
-  // 1. Create campaign budget
   const budgetResult = await customer.campaignBudgets.create([{
     name: `${campaign.name} Budget`,
-    amount_micros: (campaign.daily_budget_cents || 1000) * 10000, // cents → micros
+    amount_micros: (campaign.daily_budget_cents || 1000) * 10000,
     delivery_method: 'STANDARD',
   }]);
   const budgetResourceName = budgetResult.results[0].resource_name;
 
-  // 2. Create campaign
   const campaignResult = await customer.campaigns.create([{
     name: campaign.name,
     campaign_budget: budgetResourceName,
     advertising_channel_type: 'SEARCH',
-    status: 'PAUSED', // Start paused, enable after review
+    status: 'PAUSED',
     start_date: campaign.start_date?.replace(/-/g, '') || undefined,
     end_date: campaign.end_date?.replace(/-/g, '') || undefined,
     network_settings: {
@@ -112,18 +106,16 @@ export async function createSearchCampaign(
   const campaignResourceName = campaignResult.results[0].resource_name;
   const campaignId = campaignResourceName.split('/').pop()!;
 
-  // 3. Create ad group
   const adGroupResult = await customer.adGroups.create([{
     campaign: campaignResourceName,
     name: `${campaign.name} — Ad Group`,
     type: 'SEARCH_STANDARD',
     status: 'ENABLED',
-    cpc_bid_micros: 1_000_000, // $1.00 default CPC bid
+    cpc_bid_micros: 1_000_000,
   }]);
   const adGroupResourceName = adGroupResult.results[0].resource_name;
   const adGroupId = adGroupResourceName.split('/').pop()!;
 
-  // 4. Add keywords
   if (content.keywords.length > 0) {
     await customer.adGroupCriteria.create(
       content.keywords.slice(0, 20).map(kw => ({
@@ -134,7 +126,6 @@ export async function createSearchCampaign(
     );
   }
 
-  // 5. Add negative keywords
   if (content.negativeKeywords.length > 0) {
     await customer.adGroupCriteria.create(
       content.negativeKeywords.slice(0, 10).map(kw => ({
@@ -145,7 +136,6 @@ export async function createSearchCampaign(
     );
   }
 
-  // 6. Create responsive search ad
   const adResult = await customer.ads.create([{
     ad_group: adGroupResourceName,
     ad: {
@@ -162,7 +152,6 @@ export async function createSearchCampaign(
   }]);
   const adId = adResult.results[0].resource_name.split('/').pop()!;
 
-  // 7. Enable the campaign
   await customer.campaigns.update([{
     resource_name: campaignResourceName,
     status: 'ENABLED',
@@ -171,14 +160,10 @@ export async function createSearchCampaign(
   return { campaignId, adGroupId, adId };
 }
 
-/**
- * Create a display campaign.
- */
 export async function createDisplayCampaign(
-  settings: MarketingSettings,
   campaign: Campaign,
 ): Promise<GoogleCampaignResult> {
-  const customer = await getClient(settings);
+  const customer = await getClient();
   const content = campaign.content as GoogleDisplayContent;
 
   const budgetResult = await customer.campaignBudgets.create([{
@@ -228,30 +213,24 @@ export async function createDisplayCampaign(
 
 // ── Campaign Management ──────────────────────────────────────────────────────
 
-/**
- * Pause an active Google Ads campaign.
- */
 export async function pauseCampaign(
-  settings: MarketingSettings,
   externalCampaignId: string,
 ): Promise<void> {
-  const customer = await getClient(settings);
+  const customer = await getClient();
+  const customerId = getConfig().customerId;
   await customer.campaigns.update([{
-    resource_name: `customers/${settings.google_ads_customer_id}/campaigns/${externalCampaignId}`,
+    resource_name: `customers/${customerId}/campaigns/${externalCampaignId}`,
     status: 'PAUSED',
   }]);
 }
 
-/**
- * Resume a paused Google Ads campaign.
- */
 export async function resumeCampaign(
-  settings: MarketingSettings,
   externalCampaignId: string,
 ): Promise<void> {
-  const customer = await getClient(settings);
+  const customer = await getClient();
+  const customerId = getConfig().customerId;
   await customer.campaigns.update([{
-    resource_name: `customers/${settings.google_ads_customer_id}/campaigns/${externalCampaignId}`,
+    resource_name: `customers/${customerId}/campaigns/${externalCampaignId}`,
     status: 'ENABLED',
   }]);
 }
@@ -262,22 +241,18 @@ export interface GooglePerformanceMetrics {
   impressions: number;
   clicks: number;
   conversions: number;
-  costMicros: number;           // Total cost in micros
-  costCents: number;            // Total cost in cents
-  ctr: number;                  // Click-through rate (0-1)
-  cpcCents: number;             // Average cost per click in cents
+  costMicros: number;
+  costCents: number;
+  ctr: number;
+  cpcCents: number;
 }
 
-/**
- * Fetch performance metrics for a campaign over a date range.
- */
 export async function getCampaignPerformance(
-  settings: MarketingSettings,
   externalCampaignId: string,
-  startDate: string,            // YYYY-MM-DD
-  endDate: string,              // YYYY-MM-DD
+  startDate: string,
+  endDate: string,
 ): Promise<GooglePerformanceMetrics> {
-  const customer = await getClient(settings);
+  const customer = await getClient();
 
   const results = await customer.query(`
     SELECT
@@ -296,7 +271,6 @@ export async function getCampaignPerformance(
     return { impressions: 0, clicks: 0, conversions: 0, costMicros: 0, costCents: 0, ctr: 0, cpcCents: 0 };
   }
 
-  // Aggregate across date segments
   let impressions = 0, clicks = 0, conversions = 0, costMicros = 0;
   for (const row of results) {
     impressions += Number(row.metrics?.impressions || 0);
@@ -312,9 +286,6 @@ export async function getCampaignPerformance(
   return { impressions, clicks, conversions, costMicros, costCents, ctr, cpcCents };
 }
 
-/**
- * Check if the Google Ads API is configured and accessible.
- */
 export function isGoogleAdsConfigured(): boolean {
   return isConfigured();
 }

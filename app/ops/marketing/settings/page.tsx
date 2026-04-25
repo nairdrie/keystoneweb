@@ -3,20 +3,19 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
+interface Connections {
+  google_ads: boolean;
+  meta_ads: boolean;
+  email: boolean;
+}
+
 export default function MarketingSettingsPage() {
-  const [settings, setSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
-
-  // Form state
-  const [googleCustomerId, setGoogleCustomerId] = useState('');
-  const [googleRefreshToken, setGoogleRefreshToken] = useState('');
-  const [metaAdAccountId, setMetaAdAccountId] = useState('');
-  const [metaAccessToken, setMetaAccessToken] = useState('');
-  const [metaPageId, setMetaPageId] = useState('');
-  const [metaInstagramId, setMetaInstagramId] = useState('');
+  const [connections, setConnections] = useState<Connections>({ google_ads: false, meta_ads: false, email: false });
   const [monthlyBudgetLimit, setMonthlyBudgetLimit] = useState('');
+  const [autoSuggest, setAutoSuggest] = useState(true);
 
   useEffect(() => {
     fetchSettings();
@@ -26,16 +25,10 @@ export default function MarketingSettingsPage() {
     try {
       const res = await fetch('/api/ops/marketing/settings');
       const data = await res.json();
+      if (data.connections) setConnections(data.connections);
       if (data.settings) {
-        const s = data.settings;
-        setSettings(s);
-        setGoogleCustomerId(s.google_ads_customer_id || '');
-        setGoogleRefreshToken(s.google_ads_refresh_token || '');
-        setMetaAdAccountId(s.meta_ad_account_id || '');
-        setMetaAccessToken(s.meta_access_token || '');
-        setMetaPageId(s.meta_page_id || '');
-        setMetaInstagramId(s.meta_instagram_actor_id || '');
-        setMonthlyBudgetLimit(s.monthly_budget_limit_cents ? String(s.monthly_budget_limit_cents / 100) : '');
+        setMonthlyBudgetLimit(data.settings.monthly_budget_limit_cents ? String(data.settings.monthly_budget_limit_cents / 100) : '');
+        setAutoSuggest(data.settings.auto_suggest ?? true);
       }
     } catch {
       setMessage('Failed to load settings');
@@ -47,22 +40,15 @@ export default function MarketingSettingsPage() {
   async function handleSave() {
     setSaving(true);
     setMessage('');
-
     try {
       const res = await fetch('/api/ops/marketing/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          google_ads_customer_id: googleCustomerId || null,
-          google_ads_refresh_token: googleRefreshToken || null,
-          meta_ad_account_id: metaAdAccountId || null,
-          meta_access_token: metaAccessToken || null,
-          meta_page_id: metaPageId || null,
-          meta_instagram_actor_id: metaInstagramId || null,
           monthly_budget_limit_cents: monthlyBudgetLimit ? Math.round(parseFloat(monthlyBudgetLimit) * 100) : null,
+          auto_suggest: autoSuggest,
         }),
       });
-
       if (!res.ok) throw new Error('Failed to save');
       setMessage('Settings saved successfully');
     } catch (err: any) {
@@ -76,6 +62,24 @@ export default function MarketingSettingsPage() {
     return <div className="text-gray-500 py-20 text-center">Loading settings...</div>;
   }
 
+  const platforms = [
+    {
+      name: 'Google Ads',
+      connected: connections.google_ads,
+      envVars: ['GOOGLE_ADS_DEVELOPER_TOKEN', 'GOOGLE_ADS_CLIENT_ID', 'GOOGLE_ADS_CLIENT_SECRET', 'GOOGLE_ADS_CUSTOMER_ID', 'GOOGLE_ADS_REFRESH_TOKEN'],
+    },
+    {
+      name: 'Meta / Instagram Ads',
+      connected: connections.meta_ads,
+      envVars: ['META_APP_ID', 'META_APP_SECRET', 'META_ACCESS_TOKEN', 'META_AD_ACCOUNT_ID'],
+    },
+    {
+      name: 'Email (Resend)',
+      connected: connections.email,
+      envVars: ['RESEND_API_KEY'],
+    },
+  ];
+
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       <div>
@@ -84,7 +88,7 @@ export default function MarketingSettingsPage() {
         </Link>
         <h1 className="text-2xl font-bold text-white">Marketing Settings</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Connect ad platform accounts and configure budget limits.
+          Platform connections are managed via environment variables. Budget limits are configured here.
         </p>
       </div>
 
@@ -96,98 +100,33 @@ export default function MarketingSettingsPage() {
         </div>
       )}
 
-      {/* Google Ads */}
+      {/* Platform Connections */}
       <div className="rounded-lg border border-gray-800 bg-gray-900 p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Google Ads</h2>
-          <span className={`text-xs px-2 py-0.5 rounded ${
-            googleCustomerId ? 'text-emerald-400 bg-emerald-400/10' : 'text-gray-500 bg-gray-800'
-          }`}>
-            {googleCustomerId ? 'Connected' : 'Not Connected'}
-          </span>
-        </div>
+        <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Platform Connections</h2>
+        <p className="text-xs text-gray-600">
+          All ad platform credentials are set as environment variables (agency model). Keystone runs ads on behalf of customers from a single account.
+        </p>
         <div className="space-y-3">
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">Customer ID</label>
-            <input
-              type="text"
-              value={googleCustomerId}
-              onChange={e => setGoogleCustomerId(e.target.value)}
-              placeholder="123-456-7890"
-              className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:border-emerald-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">OAuth Refresh Token</label>
-            <input
-              type="password"
-              value={googleRefreshToken}
-              onChange={e => setGoogleRefreshToken(e.target.value)}
-              placeholder="Paste refresh token from OAuth flow"
-              className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:border-emerald-500 focus:outline-none"
-            />
-          </div>
+          {platforms.map(p => (
+            <div key={p.name} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
+              <div>
+                <span className="text-sm text-gray-200">{p.name}</span>
+                {!p.connected && (
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    Missing: {p.envVars.join(', ')}
+                  </p>
+                )}
+              </div>
+              <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                p.connected
+                  ? 'text-emerald-400 bg-emerald-400/10'
+                  : 'text-gray-500 bg-gray-800'
+              }`}>
+                {p.connected ? 'Connected' : 'Not Connected'}
+              </span>
+            </div>
+          ))}
         </div>
-        <p className="text-xs text-gray-600">
-          Requires GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_CLIENT_ID, and GOOGLE_ADS_CLIENT_SECRET env vars.
-        </p>
-      </div>
-
-      {/* Meta Ads */}
-      <div className="rounded-lg border border-gray-800 bg-gray-900 p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Meta / Instagram Ads</h2>
-          <span className={`text-xs px-2 py-0.5 rounded ${
-            metaAdAccountId ? 'text-emerald-400 bg-emerald-400/10' : 'text-gray-500 bg-gray-800'
-          }`}>
-            {metaAdAccountId ? 'Connected' : 'Not Connected'}
-          </span>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">Ad Account ID</label>
-            <input
-              type="text"
-              value={metaAdAccountId}
-              onChange={e => setMetaAdAccountId(e.target.value)}
-              placeholder="act_123456789"
-              className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:border-emerald-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">Page ID</label>
-            <input
-              type="text"
-              value={metaPageId}
-              onChange={e => setMetaPageId(e.target.value)}
-              placeholder="Facebook Page ID"
-              className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:border-emerald-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">Instagram Actor ID</label>
-            <input
-              type="text"
-              value={metaInstagramId}
-              onChange={e => setMetaInstagramId(e.target.value)}
-              placeholder="Instagram Business Account ID"
-              className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:border-emerald-500 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">Access Token</label>
-            <input
-              type="password"
-              value={metaAccessToken}
-              onChange={e => setMetaAccessToken(e.target.value)}
-              placeholder="Long-lived access token"
-              className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-gray-200 placeholder-gray-600 focus:border-emerald-500 focus:outline-none"
-            />
-          </div>
-        </div>
-        <p className="text-xs text-gray-600">
-          Requires META_APP_ID and META_APP_SECRET env vars.
-        </p>
       </div>
 
       {/* Budget Limit */}
@@ -210,7 +149,23 @@ export default function MarketingSettingsPage() {
         </div>
       </div>
 
-      {/* Save */}
+      {/* Preferences */}
+      <div className="rounded-lg border border-gray-800 bg-gray-900 p-5 space-y-4">
+        <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Preferences</h2>
+        <label className="flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={autoSuggest}
+            onChange={e => setAutoSuggest(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-700 bg-gray-950 text-emerald-500 focus:ring-emerald-500"
+          />
+          <div>
+            <span className="text-sm text-gray-200">AI auto-suggestions</span>
+            <p className="text-xs text-gray-600">Allow AI to suggest campaign ideas based on performance data.</p>
+          </div>
+        </label>
+      </div>
+
       <button
         onClick={handleSave}
         disabled={saving}

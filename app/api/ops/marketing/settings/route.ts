@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { createClient } from '@/lib/db/supabase-server';
+import { isGoogleAdsConfigured } from '@/lib/marketing/google-ads';
+import { isMetaAdsConfigured } from '@/lib/marketing/meta-ads';
 
 async function assertAdmin(): Promise<boolean> {
   try {
@@ -13,10 +15,6 @@ async function assertAdmin(): Promise<boolean> {
   } catch { return false; }
 }
 
-/**
- * GET /api/ops/marketing/settings
- * Get platform-level marketing settings.
- */
 export async function GET() {
   if (!await assertAdmin()) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -29,24 +27,20 @@ export async function GET() {
     .is('site_id', null)
     .single();
 
-  // Return empty settings if none exist yet
   return NextResponse.json({
     settings: settings || {
-      google_ads_customer_id: null,
-      meta_ad_account_id: null,
-      meta_page_id: null,
-      meta_instagram_actor_id: null,
       monthly_budget_limit_cents: null,
       auto_suggest: true,
     },
     exists: !!settings,
+    connections: {
+      google_ads: isGoogleAdsConfigured(),
+      meta_ads: isMetaAdsConfigured(),
+      email: !!(process.env.RESEND_API_KEY),
+    },
   });
 }
 
-/**
- * PUT /api/ops/marketing/settings
- * Create or update platform-level marketing settings.
- */
 export async function PUT(request: NextRequest) {
   if (!await assertAdmin()) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -55,7 +49,6 @@ export async function PUT(request: NextRequest) {
   const body = await request.json();
   const db = createAdminClient();
 
-  // Check if settings exist
   const { data: existing } = await db
     .from('marketing_settings')
     .select('id')
@@ -63,12 +56,6 @@ export async function PUT(request: NextRequest) {
     .single();
 
   const fields = {
-    google_ads_customer_id: body.google_ads_customer_id ?? null,
-    google_ads_refresh_token: body.google_ads_refresh_token ?? null,
-    meta_ad_account_id: body.meta_ad_account_id ?? null,
-    meta_access_token: body.meta_access_token ?? null,
-    meta_page_id: body.meta_page_id ?? null,
-    meta_instagram_actor_id: body.meta_instagram_actor_id ?? null,
     monthly_budget_limit_cents: body.monthly_budget_limit_cents ?? null,
     auto_suggest: body.auto_suggest ?? true,
     updated_at: new Date().toISOString(),

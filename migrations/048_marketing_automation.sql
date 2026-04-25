@@ -7,17 +7,8 @@
 CREATE TABLE IF NOT EXISTS public.marketing_settings (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     -- NULL site_id = platform-level (ops). Non-null = per-site (Phase B).
+    -- Platform credentials live in env vars (agency model).
     site_id uuid REFERENCES public.sites(id) ON DELETE CASCADE,
-
-    -- Google Ads connection
-    google_ads_customer_id text,
-    google_ads_refresh_token text,
-
-    -- Meta connection (covers Facebook + Instagram)
-    meta_ad_account_id text,
-    meta_access_token text,
-    meta_page_id text,
-    meta_instagram_actor_id text,
 
     -- Budget
     monthly_budget_limit_cents integer,

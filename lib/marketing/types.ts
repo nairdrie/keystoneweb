@@ -172,12 +172,6 @@ export interface CampaignLog {
 export interface MarketingSettings {
   id: string;
   site_id: string | null;       // NULL = platform-level
-  google_ads_customer_id: string | null;
-  google_ads_refresh_token: string | null;
-  meta_ad_account_id: string | null;
-  meta_access_token: string | null;
-  meta_page_id: string | null;
-  meta_instagram_actor_id: string | null;
   monthly_budget_limit_cents: number | null;
   auto_suggest: boolean;
   created_at: string;

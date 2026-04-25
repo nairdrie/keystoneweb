@@ -3,7 +3,6 @@ import { createAdminClient } from '@/lib/db/supabase-admin';
 import { createClient } from '@/lib/db/supabase-server';
 import { pauseCampaign as pauseGoogleCampaign } from '@/lib/marketing/google-ads';
 import { pauseCampaign as pauseMetaCampaign } from '@/lib/marketing/meta-ads';
-import type { MarketingSettings } from '@/lib/marketing/types';
 
 async function assertAdmin(): Promise<{ userId: string; email: string } | null> {
   try {
@@ -17,10 +16,6 @@ async function assertAdmin(): Promise<{ userId: string; email: string } | null> 
   } catch { return null; }
 }
 
-/**
- * POST /api/ops/marketing/campaigns/[id]/pause
- * Pause an active campaign on the ad platform.
- */
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -48,18 +43,11 @@ export async function POST(
     );
   }
 
-  // Fetch platform settings
-  const { data: settings } = await db
-    .from('marketing_settings')
-    .select('*')
-    .is('site_id', null)
-    .single();
-
   try {
-    if (campaign.channel === 'google_ads' && campaign.external_campaign_id && settings) {
-      await pauseGoogleCampaign(settings as MarketingSettings, campaign.external_campaign_id);
-    } else if (campaign.channel === 'meta_ads' && campaign.external_campaign_id && settings) {
-      await pauseMetaCampaign(settings as MarketingSettings, campaign.external_campaign_id);
+    if (campaign.channel === 'google_ads' && campaign.external_campaign_id) {
+      await pauseGoogleCampaign(campaign.external_campaign_id);
+    } else if (campaign.channel === 'meta_ads' && campaign.external_campaign_id) {
+      await pauseMetaCampaign(campaign.external_campaign_id);
     }
 
     await db.from('marketing_campaigns').update({

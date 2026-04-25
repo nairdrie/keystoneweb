@@ -4,7 +4,7 @@ import { createClient } from '@/lib/db/supabase-server';
 import { createSearchCampaign, createDisplayCampaign } from '@/lib/marketing/google-ads';
 import { createAdCampaign } from '@/lib/marketing/meta-ads';
 import { sendEmailCampaign } from '@/lib/marketing/email-campaigns';
-import type { Campaign, MarketingSettings, EmailContent } from '@/lib/marketing/types';
+import type { Campaign } from '@/lib/marketing/types';
 
 async function assertAdmin(): Promise<{ userId: string; email: string } | null> {
   try {
@@ -18,10 +18,6 @@ async function assertAdmin(): Promise<{ userId: string; email: string } | null> 
   } catch { return null; }
 }
 
-/**
- * POST /api/ops/marketing/campaigns/[id]/approve
- * Approve a campaign and submit it to the ad platform.
- */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -32,7 +28,6 @@ export async function POST(
   const { id } = await params;
   const db = createAdminClient();
 
-  // Fetch campaign
   const { data: campaign, error: fetchErr } = await db
     .from('marketing_campaigns')
     .select('*')
@@ -50,7 +45,6 @@ export async function POST(
     );
   }
 
-  // Mark as approved + submitting
   await db.from('marketing_campaigns').update({
     status: 'submitting',
     approved_at: new Date().toISOString(),
@@ -63,34 +57,19 @@ export async function POST(
     actor: `user:${admin.email}`,
   });
 
-  // Fetch platform settings
-  const { data: settings } = await db
-    .from('marketing_settings')
-    .select('*')
-    .is('site_id', null)
-    .single();
-
   try {
     let externalIds: { campaignId?: string; adGroupId?: string; adId?: string; adSetId?: string } = {};
+    const typedCampaign = campaign as unknown as Campaign;
 
     if (campaign.channel === 'google_ads') {
-      if (!settings?.google_ads_customer_id) {
-        throw new Error('Google Ads account not connected');
-      }
-      const typedCampaign = campaign as unknown as Campaign;
       if (campaign.campaign_type === 'search') {
-        externalIds = await createSearchCampaign(settings as MarketingSettings, typedCampaign);
+        externalIds = await createSearchCampaign(typedCampaign);
       } else {
-        externalIds = await createDisplayCampaign(settings as MarketingSettings, typedCampaign);
+        externalIds = await createDisplayCampaign(typedCampaign);
       }
     } else if (campaign.channel === 'meta_ads') {
-      if (!settings?.meta_ad_account_id) {
-        throw new Error('Meta ad account not connected');
-      }
-      const typedCampaign = campaign as unknown as Campaign;
-      externalIds = await createAdCampaign(settings as MarketingSettings, typedCampaign);
+      externalIds = await createAdCampaign(typedCampaign);
     } else if (campaign.channel === 'email') {
-      // For email campaigns, parse recipients from targeting
       const body = await request.json().catch(() => ({}));
       const recipients = body.recipients || campaign.targeting?.recipientEmails || [];
       const recipientList = Array.isArray(recipients)
@@ -101,14 +80,12 @@ export async function POST(
         throw new Error('No recipients specified for email campaign');
       }
 
-      const typedCampaign = campaign as unknown as Campaign;
       const result = await sendEmailCampaign(typedCampaign, recipientList);
 
       if (result.failed > 0 && result.sent === 0) {
         throw new Error(`All emails failed: ${result.errors.join(', ')}`);
       }
 
-      // Email campaigns complete immediately
       await db.from('marketing_campaigns').update({
         status: 'completed',
         launched_at: new Date().toISOString(),
@@ -130,7 +107,6 @@ export async function POST(
       });
     }
 
-    // Update campaign with external IDs and mark as active
     await db.from('marketing_campaigns').update({
       status: 'active',
       launched_at: new Date().toISOString(),
@@ -155,7 +131,6 @@ export async function POST(
   } catch (err: any) {
     console.error(`[ops/marketing/approve] Failed to launch campaign ${id}:`, err);
 
-    // Mark as failed
     await db.from('marketing_campaigns').update({
       status: 'failed',
       updated_at: new Date().toISOString(),

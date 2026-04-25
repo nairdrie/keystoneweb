@@ -3,14 +3,7 @@ import { createAdminClient } from '@/lib/db/supabase-admin';
 import { checkBudgetExceeded } from '@/lib/marketing/spend';
 import { pauseCampaign as pauseGoogleCampaign } from '@/lib/marketing/google-ads';
 import { pauseCampaign as pauseMetaCampaign } from '@/lib/marketing/meta-ads';
-import type { MarketingSettings } from '@/lib/marketing/types';
 
-/**
- * GET /api/cron/marketing-budget-check
- *
- * Invoked every 2 hours by Vercel Cron.
- * Checks active campaigns for budget overruns and auto-pauses them.
- */
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -19,7 +12,6 @@ export async function GET(request: NextRequest) {
 
   const db = createAdminClient();
 
-  // Get all active campaigns with a total budget set
   const { data: campaigns, error } = await db
     .from('marketing_campaigns')
     .select('id, channel, external_campaign_id, total_budget_cents, spent_cents, name')
@@ -35,13 +27,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, checked: 0, paused: 0 });
   }
 
-  // Fetch platform settings for pausing
-  const { data: settings } = await db
-    .from('marketing_settings')
-    .select('*')
-    .is('site_id', null)
-    .single();
-
   let paused = 0;
   const errors: string[] = [];
 
@@ -50,20 +35,17 @@ export async function GET(request: NextRequest) {
 
     if (budget.exceeded) {
       try {
-        // Pause on the ad platform
-        if (campaign.channel === 'google_ads' && campaign.external_campaign_id && settings) {
-          await pauseGoogleCampaign(settings as MarketingSettings, campaign.external_campaign_id);
-        } else if (campaign.channel === 'meta_ads' && campaign.external_campaign_id && settings) {
-          await pauseMetaCampaign(settings as MarketingSettings, campaign.external_campaign_id);
+        if (campaign.channel === 'google_ads' && campaign.external_campaign_id) {
+          await pauseGoogleCampaign(campaign.external_campaign_id);
+        } else if (campaign.channel === 'meta_ads' && campaign.external_campaign_id) {
+          await pauseMetaCampaign(campaign.external_campaign_id);
         }
 
-        // Update status in DB
         await db.from('marketing_campaigns').update({
           status: 'paused',
           updated_at: new Date().toISOString(),
         }).eq('id', campaign.id);
 
-        // Log the event
         await db.from('marketing_campaign_log').insert({
           campaign_id: campaign.id,
           action: 'paused',
