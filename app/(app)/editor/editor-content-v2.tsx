@@ -992,13 +992,10 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
       aiOnboardingSentRef.current = true;
       sessionStorage.removeItem('keystoneAiOnboardingPrompt');
       setAiOnboardingBuilding(true);
-      // Open the sidebar and expand the AI Builder section so the chat
-      // panel is what the user lands on while Archie is working. The
-      // pulse (true → false) lets the toolbar's effect run again on
-      // build-complete to re-focus the panel.
+      // Open the sidebar — the AI Builder section is already requested via
+      // focusAiBuilder's initial state, which makes the toolbar's mount
+      // effect expand it on the very first commit.
       setSidebarOpen(true);
-      setFocusAiBuilder(true);
-      setTimeout(() => setFocusAiBuilder(false), 100);
       setTimeout(() => {
         aiBuilder.sendMessage(prompt!, { isNewSite: true });
       }, 500);
@@ -1036,8 +1033,19 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     return () => clearTimeout(timeout);
   }, [aiOnboardingBuilding]);
 
-  // Whether to tell the toolbar to focus/scroll to the AI builder section
-  const [focusAiBuilder, setFocusAiBuilder] = useState(false);
+  // Whether to tell the toolbar to focus/scroll to the AI builder section.
+  // Initialized eagerly from the same pending-prompt signal as
+  // aiOnboardingBuilding so the toolbar's *mount* effect fires with the
+  // section already requested — otherwise the open happens on a later
+  // render and can race with the user before the section appears.
+  const [focusAiBuilder, setFocusAiBuilder] = useState(() => {
+    if (typeof window !== 'undefined') {
+      if (sessionStorage.getItem('keystoneAiOnboardingPrompt')) return true;
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('aiPrompt')) return true;
+    }
+    return false;
+  });
   useEffect(() => {
     // Once onboarding building finishes, focus the AI panel in the toolbar
     if (aiOnboardingSentRef.current && !aiOnboardingBuilding && aiOnboardingDidStartRef.current) {
