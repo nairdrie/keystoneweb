@@ -50,6 +50,22 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
         return () => clearInterval(interval);
     }, [block.data.bgType, carouselImages.length, carouselInterval, carouselTransition]);
 
+    // Pick the LCP image URL for this hero so we can hint the browser to
+    // start fetching it during HTML parse. React 19 hoists <link> into <head>.
+    const lcpImageUrl: string | null = isEditMode
+        ? null
+        : variant === 'centered'
+            ? (block.data.bgType === 'image' && block.data.bgImage)
+                ? block.data.bgImage
+                : (block.data.bgType === 'carousel' && carouselImages[0])
+                    ? carouselImages[0]
+                    : null
+            : variant === 'video'
+                ? (videoUrl ? null : imageUrl || null)
+                : (variant === 'fullImage' || variant === 'split')
+                    ? imageUrl || null
+                    : null;
+
     // Minimal variant — large typography, no image, clean background
     if (variant === 'minimal') {
         return (
@@ -115,10 +131,11 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                         <source src={videoUrl} type="video/mp4" />
                     </video>
                 ) : imageUrl ? (
-                    <img src={imageUrl} alt={block.data.image__settings?.altText || ''} role={block.data.image__settings?.altText ? undefined : 'presentation'} className="absolute inset-0 w-full h-full object-cover" />
+                    <img src={imageUrl} alt={block.data.image__settings?.altText || ''} role={block.data.image__settings?.altText ? undefined : 'presentation'} className="absolute inset-0 w-full h-full object-cover" loading="eager" fetchPriority="high" decoding="sync" />
                 ) : (
                     <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${pPrimary}, ${pSecondary})` }} />
                 )}
+                {lcpImageUrl && <link rel="preload" as="image" href={lcpImageUrl} fetchPriority="high" />}
                 <div className="absolute inset-0 bg-black/60" />
                 {isEditMode && (
                     <>
@@ -245,6 +262,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                 className="py-32 text-center relative overflow-hidden"
                 style={customBgStyle}
             >
+                {lcpImageUrl && <link rel="preload" as="image" href={lcpImageUrl} fetchPriority="high" />}
                 {/* Media Backgrounds */}
                 {bgType === 'image' && block.data.bgImage && (
                     <>
@@ -329,10 +347,11 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
         return (
             <section className="relative min-h-[70vh] flex items-center overflow-hidden">
                 {imageUrl ? (
-                    <img src={imageUrl} alt={block.data.image__settings?.altText || ''} role={block.data.image__settings?.altText ? undefined : 'presentation'} className="absolute inset-0 w-full h-full object-cover" />
+                    <img src={imageUrl} alt={block.data.image__settings?.altText || ''} role={block.data.image__settings?.altText ? undefined : 'presentation'} className="absolute inset-0 w-full h-full object-cover" loading="eager" fetchPriority="high" decoding="sync" />
                 ) : (
                     <div className="absolute inset-0" style={{ backgroundColor: pPrimary }} />
                 )}
+                {lcpImageUrl && <link rel="preload" as="image" href={lcpImageUrl} fetchPriority="high" />}
                 <div className="absolute inset-0 bg-black/50" />
                 {isEditMode && (
                     <div className="absolute top-4 right-4 z-20">
@@ -435,6 +454,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                     </Reveal>
                 </div>
                 <Reveal>
+                    {lcpImageUrl && <link rel="preload" as="image" href={lcpImageUrl} fetchPriority="high" />}
                     <EditableImage
                         contentKey="image"
                         initialSettings={block.data.image__settings}
@@ -444,6 +464,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                         onUpload={context?.uploadImage}
                         className="w-full h-96 object-cover rounded-2xl shadow-xl"
                         placeholder="Click to upload hero image"
+                        priority
                     />
                 </Reveal>
             </div>

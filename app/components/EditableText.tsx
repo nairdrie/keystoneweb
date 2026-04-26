@@ -56,18 +56,13 @@ export default function EditableText({
     ...(parsedStyles.fontWeight ? { fontWeight: parsedStyles.fontWeight } : {})
   };
 
-  // Load the override font from Google Fonts if one is set via styleData
-  useEffect(() => {
-    const fontName = parsedStyles.fontFamily;
-    if (!fontName || typeof document === 'undefined') return;
-    const linkId = `ks-font-override-${fontName.replace(/ /g, '-')}`;
-    if (document.getElementById(linkId)) return;
-    const link = document.createElement('link');
-    link.id = linkId;
-    link.rel = 'stylesheet';
-    link.href = `https://fonts.googleapis.com/css2?family=${fontName.replace(/ /g, '+')}:wght@400;500;600;700;800;900&display=swap`;
-    document.head.appendChild(link);
-  }, [parsedStyles.fontFamily]);
+  // If the user picked a font override via styleData, render a <link> for it.
+  // React 19 hoists and dedupes <link> elements into <head> automatically, so
+  // this loads server-side (discoverable by the preload scanner) instead of
+  // appending to document.head post-hydration like before.
+  const overrideFontHref = parsedStyles.fontFamily
+    ? `https://fonts.googleapis.com/css2?family=${(parsedStyles.fontFamily as string).replace(/ /g, '+')}:wght@400;500;600;700;800;900&display=swap`
+    : null;
 
   // Keep refs in sync
   useEffect(() => { isEditingRef.current = isEditing; }, [isEditing]);
@@ -176,12 +171,19 @@ export default function EditableText({
 
   // Preview mode: just show the text
   if (!isEditMode) {
-    return <Component className={className} style={mergedStyle}>{renderFormattedText(displayText)}</Component>;
+    return (
+      <>
+        {overrideFontHref && <link rel="stylesheet" href={overrideFontHref} />}
+        <Component className={className} style={mergedStyle}>{renderFormattedText(displayText)}</Component>
+      </>
+    );
   }
 
   // Edit mode - show inline element with pencil on hover
   if (isEditing) {
     return (
+      <>
+        {overrideFontHref && <link rel="stylesheet" href={overrideFontHref} />}
       <Component className={`${className} relative`} style={mergedStyle}>
         <textarea
           ref={inputRef as any}
@@ -231,11 +233,14 @@ export default function EditableText({
           </button>
         </span>
       </Component>
+      </>
     );
   }
 
   // Edit mode, not currently editing: show text with pencil icon on hover (desktop) or always (mobile)
   return (
+    <>
+      {overrideFontHref && <link rel="stylesheet" href={overrideFontHref} />}
     <Component
       ref={containerRef as any}
       className={`${className} cursor-text pointer-events-auto transition-colors`}
@@ -299,5 +304,6 @@ export default function EditableText({
         }}
       />
     </Component>
+    </>
   );
 }
