@@ -6,6 +6,7 @@ import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
 import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
+import { TemplateFonts } from './TemplateFonts';
 
 interface MasterTemplateProps {
     palette: Record<string, string>;
@@ -32,16 +33,13 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
 
     return (
         <div className="template-wrapper min-h-screen" style={{ backgroundColor: '#ffffff', fontFamily: `"${bodyFont}", sans-serif` }}>
-            <style dangerouslySetInnerHTML={{
-                __html: `
-                @import url('https://fonts.googleapis.com/css2?family=${titleFont.replace(/ /g, '+')}:wght@400;700;900&family=${bodyFont.replace(/ /g, '+')}:wght@400;500;600;700&display=swap');
-                .template-wrapper h1, .template-wrapper h2, .template-wrapper h3, .template-wrapper h4, .template-wrapper h5, .template-wrapper h6 {
-                    font-family: "${titleFont}", serif !important;
-                }
-                .template-wrapper .font-title {
-                    font-family: "${titleFont}", serif;
-                }
-            `}} />
+            <TemplateFonts
+                titleFont={titleFont}
+                bodyFont={bodyFont}
+                titleWeights="400;700;900"
+                bodyWeights="400;500;600;700"
+                fallback="serif"
+            />
 
             <SiteHeader
                 palette={palette}

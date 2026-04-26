@@ -53,25 +53,41 @@ export default function SiteAnalyticsTracker({ siteId }: { siteId: string }) {
       }
     } catch { /* ignore */ }
 
+    let idleHandle: number | null = null;
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
     if (shouldTrack) {
       try {
         sessionStorage.setItem(THROTTLE_KEY, JSON.stringify({ path: pagePath, ts: Date.now() }));
       } catch { /* ignore */ }
 
-      // Fire the page view
-      const payload = {
-        siteId,
-        pagePath,
-        referrer: document.referrer || null,
-        sessionId,
+      // Fire the page view, but defer it so it doesn't compete with LCP
+      // fetches (fonts, hero image, etc.). requestIdleCallback runs after
+      // the browser is done with critical work; the setTimeout fallback
+      // covers Safari, which still doesn't ship rIC.
+      const sendPageView = () => {
+        const payload = {
+          siteId,
+          pagePath,
+          referrer: document.referrer || null,
+          sessionId,
+        };
+        fetch('/api/sites/analytics/track', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          keepalive: true,
+        }).catch(() => {}); // fire-and-forget
       };
 
-      fetch('/api/sites/analytics/track', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        keepalive: true,
-      }).catch(() => {}); // fire-and-forget
+      const ric = (window as any).requestIdleCallback as
+        | ((cb: () => void, opts?: { timeout: number }) => number)
+        | undefined;
+      if (typeof ric === 'function') {
+        idleHandle = ric(sendPageView, { timeout: 3000 });
+      } else {
+        timeoutHandle = setTimeout(sendPageView, 1500);
+      }
     }
 
     // Send duration on page unload via beacon
@@ -100,6 +116,10 @@ export default function SiteAnalyticsTracker({ siteId }: { siteId: string }) {
 
     return () => {
       document.removeEventListener('visibilitychange', sendDuration);
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+      if (idleHandle != null && typeof (window as any).cancelIdleCallback === 'function') {
+        (window as any).cancelIdleCallback(idleHandle);
+      }
     };
   }, [siteId]);
 
