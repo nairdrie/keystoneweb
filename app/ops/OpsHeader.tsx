@@ -34,6 +34,7 @@ export default function OpsHeader({
     ...(isAdmin ? [{ href: '/agents', label: 'Agents' }] : []),
     { href: '/accounting', label: 'Accounting' },
     { href: '/email', label: 'Email' },
+    ...(isAdmin ? [{ href: '/marketing', label: 'Marketing' }] : []),
     { href: '/scraper', label: 'Scraper' },
   ];
 
