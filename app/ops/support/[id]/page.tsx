@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import sanitizeHtml from 'sanitize-html';
+import EmailBody from '@/app/components/email/EmailBody';
+import EmailSignaturePreview from '@/app/components/email/EmailSignaturePreview';
 
 type ThreadMessage = {
   id: string;
@@ -159,7 +160,7 @@ export default function SupportTicketPage() {
       <div className="py-24 text-center text-gray-500">
         Ticket not found.{' '}
         <Link href="/support" className="text-emerald-400 underline">
-          Back to support
+          Back to email
         </Link>
       </div>
     );
@@ -175,7 +176,7 @@ export default function SupportTicketPage() {
           href="/support"
           className="text-sm text-gray-500 hover:text-white transition-colors"
         >
-          &larr; Support
+          &larr; Email
         </Link>
         <span className={`rounded border px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[ticket.status] ?? STATUS_STYLES.open}`}>
           {ticket.status.replace('_', ' ')}
@@ -236,18 +237,12 @@ export default function SupportTicketPage() {
                     })}
                   </time>
                 </div>
-                {bodyClean ? (
-                  <pre className="whitespace-pre-wrap text-sm text-gray-300 font-sans leading-relaxed">
-                    {bodyClean}
-                  </pre>
-                ) : msg.body_html ? (
-                  <div
-                    className="prose prose-invert prose-sm max-w-none text-gray-300"
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(msg.body_html) }}
-                  />
-                ) : (
-                  <p className="text-gray-600 text-sm italic">No message body.</p>
-                )}
+                <EmailBody
+                  html={msg.body_html}
+                  text={bodyClean}
+                  className="text-gray-300"
+                  emptyLabel="No message body."
+                />
               </div>
             );
           })}
@@ -255,18 +250,12 @@ export default function SupportTicketPage() {
       ) : (
         /* Single message — no thread */
         <div className="rounded-lg border border-gray-800 bg-gray-900 p-5 overflow-hidden">
-          {ticket.body_text ? (
-            <pre className="whitespace-pre-wrap text-sm text-gray-300 font-sans leading-relaxed">
-              {cleanBody(ticket.body_text)}
-            </pre>
-          ) : ticket.body_html ? (
-            <div
-              className="prose prose-invert prose-sm max-w-none text-gray-300"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(ticket.body_html) }}
-            />
-          ) : (
-            <p className="text-gray-600 text-sm italic">No message body content found.</p>
-          )}
+          <EmailBody
+            html={ticket.body_html}
+            text={cleanBody(ticket.body_text)}
+            className="text-gray-300"
+            emptyLabel="No message body content found."
+          />
         </div>
       )}
 
@@ -299,6 +288,13 @@ export default function SupportTicketPage() {
             className="w-full rounded-md border border-gray-700 bg-gray-950 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-500 resize-y"
             disabled={replying}
           />
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-2">Signature Preview</label>
+            <EmailSignaturePreview
+              senderName={SENDER_OPTIONS[replySenderIndex].name}
+              fromEmail={SENDER_OPTIONS[replySenderIndex].email}
+            />
+          </div>
           <div className="flex justify-end">
             <button
               onClick={sendReply}

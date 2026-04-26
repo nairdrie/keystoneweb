@@ -26,14 +26,12 @@ export default function OpsHeader({
   const navLinks = [
     { href: '/', label: 'Overview' },
     { href: '/kanban', label: 'Kanban' },
-    { href: '/kanban/log', label: 'Kanban Log' },
     ...(isAdmin ? [{ href: '/users', label: 'Users' }] : []),
-    { href: '/support', label: 'Support', count: openSupportCount },
+    { href: '/support', label: 'Email', count: openSupportCount },
     ...(isAdmin ? [{ href: '/launch', label: 'Launch', count: newLaunchCount }] : []),
     { href: '/moderation', label: 'Moderation', count: pendingModerationCount },
     ...(isAdmin ? [{ href: '/agents', label: 'Agents' }] : []),
     { href: '/accounting', label: 'Accounting' },
-    { href: '/email', label: 'Email' },
     ...(isAdmin ? [{ href: '/marketing', label: 'Marketing' }] : []),
     { href: '/scraper', label: 'Scraper' },
   ];

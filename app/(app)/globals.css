@@ -186,6 +186,29 @@ button:disabled {
 .prose em { font-style: italic; }
 .prose s  { text-decoration: line-through; }
 
+/* ── Email body (rendered HTML from inbound emails) ──────────────────────── */
+.email-body {
+  /* Contain runaway widths from inline tables / fixed-width layouts */
+  overflow-x: auto;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.email-body img { max-width: 100%; height: auto; display: inline-block; }
+.email-body table { max-width: 100%; }
+.email-body a { color: #60a5fa; text-decoration: underline; word-break: break-all; }
+.email-body p { margin: 0.5em 0; }
+.email-body blockquote {
+  border-left: 3px solid #4b5563;
+  padding-left: 0.75rem;
+  color: #9ca3af;
+  margin: 0.5em 0;
+}
+.email-body pre { white-space: pre-wrap; }
+.email-body--light a { color: #2563eb; }
+.email-body--light blockquote { color: #6b7280; border-left-color: #d1d5db; }
+
 /* ── Keystone Highlight ──────────────────────────────────────────────────── */
 /* Use {{text}} in any EditableText to wrap it in this class */
 .ksw-highlight {

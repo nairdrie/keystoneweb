@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { resend } from '@/lib/email/resend';
+import { buildSignatureHtml, buildSignatureText, nameFromEmail } from '@/lib/email/signature';
 
 // Allowed @keystoneweb.ca sender addresses
 const ALLOWED_FROM_EMAILS = [
@@ -40,16 +41,6 @@ async function getOpsUser() {
   return { user, isAdmin: false, agentContactEmail: profile.agent_contact_email };
 }
 
-/** Derive a display name from an email address, e.g. "nick.smith@gmail.com" → "Nick Smith" */
-function nameFromEmail(email: string): string {
-  const username = email.split('@')[0];
-  return username
-    .split(/[._-]/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
 export async function POST(request: Request) {
   try {
     const { user, isAdmin, agentContactEmail } = await getOpsUser();
@@ -85,7 +76,6 @@ export async function POST(request: Request) {
 
     const senderLabel = isAdmin ? 'Keystone Operations' : 'Keystone';
     const senderName = nameFromEmail(user.email ?? fromEmail);
-    const logoUrl = 'https://keystoneweb.ca/assets/logo/keystone-logo.png';
 
     const { data, error } = await resend.emails.send({
       from: `${senderLabel} <${fromEmail}>`,
@@ -95,30 +85,10 @@ export async function POST(request: Request) {
       html: `
         <div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f2937;">
           <div style="margin: 0 0 24px 0;">${body.replace(/\n/g, '<br/>')}</div>
-          <div style="margin-top: 32px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
-            <table cellpadding="0" cellspacing="0" border="0" style="font-family: Arial, sans-serif;">
-              <tr>
-                <td style="padding-right: 16px; border-right: 2px solid #2563eb; vertical-align: top;">
-                  <a href="https://keystoneweb.ca" target="_blank" style="text-decoration: none;">
-                    <img src="${logoUrl}" alt="Keystone Web Design" style="height: 48px; width: auto; display: block;" />
-                  </a>
-                </td>
-                <td style="padding-left: 16px; vertical-align: top;">
-                  <p style="margin: 0; font-size: 15px; font-weight: 700; color: #111827;">${senderName}</p>
-                  <p style="margin: 2px 0 0 0; font-size: 13px; color: #6b7280;">Keystone Web Design</p>
-                  <p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;">
-                    <a href="mailto:${fromEmail}" style="color: #6b7280; text-decoration: none;">${fromEmail}</a>
-                  </p>
-                  <p style="margin: 4px 0 0 0; font-size: 12px;">
-                    <a href="https://keystoneweb.ca" style="color: #2563eb; text-decoration: none;">keystoneweb.ca</a>
-                  </p>
-                </td>
-              </tr>
-            </table>
-          </div>
+          ${buildSignatureHtml({ senderName, fromEmail })}
         </div>
       `,
-      text: `${body}\n\n--\n${senderName}\nKeystone Web Design\n${fromEmail}\nhttps://keystoneweb.ca`,
+      text: `${body}\n\n${buildSignatureText({ senderName, fromEmail })}`,
     });
 
     if (error) {
