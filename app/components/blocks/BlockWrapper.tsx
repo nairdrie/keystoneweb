@@ -1,11 +1,8 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import { useEditorContext } from '@/lib/editor-context';
-import { ArrowUp, ArrowDown, Trash2, Settings } from 'lucide-react';
-import BlockSettingsModal from './BlockSettingsModal';
-import { motion } from 'framer-motion';
-import { staggerContainer } from '@/lib/motion';
 import { getBlockSlug } from '@/lib/block-utils';
 
 interface BlockWrapperProps {
@@ -19,31 +16,18 @@ interface BlockWrapperProps {
     palette?: Record<string, string>;
 }
 
-export default function BlockWrapper({ id, type, children, data, onUpdateBlockData, customCss, onUpdateCustomCss, palette }: BlockWrapperProps) {
+const BlockWrapperEditor = dynamic(() => import('./BlockWrapperEditor'), { ssr: false });
+
+export default function BlockWrapper(props: BlockWrapperProps) {
+    const { id, type, children, customCss, palette } = props;
     const context = useEditorContext();
     const isEditMode = context?.isEditMode || false;
-    const isProUser = context?.isProUser || false;
-    const [settingsOpen, setSettingsOpen] = useState(false);
-
     const blocks = context?.blocks || [];
     const index = blocks.findIndex(b => b.id === id);
     const slug = index !== -1 ? getBlockSlug(blocks[index], index, blocks) : id;
 
-    // Build scoped CSS: wrap all rules under [data-block-id="blockId"] selector
-    const scopedCss = customCss
-        ? customCss
-            .split('}')
-            .filter(rule => rule.trim())
-            .map(rule => {
-                const trimmed = rule.trim();
-                if (!trimmed) return '';
-                // Prefix each rule with the block's unique ID selector
-                return `[data-block-id="${id}"] ${trimmed}}`;
-            })
-            .join('\n')
-        : '';
+    const scopedCss = scopeCustomCss(id, customCss);
 
-    // Expose palette colors as CSS variables so custom CSS can use var(--primary) etc.
     const paletteVars = palette
         ? ({
             '--primary': palette.primary,
@@ -52,86 +36,33 @@ export default function BlockWrapper({ id, type, children, data, onUpdateBlockDa
         } as React.CSSProperties)
         : undefined;
 
-    const animationProps = {
-        variants: staggerContainer as any,
-        initial: isEditMode ? "show" : "hidden",
-        whileInView: "show",
-        animate: isEditMode ? "show" : undefined,
-        viewport: { once: true, margin: "-50px" }
-    };
-
     if (!isEditMode) {
         return (
-            <motion.div
+            <div
                 key={`${id}-view`}
                 id={slug}
                 data-block-id={id}
-                {...animationProps}
                 style={paletteVars}
                 className={`w-full ks-block ks-block-${type}`}
             >
                 {scopedCss && <style dangerouslySetInnerHTML={{ __html: scopedCss }} />}
                 {children}
-            </motion.div>
+            </div>
         );
     }
 
-    return (
-        <motion.div
-            key={`${id}-edit`}
-            id={slug}
-            data-block-id={id}
-            {...animationProps}
-            style={paletteVars}
-            className={`relative group w-full border-2 border-transparent hover:border-slate-300 [@media(hover:none)]:border-slate-300/60 transition-colors ks-block ks-block-${type}`}
-        >
-            {/* Editor controls are intentionally outside data-block-id so block __customCss cannot affect them */}
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity bg-white shadow-md border border-slate-200 rounded-md flex overflow-hidden z-[100]">
-                <button
-                    onClick={() => setSettingsOpen(true)}
-                    className="p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-100 transition-colors"
-                    title="Block Settings"
-                >
-                    <Settings className="w-4 h-4" />
-                </button>
-                <button
-                    onClick={() => context?.moveBlock?.(id, 'up')}
-                    className="p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-100 transition-colors"
-                    title="Move Up"
-                >
-                    <ArrowUp className="w-4 h-4" />
-                </button>
-                <button
-                    onClick={() => context?.moveBlock?.(id, 'down')}
-                    className="p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-100 transition-colors"
-                    title="Move Down"
-                >
-                    <ArrowDown className="w-4 h-4" />
-                </button>
-                <button
-                    onClick={() => context?.removeBlock?.(id)}
-                    className="p-1.5 text-red-500 hover:bg-red-50 transition-colors"
-                    title="Delete Block"
-                >
-                    <Trash2 className="w-4 h-4" />
-                </button>
-            </div>
-            <div data-block-id={id}>
-                {scopedCss && <style dangerouslySetInnerHTML={{ __html: scopedCss }} />}
-                {children}
-            </div>
+    return <BlockWrapperEditor {...props} slug={slug} scopedCss={scopedCss} paletteVars={paletteVars} />;
+}
 
-            <BlockSettingsModal
-                isOpen={settingsOpen}
-                onClose={() => setSettingsOpen(false)}
-                blockId={id}
-                blockType={type}
-                blockData={data}
-                onUpdateBlockData={onUpdateBlockData}
-                customCss={customCss || ''}
-                onSaveCustomCss={(css) => onUpdateCustomCss?.(css)}
-                isProUser={isProUser}
-            />
-        </motion.div>
-    );
+function scopeCustomCss(id: string, customCss?: string): string {
+    if (!customCss) return '';
+    return customCss
+        .split('}')
+        .filter(rule => rule.trim())
+        .map(rule => {
+            const trimmed = rule.trim();
+            if (!trimmed) return '';
+            return `[data-block-id="${id}"] ${trimmed}}`;
+        })
+        .join('\n');
 }
