@@ -1,6 +1,18 @@
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { createClient } from '@/lib/db/supabase-server';
 import Link from 'next/link';
+import { plainTextPreview } from '@/lib/email/preview';
+import { nameFromEmail } from '@/lib/email/signature';
+import EmailComposeButton from '../email/EmailComposeButton';
+
+const ALL_FROM_EMAILS = [
+  'ops@keystoneweb.ca',
+  'support@keystoneweb.ca',
+  'hello@keystoneweb.ca',
+  'contact@keystoneweb.ca',
+  'sales@keystoneweb.ca',
+  'info@keystoneweb.ca',
+];
 
 const STATUS_STYLES: Record<string, string> = {
   open: 'text-amber-400 bg-amber-400/10',
@@ -36,7 +48,7 @@ export default async function OpsSupportPage({
   const isAdmin = adminEmails.includes(user?.email?.toLowerCase() ?? '');
   let agentContactEmail: string | null = null;
 
-  if (!isAdmin && user) {
+  if (user) {
     const db = createAdminClient();
     const { data: profile } = await db
       .from('users')
@@ -45,6 +57,14 @@ export default async function OpsSupportPage({
       .single();
     agentContactEmail = profile?.agent_contact_email ?? null;
   }
+
+  // Compose modal: which "From" addresses can this user send from?
+  const availableFromEmails = isAdmin
+    ? [...(agentContactEmail ? [agentContactEmail] : []), ...ALL_FROM_EMAILS]
+    : agentContactEmail
+      ? [agentContactEmail]
+      : [];
+  const senderName = nameFromEmail(user?.email ?? '');
 
   const db = createAdminClient();
 
@@ -134,16 +154,17 @@ export default async function OpsSupportPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Support Requests</h1>
+          <h1 className="text-2xl font-bold text-white">Email</h1>
           {!isAdmin && agentContactEmail && (
             <p className="mt-1 text-xs text-violet-400">
               Showing threads for <span className="font-mono">{agentContactEmail}</span>
             </p>
           )}
+          <p className="mt-1 text-sm text-gray-500">{count ?? 0} conversations</p>
         </div>
-        <span className="text-sm text-gray-500">{count ?? 0} conversations</span>
+        <EmailComposeButton availableFromEmails={availableFromEmails} senderName={senderName} />
       </div>
 
       {/* Search + sort bar */}
@@ -238,11 +259,12 @@ export default async function OpsSupportPage({
                       {req.from_name ? `${req.from_name} <${req.from_email}>` : req.from_email}
                     </span>
                   </p>
-                  {req.body_text && (
-                    <p className="mt-1.5 text-xs text-gray-500 line-clamp-2">
-                      {req.body_text.slice(0, 180)}
-                    </p>
-                  )}
+                  {(() => {
+                    const preview = plainTextPreview(req.body_text, 180);
+                    return preview ? (
+                      <p className="mt-1.5 text-xs text-gray-500 line-clamp-2">{preview}</p>
+                    ) : null;
+                  })()}
                 </div>
                 <time className="shrink-0 text-xs text-gray-600">
                   {new Date(req.created_at).toLocaleDateString('en-CA', {
