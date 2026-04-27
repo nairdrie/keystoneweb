@@ -6,14 +6,20 @@ import EmailSignaturePreview from '@/app/components/email/EmailSignaturePreview'
 export default function EmailComposer({
   availableFromEmails,
   senderName,
+  defaultTo = '',
+  defaultSubject = '',
+  onSent,
 }: {
   availableFromEmails: string[];
   senderName: string;
+  defaultTo?: string;
+  defaultSubject?: string;
+  onSent?: () => void;
 }) {
   const [fromEmail, setFromEmail] = useState(availableFromEmails[0] ?? '');
-  const [to, setTo] = useState('');
+  const [to, setTo] = useState(defaultTo);
   const [replyTo, setReplyTo] = useState('');
-  const [subject, setSubject] = useState('');
+  const [subject, setSubject] = useState(defaultSubject);
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ success?: boolean; error?: string } | null>(null);
@@ -41,10 +47,11 @@ export default function EmailComposer({
         setResult({ error: json.error });
       } else {
         setResult({ success: true });
-        setTo('');
+        setTo(defaultTo);
         setReplyTo('');
-        setSubject('');
+        setSubject(defaultSubject);
         setBody('');
+        onSent?.();
       }
     } catch {
       setResult({ error: 'Network error. Please try again.' });

@@ -69,6 +69,12 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
     newLaunchCount = launchNew ?? 0;
   }
 
+  // Fetch new leads count
+  const { count: newLeadsCount } = await db
+    .from('leads')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'new');
+
   return (
     <html lang="en">
       <body className="antialiased">
@@ -79,6 +85,7 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
             isAdmin={isAdmin}
             pendingModerationCount={moderationCount ?? 0}
             newLaunchCount={newLaunchCount}
+            newLeadsCount={newLeadsCount ?? 0}
           />
 
           <main className="w-full px-4 py-8 sm:px-6 lg:px-8">

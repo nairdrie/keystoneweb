@@ -96,17 +96,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Log the sent email so agents can see replies in their inbox
+    // Log the sent email so agents can see replies in their inbox.
+    // If the recipient matches a lead, also log a lead_contact_events row
+    // so the lead's timeline stays in sync.
     try {
       const db = createAdminClient();
-      const toEmail = Array.isArray(to) ? to[0] : to;
-      await db.from('ops_sent_emails').insert({
-        sent_by_user_id: user.id,
-        from_email: fromEmail,
-        to_email: toEmail.toLowerCase().trim(),
-        subject,
-        resend_id: data?.id ?? null,
-      });
+      const toEmail = (Array.isArray(to) ? to[0] : to).toLowerCase().trim();
+      const { data: sentRow } = await db
+        .from('ops_sent_emails')
+        .insert({
+          sent_by_user_id: user.id,
+          from_email: fromEmail,
+          to_email: toEmail,
+          subject,
+          resend_id: data?.id ?? null,
+        })
+        .select('id')
+        .single();
+
+      const { data: matchingLeads } = await db
+        .from('leads')
+        .select('id')
+        .ilike('email', toEmail);
+
+      if (matchingLeads && matchingLeads.length > 0 && sentRow?.id) {
+        const events = matchingLeads.map((l) => ({
+          lead_id: l.id,
+          kind: 'email_sent',
+          occurred_at: new Date().toISOString(),
+          notes: subject ?? null,
+          created_by_user_id: user.id,
+          ops_sent_email_id: sentRow.id,
+        }));
+        await db.from('lead_contact_events').insert(events);
+      }
     } catch (logErr) {
       // Non-fatal — email was sent successfully, just log the error
       console.error('[ops/email/send] Failed to log sent email:', logErr);
