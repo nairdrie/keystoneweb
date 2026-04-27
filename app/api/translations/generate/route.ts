@@ -248,7 +248,7 @@ async function translateWithLLM(
   targetLanguageName: string,
 ): Promise<{ site: Record<string, string>; pages: Record<string, Record<string, string>> } | null> {
   const provider = process.env.AI_BUILDER_PROVIDER || 'anthropic';
-  const model = process.env.AI_BUILDER_MODEL || (provider === 'anthropic' ? 'claude-sonnet-4-5-20250514' : 'gpt-4o-mini');
+  const model = process.env.AI_BUILDER_MODEL || (provider === 'anthropic' ? 'claude-sonnet-4-6' : 'gpt-4o-mini');
 
   const systemPrompt = `You are a professional website translator. You translate website content accurately and naturally into ${targetLanguageName} (${targetLanguageCode}).
 

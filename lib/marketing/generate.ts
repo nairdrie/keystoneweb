@@ -159,6 +159,11 @@ export async function generateCampaign(
   const systemPrompt = `${BASE_SYSTEM_PROMPT}\n\n${CHANNEL_PROMPTS[channel]}`;
   const userPrompt = buildUserPrompt(context, channel, campaignType);
 
+  if(!process.env.MARKETING_MODEL) {
+    console.error(`[marketing/generate] Missing env. var MARKETING_MODEL`);
+    throw new Error('AI generation service unavailable');
+  }
+
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -167,7 +172,7 @@ export async function generateCampaign(
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-5-20250514',
+      model: process.env.MARKETING_MODEL,
       max_tokens: 4096,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
