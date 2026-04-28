@@ -88,6 +88,7 @@ export default function NewLeadButton() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        console.error('[ops/leads/extract-from-image]', res);
         throw new Error(data.error ?? 'Extraction failed');
       }
       const data = await res.json();
