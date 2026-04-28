@@ -269,6 +269,18 @@ AVAILABLE BLOCK TYPES AND THEIR DATA SCHEMAS:
       showPhone: boolean,          // Show phone field (default: true)
       showMessage: boolean         // Show additional notes field (default: false)
     }
+
+31. "socialFeed" — Social media embeds from YouTube, Instagram, TikTok, X/Twitter, and Facebook (single posts, reels, videos, tweets, or a Facebook page timeline)
+    data: {
+      title: string,            // Optional section heading (e.g. "Follow us on social")
+      subtitle: string,         // Optional supporting text below the title
+      variant: "grid" | "single",  // "grid" = multiple embeds in columns; "single" = one centered embed (default: "grid")
+      columns: 1 | 2 | 3 | 4,   // Grid columns at desktop (default: 3, ignored when variant="single")
+      items: Array<{
+        id: string,             // Unique ID (use UUID)
+        url: string             // Public URL to a YouTube video/playlist, Instagram post/reel, TikTok video, X/Twitter status, or Facebook post/video/page
+      }>                        // Platform is auto-detected from each URL
+    }
 `;
 
 export const AVAILABLE_OPERATIONS = `
