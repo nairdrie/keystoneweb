@@ -14,7 +14,8 @@ const WEEKDAY_REGION: Record<number, string> = {
 
 const TARGET_NEW_PROSPECTS = 10;       // soft target per run
 const MAX_QUERY_ATTEMPTS = 4;          // stop after this many query advances
-const COOLDOWN_DAYS_AFTER_EXHAUST = 60;
+const COOLDOWN_DAYS = 60;              // cooldown applied after every visit
+const STALE_POOL_SIZE = 25;            // top-N stalest queries we randomize within
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -43,53 +44,74 @@ export async function GET(request: NextRequest) {
     errors: [] as string[],
   };
 
-  for (let attempt = 0; attempt < MAX_QUERY_ATTEMPTS; attempt++) {
+  // Pre-fetch the stale pool ONCE, shuffle in JS, then pop one per attempt.
+  // The shuffle gives us niche/city variety even on first-run when every
+  // row has last_run_at = NULL and Postgres would otherwise return them in
+  // physical insert order (which lands us on "all plumber" results because
+  // plumber is the first niche per city in the seed).
+  const nowIso = new Date().toISOString();
+  const { data: pool } = await db
+    .from('lead_discovery_queries')
+    .select('id, niche, city, region')
+    .eq('region', region)
+    .eq('enabled', true)
+    .or(`cooldown_until.is.null,cooldown_until.lt.${nowIso}`)
+    .order('last_run_at', { ascending: true, nullsFirst: true })
+    .limit(STALE_POOL_SIZE);
+
+  if (!pool || pool.length === 0) {
+    summary.errors.push(`No eligible queries in region ${region}`);
+    return NextResponse.json(summary);
+  }
+
+  const shuffled = shuffle([...pool]);
+
+  for (let attempt = 0; attempt < MAX_QUERY_ATTEMPTS && attempt < shuffled.length; attempt++) {
     if (summary.new_prospects >= TARGET_NEW_PROSPECTS) break;
 
-    // Pick the stalest enabled query in this region whose cooldown has expired.
-    const { data: queries } = await db
-      .from('lead_discovery_queries')
-      .select('*')
-      .eq('region', region)
-      .eq('enabled', true)
-      .or(`cooldown_until.is.null,cooldown_until.lt.${new Date().toISOString()}`)
-      .order('last_run_at', { ascending: true, nullsFirst: true })
-      .limit(1);
+    const query = shuffled[attempt];
+    summary.queries_attempted.push({ id: query.id, niche: query.niche, city: query.city });
 
-    const query = queries?.[0];
-    if (!query) {
-      summary.errors.push(`No enabled queries available in region ${region}`);
-      break;
+    // ----- Skip page 1: low-ranked businesses are who needs help -----
+    // pageTokens expire in minutes, so we do the page-1 throwaway in the
+    // same invocation as the page-2 fetch we actually want.
+    let firstPage;
+    try {
+      firstPage = await searchTextGta({ niche: query.niche, city: query.city, pageToken: null });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      summary.errors.push(`Page 1 ${query.niche}/${query.city}: ${msg}`);
+      await markRun(db, query.id, msg);
+      continue;
     }
 
-    summary.queries_attempted.push({ id: query.id, niche: query.niche, city: query.city });
+    if (!firstPage.nextPageToken) {
+      // Fewer than 20 results total — query too narrow. Skip and cooldown
+      // so we don't waste a Places call on it tomorrow.
+      console.log(
+        `[cron/leads/discover] ${query.niche} / ${query.city}: ` +
+          `only ${firstPage.places.length} total results, no page 2 — skipping`,
+      );
+      await markRun(db, query.id, null);
+      continue;
+    }
 
     let pageResult;
     try {
       pageResult = await searchTextGta({
         niche: query.niche,
         city: query.city,
-        pageToken: query.next_page_token,
+        pageToken: firstPage.nextPageToken,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      summary.errors.push(`Query ${query.niche}/${query.city}: ${msg}`);
-      await db
-        .from('lead_discovery_queries')
-        .update({
-          last_run_at: new Date().toISOString(),
-          last_error: msg,
-        })
-        .eq('id', query.id);
+      summary.errors.push(`Page 2 ${query.niche}/${query.city}: ${msg}`);
+      await markRun(db, query.id, msg);
       continue;
     }
 
     summary.raw_results += pageResult.places.length;
 
-    // Insert prospects, skipping any place_id we already have. Supabase
-    // doesn't surface per-row insert results easily, so we dedup in two
-    // passes: pre-fetch existing place_ids in this batch, then insert the
-    // diff. That way `summary.new_prospects` is accurate.
     let inserted = 0;
     if (pageResult.places.length > 0) {
       const placeIds = pageResult.places.map((p) => p.placeId);
@@ -118,33 +140,41 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Advance the query cursor regardless of how many were new — that way a
-    // hit-zone query (10/10 fresh) doesn't pin us to the same page tomorrow.
-    const exhausted = !pageResult.nextPageToken;
-    await db
-      .from('lead_discovery_queries')
-      .update({
-        last_run_at: new Date().toISOString(),
-        next_page_token: pageResult.nextPageToken,
-        page_index: query.page_index + 1,
-        total_results_seen: query.total_results_seen + pageResult.places.length,
-        last_error: null,
-        cooldown_until: exhausted
-          ? new Date(Date.now() + COOLDOWN_DAYS_AFTER_EXHAUST * 86_400_000).toISOString()
-          : null,
-        // Reset page_index when token is exhausted so the next visit starts page 1 again.
-        ...(exhausted ? { page_index: 0 } : {}),
-      })
-      .eq('id', query.id);
+    await markRun(db, query.id, null);
 
     console.log(
       `[cron/leads/discover] ${query.niche} / ${query.city}: ` +
-        `+${inserted} new, ${pageResult.places.length - inserted} dupes, ` +
-        `nextPage=${exhausted ? 'EXHAUSTED' : 'yes'}`,
+        `+${inserted} new, ${pageResult.places.length - inserted} dupes (page 2)`,
     );
   }
 
   return NextResponse.json(summary);
+}
+
+async function markRun(
+  db: ReturnType<typeof createAdminClient>,
+  id: string,
+  error: string | null,
+) {
+  await db
+    .from('lead_discovery_queries')
+    .update({
+      last_run_at: new Date().toISOString(),
+      last_error: error,
+      cooldown_until: new Date(Date.now() + COOLDOWN_DAYS * 86_400_000).toISOString(),
+      // Pagination columns are vestigial under skip-page-1 logic but kept on
+      // the table to avoid a destructive migration.
+      next_page_token: null,
+    })
+    .eq('id', id);
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
 
 function toProspectRow(
