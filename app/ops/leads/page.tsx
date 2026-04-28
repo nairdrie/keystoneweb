@@ -153,7 +153,15 @@ export default async function OpsLeadsPage({
             Outbound prospecting pipeline. {count ?? 0} matching{q || status !== 'all' || source !== 'all' ? ` of ${summary.totalLeads} total` : ' total'}.
           </p>
         </div>
-        <NewLeadButton />
+        <div className="flex items-center gap-2">
+          <Link
+            href="/leads/discover"
+            className="rounded-md bg-gray-800 hover:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition-colors"
+          >
+            Discover prospects
+          </Link>
+          <NewLeadButton />
+        </div>
       </div>
 
       {/* Analytics strip */}
