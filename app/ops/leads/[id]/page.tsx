@@ -48,6 +48,8 @@ type Lead = {
   onboarding_amount_cents: number | null;
   notes: string | null;
   tags: string[];
+  image_storage_path: string | null;
+  image_url: string | null;
   assignee: { id: string; email: string | null; business_name: string | null } | null;
   referred_by: { id: string; email: string | null; business_name: string | null } | null;
   converted_user: { id: string; email: string | null; business_name: string | null } | null;
@@ -244,6 +246,17 @@ export default function LeadDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left column — research, business, conversation history */}
         <div className="lg:col-span-2 space-y-4">
+          {lead.image_url && (
+            <Card title="Source image">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={lead.image_url}
+                alt="Lead source (uploaded photo)"
+                className="w-full max-h-96 object-contain rounded bg-gray-950"
+              />
+            </Card>
+          )}
+
           <Card title="Contact">
             <EditableField
               label="Name"
