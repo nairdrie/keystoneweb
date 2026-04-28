@@ -155,8 +155,20 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     created_by: ev.created_by_user_id ? authorMap[ev.created_by_user_id] ?? null : null,
   }));
 
+  // Generate a short-lived signed URL for the lead image so the browser can
+  // render it without exposing the storage path or making the bucket public.
+  // Page should refetch when the URL expires (1 hour).
+  let image_url: string | null = null;
+  if (lead.image_storage_path) {
+    const { data: signed } = await db.storage
+      .from('lead-images')
+      .createSignedUrl(lead.image_storage_path, 60 * 60);
+    image_url = signed?.signedUrl ?? null;
+  }
+
   return NextResponse.json({
     ...lead,
+    image_url,
     assignee,
     referred_by,
     converted_user,

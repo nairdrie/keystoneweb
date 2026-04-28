@@ -28,6 +28,7 @@ export const LEAD_SOURCES = [
   'organic_search',
   'launch_request',
   'partner',
+  'physical_ad',
   'other',
 ] as const;
 export type LeadSource = (typeof LEAD_SOURCES)[number];
@@ -82,6 +83,7 @@ export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
   organic_search: 'Organic search',
   launch_request: 'Launch request',
   partner: 'Partner',
+  physical_ad: 'Physical ad / sign',
   other: 'Other',
 };
 
