@@ -11,6 +11,8 @@ import {
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
 import StoreSettingsPanel from '../ecommerce/StoreSettingsPanel';
 import OrdersPanel from '../ecommerce/OrdersPanel';
+import ProductDescriptionEditor from '../ProductDescriptionEditor';
+import { stripHtml } from '@/lib/ecommerce/description';
 import { useRouter, usePathname } from 'next/navigation';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -18,6 +20,7 @@ import { useRouter, usePathname } from 'next/navigation';
 interface Product {
     id: string;
     name: string;
+    brand: string | null;
     description: string | null;
     price_cents: number;
     compare_at_cents: number | null;
@@ -591,6 +594,7 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
 }) {
     const isEdit = !!product;
     const [name, setName] = useState(product?.name ?? '');
+    const [brand, setBrand] = useState(product?.brand ?? '');
     const [description, setDescription] = useState(product?.description ?? '');
     const [price, setPrice] = useState(product ? (product.price_cents / 100).toFixed(2) : '');
     const [compareAt, setCompareAt] = useState(product?.compare_at_cents ? (product.compare_at_cents / 100).toFixed(2) : '');
@@ -742,6 +746,7 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
 
         const payload = {
             name,
+            brand: brand.trim() || null,
             description: description || null,
             price_cents: publicPriceCents,
             compare_at_cents: compareAt ? Math.round(parseFloat(compareAt) * 100) : null,
@@ -780,6 +785,13 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
                 <button onClick={onCancel} className="text-xs text-slate-400 hover:text-slate-600">Cancel</button>
             </div>
 
+            {/* Brand */}
+            <input
+                type="text" placeholder="Brand (optional, e.g. Nike)" value={brand}
+                onChange={e => setBrand(e.target.value)}
+                className="w-full px-3 py-2 text-xs uppercase tracking-wider border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            />
+
             {/* Name */}
             <input
                 type="text" placeholder="Product name" value={name}
@@ -788,11 +800,10 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
             />
 
             {/* Description */}
-            <textarea
-                placeholder="Product description" value={description}
-                onChange={e => setDescription(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none bg-white"
-                rows={3}
+            <ProductDescriptionEditor
+                value={description}
+                onChange={setDescription}
+                placeholder="Product description — supports bullet points, headings, links"
             />
 
             {/* Images */}
@@ -1475,9 +1486,12 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
                     )}
                 </div>
                 <div className="p-3.5">
+                    {product.brand && (
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 truncate">{product.brand}</p>
+                    )}
                     <h3 className="font-semibold text-slate-900 text-sm truncate group-hover:text-blue-700 transition-colors">{product.name}</h3>
                     {product.description && (
-                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{product.description}</p>
+                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{stripHtml(product.description)}</p>
                     )}
                     <div className="flex items-center gap-2 mt-2">
                         <span className="font-bold text-base" style={{ color: pSecondary }}>${(effectivePriceCents / 100).toFixed(2)}</span>
@@ -1518,6 +1532,9 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
                     )}
                 </div>
                 <div className="flex-1 min-w-0">
+                    {product.brand && (
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">{product.brand}</p>
+                    )}
                     <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-semibold text-slate-900 text-base sm:text-lg group-hover:text-blue-700 transition-colors">{product.name}</h3>
                         {hasDiscount && (
@@ -1525,7 +1542,7 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
                         )}
                     </div>
                     {product.description && (
-                        <p className="text-sm text-slate-500 mt-1 line-clamp-2">{product.description}</p>
+                        <p className="text-sm text-slate-500 mt-1 line-clamp-2">{stripHtml(product.description)}</p>
                     )}
                     <div className="flex items-center gap-3 mt-2">
                         <span className="font-bold text-lg" style={{ color: pSecondary }}>${(product.price_cents / 100).toFixed(2)}</span>

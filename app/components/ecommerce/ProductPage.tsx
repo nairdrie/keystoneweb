@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ShoppingCart, Minus, Plus, ChevronLeft, ChevronRight, Check, ArrowLeft, Package, Truck, Shield, Lock } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { ShoppingCart, Minus, Plus, ChevronLeft, ChevronRight, Check, ArrowLeft, Package, Truck, Shield, Lock, X, ZoomIn } from 'lucide-react';
 import { useCart } from './CartProvider';
+import { isHtmlDescription } from '@/lib/ecommerce/description';
 
 interface Product {
     id: string;
     name: string;
+    brand?: string | null;
     description: string | null;
     price_cents: number;
     compare_at_cents: number | null;
@@ -64,7 +66,11 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
     const [qty, setQty] = useState(1);
     const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
     const [added, setAdded] = useState(false);
-    const [imageZoomed, setImageZoomed] = useState(false);
+    const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
+    const [lightboxOpen, setLightboxOpen] = useState(false);
+    const [lightboxZoomed, setLightboxZoomed] = useState(false);
+    const [lightboxOrigin, setLightboxOrigin] = useState<{ x: number; y: number }>({ x: 50, y: 50 });
+    const mainImageRef = useRef<HTMLDivElement | null>(null);
 
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
@@ -108,6 +114,55 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
     const prevImage = () => setSelectedImage((selectedImage - 1 + (product.images?.length || 1)) % (product.images?.length || 1));
     const nextImage = () => setSelectedImage((selectedImage + 1) % (product.images?.length || 1));
 
+    const handleMainImageHover = (e: React.MouseEvent<HTMLDivElement>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        setHoverPos({ x, y });
+    };
+
+    const openLightbox = () => {
+        setLightboxOpen(true);
+        setLightboxZoomed(false);
+        setLightboxOrigin({ x: 50, y: 50 });
+    };
+
+    // Lightbox keyboard nav + body scroll lock
+    useEffect(() => {
+        if (!lightboxOpen) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setLightboxOpen(false);
+            else if (e.key === 'ArrowLeft') prevImage();
+            else if (e.key === 'ArrowRight') nextImage();
+        };
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        window.addEventListener('keydown', onKey);
+        return () => {
+            window.removeEventListener('keydown', onKey);
+            document.body.style.overflow = prevOverflow;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [lightboxOpen, selectedImage, product.images?.length]);
+
+    const handleLightboxImageClick = (e: React.MouseEvent<HTMLImageElement>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        setLightboxOrigin({ x, y });
+        setLightboxZoomed(z => !z);
+    };
+
+    const handleLightboxImageMove = (e: React.MouseEvent<HTMLImageElement>) => {
+        if (!lightboxZoomed) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        setLightboxOrigin({ x, y });
+    };
+
+    const descriptionIsHtml = isHtmlDescription(product.description);
+
     return (
         <div className="min-h-screen bg-white">
             {/* Breadcrumbs */}
@@ -129,18 +184,33 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
                     <div className="space-y-4">
                         {/* Main Image */}
                         <div
+                            ref={mainImageRef}
                             className="relative aspect-square bg-slate-50 rounded-2xl overflow-hidden group cursor-zoom-in"
-                            onClick={() => setImageZoomed(!imageZoomed)}
+                            onClick={openLightbox}
+                            onMouseMove={handleMainImageHover}
+                            onMouseLeave={() => setHoverPos(null)}
                         >
                             {product.images?.[selectedImage] ? (
                                 <img
                                     src={product.images[selectedImage]}
                                     alt={product.name}
-                                    className={`w-full h-full object-cover transition-transform duration-500 ${imageZoomed ? 'scale-150' : 'group-hover:scale-105'}`}
+                                    draggable={false}
+                                    className="w-full h-full object-cover transition-transform duration-300 ease-out will-change-transform"
+                                    style={hoverPos ? {
+                                        transform: 'scale(1.6)',
+                                        transformOrigin: `${hoverPos.x}% ${hoverPos.y}%`,
+                                    } : undefined}
                                 />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center">
                                     <Package className="w-24 h-24 text-slate-200" />
+                                </div>
+                            )}
+
+                            {/* Zoom hint */}
+                            {product.images?.[selectedImage] && (
+                                <div className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/90 shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                    <ZoomIn className="w-4 h-4 text-slate-700" />
                                 </div>
                             )}
 
@@ -177,7 +247,7 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
                                 {product.images.map((img, i) => (
                                     <button
                                         key={i}
-                                        onClick={() => { setSelectedImage(i); setImageZoomed(false); }}
+                                        onClick={() => { setSelectedImage(i); setHoverPos(null); }}
                                         className={`flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all ${i === selectedImage ? 'border-slate-900 shadow-md' : 'border-slate-200 hover:border-slate-400'
                                             }`}
                                     >
@@ -190,6 +260,10 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
 
                     {/* ── Right: Product Details ── */}
                     <div className="flex flex-col">
+                        {/* Brand */}
+                        {product.brand && (
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-2">{product.brand}</p>
+                        )}
                         {/* Name */}
                         <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">{product.name}</h1>
 
@@ -233,9 +307,16 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
 
                         {/* Description */}
                         {product.description && (
-                            <div className="prose prose-slate prose-sm max-w-none mb-6">
-                                <p className="text-slate-600 leading-relaxed whitespace-pre-line">{product.description}</p>
-                            </div>
+                            descriptionIsHtml ? (
+                                <div
+                                    className="prose prose-slate prose-sm max-w-none mb-6 text-slate-600 leading-relaxed prose-headings:text-slate-900 prose-a:text-blue-600 prose-strong:text-slate-900"
+                                    dangerouslySetInnerHTML={{ __html: product.description }}
+                                />
+                            ) : (
+                                <div className="prose prose-slate prose-sm max-w-none mb-6">
+                                    <p className="text-slate-600 leading-relaxed whitespace-pre-line">{product.description}</p>
+                                </div>
+                            )
                         )}
 
                         {/* Variants */}
@@ -368,6 +449,95 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
                     </div>
                 )}
             </div>
+
+            {/* ── Lightbox / Zoom Modal ── */}
+            {lightboxOpen && product.images?.[selectedImage] && (
+                <div
+                    className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={`${product.name} image viewer`}
+                    onClick={() => setLightboxOpen(false)}
+                >
+                    {/* Close */}
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setLightboxOpen(false); }}
+                        className="absolute top-4 right-4 w-11 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+                        aria-label="Close"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+
+                    {/* Counter */}
+                    {product.images.length > 1 && (
+                        <div className="absolute top-5 left-5 text-white/80 text-sm font-medium tabular-nums">
+                            {selectedImage + 1} / {product.images.length}
+                        </div>
+                    )}
+
+                    {/* Prev/Next */}
+                    {product.images.length > 1 && (
+                        <>
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); prevImage(); setLightboxZoomed(false); }}
+                                className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+                                aria-label="Previous image"
+                            >
+                                <ChevronLeft className="w-6 h-6" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); nextImage(); setLightboxZoomed(false); }}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+                                aria-label="Next image"
+                            >
+                                <ChevronRight className="w-6 h-6" />
+                            </button>
+                        </>
+                    )}
+
+                    {/* Image */}
+                    <div
+                        className="relative max-w-[95vw] max-h-[90vh] overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <img
+                            src={product.images[selectedImage]}
+                            alt={product.name}
+                            draggable={false}
+                            onClick={handleLightboxImageClick}
+                            onMouseMove={handleLightboxImageMove}
+                            onMouseLeave={() => { if (lightboxZoomed) setLightboxOrigin({ x: 50, y: 50 }); }}
+                            className={`max-w-[95vw] max-h-[90vh] object-contain select-none transition-transform duration-200 ease-out ${lightboxZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'}`}
+                            style={{
+                                transform: lightboxZoomed ? 'scale(2.2)' : 'scale(1)',
+                                transformOrigin: `${lightboxOrigin.x}% ${lightboxOrigin.y}%`,
+                            }}
+                        />
+                    </div>
+
+                    {/* Thumbnail strip */}
+                    {product.images.length > 1 && (
+                        <div
+                            className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2 max-w-[90vw] overflow-x-auto px-2"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {product.images.map((img, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => { setSelectedImage(i); setLightboxZoomed(false); setLightboxOrigin({ x: 50, y: 50 }); }}
+                                    className={`flex-shrink-0 w-14 h-14 rounded-md overflow-hidden border-2 transition-all ${i === selectedImage ? 'border-white' : 'border-white/30 hover:border-white/70'}`}
+                                    aria-label={`View image ${i + 1}`}
+                                >
+                                    <img src={img} alt="" className="w-full h-full object-cover" draggable={false} />
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
