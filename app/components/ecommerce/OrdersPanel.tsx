@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-    Package, Loader2, ChevronDown, ChevronRight, Clock,
+    Loader2, ChevronDown, ChevronRight, Clock,
     CheckCircle2, Truck, XCircle, DollarSign, Mail, Phone, MapPin, AlertTriangle, Download
 } from 'lucide-react';
 
@@ -53,7 +53,6 @@ interface OrdersPanelProps {
 export default function OrdersPanel({ siteId }: OrdersPanelProps) {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
-    const [expanded, setExpanded] = useState(false);
     const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
     const [updatingId, setUpdatingId] = useState<string | null>(null);
     const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -68,9 +67,8 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
     const [shipping, setShipping] = useState(false);
 
     useEffect(() => {
-        if (!expanded) return;
         loadOrders();
-    }, [siteId, expanded]);
+    }, [siteId]);
 
     const loadOrders = async () => {
         setLoading(true);
@@ -219,28 +217,15 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
         )}
 
         <div className="border-2 border-slate-200 rounded-xl overflow-hidden">
-            <button
-                onClick={() => setExpanded(!expanded)}
-                className="w-full flex items-center justify-between px-5 py-3.5 bg-slate-50 hover:bg-slate-100 transition-colors"
-            >
-                <span className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                    <Package className="w-4 h-4 text-slate-500" />
-                    Orders {orders.length > 0 && `(${orders.length})`}
-                </span>
-                {expanded ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
-            </button>
-
-            {expanded && (
-                <div className="border-t border-slate-200">
-                    {loading ? (
-                        <div className="py-8 text-center">
-                            <Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-400" />
-                        </div>
-                    ) : orders.length === 0 ? (
-                        <div className="py-8 text-center text-slate-400 text-sm">
-                            No orders yet
-                        </div>
-                    ) : (
+            {loading ? (
+                <div className="py-8 text-center">
+                    <Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-400" />
+                </div>
+            ) : orders.length === 0 ? (
+                <div className="py-8 text-center text-slate-400 text-sm">
+                    No orders yet
+                </div>
+            ) : (
                         <>
                             {/* Filter tabs + export */}
                             <div className="flex items-center gap-2 px-4 pt-3 pb-2">
@@ -508,8 +493,6 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
                             </div>
                         </>
                     )}
-                </div>
-            )}
         </div>
         </>
     );

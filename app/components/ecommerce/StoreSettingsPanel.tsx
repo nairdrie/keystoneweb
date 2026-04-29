@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import {
     Settings, CreditCard, Mail, Loader2, Check, ExternalLink,
-    AlertCircle, ChevronDown, ChevronRight, DollarSign, Link2,
-    Download, Package, X, Plus, Trash2, Users, Copy
+    AlertCircle, DollarSign, Link2,
+    Download, Package, X, Plus, Users
 } from 'lucide-react';
 import VendorEditor, { Vendor, PaymentMode } from './VendorEditor';
 
@@ -44,7 +44,6 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
     const [saved, setSaved] = useState(false);
     const [connectingStripe, setConnectingStripe] = useState(false);
     const [connectingPaypal, setConnectingPaypal] = useState(false);
-    const [expanded, setExpanded] = useState(false);
 
     // Stripe product sync state
     const [stripeProducts, setStripeProducts] = useState<any[]>([]);
@@ -357,20 +356,8 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
     const hasAnyPayment = pm.etransfer || pm.stripe || pm.paypal || pm.converge || pm.clover;
 
     return (
-        <div className="border-2 border-slate-200 rounded-xl overflow-hidden">
-            <button
-                onClick={() => setExpanded(!expanded)}
-                className="w-full flex items-center justify-between px-5 py-3.5 bg-slate-50 hover:bg-slate-100 transition-colors"
-            >
-                <span className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                    <Settings className="w-4 h-4 text-slate-500" />
-                    Payment & Store Settings
-                </span>
-                {expanded ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
-            </button>
-
-            {expanded && (
-                <div className="p-5 space-y-5 border-t border-slate-200">
+        <div className="overflow-hidden">
+            <div className="p-5 space-y-5">
                     {/* Payment Methods */}
                     <div>
                         <label className="text-sm font-semibold text-slate-700 block mb-2 flex items-center gap-1.5">
@@ -989,8 +976,7 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                         )}
                         {saved ? 'Saved!' : 'Save Settings'}
                     </button>
-                </div>
-            )}
+            </div>
         </div>
     );
 }

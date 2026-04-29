@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import {
-    Loader2, Plus, Trash2, ChevronDown, ChevronRight, GripVertical,
-    MapPin, Truck, Package as PackageIcon, Globe, AlertCircle
+    Loader2, Plus, Trash2, GripVertical,
+    Package as PackageIcon, Globe, AlertCircle
 } from 'lucide-react';
 import { COUNTRIES, REGIONS, getCountryName, getRegionName, type ShippingZone } from '@/lib/shipping-data';
 
@@ -24,7 +24,6 @@ const EMPTY_FORM = {
 };
 
 export default function ShippingPanel({ siteId, shippingRequired, onShippingRequiredChange }: ShippingPanelProps) {
-    const [expanded, setExpanded] = useState(false);
     const [zones, setZones] = useState<ShippingZone[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -33,9 +32,8 @@ export default function ShippingPanel({ siteId, shippingRequired, onShippingRequ
     const [form, setForm] = useState({ ...EMPTY_FORM });
 
     useEffect(() => {
-        if (!expanded) return;
         loadZones();
-    }, [siteId, expanded]);
+    }, [siteId]);
 
     const loadZones = async () => {
         setLoading(true);
@@ -136,19 +134,7 @@ export default function ShippingPanel({ siteId, shippingRequired, onShippingRequ
 
     return (
         <div className="border-2 border-slate-200 rounded-xl overflow-hidden">
-            <button
-                onClick={() => setExpanded(!expanded)}
-                className="w-full flex items-center justify-between px-5 py-3.5 bg-slate-50 hover:bg-slate-100 transition-colors"
-            >
-                <span className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                    <Truck className="w-4 h-4 text-slate-500" />
-                    Shipping
-                </span>
-                {expanded ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
-            </button>
-
-            {expanded && (
-                <div className="border-t border-slate-200 p-4 space-y-4">
+            <div className="p-4 space-y-4">
                     {/* Shipping required toggle */}
                     <div className="flex items-center justify-between">
                         <div>
@@ -398,8 +384,7 @@ export default function ShippingPanel({ siteId, shippingRequired, onShippingRequ
                             )}
                         </>
                     )}
-                </div>
-            )}
+            </div>
         </div>
     );
 }
