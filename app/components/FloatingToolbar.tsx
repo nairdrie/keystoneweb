@@ -20,100 +20,6 @@ import ProfileDropdown from './ProfileDropdown';
 import WalkthroughModal, { WalkthroughStep } from './WalkthroughModal';
 import SiteLimitModal from './SiteLimitModal';
 
-function parseColorToHex(input: string): string | null {
-  const trimmed = input.trim();
-  if (!trimmed) return null;
-
-  const hexMatch = trimmed.match(/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
-  if (hexMatch) {
-    const v = hexMatch[1];
-    const full = v.length === 3 ? v.split('').map((c) => c + c).join('') : v;
-    return `#${full.toLowerCase()}`;
-  }
-
-  const rgbMatch = trimmed.match(/^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*[\d.]+\s*)?\)$/i);
-  if (rgbMatch) {
-    const [r, g, b] = [rgbMatch[1], rgbMatch[2], rgbMatch[3]].map(Number);
-    if ([r, g, b].every((n) => n >= 0 && n <= 255)) {
-      const toHex = (n: number) => n.toString(16).padStart(2, '0');
-      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-    }
-  }
-
-  return null;
-}
-
-function CustomColorInput({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (hex: string) => void;
-}) {
-  const [text, setText] = useState(value);
-  const [invalid, setInvalid] = useState(false);
-
-  useEffect(() => {
-    setText(value);
-    setInvalid(false);
-  }, [value]);
-
-  const commit = (raw: string) => {
-    const parsed = parseColorToHex(raw);
-    if (parsed) {
-      setInvalid(false);
-      setText(parsed);
-      if (parsed.toLowerCase() !== value.toLowerCase()) onChange(parsed);
-    } else {
-      setInvalid(true);
-    }
-  };
-
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <span className="text-[10px] font-bold text-slate-500 uppercase">{label}</span>
-      <input
-        type="color"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent"
-      />
-      <input
-        type="text"
-        value={text}
-        onChange={(e) => {
-          setText(e.target.value);
-          if (invalid) setInvalid(false);
-        }}
-        onBlur={(e) => commit(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            commit((e.target as HTMLInputElement).value);
-          }
-        }}
-        onPaste={(e) => {
-          const pasted = e.clipboardData.getData('text');
-          const parsed = parseColorToHex(pasted);
-          if (parsed) {
-            e.preventDefault();
-            setText(parsed);
-            setInvalid(false);
-            if (parsed.toLowerCase() !== value.toLowerCase()) onChange(parsed);
-          }
-        }}
-        spellCheck={false}
-        placeholder="#rrggbb"
-        className={`w-20 text-[10px] font-mono text-center px-1 py-0.5 border rounded bg-white ${
-          invalid ? 'border-red-400 text-red-600' : 'border-slate-300 text-slate-700'
-        }`}
-      />
-    </div>
-  );
-}
-
 interface Palette {
   name: string;
   primary: string;
@@ -1007,22 +913,19 @@ export default function FloatingToolbar({
                 </div>
 
                 {selectedPalette?.name === 'custom' && (
-                  <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-lg flex justify-around items-start gap-2">
-                    <CustomColorInput
-                      label="Primary"
-                      value={selectedPalette.primary}
-                      onChange={(hex) => onCustomColorChange?.('primary', hex)}
-                    />
-                    <CustomColorInput
-                      label="Secondary"
-                      value={selectedPalette.secondary}
-                      onChange={(hex) => onCustomColorChange?.('secondary', hex)}
-                    />
-                    <CustomColorInput
-                      label="Accent"
-                      value={selectedPalette.accent}
-                      onChange={(hex) => onCustomColorChange?.('accent', hex)}
-                    />
+                  <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-lg flex justify-between items-center gap-2">
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Primary</span>
+                      <input type="color" value={selectedPalette.primary} onChange={(e) => onCustomColorChange?.('primary', e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent" />
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Secondary</span>
+                      <input type="color" value={selectedPalette.secondary} onChange={(e) => onCustomColorChange?.('secondary', e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent" />
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">Accent</span>
+                      <input type="color" value={selectedPalette.accent} onChange={(e) => onCustomColorChange?.('accent', e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent" />
+                    </div>
                   </div>
                 )}
               </div>
