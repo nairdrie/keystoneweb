@@ -68,6 +68,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
 
     // Minimal variant — large typography, no image, clean background
     if (variant === 'minimal') {
+        const showButton = block.data.showButton !== false;
         return (
             <section className="py-40 relative" style={{ backgroundColor: pAccent }}>
                 <div className="max-w-5xl mx-auto px-4">
@@ -97,19 +98,21 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                                 className="text-xl md:text-2xl text-gray-500"
                             />
                         </Reveal>
-                        <Reveal>
-                            <EditableButton
-                                contentKey="buttonText"
-                                label={buttonText}
-                                linkData={block.data.buttonTextLink}
-                                iconData={block.data.buttonTextIcon}
-                                defaultLabel="Get Started"
-                                isEditMode={isEditMode}
-                                onSave={(key, val) => updateData(key, val)}
-                                className="px-10 py-4 text-lg font-bold rounded-full shadow-lg hover:scale-105 transition-transform text-white inline-block flex-shrink-0"
-                                style={{ backgroundColor: pSecondary }}
-                            />
-                        </Reveal>
+                        {showButton && (
+                            <Reveal>
+                                <EditableButton
+                                    contentKey="buttonText"
+                                    label={buttonText}
+                                    linkData={block.data.buttonTextLink}
+                                    iconData={block.data.buttonTextIcon}
+                                    defaultLabel="Get Started"
+                                    isEditMode={isEditMode}
+                                    onSave={(key, val) => updateData(key, val)}
+                                    className="px-10 py-4 text-lg font-bold rounded-full shadow-lg hover:scale-105 transition-transform text-white inline-block flex-shrink-0"
+                                    style={{ backgroundColor: pSecondary }}
+                                />
+                            </Reveal>
+                        )}
                     </div>
                 </div>
             </section>
