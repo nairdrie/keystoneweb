@@ -17,6 +17,8 @@ interface EditableImageProps {
   editOverlayStyle?: 'pill' | 'icon';
   allowUnsplash?: boolean;
   initialSettings?: ImageSettings;
+  /** Mark this as the LCP image: eager + fetchpriority=high. Default false → lazy. */
+  priority?: boolean;
 }
 
 export default function EditableImage({
@@ -31,6 +33,7 @@ export default function EditableImage({
   editOverlayStyle = 'pill',
   allowUnsplash = true,
   initialSettings,
+  priority = false,
 }: EditableImageProps) {
   const context = useEditorContext();
   const [previewUrl, setPreviewUrl] = useState<string | undefined>(imageUrl);
@@ -88,6 +91,9 @@ export default function EditableImage({
           alt={imageSettings.altText || contentKey}
           className={`rounded ${className}`}
           style={imgStyle}
+          loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : 'auto'}
+          decoding={priority ? 'sync' : 'async'}
         />
         {/* Unsplash attribution */}
         {allowUnsplash && attribution && (

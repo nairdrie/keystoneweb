@@ -1,5 +1,5 @@
 -- Migration: Expand vendor payment processors (Converge, Clover) + defaults + email config
--- Builds on 059_vendors.sql to support four payment modes and multi-recipient notifications.
+-- Builds on 061_vendors.sql to support four payment modes and multi-recipient notifications.
 
 -- 1. Expand payment_mode options to include 'converge' and 'clover'
 ALTER TABLE public.vendors DROP CONSTRAINT IF EXISTS vendors_payment_mode_check;

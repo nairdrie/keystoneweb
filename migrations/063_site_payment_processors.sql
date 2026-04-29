@@ -1,6 +1,6 @@
 -- Migration: Site-level Converge & Clover payment processors
 -- Allows site owners to use Converge (Elavon) or Clover for their own payments,
--- not just through vendors. Mirrors the vendor-level fields from 060.
+-- not just through vendors. Mirrors the vendor-level fields from 062.
 
 -- 1. Converge credentials on sites table
 ALTER TABLE public.sites ADD COLUMN IF NOT EXISTS converge_merchant_id text;

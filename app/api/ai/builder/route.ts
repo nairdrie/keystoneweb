@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 import { buildSystemPrompt } from '@/lib/ai/builder-schema';
 import { checkAndRecordUsage, getUsageRemaining, UserPlan } from './rate-limit';
 import { getUserEffectiveLimits } from '@/lib/addons';
@@ -30,11 +31,13 @@ export async function GET(_req: NextRequest) {
 
     const plan = getPlan(subscription?.subscription_status, subscription?.subscription_plan);
     const effectiveLimits = await getUserEffectiveLimits(user.id, supabase);
+    // ai_prompt_usage has no user-level policies; read/write via the admin client.
+    const admin = createAdminClient();
     const remaining = await getUsageRemaining(
       user.id,
       plan,
       subscription?.subscription_started_at ?? null,
-      supabase,
+      admin,
       effectiveLimits.aiMultiplier,
     );
 
@@ -70,17 +73,19 @@ export async function POST(req: NextRequest) {
 
     const plan = getPlan(subscription?.subscription_status, subscription?.subscription_plan);
 
-    // Rate limit check + record usage in DB (ops admins skip)
+    // Rate limit check + record usage in DB (ops admins skip).
+    // ai_prompt_usage has no user-level policies; read/write via the admin client.
     let rateLimitResult: { allowed: boolean; remaining?: any; message?: string; upgradeRequired?: boolean };
     if (isOpsAdmin) {
       rateLimitResult = { allowed: true };
     } else {
       const aiLimits = await getUserEffectiveLimits(user.id, supabase);
+      const admin = createAdminClient();
       rateLimitResult = await checkAndRecordUsage(
         user.id,
         plan,
         subscription?.subscription_started_at ?? null,
-        supabase,
+        admin,
         aiLimits.aiMultiplier,
       );
     }
@@ -95,7 +100,7 @@ export async function POST(req: NextRequest) {
 
     const apiKey = process.env.AI_BUILDER_API_KEY;
     const apiProvider = process.env.AI_BUILDER_PROVIDER || 'anthropic'; // 'anthropic' | 'openai'
-    const modelId = process.env.AI_BUILDER_MODEL || (apiProvider === 'anthropic' ? 'claude-sonnet-4-5-20250514' : 'gpt-4o-mini');
+    const modelId = process.env.AI_BUILDER_MODEL || (apiProvider === 'anthropic' ? 'claude-sonnet-4-6' : 'gpt-4o-mini');
 
     if (!apiKey) {
       return NextResponse.json({ error: 'AI Builder is not configured. Please set AI_BUILDER_API_KEY.' }, { status: 500 });

@@ -31,11 +31,21 @@ export async function GET(
     ? `https://${site.custom_domain}`
     : `https://${subdomain}.kswd.ca`;
 
-  // Fetch all pages
-  const { data: pages } = await supabase
-    .from('pages')
-    .select('slug, updated_at')
-    .eq('site_id', site.id);
+  // Fetch pages and (when a custom domain is set, since the /blog route only
+  // exists on the custom-domain handler) published blog posts in parallel.
+  const [{ data: pages }, { data: posts }] = await Promise.all([
+    supabase
+      .from('pages')
+      .select('slug, updated_at')
+      .eq('site_id', site.id),
+    site.custom_domain
+      ? supabase
+          .from('blog_posts')
+          .select('slug, published_at, created_at')
+          .eq('site_id', site.id)
+          .eq('is_published', true)
+      : Promise.resolve({ data: [] as Array<{ slug: string; published_at: string | null; created_at: string }> }),
+  ]);
 
   let sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`;
@@ -52,6 +62,21 @@ export async function GET(
     <lastmod>${lastMod}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>${page.slug === 'home' ? '1.0' : '0.7'}</priority>
+  </url>`;
+  }
+
+  for (const post of posts || []) {
+    const postUrl = `${siteBase}/blog/${post.slug}`;
+    const lastMod = (post.published_at || post.created_at)
+      ? new Date(post.published_at || post.created_at).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0];
+
+    sitemap += `
+  <url>
+    <loc>${postUrl}</loc>
+    <lastmod>${lastMod}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
   </url>`;
   }
 

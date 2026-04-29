@@ -4,6 +4,7 @@ import { useState, useEffect, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Bot, User, Send, Loader2, Sparkles, CheckCircle, AlertCircle, Trash2, ShieldAlert, Clock } from 'lucide-react';
 import { useAdminContext } from '../../admin-context';
+import EmailBody from '@/app/components/email/EmailBody';
 
 interface Submission {
   id: string;
@@ -260,7 +261,11 @@ export default function InboxDetailPage({ params }: { params: Promise<{ id: stri
 
         {/* Message body */}
         <div className="px-5 py-4">
-          <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{submission.message}</p>
+          <EmailBody
+            text={submission.message}
+            className="email-body--light text-slate-800"
+            emptyLabel="(no message)"
+          />
         </div>
 
         {/* Structured fields (estimate form submissions) */}
@@ -345,7 +350,11 @@ export default function InboxDetailPage({ params }: { params: Promise<{ id: stri
               </span>
             )}
           </div>
-          <p className="text-sm text-emerald-900 whitespace-pre-wrap">{submission.admin_reply}</p>
+          <EmailBody
+            text={submission.admin_reply}
+            className="email-body--light text-emerald-900"
+            emptyLabel="(empty reply)"
+          />
         </div>
       )}
 

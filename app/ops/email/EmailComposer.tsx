@@ -1,18 +1,25 @@
 'use client';
 
 import { useState } from 'react';
+import EmailSignaturePreview from '@/app/components/email/EmailSignaturePreview';
 
 export default function EmailComposer({
   availableFromEmails,
   senderName,
+  defaultTo = '',
+  defaultSubject = '',
+  onSent,
 }: {
   availableFromEmails: string[];
   senderName: string;
+  defaultTo?: string;
+  defaultSubject?: string;
+  onSent?: () => void;
 }) {
   const [fromEmail, setFromEmail] = useState(availableFromEmails[0] ?? '');
-  const [to, setTo] = useState('');
+  const [to, setTo] = useState(defaultTo);
   const [replyTo, setReplyTo] = useState('');
-  const [subject, setSubject] = useState('');
+  const [subject, setSubject] = useState(defaultSubject);
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ success?: boolean; error?: string } | null>(null);
@@ -40,10 +47,11 @@ export default function EmailComposer({
         setResult({ error: json.error });
       } else {
         setResult({ success: true });
-        setTo('');
+        setTo(defaultTo);
         setReplyTo('');
-        setSubject('');
+        setSubject(defaultSubject);
         setBody('');
+        onSent?.();
       }
     } catch {
       setResult({ error: 'Network error. Please try again.' });
@@ -156,30 +164,7 @@ export default function EmailComposer({
       {/* Signature Preview */}
       <div>
         <label className="block text-xs font-medium text-gray-400 mb-2">Signature Preview</label>
-        <div className="rounded-md border border-gray-700 bg-white p-4">
-          <table cellPadding={0} cellSpacing={0} style={{ fontFamily: 'Arial, sans-serif' }}>
-            <tbody>
-              <tr>
-                <td style={{ paddingRight: 16, borderRight: '2px solid #2563eb', verticalAlign: 'top' }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="https://keystoneweb.ca/assets/logo/keystone-logo.png"
-                    alt="Keystone Web Design"
-                    style={{ height: 48, width: 'auto', display: 'block' }}
-                  />
-                </td>
-                <td style={{ paddingLeft: 16, verticalAlign: 'top' }}>
-                  <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#111827' }}>{senderName}</p>
-                  <p style={{ margin: '2px 0 0 0', fontSize: 13, color: '#6b7280' }}>Keystone Web Design</p>
-                  <p style={{ margin: '8px 0 0 0', fontSize: 12, color: '#9ca3af' }}>{fromEmail}</p>
-                  <p style={{ margin: '4px 0 0 0', fontSize: 12 }}>
-                    <span style={{ color: '#2563eb' }}>keystoneweb.ca</span>
-                  </p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <EmailSignaturePreview senderName={senderName} fromEmail={fromEmail} />
       </div>
     </form>
   );

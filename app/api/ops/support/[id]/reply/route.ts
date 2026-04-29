@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { createClient } from '@/lib/db/supabase-server';
 import { resend } from '@/lib/email/resend';
+import { buildSignatureHtml, buildSignatureText, nameFromEmail } from '@/lib/email/signature';
 
 async function assertAdmin(): Promise<boolean> {
   try {
@@ -57,10 +58,29 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // Thread ref: use the root ticket ID so customer replies get threaded
   const threadRoot = ticket.thread_id ?? ticket.id;
   const threadRef = `\n\nref:${threadRoot}`;
-  const fullBodyText = bodyText + quotedMessage + threadRef;
 
   // Use the fromName if provided, otherwise default
   const fromAddress = fromName ? `${fromName} <${fromEmail}>` : fromEmail;
+  const senderName = fromName || nameFromEmail(fromEmail);
+
+  // Plain-text version: reply + signature footer + quoted history + thread ref
+  const fullBodyText =
+    bodyText + '\n\n' + buildSignatureText({ senderName, fromEmail }) + quotedMessage + threadRef;
+
+  // HTML version: reply (with <br/>) + signature block + quoted history + hidden thread ref
+  const escapedQuoted = quotedMessage
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br/>');
+  const replyBodyHtml = `
+    <div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f2937;">
+      <div style="margin: 0 0 24px 0;">${bodyText.replace(/\n/g, '<br/>')}</div>
+      ${buildSignatureHtml({ senderName, fromEmail })}
+      <div style="color: #6b7280; font-size: 13px;">${escapedQuoted}</div>
+      <div style="display:none; color:transparent; font-size:0; line-height:0;">ref:${threadRoot}</div>
+    </div>
+  `;
 
   try {
     const { error: sendError } = await resend.emails.send({
@@ -68,6 +88,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       to: [ticket.from_email],
       subject: replySubject,
       text: fullBodyText,
+      html: replyBodyHtml,
       // Pass the original message ID if we have it to thread properly
       ...(ticket.resend_email_id ? {
         headers: {

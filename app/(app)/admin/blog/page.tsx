@@ -1,7 +1,7 @@
 'use client';
 
 import { useAdminContext } from '../admin-context';
-import { BlogPostsManager } from '@/app/components/blocks/BlogBlock';
+import { BlogPostsManager } from '@/app/components/blocks/BlogBlockEditor';
 import { BookOpen } from 'lucide-react';
 
 export default function AdminBlogPage() {

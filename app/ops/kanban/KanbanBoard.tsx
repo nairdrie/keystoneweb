@@ -19,7 +19,7 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { ArrowDownUp, Filter, Flag, GripVertical, Plus, Search, Sparkles, Upload, UserRound, X } from 'lucide-react';
+import { ArrowDownUp, Filter, Flag, GripVertical, History, Plus, Search, Sparkles, Upload, UserRound, X } from 'lucide-react';
 import {
   getOpsTicketPriorityMeta,
   getOpsTicketStatusMeta,
@@ -33,6 +33,7 @@ import {
 } from '@/lib/ops/kanban';
 import LocalTimestamp from './LocalTimestamp';
 import { formatLocalTimestamp, formatUtcTimestamp } from './timestamp';
+import KanbanLogModal from './KanbanLogModal';
 
 type TicketDraft = {
   name: string;
@@ -800,6 +801,7 @@ export default function KanbanBoard({
   const [loadingByStatus, setLoadingByStatus] = useState<Partial<Record<OpsTicketStatus, boolean>>>({});
   const [isImporting, setIsImporting] = useState(false);
   const [importMessage, setImportMessage] = useState('');
+  const [logOpen, setLogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const dragLoadStatusRef = useRef<OpsTicketStatus | null>(null);
@@ -1422,6 +1424,14 @@ export default function KanbanBoard({
           <div className="mx-4 flex items-center gap-3 self-start sm:mx-6 lg:mx-8">
             <button
               type="button"
+              onClick={() => setLogOpen(true)}
+              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white transition hover:border-white/20 hover:bg-white/[0.05]"
+            >
+              <History className="h-4 w-4" />
+              Log
+            </button>
+            <button
+              type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={isImporting}
               className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-semibold text-white transition hover:border-white/20 hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-60"
@@ -1680,6 +1690,8 @@ export default function KanbanBoard({
         onSubmit={persistTicket}
         onDraftChange={setDraft}
       />
+
+      <KanbanLogModal open={logOpen} onClose={() => setLogOpen(false)} />
     </>
   );
 }

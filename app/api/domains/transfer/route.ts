@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 import { FREE_DOMAIN_MAX_USD, calculateDomainPrice, priceToCents } from '@/lib/domains/pricing';
 import Stripe from 'stripe';
 
@@ -55,7 +56,9 @@ export async function initiateVercelTransfer(
   contact: TransferContact,
   transferPrice: number,
 ): Promise<{ success: boolean; transferId?: string; error?: string }> {
-  const supabase = await createClient();
+  // Called from the Stripe webhook (no user JWT) and the POST handler below;
+  // use the admin client so domain_purchases/sites writes succeed under RLS.
+  const supabase = createAdminClient();
   const teamParam = VERCEL_TEAM_ID ? `?teamId=${VERCEL_TEAM_ID}` : '';
 
   const res = await fetch(
@@ -322,9 +325,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: result.error }, { status: 502 });
       }
 
-      // Mark free domain credit used and track claim timestamp
+      // Mark free domain credit used and track claim timestamp.
+      // Admin client: user_subscriptions writes bypass the self-read-only RLS policy.
       const claimedAt = new Date().toISOString();
-      await supabase
+      const admin = createAdminClient();
+      await admin
         .from('user_subscriptions')
         .update({ free_domain_claimed: true, free_domain_claimed_at: claimedAt, last_domain_claimed_at: claimedAt })
         .eq('user_id', user.id);
