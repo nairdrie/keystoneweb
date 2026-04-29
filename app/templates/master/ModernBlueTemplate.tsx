@@ -58,6 +58,8 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                     ctaStyleFn: (p, light) => light
                         ? { backgroundColor: 'rgba(255,255,255,0.2)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.3)' }
                         : { background: `linear-gradient(135deg, ${p.primary}, ${p.secondary})` },
+                    ctaDefaultShape: 'pill',
+                    ctaDefaultFill: 'filled',
                 }}
             />
 

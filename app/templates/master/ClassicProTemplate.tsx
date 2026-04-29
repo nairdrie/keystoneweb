@@ -56,6 +56,8 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
                     defaultCtaLabel: 'Get Quote',
                     ctaClass: 'px-5 py-2 rounded-md font-bold text-sm transition-all hover:scale-105 text-white cursor-pointer inline-flex items-center justify-center',
                     ctaStyleFn: (p) => ({ backgroundColor: p.secondary }),
+                    ctaDefaultShape: 'rounded',
+                    ctaDefaultFill: 'filled',
                 }}
             />
 

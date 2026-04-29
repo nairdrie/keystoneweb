@@ -37,6 +37,7 @@ function NavMenuView({ className = '', itemClassName = '', submenuClassName = ''
     const blocks = context?.blocks || [];
     const pathname = usePathname();
     const langPrefix = useLangPrefix();
+    const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
     const [expandedMobile, setExpandedMobile] = useState<Set<string>>(new Set());
 
     if (navItems.length === 0) return null;
@@ -46,12 +47,25 @@ function NavMenuView({ className = '', itemClassName = '', submenuClassName = ''
 
     const resolveHref = (item: NavItem): string => {
         if (item.linkType === 'page') {
+            if (isEditor) {
+                return `/design?siteId=${context?.siteId}&pageId=${item.pageId}`;
+            }
+            if (context?.previewSiteId) {
+                return `/preview?siteId=${context.previewSiteId}&pageId=${item.pageId}`;
+            }
             const target = pages.find(p => p.id === item.pageId);
             const slug = target?.slug || '';
             const base = slug === 'home' ? '/' : `/${slug}`;
             return langPrefix ? `${langPrefix}${base === '/' ? '' : base}` : base;
         }
         if (item.linkType === 'section') {
+            if (item.pageId) {
+                if (isEditor) {
+                    const hash = item.href?.includes('#') ? `#${item.href.split('#')[1]}` : '';
+                    return `/design?siteId=${context?.siteId}&pageId=${item.pageId}${hash}`;
+                }
+                return item.href || `#${item.blockId}`;
+            }
             if (item.blockId) {
                 const idx = blocks.findIndex(b => b.id === item.blockId);
                 if (idx !== -1) return `#${getBlockSlug(blocks[idx], idx, blocks)}`;

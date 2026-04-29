@@ -22,9 +22,14 @@ const ICON_NAMES = [
     'Facebook', 'Instagram', 'Twitter', 'Linkedin', 'Youtube', 'Github'
 ];
 
+export type ButtonShape = 'square' | 'rounded' | 'pill';
+export type ButtonFill = 'filled' | 'outline';
+
 interface ButtonSettings {
     icon?: string;
     iconPosition?: 'left' | 'right';
+    shape?: ButtonShape;
+    fill?: ButtonFill;
 }
 
 interface ButtonSettingsModalProps {
@@ -33,6 +38,8 @@ interface ButtonSettingsModalProps {
     onSave: (settings: ButtonSettings) => void;
     initialSettings?: ButtonSettings;
     title?: string;
+    defaultShape?: ButtonShape;
+    defaultFill?: ButtonFill;
 }
 
 export default function ButtonSettingsModal({
@@ -40,19 +47,24 @@ export default function ButtonSettingsModal({
     onClose,
     onSave,
     initialSettings,
-    title = "Button Settings"
+    title = "Button Settings",
+    defaultShape = 'rounded',
+    defaultFill = 'filled',
 }: ButtonSettingsModalProps) {
     const mouseDownOnBackdrop = useRef(false);
     const [settings, setSettings] = useState<ButtonSettings>(initialSettings || {});
-    const [activeTab, setActiveTab] = useState<'icon' | 'layout'>('icon');
+    const [activeTab, setActiveTab] = useState<'style' | 'icon' | 'layout'>('style');
     const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         if (isOpen) {
             setSettings(initialSettings || {});
-            setActiveTab('icon');
+            setActiveTab('style');
         }
     }, [isOpen]); // Only sync when the modal opens
+
+    const effectiveShape: ButtonShape = settings.shape || defaultShape;
+    const effectiveFill: ButtonFill = settings.fill || defaultFill;
 
     if (!isOpen) return null;
 
@@ -91,6 +103,12 @@ export default function ButtonSettingsModal({
                 {/* Tabs */}
                 <div className="flex px-4 pt-2 border-b border-slate-200">
                     <button
+                        className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'style' ? 'border-red-500 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                        onClick={() => setActiveTab('style')}
+                    >
+                        Button Style
+                    </button>
+                    <button
                         className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'icon' ? 'border-red-500 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
                         onClick={() => setActiveTab('icon')}
                     >
@@ -106,6 +124,65 @@ export default function ButtonSettingsModal({
 
                 {/* Content Area */}
                 <div className="flex-1 overflow-y-auto max-h-[50vh] min-h-[350px] p-4 bg-slate-50/50">
+
+                    {/* STYLE TAB */}
+                    {activeTab === 'style' && (
+                        <div className="space-y-6 py-2">
+                            <div className="space-y-3">
+                                <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Shape</label>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {([
+                                        { key: 'square', label: 'Square', radiusClass: 'rounded-none' },
+                                        { key: 'rounded', label: 'Rounded', radiusClass: 'rounded-lg' },
+                                        { key: 'pill', label: 'Pill', radiusClass: 'rounded-full' },
+                                    ] as { key: ButtonShape; label: string; radiusClass: string }[]).map(opt => {
+                                        const isSelected = effectiveShape === opt.key;
+                                        return (
+                                            <button
+                                                key={opt.key}
+                                                onClick={() => setSettings({ ...settings, shape: opt.key })}
+                                                className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border transition-all ${isSelected
+                                                        ? 'bg-white border-red-500 shadow-[0_0_0_2px_rgba(239,68,68,0.2)]'
+                                                        : 'bg-white border-slate-200 hover:border-slate-400'
+                                                    }`}
+                                            >
+                                                <div className={`w-16 h-7 bg-slate-800 ${opt.radiusClass}`} />
+                                                <span className="font-semibold text-xs text-slate-700">{opt.label}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Fill</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {([
+                                        { key: 'filled', label: 'Filled', preview: 'bg-slate-800 text-white' },
+                                        { key: 'outline', label: 'Outline', preview: 'bg-transparent text-slate-800 border-2 border-slate-800' },
+                                    ] as { key: ButtonFill; label: string; preview: string }[]).map(opt => {
+                                        const isSelected = effectiveFill === opt.key;
+                                        const previewRadius = effectiveShape === 'pill' ? 'rounded-full' : effectiveShape === 'square' ? 'rounded-none' : 'rounded-lg';
+                                        return (
+                                            <button
+                                                key={opt.key}
+                                                onClick={() => setSettings({ ...settings, fill: opt.key })}
+                                                className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border transition-all ${isSelected
+                                                        ? 'bg-white border-red-500 shadow-[0_0_0_2px_rgba(239,68,68,0.2)]'
+                                                        : 'bg-white border-slate-200 hover:border-slate-400'
+                                                    }`}
+                                            >
+                                                <div className={`px-4 py-1.5 text-xs font-bold ${opt.preview} ${previewRadius}`}>
+                                                    Button
+                                                </div>
+                                                <span className="font-semibold text-xs text-slate-700">{opt.label}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* ICON TAB */}
                     {activeTab === 'icon' && (

@@ -60,6 +60,8 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
                     ctaStyleFn: (p, light) => light
                         ? { backgroundColor: 'rgba(255,255,255,0.2)', color: '#ffffff' }
                         : { backgroundColor: p.secondary },
+                    ctaDefaultShape: 'pill',
+                    ctaDefaultFill: 'filled',
                 }}
             />
 

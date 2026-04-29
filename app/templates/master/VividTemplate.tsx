@@ -56,6 +56,8 @@ export function VividTemplate({ palette, isEditMode, children }: MasterTemplateP
                     defaultCtaLabel: 'Get Started',
                     ctaClass: 'px-6 py-2 rounded-full font-bold text-sm transition-all hover:scale-105 cursor-pointer inline-flex items-center justify-center',
                     ctaStyleFn: (p) => ({ backgroundColor: p.secondary, color: p.primary }),
+                    ctaDefaultShape: 'pill',
+                    ctaDefaultFill: 'filled',
                 }}
             />
 

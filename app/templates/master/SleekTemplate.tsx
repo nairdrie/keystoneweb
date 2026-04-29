@@ -58,6 +58,8 @@ export function SleekTemplate({ palette, isEditMode, children }: MasterTemplateP
                     ctaStyleFn: (p, light) => light
                         ? { backgroundColor: 'rgba(255,255,255,0.2)', color: '#ffffff' }
                         : { backgroundColor: p.primary },
+                    ctaDefaultShape: 'rounded',
+                    ctaDefaultFill: 'filled',
                 }}
             />
 

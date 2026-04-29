@@ -62,6 +62,8 @@ export function EdgeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                     defaultCtaLabel: 'Launch',
                     ctaClass: 'px-5 py-2 text-sm font-bold transition-all hover:shadow-lg cursor-pointer inline-flex items-center justify-center',
                     ctaStyleFn: (p) => ({ backgroundColor: p.secondary, color: '#0a0f1a', boxShadow: `0 0 20px ${p.secondary}44` }),
+                    ctaDefaultShape: 'square',
+                    ctaDefaultFill: 'filled',
                 }}
             />
 
