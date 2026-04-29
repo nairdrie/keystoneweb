@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation';
 import { useEditorContext, NavItem } from '@/lib/editor-context';
 import { useLangPrefix } from '@/lib/hooks/useLangPrefix';
 import NavItemEditModal from './NavItemEditModal';
-import ButtonSettingsModal from './ButtonSettingsModal';
+import ButtonSettingsModal, { type ButtonShape, type ButtonFill } from './ButtonSettingsModal';
 
 export interface ButtonLinkData {
     label: string;
@@ -20,6 +20,8 @@ export interface ButtonLinkData {
 export interface ButtonIconData {
     icon?: string;
     iconPosition?: 'left' | 'right';
+    shape?: ButtonShape;
+    fill?: ButtonFill;
 }
 
 interface EditableButtonProps {
@@ -41,6 +43,10 @@ interface EditableButtonProps {
     className?: string;
     /** Button inline styles */
     style?: React.CSSProperties;
+    /** Default shape used in modal pre-selection (template-level default) */
+    defaultShape?: ButtonShape;
+    /** Default fill used in modal pre-selection (template-level default) */
+    defaultFill?: ButtonFill;
 }
 
 /**
@@ -59,6 +65,8 @@ export default function EditableButton({
     onSave,
     className = '',
     style,
+    defaultShape,
+    defaultFill,
 }: EditableButtonProps) {
     const context = useEditorContext();
     const [isEditing, setIsEditing] = useState(false);
@@ -226,6 +234,8 @@ export default function EditableButton({
                     onClose={() => setIsSettingsOpen(false)}
                     onSave={handleSaveSettings}
                     initialSettings={iconData}
+                    defaultShape={defaultShape}
+                    defaultFill={defaultFill}
                 />
             </>
         );

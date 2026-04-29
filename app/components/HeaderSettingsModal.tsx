@@ -6,6 +6,8 @@ import { X, Layout, Palette, Type, Code, Lock, Crown } from 'lucide-react';
 
 export type HeaderBgType = 'white' | 'primary' | 'secondary' | 'gradient' | 'custom';
 export type HeaderLayout = 'default' | 'centeredAboveNav';
+export type ButtonShape = 'square' | 'rounded' | 'pill';
+export type ButtonFill = 'filled' | 'outline';
 
 export interface SiteHeaderDefaults {
     layout?: HeaderLayout;
@@ -32,6 +34,8 @@ export interface SiteHeaderDefaults {
     defaultCtaLabel?: string;
     ctaClass?: string;
     ctaStyleFn?: (p: Record<string, string>, textIsLight: boolean) => React.CSSProperties;
+    ctaDefaultShape?: ButtonShape;
+    ctaDefaultFill?: ButtonFill;
 }
 
 interface HeaderSettingsModalProps {

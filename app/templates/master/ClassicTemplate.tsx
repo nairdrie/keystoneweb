@@ -63,6 +63,8 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                     ctaStyleFn: (p, light) => light
                         ? { backgroundColor: 'rgba(255,255,255,0.15)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.3)' }
                         : { backgroundColor: p.secondary },
+                    ctaDefaultShape: 'rounded',
+                    ctaDefaultFill: 'filled',
                 }}
             />
 

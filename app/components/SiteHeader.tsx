@@ -184,12 +184,62 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     );
 
     // ── CTA / Right side element ────────────────────────────────────────────
-    const ctaClass = defaults.ctaClass || 'px-5 py-2 rounded-lg text-white text-sm font-semibold transition-all hover:opacity-90 cursor-pointer inline-flex items-center justify-center';
-    const resolvedCtaStyle: React.CSSProperties = defaults.ctaStyleFn
+    const baseCtaClass = defaults.ctaClass || 'px-5 py-2 rounded-lg text-white text-sm font-semibold transition-all hover:opacity-90 cursor-pointer inline-flex items-center justify-center';
+    const baseCtaStyle: React.CSSProperties = defaults.ctaStyleFn
         ? defaults.ctaStyleFn(palette, textIsLight)
         : textIsLight
             ? { backgroundColor: 'rgba(255,255,255,0.15)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.3)' }
             : { backgroundColor: pPrimary, color: '#ffffff' };
+
+    // Apply user button-style overrides (shape/fill) only when they differ from
+    // the template's default — preserves each template's original look unless
+    // the user explicitly chooses a different style in the button settings modal.
+    const ctaDefaultShape = defaults.ctaDefaultShape || 'rounded';
+    const ctaDefaultFill = defaults.ctaDefaultFill || 'filled';
+    const userShape = siteContent.navButtonTextIcon?.shape as ('square' | 'rounded' | 'pill' | undefined);
+    const userFill = siteContent.navButtonTextIcon?.fill as ('filled' | 'outline' | undefined);
+
+    const stripRadius = (cls: string) =>
+        cls.replace(/\brounded(-(none|sm|md|lg|xl|2xl|3xl|full))?\b/g, '').replace(/\s+/g, ' ').trim();
+    const shapeRadiusClass = (s: 'square' | 'rounded' | 'pill') =>
+        s === 'square' ? 'rounded-none' : s === 'pill' ? 'rounded-full' : 'rounded-lg';
+
+    let ctaClass = baseCtaClass;
+    let resolvedCtaStyle: React.CSSProperties = baseCtaStyle;
+
+    if (userShape && userShape !== ctaDefaultShape) {
+        ctaClass = `${stripRadius(ctaClass)} ${shapeRadiusClass(userShape)}`.trim();
+    }
+
+    if (userFill && userFill !== ctaDefaultFill) {
+        if (userFill === 'outline') {
+            const accent = (typeof baseCtaStyle.backgroundColor === 'string' && baseCtaStyle.backgroundColor) ||
+                (typeof baseCtaStyle.color === 'string' && baseCtaStyle.color) ||
+                pSecondary || pPrimary;
+            ctaClass = ctaClass.replace(/\btext-white\b/g, '').replace(/\s+/g, ' ').trim();
+            if (!/\bborder-2\b/.test(ctaClass)) ctaClass = `${ctaClass} border-2`;
+            resolvedCtaStyle = {
+                ...baseCtaStyle,
+                background: 'transparent',
+                backgroundColor: 'transparent',
+                color: accent,
+                borderColor: accent,
+                boxShadow: 'none',
+            };
+        } else {
+            // outline → filled
+            const accent = (typeof baseCtaStyle.borderColor === 'string' && baseCtaStyle.borderColor) ||
+                (typeof baseCtaStyle.color === 'string' && baseCtaStyle.color) ||
+                pSecondary || pPrimary;
+            ctaClass = ctaClass.replace(/\bborder-2\b/g, '').replace(/\s+/g, ' ').trim();
+            resolvedCtaStyle = {
+                ...baseCtaStyle,
+                backgroundColor: accent,
+                color: '#ffffff',
+                borderColor: undefined,
+            };
+        }
+    }
 
     // Check if membership is active site-wide (to default CTA link to /signup)
     const hasMembershipBlock = !!siteContent.__hasMembershipBlock;
@@ -316,6 +366,8 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
                     onSave={updateSiteContent}
                     className={ctaClass}
                     style={resolvedCtaStyle}
+                    defaultShape={ctaDefaultShape}
+                    defaultFill={ctaDefaultFill}
                 />
                 {memberSignInEl}
             </div>
@@ -412,6 +464,8 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
                                 onSave={updateSiteContent}
                                 className={`w-full ${ctaClass}`}
                                 style={resolvedCtaStyle}
+                                defaultShape={ctaDefaultShape}
+                                defaultFill={ctaDefaultFill}
                             />
                             {memberSignInEl && (
                                 <div className="text-center mt-2">{memberSignInEl}</div>

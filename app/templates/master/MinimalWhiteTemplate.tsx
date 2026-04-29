@@ -61,6 +61,8 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
                     ctaStyleFn: (p, light) => light
                         ? { backgroundColor: 'rgba(255,255,255,0.15)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.3)' }
                         : { backgroundColor: p.primary },
+                    ctaDefaultShape: 'rounded',
+                    ctaDefaultFill: 'filled',
                 }}
             />
 

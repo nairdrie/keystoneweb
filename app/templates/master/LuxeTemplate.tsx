@@ -59,6 +59,8 @@ export function LuxeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                     ctaStyleFn: (p, light) => light
                         ? { borderColor: '#ffffff', color: '#ffffff', backgroundColor: 'transparent' }
                         : { borderColor: p.secondary, color: p.secondary, backgroundColor: 'transparent' },
+                    ctaDefaultShape: 'square',
+                    ctaDefaultFill: 'outline',
                 }}
             />
 

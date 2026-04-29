@@ -58,6 +58,8 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
                     ctaStyleFn: (p, light) => light
                         ? { backgroundColor: 'rgba(255,255,255,0.2)', color: '#ffffff' }
                         : { backgroundColor: p.primary },
+                    ctaDefaultShape: 'pill',
+                    ctaDefaultFill: 'filled',
                 }}
             />
 
