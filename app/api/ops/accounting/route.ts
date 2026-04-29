@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { requireOpsAccess } from '@/lib/ops/access';
+import { getOpsAdminEmails, requireOpsAccess } from '@/lib/ops/access';
 import { getMonthlyEquivalent, type AccountingMetrics, type Frequency } from '@/lib/ops/accounting';
 
 /**
@@ -22,6 +22,21 @@ export async function GET() {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
   const yearStart = `${now.getFullYear()}-01-01T00:00:00.000Z`;
 
+  // ── Admin/agent user IDs to exclude from customer-facing counts ─────────
+
+  const adminEmails = getOpsAdminEmails();
+  const [agentRows, flaggedAdminRows, envAdminRows] = await Promise.all([
+    db.from('users').select('id').eq('is_agent', true),
+    db.from('users').select('id').eq('is_admin', true),
+    adminEmails.length > 0
+      ? db.from('users').select('id').in('email', adminEmails)
+      : Promise.resolve({ data: [] as Array<{ id: string }> }),
+  ]);
+  const excludedUserIds = new Set<string>();
+  for (const row of [...(agentRows.data ?? []), ...(flaggedAdminRows.data ?? []), ...(envAdminRows.data ?? [])]) {
+    if (row?.id) excludedUserIds.add(row.id);
+  }
+
   // ── MRR from confirmed payments ─────────────────────────────────────────
   // For each active subscription, use the latest confirmed invoice payment.
   // Falls back to plan price only for subs created before transaction tracking.
@@ -31,7 +46,7 @@ export async function GET() {
     .select('user_id, subscription_plan, subscription_status, stripe_subscription_id, billing_interval')
     .eq('subscription_status', 'active');
 
-  const activeSubs = subs ?? [];
+  const activeSubs = (subs ?? []).filter((s: any) => !excludedUserIds.has(s.user_id));
 
   // Fetch latest confirmed payment per subscription from our local cache
   const subIds = activeSubs
@@ -220,10 +235,14 @@ export async function GET() {
 
   // ── Active addons count (for display) ───────────────────────────────────
 
-  const { count: activeAddonCount } = await db
+  const { data: activeAddonRows } = await db
     .from('user_addons')
-    .select('id', { count: 'exact', head: true })
+    .select('user_id')
     .eq('status', 'active');
+
+  const activeAddonCount = (activeAddonRows ?? [])
+    .filter((a: any) => !excludedUserIds.has(a.user_id))
+    .length;
 
   const metrics: AccountingMetrics = {
     revenue: {
@@ -246,7 +265,7 @@ export async function GET() {
     mrr,
     arr: mrr * 12,
     activeSubscriptions: activeSubs.length,
-    activeAddons: activeAddonCount ?? 0,
+    activeAddons: activeAddonCount,
   };
 
   return NextResponse.json({
