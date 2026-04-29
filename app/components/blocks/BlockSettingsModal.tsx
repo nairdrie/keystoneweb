@@ -135,6 +135,9 @@ export default function BlockSettingsModal({
     // Team Style State
     const [teamShowBio, setTeamShowBio] = useState<boolean>(blockData?.showBio !== false);
 
+    // Hero Style State
+    const [heroShowButton, setHeroShowButton] = useState<boolean>(blockData?.showButton !== false);
+
     // Carousel State
     const [carouselAutoPlay, setCarouselAutoPlay] = useState<boolean>(blockData?.autoPlay !== false);
     const [carouselInterval, setCarouselInterval] = useState<number>(blockData?.interval || 5);
@@ -155,6 +158,7 @@ export default function BlockSettingsModal({
             setMenuCategoryStyle(blockData?.categoryStyle || 'heading');
             setMenuBgColor(blockData?.backgroundColor || '');
             setTeamShowBio(blockData?.showBio !== false);
+            setHeroShowButton(blockData?.showButton !== false);
             setCarouselAutoPlay(blockData?.autoPlay !== false);
             setCarouselInterval(blockData?.interval || 5);
         }
@@ -176,6 +180,7 @@ export default function BlockSettingsModal({
             updates['bgCarouselImages'] = bgCarouselImages;
             updates['bgCarouselTiming'] = bgCarouselTiming;
             updates['bgCarouselTransition'] = bgCarouselTransition;
+            updates['showButton'] = heroShowButton;
         }
 
         if (blockType === 'menu') {
@@ -340,6 +345,33 @@ export default function BlockSettingsModal({
                                     })}
                                 </div>
                             </div>
+                            {blockType === 'hero' && (blockData?.variant || 'split') === 'minimal' && (
+                                <div className="pt-4 border-t border-slate-100">
+                                    <p className="text-sm font-medium text-slate-700 mb-3">Content Options</p>
+                                    <label className="flex items-center justify-between cursor-pointer group">
+                                        <div className="flex flex-col">
+                                            <span className="text-sm text-slate-700 group-hover:text-slate-900 font-medium">Show CTA button</span>
+                                            <span className="text-xs text-slate-500">Hide the call-to-action button for a cleaner look</span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setHeroShowButton(!heroShowButton)}
+                                            className={`relative w-10 h-5 rounded-full transition-colors ${heroShowButton ? 'bg-blue-600' : 'bg-slate-200'}`}
+                                        >
+                                            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${heroShowButton ? 'left-[22px]' : 'left-0.5'}`} />
+                                        </button>
+                                    </label>
+
+                                    <div className="flex justify-end pt-8">
+                                        <button
+                                            onClick={handleSave}
+                                            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-lg transition-colors"
+                                        >
+                                            Save Settings
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                             {blockType === 'team' && (
                                 <div>
                                     <p className="text-sm font-medium text-slate-700 mb-3">Columns</p>
