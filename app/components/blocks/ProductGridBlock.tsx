@@ -6,9 +6,11 @@ import { useCart } from '../ecommerce/CartProvider';
 import {
     Package, Plus, Trash2, Loader2, ShoppingCart, X,
     ImageIcon, Upload, Download, Send, Search,
-    ChevronLeft, ChevronRight, Tag, Pencil,
+    ChevronLeft, ChevronRight, Tag, Pencil, Lock, Crown,
 } from 'lucide-react';
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
+import StoreSettingsPanel from '../ecommerce/StoreSettingsPanel';
+import OrdersPanel from '../ecommerce/OrdersPanel';
 import { useRouter, usePathname } from 'next/navigation';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -29,6 +31,13 @@ interface Product {
     category: string | null;
     subcategory: string | null;
     tags: string[];
+    tier_prices?: Array<{ packageId: string; priceCents: number }>;
+    allowed_package_ids?: string[];
+    effective_price_cents?: number;
+    public_price_cents?: number;
+    matched_package_id?: string | null;
+    can_purchase?: boolean;
+    gate_reason?: 'guest' | 'wrong-tier' | null;
 }
 
 interface ProductGridBlockProps {
@@ -148,6 +157,7 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
     const [publishing, setPublishing] = useState(false);
     const [showDraftModal, setShowDraftModal] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
+    const [membershipEditProduct, setMembershipEditProduct] = useState<Product | null>(null);
     const modalBackdropDown = useRef(false);
 
     const isFormOpen = !!editingProduct || showAdd;
@@ -452,6 +462,13 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                                         </div>
                                     )}
                                 </div>
+                                <button
+                                    onClick={() => setMembershipEditProduct(product)}
+                                    title="Membership pricing & access"
+                                    className="p-1.5 rounded border border-slate-200 hover:bg-emerald-50 text-emerald-600 hover:text-emerald-700 shrink-0"
+                                >
+                                    <Crown className="w-4 h-4" />
+                                </button>
                                 <button onClick={() => handleToggle(product)} className="text-xs px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600 shrink-0">
                                     {product.is_active ? 'Hide' : 'Show'}
                                 </button>
@@ -517,12 +534,54 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                         onImported={handleImported}
                     />
                 )}
+
+                {membershipEditProduct && (
+                    <MembershipPricingModal
+                        siteId={siteId}
+                        product={membershipEditProduct}
+                        onClose={() => setMembershipEditProduct(null)}
+                        onSaved={updated => {
+                            setProducts(products.map(p => p.id === updated.id ? updated : p));
+                            setMembershipEditProduct(null);
+                        }}
+                    />
+                )}
+
+                {/* Store Settings */}
+                <div className="mt-4">
+                    <StoreSettingsPanel siteId={siteId} />
+                </div>
+
+                {/* Orders */}
+                <div className="mt-4">
+                    <OrdersPanel siteId={siteId} />
+                </div>
             </div>
         </section>
     );
 }
 
 // ─── Product Form (add + edit, with image upload + variants) ───────────────────
+
+interface MembershipPackage {
+    id: string;
+    name: string;
+    price_cents: number;
+    billing_interval: string;
+}
+
+function useMembershipPackages(siteId: string) {
+    const [packages, setPackages] = useState<MembershipPackage[]>([]);
+    useEffect(() => {
+        let cancelled = false;
+        fetch(`/api/membership/packages?siteId=${siteId}`)
+            .then(r => r.ok ? r.json() : { packages: [] })
+            .then(d => { if (!cancelled) setPackages(d.packages || []); })
+            .catch(() => { if (!cancelled) setPackages([]); });
+        return () => { cancelled = true; };
+    }, [siteId]);
+    return packages;
+}
 
 function ProductForm({ siteId, product, onSaved, onCancel }: {
     siteId: string;
@@ -544,9 +603,26 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
     const [variants, setVariants] = useState<Array<{ name: string; options: string }>>(
         product?.variants?.map(v => ({ name: v.name, options: (v.options ?? []).join(', ') })) ?? []
     );
+    const [tierPrices, setTierPrices] = useState<Record<string, string>>(() => {
+        const init: Record<string, string> = {};
+        if (product?.tier_prices) {
+            for (const tp of product.tier_prices) {
+                init[tp.packageId] = (tp.priceCents / 100).toFixed(2);
+            }
+        }
+        return init;
+    });
+    const [allowedPackageIds, setAllowedPackageIds] = useState<string[]>(
+        product?.allowed_package_ids ?? []
+    );
+    const [gateEnabled, setGateEnabled] = useState(
+        (product?.allowed_package_ids ?? []).length > 0
+    );
     const [saving, setSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [tierError, setTierError] = useState<string | null>(null);
     const fileRef = useRef<HTMLInputElement>(null);
+    const packages = useMembershipPackages(siteId);
     const [vendorId, setVendorId] = useState<string>('');
     const [vendors, setVendors] = useState<Array<{ id: string; name: string; payment_mode: string; is_default: boolean }>>([]);
 
@@ -631,7 +707,7 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
 
     const handleSave = async () => {
         if (!name.trim() || !price) return;
-        setSaving(true);
+        setTierError(null);
 
         // Convert variant strings to structured format
         const structuredVariants = variants
@@ -641,6 +717,24 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
                 options: v.options.split(',').map(o => o.trim()).filter(Boolean),
             }));
 
+        const publicPriceCents = Math.round(parseFloat(price) * 100);
+
+        const tier_prices_arr: Array<{ packageId: string; priceCents: number }> = [];
+        for (const [packageId, dollars] of Object.entries(tierPrices)) {
+            const trimmed = (dollars || '').trim();
+            if (!trimmed) continue;
+            const cents = Math.round(parseFloat(trimmed) * 100);
+            if (!Number.isFinite(cents) || cents < 0) {
+                setTierError('Tier prices must be non-negative numbers');
+                return;
+            }
+            if (cents > publicPriceCents) {
+                setTierError('Tier price cannot exceed the public price');
+                return;
+            }
+            tier_prices_arr.push({ packageId, priceCents: cents });
+        }
+
         const parsedTags = tags
             .split(',')
             .map(t => t.trim())
@@ -649,7 +743,7 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
         const payload = {
             name,
             description: description || null,
-            price_cents: Math.round(parseFloat(price) * 100),
+            price_cents: publicPriceCents,
             compare_at_cents: compareAt ? Math.round(parseFloat(compareAt) * 100) : null,
             images,
             variants: structuredVariants,
@@ -658,8 +752,11 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
             subcategory: category.trim() && subcategory.trim() ? subcategory.trim() : null,
             tags: parsedTags,
             vendor_id: vendorId || null,
+            tier_prices: tier_prices_arr,
+            allowed_package_ids: gateEnabled ? allowedPackageIds : [],
         };
 
+        setSaving(true);
         const res = await fetch('/api/products', {
             method: isEdit ? 'PUT' : 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -667,6 +764,11 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
         });
 
         const data = await res.json();
+        if (!res.ok) {
+            setTierError(data.error || 'Failed to save product');
+            setSaving(false);
+            return;
+        }
         if (data.product) onSaved(data.product);
         setSaving(false);
     };
@@ -874,6 +976,91 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
                 </button>
             </div>
 
+            {/* Membership pricing */}
+            {packages.length > 0 && (
+                <div className="border-t border-slate-200 pt-4">
+                    <div className="flex items-center gap-2 mb-1">
+                        <Crown className="w-4 h-4 text-emerald-600" />
+                        <label className="text-xs font-bold text-slate-700">Membership pricing</label>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mb-2">
+                        Override the price for members of specific packages. Members never pay more than the public price.
+                    </p>
+                    <div className="space-y-1.5">
+                        {packages.map(pkg => (
+                            <div key={pkg.id} className="flex items-center gap-2">
+                                <span className="flex-1 text-xs text-slate-700 truncate">{pkg.name}</span>
+                                <span className="text-[10px] text-slate-400">$</span>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={tierPrices[pkg.id] || ''}
+                                    placeholder="—"
+                                    onChange={e => setTierPrices({ ...tierPrices, [pkg.id]: e.target.value })}
+                                    className="w-24 px-2 py-1 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                    {tierError && <p className="mt-2 text-[11px] text-red-600">{tierError}</p>}
+                </div>
+            )}
+
+            {/* Purchase access gating */}
+            {packages.length > 0 && (
+                <div className="border-t border-slate-200 pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Lock className="w-4 h-4 text-slate-500" />
+                        <label className="text-xs font-bold text-slate-700">Purchase access</label>
+                    </div>
+                    <div className="space-y-2">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="radio"
+                                name="gate-mode"
+                                checked={!gateEnabled}
+                                onChange={() => { setGateEnabled(false); setAllowedPackageIds([]); }}
+                                className="accent-blue-600"
+                            />
+                            <span className="text-xs text-slate-700">Anyone can buy</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="radio"
+                                name="gate-mode"
+                                checked={gateEnabled}
+                                onChange={() => setGateEnabled(true)}
+                                className="accent-blue-600"
+                            />
+                            <span className="text-xs text-slate-700">Only members of selected packages</span>
+                        </label>
+                        {gateEnabled && (
+                            <div className="pl-6 space-y-1.5 pt-1">
+                                {packages.map(pkg => {
+                                    const checked = allowedPackageIds.includes(pkg.id);
+                                    return (
+                                        <label key={pkg.id} className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={e => {
+                                                    setAllowedPackageIds(e.target.checked
+                                                        ? [...allowedPackageIds, pkg.id]
+                                                        : allowedPackageIds.filter(id => id !== pkg.id));
+                                                }}
+                                                className="accent-blue-600"
+                                            />
+                                            <span className="text-xs text-slate-700">{pkg.name}</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {/* Save / Cancel */}
             <div className="flex gap-2 pt-2 border-t border-slate-100">
                 <button
@@ -891,6 +1078,183 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEdit ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />)}
                     {isEdit ? 'Save Changes' : 'Add Product'}
                 </button>
+            </div>
+        </div>
+    );
+}
+
+// ─── Membership Pricing & Access Modal (edit existing product) ──────────────────
+
+function MembershipPricingModal({
+    siteId, product, onClose, onSaved,
+}: {
+    siteId: string;
+    product: Product;
+    onClose: () => void;
+    onSaved: (p: Product) => void;
+}) {
+    const packages = useMembershipPackages(siteId);
+    const [tierPrices, setTierPrices] = useState<Record<string, string>>(() => {
+        const initial: Record<string, string> = {};
+        for (const t of (product.tier_prices || [])) {
+            initial[t.packageId] = (t.priceCents / 100).toFixed(2);
+        }
+        return initial;
+    });
+    const [gateEnabled, setGateEnabled] = useState((product.allowed_package_ids || []).length > 0);
+    const [allowedPackageIds, setAllowedPackageIds] = useState<string[]>(product.allowed_package_ids || []);
+    const [error, setError] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
+    const publicPriceCents = product.price_cents;
+
+    const handleSave = async () => {
+        setError(null);
+        const tier_prices: Array<{ packageId: string; priceCents: number }> = [];
+        for (const [packageId, dollars] of Object.entries(tierPrices)) {
+            const trimmed = (dollars || '').trim();
+            if (!trimmed) continue;
+            const cents = Math.round(parseFloat(trimmed) * 100);
+            if (!Number.isFinite(cents) || cents < 0) {
+                setError('Tier prices must be non-negative numbers');
+                return;
+            }
+            if (cents > publicPriceCents) {
+                setError('Tier price cannot exceed the public price');
+                return;
+            }
+            tier_prices.push({ packageId, priceCents: cents });
+        }
+
+        setSaving(true);
+        const res = await fetch('/api/products', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: product.id,
+                tier_prices,
+                allowed_package_ids: gateEnabled ? allowedPackageIds : [],
+            }),
+        });
+        const data = await res.json();
+        setSaving(false);
+        if (!res.ok) {
+            setError(data.error || 'Failed to save');
+            return;
+        }
+        if (data.product) onSaved({ ...product, ...data.product });
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Crown className="w-5 h-5 text-emerald-600" />
+                        <h3 className="font-bold text-slate-900">Membership pricing &amp; access</h3>
+                    </div>
+                    <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded">
+                        <X className="w-4 h-4 text-slate-500" />
+                    </button>
+                </div>
+                <div className="px-5 py-4 space-y-5">
+                    <div className="text-xs text-slate-500">
+                        Editing <span className="font-semibold text-slate-700">{product.name}</span> — public price
+                        <span className="font-semibold text-slate-700"> ${(publicPriceCents / 100).toFixed(2)}</span>
+                    </div>
+
+                    {packages.length === 0 ? (
+                        <p className="text-xs text-slate-500 italic">
+                            Create membership packages in the Membership admin to offer tiered pricing or gated access.
+                        </p>
+                    ) : (
+                        <>
+                            <div>
+                                <label className="text-xs font-bold text-slate-700 block mb-1">Member prices</label>
+                                <p className="text-[11px] text-slate-500 mb-2">
+                                    Leave blank to charge the public price. Members never pay more than the public price.
+                                </p>
+                                <div className="space-y-1.5">
+                                    {packages.map(pkg => (
+                                        <div key={pkg.id} className="flex items-center gap-2">
+                                            <span className="flex-1 text-xs text-slate-700 truncate">{pkg.name}</span>
+                                            <span className="text-[10px] text-slate-400">$</span>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                value={tierPrices[pkg.id] || ''}
+                                                placeholder="—"
+                                                onChange={e => setTierPrices({ ...tierPrices, [pkg.id]: e.target.value })}
+                                                className="w-24 px-2 py-1 text-xs border border-slate-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-bold text-slate-700 block mb-2">Purchase access</label>
+                                <div className="space-y-2">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            checked={!gateEnabled}
+                                            onChange={() => { setGateEnabled(false); setAllowedPackageIds([]); }}
+                                            className="accent-blue-600"
+                                        />
+                                        <span className="text-xs text-slate-700">Anyone can buy</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            checked={gateEnabled}
+                                            onChange={() => setGateEnabled(true)}
+                                            className="accent-blue-600"
+                                        />
+                                        <span className="text-xs text-slate-700">Only members of selected packages</span>
+                                    </label>
+                                    {gateEnabled && (
+                                        <div className="pl-6 space-y-1.5 pt-1">
+                                            {packages.map(pkg => {
+                                                const checked = allowedPackageIds.includes(pkg.id);
+                                                return (
+                                                    <label key={pkg.id} className="flex items-center gap-2 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={checked}
+                                                            onChange={e => {
+                                                                setAllowedPackageIds(e.target.checked
+                                                                    ? [...allowedPackageIds, pkg.id]
+                                                                    : allowedPackageIds.filter(id => id !== pkg.id));
+                                                            }}
+                                                            className="accent-blue-600"
+                                                        />
+                                                        <span className="text-xs text-slate-700">{pkg.name}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {error && <p className="text-xs text-red-600">{error}</p>}
+                </div>
+                <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-end gap-2">
+                    <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || packages.length === 0}
+                        className="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-40 flex items-center gap-2"
+                    >
+                        {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                        Save
+                    </button>
+                </div>
             </div>
         </div>
     );
@@ -974,7 +1338,7 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
     const handleQuickAdd = (e: React.MouseEvent, product: Product) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!cart || product.inventory_count === 0) return;
+        if (!cart || product.inventory_count === 0 || product.can_purchase === false) return;
 
         // Default to first variant options
         const defaultVariants: Record<string, string> = {};
@@ -985,7 +1349,7 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
         cart.addToCart({
             productId: product.id,
             name: product.name,
-            price_cents: product.price_cents,
+            price_cents: product.effective_price_cents ?? product.price_cents,
             currency: product.currency,
             qty: 1,
             image: product.images?.[0],
@@ -1054,8 +1418,14 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
     );
 
     const renderCard = (product: Product) => {
-        const hasDiscount = !!product.compare_at_cents && product.compare_at_cents > product.price_cents;
+        const effectivePriceCents = product.effective_price_cents ?? product.price_cents;
+        const hasDiscount = !!product.compare_at_cents && product.compare_at_cents > effectivePriceCents;
         const outOfStock = product.inventory_count === 0;
+        const isGated = product.can_purchase === false;
+        const isMemberPrice = !!product.matched_package_id
+            && typeof product.public_price_cents === 'number'
+            && product.public_price_cents > effectivePriceCents;
+
         return (
             <a
                 key={product.id}
@@ -1071,7 +1441,12 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
                             <Package className="w-12 h-12 text-slate-200" />
                         </div>
                     )}
-                    {hasDiscount && (
+                    {isMemberPrice && (
+                        <span className="absolute top-2.5 left-2.5 px-2.5 py-1 text-xs font-bold text-white rounded-lg shadow-md bg-emerald-600 inline-flex items-center gap-1">
+                            <Crown className="w-3 h-3" /> MEMBER
+                        </span>
+                    )}
+                    {!isMemberPrice && hasDiscount && (
                         <span className="absolute top-2.5 left-2.5 px-2.5 py-1 text-xs font-bold text-white rounded-lg shadow-md" style={{ backgroundColor: pSecondary }}>
                             SALE
                         </span>
@@ -1081,7 +1456,15 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
                             <span className="text-white font-bold text-sm tracking-wide">SOLD OUT</span>
                         </div>
                     )}
-                    {!outOfStock && (
+                    {isGated && !outOfStock && (
+                        <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-1.5">
+                            <Lock className="w-6 h-6 text-white" />
+                            <span className="text-white font-bold text-xs tracking-wide px-2 text-center">
+                                {product.gate_reason === 'guest' ? 'SIGN IN TO PURCHASE' : 'MEMBERS ONLY'}
+                            </span>
+                        </div>
+                    )}
+                    {!outOfStock && !isGated && (
                         <button
                             onClick={(e) => handleQuickAdd(e, product)}
                             className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
@@ -1097,8 +1480,11 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
                         <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{product.description}</p>
                     )}
                     <div className="flex items-center gap-2 mt-2">
-                        <span className="font-bold text-base" style={{ color: pSecondary }}>${(product.price_cents / 100).toFixed(2)}</span>
-                        {hasDiscount && (
+                        <span className="font-bold text-base" style={{ color: pSecondary }}>${(effectivePriceCents / 100).toFixed(2)}</span>
+                        {isMemberPrice && (
+                            <span className="text-xs text-slate-400 line-through">${(product.public_price_cents! / 100).toFixed(2)}</span>
+                        )}
+                        {!isMemberPrice && hasDiscount && (
                             <span className="text-xs text-slate-400 line-through">${(product.compare_at_cents! / 100).toFixed(2)}</span>
                         )}
                     </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ShoppingCart, Minus, Plus, ChevronLeft, ChevronRight, Check, ArrowLeft, Package, Truck, Shield } from 'lucide-react';
+import { ShoppingCart, Minus, Plus, ChevronLeft, ChevronRight, Check, ArrowLeft, Package, Truck, Shield, Lock } from 'lucide-react';
 import { useCart } from './CartProvider';
 
 interface Product {
@@ -17,6 +17,11 @@ interface Product {
     is_active: boolean;
     category?: string | null;
     tags?: string[];
+    effective_price_cents?: number;
+    public_price_cents?: number;
+    matched_package_id?: string | null;
+    can_purchase?: boolean;
+    gate_reason?: 'guest' | 'wrong-tier' | null;
 }
 
 interface ProductPageProps {
@@ -63,12 +68,18 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
 
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
-    const hasDiscount = product.compare_at_cents && product.compare_at_cents > product.price_cents;
-    const discountPct = hasDiscount ? Math.round((1 - product.price_cents / product.compare_at_cents!) * 100) : 0;
+    const effectivePriceCents = product.effective_price_cents ?? product.price_cents;
+    const hasDiscount = product.compare_at_cents && product.compare_at_cents > effectivePriceCents;
+    const discountPct = hasDiscount ? Math.round((1 - effectivePriceCents / product.compare_at_cents!) * 100) : 0;
     const outOfStock = product.inventory_count === 0;
     const lowStock = product.inventory_count > 0 && product.inventory_count <= 5;
     const relatedProducts = getRelatedProducts(product, allProducts || []);
     const productsHref = productsPagePath || '/#products';
+    const canPurchase = product.can_purchase !== false;
+    const gateReason = product.gate_reason || null;
+    const isMemberPrice = !!product.matched_package_id
+        && typeof product.public_price_cents === 'number'
+        && product.public_price_cents > effectivePriceCents;
 
     // Default variant selections
     useEffect(() => {
@@ -80,11 +91,11 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
     }, [product]);
 
     const handleAddToCart = () => {
-        if (!cart || outOfStock) return;
+        if (!cart || outOfStock || !canPurchase) return;
         cart.addToCart({
             productId: product.id,
             name: product.name,
-            price_cents: product.price_cents,
+            price_cents: effectivePriceCents,
             currency: product.currency,
             qty,
             image: product.images?.[0],
@@ -183,19 +194,29 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
                         <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">{product.name}</h1>
 
                         {/* Price */}
-                        <div className="flex items-baseline gap-3 mt-4">
+                        <div className="flex items-baseline gap-3 mt-4 flex-wrap">
                             <span className="text-3xl font-bold" style={{ color: pSecondary }}>
-                                ${(product.price_cents / 100).toFixed(2)}
+                                ${(effectivePriceCents / 100).toFixed(2)}
                             </span>
-                            {hasDiscount && (
+                            {isMemberPrice && (
+                                <span className="text-xl text-slate-400 line-through">
+                                    ${(product.public_price_cents! / 100).toFixed(2)}
+                                </span>
+                            )}
+                            {!isMemberPrice && hasDiscount && (
                                 <span className="text-xl text-slate-400 line-through">
                                     ${(product.compare_at_cents! / 100).toFixed(2)}
                                 </span>
                             )}
                             <span className="text-sm text-slate-400 uppercase">{product.currency}</span>
-                            {hasDiscount && (
+                            {isMemberPrice && (
+                                <span className="text-xs font-bold px-2 py-1 rounded-full bg-emerald-600 text-white inline-flex items-center gap-1">
+                                    <Check className="w-3 h-3" /> Member price
+                                </span>
+                            )}
+                            {!isMemberPrice && hasDiscount && (
                                 <span className="text-xs font-bold px-2 py-1 rounded-full text-white" style={{ backgroundColor: pSecondary }}>
-                                    Save ${((product.compare_at_cents! - product.price_cents) / 100).toFixed(2)}
+                                    Save ${((product.compare_at_cents! - effectivePriceCents) / 100).toFixed(2)}
                                 </span>
                             )}
                         </div>
@@ -247,34 +268,57 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
                             </div>
                         )}
 
-                        {/* Quantity + Add to Cart */}
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className="flex items-center border-2 border-slate-200 rounded-xl overflow-hidden">
-                                <button onClick={() => setQty(Math.max(1, qty - 1))} className="px-3 py-3 hover:bg-slate-50 transition-colors">
-                                    <Minus className="w-4 h-4 text-slate-600" />
-                                </button>
-                                <span className="w-12 text-center font-bold text-slate-900">{qty}</span>
-                                <button onClick={() => setQty(qty + 1)} className="px-3 py-3 hover:bg-slate-50 transition-colors">
-                                    <Plus className="w-4 h-4 text-slate-600" />
+                        {/* Quantity + Add to Cart / Gated CTA */}
+                        {canPurchase ? (
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="flex items-center border-2 border-slate-200 rounded-xl overflow-hidden">
+                                    <button onClick={() => setQty(Math.max(1, qty - 1))} className="px-3 py-3 hover:bg-slate-50 transition-colors">
+                                        <Minus className="w-4 h-4 text-slate-600" />
+                                    </button>
+                                    <span className="w-12 text-center font-bold text-slate-900">{qty}</span>
+                                    <button onClick={() => setQty(qty + 1)} className="px-3 py-3 hover:bg-slate-50 transition-colors">
+                                        <Plus className="w-4 h-4 text-slate-600" />
+                                    </button>
+                                </div>
+
+                                <button
+                                    onClick={handleAddToCart}
+                                    disabled={outOfStock || added}
+                                    className={`flex-1 py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2.5 transition-all shadow-lg hover:shadow-xl disabled:shadow-none ${added ? 'bg-green-600 text-white' : outOfStock ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'text-white hover:-translate-y-0.5'
+                                        }`}
+                                    style={!added && !outOfStock ? { backgroundColor: pSecondary } : {}}
+                                >
+                                    {added ? (
+                                        <><Check className="w-5 h-5" /> Added to Cart!</>
+                                    ) : outOfStock ? (
+                                        'Sold Out'
+                                    ) : (
+                                        <><ShoppingCart className="w-5 h-5" /> Add to Cart — ${(effectivePriceCents * qty / 100).toFixed(2)}</>
+                                    )}
                                 </button>
                             </div>
-
-                            <button
-                                onClick={handleAddToCart}
-                                disabled={outOfStock || added}
-                                className={`flex-1 py-3.5 rounded-xl font-bold text-base flex items-center justify-center gap-2.5 transition-all shadow-lg hover:shadow-xl disabled:shadow-none ${added ? 'bg-green-600 text-white' : outOfStock ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'text-white hover:-translate-y-0.5'
-                                    }`}
-                                style={!added && !outOfStock ? { backgroundColor: pSecondary } : {}}
-                            >
-                                {added ? (
-                                    <><Check className="w-5 h-5" /> Added to Cart!</>
-                                ) : outOfStock ? (
-                                    'Sold Out'
-                                ) : (
-                                    <><ShoppingCart className="w-5 h-5" /> Add to Cart — ${(product.price_cents * qty / 100).toFixed(2)}</>
-                                )}
-                            </button>
-                        </div>
+                        ) : (
+                            <div className="mb-6 p-5 rounded-xl border-2 border-slate-200 bg-slate-50 text-center space-y-3">
+                                <Lock className="w-8 h-8 mx-auto text-slate-400" />
+                                <div>
+                                    <p className="text-base font-bold text-slate-900">
+                                        {gateReason === 'guest' ? 'Members only' : 'Membership required'}
+                                    </p>
+                                    <p className="text-sm text-slate-500 mt-1">
+                                        {gateReason === 'guest'
+                                            ? 'Sign in with an eligible membership to purchase this product.'
+                                            : 'Your current membership plan does not include access to this product.'}
+                                    </p>
+                                </div>
+                                <a
+                                    href={gateReason === 'guest' ? '/signin' : '/member'}
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-white font-bold text-sm hover:opacity-90 transition-opacity"
+                                    style={{ backgroundColor: pPrimary }}
+                                >
+                                    {gateReason === 'guest' ? 'Sign in' : 'View Membership Plans'}
+                                </a>
+                            </div>
+                        )}
 
                         {/* Trust badges */}
                         <div className="grid grid-cols-3 gap-3 pt-4 border-t border-slate-100">

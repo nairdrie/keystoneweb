@@ -2,6 +2,8 @@ import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendOrderConfirmation, sendOrderNotification, sendOrderPaymentConfirmed, sendOrderCancellationToCustomer, sendOrderCancellationToOwner, sendOrderShipped, sendMixedOrderConfirmation, sendVendorOrderNotification, sendOwnerVendorOrderNotification } from '@/lib/email';
 import { findMatchingZone, type ShippingZone } from '@/lib/shipping-data';
+import { getCurrentMemberFromRequest } from '@/lib/membership/current-member';
+import { resolveProductAccess } from '@/lib/ecommerce/resolve-price';
 import Stripe from 'stripe';
 
 /**
@@ -24,8 +26,59 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Calculate subtotal from items
-    const subtotalCents = items.reduce((sum: number, item: any) => sum + (item.price_cents * item.qty), 0);
+    // ── Server-side price + access resolution ────────────────────────────────
+    // Never trust `price_cents` from the client. For each item we re-fetch the
+    // product, identify the current member via the member cookie, and run the
+    // shared resolver. Gated products block the order entirely.
+    const member = await getCurrentMemberFromRequest(request, siteId);
+
+    if (items.some((i: any) => typeof i?.productId !== 'string' || !i.productId)) {
+        return NextResponse.json({ error: 'Each item must reference a productId' }, { status: 400 });
+    }
+    const productIds = Array.from(new Set(items.map((i: any) => i.productId as string)));
+    const { data: productRows, error: productFetchError } = await supabase
+        .from('products')
+        .select('id, site_id, name, price_cents, currency, tier_prices, allowed_package_ids, is_active, vendor_id')
+        .in('id', productIds as string[]);
+    if (productFetchError) {
+        return NextResponse.json({ error: 'Failed to validate items' }, { status: 500 });
+    }
+    const productById = new Map((productRows || []).map((p: any) => [p.id, p]));
+
+    const resolvedItems: any[] = [];
+    for (const rawItem of items) {
+        const product = productById.get(rawItem.productId);
+        if (!product || product.site_id !== siteId || !product.is_active) {
+            return NextResponse.json({ error: 'Invalid product in cart' }, { status: 400 });
+        }
+        const qty = Math.max(1, Math.floor(Number(rawItem.qty) || 0));
+        if (qty <= 0) {
+            return NextResponse.json({ error: 'Invalid item quantity' }, { status: 400 });
+        }
+        const resolved = resolveProductAccess(product, member);
+        if (!resolved.canPurchase) {
+            return NextResponse.json({
+                error: resolved.gateReason === 'guest'
+                    ? 'Sign in with an eligible membership to purchase this item'
+                    : 'Your membership does not grant access to this item',
+                productId: product.id,
+                gateReason: resolved.gateReason,
+            }, { status: 403 });
+        }
+        resolvedItems.push({
+            productId: product.id,
+            name: product.name,
+            price_cents: resolved.priceCents,
+            public_price_cents: resolved.publicPriceCents,
+            matched_package_id: resolved.matchedPackageId,
+            currency: product.currency,
+            qty,
+            image: rawItem.image,
+            variants: rawItem.variants,
+        });
+    }
+
+    const subtotalCents = resolvedItems.reduce((sum, item) => sum + item.price_cents * item.qty, 0);
 
     // Server-side shipping validation: re-calculate shipping from zones to prevent tampering
     let validatedShippingCents = 0;
@@ -71,27 +124,16 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
     const defaultVendorId: string | null = defaultVendorRow?.id || null;
 
-    // Look up vendor_id for each item's productId
-    const productIds = items.filter((i: any) => i.productId).map((i: any) => i.productId);
-    let productVendorMap: Record<string, string | null> = {};
-
-    if (productIds.length > 0) {
-        const { data: products } = await supabase
-            .from('products')
-            .select('id, vendor_id')
-            .in('id', productIds);
-
-        if (products) {
-            for (const p of products) {
-                // Fall back to default vendor if product has no explicit vendor
-                productVendorMap[p.id] = p.vendor_id || defaultVendorId;
-            }
-        }
+    // Build vendor map from the product rows we already fetched for price/access
+    // resolution — no second round-trip needed.
+    const productVendorMap: Record<string, string | null> = {};
+    for (const p of (productRows || []) as any[]) {
+        productVendorMap[p.id] = p.vendor_id || defaultVendorId;
     }
 
-    // Group items by vendor (null/undefined = self-fulfilled if no default; otherwise default vendor)
+    // Group resolved items by vendor (self = self-fulfilled if no default; otherwise default vendor)
     const itemsByVendor: Record<string, any[]> = {};
-    for (const item of items) {
+    for (const item of resolvedItems) {
         const vendorId = productVendorMap[item.productId] || 'self';
         if (!itemsByVendor[vendorId]) itemsByVendor[vendorId] = [];
         itemsByVendor[vendorId].push(item);
@@ -105,7 +147,7 @@ export async function POST(request: NextRequest) {
     // If not a mixed cart and no vendor items, use the original flow
     if (!isMixedCart && !hasVendorItems) {
         return await createSingleOrder(supabase, {
-            siteId, items, customerName, customerEmail, customerPhone,
+            siteId, items: resolvedItems, customerName, customerEmail, customerPhone,
             shippingAddress, validatedShippingCents, validatedShippingMethod,
             notes, paymentMethod, shippingRequired,
         });
@@ -130,7 +172,7 @@ export async function POST(request: NextRequest) {
         .from('orders')
         .insert({
             site_id: siteId,
-            items, // full item list
+            items: resolvedItems, // full item list with server-resolved prices
             subtotal_cents: subtotalCents,
             shipping_cents: validatedShippingCents,
             shipping_method: validatedShippingMethod,
@@ -230,7 +272,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Decrement inventory for all purchased products
-    for (const item of items) {
+    for (const item of resolvedItems) {
         if (item.productId) {
             const { data: product } = await supabase
                 .from('products')
@@ -272,7 +314,7 @@ export async function POST(request: NextRequest) {
     // Build per-item payment status for customer email
     // A "paymentConfirmed" item is one paid in-checkout (Stripe / Converge / Clover / self with Stripe/none).
     // External-vendor items are still pending after checkout (customer hears from vendor separately).
-    const itemStatuses = items.map((item: any) => {
+    const itemStatuses = resolvedItems.map((item: any) => {
         const vendorId = productVendorMap[item.productId] || null;
         const vendor = vendorId ? vendors[vendorId] : null;
         if (!vendor) {
@@ -301,7 +343,7 @@ export async function POST(request: NextRequest) {
         subtotalCents,
         shippingCents: validatedShippingCents,
         shippingMethod: validatedShippingMethod || undefined,
-        currency: items[0]?.currency || 'CAD',
+        currency: resolvedItems[0]?.currency || 'CAD',
         customerName,
         customerEmail,
         paymentMethod,
@@ -334,7 +376,7 @@ export async function POST(request: NextRequest) {
                 shippingAddress,
                 items: vendorOrder.items,
                 subtotalCents: vendorOrder.subtotal_cents,
-                currency: items[0]?.currency || 'CAD',
+                currency: resolvedItems[0]?.currency || 'CAD',
                 portalToken: tokenRow?.token,
                 siteName,
             }).catch(err => console.error('Vendor notification email failed:', err));
@@ -360,7 +402,7 @@ export async function POST(request: NextRequest) {
             })),
             customerName,
             customerEmail,
-            currency: items[0]?.currency || 'CAD',
+            currency: resolvedItems[0]?.currency || 'CAD',
             ownerEmail: paymentConfig.notification_email,
             siteName,
         }).catch(err => console.error('Owner vendor order email failed:', err));
@@ -387,7 +429,7 @@ export async function POST(request: NextRequest) {
             type: 'etransfer',
             email: paymentConfig.etransfer_email,
             amount: ((selfOrder.subtotal_cents + (selfOrder.shipping_cents || 0)) / 100).toFixed(2),
-            currency: items[0]?.currency || 'CAD',
+            currency: resolvedItems[0]?.currency || 'CAD',
             reference: `ORDER-${selfOrder.id.slice(0, 8).toUpperCase()}`,
         };
     }

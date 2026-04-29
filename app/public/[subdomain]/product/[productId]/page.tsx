@@ -6,6 +6,8 @@ import { getTemplateMetadata } from '@/lib/db/template-queries';
 import ProductPageClient from '@/app/components/ecommerce/ProductPageWrapper';
 import ProductJsonLd from '@/app/components/ProductJsonLd';
 import SiteNotFound from '@/app/components/SiteNotFound';
+import { getCurrentMember } from '@/lib/membership/current-member';
+import { resolveProductAccess } from '@/lib/ecommerce/resolve-price';
 import { PUBLISHED_ROOT } from '@/lib/env/domain';
 import type { Metadata } from 'next';
 import { buildSiteMetadata, buildCanonicalUrl, cleanSeoTitle } from '@/lib/seo/metadata';
@@ -103,13 +105,36 @@ export default async function ProductDetailPage({
             );
         }
 
+        // Resolve the viewing member's price/access for this product.
+        const member = await getCurrentMember(site.id);
+        const access = resolveProductAccess(product, member);
+        const resolvedProduct = {
+            ...product,
+            effective_price_cents: access.priceCents,
+            public_price_cents: access.publicPriceCents,
+            matched_package_id: access.matchedPackageId,
+            can_purchase: access.canPurchase,
+            gate_reason: access.gateReason,
+        };
+
         // Fetch all products for "related products"
-        const { data: allProducts } = await supabase
+        const { data: allProductsRaw } = await supabase
             .from('products')
             .select('*')
             .eq('site_id', site.id)
             .eq('is_active', true)
             .order('sort_order');
+        const allProducts = (allProductsRaw || []).map(p => {
+            const r = resolveProductAccess(p, member);
+            return {
+                ...p,
+                effective_price_cents: r.priceCents,
+                public_price_cents: r.publicPriceCents,
+                matched_package_id: r.matchedPackageId,
+                can_purchase: r.canPurchase,
+                gate_reason: r.gateReason,
+            };
+        });
 
         // Get template + palette
         const { data: homePage } = await supabase
@@ -191,11 +216,11 @@ export default async function ProductDetailPage({
                 {TemplateComp ? (
                     <TemplateComp palette={paletteData} isEditMode={false}>
                         <ProductPageClient
-                            product={product}
+                            product={resolvedProduct}
                             siteId={site.id}
                             palette={paletteData}
                             siteName={site.site_slug || ''}
-                            allProducts={allProducts || []}
+                            allProducts={allProducts}
                             navContent={mergedPublishData}
                             templateId={site.selected_template_id}
                             productsPagePath={productsPagePath}
@@ -203,11 +228,11 @@ export default async function ProductDetailPage({
                     </TemplateComp>
                 ) : (
                     <ProductPageClient
-                        product={product}
+                        product={resolvedProduct}
                         siteId={site.id}
                         palette={paletteData}
                         siteName={site.site_slug || ''}
-                        allProducts={allProducts || []}
+                        allProducts={allProducts}
                         navContent={mergedPublishData}
                         templateId={site.selected_template_id}
                     />
