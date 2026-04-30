@@ -72,6 +72,27 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [inboxUnread, setInboxUnread] = useState(0);
+  const [goingLive, setGoingLive] = useState(false);
+
+  const handleGoLive = async () => {
+    if (!siteId || goingLive) return;
+    setGoingLive(true);
+    try {
+      const res = await fetch('/api/user/subscription', { credentials: 'include' });
+      if (res.ok) {
+        const { subscription } = await res.json();
+        if (subscription && subscription.subscription_status === 'active') {
+          router.push(`/publish/domain-select?session_id=existing&siteId=${siteId}`);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to check subscription before go live:', err);
+    } finally {
+      setGoingLive(false);
+    }
+    router.push(`/pricing?action=publish&siteId=${siteId}`);
+  };
 
   function refreshInboxUnread() {
     const id = siteId;
@@ -519,10 +540,12 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                 </a>
               ) : (
                 <button
-                  onClick={() => router.push(`/design?siteId=${siteId}`)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-bold rounded-lg transition-colors hover:brightness-110"
+                  onClick={handleGoLive}
+                  disabled={goingLive}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-bold rounded-lg transition-colors hover:brightness-110 disabled:opacity-60"
                   style={{ backgroundColor: 'var(--brand-primary, #dc2626)' }}
                 >
+                  {goingLive ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
                   Go Live
                 </button>
               )}
