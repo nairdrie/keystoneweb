@@ -392,7 +392,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                             orderId: co.id,
                             vendorName: co.vendorName || 'Vendor',
                             subtotalCents: co.subtotalCents,
-                            shippingCents: 0,
+                            shippingCents: co.shippingCents || 0,
                             processor: 'external',
                             status: 'completed', // external = no in-checkout payment; treated as done immediately
                         });
@@ -1198,7 +1198,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                         .filter((co: any) => co.paymentMethod === 'external')
                                         .map((co: any, i: number) => (
                                             <p key={i} className="text-sm text-blue-900 font-medium">
-                                                {co.vendorName} — ${(co.subtotalCents / 100).toFixed(2)}
+                                                {co.vendorName} — ${((co.subtotalCents + (co.shippingCents || 0)) / 100).toFixed(2)}
                                             </p>
                                         ))
                                     }

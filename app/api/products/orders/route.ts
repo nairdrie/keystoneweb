@@ -204,14 +204,19 @@ export async function POST(request: NextRequest) {
     const cloverOrders: any[] = [];     // orders needing Clover Hosted Checkout
     const externalOrders: any[] = [];   // orders handled externally (email-based)
 
+    // Shipping is collected by whoever actually fulfills/ships the order: the
+    // self-fulfilled order if one exists, otherwise the first vendor order
+    // (which would otherwise lose the shipping cost when invoicing the customer).
+    const shippingBearerKey = hasSelfItems ? 'self' : vendorKeys[0];
+
     for (const [vendorKey, vendorItems] of Object.entries(itemsByVendor)) {
         const isSelf = vendorKey === 'self';
         const vendor = isSelf ? null : vendors[vendorKey];
         const groupSubtotal = vendorItems.reduce((sum: number, item: any) => sum + (item.price_cents * item.qty), 0);
 
-        // Shipping only goes on the first / self-fulfilled order
-        const groupShipping = isSelf ? validatedShippingCents : 0;
-        const groupShippingMethod = isSelf ? validatedShippingMethod : null;
+        const bearsShipping = vendorKey === shippingBearerKey;
+        const groupShipping = bearsShipping ? validatedShippingCents : 0;
+        const groupShippingMethod = bearsShipping ? validatedShippingMethod : null;
 
         let orderPaymentMethod: string;
         let orderStatus: string;
@@ -424,6 +429,7 @@ export async function POST(request: NextRequest) {
             paymentMethod: co.payment_method,
             status: co.status,
             subtotalCents: co.subtotal_cents,
+            shippingCents: co.shipping_cents || 0,
         })),
         confirmationMessage: 'Thank you for your order!',
     };
