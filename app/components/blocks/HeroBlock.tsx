@@ -70,8 +70,8 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
     if (variant === 'minimal') {
         const showButton = block.data.showButton !== false;
         return (
-            <section className="py-40 relative" style={{ backgroundColor: pAccent }}>
-                <div className="max-w-5xl mx-auto px-4">
+            <section className="hero hero-minimal py-40 relative" style={{ backgroundColor: pAccent }}>
+                <div className="hero-container max-w-5xl mx-auto px-4">
                     <Reveal>
                         <EditableText
                             as="h1"
@@ -81,11 +81,11 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                             defaultValue="Welcome to our site"
                             isEditMode={isEditMode}
                             onSave={(key, val) => updateData(key, val)}
-                            className="text-6xl md:text-8xl font-black mb-8 leading-[0.95] tracking-tight"
+                            className="hero-title text-6xl md:text-8xl font-black mb-8 leading-[0.95] tracking-tight"
                             style={{ color: pPrimary }}
                         />
                     </Reveal>
-                    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
+                    <div className="hero-footer flex flex-col md:flex-row md:items-end md:justify-between gap-8">
                         <Reveal className="max-w-xl">
                             <EditableText
                                 as="p"
@@ -95,7 +95,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                                 defaultValue="We offer the best services available."
                                 isEditMode={isEditMode}
                                 onSave={(key, val) => updateData(key, val)}
-                                className="text-xl md:text-2xl text-gray-500"
+                                className="hero-subtitle text-xl md:text-2xl text-gray-500"
                             />
                         </Reveal>
                         {showButton && (
@@ -108,7 +108,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                                     defaultLabel="Get Started"
                                     isEditMode={isEditMode}
                                     onSave={(key, val) => updateData(key, val)}
-                                    className="px-10 py-4 text-lg font-bold rounded-full shadow-lg hover:scale-105 transition-transform text-white inline-block flex-shrink-0"
+                                    className="hero-button px-10 py-4 text-lg font-bold rounded-full shadow-lg hover:scale-105 transition-transform text-white inline-block flex-shrink-0"
                                     style={{ backgroundColor: pSecondary }}
                                 />
                             </Reveal>
@@ -122,24 +122,24 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
     // Video variant — video background with text overlay
     if (variant === 'video') {
         return (
-            <section className="relative min-h-[80vh] flex items-center overflow-hidden">
+            <section className="hero hero-video relative min-h-[80vh] flex items-center overflow-hidden">
                 {videoUrl ? (
                     <video
                         autoPlay
                         muted
                         loop
                         playsInline
-                        className="absolute inset-0 w-full h-full object-cover"
+                        className="hero-video-bg absolute inset-0 w-full h-full object-cover"
                     >
                         <source src={videoUrl} type="video/mp4" />
                     </video>
                 ) : imageUrl ? (
-                    <img src={imageUrl} alt={block.data.image__settings?.altText || ''} role={block.data.image__settings?.altText ? undefined : 'presentation'} className="absolute inset-0 w-full h-full object-cover" loading="eager" fetchPriority="high" decoding="sync" />
+                    <img src={imageUrl} alt={block.data.image__settings?.altText || ''} role={block.data.image__settings?.altText ? undefined : 'presentation'} className="hero-image absolute inset-0 w-full h-full object-cover" loading="eager" fetchPriority="high" decoding="sync" />
                 ) : (
-                    <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${pPrimary}, ${pSecondary})` }} />
+                    <div className="hero-bg-fallback absolute inset-0" style={{ background: `linear-gradient(135deg, ${pPrimary}, ${pSecondary})` }} />
                 )}
                 {lcpImageUrl && <link rel="preload" as="image" href={lcpImageUrl} fetchPriority="high" />}
-                <div className="absolute inset-0 bg-black/60" />
+                <div className="hero-overlay absolute inset-0 bg-black/60" />
                 {isEditMode && (
                     <>
                     <PexelsVideoPickerModal
@@ -202,7 +202,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                     </div>
                     </>
                 )}
-                <div className="max-w-5xl mx-auto px-4 py-24 relative z-10 text-center">
+                <div className="hero-container max-w-5xl mx-auto px-4 py-24 relative z-10 text-center">
                     <Reveal>
                         <EditableText
                             as="h1"
@@ -212,7 +212,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                             defaultValue="Welcome to our site"
                             isEditMode={isEditMode}
                             onSave={(key, val) => updateData(key, val)}
-                            className="text-5xl md:text-7xl font-black mb-6 leading-tight text-white drop-shadow-lg"
+                            className="hero-title text-5xl md:text-7xl font-black mb-6 leading-tight text-white drop-shadow-lg"
                         />
                     </Reveal>
                     <Reveal className="max-w-2xl mx-auto">
@@ -224,7 +224,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                             defaultValue="We offer the best services available."
                             isEditMode={isEditMode}
                             onSave={(key, val) => updateData(key, val)}
-                            className="text-xl md:text-2xl text-white/85 mb-10"
+                            className="hero-subtitle text-xl md:text-2xl text-white/85 mb-10"
                         />
                     </Reveal>
                     <Reveal>
@@ -236,7 +236,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                             defaultLabel="Get a Free Quote"
                             isEditMode={isEditMode}
                             onSave={(key, val) => updateData(key, val)}
-                            className="px-10 py-4 text-lg font-bold rounded-full shadow-xl hover:scale-105 transition-transform text-white inline-block"
+                            className="hero-button px-10 py-4 text-lg font-bold rounded-full shadow-xl hover:scale-105 transition-transform text-white inline-block"
                             style={{ backgroundColor: pSecondary }}
                         />
                     </Reveal>
@@ -262,47 +262,47 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
 
         return (
             <section
-                className="py-32 text-center relative overflow-hidden"
+                className="hero hero-centered py-32 text-center relative overflow-hidden"
                 style={customBgStyle}
             >
                 {lcpImageUrl && <link rel="preload" as="image" href={lcpImageUrl} fetchPriority="high" />}
                 {/* Media Backgrounds */}
                 {bgType === 'image' && block.data.bgImage && (
                     <>
-                        <div className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${block.data.bgImage})` }} />
-                        <div className="absolute inset-0 z-0 bg-black/60" />
+                        <div className="hero-bg-image absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${block.data.bgImage})` }} />
+                        <div className="hero-overlay absolute inset-0 z-0 bg-black/60" />
                     </>
                 )}
                 {bgType === 'carousel' && carouselImages.length > 0 && (
                     <>
                         {carouselTransition === 'fade' && carouselImages.map((img, i) => (
-                            <div key={i} className={`absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-opacity duration-1000 ${i === currentSlide ? 'opacity-100' : 'opacity-0'}`} style={{ backgroundImage: `url(${img})` }} />
+                            <div key={i} className={`hero-bg-carousel-slide absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-opacity duration-1000 ${i === currentSlide ? 'opacity-100' : 'opacity-0'}`} style={{ backgroundImage: `url(${img})` }} />
                         ))}
                         {carouselTransition === 'swipe' && (
-                            <div className="absolute inset-0 z-0 overflow-hidden">
-                                <div className="flex h-full transition-transform duration-700 ease-in-out" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
+                            <div className="hero-bg-carousel absolute inset-0 z-0 overflow-hidden">
+                                <div className="hero-bg-carousel-track flex h-full transition-transform duration-700 ease-in-out" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
                                     {carouselImages.map((img, i) => (
-                                        <div key={i} className="w-full h-full flex-shrink-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${img})` }} />
+                                        <div key={i} className="hero-bg-carousel-slide w-full h-full flex-shrink-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${img})` }} />
                                     ))}
                                 </div>
                             </div>
                         )}
                         {carouselTransition === 'scroll' && (
-                            <div className="absolute inset-0 z-0 overflow-hidden">
+                            <div className="hero-bg-carousel absolute inset-0 z-0 overflow-hidden">
                                 <style>{`@keyframes heroCarouselScroll { from { transform: translateX(0) } to { transform: translateX(-50%) } }`}</style>
-                                <div className="flex h-full" style={{ width: `${carouselImages.length * 200}%`, animation: `heroCarouselScroll ${carouselImages.length * (block.data.bgCarouselTiming || 5)}s linear infinite` }}>
+                                <div className="hero-bg-carousel-track flex h-full" style={{ width: `${carouselImages.length * 200}%`, animation: `heroCarouselScroll ${carouselImages.length * (block.data.bgCarouselTiming || 5)}s linear infinite` }}>
                                     {[...carouselImages, ...carouselImages].map((img, i) => (
-                                        <div key={i} className="h-full flex-shrink-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${img})`, width: `${100 / (carouselImages.length * 2)}%` }} />
+                                        <div key={i} className="hero-bg-carousel-slide h-full flex-shrink-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${img})`, width: `${100 / (carouselImages.length * 2)}%` }} />
                                     ))}
                                 </div>
                             </div>
                         )}
-                        <div className="absolute inset-0 z-0 bg-black/60" />
+                        <div className="hero-overlay absolute inset-0 z-0 bg-black/60" />
                     </>
                 )}
 
-                {!hasCustomMedia && <div className="absolute inset-0 opacity-10 z-0" style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, white 0%, transparent 60%)' }} />}
-                <div className="max-w-4xl mx-auto px-4 relative z-10">
+                {!hasCustomMedia && <div className="hero-decoration absolute inset-0 opacity-10 z-0" style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, white 0%, transparent 60%)' }} />}
+                <div className="hero-container max-w-4xl mx-auto px-4 relative z-10">
                     <Reveal>
                         <EditableText
                             as="h1"
@@ -312,7 +312,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                             defaultValue="Welcome to our site"
                             isEditMode={isEditMode}
                             onSave={(key, val) => updateData(key, val)}
-                            className="text-5xl md:text-6xl font-black mb-6 leading-tight text-white"
+                            className="hero-title text-5xl md:text-6xl font-black mb-6 leading-tight text-white"
                         />
                     </Reveal>
                     <Reveal className="max-w-2xl mx-auto">
@@ -324,7 +324,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                             defaultValue="We offer the best services available."
                             isEditMode={isEditMode}
                             onSave={(key, val) => updateData(key, val)}
-                            className="text-xl md:text-2xl text-white/85 mb-10"
+                            className="hero-subtitle text-xl md:text-2xl text-white/85 mb-10"
                         />
                     </Reveal>
                     <Reveal>
@@ -336,7 +336,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                             defaultLabel="Get a Free Quote"
                             isEditMode={isEditMode}
                             onSave={(key, val) => updateData(key, val)}
-                            className="px-10 py-4 text-lg font-bold rounded-full shadow-xl hover:scale-105 transition-transform inline-block"
+                            className="hero-button px-10 py-4 text-lg font-bold rounded-full shadow-xl hover:scale-105 transition-transform inline-block"
                             style={{ backgroundColor: '#ffffff', color: pPrimary }}
                         />
                     </Reveal>
@@ -348,14 +348,14 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
     // Full-image variant — text overlaid on image
     if (variant === 'fullImage') {
         return (
-            <section className="relative min-h-[70vh] flex items-center overflow-hidden">
+            <section className="hero hero-fullimage relative min-h-[70vh] flex items-center overflow-hidden">
                 {imageUrl ? (
-                    <img src={imageUrl} alt={block.data.image__settings?.altText || ''} role={block.data.image__settings?.altText ? undefined : 'presentation'} className="absolute inset-0 w-full h-full object-cover" loading="eager" fetchPriority="high" decoding="sync" />
+                    <img src={imageUrl} alt={block.data.image__settings?.altText || ''} role={block.data.image__settings?.altText ? undefined : 'presentation'} className="hero-image absolute inset-0 w-full h-full object-cover" loading="eager" fetchPriority="high" decoding="sync" />
                 ) : (
-                    <div className="absolute inset-0" style={{ backgroundColor: pPrimary }} />
+                    <div className="hero-bg-fallback absolute inset-0" style={{ backgroundColor: pPrimary }} />
                 )}
                 {lcpImageUrl && <link rel="preload" as="image" href={lcpImageUrl} fetchPriority="high" />}
-                <div className="absolute inset-0 bg-black/50" />
+                <div className="hero-overlay absolute inset-0 bg-black/50" />
                 {isEditMode && (
                     <div className="absolute top-4 right-4 z-20">
                         <EditableImage
@@ -370,7 +370,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                         />
                     </div>
                 )}
-                <div className="max-w-5xl mx-auto px-4 py-24 relative z-10 text-center">
+                <div className="hero-container max-w-5xl mx-auto px-4 py-24 relative z-10 text-center">
                     <Reveal>
                         <EditableText
                             as="h1"
@@ -380,7 +380,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                             defaultValue="Welcome to our site"
                             isEditMode={isEditMode}
                             onSave={(key, val) => updateData(key, val)}
-                            className="text-5xl md:text-7xl font-black mb-6 leading-tight text-white"
+                            className="hero-title text-5xl md:text-7xl font-black mb-6 leading-tight text-white"
                         />
                     </Reveal>
                     <Reveal className="max-w-2xl mx-auto">
@@ -392,7 +392,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                             defaultValue="We offer the best services available."
                             isEditMode={isEditMode}
                             onSave={(key, val) => updateData(key, val)}
-                            className="text-xl md:text-2xl text-white/80 mb-10"
+                            className="hero-subtitle text-xl md:text-2xl text-white/80 mb-10"
                         />
                     </Reveal>
                     <Reveal>
@@ -404,7 +404,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                             defaultLabel="Get a Free Quote"
                             isEditMode={isEditMode}
                             onSave={(key, val) => updateData(key, val)}
-                            className="px-10 py-4 text-lg font-bold rounded-full shadow-xl hover:scale-105 transition-transform text-white inline-block"
+                            className="hero-button px-10 py-4 text-lg font-bold rounded-full shadow-xl hover:scale-105 transition-transform text-white inline-block"
                             style={{ backgroundColor: pSecondary }}
                         />
                     </Reveal>
@@ -415,9 +415,9 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
 
     // Split variant (default) — text left, image right
     return (
-        <section className="py-24" style={{ backgroundColor: pAccent }}>
-            <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
-                <div>
+        <section className="hero hero-split py-24" style={{ backgroundColor: pAccent }}>
+            <div className="hero-container max-w-7xl mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
+                <div className="hero-content">
                     <Reveal>
                         <EditableText
                             as="h1"
@@ -427,7 +427,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                             defaultValue="Welcome to our site"
                             isEditMode={isEditMode}
                             onSave={(key, val) => updateData(key, val)}
-                            className="text-5xl font-extrabold mb-6 leading-tight text-gray-900"
+                            className="hero-title text-5xl font-extrabold mb-6 leading-tight text-gray-900"
                         />
                     </Reveal>
                     <Reveal>
@@ -439,7 +439,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                             defaultValue="We offer the best services available."
                             isEditMode={isEditMode}
                             onSave={(key, val) => updateData(key, val)}
-                            className="text-xl text-gray-600 mb-8"
+                            className="hero-subtitle text-xl text-gray-600 mb-8"
                         />
                     </Reveal>
                     <Reveal>
@@ -451,7 +451,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                             defaultLabel="Get a Free Quote"
                             isEditMode={isEditMode}
                             onSave={(key, val) => updateData(key, val)}
-                            className="px-8 py-4 text-white font-bold rounded-lg shadow-lg hover:opacity-90 transition-opacity inline-block"
+                            className="hero-button px-8 py-4 text-white font-bold rounded-lg shadow-lg hover:opacity-90 transition-opacity inline-block"
                             style={{ backgroundColor: pSecondary }}
                         />
                     </Reveal>
@@ -465,7 +465,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                         isEditMode={isEditMode}
                         onSave={(key, val) => updateData(key, val)}
                         onUpload={context?.uploadImage}
-                        className="w-full h-96 object-cover rounded-2xl shadow-xl"
+                        className="hero-image w-full h-96 object-cover rounded-2xl shadow-xl"
                         placeholder="Click to upload hero image"
                         priority
                     />
