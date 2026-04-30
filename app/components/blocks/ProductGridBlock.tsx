@@ -9,8 +9,6 @@ import {
     ChevronLeft, ChevronRight, Tag, Pencil, Lock, Crown,
 } from 'lucide-react';
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
-import StoreSettingsPanel from '../ecommerce/StoreSettingsPanel';
-import OrdersPanel from '../ecommerce/OrdersPanel';
 import ProductDescriptionEditor from '../ProductDescriptionEditor';
 import { stripHtml } from '@/lib/ecommerce/description';
 import { useRouter, usePathname } from 'next/navigation';
@@ -550,16 +548,6 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                         }}
                     />
                 )}
-
-                {/* Store Settings */}
-                <div className="mt-4">
-                    <StoreSettingsPanel siteId={siteId} />
-                </div>
-
-                {/* Orders */}
-                <div className="mt-4">
-                    <OrdersPanel siteId={siteId} />
-                </div>
             </div>
         </section>
     );
