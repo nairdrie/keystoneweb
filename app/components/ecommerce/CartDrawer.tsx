@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Plus, Minus, ShoppingBag, Trash2, Loader2, Check, ArrowRight, User, Mail, Phone, CreditCard, DollarSign, Truck, AlertCircle, Package, Building2 } from 'lucide-react';
 import { useCart } from './CartProvider';
@@ -79,6 +79,8 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
     const [shippingError, setShippingError] = useState<string | null>(null);
     const [shippingLoading, setShippingLoading] = useState(false);
     const [noZonesConfigured, setNoZonesConfigured] = useState(false);
+
+    const mouseDownOnOverlayRef = useRef(false);
 
     // Mixed-cart orchestration
     const [paymentSteps, setPaymentSteps] = useState<PaymentStep[]>([]);
@@ -668,12 +670,22 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
         'Order Confirmed';
 
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex justify-end" onClick={handleClose}>
+        <div
+            className="fixed inset-0 z-[9999] flex justify-end"
+            onMouseDown={e => {
+                mouseDownOnOverlayRef.current = e.target === e.currentTarget;
+            }}
+            onClick={e => {
+                if (e.target === e.currentTarget && mouseDownOnOverlayRef.current) {
+                    handleClose();
+                }
+                mouseDownOnOverlayRef.current = false;
+            }}
+        >
             <div className="absolute inset-0 bg-black/30" />
 
             <div
                 className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
-                onClick={e => e.stopPropagation()}
             >
                 {/* Redirect overlay — shown while we wait for the payment processor
                     to hand back a hosted-checkout URL and the browser to navigate. */}
