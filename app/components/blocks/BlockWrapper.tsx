@@ -2,8 +2,10 @@
 
 import { ReactNode } from 'react';
 import dynamic from 'next/dynamic';
+import { motion } from 'framer-motion';
 import { useEditorContext } from '@/lib/editor-context';
 import { getBlockSlug } from '@/lib/block-utils';
+import { staggerContainer } from '@/lib/motion';
 
 interface BlockWrapperProps {
     id: string;
@@ -38,16 +40,20 @@ export default function BlockWrapper(props: BlockWrapperProps) {
 
     if (!isEditMode) {
         return (
-            <div
+            <motion.div
                 key={`${id}-view`}
                 id={slug}
                 data-block-id={id}
+                variants={staggerContainer as any}
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true, margin: "-50px" }}
                 style={paletteVars}
                 className={`w-full ks-block ks-block-${type}`}
             >
                 {scopedCss && <style dangerouslySetInnerHTML={{ __html: scopedCss }} />}
                 {children}
-            </div>
+            </motion.div>
         );
     }
 
