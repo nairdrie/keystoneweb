@@ -7,6 +7,7 @@ import {
     Download, Package, X, Plus, Users
 } from 'lucide-react';
 import VendorEditor, { Vendor, PaymentMode } from './VendorEditor';
+import CloverSetupInstructions from './CloverSetupInstructions';
 
 interface EcommerceSettings {
     site_id: string;
@@ -38,6 +39,7 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
     const [cloverConnected, setCloverConnected] = useState(false);
     const [convergeCreds, setConvergeCreds] = useState({ merchant_id: '', user_id: '', pin: '', demo_mode: false });
     const [cloverCreds, setCloverCreds] = useState({ merchant_id: '', public_key: '', private_token: '', webhook_secret: '', sandbox_mode: false });
+    const [siteUrl, setSiteUrl] = useState<string | null>(null);
     const [savingProcessor, setSavingProcessor] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -92,6 +94,7 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                         const procData = await procRes.json();
                         if (procData.converge) setConvergeCreds(procData.converge);
                         if (procData.clover) setCloverCreds(procData.clover);
+                        if (procData.siteUrl) setSiteUrl(procData.siteUrl);
                     }
                 } catch {};
             } catch (err) {
@@ -759,9 +762,9 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                                     {savingProcessor === 'clover' ? 'Saving...' : 'Save Clover Credentials'}
                                 </button>
                             </div>
-                            <p className="text-xs text-slate-400 mt-1.5">
-                                Find these in your Clover Dashboard under Setup &gt; API Tokens.
-                            </p>
+                            <div className="mt-2.5">
+                                <CloverSetupInstructions siteUrl={siteUrl} />
+                            </div>
                         </div>
                     )}
 
@@ -865,6 +868,7 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                                         key={vendor.id}
                                         vendor={vendor}
                                         portalToken={vendorPortalTokens[vendor.id]}
+                                        siteUrl={siteUrl}
                                         connecting={connectingVendorStripe === vendor.id}
                                         copied={copiedToken === vendor.id}
                                         onSave={async (updates) => handleUpdateVendor(vendor.id, updates)}

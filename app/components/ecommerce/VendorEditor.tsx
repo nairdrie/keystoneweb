@@ -5,6 +5,7 @@ import {
     Loader2, Check, AlertCircle, Copy, Trash2, Plus, X,
     Star, Mail, CreditCard, ExternalLink, Edit2, Save, Eye, EyeOff,
 } from 'lucide-react';
+import CloverSetupInstructions from './CloverSetupInstructions';
 
 export type PaymentMode = 'stripe' | 'converge' | 'clover' | 'external';
 
@@ -31,6 +32,7 @@ export interface Vendor {
 interface VendorEditorProps {
     vendor: Vendor;
     portalToken?: string;
+    siteUrl?: string | null;
     onSave: (updates: Partial<Vendor> & { convergePin?: string; cloverPrivateToken?: string; cloverWebhookSecret?: string }) => Promise<void>;
     onDelete: () => void;
     onConnectStripe: () => void;
@@ -47,7 +49,7 @@ const MODE_LABELS: Record<PaymentMode, { label: string; desc: string; color: str
 };
 
 export default function VendorEditor({
-    vendor, portalToken, onSave, onDelete, onConnectStripe, onCopyPortal, connecting, copied,
+    vendor, portalToken, siteUrl, onSave, onDelete, onConnectStripe, onCopyPortal, connecting, copied,
 }: VendorEditorProps) {
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -362,10 +364,7 @@ export default function VendorEditor({
                         />
                         Sandbox mode
                     </label>
-                    <div className="text-[10px] text-emerald-700 space-y-1">
-                        <p>1. Tokens: Merchant Dashboard &gt; Settings &gt; Ecommerce &gt; Ecommerce API Tokens</p>
-                        <p>2. Webhook URL: <code className="bg-white px-1 rounded">{typeof window !== 'undefined' ? window.location.origin : ''}/api/clover/webhook</code></p>
-                    </div>
+                    <CloverSetupInstructions siteUrl={siteUrl || null} />
                 </div>
             )}
 

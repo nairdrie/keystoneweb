@@ -1,7 +1,15 @@
 import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
+import { PUBLISHED_ROOT } from '@/lib/env/domain';
 
 const MASKED = '••••••••';
+
+function resolveSiteUrl(site: { custom_domain?: string | null; site_slug?: string | null; published_domain?: string | null }): string | null {
+    if (site.custom_domain) return `https://${site.custom_domain}`;
+    const sub = site.published_domain || site.site_slug;
+    if (sub) return `https://${sub}.${PUBLISHED_ROOT}`;
+    return null;
+}
 
 /**
  * GET /api/site-payment?siteId=...
@@ -25,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     const { data: site } = await supabase
         .from('sites')
-        .select('user_id, converge_merchant_id, converge_user_id, converge_pin, converge_demo_mode, clover_merchant_id, clover_public_key, clover_private_token, clover_webhook_secret, clover_sandbox_mode')
+        .select('user_id, site_slug, custom_domain, published_domain, converge_merchant_id, converge_user_id, converge_pin, converge_demo_mode, clover_merchant_id, clover_public_key, clover_private_token, clover_webhook_secret, clover_sandbox_mode')
         .eq('id', siteId)
         .single();
 
@@ -34,6 +42,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
+        siteUrl: resolveSiteUrl(site),
         converge: {
             merchant_id: site.converge_merchant_id || '',
             user_id: site.converge_user_id || '',
