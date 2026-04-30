@@ -563,7 +563,7 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
 
                     {/* Image */}
                     <div
-                        className="relative max-w-[95vw] max-h-[90vh] overflow-hidden"
+                        className="relative max-w-[95%] max-h-[90%] overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <img
@@ -573,7 +573,7 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
                             onClick={handleLightboxImageClick}
                             onMouseMove={handleLightboxImageMove}
                             onMouseLeave={() => { if (lightboxZoomed) setLightboxOrigin({ x: 50, y: 50 }); }}
-                            className={`max-w-[95vw] max-h-[90vh] object-contain select-none transition-transform duration-200 ease-out ${lightboxZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'}`}
+                            className={`max-w-full max-h-full object-contain select-none transition-transform duration-200 ease-out ${lightboxZoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'}`}
                             style={{
                                 transform: lightboxZoomed ? 'scale(2.2)' : 'scale(1)',
                                 transformOrigin: `${lightboxOrigin.x}% ${lightboxOrigin.y}%`,
@@ -584,7 +584,7 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
                     {/* Thumbnail strip */}
                     {product.images.length > 1 && (
                         <div
-                            className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2 max-w-[90vw] overflow-x-auto px-2"
+                            className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2 max-w-[90%] overflow-x-auto px-2"
                             onClick={(e) => e.stopPropagation()}
                         >
                             {product.images.map((img, i) => (
