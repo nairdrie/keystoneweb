@@ -201,7 +201,8 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
     // Validation helpers
     const addressComplete = form.line1.trim() && form.city.trim() && form.region.trim() && form.postal.trim() && form.country;
     const contactComplete = form.name.trim() && form.email.trim();
-    const canPlaceOrder = contactComplete && (!shippingRequired || (addressComplete && shippingResult && !shippingError));
+    const cartHasItems = cart.items.length > 0;
+    const canPlaceOrder = cartHasItems && contactComplete && (!shippingRequired || (addressComplete && shippingResult && !shippingError));
 
     // Region options for selected country
     const regionOptions = REGIONS[form.country] || [];
@@ -262,6 +263,11 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
 
     const handleCheckout = async () => {
         if (!canPlaceOrder) return;
+        if (!cart.items.length) {
+            setStepError('Your cart is empty.');
+            setStep('cart');
+            return;
+        }
         setSubmitting(true);
         setStepError(null);
 
@@ -569,6 +575,9 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
         setPaypalError(null);
         let orderId = pendingOrderId;
         if (!orderId) {
+            if (!cart.items.length) {
+                throw new Error('Your cart is empty.');
+            }
             const orderRes = await fetch('/api/products/orders', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
