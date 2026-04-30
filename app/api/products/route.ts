@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { siteId, name, description, price_cents, compare_at_cents, currency, images, variants, inventory_count, vendor_id, category, subcategory, tags, tier_prices, allowed_package_ids } = body;
+    const { siteId, name, brand, description, price_cents, compare_at_cents, currency, images, variants, inventory_count, vendor_id, category, subcategory, tags, tier_prices, allowed_package_ids } = body;
 
     if (!siteId || !name) {
         return NextResponse.json({ error: 'Missing siteId or name' }, { status: 400 });
@@ -244,6 +244,7 @@ export async function POST(request: NextRequest) {
         .insert({
             site_id: siteId,
             name,
+            brand: brand || null,
             description: description || null,
             price_cents: price_cents || 0,
             compare_at_cents: compare_at_cents || null,
@@ -302,7 +303,7 @@ export async function PUT(request: NextRequest) {
 
     const updates: Record<string, any> = { updated_at: new Date().toISOString() };
 
-    const allowedFields = ['name', 'description', 'price_cents', 'compare_at_cents', 'currency', 'images', 'variants', 'inventory_count', 'is_active', 'sort_order', 'status', 'category', 'subcategory', 'tags', 'vendor_id'];
+    const allowedFields = ['name', 'brand', 'description', 'price_cents', 'compare_at_cents', 'currency', 'images', 'variants', 'inventory_count', 'is_active', 'sort_order', 'status', 'category', 'subcategory', 'tags', 'vendor_id'];
 
     for (const key of allowedFields) {
         if (fields[key] !== undefined) updates[key] = fields[key];
