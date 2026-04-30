@@ -61,12 +61,17 @@ export async function POST(request: NextRequest) {
                     lastName,
                     phoneNumber: order.customer_phone || undefined,
                 },
-                lineItems: (order.items || []).map((item: any) => ({
-                    name: item.name,
-                    price: item.price_cents,
-                    unitQty: item.qty,
-                    note: item.variants ? Object.entries(item.variants).map(([k, v]) => `${k}: ${v}`).join(', ') : undefined,
-                })),
+                lineItems: (order.items || []).map((item: any) => {
+                    const variantNote = item.variants ? Object.entries(item.variants).map(([k, v]) => `${k}: ${v}`).join(', ') : '';
+                    const optionNote = item.options ? Object.entries(item.options).map(([k, v]) => `${k}: ${v}`).join(', ') : '';
+                    const note = [variantNote, optionNote].filter(Boolean).join(' · ') || undefined;
+                    return {
+                        name: item.name,
+                        price: item.price_cents,
+                        unitQty: item.qty,
+                        note,
+                    };
+                }),
                 shippingCents: order.shipping_cents || 0,
                 tipsEnabled: false,
             }

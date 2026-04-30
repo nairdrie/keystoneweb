@@ -17,10 +17,27 @@ export interface TierPriceEntry {
   priceCents: number;
 }
 
+/**
+ * A required, price-modifying selection on a product (e.g. "Quantity:
+ * Single | Case of 24"). Distinct from `variants` which are equal-priced
+ * choices like Size or Colour.
+ */
+export interface ProductOptionValue {
+  label: string;
+  priceModifierCents: number;
+}
+
+export interface ProductOptionGroup {
+  name: string;
+  values: ProductOptionValue[];
+  defaultIndex: number;
+}
+
 export interface ProductPricingRow {
   price_cents: number;
   tier_prices?: unknown;
   allowed_package_ids?: unknown;
+  options?: unknown;
 }
 
 export interface PricingMember {
@@ -54,6 +71,55 @@ function parseTierPrices(raw: unknown): TierPriceEntry[] {
 function parseAllowedPackageIds(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   return raw.filter((v): v is string => typeof v === 'string' && v.length > 0);
+}
+
+export function parseProductOptions(raw: unknown): ProductOptionGroup[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ProductOptionGroup[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue;
+    const name = (entry as any).name;
+    const values = (entry as any).values;
+    if (typeof name !== 'string' || !name.trim()) continue;
+    if (!Array.isArray(values) || values.length === 0) continue;
+    const cleanValues: ProductOptionValue[] = [];
+    for (const v of values) {
+      if (!v || typeof v !== 'object') continue;
+      const label = (v as any).label;
+      const mod = (v as any).priceModifierCents;
+      if (typeof label !== 'string' || !label.trim()) continue;
+      const modNum = Number.isFinite(mod) ? Math.max(0, Math.round(Number(mod))) : 0;
+      cleanValues.push({ label: label.trim(), priceModifierCents: modNum });
+    }
+    if (cleanValues.length === 0) continue;
+    let defaultIndex = Number((entry as any).defaultIndex);
+    if (!Number.isInteger(defaultIndex) || defaultIndex < 0 || defaultIndex >= cleanValues.length) {
+      defaultIndex = 0;
+    }
+    out.push({ name: name.trim(), values: cleanValues, defaultIndex });
+  }
+  return out;
+}
+
+/**
+ * Given a product's option groups and the customer's selected labels (by
+ * group name), return the total cents to add to the unit price. Unknown
+ * groups are ignored; missing selections fall back to the default value's
+ * modifier so the price always lands in a deterministic state.
+ */
+export function resolveOptionPriceModifierCents(
+  options: ProductOptionGroup[],
+  selected: Record<string, string> | null | undefined,
+): number {
+  let total = 0;
+  for (const group of options) {
+    const sel = selected?.[group.name];
+    let value: ProductOptionValue | undefined;
+    if (sel) value = group.values.find(v => v.label === sel);
+    if (!value) value = group.values[group.defaultIndex] || group.values[0];
+    if (value) total += value.priceModifierCents;
+  }
+  return total;
 }
 
 export function resolveProductAccess(

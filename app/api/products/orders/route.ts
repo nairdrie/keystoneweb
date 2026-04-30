@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendOrderConfirmation, sendOrderNotification, sendOrderPaymentConfirmed, sendOrderCancellationToCustomer, sendOrderCancellationToOwner, sendOrderShipped, sendMixedOrderConfirmation, sendVendorOrderNotification, sendOwnerVendorOrderNotification } from '@/lib/email';
 import { findMatchingZone, type ShippingZone } from '@/lib/shipping-data';
 import { getCurrentMemberFromRequest } from '@/lib/membership/current-member';
-import { resolveProductAccess } from '@/lib/ecommerce/resolve-price';
+import { resolveProductAccess, parseProductOptions, resolveOptionPriceModifierCents } from '@/lib/ecommerce/resolve-price';
 import Stripe from 'stripe';
 
 /**
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     const productIds = Array.from(new Set(items.map((i: any) => i.productId as string)));
     const { data: productRows, error: productFetchError } = await supabase
         .from('products')
-        .select('id, site_id, name, price_cents, currency, tier_prices, allowed_package_ids, is_active, vendor_id')
+        .select('id, site_id, name, price_cents, currency, tier_prices, allowed_package_ids, options, is_active, vendor_id')
         .in('id', productIds as string[]);
     if (productFetchError) {
         return NextResponse.json({ error: 'Failed to validate items' }, { status: 500 });
@@ -65,16 +65,21 @@ export async function POST(request: NextRequest) {
                 gateReason: resolved.gateReason,
             }, { status: 403 });
         }
+        // Apply option price modifiers from the server-side product definition.
+        // Unknown selections fall back to the default — never trust client cents.
+        const productOptions = parseProductOptions((product as any).options);
+        const optionModifierCents = resolveOptionPriceModifierCents(productOptions, rawItem.options);
         resolvedItems.push({
             productId: product.id,
             name: product.name,
-            price_cents: resolved.priceCents,
-            public_price_cents: resolved.publicPriceCents,
+            price_cents: resolved.priceCents + optionModifierCents,
+            public_price_cents: resolved.publicPriceCents + optionModifierCents,
             matched_package_id: resolved.matchedPackageId,
             currency: product.currency,
             qty,
             image: rawItem.image,
             variants: rawItem.variants,
+            options: rawItem.options,
         });
     }
 

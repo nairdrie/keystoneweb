@@ -233,6 +233,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                     qty: i.qty,
                     currency: i.currency,
                     variants: i.variants,
+                    options: i.options,
                     image: i.image,
                 })),
                 customerName: form.name,
@@ -277,6 +278,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                         qty: i.qty,
                         currency: i.currency,
                         variants: i.variants,
+                    options: i.options,
                         image: i.image,
                     })),
                     customerName: form.name,
@@ -579,6 +581,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                         qty: i.qty,
                         currency: i.currency,
                         variants: i.variants,
+                    options: i.options,
                         image: i.image,
                     })),
                     customerName: form.name,
@@ -710,18 +713,21 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                                 {item.variants && Object.keys(item.variants).length > 0 && (
                                                     <p className="text-xs text-slate-500">{Object.entries(item.variants).map(([k, v]) => `${k}: ${v}`).join(', ')}</p>
                                                 )}
+                                                {item.options && Object.keys(item.options).length > 0 && (
+                                                    <p className="text-xs text-slate-500">{Object.entries(item.options).map(([k, v]) => `${k}: ${v}`).join(', ')}</p>
+                                                )}
                                                 <p className="text-sm font-bold mt-1" style={{ color: pSecondary }}>${(item.price_cents / 100).toFixed(2)}</p>
                                             </div>
                                             <div className="flex flex-col items-end gap-1">
-                                                <button onClick={() => cart.removeFromCart(item.productId, item.variants)} className="p-0.5 hover:bg-red-50 rounded text-red-400">
+                                                <button onClick={() => cart.removeFromCart(item.productId, item.variants, item.options)} className="p-0.5 hover:bg-red-50 rounded text-red-400">
                                                     <Trash2 className="w-3.5 h-3.5" />
                                                 </button>
                                                 <div className="flex items-center gap-1 border border-slate-200 rounded-lg">
-                                                    <button onClick={() => cart.updateQty(item.productId, item.qty - 1, item.variants)} className="p-1 hover:bg-slate-50">
+                                                    <button onClick={() => cart.updateQty(item.productId, item.qty - 1, item.variants, item.options)} className="p-1 hover:bg-slate-50">
                                                         <Minus className="w-3 h-3" />
                                                     </button>
                                                     <span className="text-sm font-medium w-6 text-center">{item.qty}</span>
-                                                    <button onClick={() => cart.updateQty(item.productId, item.qty + 1, item.variants)} className="p-1 hover:bg-slate-50">
+                                                    <button onClick={() => cart.updateQty(item.productId, item.qty + 1, item.variants, item.options)} className="p-1 hover:bg-slate-50">
                                                         <Plus className="w-3 h-3" />
                                                     </button>
                                                 </div>

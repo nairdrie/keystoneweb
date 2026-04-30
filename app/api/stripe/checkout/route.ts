@@ -45,11 +45,13 @@ export async function POST(request: NextRequest) {
         // Build line items
         const lineItems = order.items.map((item: any) => {
             const variantStr = item.variants ? Object.values(item.variants).join(' / ') : '';
+            const optionStr = item.options ? Object.values(item.options).join(' / ') : '';
+            const suffix = [variantStr, optionStr].filter(Boolean).join(' · ');
             return {
                 price_data: {
                     currency: item.currency || 'cad',
                     product_data: {
-                        name: `${item.name}${variantStr ? ` (${variantStr})` : ''}`,
+                        name: `${item.name}${suffix ? ` (${suffix})` : ''}`,
                         images: item.image ? [item.image] : [],
                     },
                     unit_amount: item.price_cents,

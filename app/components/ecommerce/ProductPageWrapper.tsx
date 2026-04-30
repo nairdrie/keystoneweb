@@ -18,6 +18,7 @@ interface Product {
     currency: string;
     images: string[];
     variants: Array<{ name: string; options: string[] }>;
+    options?: Array<{ name: string; values: Array<{ label: string; priceModifierCents: number }>; defaultIndex: number }>;
     inventory_count: number;
     is_active: boolean;
     category?: string | null;
