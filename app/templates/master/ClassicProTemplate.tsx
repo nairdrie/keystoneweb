@@ -30,7 +30,7 @@ export function BoldTemplate({ palette, isEditMode, children }: MasterTemplatePr
     const bodyFont = siteContent.bodyFont || 'Roboto';
 
     return (
-        <div className="template-wrapper min-h-screen" style={{ backgroundColor: pAccent, fontFamily: `"${bodyFont}", sans-serif` }}>
+        <div className="template-wrapper min-h-screen flex flex-col" style={{ backgroundColor: pAccent, fontFamily: `"${bodyFont}", sans-serif` }}>
             <TemplateFonts
                 titleFont={titleFont}
                 bodyFont={bodyFont}

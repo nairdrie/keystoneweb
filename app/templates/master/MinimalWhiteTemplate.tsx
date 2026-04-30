@@ -34,7 +34,7 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
     const bodyFont = siteContent.bodyFont || 'Inter';
 
     return (
-        <div className="template-wrapper min-h-screen text-slate-700" style={{ backgroundColor: pAccent, fontFamily: `"${bodyFont}", sans-serif` }}>
+        <div className="template-wrapper min-h-screen flex flex-col text-slate-700" style={{ backgroundColor: pAccent, fontFamily: `"${bodyFont}", sans-serif` }}>
             <TemplateFonts
                 titleFont={titleFont}
                 bodyFont={bodyFont}

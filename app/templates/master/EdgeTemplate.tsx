@@ -30,7 +30,7 @@ export function EdgeTemplate({ palette, isEditMode, children }: MasterTemplatePr
     const bodyFont = siteContent.bodyFont || 'Inter';
 
     return (
-        <div className="template-wrapper min-h-screen text-gray-200" style={{ backgroundColor: pAccent, fontFamily: `"${bodyFont}", sans-serif` }}>
+        <div className="template-wrapper min-h-screen flex flex-col text-gray-200" style={{ backgroundColor: pAccent, fontFamily: `"${bodyFont}", sans-serif` }}>
             <TemplateFonts
                 titleFont={titleFont}
                 bodyFont={bodyFont}
