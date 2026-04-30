@@ -54,8 +54,12 @@ export async function POST(request: NextRequest) {
       const variantStr = item.variants
         ? Object.values(item.variants).join(' / ')
         : '';
+      const optionStr = item.options
+        ? Object.values(item.options).join(' / ')
+        : '';
+      const suffix = [variantStr, optionStr].filter(Boolean).join(' · ');
       return {
-        name: `${item.name}${variantStr ? ` (${variantStr})` : ''}`.slice(0, 127),
+        name: `${item.name}${suffix ? ` (${suffix})` : ''}`.slice(0, 127),
         quantity: String(item.qty),
         unit_amount: {
           currency_code: currency,

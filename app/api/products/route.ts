@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { scanText } from '@/lib/moderation/text-scan';
 import { handleModerationResult } from '@/lib/moderation/report';
 import { getCurrentMemberFromRequest } from '@/lib/membership/current-member';
-import { resolveProductAccess } from '@/lib/ecommerce/resolve-price';
+import { resolveProductAccess, parseProductOptions } from '@/lib/ecommerce/resolve-price';
 
 /**
  * GET /api/products?siteId=...
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { siteId, name, brand, description, price_cents, compare_at_cents, currency, images, variants, inventory_count, vendor_id, category, subcategory, tags, tier_prices, allowed_package_ids } = body;
+    const { siteId, name, brand, description, price_cents, compare_at_cents, currency, images, variants, options, inventory_count, vendor_id, category, subcategory, tags, tier_prices, allowed_package_ids } = body;
 
     if (!siteId || !name) {
         return NextResponse.json({ error: 'Missing siteId or name' }, { status: 400 });
@@ -251,6 +251,7 @@ export async function POST(request: NextRequest) {
             currency: currency || 'CAD',
             images: images || [],
             variants: variants || [],
+            options: parseProductOptions(options),
             inventory_count: inventory_count ?? -1,
             vendor_id: vendor_id || null,
             category: category || null,
@@ -307,6 +308,10 @@ export async function PUT(request: NextRequest) {
 
     for (const key of allowedFields) {
         if (fields[key] !== undefined) updates[key] = fields[key];
+    }
+
+    if (fields.options !== undefined) {
+        updates.options = parseProductOptions(fields.options);
     }
 
     // Regenerate slug if name changed

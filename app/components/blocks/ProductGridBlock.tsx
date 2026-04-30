@@ -27,6 +27,7 @@ interface Product {
     currency: string;
     images: string[];
     variants: Array<{ name: string; options: string[] }>;
+    options?: Array<{ name: string; values: Array<{ label: string; priceModifierCents: number }>; defaultIndex: number }>;
     inventory_count: number;
     is_active: boolean;
     sort_order: number;
@@ -607,6 +608,18 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
     const [variants, setVariants] = useState<Array<{ name: string; options: string }>>(
         product?.variants?.map(v => ({ name: v.name, options: (v.options ?? []).join(', ') })) ?? []
     );
+    type OptionDraftValue = { label: string; priceModifier: string };
+    type OptionDraft = { name: string; values: OptionDraftValue[]; defaultIndex: number };
+    const [options, setOptions] = useState<OptionDraft[]>(
+        product?.options?.map(o => ({
+            name: o.name,
+            values: (o.values ?? []).map(v => ({
+                label: v.label,
+                priceModifier: v.priceModifierCents ? (v.priceModifierCents / 100).toFixed(2) : '',
+            })),
+            defaultIndex: Number.isInteger(o.defaultIndex) ? Math.max(0, Math.min(o.defaultIndex, (o.values?.length || 1) - 1)) : 0,
+        })) ?? []
+    );
     const [tierPrices, setTierPrices] = useState<Record<string, string>>(() => {
         const init: Record<string, string> = {};
         if (product?.tier_prices) {
@@ -709,6 +722,35 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
         setVariants(variants.filter((_, i) => i !== index));
     };
 
+    // Option (price-modifying) management
+    const addOptionGroup = () => {
+        setOptions([...options, { name: '', values: [{ label: '', priceModifier: '' }], defaultIndex: 0 }]);
+    };
+    const updateOptionGroup = (gi: number, patch: Partial<OptionDraft>) => {
+        setOptions(prev => prev.map((g, i) => i === gi ? { ...g, ...patch } : g));
+    };
+    const removeOptionGroup = (gi: number) => {
+        setOptions(prev => prev.filter((_, i) => i !== gi));
+    };
+    const addOptionValue = (gi: number) => {
+        setOptions(prev => prev.map((g, i) => i === gi
+            ? { ...g, values: [...g.values, { label: '', priceModifier: '' }] }
+            : g));
+    };
+    const updateOptionValue = (gi: number, vi: number, patch: Partial<OptionDraftValue>) => {
+        setOptions(prev => prev.map((g, i) => i === gi
+            ? { ...g, values: g.values.map((v, j) => j === vi ? { ...v, ...patch } : v) }
+            : g));
+    };
+    const removeOptionValue = (gi: number, vi: number) => {
+        setOptions(prev => prev.map((g, i) => {
+            if (i !== gi) return g;
+            const values = g.values.filter((_, j) => j !== vi);
+            const defaultIndex = Math.max(0, Math.min(g.defaultIndex, values.length - 1));
+            return { ...g, values, defaultIndex };
+        }));
+    };
+
     const handleSave = async () => {
         if (!name.trim() || !price) return;
         setTierError(null);
@@ -720,6 +762,32 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
                 name: v.name.trim(),
                 options: v.options.split(',').map(o => o.trim()).filter(Boolean),
             }));
+
+        // Convert option drafts; drop incomplete groups; validate price modifiers.
+        const structuredOptions: Array<{ name: string; values: Array<{ label: string; priceModifierCents: number }>; defaultIndex: number }> = [];
+        for (const g of options) {
+            const groupName = g.name.trim();
+            if (!groupName) continue;
+            const cleanValues: Array<{ label: string; priceModifierCents: number }> = [];
+            for (const v of g.values) {
+                const label = v.label.trim();
+                if (!label) continue;
+                const dollars = (v.priceModifier || '').trim();
+                let cents = 0;
+                if (dollars) {
+                    const n = parseFloat(dollars);
+                    if (!Number.isFinite(n) || n < 0) {
+                        setTierError(`Option "${groupName}" has an invalid price modifier`);
+                        return;
+                    }
+                    cents = Math.round(n * 100);
+                }
+                cleanValues.push({ label, priceModifierCents: cents });
+            }
+            if (cleanValues.length === 0) continue;
+            const defaultIndex = Math.max(0, Math.min(g.defaultIndex, cleanValues.length - 1));
+            structuredOptions.push({ name: groupName, values: cleanValues, defaultIndex });
+        }
 
         const publicPriceCents = Math.round(parseFloat(price) * 100);
 
@@ -752,6 +820,7 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
             compare_at_cents: compareAt ? Math.round(parseFloat(compareAt) * 100) : null,
             images,
             variants: structuredVariants,
+            options: structuredOptions,
             inventory_count: parseInt(inventory),
             category: category.trim() || null,
             subcategory: category.trim() && subcategory.trim() ? subcategory.trim() : null,
@@ -984,6 +1053,97 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
                     className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
                 >
                     <Plus className="w-3.5 h-3.5" /> Add variant (e.g. Size, Color)
+                </button>
+                <p className="text-[11px] text-slate-400 mt-1">
+                    Variants are equal-price choices like Size or Colour. For required selections that change the price (e.g. Single vs Case of 24), use Options below.
+                </p>
+            </div>
+
+            {/* Options (required, price-modifying) */}
+            <div>
+                <label className="text-xs font-semibold text-slate-700 mb-2 block">Options</label>
+                <p className="text-[11px] text-slate-400 mb-2">
+                    Required selections that adjust the price. The default value is what's selected when the customer lands on the page.
+                </p>
+                {options.map((g, gi) => (
+                    <div key={gi} className="border border-slate-200 rounded-lg p-3 mb-2 space-y-2 bg-slate-50/50">
+                        <div className="flex gap-2 items-center">
+                            <input
+                                type="text"
+                                placeholder="Option name (e.g. Quantity)"
+                                value={g.name}
+                                onChange={e => updateOptionGroup(gi, { name: e.target.value })}
+                                className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => removeOptionGroup(gi)}
+                                className="p-2 hover:bg-red-50 rounded text-red-400"
+                                title="Remove option"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <div className="space-y-1.5">
+                            <div className="grid grid-cols-[16px_1fr_120px_24px] gap-2 px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                <span>Default</span>
+                                <span>Label</span>
+                                <span>Price modifier ($)</span>
+                                <span></span>
+                            </div>
+                            {g.values.map((v, vi) => (
+                                <div key={vi} className="grid grid-cols-[16px_1fr_120px_24px] gap-2 items-center">
+                                    <input
+                                        type="radio"
+                                        name={`option-default-${gi}`}
+                                        checked={g.defaultIndex === vi}
+                                        onChange={() => updateOptionGroup(gi, { defaultIndex: vi })}
+                                        className="accent-blue-600"
+                                        title="Set as default selection"
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Single"
+                                        value={v.label}
+                                        onChange={e => updateOptionValue(gi, vi, { label: e.target.value })}
+                                        className="px-2 py-1.5 text-sm border border-slate-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    />
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        placeholder="0.00"
+                                        value={v.priceModifier}
+                                        onChange={e => updateOptionValue(gi, vi, { priceModifier: e.target.value })}
+                                        className="px-2 py-1.5 text-sm border border-slate-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => removeOptionValue(gi, vi)}
+                                        disabled={g.values.length <= 1}
+                                        className="p-1 hover:bg-red-50 rounded text-red-400 disabled:opacity-30 disabled:cursor-not-allowed"
+                                        title="Remove value"
+                                    >
+                                        <X className="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => addOptionValue(gi)}
+                            className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                        >
+                            <Plus className="w-3 h-3" /> Add value
+                        </button>
+                    </div>
+                ))}
+                <button
+                    type="button"
+                    onClick={addOptionGroup}
+                    className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                >
+                    <Plus className="w-3.5 h-3.5" /> Add option (e.g. Quantity, Pack Size)
                 </button>
             </div>
 
@@ -1357,14 +1517,26 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
             if (v.options?.length > 0) defaultVariants[v.name] = v.options[0];
         });
 
+        // Default to each option group's default value, and apply its price modifier.
+        const defaultOptions: Record<string, string> = {};
+        let optionModifierCents = 0;
+        (product.options ?? []).forEach(g => {
+            const def = g.values[g.defaultIndex] || g.values[0];
+            if (def) {
+                defaultOptions[g.name] = def.label;
+                optionModifierCents += def.priceModifierCents || 0;
+            }
+        });
+
         cart.addToCart({
             productId: product.id,
             name: product.name,
-            price_cents: product.effective_price_cents ?? product.price_cents,
+            price_cents: (product.effective_price_cents ?? product.price_cents) + optionModifierCents,
             currency: product.currency,
             qty: 1,
             image: product.images?.[0],
             variants: Object.keys(defaultVariants).length > 0 ? defaultVariants : undefined,
+            options: Object.keys(defaultOptions).length > 0 ? defaultOptions : undefined,
         });
     };
 

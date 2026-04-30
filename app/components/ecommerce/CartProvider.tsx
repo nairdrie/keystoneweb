@@ -10,13 +10,14 @@ export interface CartItem {
     qty: number;
     image?: string;
     variants?: Record<string, string>; // e.g. { Size: "M", Color: "Red" }
+    options?: Record<string, string>;  // e.g. { Quantity: "Case of 24" } — affects price
 }
 
 interface CartContextType {
     items: CartItem[];
     addToCart: (item: CartItem) => void;
-    removeFromCart: (productId: string, variants?: Record<string, string>) => void;
-    updateQty: (productId: string, qty: number, variants?: Record<string, string>) => void;
+    removeFromCart: (productId: string, variants?: Record<string, string>, options?: Record<string, string>) => void;
+    updateQty: (productId: string, qty: number, variants?: Record<string, string>, options?: Record<string, string>) => void;
     clearCart: () => void;
     isCartOpen: boolean;
     setCartOpen: (open: boolean) => void;
@@ -30,10 +31,11 @@ export function useCart() {
     return useContext(CartContext);
 }
 
-// Generate a unique key for a cart item (product + variant combo)
-function itemKey(productId: string, variants?: Record<string, string>): string {
+// Generate a unique key for a cart item (product + variant + option combo)
+function itemKey(productId: string, variants?: Record<string, string>, options?: Record<string, string>): string {
     const varStr = variants ? Object.entries(variants).sort().map(([k, v]) => `${k}:${v}`).join('|') : '';
-    return `${productId}::${varStr}`;
+    const optStr = options ? Object.entries(options).sort().map(([k, v]) => `${k}:${v}`).join('|') : '';
+    return `${productId}::${varStr}::${optStr}`;
 }
 
 export function CartProvider({ children, siteId }: { children: ReactNode; siteId: string }) {
@@ -58,10 +60,10 @@ export function CartProvider({ children, siteId }: { children: ReactNode; siteId
 
     const addToCart = useCallback((item: CartItem) => {
         setItems(prev => {
-            const key = itemKey(item.productId, item.variants);
-            const existing = prev.find(i => itemKey(i.productId, i.variants) === key);
+            const key = itemKey(item.productId, item.variants, item.options);
+            const existing = prev.find(i => itemKey(i.productId, i.variants, i.options) === key);
             if (existing) {
-                return prev.map(i => itemKey(i.productId, i.variants) === key
+                return prev.map(i => itemKey(i.productId, i.variants, i.options) === key
                     ? { ...i, qty: i.qty + item.qty } : i);
             }
             return [...prev, item];
@@ -69,17 +71,17 @@ export function CartProvider({ children, siteId }: { children: ReactNode; siteId
         setCartOpen(true);
     }, []);
 
-    const removeFromCart = useCallback((productId: string, variants?: Record<string, string>) => {
-        const key = itemKey(productId, variants);
-        setItems(prev => prev.filter(i => itemKey(i.productId, i.variants) !== key));
+    const removeFromCart = useCallback((productId: string, variants?: Record<string, string>, options?: Record<string, string>) => {
+        const key = itemKey(productId, variants, options);
+        setItems(prev => prev.filter(i => itemKey(i.productId, i.variants, i.options) !== key));
     }, []);
 
-    const updateQty = useCallback((productId: string, qty: number, variants?: Record<string, string>) => {
-        const key = itemKey(productId, variants);
+    const updateQty = useCallback((productId: string, qty: number, variants?: Record<string, string>, options?: Record<string, string>) => {
+        const key = itemKey(productId, variants, options);
         if (qty <= 0) {
-            setItems(prev => prev.filter(i => itemKey(i.productId, i.variants) !== key));
+            setItems(prev => prev.filter(i => itemKey(i.productId, i.variants, i.options) !== key));
         } else {
-            setItems(prev => prev.map(i => itemKey(i.productId, i.variants) === key ? { ...i, qty } : i));
+            setItems(prev => prev.map(i => itemKey(i.productId, i.variants, i.options) === key ? { ...i, qty } : i));
         }
     }, []);
 

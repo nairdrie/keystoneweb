@@ -15,6 +15,7 @@ interface Product {
     currency: string;
     images: string[];
     variants: Array<{ name: string; options: string[] }>;
+    options?: Array<{ name: string; values: Array<{ label: string; priceModifierCents: number }>; defaultIndex: number }>;
     inventory_count: number;
     is_active: boolean;
     category?: string | null;
@@ -65,6 +66,7 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
     const [selectedImage, setSelectedImage] = useState(0);
     const [qty, setQty] = useState(1);
     const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
+    const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
     const [added, setAdded] = useState(false);
     const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
     const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -74,7 +76,16 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
 
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
-    const effectivePriceCents = product.effective_price_cents ?? product.price_cents;
+    const baseEffectivePriceCents = product.effective_price_cents ?? product.price_cents;
+    // Sum of selected option price modifiers (defaults to first value when nothing selected yet).
+    const optionGroups = product.options ?? [];
+    const optionModifierCents = optionGroups.reduce((sum, g) => {
+        const sel = selectedOptions[g.name];
+        const val = (sel && g.values.find(v => v.label === sel))
+            || g.values[g.defaultIndex] || g.values[0];
+        return sum + (val?.priceModifierCents || 0);
+    }, 0);
+    const effectivePriceCents = baseEffectivePriceCents + optionModifierCents;
     const hasDiscount = product.compare_at_cents && product.compare_at_cents > effectivePriceCents;
     const discountPct = hasDiscount ? Math.round((1 - effectivePriceCents / product.compare_at_cents!) * 100) : 0;
     const outOfStock = product.inventory_count === 0;
@@ -96,6 +107,17 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
         setSelectedVariants(defaults);
     }, [product]);
 
+    // Default option selections (use each group's defaultIndex)
+    useEffect(() => {
+        const defaults: Record<string, string> = {};
+        optionGroups.forEach(g => {
+            const def = g.values[g.defaultIndex] || g.values[0];
+            if (def) defaults[g.name] = def.label;
+        });
+        setSelectedOptions(defaults);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [product]);
+
     const handleAddToCart = () => {
         if (!cart || outOfStock || !canPurchase) return;
         cart.addToCart({
@@ -106,6 +128,7 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
             qty,
             image: product.images?.[0],
             variants: Object.keys(selectedVariants).length > 0 ? selectedVariants : undefined,
+            options: Object.keys(selectedOptions).length > 0 ? selectedOptions : undefined,
         });
         setAdded(true);
         setTimeout(() => setAdded(false), 2000);
@@ -340,6 +363,46 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
                                                             }`}
                                                     >
                                                         {option}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Options (required, price-modifying) */}
+                        {optionGroups.length > 0 && (
+                            <div className="space-y-5 mb-6">
+                                {optionGroups.map(group => (
+                                    <div key={group.name}>
+                                        <label className="text-sm font-semibold text-slate-900 block mb-2.5">
+                                            {group.name}: <span className="font-normal text-slate-500">{selectedOptions[group.name]}</span>
+                                        </label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {group.values.map(value => {
+                                                const isSelected = selectedOptions[group.name] === value.label;
+                                                const baseValue = group.values[group.defaultIndex] || group.values[0];
+                                                const deltaCents = value.priceModifierCents - (baseValue?.priceModifierCents || 0);
+                                                const deltaLabel = deltaCents === 0 ? null
+                                                    : deltaCents > 0 ? `+$${(deltaCents / 100).toFixed(2)}`
+                                                    : `−$${(Math.abs(deltaCents) / 100).toFixed(2)}`;
+                                                return (
+                                                    <button
+                                                        key={value.label}
+                                                        onClick={() => setSelectedOptions({ ...selectedOptions, [group.name]: value.label })}
+                                                        className={`px-4 py-2.5 text-sm font-medium rounded-xl border-2 transition-all flex items-center gap-2 ${isSelected
+                                                                ? 'border-slate-900 bg-slate-900 text-white shadow-md'
+                                                                : 'border-slate-200 text-slate-700 hover:border-slate-400 hover:shadow-sm'
+                                                            }`}
+                                                    >
+                                                        <span>{value.label}</span>
+                                                        {deltaLabel && (
+                                                            <span className={`text-xs ${isSelected ? 'text-white/70' : 'text-slate-400'}`}>
+                                                                {deltaLabel}
+                                                            </span>
+                                                        )}
                                                     </button>
                                                 );
                                             })}
