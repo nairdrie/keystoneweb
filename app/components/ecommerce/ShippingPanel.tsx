@@ -30,6 +30,8 @@ export default function ShippingPanel({ siteId, shippingRequired, onShippingRequ
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [form, setForm] = useState({ ...EMPTY_FORM });
+    const [rateInput, setRateInput] = useState('0.00');
+    const [thresholdInput, setThresholdInput] = useState('0');
 
     useEffect(() => {
         loadZones();
@@ -53,10 +55,12 @@ export default function ShippingPanel({ siteId, shippingRequired, onShippingRequ
         setSaving(true);
 
         try {
+            const rateCents = Math.round((parseFloat(rateInput) || 0) * 100);
+            const thresholdCents = Math.round((parseFloat(thresholdInput) || 0) * 100);
             const payload = {
                 ...form,
-                rate_cents: Math.round(form.rate_cents),
-                free_threshold_cents: Math.round(form.free_threshold_cents),
+                rate_cents: rateCents,
+                free_threshold_cents: thresholdCents,
             };
 
             if (editingId) {
@@ -83,6 +87,8 @@ export default function ShippingPanel({ siteId, shippingRequired, onShippingRequ
             }
 
             setForm({ ...EMPTY_FORM });
+            setRateInput('0.00');
+            setThresholdInput('0');
             setShowForm(false);
             setEditingId(null);
         } catch (err) {
@@ -111,12 +117,16 @@ export default function ShippingPanel({ siteId, shippingRequired, onShippingRequ
             free_threshold_cents: zone.free_threshold_cents,
             is_local_pickup: zone.is_local_pickup,
         });
+        setRateInput((zone.rate_cents / 100).toFixed(2));
+        setThresholdInput((zone.free_threshold_cents / 100).toFixed(0));
         setEditingId(zone.id);
         setShowForm(true);
     };
 
     const cancelForm = () => {
         setForm({ ...EMPTY_FORM });
+        setRateInput('0.00');
+        setThresholdInput('0');
         setShowForm(false);
         setEditingId(null);
     };
@@ -331,8 +341,12 @@ export default function ShippingPanel({ siteId, shippingRequired, onShippingRequ
                                                         type="number"
                                                         min="0"
                                                         step="0.01"
-                                                        value={(form.rate_cents / 100).toFixed(2)}
-                                                        onChange={e => setForm({ ...form, rate_cents: Math.round(parseFloat(e.target.value || '0') * 100) })}
+                                                        value={rateInput}
+                                                        onChange={e => setRateInput(e.target.value)}
+                                                        onBlur={() => {
+                                                            const n = parseFloat(rateInput);
+                                                            setRateInput(isNaN(n) || n < 0 ? '0.00' : n.toFixed(2));
+                                                        }}
                                                         className="w-32 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                                     />
                                                 </div>
@@ -346,8 +360,12 @@ export default function ShippingPanel({ siteId, shippingRequired, onShippingRequ
                                                         type="number"
                                                         min="0"
                                                         step="1"
-                                                        value={(form.free_threshold_cents / 100).toFixed(0)}
-                                                        onChange={e => setForm({ ...form, free_threshold_cents: Math.round(parseFloat(e.target.value || '0') * 100) })}
+                                                        value={thresholdInput}
+                                                        onChange={e => setThresholdInput(e.target.value)}
+                                                        onBlur={() => {
+                                                            const n = parseFloat(thresholdInput);
+                                                            setThresholdInput(isNaN(n) || n < 0 ? '0' : Math.round(n).toString());
+                                                        }}
                                                         className="w-32 px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                                     />
                                                 </div>
