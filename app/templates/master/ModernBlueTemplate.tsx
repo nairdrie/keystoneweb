@@ -30,7 +30,7 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
     const bodyFont = siteContent.bodyFont || 'Inter';
 
     return (
-        <div className="template-wrapper min-h-screen text-slate-800 bg-white" style={{ fontFamily: `"${bodyFont}", sans-serif` }}>
+        <div className="template-wrapper min-h-screen flex flex-col text-slate-800 bg-white" style={{ fontFamily: `"${bodyFont}", sans-serif` }}>
             <TemplateFonts
                 titleFont={titleFont}
                 bodyFont={bodyFont}

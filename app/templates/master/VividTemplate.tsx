@@ -30,7 +30,7 @@ export function VividTemplate({ palette, isEditMode, children }: MasterTemplateP
     const bodyFont = siteContent.bodyFont || 'DM Sans';
 
     return (
-        <div className="template-wrapper min-h-screen" style={{ backgroundColor: '#ffffff', fontFamily: `"${bodyFont}", sans-serif` }}>
+        <div className="template-wrapper min-h-screen flex flex-col" style={{ backgroundColor: '#ffffff', fontFamily: `"${bodyFont}", sans-serif` }}>
             <TemplateFonts
                 titleFont={titleFont}
                 bodyFont={bodyFont}
