@@ -58,6 +58,18 @@ export default function CloverReturn() {
                     if (cancelled) return;
 
                     if (data.paymentStatus === 'paid') {
+                        // Tell every CartProvider on the site to clear its stored cart
+                        // the next time it mounts. We don't know the siteId here, so we
+                        // mark all known cart_* keys for clearing.
+                        try {
+                            for (let i = 0; i < localStorage.length; i++) {
+                                const key = localStorage.key(i);
+                                if (key && key.startsWith('cart_') && !key.startsWith('cart_clear_')) {
+                                    const siteId = key.slice('cart_'.length);
+                                    localStorage.setItem(`cart_clear_${siteId}`, '1');
+                                }
+                            }
+                        } catch { }
                         setView({ type: 'paid', status: data });
                         return;
                     }

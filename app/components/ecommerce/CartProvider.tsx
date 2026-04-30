@@ -90,6 +90,25 @@ export function CartProvider({ children, siteId }: { children: ReactNode; siteId
         try { localStorage.removeItem(storageKey); } catch { }
     }, [storageKey]);
 
+    // Clear cart when returning from a successful payment redirect (Stripe / Clover).
+    // Stripe sends the user back with ?order_success=... ; Clover's return page sets
+    // a sentinel in localStorage when payment is confirmed paid.
+    useEffect(() => {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            if (params.has('order_success')) {
+                localStorage.removeItem(storageKey);
+                setItems([]);
+            }
+            const sentinelKey = `cart_clear_${siteId}`;
+            if (localStorage.getItem(sentinelKey)) {
+                localStorage.removeItem(storageKey);
+                localStorage.removeItem(sentinelKey);
+                setItems([]);
+            }
+        } catch { }
+    }, [storageKey, siteId]);
+
     const itemCount = items.reduce((sum, i) => sum + i.qty, 0);
     const subtotalCents = items.reduce((sum, i) => sum + i.price_cents * i.qty, 0);
 

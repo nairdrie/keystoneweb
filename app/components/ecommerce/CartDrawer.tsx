@@ -86,6 +86,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
     const [convergeToken, setConvergeToken] = useState<string | null>(null);
     const [convergeDemoMode, setConvergeDemoMode] = useState(false);
     const [stepError, setStepError] = useState<string | null>(null);
+    const [redirectingTo, setRedirectingTo] = useState<string | null>(null);
 
     const shippingRequired = ecomSettings?.shipping_required !== false;
 
@@ -400,10 +401,9 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                 }
             }
 
-            cart.clearCart();
-
             if (steps.length === 0) {
                 // No payment steps (e-transfer or none) — show confirmation directly
+                cart.clearCart();
                 setStep('confirmation');
                 setSubmitting(false);
                 return;
@@ -413,8 +413,8 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                 // Single payment — execute directly without showing split-pay UI
                 setPaymentSteps(steps);
                 setCurrentStepIdx(0);
-                setSubmitting(false);
                 await executePaymentStep(steps[0]);
+                // Keep `submitting` true; redirecting overlay takes over for redirect processors.
                 return;
             }
 
@@ -430,6 +430,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                 setCurrentStepIdx(firstPending);
                 await executePaymentStep(steps[firstPending]);
             } else {
+                cart.clearCart();
                 setStep('confirmation');
             }
         } catch (err) {
@@ -449,6 +450,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
 
         if (step.processor === 'stripe-self' || step.processor === 'stripe-vendor') {
             updateStepStatus(idx, 'processing');
+            setRedirectingTo('Stripe');
             const currentUrl = window.location.href;
             const stripeRes = await fetch('/api/stripe/checkout', {
                 method: 'POST',
@@ -463,6 +465,8 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
             if (stripeData.url) {
                 window.location.href = stripeData.url;
             } else {
+                setRedirectingTo(null);
+                setSubmitting(false);
                 updateStepStatus(idx, 'failed');
                 setStepError(stripeData.error || 'Stripe checkout failed to start');
             }
@@ -479,13 +483,16 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                 });
                 const data = await res.json();
                 if (!res.ok || !data.token) {
+                    setSubmitting(false);
                     updateStepStatus(idx, 'failed');
                     setStepError(data.error || 'Failed to prepare Converge payment');
                     return;
                 }
+                setSubmitting(false);
                 setConvergeDemoMode(!!data.demoMode);
                 setConvergeToken(data.token);
             } catch (err: any) {
+                setSubmitting(false);
                 updateStepStatus(idx, 'failed');
                 setStepError(err.message || 'Converge error');
             }
@@ -494,6 +501,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
 
         if (step.processor === 'clover') {
             updateStepStatus(idx, 'processing');
+            setRedirectingTo('Clover');
             const res = await fetch('/api/clover/session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -503,6 +511,8 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
             if (data.href) {
                 window.location.href = data.href;
             } else {
+                setRedirectingTo(null);
+                setSubmitting(false);
                 updateStepStatus(idx, 'failed');
                 setStepError(data.error || 'Failed to start Clover checkout');
             }
@@ -518,6 +528,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
     const advanceToNextStep = (fromIdx: number) => {
         const next = paymentSteps.slice(fromIdx).findIndex(s => s.status === 'pending');
         if (next < 0) {
+            cart.clearCart();
             setStep('confirmation');
             return;
         }
@@ -664,6 +675,16 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                 className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
                 onClick={e => e.stopPropagation()}
             >
+                {/* Redirect overlay — shown while we wait for the payment processor
+                    to hand back a hosted-checkout URL and the browser to navigate. */}
+                {redirectingTo && (
+                    <div className="absolute inset-0 z-10 bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center gap-3 px-6 text-center">
+                        <Loader2 className="w-10 h-10 animate-spin" style={{ color: pSecondary }} />
+                        <p className="text-base font-semibold text-slate-900">Redirecting to {redirectingTo}…</p>
+                        <p className="text-xs text-slate-500">Please don't close this window.</p>
+                    </div>
+                )}
+
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
                     <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
