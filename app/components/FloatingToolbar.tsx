@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, Eye, EyeOff, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
@@ -97,6 +98,12 @@ interface FloatingToolbarProps {
   onPageSeoUpdate?: (field: 'seoTitle' | 'seoDescription', value: string) => void;
 }
 
+function getFreeAiBadgeLabel(remaining: UsageRemaining | null | undefined) {
+  if (remaining?.total === undefined) return 'Free';
+  const promptsLeft = Math.max(0, remaining.total);
+  return `${promptsLeft} Free left`;
+}
+
 const LG_BREAKPOINT = 1024;
 const WALKTHROUGH_RESET_EVENT = 'ks:walkthrough-reset-ui';
 
@@ -174,6 +181,8 @@ export default function FloatingToolbar({
   const router = useRouter();
   const { signOut, user } = useAuth();
   const isLargeScreen = useIsLargeScreen();
+  const freeAiPromptsLeft = aiRemaining?.total;
+  const freeAiBadgeLabel = getFreeAiBadgeLabel(aiRemaining);
 
   const [userSites, setUserSites] = useState<Site[]>([]);
   const [loadingSites, setLoadingSites] = useState(false);
@@ -1171,18 +1180,33 @@ export default function FloatingToolbar({
 
         {/* AI Builder Section */}
         <div ref={aiBuilderSectionRef} data-tour="builder-ai-builder" className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
-          <button
-            onClick={() => toggleSection('ai-builder')}
-            className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-violet-50 to-purple-50 hover:from-violet-100 hover:to-purple-100 transition-colors"
-          >
-            <span className="text-xs font-bold text-violet-700 uppercase tracking-wide flex items-center gap-1.5">
-              <img src="/assets/archie.png" alt="" className="w-4 h-auto" aria-hidden="true" />
-              AI Builder
-              {!isProUser && !isBasicUser && !isFreeUser && <span className="text-[9px] font-bold bg-violet-600 text-white px-1.5 py-0.5 rounded-full ml-1">PRO</span>}
-              {isFreeUser && <span className="text-[9px] font-bold bg-slate-400 text-white px-1.5 py-0.5 rounded-full ml-1">4 FREE</span>}
-            </span>
-            <ChevronDown className={`w-4 h-4 text-violet-500 transition-transform ${openSections.includes('ai-builder') ? 'rotate-180' : ''}`} />
-          </button>
+          <div className="flex items-center gap-2 bg-gradient-to-r from-violet-50 to-purple-50 px-4 py-3 transition-colors hover:from-violet-100 hover:to-purple-100">
+            <button
+              type="button"
+              onClick={() => toggleSection('ai-builder')}
+              className="flex min-w-0 flex-1 items-center justify-between"
+            >
+              <span className="flex min-w-0 items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-violet-700">
+                <img src="/assets/archie.png" alt="" className="w-4 h-auto" aria-hidden="true" />
+                AI Builder
+                {!isProUser && !isBasicUser && !isFreeUser && <span className="ml-1 rounded-full bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold text-white">PRO</span>}
+                {isFreeUser && freeAiPromptsLeft !== 0 && (
+                  <span className="ml-1 rounded-full bg-slate-400 px-1.5 py-0.5 text-[9px] font-bold text-white normal-case">
+                    {freeAiBadgeLabel}
+                  </span>
+                )}
+              </span>
+              <ChevronDown className={`w-4 h-4 shrink-0 text-violet-500 transition-transform ${openSections.includes('ai-builder') ? 'rotate-180' : ''}`} />
+            </button>
+            {isFreeUser && freeAiPromptsLeft === 0 && (
+              <Link
+                href="/pricing"
+                className="shrink-0 rounded-full bg-violet-600 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-white hover:bg-violet-700"
+              >
+                0 left / Upgrade Plan
+              </Link>
+            )}
+          </div>
 
           {openSections.includes('ai-builder') && (
             <div className="border-t border-slate-200">
