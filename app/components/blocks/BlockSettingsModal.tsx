@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Code, Lock, Crown, Image as ImageIcon, Upload, Trash2, LayoutTemplate, Palette } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
+import { AVAILABLE_BLOCKS } from './block-registry';
 
 interface BlockSettingsModalProps {
     isOpen: boolean;
@@ -262,7 +263,12 @@ export default function BlockSettingsModal({
             <div data-tour="block-settings-modal" className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-                    <h2 className="text-lg font-bold text-slate-900">Block Settings</h2>
+                    <h2 className="text-lg font-bold text-slate-900">
+                        {(() => {
+                            const blockLabel = AVAILABLE_BLOCKS.find(b => b.type === blockType)?.label;
+                            return blockLabel ? `${blockLabel} Settings` : 'Block Settings';
+                        })()}
+                    </h2>
                     <button
                         onClick={onClose}
                         className="p-2 hover:bg-slate-100 rounded-full transition-colors"
