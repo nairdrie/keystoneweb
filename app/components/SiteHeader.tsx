@@ -158,11 +158,6 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
             ${navColorOverride ? `color: ${navColorOverride} !important;` : ''}
         }
     ` : '';
-    const hasHeaderStyle = hasNavStyle || !!headerCustomCss;
-    const headerStyleSheet = hasHeaderStyle
-        ? navStyleSheet + (headerCustomCss ? `\n.ks-site-header { ${headerCustomCss} }` : '')
-        : '';
-
     // ── Logo ────────────────────────────────────────────────────────────────
     const logoSize  = defaults.logoSize  || 36;
     const logoClass = defaults.logoClass || 'rounded';
@@ -170,18 +165,32 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
         ? defaults.logoStyleFn(palette)
         : { backgroundColor: textIsLight ? 'rgba(255,255,255,0.2)' : pPrimary, color: '#ffffff' };
 
+    const baseLogoHeight = siteContent.headerLogoHeight ? Number(siteContent.headerLogoHeight) : logoSize;
+    const mdLogoHeight = siteContent.headerLogoHeightMd ? Number(siteContent.headerLogoHeightMd) : null;
+    const smLogoHeight = siteContent.headerLogoHeightSm ? Number(siteContent.headerLogoHeightSm) : null;
+    const hasResponsiveLogo = mdLogoHeight != null || smLogoHeight != null;
+    const responsiveLogoCss = hasResponsiveLogo
+        ? `${mdLogoHeight != null ? `@media (max-width: 1023px) { .ks-site-header .ks-header-logo { height: ${mdLogoHeight}px !important; } }` : ''}
+${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header-logo { height: ${smLogoHeight}px !important; } }` : ''}`
+        : '';
+
+    const hasHeaderStyle = hasNavStyle || !!headerCustomCss || hasResponsiveLogo;
+    const headerStyleSheet = hasHeaderStyle
+        ? navStyleSheet + (headerCustomCss ? `\n.ks-site-header { ${headerCustomCss} }` : '') + (responsiveLogoCss ? `\n${responsiveLogoCss}` : '')
+        : '';
+
     const logoEl = siteContent.showHeaderLogo !== false && ((siteContent.headerLogo || siteContent.siteLogo)
         ? (
             <img
                 src={siteContent.headerLogo || siteContent.siteLogo}
                 alt={siteContent.siteTitle || 'Logo'}
-                className={`object-contain`}
-                style={{ height: siteContent.headerLogoHeight ? `${siteContent.headerLogoHeight}px` : `${logoSize}px`, width: 'auto' }}
+                className={`ks-header-logo object-contain`}
+                style={{ height: `${baseLogoHeight}px`, width: 'auto' }}
             />
         ) : (
             <div
-                className={`flex items-center justify-center font-bold text-sm text-white shrink-0 ${logoClass}`}
-                style={{ width: `${logoSize}px`, height: `${logoSize}px`, ...logoFallbackStyle }}
+                className={`ks-header-logo aspect-square flex items-center justify-center font-bold text-sm text-white shrink-0 ${logoClass}`}
+                style={{ height: `${baseLogoHeight}px`, ...logoFallbackStyle }}
             >
                 {(siteContent.siteTitle || 'S')[0]?.toUpperCase()}
             </div>
