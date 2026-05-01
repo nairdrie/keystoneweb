@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useEditorContext } from '@/lib/editor-context';
 import { CalendarDays, ExternalLink, ArrowDownUp, Eye, EyeOff } from 'lucide-react';
 import EditableText from '../EditableText';
@@ -28,8 +29,10 @@ interface EventsBlockProps {
 type SortOrder = 'desc' | 'asc';
 
 export default function EventsBlock({ id, data, isEditMode, palette, updateContent }: EventsBlockProps) {
+    const router = useRouter();
     const context = useEditorContext();
     const siteId = context?.siteId;
+    const requestNavigation = context?.requestNavigation;
     const [events, setEvents] = useState<Event[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -129,7 +132,11 @@ export default function EventsBlock({ id, data, isEditMode, palette, updateConte
                                 Add and manage your events from the Admin Dashboard.
                             </div>
                             <button
-                                onClick={() => window.open(`/admin/events?siteId=${siteId}`, '_blank')}
+                                onClick={() => {
+                                    const go = () => router.push(`/admin/events?siteId=${siteId}`);
+                                    if (requestNavigation) requestNavigation(go);
+                                    else go();
+                                }}
                                 className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold rounded-lg transition-colors"
                             >
                                 <CalendarDays className="w-4 h-4" />
