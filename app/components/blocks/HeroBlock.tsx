@@ -122,7 +122,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
     // Video variant — video background with text overlay
     if (variant === 'video') {
         return (
-            <section className="hero hero-video relative min-h-[600px] lg:min-h-[720px] flex items-center overflow-hidden">
+            <section className="hero hero-video relative min-h-[80vh] flex items-center overflow-hidden">
                 {videoUrl ? (
                     <video
                         autoPlay
@@ -348,7 +348,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
     // Full-image variant — text overlaid on image
     if (variant === 'fullImage') {
         return (
-            <section className="hero hero-fullimage relative min-h-[520px] lg:min-h-[640px] flex items-center overflow-hidden">
+            <section className="hero hero-fullimage relative min-h-[70vh] flex items-center overflow-hidden">
                 {imageUrl ? (
                     <img src={imageUrl} alt={block.data.image__settings?.altText || ''} role={block.data.image__settings?.altText ? undefined : 'presentation'} className="hero-image absolute inset-0 w-full h-full object-cover" loading="eager" fetchPriority="high" decoding="sync" />
                 ) : (

@@ -85,8 +85,8 @@ function HeroSlab() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.05 }}
-            className="mb-7 text-5xl font-black tracking-[-0.035em] text-black sm:text-6xl md:text-7xl lg:text-8xl xl:text-[116px]"
-            style={{ lineHeight: 0.92 }}
+            className="mb-7 font-black tracking-[-0.035em] text-black"
+            style={{ fontSize: 'clamp(48px, 8.5vw, 116px)', lineHeight: 0.92 }}
           >
             Tell us<br />
             what you do.<br />
@@ -448,8 +448,8 @@ function ThreeReasons() {
             WHY KEYSTONE
           </div>
           <h2
-            className="text-4xl font-black tracking-[-0.025em] text-black md:text-5xl lg:text-6xl xl:text-[64px]"
-            style={{ lineHeight: 1.02 }}
+            className="font-black tracking-[-0.025em] text-black"
+            style={{ fontSize: 'clamp(36px, 5.5vw, 64px)', lineHeight: 1.02 }}
           >
             Three reasons<br />
             this <em className="text-red-600">actually</em> works.
@@ -469,8 +469,8 @@ function ThreeReasons() {
               <div className="pt-1.5 font-mono text-sm font-bold text-slate-400">{it.n}</div>
               <div>
                 <h3
-                  className="mb-3 text-xl font-black tracking-[-0.015em] text-black md:text-2xl lg:text-3xl xl:text-[32px]"
-                  style={{ lineHeight: 1.1 }}
+                  className="mb-3 font-black tracking-[-0.015em] text-black"
+                  style={{ fontSize: 'clamp(22px, 2.6vw, 32px)', lineHeight: 1.1 }}
                 >
                   {it.title}
                 </h3>
@@ -568,8 +568,8 @@ function BeforeAfter() {
               THE UPGRADE
             </div>
             <h2
-              className="mb-5 text-3xl font-black tracking-[-0.025em] text-black md:text-4xl lg:text-5xl xl:text-[56px]"
-              style={{ lineHeight: 1.02 }}
+              className="mb-5 font-black tracking-[-0.025em] text-black"
+              style={{ fontSize: 'clamp(32px, 4.4vw, 56px)', lineHeight: 1.02 }}
             >
               From <em className="italic text-slate-400">oof</em><br />
               to <span className="text-red-600">open for business.</span>
@@ -749,8 +749,8 @@ function TemplateSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-100px' }}
           transition={{ duration: 0.5 }}
-          className="mb-4 text-3xl font-black tracking-[-0.015em] text-white md:text-4xl lg:text-5xl"
-          style={{ lineHeight: 1.1 }}
+          className="mb-4 font-black tracking-[-0.015em] text-white"
+          style={{ fontSize: 'clamp(32px, 4vw, 48px)', lineHeight: 1.1 }}
         >
           Designed to Sell
         </motion.h2>
@@ -824,8 +824,9 @@ function PriceSlab() {
           STRAIGHTFORWARD PRICING · CANCEL ANYTIME
         </div>
         <div
-          className="mb-3 text-[120px] font-black tracking-[-0.05em] sm:text-[160px] md:text-[200px] lg:text-[240px] xl:text-[280px]"
+          className="mb-3 font-black tracking-[-0.05em]"
           style={{
+            fontSize: 'clamp(120px, 22vw, 280px)',
             lineHeight: 0.85,
             textShadow: '0 8px 30px rgba(0,0,0,.15)',
           }}
@@ -839,8 +840,8 @@ function PriceSlab() {
           </span>
         </div>
         <div
-          className="mx-auto mb-9 max-w-[720px] text-xl font-semibold italic opacity-95 md:text-2xl xl:text-[28px]"
-          style={{ lineHeight: 1.4 }}
+          className="mx-auto mb-9 max-w-[720px] font-semibold italic opacity-95"
+          style={{ fontSize: 'clamp(20px, 2.5vw, 28px)', lineHeight: 1.4 }}
         >
           Hosting, AI edits, fast templates, and an actual person on the other end of an email. Cancel anytime — really.
         </div>
@@ -891,8 +892,8 @@ function ClosingCTA() {
       />
       <div className="relative mx-auto max-w-3xl text-center">
         <h2
-          className="mb-7 text-[40px] font-black tracking-[-0.03em] sm:text-5xl md:text-6xl lg:text-7xl xl:text-[88px]"
-          style={{ lineHeight: 0.98 }}
+          className="mb-7 font-black tracking-[-0.03em]"
+          style={{ fontSize: 'clamp(40px, 6.5vw, 88px)', lineHeight: 0.98 }}
         >
           Stop waiting.<br />
           <span className="text-red-600">Get online today.</span>
