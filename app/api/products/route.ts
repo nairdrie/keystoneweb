@@ -113,6 +113,16 @@ export async function GET(request: NextRequest) {
     });
 }
 
+// Returns the trimmed URL, null if blank/missing, or false if invalid.
+function normalizeExternalUrl(value: unknown): string | null | false {
+    if (value === undefined || value === null) return null;
+    if (typeof value !== 'string') return false;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (!/^https?:\/\//i.test(trimmed)) return false;
+    return trimmed;
+}
+
 /**
  * Validate tier_prices and allowed_package_ids for a product update.
  * Returns a normalized value or an error string.
@@ -183,10 +193,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { siteId, name, brand, description, price_cents, compare_at_cents, currency, images, variants, options, inventory_count, vendor_id, category, subcategory, tags, tier_prices, allowed_package_ids } = body;
+    const { siteId, name, brand, description, price_cents, compare_at_cents, currency, images, variants, options, inventory_count, vendor_id, category, subcategory, tags, tier_prices, allowed_package_ids, external_url } = body;
 
     if (!siteId || !name) {
         return NextResponse.json({ error: 'Missing siteId or name' }, { status: 400 });
+    }
+
+    const normalizedExternalUrl = normalizeExternalUrl(external_url);
+    if (normalizedExternalUrl === false) {
+        return NextResponse.json({ error: 'External URL must start with http:// or https://' }, { status: 400 });
     }
 
     // Verify ownership
@@ -261,6 +276,7 @@ export async function POST(request: NextRequest) {
             sort_order: nextOrder,
             tier_prices: membershipValidation.tierPrices ?? [],
             allowed_package_ids: membershipValidation.allowedPackageIds ?? [],
+            external_url: normalizedExternalUrl,
         })
         .select()
         .single();
@@ -308,6 +324,14 @@ export async function PUT(request: NextRequest) {
 
     for (const key of allowedFields) {
         if (fields[key] !== undefined) updates[key] = fields[key];
+    }
+
+    if (fields.external_url !== undefined) {
+        const normalized = normalizeExternalUrl(fields.external_url);
+        if (normalized === false) {
+            return NextResponse.json({ error: 'External URL must start with http:// or https://' }, { status: 400 });
+        }
+        updates.external_url = normalized;
     }
 
     if (fields.options !== undefined) {
