@@ -654,8 +654,9 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
 
     // Simply replay all changes currently active in the history array top-down!
     for (const change of action.changes) {
-      if (change.field === 'siteTitle' || change.field === 'siteContent:siteTitle') {
+      if (change.field === 'siteTitle') {
         restoredTitle = change.to;
+      } else if (change.field === 'siteContent:siteTitle') {
         restoredSiteContent.siteTitle = change.to;
       } else if (change.field === 'palette') {
         restoredPalette = change.to;
@@ -713,9 +714,9 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   }, [changesHook.lastAction, availablePalettes]);
 
   const handleSiteTitleChange = (newTitle: string) => {
-    // Redundancy handled: handleUpdateSiteContent will call addChange if it changed
+    if (siteTitle === newTitle) return;
+    addChange('siteTitle', 'Site Name', siteTitle, newTitle);
     setSiteTitle(newTitle);
-    handleUpdateSiteContent('siteTitle', newTitle);
   };
 
   const handleSaveDesign = async () => {
