@@ -106,7 +106,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   const [editMode, setEditMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viewAsMember, setViewAsMember] = useState(false);
-  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
 
   // Auto-expand sidebar on large screens when editor loads
   const hasInitSidebarRef = useRef(false);
@@ -159,6 +159,16 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
 
   const changesHook = useChangeTracking();
   const { addChange, clearChanges } = changesHook;
+
+  // Guard navigation actions when there are unsaved changes. If dirty, prompt
+  // first; otherwise run the action immediately.
+  const requestNavigation = useCallback((action: () => void) => {
+    if (changesHook.changes.length > 0) {
+      setPendingNavigation(() => action);
+    } else {
+      action();
+    }
+  }, [changesHook.changes.length]);
 
   // Warn user before leaving with unsaved changes
   useEffect(() => {
@@ -1190,12 +1200,15 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
                 pages={pages}
                 currentPageId={currentPageId || undefined}
                 onPageChange={(page) => {
-                  setCurrentPageId(page.id);
-                  if (previewProductId) {
-                    const params = new URLSearchParams(searchParams.toString());
-                    params.delete('productId');
-                    router.push(`${window.location.pathname}?${params.toString()}`);
-                  }
+                  if (page.id === currentPageId) return;
+                  requestNavigation(() => {
+                    setCurrentPageId(page.id);
+                    if (previewProductId) {
+                      const params = new URLSearchParams(searchParams.toString());
+                      params.delete('productId');
+                      router.push(`${window.location.pathname}?${params.toString()}`);
+                    }
+                  });
                 }}
                 onCreatePage={async (slug, title, displayName) => {
                   const newPage = await createPage(slug, title, displayName);
@@ -1287,6 +1300,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
               updateBlockDataBatch,
               addChange,
               isProUser,
+              requestNavigation,
             }}
           >
             <div className="w-full">
@@ -1327,14 +1341,15 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
         />
 
         <AlertModal
-          isOpen={leaveConfirmOpen}
+          isOpen={pendingNavigation !== null}
           title="Unsaved Changes"
           message="You have unsaved changes that will be lost if you leave. Are you sure?"
           type="warning"
-          onClose={() => setLeaveConfirmOpen(false)}
+          onClose={() => setPendingNavigation(null)}
           onConfirm={() => {
-            setLeaveConfirmOpen(false);
-            router.push('/');
+            const action = pendingNavigation;
+            setPendingNavigation(null);
+            action?.();
           }}
           confirmLabel="Leave"
           cancelLabel="Stay"

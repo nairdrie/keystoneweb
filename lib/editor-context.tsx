@@ -82,6 +82,13 @@ export interface EditorContextType {
   isProUser?: boolean;
 
   /**
+   * Run a navigation/side-effect action, prompting the user first if there
+   * are unsaved changes in the editor. Used by blocks (e.g. product grid)
+   * that link to other parts of the app.
+   */
+  requestNavigation?: (action: () => void) => void;
+
+  /**
    * When set, indicates the site is being viewed in draft preview mode.
    * NavMenu and SiteHeader use this to generate /preview?siteId=X&pageId=Y
    * links instead of /{slug} links.

@@ -68,6 +68,9 @@ export default function ProductGridBlock({ id, data, isEditMode, palette, update
 }
 
 function ProductGridBlockEditMode({ siteId, data, updateContent }: { siteId: string; data: any; updateContent: (key: string, value: any) => void }) {
+    const router = useRouter();
+    const editorContext = useEditorContext();
+    const requestNavigation = editorContext?.requestNavigation;
     const [categoryTree, setCategoryTree] = useState<Record<string, string[]>>({});
     const categoryFilter: string = data?.categoryFilter || '';
     const subcategoryFilter: string = data?.subcategoryFilter || '';
@@ -135,7 +138,11 @@ function ProductGridBlockEditMode({ siteId, data, updateContent }: { siteId: str
                 </div>
 
                 <button
-                    onClick={() => window.open(`/admin/ecommerce?siteId=${siteId}`, '_blank')}
+                    onClick={() => {
+                        const go = () => router.push(`/admin/ecommerce?siteId=${siteId}`);
+                        if (requestNavigation) requestNavigation(go);
+                        else go();
+                    }}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold rounded-lg transition-colors"
                 >
                     <Package className="w-4 h-4" />

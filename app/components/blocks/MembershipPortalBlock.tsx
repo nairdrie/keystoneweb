@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useEditorContext } from '@/lib/editor-context';
 import { useMember } from '../membership/MemberProvider';
 import {
@@ -200,6 +201,9 @@ function EditModeView({
   palette: Record<string, string>;
   updateContent: (key: string, value: any) => void;
 }) {
+  const router = useRouter();
+  const editorContext = useEditorContext();
+  const requestNavigation = editorContext?.requestNavigation;
   const [showSettings, setShowSettings] = useState(false);
 
   const addContentBlock = (type: ContentItem['type']) => {
@@ -245,7 +249,11 @@ function EditModeView({
             <Settings className="w-4 h-4" />
           </button>
           <button
-            onClick={() => window.open(`/admin/membership?siteId=${siteId}`, '_blank')}
+            onClick={() => {
+              const go = () => router.push(`/admin/membership?siteId=${siteId}`);
+              if (requestNavigation) requestNavigation(go);
+              else go();
+            }}
             className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg transition-colors"
           >
             <Users className="w-3.5 h-3.5" />
