@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronDown, Plus, Trash2, AlertTriangle } from 'lucide-react';
 import AlertModal from './ui/AlertModal';
+
+const WALKTHROUGH_RESET_EVENT = 'ks:walkthrough-reset-ui';
 
 interface Page {
   id: string;
@@ -41,6 +43,19 @@ export default function PageSelector({
 
   const currentPage = pages.find(p => p.id === currentPageId);
 
+  useEffect(() => {
+    const handleWalkthroughReset = () => {
+      setIsOpen(false);
+      setIsCreating(false);
+      setNewPageTitle('');
+      setDeleteTarget(null);
+      setDeleteConfirmText('');
+    };
+
+    window.addEventListener(WALKTHROUGH_RESET_EVENT, handleWalkthroughReset);
+    return () => window.removeEventListener(WALKTHROUGH_RESET_EVENT, handleWalkthroughReset);
+  }, []);
+
   const handleCreatePage = async () => {
     if (!newPageTitle.trim()) return;
 
@@ -48,7 +63,8 @@ export default function PageSelector({
       // Convert title to slug (lowercase, replace spaces with hyphens)
       const slug = newPageTitle.toLowerCase().replace(/\s+/g, '-');
 
-      await onCreatePage(slug, newPageTitle, newPageTitle);
+      const newPage = await onCreatePage(slug, newPageTitle, newPageTitle);
+      onPageChange(newPage);
       setNewPageTitle('');
       setIsCreating(false);
       setIsOpen(false);
@@ -79,10 +95,11 @@ export default function PageSelector({
   };
 
   return (
-    <div className="relative">
+    <div className="relative" data-tour="page-selector">
       {/* Page selector dropdown */}
       <button
         onClick={() => setIsOpen(!isOpen)}
+        data-tour="page-selector-trigger"
         className="flex items-center gap-2 px-3 h-8 rounded-full bg-white border border-slate-200 hover:border-slate-300 text-sm font-medium text-slate-900"
       >
         <span className="truncate max-w-[150px]">
@@ -93,12 +110,13 @@ export default function PageSelector({
 
       {/* Dropdown menu */}
       {isOpen && (
-        <div className="absolute top-full mt-1 left-0 bg-white border border-slate-200 rounded-lg shadow-lg z-50 w-48">
+        <div data-tour="page-selector-menu" className="absolute top-full mt-1 left-0 bg-white border border-slate-200 rounded-lg shadow-lg z-50 w-48">
           {/* Page list */}
           <div className="max-h-64 overflow-y-auto">
             {pages.map(page => (
               <div
                 key={page.id}
+                data-tour={page.slug === 'home' ? 'page-selector-home-option' : undefined}
                 className={`flex items-center justify-between px-3 py-2 hover:bg-slate-50 cursor-pointer group ${page.id === currentPageId ? 'bg-blue-50 border-l-2 border-blue-500' : ''
                   }`}
                 onClick={() => {
@@ -127,13 +145,14 @@ export default function PageSelector({
           {!isCreating ? (
             <button
               onClick={() => setIsCreating(true)}
+              data-tour="page-selector-add-page"
               className="w-full flex items-center gap-2 px-3 py-2 border-t border-slate-200 text-sm text-slate-600 hover:bg-slate-50 font-medium"
             >
               <Plus className="w-4 h-4" />
               Add Page
             </button>
           ) : (
-            <div className="border-t border-slate-200 p-3 space-y-2">
+            <div data-tour="page-selector-create-panel" className="border-t border-slate-200 p-3 space-y-2">
               <input
                 type="text"
                 value={newPageTitle}

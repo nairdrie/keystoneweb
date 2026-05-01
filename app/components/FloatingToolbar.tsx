@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, MousePointerClick, Layers, Palette, Wand2, Rocket, Eye, EyeOff, Image as ImageIcon } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, Eye, EyeOff, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
@@ -74,6 +74,7 @@ interface FloatingToolbarProps {
   isSynced?: boolean;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  isEditMode?: boolean;
   // AI Builder
   aiMessages?: AIMessage[];
   aiIsLoading?: boolean;
@@ -90,12 +91,14 @@ interface FloatingToolbarProps {
   onHistoryRevert?: () => void;
   // Per-page SEO
   currentPageTitle?: string;
+  currentPageSlug?: string;
   currentPageSeoTitle?: string;
   currentPageSeoDescription?: string;
   onPageSeoUpdate?: (field: 'seoTitle' | 'seoDescription', value: string) => void;
 }
 
 const LG_BREAKPOINT = 1024;
+const WALKTHROUGH_RESET_EVENT = 'ks:walkthrough-reset-ui';
 
 function useIsLargeScreen() {
   const [isLarge, setIsLarge] = useState(false);
@@ -148,6 +151,7 @@ export default function FloatingToolbar({
   isSynced = false,
   isOpen,
   onOpenChange,
+  isEditMode = false,
   aiMessages = [],
   aiIsLoading = false,
   onAiSend,
@@ -162,6 +166,7 @@ export default function FloatingToolbar({
   focusAiBuilder = false,
   onHistoryRevert,
   currentPageTitle = '',
+  currentPageSlug = '',
   currentPageSeoTitle = '',
   currentPageSeoDescription = '',
   onPageSeoUpdate,
@@ -186,6 +191,7 @@ export default function FloatingToolbar({
   const isFullyDeployed = isSynced && changes.length === 0;
 
   const [openSections, setOpenSections] = useState<string[]>([]);
+  const openSectionsRef = useRef<string[]>([]);
   const [fontPickerState, setFontPickerState] = useState<{ isOpen: boolean, type: 'title' | 'body' }>({ isOpen: false, type: 'title' });
   const aiBuilderSectionRef = useRef<HTMLDivElement>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -201,61 +207,210 @@ export default function FloatingToolbar({
   const [siteTitleDraft, setSiteTitleDraft] = useState('');
   const [showWalkthrough, setShowWalkthrough] = useState(false);
   const [walkthroughStep, setWalkthroughStep] = useState(0);
+  const [walkthroughStyleBaseline, setWalkthroughStyleBaseline] = useState<{
+    paletteName: string;
+    titleFont: string;
+    bodyFont: string;
+  } | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewLinkCopied, setPreviewLinkCopied] = useState(false);
+  const walkthroughPanelStateRef = useRef<boolean | null>(null);
+  const walkthroughOpenSectionsRef = useRef<string[] | null>(null);
+  const walkthroughAutoOpenedRef = useRef(false);
 
   const DESIGNER_WALKTHROUGH_KEY = 'ks_seen_designer_walkthrough';
+  const ALWAYS_SHOW_DESIGNER_WALKTHROUGH = false;
+  const COLORS_FONTS_CONTROLS_STEP_INDEX = 6;
 
-  const designerSteps: WalkthroughStep[] = [
+  const hasChangedColorsOrFonts = walkthroughStyleBaseline
+    ? (
+        (selectedPalette?.name || 'custom') !== walkthroughStyleBaseline.paletteName ||
+        (titleFont || '') !== walkthroughStyleBaseline.titleFont ||
+        (bodyFont || '') !== walkthroughStyleBaseline.bodyFont
+      )
+    : false;
+
+  const designerSteps = useMemo<WalkthroughStep[]>(() => {
+    const isViewingAnotherPage = currentPageSlug !== 'home';
+
+    return [
     {
-      icon: <MousePointerClick className="w-7 h-7" />,
+      title: 'Welcome to Keystone Design Studio',
+      description: 'This quick tour will show you how to switch into editing mode, update content, shape the look of your site, and publish when everything feels right. You can try things out as we go.',
+      placement: 'center',
+    },
+    {
+      target: '[data-tour="builder-edit-toggle"]',
+      title: 'Switch into edit mode',
+      placement: 'bottom',
+      description: 'Start here by switching from View to Edit. View shows the page like a visitor would see it, while Edit turns on the site-building tools.',
+      spotlightPadding: 6,
+      spotlightRadiusOffset: 8,
+      interactionHint: 'Try switching to Edit to unlock the next step.',
+    },
+    {
+      target: '[data-tour="builder-canvas"]',
       title: 'Click anything to edit',
-      description: 'Click directly on any text, image, or button in your site preview to edit it inline — no menus needed.',
+      placement: 'bottom',
+      description: 'Once you are in Edit mode, click directly on text, images, and buttons in the preview to update them in place.',
+      interactionHint: 'Feel free to click around in the highlighted area, then continue when you are ready.',
     },
     {
-      icon: <Layers className="w-7 h-7" />,
+      target: '[data-tour="builder-section-frame"]',
       title: 'Add & rearrange sections',
-      description: 'Hover over a section to reveal controls for moving, duplicating, or removing it. Use the "+" button to add new sections.',
+      description: 'Hover over a section to reveal controls for moving, duplicating, or removing it. Use the add controls in the canvas to build out the page.',
+      placement: 'bottom',
+      spotlightPadding: 10,
+      controlPreviews: [
+        { icon: 'plus', label: 'Add section' },
+        { icon: 'settings', label: 'Section settings' },
+        { icon: 'up', label: 'Move up' },
+        { icon: 'down', label: 'Move down' },
+        { icon: 'trash', label: 'Delete section' },
+      ],
+      interactionHint: 'You can hover and explore section controls while this step is open.',
     },
     {
-      icon: <Palette className="w-7 h-7" />,
-      title: 'Colors & fonts',
-      description: 'Open the Design panel to pick a color palette and choose fonts that match your brand.',
+      target: isViewingAnotherPage
+        ? '[data-tour="builder-canvas"]'
+        : ['[data-tour="page-selector-menu"]', '[data-tour="page-selector-trigger"]'],
+      title: 'Pages & page switching',
+      description: isViewingAnotherPage
+        ? 'Perfect. You are now on another page, and this canvas works just like your Home page while you build.'
+        : 'Use the page menu in the top-left to switch between pages while building. You can also add a new page here whenever you need one, like Services, About, or Contact.',
+      placement: 'bottom',
+      autoMinimizeOnObstruction: false,
+      interactionHint: isViewingAnotherPage
+        ? 'Take a quick look around this page, then continue when you are ready.'
+        : 'Pick another page here, or create a new one, to continue the tour.',
     },
     {
-      icon: <Wand2 className="w-7 h-7" />,
+      target: ['[data-tour="page-selector-home-option"]', '[data-tour="page-selector-menu"]', '[data-tour="page-selector-trigger"]'],
+      title: 'Return to Home',
+      description: 'Nice. Use this same page menu to jump back to Home before we move on to styling the main design.',
+      placement: 'bottom',
+      autoMinimizeOnObstruction: false,
+      interactionHint: 'Select Home in the page menu to unlock the next step.',
+      },
+      {
+        target: ['[data-tour="font-picker-modal"]', '[data-tour="builder-design-panel"]'],
+        title: 'Colors & fonts',
+        description: 'Open the Design panel to pick a color palette and choose fonts that match your brand.',
+        placement: 'right',
+        autoMinimizeOnObstruction: false,
+        requiresPanel: true,
+        sectionKeys: ['colors', 'typography'],
+        interactionHint: 'Try choosing a new palette or font here to continue the tour.',
+      },
+      {
+        target: '[data-tour="builder-canvas"]',
+        title: 'See your style changes',
+        description: 'Nice. Now you can look over the full page and see how your updated colors and fonts change the feel of the site in context.',
+        placement: 'bottom',
+        interactionHint: 'Take a moment to look around the page, then continue when you are ready.',
+      },
+      {
+        target: '[data-tour="builder-ai-builder"]',
       title: 'AI Builder',
-      description: 'Stuck on wording? Open the AI Builder panel to generate headlines, copy, and descriptions in seconds.',
+      description: 'Stuck on building? Open the AI Builder panel to help shape your website, generate sections, refine content, and move faster when you are not sure what to do next.',
+      placement: 'right',
+      requiresPanel: true,
+      sectionKeys: ['ai-builder'],
+      interactionHint: 'This panel stays usable during the tour, so you can poke around before continuing.',
     },
-    {
-      icon: <Rocket className="w-7 h-7" />,
-      title: 'Save & Publish',
-      description: 'Hit Save to keep your progress, then Publish when you\'re ready for the world to see your site.',
-    },
-  ];
+      {
+        target: isEditMode ? '[data-tour="builder-edit-toggle"]' : '[data-tour="builder-canvas"]',
+        title: 'Preview your site',
+        description: isEditMode
+          ? 'When you are ready to preview your work, switch from Edit to View.'
+          : 'Now you are in View mode. Look around your site, click through it, and experience it the way a visitor would.',
+        placement: 'bottom',
+        interactionHint: isEditMode
+          ? 'Use this toggle anytime you want to preview the site, then switch back to Edit to keep building.'
+          : 'Take a moment to look around your site here, then continue when you are ready.',
+        spotlightPadding: 6,
+        spotlightRadiusOffset: 8,
+      },
+        {
+        target: '[data-tour="builder-save-actions"]',
+        title: 'Save & Publish',
+        description: 'Hit Save to keep your progress, then Publish when you\'re ready for the world to see your site.',
+        placement: 'right',
+        requiresPanel: true,
+        interactionHint: 'When you are comfortable with your changes, these are the controls you will use to keep or launch them.',
+        },
+        {
+        target: '[data-tour="builder-help-button"]',
+        title: 'Need help later?',
+        description: 'If you ever want to revisit this guide, look for the help button in the bottom-right corner. Clicking it will restart the tutorial whenever you need a refresher.',
+        placement: 'left',
+        autoMinimizeOnObstruction: false,
+        animateFinishToTarget: true,
+        interactionHint: 'Finish the tour and watch it tuck itself back into that help button.',
+        },
+        ];
+      }, [currentPageSlug, isEditMode]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && !localStorage.getItem(DESIGNER_WALKTHROUGH_KEY)) {
+    if (typeof window === 'undefined') return;
+    if (walkthroughAutoOpenedRef.current) return;
+
+    if (ALWAYS_SHOW_DESIGNER_WALKTHROUGH || !localStorage.getItem(DESIGNER_WALKTHROUGH_KEY)) {
+      walkthroughAutoOpenedRef.current = true;
       setShowWalkthrough(true);
     }
-  }, []);
+  }, [ALWAYS_SHOW_DESIGNER_WALKTHROUGH]);
 
   function handleCloseWalkthrough() {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(DESIGNER_WALKTHROUGH_KEY, '1');
+    closeWalkthroughTransientUi();
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(DESIGNER_WALKTHROUGH_KEY, '1');
+      }
+      setShowWalkthrough(false);
+      setWalkthroughStep(0);
+      setWalkthroughStyleBaseline(null);
+      if (walkthroughPanelStateRef.current !== null) {
+        onOpenChange(walkthroughPanelStateRef.current);
+        walkthroughPanelStateRef.current = null;
     }
-    setShowWalkthrough(false);
-    setWalkthroughStep(0);
+    if (walkthroughOpenSectionsRef.current) {
+      setOpenSections(walkthroughOpenSectionsRef.current);
+      walkthroughOpenSectionsRef.current = null;
+    }
   }
 
   function openWalkthrough() {
     setWalkthroughStep(0);
+    setWalkthroughStyleBaseline(null);
     setShowWalkthrough(true);
+  }
+
+  function closeWalkthroughTransientUi() {
+    window.dispatchEvent(new CustomEvent(WALKTHROUGH_RESET_EVENT));
+    setFontPickerState((prev) => prev.isOpen ? { ...prev, isOpen: false } : prev);
+    setActiveLogoModal(null);
+    setShowHistoryModal(false);
+    setShowPreviewModal(false);
+    setShowSiteSwitcher(false);
+  }
+
+  function handleNextWalkthrough() {
+    closeWalkthroughTransientUi();
+    setWalkthroughStep((step) => Math.min(step + 1, designerSteps.length - 1));
+  }
+
+  function handlePrevWalkthrough() {
+    closeWalkthroughTransientUi();
+    setWalkthroughStep((step) => Math.max(step - 1, 0));
   }
 
   const toggleSection = (section: string) => {
     setOpenSections(prev => prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]);
   };
+
+  useEffect(() => {
+    openSectionsRef.current = openSections;
+  }, [openSections]);
 
   // When focusAiBuilder fires, collapse others, expand AI builder, and scroll to it
   useEffect(() => {
@@ -266,6 +421,46 @@ export default function FloatingToolbar({
       aiBuilderSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
   }, [focusAiBuilder]);
+
+  useEffect(() => {
+    if (!showWalkthrough) return;
+
+    if (walkthroughPanelStateRef.current === null) {
+      walkthroughPanelStateRef.current = isOpen;
+    }
+
+    if (walkthroughOpenSectionsRef.current === null) {
+      walkthroughOpenSectionsRef.current = openSectionsRef.current;
+    }
+
+    const activeStep = designerSteps[walkthroughStep];
+    if (!activeStep) return;
+
+    if (!isLargeScreen) {
+      onOpenChange(Boolean(activeStep.requiresPanel));
+    } else if (activeStep.requiresPanel && !isOpen) {
+      onOpenChange(true);
+    }
+
+    if (activeStep.sectionKeys?.length) {
+      setOpenSections((prev) => {
+        const next = Array.from(new Set([...prev, ...activeStep.sectionKeys!]));
+        return next.length === prev.length && next.every((key, index) => key === prev[index])
+          ? prev
+          : next;
+      });
+    }
+  }, [designerSteps, isLargeScreen, isOpen, onOpenChange, showWalkthrough, walkthroughStep]);
+
+  useEffect(() => {
+    if (!showWalkthrough || walkthroughStep !== COLORS_FONTS_CONTROLS_STEP_INDEX || walkthroughStyleBaseline) return;
+
+    setWalkthroughStyleBaseline({
+      paletteName: selectedPalette?.name || 'custom',
+      titleFont: titleFont || '',
+      bodyFont: bodyFont || '',
+    });
+  }, [bodyFont, selectedPalette?.name, showWalkthrough, titleFont, walkthroughStep, walkthroughStyleBaseline]);
 
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -868,6 +1063,7 @@ export default function FloatingToolbar({
           )}
         </div>
 
+        <div data-tour="builder-design-panel" className="space-y-3">
         {/* Colors Section */}
         {templatePalettes && templatePalettes.length > 0 && (
           <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
@@ -971,9 +1167,10 @@ export default function FloatingToolbar({
             </div>
           )}
         </div>
+        </div>
 
         {/* AI Builder Section */}
-        <div ref={aiBuilderSectionRef} className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+        <div ref={aiBuilderSectionRef} data-tour="builder-ai-builder" className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
           <button
             onClick={() => toggleSection('ai-builder')}
             className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-violet-50 to-purple-50 hover:from-violet-100 hover:to-purple-100 transition-colors"
@@ -1227,7 +1424,7 @@ export default function FloatingToolbar({
       </div>
 
       {/* Fixed Bottom Section (Actions) */}
-      <div className="shrink-0 p-4 bg-slate-50 border-t border-slate-200 space-y-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
+      <div data-tour="builder-save-actions" className="shrink-0 p-4 bg-slate-50 border-t border-slate-200 space-y-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
 
         {/* Unsaved Changes Section */}
         {changes && changes.length > 0 && (
@@ -1767,14 +1964,40 @@ export default function FloatingToolbar({
         allowUnsplash={false}
       />
 
+      <div className="pointer-events-none fixed bottom-5 right-5 z-[9997]">
+        <div className="group pointer-events-auto relative">
+          <button
+            type="button"
+            data-tour="builder-help-button"
+            onClick={openWalkthrough}
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-white shadow-xl transition-colors hover:bg-slate-700"
+            aria-label="Restart tutorial"
+            title="Restart tutorial"
+          >
+            <HelpCircle className="h-5 w-5" />
+          </button>
+          <div className="pointer-events-none absolute bottom-14 right-0 rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+            Restart tutorial
+          </div>
+        </div>
+      </div>
+
       <WalkthroughModal
         isOpen={showWalkthrough}
         onClose={handleCloseWalkthrough}
+        onRestore={closeWalkthroughTransientUi}
         steps={designerSteps}
         currentStep={walkthroughStep}
-        onNext={() => setWalkthroughStep(s => Math.min(s + 1, designerSteps.length - 1))}
-        onPrev={() => setWalkthroughStep(s => Math.max(s - 1, 0))}
+        onNext={handleNextWalkthrough}
+        onPrev={handlePrevWalkthrough}
         title="Design Studio Guide"
+        isNextDisabled={
+          (walkthroughStep === 1 && !isEditMode) ||
+          (walkthroughStep === 4 && currentPageSlug === 'home') ||
+          (walkthroughStep === 5 && currentPageSlug !== 'home') ||
+          (walkthroughStep === COLORS_FONTS_CONTROLS_STEP_INDEX && !hasChangedColorsOrFonts)
+        }
+        nextButtonLabel={walkthroughStep === 0 ? 'Start Tour' : undefined}
       />
     </>
   );

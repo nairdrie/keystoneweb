@@ -1137,6 +1137,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
           isSynced={isSynced}
           isOpen={sidebarOpen}
           onOpenChange={setSidebarOpen}
+          isEditMode={editMode}
           aiMessages={aiBuilder.messages}
           aiIsLoading={aiBuilder.isLoading}
           onAiSend={aiBuilder.sendMessage}
@@ -1150,6 +1151,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
           aiRemaining={aiBuilder.remaining}
           focusAiBuilder={focusAiBuilder}
           currentPageTitle={currentPage?.title || ''}
+          currentPageSlug={currentPage?.slug || ''}
           currentPageSeoTitle={editableContent.seoTitle || ''}
           currentPageSeoDescription={editableContent.seoDescription || ''}
           onPageSeoUpdate={(field, value) => handleUpdateContent(field, value)}
@@ -1252,7 +1254,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
         </div>
 
         {/* Template Render Wrapper (This section alone scrolls, so sticky headers inside templates stick to the top of THIS container, right below our Editor banner) */}
-        <div className="flex-1 overflow-y-auto w-full relative">
+        <div data-tour="builder-canvas" className="flex-1 overflow-y-auto w-full relative">
           <MemberProvider siteId={siteId || ''} overrideMember={hasMembershipGate ? (viewAsMember ? MOCK_MEMBER : null) : undefined}>
           <EditorProvider
             value={{
