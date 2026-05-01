@@ -13,7 +13,15 @@ import HeaderProductSearch from '@/app/components/ecommerce/HeaderProductSearch'
 import HeaderMemberIcon from '@/app/components/membership/HeaderMemberIcon';
 import { useMember } from '@/app/components/membership/MemberProvider';
 import HeaderLanguageSelector from '@/app/components/HeaderLanguageSelector';
-import HeaderSettingsModal, { type SiteHeaderDefaults, type HeaderBgType, type HeaderLayout } from '@/app/components/HeaderSettingsModal';
+import HeaderSettingsModal, {
+    type SiteHeaderDefaults,
+    type HeaderBgType,
+    type HeaderLayout,
+    type LogoPosition,
+    type NavPosition,
+    type DesktopMenuStyle,
+    type HamburgerPosition,
+} from '@/app/components/HeaderSettingsModal';
 
 export type { SiteHeaderDefaults, HeaderBgType, HeaderLayout };
 
@@ -34,6 +42,7 @@ function getBgStyle(bgType: HeaderBgType, p: Record<string, string>, custom: str
         case 'secondary': return { backgroundColor: p.secondary };
         case 'gradient':  return { background: `linear-gradient(135deg, ${p.primary}, ${p.secondary})` };
         case 'custom':    return custom ? { backgroundColor: custom } : {};
+        case 'transparent': return { backgroundColor: 'transparent' };
         default:          return {};
     }
 }
@@ -43,6 +52,7 @@ function getTextIsLight(bgType: HeaderBgType, p: Record<string, string>, custom:
     if (bgType === 'secondary') return isHexDark(p.secondary || '#10b981');
     if (bgType === 'gradient')  return true;
     if (bgType === 'custom' && custom) return isHexDark(custom);
+    if (bgType === 'transparent') return true; // assume hero/image behind — default to light text
     return false;
 }
 
@@ -66,7 +76,16 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     const member = memberCtx?.member ?? null;
 
     // ── Resolve config (user override > template default > system default) ──
-    const layout: HeaderLayout    = siteContent.headerLayout  || defaults.layout  || 'default';
+    const legacyLayout: HeaderLayout = siteContent.headerLayout || defaults.layout || 'default';
+    const derivedLogoPos: LogoPosition = legacyLayout === 'centeredAboveNav' ? 'above' : 'left';
+    const derivedNavPos: NavPosition = legacyLayout === 'centeredAboveNav' ? 'center' : 'right';
+    const logoPosition: LogoPosition = siteContent.headerLogoPosition || defaults.logoPosition || derivedLogoPos;
+    const navPosition: NavPosition = siteContent.headerNavPosition || defaults.navPosition || derivedNavPos;
+    const desktopMenuStyle: DesktopMenuStyle = siteContent.headerDesktopMenuStyle || defaults.desktopMenuStyle || 'inline';
+    const hamburgerPosition: HamburgerPosition = siteContent.headerHamburgerPosition || defaults.hamburgerPosition || 'right';
+    const overlay: boolean = siteContent.headerOverlay != null
+        ? Boolean(siteContent.headerOverlay)
+        : (defaults.overlay ?? false);
     const bgType: HeaderBgType    = siteContent.headerBgType  || defaults.bgType  || 'white';
     const bgCustom: string        = siteContent.headerBgColor || defaults.bgCustom || '';
     const isSticky: boolean       = siteContent.headerSticky != null
@@ -100,13 +119,15 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     // userSetBg: true when user explicitly set a bg (or template defaults to non-white)
     const userSetBg     = !!siteContent.headerBgType;
     const effectiveBg   = userSetBg ? bgType : (defaults.bgType || 'white');
+    const isTransparent = effectiveBg === 'transparent';
     const textIsLight   = getTextIsLight(effectiveBg, palette, bgCustom);
 
     // When bg is white (user-selected or default-white), apply bgClass; otherwise use inline style
-    const useBgClass  = (!siteContent.headerBgType && (!defaults.bgType || defaults.bgType === 'white'))
+    const useBgClass  = isTransparent
+        || (!siteContent.headerBgType && (!defaults.bgType || defaults.bgType === 'white'))
         || siteContent.headerBgType === 'white';
     const bgInlineStyle: React.CSSProperties = !useBgClass ? getBgStyle(effectiveBg, palette, bgCustom) : {};
-    const borderDynStyle: React.CSSProperties = defaults.borderStyleFn ? defaults.borderStyleFn(palette) : {};
+    const borderDynStyle: React.CSSProperties = (!isTransparent && defaults.borderStyleFn) ? defaults.borderStyleFn(palette) : {};
     const headerInlineStyle: React.CSSProperties = { ...bgInlineStyle, ...borderDynStyle };
 
     // ── Nav item styling ────────────────────────────────────────────────────
@@ -167,7 +188,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
         )
     );
 
-    const titleColor = (userSetBg && textIsLight) || (!userSetBg && (defaults.bgType === 'primary' || defaults.bgType === 'gradient' || defaults.bgType === 'secondary' || (defaults.bgType === 'custom' && isHexDark(defaults.bgCustom || '')))) ? '#ffffff' : pPrimary;
+    const titleColor = (userSetBg && textIsLight) || (!userSetBg && (defaults.bgType === 'primary' || defaults.bgType === 'gradient' || defaults.bgType === 'secondary' || defaults.bgType === 'transparent' || (defaults.bgType === 'custom' && isHexDark(defaults.bgCustom || '')))) ? '#ffffff' : pPrimary;
 
     const titleEl = (
         <EditableText
@@ -197,7 +218,8 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     const ctaDefaultShape = defaults.ctaDefaultShape || 'rounded';
     const ctaDefaultFill = defaults.ctaDefaultFill || 'filled';
     const userShape = siteContent.navButtonTextIcon?.shape as ('square' | 'rounded' | 'pill' | undefined);
-    const userFill = siteContent.navButtonTextIcon?.fill as ('filled' | 'outline' | undefined);
+    const userFill = siteContent.navButtonTextIcon?.fill as ('filled' | 'outline' | 'ghost' | undefined);
+    const userIconOnly = !!siteContent.navButtonTextIcon?.iconOnly;
 
     const stripRadius = (cls: string) =>
         cls.replace(/\brounded(-(none|sm|md|lg|xl|2xl|3xl|full))?\b/g, '').replace(/\s+/g, ' ').trim();
@@ -226,8 +248,26 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
                 borderColor: accent,
                 boxShadow: 'none',
             };
+        } else if (userFill === 'ghost') {
+            const accent = (typeof baseCtaStyle.backgroundColor === 'string' && baseCtaStyle.backgroundColor) ||
+                (typeof baseCtaStyle.color === 'string' && baseCtaStyle.color) ||
+                pSecondary || pPrimary;
+            ctaClass = ctaClass
+                .replace(/\btext-white\b/g, '')
+                .replace(/\bborder-2\b/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            resolvedCtaStyle = {
+                ...baseCtaStyle,
+                background: 'transparent',
+                backgroundColor: 'transparent',
+                color: textIsLight ? '#ffffff' : accent,
+                border: 'none',
+                borderColor: undefined,
+                boxShadow: 'none',
+            };
         } else {
-            // outline → filled
+            // outline/ghost → filled
             const accent = (typeof baseCtaStyle.borderColor === 'string' && baseCtaStyle.borderColor) ||
                 (typeof baseCtaStyle.color === 'string' && baseCtaStyle.color) ||
                 pSecondary || pPrimary;
@@ -239,6 +279,16 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
                 borderColor: undefined,
             };
         }
+    }
+
+    // Icon-only: tighten padding so the button is roughly square around the icon
+    if (userIconOnly) {
+        ctaClass = ctaClass
+            .replace(/\bpx-\d+(\.\d+)?\b/g, '')
+            .replace(/\bpy-\d+(\.\d+)?\b/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        ctaClass = `${ctaClass} p-2`;
     }
 
     // Check if membership is active site-wide (to default CTA link to /signup)
@@ -407,7 +457,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
         />
     ) : null;
 
-    // ── Nav elements ────────────────────────────────────────────────────────
+    // ── Nav element pieces ──────────────────────────────────────────────────
     const logoLink = (
         <Link href={homeHref} aria-label="Home" className="flex items-center gap-3 transition-opacity hover:opacity-90">
             {logoEl}
@@ -415,26 +465,42 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
         </Link>
     );
 
-    const desktopNav = (
-        <div className="hidden md:flex items-center gap-6">
-            <div className="ks-nav-items">
-                <NavMenu
-                    className="flex items-center gap-6"
-                    itemClassName={resolvedNavItemClass}
-                    submenuClassName={resolvedSubmenuClass}
-                />
-            </div>
+    const navLinksEl = (
+        <div className="ks-nav-items">
+            <NavMenu
+                className="flex items-center gap-6"
+                itemClassName={resolvedNavItemClass}
+                submenuClassName={resolvedSubmenuClass}
+            />
+        </div>
+    );
+
+    const desktopUtilsEl = (
+        <>
             <HeaderLanguageSelector />
             <HeaderProductSearch color={cartIconColor} />
             <HeaderCartIcon color={cartIconColor} />
             {rightEl}
-        </div>
+        </>
     );
 
+    const desktopHamburgerBtn = (
+        <button
+            className={`p-2 ${mobileIconColor}`}
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+        >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </button>
+    );
+
+    const useDesktopHamburger = desktopMenuStyle === 'hamburger';
+
     const mobileBorderStyle = defaults.mobileBorderStyleFn ? defaults.mobileBorderStyleFn(palette) : {};
-    const mobileMenu = mobileMenuOpen ? (
+    // Drawer (mobile + desktop-hamburger). Always rendered on small screens; on desktop only when hamburger mode.
+    const drawerMenu = mobileMenuOpen ? (
         <div
-            className={`md:hidden border-t py-4 space-y-1 ${defaults.mobileBorderClass || 'border-slate-100'}`}
+            className={`${useDesktopHamburger ? '' : 'md:hidden'} border-t py-4 space-y-1 ${defaults.mobileBorderClass || 'border-slate-100'}`}
             style={mobileBorderStyle}
         >
             <div className="ks-nav-items">
@@ -444,7 +510,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
                 />
             </div>
             {rightSide === 'cta' && (
-                <div className="mt-3">
+                <div className="mt-3 md:hidden">
                     {member ? (
                         <div className="flex items-center gap-3 px-3 py-2">
                             <HeaderMemberIcon color={cartIconColor} />
@@ -494,46 +560,111 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
         </div>
     ) : null;
 
-    const mobileToggle = (
-        <div className="flex md:hidden items-center gap-1">
-            <HeaderProductSearch color={cartIconColor} />
-            <HeaderCartIcon color={cartIconColor} />
-            {member && <HeaderMemberIcon color={cartIconColor} />}
-            <button className={`p-2 ${mobileIconColor}`} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+    // Mobile-only top-right cluster: small utilities + hamburger
+    const mobileToggleCluster = (position: 'left' | 'right') => (
+        <div className={`flex md:hidden items-center gap-1 ${position === 'left' ? 'order-first' : ''}`}>
+            {position === 'right' && (
+                <>
+                    <HeaderProductSearch color={cartIconColor} />
+                    <HeaderCartIcon color={cartIconColor} />
+                    {member && <HeaderMemberIcon color={cartIconColor} />}
+                </>
+            )}
+            <button className={`p-2 ${mobileIconColor}`} onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}>
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
-            {mobileSocialIcons}
+            {position === 'right' && mobileSocialIcons}
         </div>
     );
 
-    const stickyClass  = isSticky ? 'sticky top-0 z-50' : 'relative z-10';
-    const bgClassFinal = useBgClass ? (defaults.bgClass || 'bg-white') : '';
+    // ── Build single-row content (3-zone grid) ──────────────────────────────
+    // Used by every layout except logoPosition === 'above'.
+    const renderSingleRow = (heightClass = 'min-h-16 py-3') => {
+        const left: React.ReactNode[] = [];
+        const center: React.ReactNode[] = [];
+        const right: React.ReactNode[] = [];
 
-    // ── FLOATING LAYOUT (Airy) ──────────────────────────────────────────────
+        if (logoPosition === 'left')   left.push(<div key="logo">{logoLink}</div>);
+        if (logoPosition === 'center') center.push(<div key="logo">{logoLink}</div>);
+
+        if (useDesktopHamburger) {
+            const ham = <div key="ham" className="hidden md:inline-flex">{desktopHamburgerBtn}</div>;
+            if (hamburgerPosition === 'left') left.push(ham);
+            else right.unshift(ham);
+        } else {
+            const navWrap = <div key="nav" className="hidden md:flex items-center gap-6">{navLinksEl}</div>;
+            if (navPosition === 'left')   left.push(navWrap);
+            if (navPosition === 'center') center.push(navWrap);
+            if (navPosition === 'right')  right.push(navWrap);
+        }
+
+        right.push(
+            <div key="utils" className="hidden md:flex items-center gap-6">
+                {desktopUtilsEl}
+            </div>
+        );
+
+        // Mobile cluster — show alongside the logo on mobile
+        const mobileCluster = mobileToggleCluster(hamburgerPosition);
+
+        return (
+            <div className={`grid grid-cols-3 items-center gap-3 ${heightClass}`}>
+                <div className="flex items-center justify-start gap-4">
+                    {hamburgerPosition === 'left' ? mobileCluster : null}
+                    {left}
+                </div>
+                <div className="flex items-center justify-center gap-4">
+                    {center}
+                </div>
+                <div className="flex items-center justify-end gap-4">
+                    {right}
+                    {hamburgerPosition === 'right' ? mobileCluster : null}
+                </div>
+            </div>
+        );
+    };
+
+    const stickyClass  = isSticky ? 'sticky top-0 z-50' : 'relative z-10';
+    const overlayWrapperClass = overlay ? 'h-0 overflow-visible' : '';
+    const bgClassFinal = useBgClass ? (defaults.bgClass || (isTransparent ? 'bg-transparent' : 'bg-white')) : '';
+    // When transparent, suppress template default border/shadow for clean overlay
+    const borderClassFinal = isTransparent ? '' : (defaults.borderClass || '');
+
+    // ── FLOATING (pill) LAYOUT — preserved for templates like Airy ──────────
     if (defaults.isFloating) {
-        const pillBgClass    = useBgClass ? (defaults.bgClass || 'bg-white/90') : '';
+        const pillBgClass    = useBgClass ? (defaults.bgClass || (isTransparent ? 'bg-transparent' : 'bg-white/90')) : '';
         const pillInlineStyle: React.CSSProperties = !useBgClass ? bgInlineStyle : {};
+        // Floating pill always overlays (h-0) when sticky, and also when overlay=true
+        const wrapperClass = (overlay || isSticky) ? `${isSticky ? 'sticky top-0 z-50' : 'relative z-50'} h-0 overflow-visible` : 'relative';
 
         return (
             <>
                 {bannerEl}
-                <header className={`${isSticky ? 'sticky top-0 z-50 h-0 overflow-visible' : 'relative'} ${isEditMode ? 'group relative' : ''}`}>
+                <header className={`${wrapperClass} ${isEditMode ? 'group relative' : ''}`}>
                     {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
                     <div className="pt-3 px-4">
                         <div
-                            className={`ks-site-header ${containerClass} mx-auto ${pillBgClass} backdrop-blur-xl rounded-2xl shadow-lg shadow-black/5 border border-white/50 px-5 relative`}
+                            className={`ks-site-header ${containerClass} mx-auto ${pillBgClass} ${isTransparent ? '' : 'backdrop-blur-xl shadow-lg shadow-black/5 border border-white/50'} rounded-2xl px-5 relative`}
                             style={pillInlineStyle}
                         >
                             {defaults.hasAccentLine && (
                                 <div className="h-0.5 w-full absolute top-0 left-0 rounded-t-2xl"
                                     style={{ background: `linear-gradient(90deg, transparent, ${defaults.accentColor || pSecondary}, transparent)` }} />
                             )}
-                            <div className="flex items-center justify-between min-h-14 py-3">
-                                {logoLink}
-                                {desktopNav}
-                                {mobileToggle}
-                            </div>
-                            {mobileMenu}
+                            {logoPosition === 'above' ? (
+                                <>
+                                    <div className="text-center pt-3">
+                                        <Link href={homeHref} aria-label="Home" className="inline-flex flex-col items-center gap-2 transition-opacity hover:opacity-90">
+                                            {logoEl}
+                                            {titleEl}
+                                        </Link>
+                                    </div>
+                                    {renderSingleRow('min-h-12 py-2')}
+                                </>
+                            ) : (
+                                renderSingleRow('min-h-14 py-3')
+                            )}
+                            {drawerMenu}
                         </div>
                     </div>
                     {settingsCog}
@@ -543,87 +674,112 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
         );
     }
 
-    // ── CENTERED ABOVE NAV LAYOUT (Luxe) ───────────────────────────────────
-    if (layout === 'centeredAboveNav') {
-        return (
+    // ── LOGO ABOVE NAV (Luxe-style two-row) ────────────────────────────────
+    if (logoPosition === 'above') {
+        const navContent = useDesktopHamburger ? desktopHamburgerBtn : navLinksEl;
+        const utilsCluster = <div className="flex items-center gap-6">{desktopUtilsEl}</div>;
+
+        const navRow = navPosition === 'center' ? (
+            <div className="hidden md:flex items-center justify-center h-12 gap-8 relative">
+                {navContent}
+                <div className="absolute right-0">{utilsCluster}</div>
+            </div>
+        ) : navPosition === 'right' ? (
+            <div className="hidden md:flex items-center justify-end h-12 gap-8">
+                {navContent}
+                {utilsCluster}
+            </div>
+        ) : (
+            <div className="hidden md:flex items-center h-12 gap-8">
+                {navContent}
+                <div className="ml-auto">{utilsCluster}</div>
+            </div>
+        );
+
+        const innerHeaderClass = `${stickyClass} ${bgClassFinal} ${isTransparent ? '' : (defaults.borderClass || 'border-b border-gray-100')}`;
+
+        const inner = (
             <>
-                {bannerEl}
-                <header
-                    className={`ks-site-header ${stickyClass} ${bgClassFinal} ${defaults.borderClass || 'border-b border-gray-100'} ${isEditMode ? 'group relative' : 'relative'}`}
-                    style={headerInlineStyle}
-                >
-                    {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
-                    {defaults.hasAccentLine && (
-                        <div className="h-0.5 w-full"
-                            style={{ background: `linear-gradient(90deg, transparent, ${defaults.accentColor || pSecondary}, transparent)` }} />
-                    )}
-                    {/* Logo + name centered row */}
-                    <div className="text-center py-6 px-4">
-                        <Link href={homeHref} aria-label="Home" className="inline-flex flex-col items-center gap-2 transition-opacity hover:opacity-90">
-                            {logoEl}
-                            {titleEl}
-                        </Link>
-                    </div>
-                    {/* Nav bar */}
-                    <nav className={`border-t ${textIsLight ? 'border-white/20' : 'border-gray-100'}`}>
-                        <div className={`${containerClass} mx-auto px-6`}>
-                            <div className="hidden md:flex items-center justify-center h-12 gap-8">
-                                <div className="ks-nav-items">
-                                    <NavMenu
-                                        className="flex items-center gap-8"
-                                        itemClassName={resolvedNavItemClass}
-                                        submenuClassName={resolvedSubmenuClass}
-                                    />
-                                </div>
-                                <HeaderLanguageSelector />
-                                <HeaderProductSearch color={cartIconColor} />
-                                <HeaderCartIcon color={cartIconColor} />
-                                {rightEl}
-                            </div>
-                            <div className="flex md:hidden items-center justify-between h-12">
-                                <div className="flex items-center gap-1">
-                                    <HeaderProductSearch color={cartIconColor} />
-                                    <HeaderCartIcon color={cartIconColor} />
-                                    {member && <HeaderMemberIcon color={cartIconColor} />}
-                                    <button className={`p-2 ${mobileIconColor}`} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-                                        {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                                    </button>
-                                </div>
-                                {mobileSocialIcons}
-                            </div>
-                            {mobileMenu}
-                        </div>
-                    </nav>
-                    {settingsCog}
-                    {settingsModal}
-                </header>
-            </>
-        );
-    }
-
-    // ── DEFAULT LAYOUT ──────────────────────────────────────────────────────
-    return (
-        <>
-            {bannerEl}
-            <header
-                className={`ks-site-header ${stickyClass} ${bgClassFinal} ${defaults.borderClass || ''} ${isEditMode ? 'group relative' : 'relative'}`}
-                style={headerInlineStyle}
-            >
-                {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
                 {defaults.hasAccentLine && (
                     <div className="h-0.5 w-full"
                         style={{ background: `linear-gradient(90deg, transparent, ${defaults.accentColor || pSecondary}, transparent)` }} />
                 )}
-                <div className={`${containerClass} mx-auto px-4`}>
-                    <div className="flex items-center justify-between min-h-16 py-3">
-                        {logoLink}
-                        {desktopNav}
-                        {mobileToggle}
+                {/* Top row: logo centered (mobile cluster floats right) */}
+                <div className="relative text-center py-6 px-4">
+                    <Link href={homeHref} aria-label="Home" className="inline-flex flex-col items-center gap-2 transition-opacity hover:opacity-90">
+                        {logoEl}
+                        {titleEl}
+                    </Link>
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        {mobileToggleCluster('right')}
                     </div>
-                    {mobileMenu}
                 </div>
-                {settingsCog}
-                {settingsModal}
+                {/* Nav bar */}
+                <nav className={`border-t ${textIsLight ? 'border-white/20' : 'border-gray-100'}`}>
+                    <div className={`${containerClass} mx-auto px-6`}>
+                        {navRow}
+                        {drawerMenu}
+                    </div>
+                </nav>
+            </>
+        );
+
+        return (
+            <>
+                {bannerEl}
+                <header
+                    className={`ks-site-header ${overlay ? overlayWrapperClass : innerHeaderClass} ${isEditMode ? 'group relative' : 'relative'}`}
+                    style={overlay ? {} : headerInlineStyle}
+                >
+                    {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
+                    {overlay ? (
+                        <div className={innerHeaderClass} style={headerInlineStyle}>
+                            {inner}
+                        </div>
+                    ) : inner}
+                    {settingsCog}
+                    {settingsModal}
+                </header>
+            </>
+        );
+    }
+
+    // ── DEFAULT (single-row) LAYOUT ─────────────────────────────────────────
+    const innerClassName = `ks-site-header ${stickyClass} ${bgClassFinal} ${borderClassFinal} ${isEditMode ? 'group relative' : 'relative'}`;
+    const innerStyle = headerInlineStyle;
+
+    return (
+        <>
+            {bannerEl}
+            <header className={overlay ? `${overlayWrapperClass} ${isEditMode ? 'group relative' : ''}` : innerClassName} style={overlay ? {} : innerStyle}>
+                {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
+                {overlay ? (
+                    <div className={innerClassName} style={innerStyle}>
+                        {defaults.hasAccentLine && (
+                            <div className="h-0.5 w-full"
+                                style={{ background: `linear-gradient(90deg, transparent, ${defaults.accentColor || pSecondary}, transparent)` }} />
+                        )}
+                        <div className={`${containerClass} mx-auto px-4`}>
+                            {renderSingleRow()}
+                            {drawerMenu}
+                        </div>
+                        {settingsCog}
+                        {settingsModal}
+                    </div>
+                ) : (
+                    <>
+                        {defaults.hasAccentLine && (
+                            <div className="h-0.5 w-full"
+                                style={{ background: `linear-gradient(90deg, transparent, ${defaults.accentColor || pSecondary}, transparent)` }} />
+                        )}
+                        <div className={`${containerClass} mx-auto px-4`}>
+                            {renderSingleRow()}
+                            {drawerMenu}
+                        </div>
+                        {settingsCog}
+                        {settingsModal}
+                    </>
+                )}
             </header>
         </>
     );
