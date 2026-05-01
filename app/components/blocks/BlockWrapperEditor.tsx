@@ -1,11 +1,13 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { useEditorContext } from '@/lib/editor-context';
 import { ArrowUp, ArrowDown, Trash2, Settings } from 'lucide-react';
 import BlockSettingsModal from './BlockSettingsModal';
 import { motion } from 'framer-motion';
 import { staggerContainer } from '@/lib/motion';
+
+const WALKTHROUGH_RESET_EVENT = 'ks:walkthrough-reset-ui';
 
 interface BlockWrapperEditorProps {
     id: string;
@@ -37,11 +39,19 @@ export default function BlockWrapperEditor({
     const isProUser = context?.isProUser || false;
     const [settingsOpen, setSettingsOpen] = useState(false);
 
+    useEffect(() => {
+        const handleWalkthroughReset = () => setSettingsOpen(false);
+
+        window.addEventListener(WALKTHROUGH_RESET_EVENT, handleWalkthroughReset);
+        return () => window.removeEventListener(WALKTHROUGH_RESET_EVENT, handleWalkthroughReset);
+    }, []);
+
     return (
         <motion.div
             key={`${id}-edit`}
             id={slug}
             data-block-id={id}
+            data-tour="builder-section"
             variants={staggerContainer as any}
             initial="show"
             animate="show"

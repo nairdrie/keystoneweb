@@ -7,6 +7,8 @@ import { Plus, Crown } from 'lucide-react';
 import MembershipGateBlock from './MembershipGateBlock';
 import { BLOCK_COMPONENTS as BASE_BLOCK_COMPONENTS, AVAILABLE_BLOCKS as BASE_AVAILABLE_BLOCKS } from './block-registry';
 
+const WALKTHROUGH_RESET_EVENT = 'ks:walkthrough-reset-ui';
+
 // Add membershipGate here (not in block-registry.ts to avoid circular imports)
 const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     ...BASE_BLOCK_COMPONENTS,
@@ -36,6 +38,16 @@ export default function BlockRenderer({ palette, headerOffset }: { palette: Reco
                 inputRef.current.focus();
             }
         }, [isOpen]);
+
+        useEffect(() => {
+            const handleWalkthroughReset = () => {
+                setIsOpen(false);
+                setSearchQuery('');
+            };
+
+            window.addEventListener(WALKTHROUGH_RESET_EVENT, handleWalkthroughReset);
+            return () => window.removeEventListener(WALKTHROUGH_RESET_EVENT, handleWalkthroughReset);
+        }, []);
 
         if (!isEditMode) return null;
 
@@ -69,7 +81,7 @@ export default function BlockRenderer({ palette, headerOffset }: { palette: Reco
                 </button>
 
                 {isOpen && (
-                    <div ref={menuRef} className="absolute top-8 z-50 bg-white shadow-xl border border-slate-200 rounded-lg p-2 w-56 animate-in fade-in zoom-in duration-200 max-h-[300px] flex flex-col">
+                    <div data-tour="add-block-menu" ref={menuRef} className="absolute top-8 z-50 bg-white shadow-xl border border-slate-200 rounded-lg p-2 w-56 animate-in fade-in zoom-in duration-200 max-h-[300px] flex flex-col">
                         <h4 className="flex-shrink-0 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">Add Block</h4>
                         <div className="flex-shrink-0 px-2 mb-2">
                             <input
@@ -136,6 +148,7 @@ export default function BlockRenderer({ palette, headerOffset }: { palette: Reco
                 return (
                     <div
                         key={block.id}
+                        data-tour="builder-section-frame"
                         className={`w-full${isFirst ? ' first-block-offset' : ''}`}
                         style={isFirst ? { '--header-offset': `${headerOffset}px` } as React.CSSProperties : undefined}
                     >

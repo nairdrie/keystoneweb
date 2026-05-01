@@ -20,6 +20,7 @@ export default function EmbeddedToggle({
   return (
     <button
       onClick={() => onToggle(!isActive)}
+      data-tour="builder-edit-toggle"
       className={`relative inline-flex items-center h-8 w-[136px] rounded-full p-1 text-xs font-medium transition-colors duration-200 ${isActive
         ? 'bg-slate-800 border border-slate-700'
         : 'bg-white/20 border border-transparent'

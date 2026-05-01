@@ -66,6 +66,7 @@ export default function FontPickerModal({
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
             <div
+                data-tour="font-picker-modal"
                 className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden"
                 onClick={e => e.stopPropagation()}
             >
@@ -119,7 +120,7 @@ export default function FontPickerModal({
                     {filteredFonts.length === 0 && (
                         <div className="py-8 text-center text-slate-500">
                             <Type className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                            <p>No fonts found for "{searchQuery}"</p>
+                            <p>No fonts found for &quot;{searchQuery}&quot;</p>
                         </div>
                     )}
                 </div>
