@@ -23,13 +23,14 @@ const ICON_NAMES = [
 ];
 
 export type ButtonShape = 'square' | 'rounded' | 'pill';
-export type ButtonFill = 'filled' | 'outline';
+export type ButtonFill = 'filled' | 'outline' | 'ghost';
 
 interface ButtonSettings {
     icon?: string;
     iconPosition?: 'left' | 'right';
     shape?: ButtonShape;
     fill?: ButtonFill;
+    iconOnly?: boolean;
 }
 
 interface ButtonSettingsModalProps {
@@ -156,10 +157,11 @@ export default function ButtonSettingsModal({
 
                             <div className="space-y-3">
                                 <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Fill</label>
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-3 gap-3">
                                     {([
                                         { key: 'filled', label: 'Filled', preview: 'bg-slate-800 text-white' },
                                         { key: 'outline', label: 'Outline', preview: 'bg-transparent text-slate-800 border-2 border-slate-800' },
+                                        { key: 'ghost', label: 'Ghost', preview: 'bg-transparent text-slate-800' },
                                     ] as { key: ButtonFill; label: string; preview: string }[]).map(opt => {
                                         const isSelected = effectiveFill === opt.key;
                                         const previewRadius = effectiveShape === 'pill' ? 'rounded-full' : effectiveShape === 'square' ? 'rounded-none' : 'rounded-lg';
@@ -240,9 +242,10 @@ export default function ButtonSettingsModal({
                                 <div className="grid grid-cols-2 gap-4">
                                     <button
                                         onClick={() => setSettings({ ...settings, iconPosition: 'left' })}
-                                        className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${settings.iconPosition === 'left' || !settings.iconPosition
+                                        disabled={settings.iconOnly}
+                                        className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${settings.iconOnly ? 'opacity-40 cursor-not-allowed bg-white border-slate-200' : (settings.iconPosition === 'left' || !settings.iconPosition
                                                 ? 'bg-white border-red-500 shadow-[0_0_0_2px_rgba(239,68,68,0.2)]'
-                                                : 'bg-white border-slate-200 hover:border-slate-400'
+                                                : 'bg-white border-slate-200 hover:border-slate-400')
                                             }`}
                                     >
                                         <div className="w-10 h-6 bg-slate-100 rounded flex items-center px-1 gap-1">
@@ -257,9 +260,10 @@ export default function ButtonSettingsModal({
 
                                     <button
                                         onClick={() => setSettings({ ...settings, iconPosition: 'right' })}
-                                        className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${settings.iconPosition === 'right'
+                                        disabled={settings.iconOnly}
+                                        className={`flex items-center gap-3 p-4 rounded-xl border transition-all ${settings.iconOnly ? 'opacity-40 cursor-not-allowed bg-white border-slate-200' : (settings.iconPosition === 'right'
                                                 ? 'bg-white border-red-500 shadow-[0_0_0_2px_rgba(239,68,68,0.2)]'
-                                                : 'bg-white border-slate-200 hover:border-slate-400'
+                                                : 'bg-white border-slate-200 hover:border-slate-400')
                                             }`}
                                     >
                                         <div className="w-10 h-6 bg-slate-100 rounded flex items-center px-1 gap-1 justify-end">
@@ -272,6 +276,25 @@ export default function ButtonSettingsModal({
                                         </div>
                                     </button>
                                 </div>
+                            </div>
+
+                            <div className="space-y-3 pt-2 border-t border-slate-200">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <label className="text-sm font-bold text-slate-800">Icon Only</label>
+                                        <p className="text-[11px] text-slate-500 mt-0.5">Hide the text label and show just the icon</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setSettings({ ...settings, iconOnly: !settings.iconOnly })}
+                                        disabled={!settings.icon}
+                                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${!settings.icon ? 'bg-slate-200 opacity-50 cursor-not-allowed' : settings.iconOnly ? 'bg-red-500' : 'bg-slate-200'}`}
+                                    >
+                                        <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${settings.iconOnly ? 'translate-x-4' : 'translate-x-0'}`} />
+                                    </button>
+                                </div>
+                                {!settings.icon && (
+                                    <p className="text-[11px] text-amber-600">Choose an icon in the Icon tab first.</p>
+                                )}
                             </div>
                         </div>
                     )}

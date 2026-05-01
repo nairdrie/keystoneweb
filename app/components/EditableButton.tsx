@@ -22,6 +22,7 @@ export interface ButtonIconData {
     iconPosition?: 'left' | 'right';
     shape?: ButtonShape;
     fill?: ButtonFill;
+    iconOnly?: boolean;
 }
 
 interface EditableButtonProps {
@@ -88,6 +89,7 @@ export default function EditableButton({
 
     const currentIcon = iconData?.icon;
     const currentIconPosition = iconData?.iconPosition || 'left';
+    const isIconOnly = !!iconData?.iconOnly && !!currentIcon;
 
     // Detect if we should show controls on the left based on screen position
     useEffect(() => {
@@ -164,13 +166,22 @@ export default function EditableButton({
     // Render Icon if present
     const IconComponent = currentIcon ? (Icons as any)[currentIcon] : null;
 
-    const renderButtonContent = () => (
-        <span className="flex items-center gap-2 pointer-events-none">
-            {IconComponent && currentIconPosition === 'left' && <IconComponent className="w-[1.2em] h-[1.2em] shrink-0" />}
-            <span>{currentLabel}</span>
-            {IconComponent && currentIconPosition === 'right' && <IconComponent className="w-[1.2em] h-[1.2em] shrink-0" />}
-        </span>
-    );
+    const renderButtonContent = () => {
+        if (isIconOnly && IconComponent) {
+            return (
+                <span className="flex items-center justify-center pointer-events-none" aria-label={currentLabel}>
+                    <IconComponent className="w-[1.2em] h-[1.2em] shrink-0" />
+                </span>
+            );
+        }
+        return (
+            <span className="flex items-center gap-2 pointer-events-none">
+                {IconComponent && currentIconPosition === 'left' && <IconComponent className="w-[1.2em] h-[1.2em] shrink-0" />}
+                <span>{currentLabel}</span>
+                {IconComponent && currentIconPosition === 'right' && <IconComponent className="w-[1.2em] h-[1.2em] shrink-0" />}
+            </span>
+        );
+    };
 
     // Edit mode: click to open modal
     if (isEditMode) {
