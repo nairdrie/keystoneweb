@@ -1427,21 +1427,23 @@ export default function FloatingToolbar({
       <div data-tour="builder-save-actions" className="shrink-0 p-4 bg-slate-50 border-t border-slate-200 space-y-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
 
         {/* Unsaved Changes Section */}
-        {changes && changes.length > 0 && (
+        {changes && (changes.length > 0 || canRedo) && (
           <div>
             <button
               onClick={() => setShowChanges(!showChanges)}
-              className="w-full flex items-center justify-between px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+              className={`w-full flex items-center justify-between px-3 py-2 border rounded-lg transition-colors ${changes.length > 0 ? 'bg-amber-50 border-amber-200 hover:bg-amber-100' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}
             >
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-amber-400 text-white flex items-center justify-center text-[10px] font-bold">
+                <div className={`w-4 h-4 rounded-full text-white flex items-center justify-center text-[10px] font-bold ${changes.length > 0 ? 'bg-amber-400' : 'bg-slate-400'}`}>
                   {changes.length}
                 </div>
-                <span className="text-xs font-semibold text-amber-900">
-                  {changes.length} unsaved change{changes.length !== 1 ? 's' : ''}
+                <span className={`text-xs font-semibold ${changes.length > 0 ? 'text-amber-900' : 'text-slate-700'}`}>
+                  {changes.length > 0
+                    ? `${changes.length} unsaved change${changes.length !== 1 ? 's' : ''}`
+                    : 'No unsaved changes'}
                 </span>
               </div>
-              <ChevronDown className={`w-4 h-4 text-amber-700 transition-transform ${showChanges ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-4 h-4 transition-transform ${changes.length > 0 ? 'text-amber-700' : 'text-slate-500'} ${showChanges ? 'rotate-180' : ''}`} />
             </button>
 
             {showChanges && (
