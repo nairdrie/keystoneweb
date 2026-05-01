@@ -187,6 +187,9 @@ function ChatWidget({ siteId, palette }: { siteId: string; palette: Record<strin
   if (settings && !settings.enabled) return null;
 
   const positionClasses = position === 'bottom-left' ? 'left-4 sm:left-6' : 'right-4 sm:right-6';
+  const panelPositionClasses = position === 'bottom-left'
+    ? 'left-4 sm:left-6 right-4 sm:right-auto'
+    : 'right-4 sm:right-6 left-4 sm:left-auto';
 
   return (
     <>
@@ -213,7 +216,7 @@ function ChatWidget({ siteId, palette }: { siteId: string; palette: Record<strin
       {/* Chat panel */}
       {isOpen && (
         <div
-          className={`fixed bottom-4 sm:bottom-6 ${positionClasses} z-[9999] w-[calc(100vw-2rem)] sm:w-[380px] max-h-[min(70vh,560px)] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-300`}
+          className={`fixed bottom-4 sm:bottom-6 ${panelPositionClasses} z-[9999] w-auto sm:w-[380px] max-h-[min(70vh,560px)] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-300`}
         >
           {/* Header */}
           <div
