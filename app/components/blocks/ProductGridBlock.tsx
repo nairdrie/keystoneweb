@@ -40,6 +40,7 @@ interface Product {
     matched_package_id?: string | null;
     can_purchase?: boolean;
     gate_reason?: 'guest' | 'wrong-tier' | null;
+    external_url?: string | null;
 }
 
 interface ProductGridBlockProps {
@@ -627,6 +628,7 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
     const [allowedPackageIds, setAllowedPackageIds] = useState<string[]>(
         product?.allowed_package_ids ?? []
     );
+    const [externalUrl, setExternalUrl] = useState(product?.external_url ?? '');
     const [gateEnabled, setGateEnabled] = useState(
         (product?.allowed_package_ids ?? []).length > 0
     );
@@ -750,6 +752,12 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
         if (!name.trim() || !price) return;
         setTierError(null);
 
+        const trimmedExternalUrl = externalUrl.trim();
+        if (trimmedExternalUrl && !/^https?:\/\//i.test(trimmedExternalUrl)) {
+            setTierError('External URL must start with http:// or https://');
+            return;
+        }
+
         // Convert variant strings to structured format
         const structuredVariants = variants
             .filter(v => v.name.trim() && v.options.trim())
@@ -823,6 +831,7 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
             vendor_id: vendorId || null,
             tier_prices: tier_prices_arr,
             allowed_package_ids: gateEnabled ? allowedPackageIds : [],
+            external_url: externalUrl.trim() || null,
         };
 
         setSaving(true);
@@ -931,6 +940,21 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
                 <input type="number" value={inventory} onChange={e => setInventory(e.target.value)}
                     className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 />
+            </div>
+
+            {/* External URL */}
+            <div>
+                <label className="text-xs font-semibold text-slate-700 mb-1 block">External URL (optional)</label>
+                <input
+                    type="url"
+                    value={externalUrl}
+                    onChange={e => setExternalUrl(e.target.value)}
+                    placeholder="https://example.com/product-listing"
+                    className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                    If set, clicking this product opens this URL in a new tab instead of the built-in product page. The Add-to-Cart button is hidden — use this for affiliate links or products fulfilled on a third-party site.
+                </p>
             </div>
 
             {/* Category + Subcategory */}
@@ -1535,6 +1559,9 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
         });
     };
 
+    const isExternal = (p: Product) =>
+        !!p.external_url && /^https?:\/\//i.test(p.external_url);
+
     const handleProductNav = (e: React.MouseEvent, product: Product) => {
         if (isEditor) {
             e.preventDefault();
@@ -1544,7 +1571,11 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
         }
     };
 
-    const productHref = (product: Product) => isEditor ? '#' : `/product/${product.id}`;
+    const productHref = (product: Product) => {
+        if (isEditor) return '#';
+        if (isExternal(product)) return product.external_url as string;
+        return `/product/${product.id}`;
+    };
 
     const nbc = blockCategory.toLowerCase();
     const nbs = blockSubcategory.toLowerCase();
@@ -1600,6 +1631,7 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
         const hasDiscount = !!product.compare_at_cents && product.compare_at_cents > effectivePriceCents;
         const outOfStock = product.inventory_count === 0;
         const isGated = product.can_purchase === false;
+        const external = isExternal(product);
         const isMemberPrice = !!product.matched_package_id
             && typeof product.public_price_cents === 'number'
             && product.public_price_cents > effectivePriceCents;
@@ -1609,6 +1641,8 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
                 key={product.id}
                 href={productHref(product)}
                 onClick={(e) => handleProductNav(e, product)}
+                target={external && !isEditor ? '_blank' : undefined}
+                rel={external && !isEditor ? 'noopener' : undefined}
                 className="group rounded-xl border border-slate-200 overflow-hidden hover:shadow-xl transition-all hover:border-slate-300 bg-white"
             >
                 <div className="aspect-square bg-slate-50 relative overflow-hidden">
@@ -1642,7 +1676,7 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
                             </span>
                         </div>
                     )}
-                    {!outOfStock && !isGated && (
+                    {!outOfStock && !isGated && !external && (
                         <button
                             onClick={(e) => handleQuickAdd(e, product)}
                             className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110"
@@ -1677,11 +1711,14 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
     const renderListRow = (product: Product) => {
         const hasDiscount = !!product.compare_at_cents && product.compare_at_cents > product.price_cents;
         const outOfStock = product.inventory_count === 0;
+        const external = isExternal(product);
         return (
             <a
                 key={product.id}
                 href={productHref(product)}
                 onClick={(e) => handleProductNav(e, product)}
+                target={external && !isEditor ? '_blank' : undefined}
+                rel={external && !isEditor ? 'noopener' : undefined}
                 className="group flex items-center gap-4 sm:gap-6 p-4 rounded-xl border border-slate-200 hover:shadow-lg transition-all hover:border-slate-300 bg-white"
             >
                 <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-lg bg-slate-50 relative overflow-hidden flex-shrink-0">
@@ -1718,7 +1755,7 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
                         )}
                     </div>
                 </div>
-                {!outOfStock && (
+                {!outOfStock && !external && (
                     <button
                         onClick={(e) => handleQuickAdd(e, product)}
                         className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold shadow-md hover:shadow-lg transition-all flex-shrink-0"
