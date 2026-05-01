@@ -34,7 +34,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
 
     if (variant === 'cards') {
         return (
-            <section className="py-20" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
+            <section className="py-20 md:py-12 xl:py-20" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
                 <div className="max-w-7xl mx-auto px-4">
                     {data.title && (
                         <EditableText
@@ -44,13 +44,13 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                             defaultValue="Our Track Record"
                             isEditMode={isEditMode}
                             onSave={(key, value) => updateContent(key, value)}
-                            className="text-4xl font-bold text-center mb-16"
+                            className="text-4xl font-bold text-center mb-16 md:mb-10 xl:mb-16"
                             style={{ color: pPrimary }}
                         />
                     )}
                     <div className={`grid gap-6 ${items.length <= 3 ? 'md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
                         {items.map((item: any, index: number) => (
-                            <div key={index} className="text-center p-8 rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow">
+                            <div key={index} className="text-center p-8 md:p-6 xl:p-8 rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow">
                                 <EditableText
                                     as="div"
                                     contentKey={`stat_${index}_value`}
@@ -58,7 +58,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                                     defaultValue="100+"
                                     isEditMode={isEditMode}
                                     onSave={(_key, value) => handleUpdateItem(index, 'value', value)}
-                                    className="text-4xl md:text-5xl font-black mb-2"
+                                    className="text-4xl xl:text-5xl font-black mb-2"
                                     style={{ color: pSecondary }}
                                 />
                                 <EditableText
@@ -81,7 +81,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
 
     // Banner variant (default) — full-width colored band
     return (
-        <section className="py-16" style={{ backgroundColor: data.backgroundColor || pPrimary }}>
+        <section className="py-16 md:py-10 xl:py-16" style={{ backgroundColor: data.backgroundColor || pPrimary }}>
             <div className="max-w-7xl mx-auto px-4">
                 <div className={`grid gap-8 ${items.length <= 3 ? 'md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
                     {items.map((item: any, index: number) => (
@@ -93,7 +93,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                                 defaultValue="100+"
                                 isEditMode={isEditMode}
                                 onSave={(_key, value) => handleUpdateItem(index, 'value', value)}
-                                className="text-4xl md:text-5xl font-black mb-1 text-white"
+                                className="text-4xl xl:text-5xl font-black mb-1 text-white"
                             />
                             <EditableText
                                 as="p"

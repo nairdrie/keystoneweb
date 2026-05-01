@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, Eye, EyeOff, Image as ImageIcon } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, Eye, EyeOff, Image as ImageIcon, Tablet, Smartphone, Monitor } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
@@ -181,6 +181,9 @@ export default function FloatingToolbar({
   const [showChanges, setShowChanges] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [activeLogoModal, setActiveLogoModal] = useState<'shared' | 'header' | 'footer' | 'favicon' | null>(null);
+  const [headerLogoResponsiveOpen, setHeaderLogoResponsiveOpen] = useState(() =>
+    Boolean(siteContent?.headerLogoHeightMd || siteContent?.headerLogoHeightSm)
+  );
   const drawerRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef<number>(0);
   const dragStartHeight = useRef<number>(0);
@@ -875,7 +878,7 @@ export default function FloatingToolbar({
                       </div>
                       <div>
                         <div className="flex justify-between items-center mb-1">
-                          <label className="text-[10px] font-bold text-slate-500">Height</label>
+                          <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1"><Monitor className="w-3 h-3" /> Height</label>
                           <span className="text-[10px] text-slate-500 font-mono">{siteContent.headerLogoHeight || 'Auto'}</span>
                         </div>
                         <input
@@ -888,6 +891,65 @@ export default function FloatingToolbar({
                           className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
                         />
                       </div>
+                      <button
+                        onClick={() => setHeaderLogoResponsiveOpen(o => !o)}
+                        className="w-full flex items-center justify-between text-[10px] font-bold text-slate-500 hover:text-slate-700 transition-colors"
+                      >
+                        <span>Responsive sizes</span>
+                        <ChevronDown className={`w-3 h-3 transition-transform ${headerLogoResponsiveOpen ? 'rotate-180' : ''}`} />
+                      </button>
+                      {headerLogoResponsiveOpen && (
+                        <div className="space-y-3 pt-1">
+                          <div>
+                            <div className="flex justify-between items-center mb-1">
+                              <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1"><Tablet className="w-3 h-3" /> Tablet</label>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-slate-500 font-mono">{siteContent.headerLogoHeightMd || 'Default'}</span>
+                                {siteContent.headerLogoHeightMd && (
+                                  <button
+                                    onClick={() => onUpdateSiteContent('headerLogoHeightMd', null)}
+                                    className="text-[9px] text-slate-400 hover:text-red-600"
+                                    title="Reset"
+                                  >✕</button>
+                                )}
+                              </div>
+                            </div>
+                            <input
+                              type="range"
+                              min="20"
+                              max="220"
+                              step="4"
+                              value={siteContent.headerLogoHeightMd || siteContent.headerLogoHeight || 40}
+                              onChange={(e) => onUpdateSiteContent('headerLogoHeightMd', parseInt(e.target.value))}
+                              className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                            />
+                          </div>
+                          <div>
+                            <div className="flex justify-between items-center mb-1">
+                              <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1"><Smartphone className="w-3 h-3" /> Phone</label>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] text-slate-500 font-mono">{siteContent.headerLogoHeightSm || 'Default'}</span>
+                                {siteContent.headerLogoHeightSm && (
+                                  <button
+                                    onClick={() => onUpdateSiteContent('headerLogoHeightSm', null)}
+                                    className="text-[9px] text-slate-400 hover:text-red-600"
+                                    title="Reset"
+                                  >✕</button>
+                                )}
+                              </div>
+                            </div>
+                            <input
+                              type="range"
+                              min="20"
+                              max="220"
+                              step="4"
+                              value={siteContent.headerLogoHeightSm || siteContent.headerLogoHeightMd || siteContent.headerLogoHeight || 40}
+                              onChange={(e) => onUpdateSiteContent('headerLogoHeightSm', parseInt(e.target.value))}
+                              className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Footer Logo */}
@@ -1001,20 +1063,81 @@ export default function FloatingToolbar({
 
                     {/* Logo Height Controls */}
                     <div className="space-y-4">
-                      <div>
-                        <div className="flex justify-between items-center mb-1">
-                          <label className="text-[10px] font-bold text-slate-500">Header Logo Height</label>
-                          <span className="text-[10px] text-slate-500 font-mono">{siteContent.headerLogoHeight || 'Auto'}</span>
+                      <div className="space-y-2">
+                        <div>
+                          <div className="flex justify-between items-center mb-1">
+                            <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1"><Monitor className="w-3 h-3" /> Header Logo Height</label>
+                            <span className="text-[10px] text-slate-500 font-mono">{siteContent.headerLogoHeight || 'Auto'}</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="20"
+                            max="220"
+                            step="4"
+                            value={siteContent.headerLogoHeight || 40}
+                            onChange={(e) => onUpdateSiteContent('headerLogoHeight', parseInt(e.target.value))}
+                            className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                          />
                         </div>
-                        <input
-                          type="range"
-                          min="20"
-                          max="220"
-                          step="4"
-                          value={siteContent.headerLogoHeight || 40}
-                          onChange={(e) => onUpdateSiteContent('headerLogoHeight', parseInt(e.target.value))}
-                          className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
-                        />
+                        <button
+                          onClick={() => setHeaderLogoResponsiveOpen(o => !o)}
+                          className="w-full flex items-center justify-between text-[10px] font-bold text-slate-500 hover:text-slate-700 transition-colors"
+                        >
+                          <span>Responsive sizes</span>
+                          <ChevronDown className={`w-3 h-3 transition-transform ${headerLogoResponsiveOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {headerLogoResponsiveOpen && (
+                          <div className="space-y-3 pt-1">
+                            <div>
+                              <div className="flex justify-between items-center mb-1">
+                                <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1"><Tablet className="w-3 h-3" /> Tablet</label>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-slate-500 font-mono">{siteContent.headerLogoHeightMd || 'Default'}</span>
+                                  {siteContent.headerLogoHeightMd && (
+                                    <button
+                                      onClick={() => onUpdateSiteContent('headerLogoHeightMd', null)}
+                                      className="text-[9px] text-slate-400 hover:text-red-600"
+                                      title="Reset"
+                                    >✕</button>
+                                  )}
+                                </div>
+                              </div>
+                              <input
+                                type="range"
+                                min="20"
+                                max="220"
+                                step="4"
+                                value={siteContent.headerLogoHeightMd || siteContent.headerLogoHeight || 40}
+                                onChange={(e) => onUpdateSiteContent('headerLogoHeightMd', parseInt(e.target.value))}
+                                className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                              />
+                            </div>
+                            <div>
+                              <div className="flex justify-between items-center mb-1">
+                                <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1"><Smartphone className="w-3 h-3" /> Phone</label>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-slate-500 font-mono">{siteContent.headerLogoHeightSm || 'Default'}</span>
+                                  {siteContent.headerLogoHeightSm && (
+                                    <button
+                                      onClick={() => onUpdateSiteContent('headerLogoHeightSm', null)}
+                                      className="text-[9px] text-slate-400 hover:text-red-600"
+                                      title="Reset"
+                                    >✕</button>
+                                  )}
+                                </div>
+                              </div>
+                              <input
+                                type="range"
+                                min="20"
+                                max="220"
+                                step="4"
+                                value={siteContent.headerLogoHeightSm || siteContent.headerLogoHeightMd || siteContent.headerLogoHeight || 40}
+                                onChange={(e) => onUpdateSiteContent('headerLogoHeightSm', parseInt(e.target.value))}
+                                className="w-full accent-blue-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <div>
