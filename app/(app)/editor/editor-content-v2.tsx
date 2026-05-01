@@ -54,7 +54,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   // This allows full SSR and instant load times, bypassing all Editor UI and loading screens
   if (isPublicView) {
     const pubDesign = publicSiteData?.designData || {};
-    const hasMembership = (pubDesign.blocks || []).some((b: any) => b.type === 'membershipGate');
+    // Prefer the publish-time flag (computed across all pages); fall back to scanning current page's blocks.
+    const hasMembership = pubDesign.__hasMembershipBlock ?? (pubDesign.blocks || []).some((b: any) => b.type === 'membershipGate');
     return (
       <CartProvider siteId={publicSiteData?.id || ''}>
         <MemberProvider siteId={publicSiteData?.id || ''}>
