@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ChevronRight, ChevronLeft, Plus, Settings, ArrowUp, ArrowDown, Trash2, PanelBottomClose, PanelBottomOpen } from 'lucide-react';
@@ -8,9 +9,10 @@ type WalkthroughPlacement = 'top' | 'right' | 'bottom' | 'left' | 'auto' | 'cent
 
 export interface WalkthroughStep {
   target?: string | string[];
+  icon?: ReactNode;
   title: string;
   description: string;
-  placement: WalkthroughPlacement;
+  placement?: WalkthroughPlacement;
   autoMinimizeOnObstruction?: boolean;
   animateFinishToTarget?: boolean;
   requiresPanel?: boolean;
@@ -121,6 +123,7 @@ export default function WalkthroughModal({
 
   const current = steps[currentStep];
   const isMinimized = minimizedState?.step === currentStep;
+  const currentPlacement = current?.placement ?? 'center';
 
   const resolveTarget = useCallback((target?: string | string[]) => {
     if (!target) return null;
@@ -137,7 +140,7 @@ export default function WalkthroughModal({
   const updateLayout = useCallback(() => {
     if (!isOpen || !current) return;
 
-    if (current.placement === 'center' || !current.target) {
+    if (currentPlacement === 'center' || !current.target) {
       setSpotlightRect(null);
       const tooltipRect = tooltipRef.current?.getBoundingClientRect();
       const tooltipWidth = tooltipRect?.width ?? Math.min(360, window.innerWidth - VIEWPORT_PADDING * 2);
@@ -223,9 +226,9 @@ export default function WalkthroughModal({
         Math.max(VIEWPORT_PADDING, value)
       );
 
-    const placements: WalkthroughPlacement[] = current.placement === 'auto'
+    const placements: WalkthroughPlacement[] = currentPlacement === 'auto'
       ? ['right', 'bottom', 'left', 'top']
-      : [current.placement, 'right', 'bottom', 'left', 'top'].filter(
+      : [currentPlacement, 'right', 'bottom', 'left', 'top'].filter(
           (placement, index, list) => list.indexOf(placement) === index
         ) as WalkthroughPlacement[];
 
@@ -279,7 +282,7 @@ export default function WalkthroughModal({
       top: clampTop(bestCandidate.top),
       left: clampLeft(bestCandidate.left),
     });
-  }, [current, isOpen, resolveTarget]);
+  }, [current, currentPlacement, isOpen, resolveTarget]);
 
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);
