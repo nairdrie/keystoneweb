@@ -175,7 +175,7 @@ export default function EditableButton({
             );
         }
         return (
-            <span className="flex items-center gap-2 pointer-events-none">
+            <span className="flex items-center justify-center gap-2 pointer-events-none whitespace-nowrap">
                 {IconComponent && currentIconPosition === 'left' && <IconComponent className="w-[1.2em] h-[1.2em] shrink-0" />}
                 <span>{currentLabel}</span>
                 {IconComponent && currentIconPosition === 'right' && <IconComponent className="w-[1.2em] h-[1.2em] shrink-0" />}

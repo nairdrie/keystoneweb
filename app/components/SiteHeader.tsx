@@ -608,15 +608,15 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
         const mobileCluster = mobileToggleCluster(hamburgerPosition);
 
         return (
-            <div className={`grid grid-cols-3 items-center gap-3 ${heightClass}`}>
-                <div className="flex items-center justify-start gap-4">
+            <div className={`flex items-center gap-3 ${heightClass}`}>
+                <div className="flex items-center justify-start gap-4 shrink-0">
                     {hamburgerPosition === 'left' ? mobileCluster : null}
                     {left}
                 </div>
-                <div className="flex items-center justify-center gap-4">
+                <div className="flex-1 flex items-center justify-center gap-4 min-w-0">
                     {center}
                 </div>
-                <div className="flex items-center justify-end gap-4">
+                <div className="flex items-center justify-end gap-4 shrink-0">
                     {right}
                     {hamburgerPosition === 'right' ? mobileCluster : null}
                 </div>
