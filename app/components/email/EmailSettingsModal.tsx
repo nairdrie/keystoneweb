@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
   X, Sparkles, Mail, Check, Loader2, AlertCircle, Crown, Trash2,
@@ -43,6 +43,12 @@ export default function EmailSettingsModal({
   const [savingNotification, setSavingNotification] = useState(false);
   const [savingAi, setSavingAi] = useState(false);
 
+  // Hold the latest onAddressesChanged in a ref so refreshing the modal
+  // doesn't loop: the parent passes a fresh inline callback on every render,
+  // so depending on it directly in useCallback/useEffect creates a cycle.
+  const onAddressesChangedRef = useRef(onAddressesChanged);
+  useEffect(() => { onAddressesChangedRef.current = onAddressesChanged; }, [onAddressesChanged]);
+
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
@@ -54,7 +60,7 @@ export default function EmailSettingsModal({
         const d = await addrRes.json();
         setAddresses(d.addresses ?? []);
         setUsage(d.customAddressUsage ?? { used: 0, limit: 1 });
-        onAddressesChanged(d.addresses ?? []);
+        onAddressesChangedRef.current(d.addresses ?? []);
       }
       if (settingsRes.ok) {
         const d = await settingsRes.json();
@@ -65,7 +71,7 @@ export default function EmailSettingsModal({
     } finally {
       setLoading(false);
     }
-  }, [siteId, onAddressesChanged]);
+  }, [siteId]);
 
   useEffect(() => { refresh(); }, [refresh]);
 

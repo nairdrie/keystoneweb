@@ -297,6 +297,26 @@ export default function EmailClient() {
     refreshInboxUnread();
   }
 
+  async function handleNotSpam(threadId: string) {
+    if (!siteId) return;
+    // Restore each inbound message in the thread to a sensible non-spam status:
+    // if it has an AI draft, send it back to Needs Review, otherwise New.
+    const targetMessages = activeMessages?.filter(m => m.thread_id === threadId && m.direction === 'inbound') ?? [];
+    await Promise.all(targetMessages.map(m => {
+      const nextStatus = m.ai_draft_reply ? 'needs_review' : 'new';
+      return fetch(`/api/contact/${m.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ status: nextStatus, is_read: false }),
+      });
+    }));
+    closeThread();
+    setFolder('inbox');
+    fetchThreads();
+    refreshInboxUnread();
+  }
+
   async function handleDeleteThread(threadId: string) {
     if (!siteId) return;
     if (!window.confirm('Delete this conversation? This cannot be undone.')) return;
@@ -327,6 +347,7 @@ export default function EmailClient() {
   const activeAddress = addresses.find(a => a.id === addressId);
   const lastInbound = activeMessages ? [...activeMessages].reverse().find(m => m.direction === 'inbound') : null;
   const canReply = !!lastInbound && (lastInbound.status !== 'spam');
+  const hasInboundSpam = !!activeMessages?.some(m => m.direction === 'inbound' && m.status === 'spam');
 
   return (
     <div className="h-full flex flex-col bg-slate-50">
@@ -557,16 +578,23 @@ export default function EmailClient() {
                     {activeMessages.length} message{activeMessages.length !== 1 ? 's' : ''} · {activeThread?.participantEmails?.join(', ')}
                   </p>
                 </div>
-                {canReply && (
-                  <>
-                    <button
-                      onClick={() => handleMarkSpam(activeThreadId)}
-                      className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                      title="Mark as spam"
-                    >
-                      <ShieldAlert className="w-4 h-4" />
-                    </button>
-                  </>
+                {hasInboundSpam ? (
+                  <button
+                    onClick={() => handleNotSpam(activeThreadId)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors"
+                    title="Not spam — move back to Inbox"
+                  >
+                    <InboxIcon className="w-3.5 h-3.5" />
+                    Not spam
+                  </button>
+                ) : canReply && (
+                  <button
+                    onClick={() => handleMarkSpam(activeThreadId)}
+                    className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                    title="Mark as spam"
+                  >
+                    <ShieldAlert className="w-4 h-4" />
+                  </button>
                 )}
                 <button
                   onClick={() => handleDeleteThread(activeThreadId)}
