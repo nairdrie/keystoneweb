@@ -215,14 +215,39 @@ export default function EmailClient() {
             setReplyHtml(`<p>${lastInbound.ai_draft_reply.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`);
           }
         }
-        refreshInboxUnread();
-        // After opening, refresh thread list so unread badges update
-        fetchThreads();
       })
       .finally(() => { if (!cancelled) setThreadLoading(false); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeThreadId, siteId]);
+
+  // Mark-as-read dwell timer. Only fires if the thread stays open for a
+  // few seconds — quick previews and accidental clicks shouldn't clear
+  // the unread badge.
+  useEffect(() => {
+    if (!activeThreadId || !siteId || !activeMessages) return;
+    const hasUnread = activeMessages.some(m => m.direction === 'inbound' && !m.is_read);
+    if (!hasUnread) return;
+
+    const timer = window.setTimeout(() => {
+      fetch(`/api/email/threads/${activeThreadId}?siteId=${siteId}`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+        .then(() => {
+          // Reflect the read state locally so the row de-emphasizes after the dwell
+          setActiveMessages(prev =>
+            prev?.map(m => (m.direction === 'inbound' ? { ...m, is_read: true } : m)) ?? null
+          );
+          refreshInboxUnread();
+          fetchThreads();
+        })
+        .catch(() => {});
+    }, 4000);
+
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeThreadId, siteId, activeMessages]);
 
   function clearReplyState() {
     setReplyText('');
@@ -598,7 +623,7 @@ export default function EmailClient() {
                           isUnread ? 'text-slate-700' : 'text-slate-400'
                         }`}
                       >
-                        {t.aiSummary || t.snippet || ''}
+                        {t.snippet || ''}
                       </p>
                     </button>
                   </li>
