@@ -181,10 +181,13 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
 
   // Auto-resize textarea
   useEffect(() => {
-    if (inputRef.current) {
-      inputRef.current.style.height = 'auto';
-      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + 'px';
-    }
+    const textarea = inputRef.current;
+    if (!textarea) return;
+
+    const maxHeight = 120;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeight)}px`;
+    textarea.style.overflowY = textarea.scrollHeight > maxHeight ? 'auto' : 'hidden';
   }, [input]);
 
   const handleSubmit = (e?: React.FormEvent) => {
@@ -241,7 +244,7 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
               <>
                 <h2 className="text-2xl font-black text-slate-900 mb-2">Limit Reached</h2>
                 <p className="text-slate-600 mb-6 text-sm leading-relaxed">
-                  You've hit your Basic plan limit (10/day · 20/week · 30/month). Upgrade to Pro for 30 per day, 50 per week, and 100 per month.
+                  You've hit your Basic plan limit (10/day · 20/week · 30/month). Upgrade plan options are available for higher AI Builder limits.
                 </p>
               </>
             ) : (
@@ -256,7 +259,7 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
               href="/pricing"
               className="block w-full py-3 px-6 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold text-sm hover:brightness-110 transition-all shadow-lg mb-3"
             >
-              {isFree ? 'Subscribe to Continue' : 'Upgrade to Pro'}
+              {isFree ? 'Subscribe to Continue' : 'Upgrade Plan'}
             </a>
             <button
               onClick={onDismissUpgradeModal}
@@ -400,7 +403,7 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
                       href="/pricing"
                       className="block w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold text-sm text-center hover:brightness-110 transition-all shadow mb-2"
                     >
-                      {isFree || isBasic ? 'Upgrade for More Prompts' : 'View Plans'}
+                      {isFree || isBasic ? 'Upgrade Plan' : 'View Plans'}
                     </a>
                     <button
                       onClick={() => setShowUsageModal(false)}
@@ -436,7 +439,7 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
               placeholder="Describe what you want..."
               maxLength={1000}
               rows={1}
-              className="w-full resize-none bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 pr-10 text-[12px] text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300 focus:border-violet-300 transition-all"
+              className="w-full resize-none overflow-hidden bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 pr-10 text-[12px] text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300 focus:border-violet-300 transition-all"
             />
             {input.length > 800 && (
               <span className={`absolute left-3 bottom-[-10] text-[10px] ${input.length >= 1000 ? 'text-red-500' : 'text-slate-400'}`}>
