@@ -154,7 +154,14 @@ export async function GET(request: NextRequest) {
       }
       if (row.status === 'needs_review') existing.has_needs_review = true;
       if (row.status === 'spam') existing.has_spam = true;
-      if (!existing.address_id && row.inbox_address_id) existing.address_id = row.inbox_address_id;
+      // Prefer the inbound message's address — synthesized outbound rows from
+      // the migration may have null inbox_address_id and would otherwise hide
+      // a thread from the per-address tab counters.
+      if (row.direction === 'inbound' && row.inbox_address_id) {
+        existing.address_id = row.inbox_address_id;
+      } else if (!existing.address_id && row.inbox_address_id) {
+        existing.address_id = row.inbox_address_id;
+      }
       if (row.sender_email) existing.participants.add(row.sender_email);
       existing.message_count++;
     }
@@ -197,15 +204,39 @@ export async function GET(request: NextRequest) {
     needs_review_unread: allThreads.filter(t => t.has_needs_review && t.has_inbound_unread).length,
   };
 
-  // Per-address unread counts for the address tabs
+  // Per-address unread counts for the address tabs. We do this from a
+  // SEPARATE unfiltered query — `allThreads` was scoped to the active
+  // addressId filter (when supplied), so it would otherwise show 0 for
+  // every other tab.
   const addresses = await listSiteInboxAddresses(db, siteId);
   const perAddress: Record<string, { unread: number; total: number }> = {};
   for (const a of addresses) perAddress[a.id] = { unread: 0, total: 0 };
-  for (const t of allThreads) {
-    if (!t.address_id) continue;
-    if (!perAddress[t.address_id]) continue;
-    perAddress[t.address_id].total += t.message_count;
-    if (t.has_inbound_unread && !t.has_spam) perAddress[t.address_id].unread += 1;
+
+  if (addresses.length > 0) {
+    const { data: unreadRows } = await db
+      .from('contact_submissions')
+      .select('inbox_address_id, status')
+      .eq('site_id', siteId)
+      .eq('direction', 'inbound')
+      .eq('is_read', false)
+      .neq('status', 'spam');
+    for (const r of (unreadRows ?? []) as Array<{ inbox_address_id: string | null; status: string }>) {
+      if (!r.inbox_address_id) continue;
+      if (perAddress[r.inbox_address_id]) {
+        perAddress[r.inbox_address_id].unread += 1;
+      }
+    }
+
+    const { data: totalCounts } = await db
+      .from('contact_submissions')
+      .select('inbox_address_id')
+      .eq('site_id', siteId);
+    for (const r of (totalCounts ?? []) as Array<{ inbox_address_id: string | null }>) {
+      if (!r.inbox_address_id) continue;
+      if (perAddress[r.inbox_address_id]) {
+        perAddress[r.inbox_address_id].total += 1;
+      }
+    }
   }
 
   return NextResponse.json({

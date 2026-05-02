@@ -97,6 +97,7 @@ export default function EmailSettingsModal({
       }
       setShowAddForm(false);
       setNewPrefix('hello');
+      setError(null);
       await refresh();
     } finally {
       setAdding(false);
@@ -114,6 +115,7 @@ export default function EmailSettingsModal({
       setError(d.error ?? 'Failed to remove');
       return;
     }
+    setError(null);
     await refresh();
   }
 
@@ -159,19 +161,14 @@ export default function EmailSettingsModal({
     }
   }
 
-  async function requestExtraAddressAddon() {
-    // Send a support request to ops asking for the addon to be approved.
-    await fetch('/api/contact/enterprise', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        topic: 'Add-on request',
-        message: 'I would like to add an additional inbox email address ($5/mo per address).',
-        siteId,
-      }),
-    }).catch(() => {});
-    setError('Request sent — our team will approve the add-on shortly. You can finalise payment from /pricing once approved.');
+  function requestExtraAddressAddon() {
+    // Open a pre-filled email to ops. The addon then flows through the
+    // existing manual approval path (ops panel → user accepts & pays).
+    const subject = encodeURIComponent('Extra Inbox Email add-on request');
+    const body = encodeURIComponent(
+      `Hi Keystone team,\n\nI'd like to add an additional inbox email address ($5/mo per address) to my account.\n\nSite ID: ${siteId}\n\nThanks!`
+    );
+    window.location.href = `mailto:support@keystoneweb.ca?subject=${subject}&body=${body}`;
   }
 
   const canAddCustom = !!customDomain && isProUser;

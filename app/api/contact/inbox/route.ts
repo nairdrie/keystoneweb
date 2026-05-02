@@ -39,6 +39,9 @@ export async function GET(request: NextRequest) {
 
   const db = createAdminClient();
 
+  // Legacy endpoint: only return inbound submissions so the synthesized
+  // outbound rows from migration 068 don't pollute the list shown to any
+  // older surface that still queries this route.
   let query = db
     .from('contact_submissions')
     .select(
@@ -46,6 +49,7 @@ export async function GET(request: NextRequest) {
       { count: 'exact' }
     )
     .eq('site_id', siteId)
+    .eq('direction', 'inbound')
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 

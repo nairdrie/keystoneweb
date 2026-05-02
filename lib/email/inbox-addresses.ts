@@ -16,8 +16,9 @@ const DEFAULT_FROM_FALLBACK = 'contact@keystoneweb.ca';
 
 /**
  * Ensure a kswd_subdomain inbox address row exists for a published site.
- * Idempotent — safe to call on every page load. Returns the row if one exists
- * after the call.
+ * Idempotent — safe to call on every page load even under concurrent
+ * traffic (admin shell + inbound webhook + threads list can all hit this).
+ * Returns the row if one exists after the call.
  */
 export async function ensureKswdInboxAddress(
   db: SupabaseClient,
@@ -27,16 +28,15 @@ export async function ensureKswdInboxAddress(
   if (!publishedDomain) return null;
   const address = `${publishedDomain.toLowerCase()}@kswd.ca`;
 
+  // Fast path: row already exists.
   const { data: existing } = await db
     .from('site_inbox_addresses')
     .select('*')
     .eq('site_id', siteId)
     .eq('address', address)
     .maybeSingle();
-
   if (existing) return existing as SiteInboxAddress;
 
-  // No primary set on this site? Make this one the primary.
   const { data: primaryExists } = await db
     .from('site_inbox_addresses')
     .select('id')
@@ -44,7 +44,10 @@ export async function ensureKswdInboxAddress(
     .eq('is_primary', true)
     .maybeSingle();
 
-  const { data: row } = await db
+  // Race-safe insert: another concurrent caller may have just created the row.
+  // The unique index on lower(address) will reject the duplicate; we re-select
+  // in that case so callers always get a row back.
+  const { data: row, error: insertErr } = await db
     .from('site_inbox_addresses')
     .insert({
       site_id: siteId,
@@ -55,7 +58,18 @@ export async function ensureKswdInboxAddress(
     .select('*')
     .single();
 
-  return (row as SiteInboxAddress) ?? null;
+  if (row) return row as SiteInboxAddress;
+
+  if (insertErr) {
+    const { data: rescued } = await db
+      .from('site_inbox_addresses')
+      .select('*')
+      .eq('address', address)
+      .maybeSingle();
+    if (rescued) return rescued as SiteInboxAddress;
+  }
+
+  return null;
 }
 
 /**

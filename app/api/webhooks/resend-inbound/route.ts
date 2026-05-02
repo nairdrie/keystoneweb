@@ -204,7 +204,9 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
       if (priorByResendId?.thread_id) return priorByResendId.thread_id as string;
 
-      // Decode our own deterministic Message-IDs as a fallback
+      // Decode our own deterministic Message-IDs as a fallback. Scope by site
+      // so a forged/forwarded header can never resurrect a thread from a
+      // different customer's inbox.
       for (const header of candidateHeaders) {
         const rowId = extractRowIdFromMessageId(header);
         if (!rowId) continue;
@@ -212,6 +214,7 @@ export async function POST(request: NextRequest) {
           .from('contact_submissions')
           .select('thread_id')
           .eq('id', rowId)
+          .eq('site_id', siteId)
           .maybeSingle();
         if (row?.thread_id) return row.thread_id as string;
       }
@@ -303,6 +306,8 @@ export async function POST(request: NextRequest) {
         .eq('id', submission.id);
     }
 
+    const threadId = existingThreadId ?? submission.thread_id ?? submission.id;
+
     console.log(`[resend-inbound] Email from ${fromEmail} routed to site ${recipientLabel} inbox (${submission.id})${existingThreadId ? ` thread=${existingThreadId}` : ''}`);
 
     // Fire AI triage in the background (non-blocking)
@@ -333,7 +338,7 @@ export async function POST(request: NextRequest) {
             customerEmail: fromEmail,
             customerPhone: undefined,
             message: messageBody || `[Email] ${subject}`,
-            submissionId: submission.id,
+            submissionId: threadId,  // deep link target — the thread, not the row
             siteId: site.id,
             inboxAddressId,
             previewBody: messageBody,

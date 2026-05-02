@@ -110,6 +110,9 @@ export default function EmailClient() {
   const [ccDraft, setCcDraft] = useState('');
   const [bccDraft, setBccDraft] = useState('');
   const initialRef = useRef({ messageId: initialMessageId, applied: false });
+  // Tracks which thread we've already auto-filled with the AI draft, so
+  // reopening a thread doesn't overwrite the user's edits.
+  const aiPrefilledRef = useRef<Set<string>>(new Set());
 
   // ── Load addresses + AI setting on mount / siteId change
   useEffect(() => {
@@ -163,22 +166,30 @@ export default function EmailClient() {
   useEffect(() => { fetchThreads(); }, [fetchThreads]);
 
   // After threads load and we have a deep-linked messageId from a notification,
-  // open it once. The messageId in the link points to the inbound submission row;
-  // its thread_id is the same value for new threads.
+  // open it once. New notifications send thread_id directly; legacy redirects
+  // (/admin/inbox/<rowId>) send a sub-row id, which we resolve to its parent
+  // thread by hitting /api/contact/<id>.
   useEffect(() => {
     if (initialRef.current.applied) return;
     const target = initialRef.current.messageId;
-    if (!target || threads.length === 0) return;
+    if (!target || threads.length === 0 || !siteId) return;
+    initialRef.current.applied = true;
+
     const hit = threads.find(t => t.threadId === target);
     if (hit) {
       setActiveThreadId(hit.threadId);
-      initialRef.current.applied = true;
-    } else {
-      // Fall back: try opening as a thread directly
-      setActiveThreadId(target);
-      initialRef.current.applied = true;
+      return;
     }
-  }, [threads]);
+
+    // The id might be an inbound sub-row in an existing thread — resolve it.
+    fetch(`/api/contact/${target}?siteId=${siteId}`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        const resolved = d?.submission?.thread_id ?? target;
+        setActiveThreadId(resolved);
+      })
+      .catch(() => setActiveThreadId(target));
+  }, [threads, siteId]);
 
   // Load active thread messages
   useEffect(() => {
@@ -193,11 +204,15 @@ export default function EmailClient() {
       .then(d => {
         if (cancelled || !d?.messages) return;
         setActiveMessages(d.messages);
-        // Pre-fill AI draft if the most recent inbound message has one and we're going to reply
-        const lastInbound = [...d.messages].reverse().find((m: ThreadMessage) => m.direction === 'inbound');
-        if (lastInbound?.ai_draft_reply && !replyText && !replyHtml) {
-          setReplyText(lastInbound.ai_draft_reply);
-          setReplyHtml(`<p>${lastInbound.ai_draft_reply.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`);
+        // Pre-fill the AI draft only the first time this thread is opened
+        // in this session — re-opens shouldn't clobber edits in progress.
+        if (!aiPrefilledRef.current.has(activeThreadId)) {
+          aiPrefilledRef.current.add(activeThreadId);
+          const lastInbound = [...d.messages].reverse().find((m: ThreadMessage) => m.direction === 'inbound');
+          if (lastInbound?.ai_draft_reply) {
+            setReplyText(lastInbound.ai_draft_reply);
+            setReplyHtml(`<p>${lastInbound.ai_draft_reply.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`);
+          }
         }
         refreshInboxUnread();
         // After opening, refresh thread list so unread badges update

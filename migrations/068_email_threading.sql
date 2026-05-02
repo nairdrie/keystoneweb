@@ -40,6 +40,24 @@ WHERE thread_id IS NULL;
 ALTER TABLE public.contact_submissions
   ALTER COLUMN thread_id SET NOT NULL;
 
+-- Auto-assign thread_id := id on new rows that don't supply one. Lets older
+-- callers (the public contact form, inbound webhook) keep working without
+-- having to pre-allocate a UUID before the insert.
+CREATE OR REPLACE FUNCTION set_contact_submission_thread_id()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.thread_id IS NULL THEN
+    NEW.thread_id := NEW.id;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS contact_submissions_set_thread_id ON public.contact_submissions;
+CREATE TRIGGER contact_submissions_set_thread_id
+  BEFORE INSERT ON public.contact_submissions
+  FOR EACH ROW EXECUTE FUNCTION set_contact_submission_thread_id();
+
 -- Existing replied/handled/spam messages are considered "read"
 UPDATE public.contact_submissions
 SET is_read = true
@@ -53,8 +71,10 @@ WHERE sia.site_id = cs.site_id
   AND sia.is_primary = true
   AND cs.inbox_address_id IS NULL;
 
--- Synthesize an outbound message for every existing replied row so the new
--- "Sent" folder has data and threads render correctly.
+-- Synthesize an outbound message for every prior owner reply so the new
+-- "Sent" folder has data and threads render correctly. Skip rows that ended
+-- up as spam — those replies (if any) were never actually delivered to the
+-- customer and should not appear as Sent items.
 INSERT INTO public.contact_submissions (
   site_id, thread_id, direction, status,
   sender_name, sender_email, message,
@@ -72,7 +92,7 @@ SELECT
   'outbound',
   'replied',
   COALESCE(s.site_slug, 'Site'),
-  COALESCE(cs.from_email, 'contact@keystoneweb.ca'),
+  'contact@keystoneweb.ca',
   cs.admin_reply,
   COALESCE('Re: ' || NULLIF(cs.subject, ''), 'Re: Your message'),
   NULL,
@@ -88,6 +108,7 @@ FROM public.contact_submissions cs
 LEFT JOIN public.sites s ON s.id = cs.site_id
 WHERE cs.admin_reply IS NOT NULL
   AND cs.direction = 'inbound'
+  AND cs.status <> 'spam'
   AND NOT EXISTS (
     SELECT 1 FROM public.contact_submissions cs2
     WHERE cs2.thread_id = cs.thread_id AND cs2.direction = 'outbound'

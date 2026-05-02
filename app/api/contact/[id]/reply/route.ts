@@ -15,6 +15,7 @@ import {
 } from '@/lib/email/inbox-addresses';
 import { sanitizeEmailHtml, htmlToPlainText } from '@/lib/email/sanitize';
 import { uploadInlineImagesInHtml, InlineImageError } from '@/lib/email/inline-images';
+import { scanText } from '@/lib/moderation/text-scan';
 
 /**
  * POST /api/contact/[id]/reply
@@ -108,6 +109,16 @@ export async function POST(
   const finalText = replyText?.trim() || htmlToPlainText(processedHtml);
   const finalHtml = processedHtml || `<p>${(replyText ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`;
 
+  // Run text moderation on the reply body — same policy as Compose.
+  try {
+    const scan = await scanText(finalText);
+    if (scan.flagged) {
+      return NextResponse.json({ error: 'Reply blocked by content policy' }, { status: 422 });
+    }
+  } catch (err) {
+    console.warn('[contact/reply] text scan failed (non-fatal):', err);
+  }
+
   // Build threading headers
   const parentMessageId = normalizeMessageId(parent.message_id_header);
   const referencesHeader = buildReferencesHeader(parent.references_header, parentMessageId);
@@ -139,8 +150,10 @@ export async function POST(
     return NextResponse.json({ error: 'Failed to send reply' }, { status: 500 });
   }
 
-  // Insert the outbound message row
-  await db.from('contact_submissions').insert({
+  // Insert the outbound message row. The email already went out at this point;
+  // a persistence failure means the customer received it but it won't show up
+  // in our Sent folder. We log loudly and surface a 502 so the UI can retry.
+  const { error: insertErr } = await db.from('contact_submissions').insert({
     id: newRowId,
     site_id: siteId,
     thread_id: parent.thread_id,
@@ -165,14 +178,36 @@ export async function POST(
     reply_resend_id: result.messageId,
   });
 
-  // Update the parent row + any other inbound rows in this thread to "replied"
+  if (insertErr) {
+    console.error('[contact/reply] Email sent but persistence failed:', {
+      threadId: parent.thread_id,
+      resendId: result.messageId,
+      error: insertErr,
+    });
+    // Still mark the parent as replied so the inbox UI doesn't keep prompting
+    await db.from('contact_submissions').update({
+      status: 'replied',
+      admin_reply: finalText,
+      admin_reply_at: new Date().toISOString(),
+      reply_resend_id: result.messageId,
+      is_read: true,
+    }).eq('id', parent.id);
+    return NextResponse.json(
+      { success: true, persisted: false, warning: 'Email sent but failed to record in Sent folder.' },
+      { status: 207 }
+    );
+  }
+
+  // Mark just the message we replied to as replied. (Older inbound messages
+  // in the same thread keep their original admin_reply text — replying once
+  // shouldn't rewrite history on every inbound row.)
   await db.from('contact_submissions').update({
     status: 'replied',
     admin_reply: finalText,
     admin_reply_at: new Date().toISOString(),
     reply_resend_id: result.messageId,
     is_read: true,
-  }).eq('thread_id', parent.thread_id).eq('direction', 'inbound');
+  }).eq('id', parent.id);
 
   return NextResponse.json({ success: true });
 }
