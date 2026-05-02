@@ -25,6 +25,20 @@ export async function middleware(request: NextRequest) {
   const parsed = parseHost(hostname);
 
   // ============================================================
+  // STEP 0: /favicon.ico — serve a distinct icon for the ops domain
+  // The matcher includes this path explicitly; for non-ops hosts we let
+  // Next.js serve the default favicon without touching auth.
+  // ============================================================
+  if (pathname === '/favicon.ico') {
+    if (parsed.kind === 'ops') {
+      const opsFaviconUrl = request.nextUrl.clone();
+      opsFaviconUrl.pathname = '/favicon-ops.ico';
+      return NextResponse.rewrite(opsFaviconUrl);
+    }
+    return NextResponse.next();
+  }
+
+  // ============================================================
   // STEP 1a: Ops dashboard — ops.{BASE_DOMAIN}
   // Only admin emails (OPS_ADMIN_EMAILS env var) are allowed in.
   // Everyone else is hard-redirected to the app root.
@@ -335,5 +349,7 @@ export const config = {
     // headers that clear the cookies, which races with (and can overwrite) the
     // new session cookies the callback just set.
     '/((?!_next/static|_next/image|assets|favicon.ico|auth/callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)).*)',
+    // Explicitly include /favicon.ico so we can route it per-host (ops vs. app).
+    '/favicon.ico',
   ],
 };
