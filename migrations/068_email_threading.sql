@@ -71,6 +71,14 @@ WHERE sia.site_id = cs.site_id
   AND sia.is_primary = true
   AND cs.inbox_address_id IS NULL;
 
+-- Update source_type CHECK to allow 'reply' and 'compose' BEFORE we synthesize
+-- the outbound rows, otherwise the insert below trips the old constraint.
+ALTER TABLE public.contact_submissions
+  DROP CONSTRAINT IF EXISTS contact_submissions_source_type_check;
+ALTER TABLE public.contact_submissions
+  ADD CONSTRAINT contact_submissions_source_type_check
+  CHECK (source_type IN ('contact_form', 'estimate_form', 'booking', 'inbound_email', 'reply', 'compose'));
+
 -- Synthesize an outbound message for every prior owner reply so the new
 -- "Sent" folder has data and threads render correctly. Skip rows that ended
 -- up as spam — those replies (if any) were never actually delivered to the
@@ -113,13 +121,6 @@ WHERE cs.admin_reply IS NOT NULL
     SELECT 1 FROM public.contact_submissions cs2
     WHERE cs2.thread_id = cs.thread_id AND cs2.direction = 'outbound'
   );
-
--- Update source_type CHECK to allow 'reply' and 'compose'
-ALTER TABLE public.contact_submissions
-  DROP CONSTRAINT IF EXISTS contact_submissions_source_type_check;
-ALTER TABLE public.contact_submissions
-  ADD CONSTRAINT contact_submissions_source_type_check
-  CHECK (source_type IN ('contact_form', 'estimate_form', 'booking', 'inbound_email', 'reply', 'compose'));
 
 CREATE INDEX IF NOT EXISTS contact_submissions_thread_id_idx
   ON public.contact_submissions (thread_id, created_at);
