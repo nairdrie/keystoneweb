@@ -52,16 +52,36 @@ export async function GET(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Thread not found' }, { status: 404 });
   }
 
-  // Mark inbound messages as read
-  const unreadIds = messages.filter(m => m.direction === 'inbound' && !m.is_read).map(m => m.id);
-  if (unreadIds.length > 0) {
-    await db
-      .from('contact_submissions')
-      .update({ is_read: true })
-      .in('id', unreadIds);
-  }
-
+  // Read state is now driven by a deliberate client-side timer (POST below)
+  // so a quick preview / accidental click doesn't lose the unread badge.
   return NextResponse.json({ threadId, messages });
+}
+
+/**
+ * POST /api/email/threads/[id]?siteId=...
+ * Mark every inbound message in this thread as read. Called by the client
+ * after a short dwell so quick previews don't auto-clear unread state.
+ */
+export async function POST(request: NextRequest, { params }: Params) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { id: threadId } = await params;
+  const siteId = request.nextUrl.searchParams.get('siteId');
+  const auth = await authOrFail(siteId, user.id);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+  const db = createAdminClient();
+  await db
+    .from('contact_submissions')
+    .update({ is_read: true })
+    .eq('thread_id', threadId)
+    .eq('site_id', siteId!)
+    .eq('direction', 'inbound')
+    .eq('is_read', false);
+
+  return NextResponse.json({ success: true });
 }
 
 export async function DELETE(request: NextRequest, { params }: Params) {
