@@ -598,7 +598,7 @@ export default function EmailClient() {
                           isUnread ? 'text-slate-700' : 'text-slate-400'
                         }`}
                       >
-                        {t.aiSummary || t.snippet || ''}
+                        {t.snippet || ''}
                       </p>
                     </button>
                   </li>
