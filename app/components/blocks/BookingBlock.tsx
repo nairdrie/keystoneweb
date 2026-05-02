@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useEditorContext } from '@/lib/editor-context';
 import {
     Calendar, Clock, Plus, Trash2, Settings, ChevronLeft, ChevronRight,
@@ -100,8 +101,10 @@ const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 // ─── Main Component ─────────────────────────────────────────────────────────────
 
 export default function BookingBlock({ id, data, isEditMode, palette, updateContent }: BookingBlockProps) {
+    const router = useRouter();
     const context = useEditorContext();
     const siteId = context?.siteId;
+    const requestNavigation = context?.requestNavigation;
 
     if (!siteId) {
         return <div className="py-12 text-center text-slate-400">Booking block requires a saved site.</div>;
@@ -117,7 +120,11 @@ export default function BookingBlock({ id, data, isEditMode, palette, updateCont
                     <div className="font-bold text-slate-800 mb-1">Manage Services in Admin</div>
                     <div className="text-sm text-slate-500 mb-4">Add and edit your services, hours, and booking settings from your Admin Dashboard.</div>
                     <button
-                        onClick={() => window.open(`/admin/booking?siteId=${siteId}`, '_blank')}
+                        onClick={() => {
+                            const go = () => router.push(`/admin/booking?siteId=${siteId}`);
+                            if (requestNavigation) requestNavigation(go);
+                            else go();
+                        }}
                         className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold rounded-lg transition-colors"
                     >
                         <Calendar className="w-4 h-4" />

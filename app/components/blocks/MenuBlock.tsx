@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useEditorContext } from '@/lib/editor-context';
 import EditableText from '../EditableText';
 import Reveal from '@/app/components/Reveal';
@@ -49,8 +50,10 @@ function groupByCategory(items: MenuItem[]): Record<string, MenuItem[]> {
 // ─── Main Block ───────────────────────────────────────────────────────────────
 
 export default function MenuBlock({ id, data, isEditMode, palette, updateContent }: MenuBlockProps) {
+  const router = useRouter();
   const context = useEditorContext();
   const siteId = context?.siteId;
+  const requestNavigation = context?.requestNavigation;
 
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -369,7 +372,11 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
           {/* Admin link */}
           {siteId && (
             <button
-              onClick={() => window.open(`/admin/menu?siteId=${siteId}`, '_blank')}
+              onClick={() => {
+                const go = () => router.push(`/admin/menu?siteId=${siteId}`);
+                if (requestNavigation) requestNavigation(go);
+                else go();
+              }}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-sm rounded-xl transition-colors"
             >
               <UtensilsCrossed className="w-4 h-4" />

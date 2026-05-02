@@ -4,6 +4,11 @@ import { Resend } from 'resend';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { sendSupportRequestNotification, sendContactFormNotification } from '@/lib/email';
 import { triageContactSubmission, isSpamInboundEmail } from '@/lib/contact/triage';
+import { extractRowIdFromMessageId, normalizeMessageId, parseReferencesHeader, parseOwnerReplyAddress, buildMessageId, buildReferencesHeader } from '@/lib/email/threading';
+import { stripQuotedText, stripQuotedHtml } from '@/lib/email/quoted-text';
+import { sendComposedEmail } from '@/lib/email';
+import { sanitizeEmailHtml } from '@/lib/email/sanitize';
+import { buildSendFrom, listSiteInboxAddresses, resolvePrimaryAddress } from '@/lib/email/inbox-addresses';
 
 /**
  * POST /api/webhooks/resend-inbound
@@ -139,6 +144,9 @@ export async function POST(request: NextRequest) {
   const subject: string = emailData?.subject ?? '(no subject)';
   const messageId: string = emailData?.message_id ?? '';
   const toAddresses: string[] = emailData?.to ?? [];
+  const inReplyToHeader: string | null = normalizeMessageId(emailData?.in_reply_to ?? null);
+  const referencesHeader: string | null = emailData?.references ?? null;
+  const referencesIds: string[] = parseReferencesHeader(referencesHeader);
 
   // Parse "Name <email>" or plain email address
   const emailMatch = fromRaw.match(/<([^>]+)>/);
@@ -170,12 +178,231 @@ export async function POST(request: NextRequest) {
   );
 
   // --------------------------------------------------------------------------
+  // Owner reply-by-email
+  // Notification emails sent to the site owner have Reply-To set to
+  //   reply+<threadId>@kswd.ca
+  // When the owner hits Reply in their normal email client, we receive it
+  // here, validate the sender owns the site, strip quoted text, and forward
+  // their response to the customer as an outbound message in the thread.
+  // --------------------------------------------------------------------------
+  const ownerReplyTargets = normalisedRecipients
+    .map(addr => ({ addr, threadId: parseOwnerReplyAddress(addr) }))
+    .filter((x): x is { addr: string; threadId: string } => x.threadId !== null);
+
+  if (ownerReplyTargets.length > 0) {
+    const { bodyText, bodyHtml } = await fetchResendEmailBody(emailId);
+    for (const { threadId } of ownerReplyTargets) {
+      try {
+        await handleOwnerReplyByEmail(threadId, bodyText, bodyHtml);
+      } catch (err) {
+        console.error('[resend-inbound] owner-reply route failed:', err);
+      }
+    }
+    // Owner-reply addresses live on @kswd.ca but should never also match a
+    // site inbox; nothing more to do for these recipients.
+    if (!hasOpsRecipient) {
+      return NextResponse.json({ received: true, ownerReplies: ownerReplyTargets.length });
+    }
+  }
+
+  /**
+   * Forward an owner's email-client reply to the customer in the matching
+   * thread. The sender is validated against the site owner's notification
+   * email or auth email so a third party can't spoof a reply just by
+   * knowing the threadId.
+   */
+  async function handleOwnerReplyByEmail(
+    threadId: string,
+    bodyText: string | null,
+    bodyHtml: string | null,
+  ) {
+    // 1. Look up the thread + its parent inbound message
+    const { data: parent } = await admin
+      .from('contact_submissions')
+      .select('*')
+      .eq('thread_id', threadId)
+      .eq('direction', 'inbound')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!parent) {
+      console.warn(`[resend-inbound] owner-reply: no parent inbound message for thread ${threadId}`);
+      return;
+    }
+
+    // 2. Fetch the site so we can validate ownership and pick a sender address
+    const { data: site } = await admin
+      .from('sites')
+      .select('id, user_id, site_slug')
+      .eq('id', parent.site_id)
+      .single();
+    if (!site) return;
+
+    // 3. Validate the From email matches the owner's notification target
+    //    (booking_settings.notification_email OR auth user email).
+    const { data: settings } = await admin
+      .from('booking_settings')
+      .select('notification_email')
+      .eq('site_id', site.id)
+      .maybeSingle();
+
+    let ownerEmail = settings?.notification_email?.toLowerCase() ?? null;
+    if (!ownerEmail) {
+      const { data: authUser } = await admin.auth.admin.getUserById(site.user_id);
+      ownerEmail = authUser?.user?.email?.toLowerCase() ?? null;
+    }
+
+    if (!ownerEmail || ownerEmail !== fromEmail.toLowerCase()) {
+      console.warn(`[resend-inbound] owner-reply: sender ${fromEmail} doesn't match site ${site.id} owner ${ownerEmail}`);
+      return;
+    }
+
+    // 4. Strip quoted text so the customer doesn't get their own message
+    //    echoed back. Falls back to the full body if nothing was stripped.
+    const cleanText = stripQuotedText(bodyText);
+    const cleanHtml = bodyHtml
+      ? sanitizeEmailHtml(stripQuotedHtml(bodyHtml))
+      : `<p>${(cleanText || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`;
+    const finalText = cleanText || (bodyText ?? '').trim();
+
+    if (!finalText && !bodyHtml) {
+      console.warn('[resend-inbound] owner-reply: empty body, skipping');
+      return;
+    }
+
+    // 5. Pick the sender address — same logic as the in-app reply flow.
+    const addresses = await listSiteInboxAddresses(admin, site.id);
+    const address = parent.inbox_address_id
+      ? addresses.find(a => a.id === parent.inbox_address_id) ?? resolvePrimaryAddress(addresses)
+      : resolvePrimaryAddress(addresses);
+    const businessName = site.site_slug || 'Our Business';
+    const { from, replyTo } = buildSendFrom(address ?? null, businessName);
+
+    // 6. Build threading headers + send
+    const parentMessageId = normalizeMessageId(parent.message_id_header);
+    const referencesHeader = buildReferencesHeader(parent.references_header, parentMessageId);
+    const subject = parent.subject
+      ? (parent.subject.match(/^re:/i) ? parent.subject : `Re: ${parent.subject}`)
+      : `Re: Your message to ${businessName}`;
+
+    const newRowId = crypto.randomUUID();
+    const ourMessageId = buildMessageId(newRowId);
+    const headers: Record<string, string> = { 'Message-ID': ourMessageId };
+    if (parentMessageId) headers['In-Reply-To'] = parentMessageId;
+    if (referencesHeader) headers['References'] = referencesHeader;
+
+    const result = await sendComposedEmail({
+      from,
+      replyTo,
+      to: [parent.sender_email],
+      subject,
+      html: cleanHtml,
+      plainText: finalText,
+      headers,
+    });
+
+    if (!result.success) {
+      console.error('[resend-inbound] owner-reply: failed to send to customer:', result.error);
+      return;
+    }
+
+    // 7. Persist the outbound row + mark the parent as replied
+    await admin.from('contact_submissions').insert({
+      id: newRowId,
+      site_id: site.id,
+      thread_id: threadId,
+      direction: 'outbound',
+      sender_name: businessName,
+      sender_email: address?.address ?? 'contact@keystoneweb.ca',
+      message: finalText,
+      body_html: cleanHtml,
+      subject,
+      status: 'replied',
+      source_type: 'reply',
+      inbox_address_id: address?.id ?? null,
+      from_email: address?.address ?? 'contact@keystoneweb.ca',
+      from_name: businessName,
+      to_emails: [parent.sender_email],
+      cc_emails: [],
+      bcc_emails: [],
+      message_id_header: ourMessageId,
+      in_reply_to: parentMessageId,
+      references_header: referencesHeader,
+      is_read: true,
+      reply_resend_id: result.messageId,
+    });
+
+    await admin.from('contact_submissions').update({
+      status: 'replied',
+      admin_reply: finalText,
+      admin_reply_at: new Date().toISOString(),
+      reply_resend_id: result.messageId,
+      is_read: true,
+    }).eq('id', parent.id);
+
+    console.log(`[resend-inbound] owner-reply forwarded to ${parent.sender_email} for thread ${threadId}`);
+  }
+
+  // --------------------------------------------------------------------------
+  // Thread detection: try to find an existing thread this inbound message
+  // belongs to. Order:
+  //   1) In-Reply-To matches a known message_id_header
+  //   2) Any References ID matches a known message_id_header
+  //   3) Our deterministic <uuid@mail.keystoneweb.ca> id encodes the row id
+  // --------------------------------------------------------------------------
+  async function detectExistingThread(siteId: string): Promise<string | null> {
+    const candidateHeaders = [inReplyToHeader, ...referencesIds].filter(Boolean) as string[];
+
+    if (candidateHeaders.length > 0) {
+      const { data: priorByMessageId } = await admin
+        .from('contact_submissions')
+        .select('thread_id')
+        .eq('site_id', siteId)
+        .in('message_id_header', candidateHeaders)
+        .limit(1)
+        .maybeSingle();
+      if (priorByMessageId?.thread_id) return priorByMessageId.thread_id as string;
+
+      // Fall back to Resend's own message id (we record it as reply_resend_id)
+      const bareIds = candidateHeaders.map(h => h.replace(/^<|>$/g, ''));
+      const { data: priorByResendId } = await admin
+        .from('contact_submissions')
+        .select('thread_id')
+        .eq('site_id', siteId)
+        .in('reply_resend_id', bareIds)
+        .limit(1)
+        .maybeSingle();
+      if (priorByResendId?.thread_id) return priorByResendId.thread_id as string;
+
+      // Decode our own deterministic Message-IDs as a fallback. Scope by site
+      // so a forged/forwarded header can never resurrect a thread from a
+      // different customer's inbox.
+      for (const header of candidateHeaders) {
+        const rowId = extractRowIdFromMessageId(header);
+        if (!rowId) continue;
+        const { data: row } = await admin
+          .from('contact_submissions')
+          .select('thread_id')
+          .eq('id', rowId)
+          .eq('site_id', siteId)
+          .maybeSingle();
+        if (row?.thread_id) return row.thread_id as string;
+      }
+    }
+
+    return null;
+  }
+
+  // --------------------------------------------------------------------------
   // Helper: route one email to a site's contact_submissions inbox
   // --------------------------------------------------------------------------
   async function routeEmailToSiteInbox(
     site: { id: string; user_id: string; site_slug: string | null; contact_ai_replies_enabled: boolean },
     recipientLabel: string,
     messageBody: string | null,
+    inboxAddressId: string | null,
+    bodyHtml: string | null,
   ) {
     // Check Pro subscription
     const { data: subscription } = await admin
@@ -208,7 +435,10 @@ export async function POST(request: NextRequest) {
       return;
     }
 
-    // Insert into contact_submissions
+    // Resolve the thread this message belongs to (or start a new one)
+    const existingThreadId = await detectExistingThread(site.id);
+
+    // Insert into contact_submissions as an inbound message
     const { data: submission, error: insertErr } = await admin
       .from('contact_submissions')
       .insert({
@@ -217,9 +447,21 @@ export async function POST(request: NextRequest) {
         sender_email: fromEmail,
         sender_phone: null,
         message: messageBody || `[Email] ${subject}`,
-        status: 'new',
+        status: existingThreadId ? 'new' : 'new',
+        direction: 'inbound',
+        subject,
+        body_html: bodyHtml,
+        from_email: fromEmail,
+        from_name: fromName,
+        to_emails: [recipientLabel],
+        message_id_header: normalizeMessageId(messageId),
+        in_reply_to: inReplyToHeader,
+        references_header: referencesHeader,
+        inbox_address_id: inboxAddressId,
+        source_type: 'inbound_email',
+        is_read: false,
       })
-      .select('id')
+      .select('id, thread_id')
       .single();
 
     if (insertErr || !submission) {
@@ -227,7 +469,17 @@ export async function POST(request: NextRequest) {
       return;
     }
 
-    console.log(`[resend-inbound] Email from ${fromEmail} routed to site ${recipientLabel} inbox (${submission.id})`);
+    // If we detected an existing thread, point the new row at it
+    if (existingThreadId && submission.thread_id !== existingThreadId) {
+      await admin
+        .from('contact_submissions')
+        .update({ thread_id: existingThreadId })
+        .eq('id', submission.id);
+    }
+
+    const threadId = existingThreadId ?? submission.thread_id ?? submission.id;
+
+    console.log(`[resend-inbound] Email from ${fromEmail} routed to site ${recipientLabel} inbox (${submission.id})${existingThreadId ? ` thread=${existingThreadId}` : ''}`);
 
     // Fire AI triage in the background (non-blocking)
     triageContactSubmission(submission.id, admin).catch(err => {
@@ -257,8 +509,11 @@ export async function POST(request: NextRequest) {
             customerEmail: fromEmail,
             customerPhone: undefined,
             message: messageBody || `[Email] ${subject}`,
-            submissionId: submission.id,
+            submissionId: threadId,  // deep link target — the thread, not the row
             siteId: site.id,
+            inboxAddressId,
+            previewBody: messageBody,
+            subject,
           },
           ownerEmail
         );
@@ -275,45 +530,66 @@ export async function POST(request: NextRequest) {
 
   if (hasSiteRecipients) {
     // Fetch body once, reuse for all recipients
-    const { bodyText, bodyHtml, log } = await fetchResendEmailBody(emailId);
+    const { bodyText, bodyHtml } = await fetchResendEmailBody(emailId);
     const messageBody = bodyText || (bodyHtml ? bodyHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : null);
 
-    // -- @kswd.ca routing (existing logic) -----------------------------------
-    for (const localPart of kswdRecipients) {
-      const { data: site } = await admin
-        .from('sites')
-        .select('id, user_id, site_slug, contact_ai_replies_enabled')
-        .eq('published_domain', localPart)
-        .eq('is_published', true)
-        .maybeSingle();
-
-      if (!site) {
-        console.log(`[resend-inbound] No published site for ${localPart}@kswd.ca, skipping`);
-        continue;
-      }
-
-      await routeEmailToSiteInbox(site, `${localPart}@kswd.ca`, messageBody);
-    }
-
-    // -- Custom domain inbox routing (new) -----------------------------------
-    // Find any recipient that has a matching inbox_custom_email on a site
-    const customDomainRecipients = normalisedRecipients.filter(
-      addr => !addr.endsWith('@kswd.ca') && !addr.endsWith('@keystoneweb.ca')
+    // Look up every site recipient in site_inbox_addresses in one round trip
+    const siteRecipientAddresses = normalisedRecipients.filter(
+      addr => !addr.endsWith('@keystoneweb.ca')
     );
 
-    for (const recipientAddr of customDomainRecipients) {
-      const { data: site } = await admin
-        .from('sites')
-        .select('id, user_id, site_slug, contact_ai_replies_enabled')
-        .eq('inbox_custom_email', recipientAddr)
-        .maybeSingle();
+    if (siteRecipientAddresses.length > 0) {
+      const { data: addressRows } = await admin
+        .from('site_inbox_addresses')
+        .select('id, address, kind, site_id, sites:sites!inner(id, user_id, site_slug, contact_ai_replies_enabled)')
+        .in('address', siteRecipientAddresses);
 
-      if (!site) {
-        console.log(`[resend-inbound] No site configured for custom inbox ${recipientAddr}, skipping`);
-        continue;
+      type AddressRow = {
+        id: string;
+        address: string;
+        kind: string;
+        site_id: string;
+        sites: { id: string; user_id: string; site_slug: string | null; contact_ai_replies_enabled: boolean } | null;
+      };
+      const matchedAddresses = new Set<string>();
+      for (const row of (addressRows ?? []) as unknown as AddressRow[]) {
+        const site = row.sites;
+        if (!site) continue;
+        matchedAddresses.add(row.address.toLowerCase());
+        await routeEmailToSiteInbox(
+          site,
+          row.address,
+          messageBody,
+          row.id,
+          bodyHtml,
+        );
       }
 
-      await routeEmailToSiteInbox(site, recipientAddr, messageBody);
+      // Fallback: legacy kswd subdomains that haven't been backfilled yet —
+      // look up the site by published_domain and lazily create the address row.
+      const unmatchedKswd = siteRecipientAddresses
+        .filter(a => a.endsWith('@kswd.ca') && !matchedAddresses.has(a))
+        .map(a => a.replace(/@kswd\.ca$/, ''));
+
+      for (const localPart of unmatchedKswd) {
+        const { data: site } = await admin
+          .from('sites')
+          .select('id, user_id, site_slug, contact_ai_replies_enabled')
+          .eq('published_domain', localPart)
+          .eq('is_published', true)
+          .maybeSingle();
+
+        if (!site) continue;
+
+        const fullAddress = `${localPart}@kswd.ca`;
+        const { data: created } = await admin
+          .from('site_inbox_addresses')
+          .insert({ site_id: site.id, address: fullAddress, kind: 'kswd_subdomain', is_primary: true })
+          .select('id')
+          .single();
+
+        await routeEmailToSiteInbox(site, fullAddress, messageBody, created?.id ?? null, bodyHtml);
+      }
     }
 
     // If no ops recipient, we're done

@@ -1,7 +1,4 @@
-import { sendContactReplyEmail } from '@/lib/email';
 import { SupabaseClient } from '@supabase/supabase-js';
-
-const AUTO_SEND_THRESHOLD = 0.85;
 
 // ---------------------------------------------------------------------------
 // Pre-screening: detect obvious spam/gibberish without calling the AI.
@@ -88,19 +85,26 @@ export function isSpamInboundEmail(
 
 export function isObviousSpam(message: string, name: string): boolean {
   const lower = message.toLowerCase();
+  const stripped = lower.replace(/\s/g, '');
 
-  // Very short messages that are just gibberish characters (< 15 chars with low entropy)
-  if (message.trim().length < 15) return true;
+  // Gibberish entropy check. Normal English text scores ~3.5–4.5 bits;
+  // keyboard mash and "aaaaaa" repetition score well below 2.5.
+  const entropy = charEntropy(stripped);
 
-  // Gibberish detection: low character entropy relative to length
-  // Normal English text ~3.5–4.5 bits; keyboard mash is < 2.5
-  const entropy = charEntropy(message.toLowerCase().replace(/\s/g, ''));
+  // Very short messages with low entropy are gibberish ("asdf", "aaaa").
+  // Don't flag short *real* messages like "Help me, please!" — they pass
+  // the entropy gate.
+  if (message.trim().length < 15 && entropy < 3.0) return true;
+
+  // Longer gibberish: low entropy in a message of any length.
   if (message.length > 10 && entropy < 2.5) return true;
 
-  // Very high ratio of repeated characters (aaaaaaa, fjfjfjfj, etc.)
-  const uniqueChars = new Set(message.toLowerCase().replace(/\s/g, '')).size;
-  const totalChars = message.replace(/\s/g, '').length;
-  if (totalChars > 10 && uniqueChars / totalChars < 0.15) return true;
+  // Catch repetitive/random-keyboard tokens that the entropy check might miss
+  // because they're short. e.g. "fjfjfjfj" (12 chars, 2 unique). Bound the
+  // check to short strings so a real 280-char English message — which still
+  // only uses ~30 distinct chars — doesn't false-positive.
+  const uniqueChars = new Set(stripped).size;
+  if (stripped.length > 10 && stripped.length < 60 && uniqueChars / stripped.length < 0.2) return true;
 
   // Spam keyword check (whole-word match for short keywords to reduce false positives)
   for (const kw of SPAM_KEYWORDS) {
@@ -191,6 +195,7 @@ export async function triageContactSubmission(
     .eq('id', submission.site_id)
     .single();
 
+  const aiDraftsEnabled = site?.contact_ai_replies_enabled !== false;
   const designData = site?.design_data ?? site?.published_data ?? {};
   const businessName = site?.site_slug || 'Our Business';
   const businessDescription =
@@ -301,31 +306,18 @@ Respond with valid JSON only, no markdown fences:
   }
 
   const isSpam = classification === 'spam';
-  // Respect the per-site AI auto-reply toggle (default true if column not yet migrated)
-  const aiRepliesEnabled = site?.contact_ai_replies_enabled !== false;
-  const shouldAutoSend = !isSpam && aiRepliesEnabled && confidence >= AUTO_SEND_THRESHOLD && draftReply;
 
-  let autoSent = false;
-  let replyResendId: string | null = null;
+  // Owner explicitly opted out of AI drafts — keep the message in the inbox
+  // as 'new' with no draft attached, so it shows up in the Inbox folder.
+  const persistDraft = aiDraftsEnabled && !isSpam ? draftReply : null;
 
-  if (shouldAutoSend && draftReply) {
-    const result = await sendContactReplyEmail({
-      toEmail: submission.sender_email,
-      toName: submission.sender_name,
-      fromAddress: 'contact@keystoneweb.ca',
-      fromName: businessName,
-      replyText: draftReply,
-      originalMessage: submission.message,
-      submissionId,
-      replyToAddress: site?.published_domain ? `${site.published_domain}@kswd.ca` : undefined,
-    });
-    if (result.success) {
-      autoSent = true;
-      replyResendId = (result as any).messageId ?? null;
-    }
-  }
-
-  const newStatus = isSpam ? 'spam' : autoSent ? 'ai_handled' : 'needs_review';
+  // Status: spam → spam folder; if we wrote a usable draft → needs_review;
+  // otherwise leave it as 'new' for plain inbox triage. We never auto-send.
+  const newStatus = isSpam
+    ? 'spam'
+    : persistDraft
+      ? 'needs_review'
+      : 'new';
 
   await db
     .from('contact_submissions')
@@ -333,9 +325,8 @@ Respond with valid JSON only, no markdown fences:
       ai_classification: classification,
       ai_confidence: confidence,
       ai_summary: summary,
-      ai_draft_reply: draftReply,
-      ai_auto_sent: autoSent,
-      reply_resend_id: replyResendId,
+      ai_draft_reply: persistDraft,
+      ai_auto_sent: false,
       status: newStatus,
     })
     .eq('id', submissionId);

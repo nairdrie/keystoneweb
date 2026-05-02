@@ -37,10 +37,10 @@ const ALL_TABS: TabDef[] = [
   { id: 'analytics', label: 'Analytics', icon: BarChart3, path: '/admin/analytics', core: true },
   { id: 'seo',       label: 'SEO',       icon: Globe,     path: '/admin/seo',       core: true },
   { id: 'domains',   label: 'Domains',   icon: Link2,     path: '/admin/domains',   core: true },
+  { id: 'inbox',     label: 'Email',     icon: Mail,      path: '/admin/inbox',     core: true },
   // Optional — shown when site has the matching block, or when "show all" is on
   { id: 'booking',   label: 'Booking',   icon: Calendar,  path: '/admin/booking',   requiresBlock: 'booking' },
   { id: 'ecommerce', label: 'Ecommerce', icon: ShoppingBag, path: '/admin/ecommerce', requiresBlock: 'productGrid' },
-  { id: 'inbox',     label: 'Inbox',     icon: Mail,      path: '/admin/inbox' },
   { id: 'media',    label: 'Media',     icon: FileImage, path: '/admin/media', core: true },
   // Coming soon — only appear when "show all" is on
   { id: 'events', label: 'Events', icon: CalendarDays, path: '/admin/events', requiresBlock: 'events' },
@@ -158,9 +158,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       description: 'Manage your custom domain, check DNS status, and configure domain settings for this site.',
     },
     {
-      icon: <MessageSquare className="w-7 h-7" />,
-      title: 'Inbox',
-      description: 'Read and reply to messages sent through your site\'s contact form.',
+      icon: <Mail className="w-7 h-7" />,
+      title: 'Email',
+      description: 'A full email client for your site — read, reply, compose, and manage AI drafts in one place.',
     },
   ];
 
@@ -337,11 +337,6 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   // Determine which tabs to show
   const visibleTabs = ALL_TABS.filter(tab => {
     if (tab.core) return true;
-    if (tab.id === 'inbox') {
-      // Inbox is visible if the site has a contact form block OR a published subdomain
-      // (emails can arrive via {subdomain}@kswd.ca even without a contact form)
-      return showAllFeatures || siteBlockTypes.has('contact_form') || !!site.publishedDomain;
-    }
     if (showAllFeatures) return true;
     if (tab.requiresBlock) return siteBlockTypes.has(tab.requiresBlock);
     return false; // coming-soon tabs without a block: only visible with showAllFeatures

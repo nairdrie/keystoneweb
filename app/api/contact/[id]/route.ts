@@ -66,13 +66,25 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
   const body = await request.json();
   const allowed = ['spam', 'needs_review', 'new', 'ai_handled', 'replied'];
-  if (!allowed.includes(body.status)) {
-    return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+
+  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (body.status !== undefined) {
+    if (!allowed.includes(body.status)) {
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+    }
+    update.status = body.status;
+  }
+  if (typeof body.is_read === 'boolean') {
+    update.is_read = body.is_read;
+  }
+
+  if (Object.keys(update).length === 1) {
+    return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
   }
 
   await db
     .from('contact_submissions')
-    .update({ status: body.status, updated_at: new Date().toISOString() })
+    .update(update)
     .eq('id', id);
 
   return NextResponse.json({ success: true });

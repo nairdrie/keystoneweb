@@ -10,6 +10,7 @@ import { getCurrentMember } from '@/lib/membership/current-member';
 import { resolveProductAccess } from '@/lib/ecommerce/resolve-price';
 import { PUBLISHED_ROOT } from '@/lib/env/domain';
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { buildSiteMetadata, buildCanonicalUrl, cleanSeoTitle } from '@/lib/seo/metadata';
 
 export const dynamic = 'force-dynamic';
@@ -103,6 +104,10 @@ export default async function ProductDetailPage({
                     </div>
                 </div>
             );
+        }
+
+        if (product.external_url && /^https?:\/\//i.test(product.external_url)) {
+            redirect(product.external_url);
         }
 
         // Resolve the viewing member's price/access for this product.
@@ -241,6 +246,11 @@ export default async function ProductDetailPage({
             </>
         );
     } catch (error) {
+        // Don't swallow Next.js control-flow errors (redirect/notFound).
+        const digest = (error as { digest?: unknown } | null)?.digest;
+        if (typeof digest === 'string' && (digest.startsWith('NEXT_REDIRECT') || digest.startsWith('NEXT_NOT_FOUND'))) {
+            throw error;
+        }
         console.error('Error rendering product page:', error);
         return (
             <div className="flex items-center justify-center min-h-screen bg-slate-50">

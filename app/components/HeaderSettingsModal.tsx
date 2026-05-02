@@ -4,13 +4,22 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Layout, Palette, Type, Code, Lock, Crown } from 'lucide-react';
 
-export type HeaderBgType = 'white' | 'primary' | 'secondary' | 'gradient' | 'custom';
+export type HeaderBgType = 'white' | 'primary' | 'secondary' | 'gradient' | 'custom' | 'transparent';
 export type HeaderLayout = 'default' | 'centeredAboveNav';
+export type LogoPosition = 'left' | 'center' | 'above';
+export type NavPosition = 'left' | 'center' | 'right';
+export type DesktopMenuStyle = 'inline' | 'hamburger';
+export type HamburgerPosition = 'left' | 'right';
 export type ButtonShape = 'square' | 'rounded' | 'pill';
-export type ButtonFill = 'filled' | 'outline';
+export type ButtonFill = 'filled' | 'outline' | 'ghost';
 
 export interface SiteHeaderDefaults {
-    layout?: HeaderLayout;
+    layout?: HeaderLayout; // legacy — derived into logoPosition/navPosition when those aren't set
+    logoPosition?: LogoPosition;
+    navPosition?: NavPosition;
+    desktopMenuStyle?: DesktopMenuStyle;
+    hamburgerPosition?: HamburgerPosition;
+    overlay?: boolean;          // header floats over next block, doesn't take space
     bgType?: HeaderBgType;
     bgCustom?: string;
     bgClass?: string;           // bg + blur classes for the default white look (e.g. 'bg-white/95 backdrop-blur-sm')
@@ -19,7 +28,7 @@ export interface SiteHeaderDefaults {
     sticky?: boolean;
     showBanner?: boolean;
     isBannerClassic?: boolean;  // uses bannerPhone/bannerHours EditableText fields
-    isFloating?: boolean;       // Airy pill nav — h-0 overflow-visible layout
+    isFloating?: boolean;       // Airy pill nav — rounded pill container with backdrop blur
     hasAccentLine?: boolean;    // Edge neon gradient top line
     accentColor?: string;       // accent line color
     containerClass?: string;
@@ -63,7 +72,11 @@ export default function HeaderSettingsModal({
     const [activeTab, setActiveTab] = useState<TabType>('layout');
 
     // Layout
-    const [layout, setLayout] = useState<HeaderLayout>('default');
+    const [logoPosition, setLogoPosition] = useState<LogoPosition>('left');
+    const [navPosition, setNavPosition] = useState<NavPosition>('right');
+    const [desktopMenuStyle, setDesktopMenuStyle] = useState<DesktopMenuStyle>('inline');
+    const [hamburgerPosition, setHamburgerPosition] = useState<HamburgerPosition>('right');
+    const [overlay, setOverlay] = useState(false);
     const [rightSide, setRightSide] = useState<'cta' | 'social' | 'none'>('cta');
     const [showBanner, setShowBanner] = useState(false);
     const [bannerText, setBannerText] = useState('');
@@ -93,7 +106,15 @@ export default function HeaderSettingsModal({
 
     useEffect(() => {
         if (!isOpen) return;
-        setLayout(siteContent.headerLayout || defaults.layout || 'default');
+        // Derive logoPosition/navPosition from legacy `layout` if not set explicitly
+        const legacyLayout: HeaderLayout = siteContent.headerLayout || defaults.layout || 'default';
+        const derivedLogo: LogoPosition = legacyLayout === 'centeredAboveNav' ? 'above' : 'left';
+        const derivedNav: NavPosition = legacyLayout === 'centeredAboveNav' ? 'center' : 'right';
+        setLogoPosition(siteContent.headerLogoPosition || defaults.logoPosition || derivedLogo);
+        setNavPosition(siteContent.headerNavPosition || defaults.navPosition || derivedNav);
+        setDesktopMenuStyle(siteContent.headerDesktopMenuStyle || defaults.desktopMenuStyle || 'inline');
+        setHamburgerPosition(siteContent.headerHamburgerPosition || defaults.hamburgerPosition || 'right');
+        setOverlay(siteContent.headerOverlay != null ? Boolean(siteContent.headerOverlay) : (defaults.overlay ?? false));
         setRightSide(siteContent.headerRightSide || 'cta');
         setShowBanner(siteContent.headerShowBanner != null ? Boolean(siteContent.headerShowBanner) : (defaults.showBanner ?? false));
         setBannerText(siteContent.headerBannerText || '');
@@ -119,7 +140,13 @@ export default function HeaderSettingsModal({
     if (!isOpen) return null;
 
     const handleSave = () => {
-        updateSiteContent('headerLayout', layout);
+        updateSiteContent('headerLogoPosition', logoPosition);
+        updateSiteContent('headerNavPosition', navPosition);
+        updateSiteContent('headerDesktopMenuStyle', desktopMenuStyle);
+        updateSiteContent('headerHamburgerPosition', hamburgerPosition);
+        updateSiteContent('headerOverlay', overlay);
+        // Keep legacy field roughly in sync (so older code paths still work)
+        updateSiteContent('headerLayout', logoPosition === 'above' ? 'centeredAboveNav' : 'default');
         updateSiteContent('headerRightSide', rightSide);
         updateSiteContent('headerShowBanner', showBanner);
         updateSiteContent('headerBannerText', bannerText);
@@ -153,6 +180,12 @@ export default function HeaderSettingsModal({
             case 'secondary': return { backgroundColor: pSecondary };
             case 'gradient':  return { background: `linear-gradient(135deg, ${pPrimary}, ${pSecondary})` };
             case 'custom':    return { backgroundColor: bgColor || '#e2e8f0' };
+            case 'transparent': return {
+                backgroundImage: 'linear-gradient(45deg, #e2e8f0 25%, transparent 25%), linear-gradient(-45deg, #e2e8f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e2e8f0 75%), linear-gradient(-45deg, transparent 75%, #e2e8f0 75%)',
+                backgroundSize: '8px 8px',
+                backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0px',
+                border: '1px solid #e2e8f0',
+            };
         }
     };
 
@@ -202,47 +235,103 @@ export default function HeaderSettingsModal({
                     {/* ── LAYOUT TAB ── */}
                     {activeTab === 'layout' && (
                         <>
-                            {/* Layout variant */}
+                            {/* Logo position */}
                             <div>
-                                <label className="block text-sm font-semibold text-slate-800 mb-3">Header Layout</label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    {[
-                                        { value: 'default' as HeaderLayout, label: 'Logo Left, Nav Right', desc: 'Standard horizontal layout — logo on left, links + CTA on right' },
-                                        { value: 'centeredAboveNav' as HeaderLayout, label: 'Logo Centered Above Nav', desc: 'Logo & site name centered on top row, navigation bar below' },
-                                    ].map((opt) => (
+                                <label className="block text-sm font-semibold text-slate-800 mb-3">Logo Position</label>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {([
+                                        { value: 'left' as LogoPosition, label: 'Left', desc: 'Logo on the left of the header row' },
+                                        { value: 'center' as LogoPosition, label: 'Center', desc: 'Logo centered horizontally' },
+                                        { value: 'above' as LogoPosition, label: 'Above Nav', desc: 'Logo on its own row, nav below' },
+                                    ]).map((opt) => (
                                         <button
                                             key={opt.value}
-                                            onClick={() => setLayout(opt.value)}
-                                            className={`p-4 border rounded-xl text-left transition-all ${layout === opt.value ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600 shadow-sm' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}
+                                            onClick={() => setLogoPosition(opt.value)}
+                                            className={`p-3 border rounded-xl text-left transition-all ${logoPosition === opt.value ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600 shadow-sm' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}
                                         >
-                                            {/* Mini diagram */}
-                                            <div className={`h-7 rounded bg-slate-100 mb-2.5 flex items-center px-2 gap-1.5 ${opt.value === 'centeredAboveNav' ? 'justify-center' : 'justify-between'}`}>
-                                                {opt.value === 'default' ? (
-                                                    <>
-                                                        <div className="flex items-center gap-1">
-                                                            <div className="w-3.5 h-3.5 rounded bg-slate-400" />
-                                                            <div className="w-8 h-1.5 rounded bg-slate-400" />
-                                                        </div>
-                                                        <div className="flex items-center gap-1">
-                                                            <div className="w-5 h-1.5 rounded bg-slate-300" />
-                                                            <div className="w-5 h-1.5 rounded bg-slate-300" />
-                                                            <div className="w-8 h-3.5 rounded bg-blue-400" />
-                                                        </div>
-                                                    </>
-                                                ) : (
-                                                    <div className="flex flex-col items-center gap-0.5 w-full">
-                                                        <div className="flex items-center gap-1">
-                                                            <div className="w-3 h-3 rounded bg-slate-400" />
-                                                            <div className="w-10 h-1.5 rounded bg-slate-400" />
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
                                             <div className="font-semibold text-sm text-slate-900">{opt.label}</div>
-                                            <div className="text-xs text-slate-500 mt-1">{opt.desc}</div>
+                                            <div className="text-xs text-slate-500 mt-0.5">{opt.desc}</div>
                                         </button>
                                     ))}
                                 </div>
+                            </div>
+
+                            {/* Nav position */}
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-800 mb-3">Navigation Position</label>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {([
+                                        { value: 'left' as NavPosition, label: 'Left' },
+                                        { value: 'center' as NavPosition, label: 'Center' },
+                                        { value: 'right' as NavPosition, label: 'Right' },
+                                    ]).map((opt) => (
+                                        <button
+                                            key={opt.value}
+                                            onClick={() => setNavPosition(opt.value)}
+                                            className={`p-3 border rounded-xl text-center transition-all ${navPosition === opt.value ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600 shadow-sm' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}
+                                        >
+                                            <div className="font-semibold text-sm text-slate-900">{opt.label}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Desktop menu style */}
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-800 mb-3">Desktop Menu Style</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {([
+                                        { value: 'inline' as DesktopMenuStyle, label: 'Inline Links', desc: 'Show nav items in the header row' },
+                                        { value: 'hamburger' as DesktopMenuStyle, label: 'Hamburger', desc: 'Hide links — open from a menu icon' },
+                                    ]).map((opt) => (
+                                        <button
+                                            key={opt.value}
+                                            onClick={() => setDesktopMenuStyle(opt.value)}
+                                            className={`p-3 border rounded-xl text-left transition-all ${desktopMenuStyle === opt.value ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600 shadow-sm' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}
+                                        >
+                                            <div className="font-semibold text-sm text-slate-900">{opt.label}</div>
+                                            <div className="text-xs text-slate-500 mt-0.5">{opt.desc}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                                {desktopMenuStyle === 'hamburger' && (
+                                    <div className="mt-3">
+                                        <label className="block text-xs font-semibold text-slate-600 mb-2">Hamburger Position</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {([
+                                                { value: 'left' as HamburgerPosition, label: 'Left' },
+                                                { value: 'right' as HamburgerPosition, label: 'Right' },
+                                            ]).map((opt) => (
+                                                <button
+                                                    key={opt.value}
+                                                    onClick={() => setHamburgerPosition(opt.value)}
+                                                    className={`p-2 border rounded-lg text-center text-sm transition-all ${hamburgerPosition === opt.value ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300'}`}
+                                                >
+                                                    {opt.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Overlay */}
+                            <div>
+                                <div className="flex items-center justify-between mb-1">
+                                    <div>
+                                        <label className="text-sm font-semibold text-slate-800">Float Over Content</label>
+                                        <p className="text-xs text-slate-500 mt-0.5">Header overlays the next block (e.g. video hero) instead of taking its own space</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setOverlay(!overlay)}
+                                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${overlay ? 'bg-blue-600' : 'bg-slate-200'}`}
+                                    >
+                                        <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${overlay ? 'translate-x-4' : 'translate-x-0'}`} />
+                                    </button>
+                                </div>
+                                {overlay && (
+                                    <p className="text-xs text-blue-600 mt-2">Tip: pair with a transparent background (Style tab) for a clean overlay over hero imagery.</p>
+                                )}
                             </div>
 
                             {/* Right side element */}
@@ -407,9 +496,10 @@ export default function HeaderSettingsModal({
                             <div>
                                 <label className="block text-sm font-semibold text-slate-800 mb-3">Header Background</label>
                                 <div className="grid grid-cols-2 gap-2">
-                                    {([ 'white', 'primary', 'secondary', 'gradient', 'custom' ] as HeaderBgType[]).map((value) => {
+                                    {([ 'white', 'transparent', 'primary', 'secondary', 'gradient', 'custom' ] as HeaderBgType[]).map((value) => {
                                         const labels: Record<HeaderBgType, string> = {
                                             white: 'White / Default',
+                                            transparent: 'Transparent',
                                             primary: 'Primary Color',
                                             secondary: 'Secondary Color',
                                             gradient: 'Gradient',
