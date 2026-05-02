@@ -60,12 +60,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch submissions' }, { status: 500 });
   }
 
-  // Unread count (new + needs_review, excluding spam/ai_handled/replied)
+  // Unread count: any inbound message that hasn't been opened, excluding spam.
   const { count: unreadCount } = await db
     .from('contact_submissions')
     .select('id', { count: 'exact', head: true })
     .eq('site_id', siteId)
-    .in('status', ['new', 'needs_review']);
+    .eq('direction', 'inbound')
+    .eq('is_read', false)
+    .neq('status', 'spam');
 
   return NextResponse.json({
     submissions: submissions ?? [],

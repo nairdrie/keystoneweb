@@ -4,7 +4,7 @@ import { createClient } from '@/lib/db/supabase-server';
 import { ADDON_PRICES, type AddonType } from '@/lib/addons';
 import { sendAddonApprovalEmail } from '@/lib/email';
 
-const VALID_ADDON_TYPES: AddonType[] = ['extra_sites', 'extra_domains', 'extra_storage', 'extra_ai', 'white_label'];
+const VALID_ADDON_TYPES: AddonType[] = ['extra_sites', 'extra_domains', 'extra_storage', 'extra_ai', 'white_label', 'extra_inbox_email'];
 
 async function getAdminEmail(): Promise<string | null> {
   const supabase = await createClient();

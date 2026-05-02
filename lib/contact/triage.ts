@@ -1,7 +1,4 @@
-import { sendContactReplyEmail } from '@/lib/email';
 import { SupabaseClient } from '@supabase/supabase-js';
-
-const AUTO_SEND_THRESHOLD = 0.85;
 
 // ---------------------------------------------------------------------------
 // Pre-screening: detect obvious spam/gibberish without calling the AI.
@@ -191,6 +188,7 @@ export async function triageContactSubmission(
     .eq('id', submission.site_id)
     .single();
 
+  const aiDraftsEnabled = site?.contact_ai_replies_enabled !== false;
   const designData = site?.design_data ?? site?.published_data ?? {};
   const businessName = site?.site_slug || 'Our Business';
   const businessDescription =
@@ -301,31 +299,18 @@ Respond with valid JSON only, no markdown fences:
   }
 
   const isSpam = classification === 'spam';
-  // Respect the per-site AI auto-reply toggle (default true if column not yet migrated)
-  const aiRepliesEnabled = site?.contact_ai_replies_enabled !== false;
-  const shouldAutoSend = !isSpam && aiRepliesEnabled && confidence >= AUTO_SEND_THRESHOLD && draftReply;
 
-  let autoSent = false;
-  let replyResendId: string | null = null;
+  // Owner explicitly opted out of AI drafts — keep the message in the inbox
+  // as 'new' with no draft attached, so it shows up in the Inbox folder.
+  const persistDraft = aiDraftsEnabled && !isSpam ? draftReply : null;
 
-  if (shouldAutoSend && draftReply) {
-    const result = await sendContactReplyEmail({
-      toEmail: submission.sender_email,
-      toName: submission.sender_name,
-      fromAddress: 'contact@keystoneweb.ca',
-      fromName: businessName,
-      replyText: draftReply,
-      originalMessage: submission.message,
-      submissionId,
-      replyToAddress: site?.published_domain ? `${site.published_domain}@kswd.ca` : undefined,
-    });
-    if (result.success) {
-      autoSent = true;
-      replyResendId = (result as any).messageId ?? null;
-    }
-  }
-
-  const newStatus = isSpam ? 'spam' : autoSent ? 'ai_handled' : 'needs_review';
+  // Status: spam → spam folder; if we wrote a usable draft → needs_review;
+  // otherwise leave it as 'new' for plain inbox triage. We never auto-send.
+  const newStatus = isSpam
+    ? 'spam'
+    : persistDraft
+      ? 'needs_review'
+      : 'new';
 
   await db
     .from('contact_submissions')
@@ -333,9 +318,8 @@ Respond with valid JSON only, no markdown fences:
       ai_classification: classification,
       ai_confidence: confidence,
       ai_summary: summary,
-      ai_draft_reply: draftReply,
-      ai_auto_sent: autoSent,
-      reply_resend_id: replyResendId,
+      ai_draft_reply: persistDraft,
+      ai_auto_sent: false,
       status: newStatus,
     })
     .eq('id', submissionId);

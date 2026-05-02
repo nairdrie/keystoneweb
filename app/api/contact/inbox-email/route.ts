@@ -292,7 +292,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Step 3: Persist to sites table
+  // Step 3: Persist to sites table (legacy column) AND site_inbox_addresses
   const { error: updateErr } = await admin
     .from('sites')
     .update({
@@ -305,6 +305,18 @@ export async function POST(request: NextRequest) {
     console.error('[inbox-email] Failed to save inbox_custom_email:', updateErr);
     return NextResponse.json({ error: 'Failed to save configuration' }, { status: 500 });
   }
+
+  // Mirror into the multi-address table; mark this as primary
+  await admin.from('site_inbox_addresses').update({ is_primary: false }).eq('site_id', siteId);
+  await admin
+    .from('site_inbox_addresses')
+    .upsert({
+      site_id: siteId,
+      address: fullEmail,
+      kind: 'custom_domain',
+      is_primary: true,
+      resend_domain_id: resendResult.domainId ?? null,
+    }, { onConflict: 'address' });
 
   console.log(`[inbox-email] Activated ${fullEmail} for site ${siteId}`);
   return NextResponse.json({

@@ -1,15 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { createClient } from '@/lib/db/supabase-server';
-import { sendContactReplyEmail } from '@/lib/email';
+import { sendComposedEmail } from '@/lib/email';
+import {
+  buildMessageId,
+  buildReferencesHeader,
+  normalizeMessageId,
+} from '@/lib/email/threading';
+import {
+  buildSendFrom,
+  listSiteInboxAddresses,
+  resolvePrimaryAddress,
+  type SiteInboxAddress,
+} from '@/lib/email/inbox-addresses';
+import { sanitizeEmailHtml, htmlToPlainText } from '@/lib/email/sanitize';
+import { uploadInlineImagesInHtml, InlineImageError } from '@/lib/email/inline-images';
 
 /**
  * POST /api/contact/[id]/reply
  *
- * Sends a manual reply from the site owner to a contact form submitter.
- * Auth: must be the owner of the site the submission belongs to.
+ * Sends a manual reply from the site owner inside an existing thread.
+ * Auth: must own the site the submission belongs to.
  *
- * Body: { replyText: string }
+ * Body:
+ *   replyText:   string         (legacy plain-text fallback)
+ *   replyHtml?:  string         (rich HTML — preferred)
+ *   siteId:      string
+ *   addressId?:  string         (which inbox address to send From; defaults to thread's address or site primary)
+ *   ccEmails?:   string[]
+ *   bccEmails?:  string[]
  */
 export async function POST(
   request: NextRequest,
@@ -22,72 +41,138 @@ export async function POST(
   }
 
   const { id } = await params;
-  const { replyText, siteId } = await request.json();
+  const body = await request.json();
+  const { replyText, replyHtml, siteId, addressId, ccEmails = [], bccEmails = [] } = body as {
+    replyText?: string;
+    replyHtml?: string;
+    siteId?: string;
+    addressId?: string;
+    ccEmails?: string[];
+    bccEmails?: string[];
+  };
 
-  if (!replyText?.trim()) {
-    return NextResponse.json({ error: 'replyText is required' }, { status: 400 });
-  }
-  if (!siteId) {
-    return NextResponse.json({ error: 'siteId is required' }, { status: 400 });
+  if (!siteId) return NextResponse.json({ error: 'siteId is required' }, { status: 400 });
+  if (!replyText?.trim() && !replyHtml?.trim()) {
+    return NextResponse.json({ error: 'reply body is required' }, { status: 400 });
   }
 
-  // Verify ownership via auth client using siteId from the request
-  // (same pattern as the working inbox route — auth client + siteId from URL)
   const { data: site } = await supabase
     .from('sites')
-    .select('site_slug, user_id, design_data, published_domain, inbox_custom_email')
+    .select('site_slug, user_id, published_domain')
     .eq('id', siteId)
     .single();
-
   if (!site || site.user_id !== user.id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const db = createAdminClient();
 
-  // Fetch submission via admin client (bypasses RLS on contact_submissions)
-  // Cross-check that it belongs to the verified site
-  const { data: submission, error: fetchErr } = await db
+  const { data: parent, error: fetchErr } = await db
     .from('contact_submissions')
     .select('*')
     .eq('id', id)
     .eq('site_id', siteId)
     .single();
-
-  if (fetchErr || !submission) {
+  if (fetchErr || !parent) {
     return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
   }
 
-  const businessName = site?.site_slug || 'Our Business';
+  // Resolve the From address — explicit addressId, then thread's address, then primary.
+  const addresses = await listSiteInboxAddresses(db, siteId);
+  let address: SiteInboxAddress | null = null;
+  if (addressId) address = addresses.find(a => a.id === addressId) ?? null;
+  if (!address && parent.inbox_address_id) address = addresses.find(a => a.id === parent.inbox_address_id) ?? null;
+  if (!address) address = resolvePrimaryAddress(addresses);
 
-  const result = await sendContactReplyEmail({
-    toEmail: submission.sender_email,
-    toName: submission.sender_name,
-    fromAddress: 'contact@keystoneweb.ca',
-    fromName: businessName,
-    replyText: replyText.trim(),
-    originalMessage: submission.message,
-    submissionId: id,
-    // Prefer custom domain inbox email for reply-to so customer replies come back to the right address
-    replyToAddress: site.inbox_custom_email
-      ? site.inbox_custom_email
-      : site.published_domain
-        ? `${site.published_domain}@kswd.ca`
-        : undefined,
+  const businessName = site.site_slug || 'Our Business';
+  const { from, replyTo } = buildSendFrom(address, businessName);
+
+  // Process inline images (if any) — uploads pasted data: URIs, returns sanitized HTML
+  let processedHtml = replyHtml ?? '';
+  if (processedHtml) {
+    try {
+      processedHtml = await uploadInlineImagesInHtml(processedHtml, {
+        siteId,
+        userId: user.id,
+        supabase,
+      });
+    } catch (err) {
+      if (err instanceof InlineImageError) {
+        return NextResponse.json({ error: err.message }, { status: err.status });
+      }
+      throw err;
+    }
+    processedHtml = sanitizeEmailHtml(processedHtml);
+  }
+
+  const finalText = replyText?.trim() || htmlToPlainText(processedHtml);
+  const finalHtml = processedHtml || `<p>${(replyText ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`;
+
+  // Build threading headers
+  const parentMessageId = normalizeMessageId(parent.message_id_header);
+  const referencesHeader = buildReferencesHeader(parent.references_header, parentMessageId);
+  const subject = parent.subject
+    ? (parent.subject.match(/^re:/i) ? parent.subject : `Re: ${parent.subject}`)
+    : `Re: Your message to ${businessName}`;
+
+  // Pre-allocate a row id so we can use it as our deterministic Message-ID
+  const newRowId = crypto.randomUUID();
+  const ourMessageId = buildMessageId(newRowId);
+
+  const headers: Record<string, string> = { 'Message-ID': ourMessageId };
+  if (parentMessageId) headers['In-Reply-To'] = parentMessageId;
+  if (referencesHeader) headers['References'] = referencesHeader;
+
+  const result = await sendComposedEmail({
+    from,
+    replyTo,
+    to: [parent.sender_email],
+    cc: ccEmails,
+    bcc: bccEmails,
+    subject,
+    html: finalHtml,
+    plainText: finalText,
+    headers,
   });
 
   if (!result.success) {
-    console.error('[contact/reply] Failed to send:', result.error);
     return NextResponse.json({ error: 'Failed to send reply' }, { status: 500 });
   }
 
-  // Update submission record
+  // Insert the outbound message row
+  await db.from('contact_submissions').insert({
+    id: newRowId,
+    site_id: siteId,
+    thread_id: parent.thread_id,
+    direction: 'outbound',
+    sender_name: businessName,
+    sender_email: address?.address ?? 'contact@keystoneweb.ca',
+    message: finalText,
+    body_html: finalHtml,
+    subject,
+    status: 'replied',
+    source_type: 'reply',
+    inbox_address_id: address?.id ?? null,
+    from_email: address?.address ?? 'contact@keystoneweb.ca',
+    from_name: businessName,
+    to_emails: [parent.sender_email],
+    cc_emails: ccEmails,
+    bcc_emails: bccEmails,
+    message_id_header: ourMessageId,
+    in_reply_to: parentMessageId,
+    references_header: referencesHeader,
+    is_read: true,
+    reply_resend_id: result.messageId,
+  });
+
+  // Update the parent row + any other inbound rows in this thread to "replied"
   await db.from('contact_submissions').update({
     status: 'replied',
-    admin_reply: replyText.trim(),
+    admin_reply: finalText,
     admin_reply_at: new Date().toISOString(),
-    reply_resend_id: (result as any).messageId ?? null,
-  }).eq('id', id);
+    reply_resend_id: result.messageId,
+    is_read: true,
+  }).eq('thread_id', parent.thread_id).eq('direction', 'inbound');
 
   return NextResponse.json({ success: true });
 }

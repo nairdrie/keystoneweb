@@ -14,34 +14,43 @@ import { getPlanByName, PLANS } from './plans';
 
 // ── Add-on type catalogue ────────────────────────────────────────────────────
 
-export type AddonType = 'extra_sites' | 'extra_domains' | 'extra_storage' | 'extra_ai' | 'white_label';
+export type AddonType =
+  | 'extra_sites'
+  | 'extra_domains'
+  | 'extra_storage'
+  | 'extra_ai'
+  | 'white_label'
+  | 'extra_inbox_email';
 
 export const ADDON_TYPES: Record<AddonType, { label: string; unit: string; perUnit: number }> = {
-  extra_sites:   { label: 'Extra Published Sites', unit: 'site',      perUnit: 1 },
-  extra_domains: { label: 'Extra Custom Domains',  unit: 'domain',    perUnit: 1 },
-  extra_storage: { label: 'Extra Storage',         unit: '5 GB block', perUnit: 5120 }, // MB
-  extra_ai:      { label: 'Extra AI Prompts',      unit: 'tier',      perUnit: 1 },    // doubles limits per tier
-  white_label:   { label: 'White-Label Branding',  unit: 'flat',      perUnit: 1 },
+  extra_sites:       { label: 'Extra Published Sites',  unit: 'site',       perUnit: 1 },
+  extra_domains:     { label: 'Extra Custom Domains',   unit: 'domain',     perUnit: 1 },
+  extra_storage:     { label: 'Extra Storage',          unit: '5 GB block', perUnit: 5120 }, // MB
+  extra_ai:          { label: 'Extra AI Prompts',       unit: 'tier',       perUnit: 1 },    // doubles limits per tier
+  white_label:       { label: 'White-Label Branding',   unit: 'flat',       perUnit: 1 },
+  extra_inbox_email: { label: 'Extra Inbox Email',      unit: 'address',    perUnit: 1 },
 };
 
 // ── Default pricing (admin can override per user) ────────────────────────────
 
 export const ADDON_PRICES: Record<AddonType, { monthly: number; yearly: number }> = {
-  extra_sites:   { monthly: 5, yearly: 3 },
-  extra_domains: { monthly: 30, yearly: 18 },
-  extra_storage: { monthly: 10, yearly: 6 },
-  extra_ai:      { monthly: 10, yearly: 6 },
-  white_label:   { monthly: 25, yearly: 15 },
+  extra_sites:       { monthly: 5,  yearly: 3 },
+  extra_domains:     { monthly: 30, yearly: 18 },
+  extra_storage:     { monthly: 10, yearly: 6 },
+  extra_ai:          { monthly: 10, yearly: 6 },
+  white_label:       { monthly: 25, yearly: 15 },
+  extra_inbox_email: { monthly: 5,  yearly: 3 },
 };
 
 // ── Stripe Price IDs (env vars) — shared prices for standard pricing ─────────
 
 export const ADDON_STRIPE_PRICES: Record<AddonType, { monthly: string; yearly: string }> = {
-  extra_sites:   { monthly: process.env.STRIPE_ADDON_SITES_MONTHLY   || '', yearly: process.env.STRIPE_ADDON_SITES_YEARLY   || '' },
-  extra_domains: { monthly: process.env.STRIPE_ADDON_DOMAINS_MONTHLY || '', yearly: process.env.STRIPE_ADDON_DOMAINS_YEARLY || '' },
-  extra_storage: { monthly: process.env.STRIPE_ADDON_STORAGE_MONTHLY || '', yearly: process.env.STRIPE_ADDON_STORAGE_YEARLY || '' },
-  extra_ai:      { monthly: process.env.STRIPE_ADDON_AI_MONTHLY      || '', yearly: process.env.STRIPE_ADDON_AI_YEARLY      || '' },
-  white_label:   { monthly: process.env.STRIPE_ADDON_WHITELABEL_MONTHLY || '', yearly: process.env.STRIPE_ADDON_WHITELABEL_YEARLY || '' },
+  extra_sites:       { monthly: process.env.STRIPE_ADDON_SITES_MONTHLY      || '', yearly: process.env.STRIPE_ADDON_SITES_YEARLY      || '' },
+  extra_domains:     { monthly: process.env.STRIPE_ADDON_DOMAINS_MONTHLY    || '', yearly: process.env.STRIPE_ADDON_DOMAINS_YEARLY    || '' },
+  extra_storage:     { monthly: process.env.STRIPE_ADDON_STORAGE_MONTHLY    || '', yearly: process.env.STRIPE_ADDON_STORAGE_YEARLY    || '' },
+  extra_ai:          { monthly: process.env.STRIPE_ADDON_AI_MONTHLY         || '', yearly: process.env.STRIPE_ADDON_AI_YEARLY         || '' },
+  white_label:       { monthly: process.env.STRIPE_ADDON_WHITELABEL_MONTHLY || '', yearly: process.env.STRIPE_ADDON_WHITELABEL_YEARLY || '' },
+  extra_inbox_email: { monthly: process.env.STRIPE_ADDON_INBOX_EMAIL_MONTHLY || '', yearly: process.env.STRIPE_ADDON_INBOX_EMAIL_YEARLY || '' },
 };
 
 // ── DB row shape (matches user_addons table) ─────────────────────────────────
@@ -73,6 +82,12 @@ export interface EffectiveLimits {
   storageLimitMb: number;
   aiMultiplier: number;
   whiteLabel: boolean;
+  /**
+   * Total custom-domain inbox addresses allowed across all sites for this user.
+   * Pro plan grants 1; each `extra_inbox_email` addon unit grants one more.
+   * The kswd subdomain address per published site is always free and not counted.
+   */
+  extraInboxEmails: number;
 }
 
 /**
@@ -110,10 +125,11 @@ export async function getUserEffectiveLimits(
 
   // 3. Merge
   return {
-    publishLimit:     planPublishLimit + (addonMap.get('extra_sites') ?? 0),
+    publishLimit:      planPublishLimit + (addonMap.get('extra_sites') ?? 0),
     customDomainLimit: 1 + (addonMap.get('extra_domains') ?? 0),
-    storageLimitMb:   planStorageMb + (addonMap.get('extra_storage') ?? 0) * ADDON_TYPES.extra_storage.perUnit,
-    aiMultiplier:     1 + (addonMap.get('extra_ai') ?? 0),
-    whiteLabel:       (addonMap.get('white_label') ?? 0) > 0,
+    storageLimitMb:    planStorageMb + (addonMap.get('extra_storage') ?? 0) * ADDON_TYPES.extra_storage.perUnit,
+    aiMultiplier:      1 + (addonMap.get('extra_ai') ?? 0),
+    whiteLabel:        (addonMap.get('white_label') ?? 0) > 0,
+    extraInboxEmails:  addonMap.get('extra_inbox_email') ?? 0,
   };
 }

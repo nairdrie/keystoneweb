@@ -37,7 +37,7 @@ const ALL_TABS: TabDef[] = [
   { id: 'analytics', label: 'Analytics', icon: BarChart3, path: '/admin/analytics', core: true },
   { id: 'seo',       label: 'SEO',       icon: Globe,     path: '/admin/seo',       core: true },
   { id: 'domains',   label: 'Domains',   icon: Link2,     path: '/admin/domains',   core: true },
-  { id: 'inbox',     label: 'Inbox',     icon: Mail,      path: '/admin/inbox',     core: true },
+  { id: 'inbox',     label: 'Email',     icon: Mail,      path: '/admin/inbox',     core: true },
   // Optional — shown when site has the matching block, or when "show all" is on
   { id: 'booking',   label: 'Booking',   icon: Calendar,  path: '/admin/booking',   requiresBlock: 'booking' },
   { id: 'ecommerce', label: 'Ecommerce', icon: ShoppingBag, path: '/admin/ecommerce', requiresBlock: 'productGrid' },
@@ -158,9 +158,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       description: 'Manage your custom domain, check DNS status, and configure domain settings for this site.',
     },
     {
-      icon: <MessageSquare className="w-7 h-7" />,
-      title: 'Inbox',
-      description: 'Read and reply to messages sent through your site\'s contact form.',
+      icon: <Mail className="w-7 h-7" />,
+      title: 'Email',
+      description: 'A full email client for your site — read, reply, compose, and manage AI drafts in one place.',
     },
   ];
 
