@@ -63,3 +63,29 @@ export function normalizeSubject(subject: string | null | undefined): string {
     .trim()
     .toLowerCase();
 }
+
+// ─── Owner reply-by-email addresses ──────────────────────────────────────────
+// The notification email we send to the site owner sets Reply-To to a special
+// address `reply+<threadId>@kswd.ca`. When the owner hits Reply in their
+// regular email client, the inbound webhook decodes the threadId and
+// forwards their response as an outbound reply to the customer in the
+// matching Keystone thread.
+
+const REPLY_DOMAIN = 'kswd.ca';
+const REPLY_PREFIX = 'reply+';
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function buildOwnerReplyAddress(threadId: string): string {
+  return `${REPLY_PREFIX}${threadId.toLowerCase()}@${REPLY_DOMAIN}`;
+}
+
+/** Returns the threadId if the address is an owner-reply address, else null. */
+export function parseOwnerReplyAddress(address: string | null | undefined): string | null {
+  if (!address) return null;
+  const lower = address.toLowerCase().trim();
+  if (!lower.endsWith(`@${REPLY_DOMAIN}`)) return null;
+  const local = lower.slice(0, -1 - REPLY_DOMAIN.length);
+  if (!local.startsWith(REPLY_PREFIX)) return null;
+  const candidate = local.slice(REPLY_PREFIX.length);
+  return UUID_RE.test(candidate) ? candidate : null;
+}

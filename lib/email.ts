@@ -1,5 +1,6 @@
 import { buildMemberEmailHtml, type EmailBranding } from '@/lib/membership/email-template';
 import { resend } from '@/lib/email/resend';
+import { buildOwnerReplyAddress } from '@/lib/email/threading';
 
 interface BookingEmailData {
     serviceName: string;
@@ -988,10 +989,19 @@ export async function sendContactFormNotification(data: ContactEmailData, ownerE
         .replace(/>/g, '&gt;')
         .replace(/\n/g, '<br>');
 
+    // Build the per-thread reply address so the owner can hit Reply in their
+    // own email client and have it delivered straight back to the customer.
+    // submissionId is the threadId at this call site (set by the inbound webhook
+    // and the public contact form route).
+    const replyToAddress = data.submissionId
+        ? buildOwnerReplyAddress(data.submissionId)
+        : undefined;
+
     try {
         await resend.emails.send({
             from: 'Keystone Web Design <contact@keystoneweb.ca>',
             to: ownerEmail,
+            replyTo: replyToAddress,
             subject: data.sourceType === 'estimate_form' ? `New Estimate Request — ${data.siteName}` : `New Message — ${data.siteName}`,
             html: `
                 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px 0;">
@@ -1042,12 +1052,21 @@ export async function sendContactFormNotification(data: ContactEmailData, ownerE
                         ${data.customerPhone ? `<p style="margin: 2px 0; font-size: 14px; color: #111827;">📱 <a href="tel:${data.customerPhone}" style="color: #0284c7;">${data.customerPhone}</a></p>` : ''}
                     </div>
 
+                    ${replyToAddress ? `
+                    <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; text-align: center;">
+                        <p style="margin: 0; font-size: 14px; color: #374151; line-height: 1.5;">
+                            <strong>Reply to this email</strong> to respond directly to <strong>${data.customerName}</strong>.
+                        </p>
+                        <p style="margin: 4px 0 0; font-size: 12px; color: #9ca3af;">Your reply will be delivered to ${data.customerEmail} and threaded in Keystone.</p>
+                    </div>
+                    ` : ''}
+
                     ${replyLink ? `
                     <div style="text-align: center; margin-bottom: 24px;">
                         <a href="${replyLink}" style="display: inline-block; background: #111827; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 28px; border-radius: 8px;">
-                            Reply in Keystone
+                            Open in Keystone
                         </a>
-                        <p style="margin: 8px 0 0; font-size: 12px; color: #9ca3af;">Open this message in your Keystone email inbox</p>
+                        <p style="margin: 8px 0 0; font-size: 12px; color: #9ca3af;">View the full conversation, AI analysis, and reply with rich formatting</p>
                     </div>
                     ` : ''}
 

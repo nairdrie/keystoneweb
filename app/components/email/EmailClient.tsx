@@ -6,6 +6,7 @@ import {
   Mail, Inbox as InboxIcon, AlertCircle, Send, Trash2,
   Sparkles, Bot, User, Loader2, Plus, Settings,
   ShieldAlert, RefreshCw, ArrowLeft, ChevronDown,
+  CornerUpLeft, MailMinus,
 } from 'lucide-react';
 import { useAdminContext } from '@/app/(app)/admin/admin-context';
 import EmailBody from './EmailBody';
@@ -297,6 +298,44 @@ export default function EmailClient() {
     refreshInboxUnread();
   }
 
+  async function handleMarkUnread(threadId: string) {
+    if (!siteId) return;
+    // Mark the most recent inbound message as unread so the thread shows
+    // up with a "New" pill in the list again.
+    const inbound = activeMessages?.filter(m => m.thread_id === threadId && m.direction === 'inbound') ?? [];
+    const target = inbound[inbound.length - 1];
+    if (!target) return;
+    await fetch(`/api/contact/${target.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ is_read: false }),
+    });
+    closeThread();
+    fetchThreads();
+    refreshInboxUnread();
+  }
+
+  async function handleNotSpam(threadId: string) {
+    if (!siteId) return;
+    // Restore each inbound message in the thread to a sensible non-spam status:
+    // if it has an AI draft, send it back to Needs Review, otherwise New.
+    const targetMessages = activeMessages?.filter(m => m.thread_id === threadId && m.direction === 'inbound') ?? [];
+    await Promise.all(targetMessages.map(m => {
+      const nextStatus = m.ai_draft_reply ? 'needs_review' : 'new';
+      return fetch(`/api/contact/${m.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ status: nextStatus, is_read: false }),
+      });
+    }));
+    closeThread();
+    setFolder('inbox');
+    fetchThreads();
+    refreshInboxUnread();
+  }
+
   async function handleDeleteThread(threadId: string) {
     if (!siteId) return;
     if (!window.confirm('Delete this conversation? This cannot be undone.')) return;
@@ -327,6 +366,7 @@ export default function EmailClient() {
   const activeAddress = addresses.find(a => a.id === addressId);
   const lastInbound = activeMessages ? [...activeMessages].reverse().find(m => m.direction === 'inbound') : null;
   const canReply = !!lastInbound && (lastInbound.status !== 'spam');
+  const hasInboundSpam = !!activeMessages?.some(m => m.direction === 'inbound' && m.status === 'spam');
 
   return (
     <div className="h-full flex flex-col bg-slate-50">
@@ -487,32 +527,77 @@ export default function EmailClient() {
               {threads.map(t => {
                 const isActive = t.threadId === activeThreadId;
                 const isUnread = t.hasInboundUnread;
+                const isReplied = t.hasOutbound && !isUnread;
+                const isSpam = t.hasSpam;
                 return (
-                  <li key={t.threadId}>
+                  <li key={t.threadId} className="relative">
+                    {/* Left accent bar — solid red for unread, transparent otherwise */}
+                    <span
+                      aria-hidden
+                      className={`absolute inset-y-0 left-0 w-1 ${
+                        isActive ? 'bg-red-500' : isUnread ? 'bg-red-500' : 'bg-transparent'
+                      }`}
+                    />
                     <button
                       onClick={() => openThread(t.threadId)}
-                      className={`w-full text-left px-4 py-3 transition-colors ${
-                        isActive ? 'bg-red-50' : isUnread ? 'bg-white hover:bg-slate-50' : 'bg-white hover:bg-slate-50'
-                      }`}
+                      className={`relative w-full text-left pl-5 pr-4 py-3 transition-colors ${
+                        isActive ? 'bg-red-50' : 'bg-white hover:bg-slate-50'
+                      } ${isSpam ? 'opacity-70' : ''}`}
                     >
                       <div className="flex items-baseline gap-2 mb-1">
-                        <span className={`text-sm truncate ${isUnread ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`}>
+                        {/* Unread dot for extra hierarchy when there's no active row */}
+                        {isUnread && !isActive && (
+                          <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 -ml-2.5 mr-0.5" />
+                        )}
+                        <span
+                          className={`text-sm truncate ${
+                            isUnread ? 'font-extrabold text-slate-900' : 'font-medium text-slate-500'
+                          }`}
+                        >
                           {t.participantName || t.participantEmails[0] || 'Unknown'}
                         </span>
                         {t.messageCount > 1 && (
                           <span className="text-[11px] text-slate-400">({t.messageCount})</span>
                         )}
-                        {t.hasNeedsReview && (
-                          <span className="text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded-full font-bold">Draft</span>
-                        )}
-                        <time className="ml-auto shrink-0 text-[11px] text-slate-400">
+                        {/* Status pills — at most one shown, in priority order */}
+                        {isUnread ? (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-red-50 text-red-700 rounded-full font-bold uppercase tracking-wide">
+                            New
+                          </span>
+                        ) : t.hasNeedsReview ? (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded-full font-bold uppercase tracking-wide">
+                            Draft
+                          </span>
+                        ) : isReplied ? (
+                          <span className="text-[10px] inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-semibold">
+                            <CornerUpLeft className="w-2.5 h-2.5" />
+                            Replied
+                          </span>
+                        ) : isSpam ? (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-full font-bold uppercase tracking-wide">
+                            Spam
+                          </span>
+                        ) : null}
+                        <time
+                          className={`ml-auto shrink-0 text-[11px] ${
+                            isUnread ? 'text-slate-700 font-semibold' : 'text-slate-400'
+                          }`}
+                        >
                           {new Date(t.lastMessageAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
                         </time>
                       </div>
-                      <p className={`text-xs truncate mb-0.5 ${isUnread ? 'font-semibold text-slate-800' : 'text-slate-700'}`}>
+                      <p
+                        className={`text-xs truncate mb-0.5 ${
+                          isUnread ? 'font-bold text-slate-900' : 'text-slate-500'
+                        }`}
+                      >
                         {t.subject || '(no subject)'}
                       </p>
-                      <p className="text-xs text-slate-500 truncate">
+                      <p
+                        className={`text-xs truncate ${
+                          isUnread ? 'text-slate-700' : 'text-slate-400'
+                        }`}
+                      >
                         {t.aiSummary || t.snippet || ''}
                       </p>
                     </button>
@@ -557,15 +642,35 @@ export default function EmailClient() {
                     {activeMessages.length} message{activeMessages.length !== 1 ? 's' : ''} · {activeThread?.participantEmails?.join(', ')}
                   </p>
                 </div>
-                {canReply && (
+                {hasInboundSpam ? (
+                  <button
+                    onClick={() => handleNotSpam(activeThreadId)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors"
+                    title="Not spam — move back to Inbox"
+                  >
+                    <InboxIcon className="w-3.5 h-3.5" />
+                    Not spam
+                  </button>
+                ) : (
                   <>
-                    <button
-                      onClick={() => handleMarkSpam(activeThreadId)}
-                      className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                      title="Mark as spam"
-                    >
-                      <ShieldAlert className="w-4 h-4" />
-                    </button>
+                    {lastInbound && (
+                      <button
+                        onClick={() => handleMarkUnread(activeThreadId)}
+                        className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                        title="Mark as unread"
+                      >
+                        <MailMinus className="w-4 h-4" />
+                      </button>
+                    )}
+                    {canReply && (
+                      <button
+                        onClick={() => handleMarkSpam(activeThreadId)}
+                        className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                        title="Mark as spam"
+                      >
+                        <ShieldAlert className="w-4 h-4" />
+                      </button>
+                    )}
                   </>
                 )}
                 <button
