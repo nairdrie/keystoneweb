@@ -6,7 +6,7 @@ import {
   Mail, Inbox as InboxIcon, AlertCircle, Send, Trash2,
   Sparkles, Bot, User, Loader2, Plus, Settings,
   ShieldAlert, RefreshCw, ArrowLeft, ChevronDown,
-  CornerUpLeft, MailMinus,
+  CornerUpLeft, MailMinus, Menu, X,
 } from 'lucide-react';
 import { useAdminContext } from '@/app/(app)/admin/admin-context';
 import EmailBody from './EmailBody';
@@ -102,6 +102,7 @@ export default function EmailClient() {
   const [threadLoading, setThreadLoading] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showFolderDrawer, setShowFolderDrawer] = useState(false);
   const [aiDraftsEnabled, setAiDraftsEnabled] = useState(true);
   const [replyText, setReplyText] = useState('');
   const [replyHtml, setReplyHtml] = useState('');
@@ -165,6 +166,13 @@ export default function EmailClient() {
   }, [siteId, folder, addressId]);
 
   useEffect(() => { fetchThreads(); }, [fetchThreads]);
+
+  useEffect(() => {
+    if (!showFolderDrawer) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowFolderDrawer(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showFolderDrawer]);
 
   // After threads load and we have a deep-linked messageId from a notification,
   // open it once. New notifications send thread_id directly; legacy redirects
@@ -398,6 +406,15 @@ export default function EmailClient() {
       {/* Address tabs row + actions */}
       <div className="flex-none flex items-center gap-2 px-3 sm:px-4 py-2 bg-white border-b border-slate-200">
         <button
+          onClick={() => setShowFolderDrawer(true)}
+          className="md:hidden p-2 -ml-1 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors shrink-0"
+          aria-label="Open folders"
+          title="Folders"
+        >
+          <Menu className="w-4 h-4" />
+        </button>
+
+        <button
           onClick={() => setShowCompose(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors shrink-0"
         >
@@ -501,34 +518,87 @@ export default function EmailClient() {
           })}
         </aside>
 
-        {/* Mobile folder selector */}
-        <div className="md:hidden flex-none bg-white border-b border-slate-200 px-3 py-2 flex gap-1 overflow-x-auto">
-          {FOLDERS.map(f => {
-            const Icon = f.icon;
-            const isActive = folder === f.id;
-            const unread = f.id === 'inbox'
-              ? (counts.inbox_unread ?? 0)
-              : f.id === 'needs_review'
-                ? (counts.needs_review_unread ?? 0)
-                : 0;
-            return (
+        {/* Mobile folder drawer */}
+        <div
+          className={`md:hidden fixed inset-0 z-40 transition-opacity ${
+            showFolderDrawer ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}
+          aria-hidden={!showFolderDrawer}
+        >
+          <div
+            className="absolute inset-0 bg-slate-900/40"
+            onClick={() => setShowFolderDrawer(false)}
+          />
+          <aside
+            role="dialog"
+            aria-label="Folders"
+            className={`absolute inset-y-0 left-0 w-64 max-w-[80%] bg-white shadow-xl flex flex-col transition-transform duration-200 ease-out ${
+              showFolderDrawer ? 'translate-x-0' : '-translate-x-full'
+            }`}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+              <span className="text-sm font-bold text-slate-900">Folders</span>
               <button
-                key={f.id}
-                onClick={() => { setFolder(f.id); closeThread(); }}
-                className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                  isActive ? 'bg-red-50 text-red-700' : 'text-slate-500 hover:bg-slate-100'
-                }`}
+                onClick={() => setShowFolderDrawer(false)}
+                className="p-1.5 -mr-1 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                aria-label="Close folders"
               >
-                <Icon className="w-3.5 h-3.5" />
-                {f.label}
-                {unread > 0 && (
-                  <span className="ml-0.5 min-w-[16px] h-[16px] flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-black px-1">
-                    {unread > 99 ? '99+' : unread}
-                  </span>
-                )}
+                <X className="w-4 h-4" />
               </button>
-            );
-          })}
+            </div>
+            <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
+              {FOLDERS.map(f => {
+                const Icon = f.icon;
+                const count = (counts[f.id] ?? 0) as number;
+                const unread = f.id === 'inbox'
+                  ? (counts.inbox_unread ?? 0)
+                  : f.id === 'needs_review'
+                    ? (counts.needs_review_unread ?? 0)
+                    : 0;
+                const isActive = folder === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => {
+                      setFolder(f.id);
+                      closeThread();
+                      setShowFolderDrawer(false);
+                    }}
+                    className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold transition-colors ${
+                      isActive
+                        ? 'bg-red-50 text-red-700'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span className="flex-1 text-left">{f.label}</span>
+                    {unread > 0 ? (
+                      <span className="ml-auto min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-black px-1">
+                        {unread > 99 ? '99+' : unread}
+                      </span>
+                    ) : count > 0 ? (
+                      <span className="ml-auto text-[11px] text-slate-400 font-semibold">{count}</span>
+                    ) : null}
+                  </button>
+                );
+              })}
+
+              <div className="pt-2 mt-2 border-t border-slate-100">
+                <button
+                  onClick={toggleAiDrafts}
+                  className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold transition-colors ${
+                    aiDraftsEnabled
+                      ? 'bg-violet-50 text-violet-700 hover:bg-violet-100'
+                      : 'text-slate-400 hover:bg-slate-100'
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span className="flex-1 text-left">AI drafts</span>
+                  <span className="text-[11px] font-semibold">{aiDraftsEnabled ? 'On' : 'Off'}</span>
+                </button>
+              </div>
+            </nav>
+          </aside>
         </div>
 
         {/* Thread list pane (hidden on mobile when a thread is open) */}
