@@ -30,6 +30,7 @@ const ADDON_LABELS: Record<string, string> = {
     extra_storage: 'Extra Storage (5 GB)',
     extra_ai: 'Extra AI Prompts',
     white_label: 'White-Label Branding',
+    extra_inbox_email: 'Extra Inbox Email',
 };
 
 interface OwnedDomain {
