@@ -5,6 +5,7 @@ import EditableImage from '../EditableImage';
 import EditableText from '../EditableText';
 import { useEditorContext } from '@/lib/editor-context';
 import { X } from 'lucide-react';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 
 interface GalleryBlockProps {
     id: string;
@@ -17,6 +18,7 @@ interface GalleryBlockProps {
 export default function GalleryBlock({ id, data, isEditMode, palette, updateContent }: GalleryBlockProps) {
     const context = useEditorContext();
     const pPrimary = palette.primary || '#1f2937';
+    const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
 
     const images: string[] = data.images || [];
     const columns = data.columns || 3;
@@ -33,7 +35,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
     };
 
     return (
-        <section className="py-24" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
+        <section className="py-24" style={{ backgroundColor: bgColor }}>
             <div className="max-w-7xl mx-auto px-4">
                 <EditableText
                     as="h2"

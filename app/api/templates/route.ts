@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllTemplateMetadata } from '@/lib/db/template-queries';
+import { getAllTemplateMetadata, type TemplateMetadata } from '@/lib/db/template-queries';
+import {
+  ALL_TEMPLATE_STYLES,
+  getStructuralTemplatesForSelection,
+  getTemplateStyleTag,
+} from '@/lib/templates/structural-templates';
+import { getTemplatePreviewImage } from '@/lib/template-preview-assets';
 
 interface Template {
   id: string;
@@ -24,61 +30,43 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch from database
+    // Fetch from database and append universal structural templates so every
+    // onboarding category can start from a layout-specific option.
     const dbTemplates = await getAllTemplateMetadata({
       category,
       business_type: businessType,
     });
+    const structuralTemplates = getStructuralTemplatesForSelection();
+
+    const mergedById = new Map<string, TemplateMetadata>();
+    for (const template of [...dbTemplates, ...structuralTemplates]) {
+      mergedById.set(template.template_id, template);
+    }
+
+    const styleOrder = new Map<string, number>(ALL_TEMPLATE_STYLES.map((style, index) => [style, index]));
+    const templatesForSelection = Array.from(mergedById.values()).sort((a, b) => {
+      const aStyle = ALL_TEMPLATE_STYLES.find((style) => a.template_id.toLowerCase().includes(style));
+      const bStyle = ALL_TEMPLATE_STYLES.find((style) => b.template_id.toLowerCase().includes(style));
+      return (styleOrder.get(aStyle || '') ?? 999) - (styleOrder.get(bStyle || '') ?? 999);
+    });
 
     // Extract style tag from template_id (e.g. "luxe_salon" → "Luxe")
-    const getStyleTag = (id: string): string => {
-      const styles = ['luxe', 'vivid', 'airy', 'edge', 'classic', 'organic', 'sleek', 'vibrant'];
-      for (const style of styles) {
-        if (id.toLowerCase().includes(style)) {
-          return style.charAt(0).toUpperCase() + style.slice(1);
-        }
-      }
-      // Legacy fallback
-      if (id.includes('bold')) return 'Bold';
-      if (id.includes('elegant')) return 'Elegant';
-      if (id.includes('starter')) return 'Starter';
-      return '';
-    };
-
-    // Map style names to template preview images
-    const STYLE_IMAGES: Record<string, string> = {
-      luxe: '/templates/luxe.png',
-      vivid: '/templates/vivid.png',
-      airy: '/templates/airy.png',
-      edge: '/templates/edge.png',
-      classic: '/templates/classic.png',
-      organic: '/templates/organic.png',
-      sleek: '/templates/sleek.png',
-      vibrant: '/templates/vibrant.png',
-    };
-
-    const getStyleImage = (id: string): string | undefined => {
-      const styles = Object.keys(STYLE_IMAGES);
-      for (const style of styles) {
-        if (id.toLowerCase().includes(style)) {
-          return STYLE_IMAGES[style];
-        }
-      }
-      return undefined;
-    };
+    const getStyleTag = (id: string): string => getTemplateStyleTag(id);
 
     // Convert to TemplatePreview format
-    const templates: Template[] = dbTemplates.map((t) => {
+    const templates: Template[] = templatesForSelection.map((t) => {
       const styleTag = getStyleTag(t.template_id);
       const tags = [styleTag, 'Multi-page'].filter(Boolean);
       if (t.business_type === 'products') tags.push('Shop');
       if (t.business_type === 'services') tags.push('Booking');
+      if (t.business_type === 'portfolio') tags.push('Portfolio');
+      if (t.business_type === 'both') tags.push('Flexible');
       return {
         id: t.template_id,
         name: t.name,
         category: t.category,
         tags,
-        imageUrl: getStyleImage(t.template_id) || t.thumbnail_url || `/templates/luxe.png`,
+        imageUrl: getTemplatePreviewImage(t.template_id) || t.thumbnail_url || `/templates/luxe.png`,
       };
     });
 

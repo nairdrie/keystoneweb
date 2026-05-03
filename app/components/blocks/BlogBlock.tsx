@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useEditorContext } from '@/lib/editor-context';
 import { useLangPrefix, prefixInternalLinks } from '@/lib/hooks/useLangPrefix';
@@ -71,6 +71,22 @@ function BlogViewer({ siteId, data, palette }: {
     const showTags = data.showTags !== false;
     const showExcerpt = data.showExcerpt !== false;
     const postsPerPage = data.postsPerPage || 9;
+    const fallbackPosts: BlogPost[] = useMemo(() => Array.isArray(data.fallbackPosts)
+        ? data.fallbackPosts.map((post: Partial<BlogPost>, index: number) => ({
+            id: post.id || `fallback-${index}`,
+            title: post.title || `Sample post ${index + 1}`,
+            slug: post.slug || `sample-post-${index + 1}`,
+            excerpt: post.excerpt || null,
+            content: post.content || null,
+            cover_image: post.cover_image || null,
+            author: post.author || null,
+            tags: Array.isArray(post.tags) ? post.tags : [],
+            is_published: post.is_published !== false,
+            published_at: post.published_at || null,
+            sort_order: post.sort_order || index,
+            created_at: post.created_at || new Date().toISOString(),
+        }))
+        : [], [data.fallbackPosts]);
     const pPrimary = palette.primary || '#0f172a';
     const pSecondary = palette.secondary || '#dc2626';
 
@@ -80,14 +96,15 @@ function BlogViewer({ siteId, data, palette }: {
                 const res = await fetch(`/api/blog/posts?siteId=${siteId}`);
                 if (!res.ok) throw new Error();
                 const d = await res.json();
-                setPosts((d.posts || []).filter((p: BlogPost) => p.is_published).slice(0, postsPerPage));
+                const publishedPosts = (d.posts || []).filter((p: BlogPost) => p.is_published);
+                setPosts((publishedPosts.length ? publishedPosts : fallbackPosts).slice(0, postsPerPage));
             } catch {
-                // silent
+                setPosts(fallbackPosts.slice(0, postsPerPage));
             } finally {
                 setLoading(false);
             }
         })();
-    }, [siteId, postsPerPage]);
+    }, [siteId, postsPerPage, fallbackPosts]);
 
     if (loading) {
         return (

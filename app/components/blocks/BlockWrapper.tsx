@@ -62,13 +62,34 @@ export default function BlockWrapper(props: BlockWrapperProps) {
 
 function scopeCustomCss(id: string, customCss?: string): string {
     if (!customCss) return '';
+    const blockScope = `[data-block-id="${id}"]`;
+
     return customCss
         .split('}')
         .filter(rule => rule.trim())
         .map(rule => {
             const trimmed = rule.trim();
             if (!trimmed) return '';
-            return `[data-block-id="${id}"] ${trimmed}}`;
+
+            if (trimmed.startsWith('@')) {
+                return `${trimmed}}`;
+            }
+
+            const declarationStart = trimmed.indexOf('{');
+            if (declarationStart === -1) {
+                return `${blockScope} ${trimmed}}`;
+            }
+
+            const selectorText = trimmed.slice(0, declarationStart).trim();
+            const declarations = trimmed.slice(declarationStart + 1).trim();
+            const scopedSelectors = selectorText
+                .split(',')
+                .map(selector => selector.trim())
+                .filter(Boolean)
+                .map(selector => selector.startsWith(blockScope) ? selector : `${blockScope} ${selector}`)
+                .join(', ');
+
+            return `${scopedSelectors} { ${declarations} }`;
         })
         .join('\n');
 }

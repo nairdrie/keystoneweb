@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useLangPrefix } from '@/lib/hooks/useLangPrefix';
 import { getBlockSlug } from '@/lib/block-utils';
 import { getTabClass, getTabStyle, TabStyle, TabAlign } from './tab-bar-styles';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 
 interface TabBarBlockProps {
     id: string;
@@ -27,8 +28,10 @@ export default function TabBarBlock({ id, data, isEditMode, palette, updateConte
     const items: NavItem[] = Array.isArray(data?.items) ? data.items : [];
     const tabStyle: TabStyle = data?.tabStyle || 'underline';
     const tabAlign: TabAlign = data?.tabAlign || 'left';
-    const activeColor: string = data?.activeColor || palette.primary || '#374151';
-    const bgColor: string = data?.bgColor || '';
+    const activeColorSource: string = data?.activeColor || 'palette:primary';
+    const bgColorSource: string = data?.bgColor || '';
+    const activeColor: string = resolvePaletteColor(activeColorSource, palette, palette.primary || '#374151');
+    const bgColor: string = resolvePaletteColor(bgColorSource, palette, '');
 
     const pages = context?.pages || [];
     const blocks = context?.blocks || [];
@@ -74,6 +77,8 @@ export default function TabBarBlock({ id, data, isEditMode, palette, updateConte
                 tabAlign={tabAlign}
                 activeColor={activeColor}
                 bgColor={bgColor}
+                activeColorSource={activeColorSource}
+                bgColorSource={bgColorSource}
                 palette={palette}
                 updateContent={updateContent}
                 resolveHref={resolveHref}

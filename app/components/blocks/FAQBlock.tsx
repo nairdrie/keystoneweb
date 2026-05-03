@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import EditableText from '../EditableText';
 import { ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 
 interface FAQBlockProps {
     id: string;
@@ -14,7 +15,7 @@ interface FAQBlockProps {
 
 export default function FAQBlock({ id, data, isEditMode, palette, updateContent }: FAQBlockProps) {
     const pPrimary = palette.primary || '#1f2937';
-    const pSecondary = palette.secondary || '#dc2626';
+    const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
     const [openIndex, setOpenIndex] = useState<number | null>(0);
 
     const items = data.items || [
@@ -44,7 +45,7 @@ export default function FAQBlock({ id, data, isEditMode, palette, updateContent 
     };
 
     return (
-        <section className="py-24" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
+        <section className="py-24" style={{ backgroundColor: bgColor }}>
             <div className="max-w-3xl mx-auto px-4">
                 <EditableText
                     as="h2"

@@ -7,9 +7,23 @@ import { useAuth } from '@/lib/auth/context';
 import Header from './Header';
 import { Sparkles, Send } from 'lucide-react';
 import SiteLimitModal from './SiteLimitModal';
+import { TEMPLATE_PREVIEW_STYLES } from '@/lib/template-preview-assets';
 
 type BusinessType = 'services' | 'products' | 'portfolio' | 'nonprofit' | 'other' | null;
 type Category = string | null;
+
+interface CategoryOption {
+  id: string;
+  label: string;
+  example?: string;
+  icon: string;
+}
+
+interface UserSiteSummary {
+  id: string;
+  title?: string;
+  siteSlug?: string;
+}
 
 interface TemplatePreview {
   id: string;
@@ -59,7 +73,7 @@ const BUSINESS_TYPES = [
   },
 ];
 
-const CATEGORIES: Record<Exclude<BusinessType, null>, any[]> = {
+const CATEGORIES: Record<Exclude<BusinessType, null>, CategoryOption[]> = {
   services: [
     { id: 'handyman', label: 'Handyman', example: 'General repairs & maintenance', icon: '🔧' },
     { id: 'plumber', label: 'Plumber', example: 'Plumbing & repairs', icon: '🚰' },
@@ -107,6 +121,10 @@ const CATEGORIES: Record<Exclude<BusinessType, null>, any[]> = {
   ],
 };
 
+const TEMPLATE_STYLE_TAGS = TEMPLATE_PREVIEW_STYLES.map((style) =>
+  style.charAt(0).toUpperCase() + style.slice(1)
+);
+
 export default function OnboardingWizard() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -120,7 +138,7 @@ export default function OnboardingWizard() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [totalTemplates, setTotalTemplates] = useState(0);
-  const [userSites, setUserSites] = useState<any[]>([]);
+  const [userSites, setUserSites] = useState<UserSiteSummary[]>([]);
   const [checkingSites, setCheckingSites] = useState(true);
   const [showWelcomeBack, setShowWelcomeBack] = useState(false);
   const [aiPrompt, setAiPrompt] = useState('');
@@ -276,7 +294,7 @@ export default function OnboardingWizard() {
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/templates?businessType=${businessType}&category=${category}&page=${page}&limit=12`
+        `/api/templates?businessType=${businessType}&category=${category}&page=${page}&limit=16`
       );
       const data: TemplatesResponse = await res.json();
 
@@ -391,7 +409,7 @@ export default function OnboardingWizard() {
         credentials: 'include',
         body: JSON.stringify({
           selectedTemplateId: templateId,
-          businessType: (businessType as any) === 'service' ? 'services' : (businessType as any) === 'product' ? 'products' : businessType,
+          businessType: normalizeBusinessType(businessType),
           category,
           userId: user?.id || null,
         }),
@@ -765,7 +783,7 @@ export default function OnboardingWizard() {
                             <h3 className="text-lg font-bold text-slate-900 mb-2">{template.name}</h3>
                             <div className="flex flex-wrap gap-1 mb-4">
                               {template.tags.map(tag => {
-                                const isStyle = ['Luxe', 'Vivid', 'Airy', 'Edge', 'Classic', 'Organic', 'Sleek', 'Vibrant', 'Bold', 'Elegant', 'Starter'].includes(tag);
+                                const isStyle = TEMPLATE_STYLE_TAGS.includes(tag);
                                 return (
                                   <span
                                     key={tag}
@@ -814,4 +832,19 @@ export default function OnboardingWizard() {
       )}
     </div>
   );
+}
+
+function normalizeBusinessType(type: BusinessType | string): BusinessType {
+  if (type === 'service') return 'services';
+  if (type === 'product') return 'products';
+  if (
+    type === 'services' ||
+    type === 'products' ||
+    type === 'portfolio' ||
+    type === 'nonprofit' ||
+    type === 'other'
+  ) {
+    return type;
+  }
+  return null;
 }

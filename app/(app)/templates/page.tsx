@@ -5,16 +5,19 @@ import Image from 'next/image';
 import Link from 'next/link';
 import Header from '../../components/Header';
 import MarketingFooter from '../../components/MarketingFooter';
-import t1 from '../../../assets/templates/1.png';
-import t2 from '../../../assets/templates/2.png';
-import t3 from '../../../assets/templates/3.png';
-import t4 from '../../../assets/templates/4.png';
-import t5 from '../../../assets/templates/5.png';
-import t6 from '../../../assets/templates/6.png';
-import t7 from '../../../assets/templates/7.png';
-import t8 from '../../../assets/templates/8.png';
+import { getTemplatePreviewImage } from '@/lib/template-preview-assets';
 
-const TEMPLATES = [
+type TemplateCard = {
+  id: string;
+  name: string;
+  tagline: string;
+  description: string;
+  bestFor: string[];
+  accent: string;
+  badge: string;
+};
+
+const TEMPLATES: TemplateCard[] = [
   {
     id: 'luxe',
     name: 'Luxe',
@@ -23,7 +26,6 @@ const TEMPLATES = [
     bestFor: ['Salons & Spas', 'Photographers', 'Boutiques', 'Fine Dining'],
     accent: '#c9a96e',
     badge: 'bg-amber-100 text-amber-800',
-    image: t1,
   },
   {
     id: 'vivid',
@@ -33,7 +35,6 @@ const TEMPLATES = [
     bestFor: ['Fitness Studios', 'Food & Drink', 'Creative Agencies', 'Retail'],
     accent: '#f97316',
     badge: 'bg-orange-100 text-orange-800',
-    image: t2,
   },
   {
     id: 'airy',
@@ -43,7 +44,6 @@ const TEMPLATES = [
     bestFor: ['Wellness Coaches', 'Yoga & Pilates', 'Consultants', 'Portfolios'],
     accent: '#38bdf8',
     badge: 'bg-sky-100 text-sky-800',
-    image: t3,
   },
   {
     id: 'edge',
@@ -53,7 +53,6 @@ const TEMPLATES = [
     bestFor: ['Tech & Software', 'Music & Events', 'Automotive', 'Modern Retail'],
     accent: '#a855f7',
     badge: 'bg-purple-100 text-purple-800',
-    image: t4,
   },
   {
     id: 'classic',
@@ -63,7 +62,6 @@ const TEMPLATES = [
     bestFor: ['Trades & Contractors', 'Law & Finance', 'Healthcare', 'Real Estate'],
     accent: '#1e40af',
     badge: 'bg-blue-100 text-blue-800',
-    image: t5,
   },
   {
     id: 'organic',
@@ -73,7 +71,6 @@ const TEMPLATES = [
     bestFor: ['Restaurants & Cafes', 'Home Services', 'Landscaping', 'Health Food'],
     accent: '#65a30d',
     badge: 'bg-lime-100 text-lime-800',
-    image: t6,
   },
   {
     id: 'sleek',
@@ -83,7 +80,6 @@ const TEMPLATES = [
     bestFor: ['Consultants', 'Architects', 'Designers', 'Professional Services'],
     accent: '#0f172a',
     badge: 'bg-slate-100 text-slate-800',
-    image: t7,
   },
   {
     id: 'vibrant',
@@ -93,9 +89,95 @@ const TEMPLATES = [
     bestFor: ['E-Commerce', 'Events & Activities', 'Kids & Family', 'Food Delivery'],
     accent: '#ec4899',
     badge: 'bg-pink-100 text-pink-800',
-    image: t8,
+  },
+  {
+    id: 'atlas',
+    name: 'Atlas',
+    tagline: 'Structured. Metric-led. Professional.',
+    description: 'A B2B layout built around split hero, metrics, advisory lanes, process, and a strong consultation CTA.',
+    bestFor: ['Consultants', 'SaaS', 'Finance', 'Agencies'],
+    accent: '#2f6f73',
+    badge: 'bg-teal-100 text-teal-800',
+  },
+  {
+    id: 'editorial',
+    name: 'Editorial',
+    tagline: 'Magazine. Author-led. Content-first.',
+    description: 'A publication-style structure with masthead hero, featured resources, pull quote, author area, and newsletter CTA.',
+    bestFor: ['Blogs', 'Experts', 'Publications', 'Thought Leadership'],
+    accent: '#b91c1c',
+    badge: 'bg-red-100 text-red-800',
+  },
+  {
+    id: 'booked',
+    name: 'Booked',
+    tagline: 'Appointment-first. Calm. Direct.',
+    description: 'Designed around scheduling, with booking, services, process, testimonial, and repeated booking CTA.',
+    bestFor: ['Clinics', 'Therapists', 'Salons', 'Tutors'],
+    accent: '#0f9f8f',
+    badge: 'bg-emerald-100 text-emerald-800',
+  },
+  {
+    id: 'menu',
+    name: 'Menu',
+    tagline: 'Food-first. Order-ready. Local.',
+    description: 'A restaurant structure centered on menu highlights, category tabs, gallery, delivery links, hours, and location.',
+    bestFor: ['Restaurants', 'Cafes', 'Bakeries', 'Food Trucks'],
+    accent: '#d97706',
+    badge: 'bg-orange-100 text-orange-800',
+  },
+  {
+    id: 'craft',
+    name: 'Craft',
+    tagline: 'Handmade. Warm. Story-rich.',
+    description: 'A maker-focused layout with organic hero treatment, showcase slides, founder story, gallery, and community proof.',
+    bestFor: ['Artisans', 'Makers', 'Local Shops', 'Boutique Products'],
+    accent: '#c46a3a',
+    badge: 'bg-amber-100 text-amber-800',
+  },
+  {
+    id: 'retro',
+    name: 'Retro',
+    tagline: 'Playful. Chunky. Nostalgic.',
+    description: 'A high-personality layout with bold section breaks, tab buttons, sticker-like proof, events, and loud CTAs.',
+    bestFor: ['Creators', 'Pop-ups', 'Events', 'Youth Brands'],
+    accent: '#ff4fd8',
+    badge: 'bg-pink-100 text-pink-800',
+  },
+  {
+    id: 'proof',
+    name: 'Proof',
+    tagline: 'Credibility. Results. Trust.',
+    description: 'A trust-heavy structure with certifications, stats, reviews, guarantees, estimate intake, FAQ, and CTA.',
+    bestFor: ['Contractors', 'Clinics', 'Legal', 'Real Estate'],
+    accent: '#15803d',
+    badge: 'bg-green-100 text-green-800',
+  },
+  {
+    id: 'gallery',
+    name: 'Gallery',
+    tagline: 'Image-heavy. Minimal. Portfolio-led.',
+    description: 'A visual-first portfolio structure with carousel hero, full-width image, dense gallery, project spotlights, and inquiry CTA.',
+    bestFor: ['Photographers', 'Designers', 'Artists', 'Studios'],
+    accent: '#111111',
+    badge: 'bg-zinc-100 text-zinc-800',
   },
 ];
+
+const SORTED_TEMPLATES = [...TEMPLATES].sort((a, b) => a.name.localeCompare(b.name));
+
+function TemplateVisual({ template }: { template: TemplateCard }) {
+  return (
+    <Image
+      src={getTemplatePreviewImage(template.id) || '/templates/luxe.png'}
+      alt={`${template.name} template preview`}
+      fill
+      className="object-cover object-top"
+      sizes="(max-width: 768px) 100vw, 50vw"
+      priority={template.id === 'luxe' || template.id === 'vivid'}
+    />
+  );
+}
 
 export default function TemplatesPage() {
   return (
@@ -111,7 +193,7 @@ export default function TemplatesPage() {
             transition={{ duration: 0.5 }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 text-slate-700 font-bold text-sm mb-6 border border-slate-200"
           >
-            8 Premium Designs
+            16 Premium Designs
           </motion.div>
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
@@ -128,8 +210,8 @@ export default function TemplatesPage() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-lg text-slate-600 max-w-2xl mx-auto"
           >
-            Eight distinct design personalities. Each one fully customizable with your colors, content,
-            and brand. Pick your starting point — the AI handles the rest.
+            Sixteen distinct starting points. Each one fully customizable with your colors, content,
+            and brand. Pick your starting point - the AI handles the rest.
           </motion.p>
         </div>
       </section>
@@ -137,7 +219,7 @@ export default function TemplatesPage() {
       {/* Templates Grid */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-slate-50">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-10">
-          {TEMPLATES.map((template, i) => (
+          {SORTED_TEMPLATES.map((template, i) => (
             <motion.div
               key={template.id}
               initial={{ opacity: 0, y: 24 }}
@@ -146,15 +228,9 @@ export default function TemplatesPage() {
               transition={{ duration: 0.5, delay: (i % 2) * 0.1 }}
               className="group bg-white rounded-3xl border border-slate-200 overflow-hidden hover:border-red-300 hover:shadow-2xl transition-all duration-300"
             >
-              {/* Screenshot */}
+              {/* Template preview */}
               <div className="relative aspect-video overflow-hidden">
-                <Image
-                  src={template.image}
-                  alt={`${template.name} template preview`}
-                  fill
-                  className="object-cover object-top"
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                />
+                <TemplateVisual template={template} />
                 {/* Hover overlay */}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
                   <Link

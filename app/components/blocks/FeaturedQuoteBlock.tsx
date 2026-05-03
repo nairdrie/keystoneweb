@@ -6,6 +6,7 @@ import EditableImage from '../EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
 import Reveal from '@/app/components/Reveal';
 import { Plus, X } from 'lucide-react';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 
 interface FeaturedQuoteBlockProps {
     id: string;
@@ -22,7 +23,7 @@ export default function FeaturedQuoteBlock({ id, data, isEditMode, palette, upda
     const pAccent = palette.accent || '#f3f4f6';
 
     const variant = data.variant || 'centered';
-    const bgColor = data.backgroundColor || pAccent;
+    const bgColor = resolvePaletteColor(data.backgroundColor, palette, pAccent);
 
     if (variant === 'multiGrid') {
         return (

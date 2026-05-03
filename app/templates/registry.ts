@@ -1,72 +1,98 @@
 /**
  * Template Registry
  *
- * Maps templateId → master template component.
- * 8 master templates: luxe, vivid, airy, edge, classic, organic, sleek, vibrant
- * Template ID format: {style}_{category} (e.g., "luxe_salon", "edge_mechanic")
+ * Maps templateId to a master template component.
+ * Template ID format: {style}_{category} (for example, "luxe_salon").
  *
- * Also handles legacy formats (bold → classic, elegant → sleek, starter → airy)
+ * The structural styles reuse the closest master shell; their block data,
+ * section order, and scoped block CSS provide the visual differentiation.
  */
 
-export async function getTemplateComponent(
-  templateId: string
-): Promise<React.ComponentType<any> | null> {
+interface TemplateShellProps {
+  palette: Record<string, string>;
+  isEditMode: boolean;
+  children?: React.ReactNode;
+}
+
+type TemplateComponent = React.ComponentType<TemplateShellProps>;
+
+export async function getTemplateComponent(templateId: string): Promise<TemplateComponent | null> {
   try {
     const n = templateId.toLowerCase().replace(/-/g, '_');
 
-    // Luxe — sophisticated, centered logo, serif, warm/gold accents
     if (n.includes('luxe')) {
-      const module = await import('./master/LuxeTemplate');
-      return module.LuxeTemplate;
+      const templateModule = await import('./master/LuxeTemplate');
+      return templateModule.LuxeTemplate;
     }
-    // Vivid — bold, colorful, energetic, chunky sans-serif
     if (n.includes('vivid')) {
-      const module = await import('./master/VividTemplate');
-      return module.VividTemplate;
+      const templateModule = await import('./master/VividTemplate');
+      return templateModule.VividTemplate;
     }
-    // Airy — light, spacious, floating nav, rounded elements
     if (n.includes('airy')) {
-      const module = await import('./master/AiryTemplate');
-      return module.AiryTemplate;
+      const templateModule = await import('./master/AiryTemplate');
+      return templateModule.AiryTemplate;
     }
-    // Edge — dark, tech-forward, angular, neon accents
     if (n.includes('edge')) {
-      const module = await import('./master/EdgeTemplate');
-      return module.EdgeTemplate;
+      const templateModule = await import('./master/EdgeTemplate');
+      return templateModule.EdgeTemplate;
     }
-    // Classic — traditional, utility bar + nav, structured, trustworthy
     if (n.includes('classic')) {
-      const module = await import('./master/ClassicTemplate');
-      return module.ClassicTemplate;
+      const templateModule = await import('./master/ClassicTemplate');
+      return templateModule.ClassicTemplate;
     }
-    // Organic — warm, natural, rounded shapes, earthy tones
     if (n.includes('organic')) {
-      const module = await import('./master/OrganicTemplate');
-      return module.OrganicTemplate;
+      const templateModule = await import('./master/OrganicTemplate');
+      return templateModule.OrganicTemplate;
     }
-    // Sleek — ultra-minimal, bold typography, monochrome + accent
     if (n.includes('sleek')) {
-      const module = await import('./master/SleekTemplate');
-      return module.SleekTemplate;
+      const templateModule = await import('./master/SleekTemplate');
+      return templateModule.SleekTemplate;
     }
-    // Vibrant — playful, gradient header, rounded elements, dynamic
     if (n.includes('vibrant')) {
-      const module = await import('./master/VibrantTemplate');
-      return module.VibrantTemplate;
+      const templateModule = await import('./master/VibrantTemplate');
+      return templateModule.VibrantTemplate;
     }
 
-    // Legacy fallbacks
+    if (n.includes('atlas')) {
+      const templateModule = await import('./master/SleekTemplate');
+      return templateModule.SleekTemplate;
+    }
+    if (n.includes('editorial')) {
+      const templateModule = await import('./master/LuxeTemplate');
+      return templateModule.LuxeTemplate;
+    }
+    if (n.includes('booked')) {
+      const templateModule = await import('./master/AiryTemplate');
+      return templateModule.AiryTemplate;
+    }
+    if (n.includes('menu') || n.includes('craft')) {
+      const templateModule = await import('./master/OrganicTemplate');
+      return templateModule.OrganicTemplate;
+    }
+    if (n.includes('retro')) {
+      const templateModule = await import('./master/VibrantTemplate');
+      return templateModule.VibrantTemplate;
+    }
+    if (n.includes('proof')) {
+      const templateModule = await import('./master/ClassicTemplate');
+      return templateModule.ClassicTemplate;
+    }
+    if (n.includes('gallery')) {
+      const templateModule = await import('./master/SleekTemplate');
+      return templateModule.SleekTemplate;
+    }
+
     if (n.includes('bold') || n.includes('pro')) {
-      const module = await import('./master/ClassicProTemplate');
-      return module.BoldTemplate;
+      const templateModule = await import('./master/ClassicProTemplate');
+      return templateModule.BoldTemplate;
     }
     if (n.includes('elegant') || n.includes('modern') || n.includes('blue')) {
-      const module = await import('./master/ModernBlueTemplate');
-      return module.ModernBlueTemplate;
+      const templateModule = await import('./master/ModernBlueTemplate');
+      return templateModule.ModernBlueTemplate;
     }
     if (n.includes('starter') || n.includes('minimal') || n.includes('white') || n.includes('clean')) {
-      const module = await import('./master/MinimalWhiteTemplate');
-      return module.MinimalWhiteTemplate;
+      const templateModule = await import('./master/MinimalWhiteTemplate');
+      return templateModule.MinimalWhiteTemplate;
     }
 
     console.warn(`Template style not recognized for: ${templateId}`);
@@ -82,7 +108,8 @@ export function isTemplateRegistered(templateId: string): boolean {
   return (
     n.includes('luxe') || n.includes('vivid') || n.includes('airy') || n.includes('edge') ||
     n.includes('classic') || n.includes('organic') || n.includes('sleek') || n.includes('vibrant') ||
-    // Legacy
+    n.includes('atlas') || n.includes('editorial') || n.includes('booked') || n.includes('menu') ||
+    n.includes('craft') || n.includes('retro') || n.includes('proof') || n.includes('gallery') ||
     n.includes('bold') || n.includes('pro') ||
     n.includes('elegant') || n.includes('modern') || n.includes('blue') ||
     n.includes('starter') || n.includes('minimal') || n.includes('white') || n.includes('clean')
@@ -90,5 +117,22 @@ export function isTemplateRegistered(templateId: string): boolean {
 }
 
 export function getRegisteredTemplates(): string[] {
-  return ['luxe', 'vivid', 'airy', 'edge', 'classic', 'organic', 'sleek', 'vibrant'];
+  return [
+    'luxe',
+    'vivid',
+    'airy',
+    'edge',
+    'classic',
+    'organic',
+    'sleek',
+    'vibrant',
+    'atlas',
+    'editorial',
+    'booked',
+    'menu',
+    'craft',
+    'retro',
+    'proof',
+    'gallery',
+  ];
 }

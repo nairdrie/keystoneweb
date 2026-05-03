@@ -120,7 +120,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     const userSetBg     = !!siteContent.headerBgType;
     const effectiveBg   = userSetBg ? bgType : (defaults.bgType || 'white');
     const isTransparent = effectiveBg === 'transparent';
-    const textIsLight   = getTextIsLight(effectiveBg, palette, bgCustom);
+    const textIsLight   = isTransparent ? overlay : getTextIsLight(effectiveBg, palette, bgCustom);
 
     // When bg is white (user-selected or default-white), apply bgClass; otherwise use inline style
     const useBgClass  = isTransparent
@@ -433,7 +433,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         );
     })();
 
-    const homePageId = context?.pages?.find((p: any) => p.slug === 'home')?.id || '';
+    const homePageId = context?.pages?.find((p: { slug?: string; id?: string }) => p.slug === 'home')?.id || '';
     const homeHref = isEditor
         ? `/editor?siteId=${context?.siteId}&pageId=${homePageId}`
         : context?.previewSiteId
@@ -635,13 +635,16 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
 
     const stickyClass  = isSticky ? 'sticky top-0 z-50' : 'relative z-10';
     const overlayWrapperClass = overlay ? 'h-0 overflow-visible' : '';
-    const bgClassFinal = useBgClass ? (defaults.bgClass || (isTransparent ? 'bg-transparent' : 'bg-white')) : '';
+    const transparentBgClass = overlay
+        ? 'bg-gradient-to-b from-black/45 via-black/15 to-transparent'
+        : 'bg-transparent';
+    const bgClassFinal = useBgClass ? (isTransparent ? transparentBgClass : (defaults.bgClass || 'bg-white')) : '';
     // When transparent, suppress template default border/shadow for clean overlay
     const borderClassFinal = isTransparent ? '' : (defaults.borderClass || '');
 
     // ── FLOATING (pill) LAYOUT — preserved for templates like Airy ──────────
     if (defaults.isFloating) {
-        const pillBgClass    = useBgClass ? (defaults.bgClass || (isTransparent ? 'bg-transparent' : 'bg-white/90')) : '';
+        const pillBgClass    = useBgClass ? (isTransparent ? transparentBgClass : (defaults.bgClass || 'bg-white/90')) : '';
         const pillInlineStyle: React.CSSProperties = !useBgClass ? bgInlineStyle : {};
         // Floating pill always overlays (h-0) when sticky, and also when overlay=true
         const wrapperClass = (overlay || isSticky) ? `${isSticky ? 'sticky top-0 z-50' : 'relative z-50'} h-0 overflow-visible` : 'relative';

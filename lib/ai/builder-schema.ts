@@ -9,6 +9,8 @@
 export const BLOCK_SCHEMAS = `
 AVAILABLE BLOCK TYPES AND THEIR DATA SCHEMAS:
 
+Color fields that accept a hex color also accept palette tokens: "palette:primary", "palette:secondary", or "palette:accent". Prefer palette tokens when styling templates so user palette changes continue to work.
+
 1. "hero" — Hero/Banner section
    data: {
      title: string,           // Main headline
@@ -134,7 +136,8 @@ AVAILABLE BLOCK TYPES AND THEIR DATA SCHEMAS:
 18. "blog" — Blog post feed (requires user to add posts separately)
     data: {
       title: string,
-      layout: "grid" | "list" | "magazine"
+      layout: "grid" | "list" | "magazine",
+      fallbackPosts: Array<{ id: string, title: string, slug: string, excerpt: string, cover_image: string, author: string, tags: string[], is_published: boolean, published_at: string, created_at: string }> // Optional placeholder posts for brand-new templates
     }
 
 19. "booking" — Online booking / appointments (requires user setup)
@@ -195,7 +198,7 @@ AVAILABLE BLOCK TYPES AND THEIR DATA SCHEMAS:
     data: {
       title: string,          // e.g. "Order Online"
       subtitle: string,       // e.g. "Fresh food delivered to your door"
-      backgroundColor: string, // Optional hex. Leave blank for default accent.
+      backgroundColor: string, // Optional hex or palette token. Leave blank for default accent.
       links: Array<{
         id: string,
         platform: "ubereats" | "doordash" | "skipthedishes" | "custom",
@@ -214,7 +217,8 @@ AVAILABLE BLOCK TYPES AND THEIR DATA SCHEMAS:
       showPrices: boolean,      // Show prices next to items (default: true)
       showDescriptions: boolean, // Show item descriptions (default: true)
       showImages: boolean,      // Show item images (default: false)
-      categoryStyle: "heading" | "badge" | "divider"  // How categories are displayed (default: "heading")
+      categoryStyle: "heading" | "badge" | "divider",  // How categories are displayed (default: "heading")
+      fallbackItems: Array<{ id: string, name: string, description: string, price: string, category: string, image_url: string, is_available: boolean, sort_order: number }> // Optional placeholder items when no admin menu exists yet
     }
 
 27. "events" — Events feed (requires user to add events via Admin)
@@ -281,6 +285,15 @@ AVAILABLE BLOCK TYPES AND THEIR DATA SCHEMAS:
         url: string             // Public URL to a YouTube video/playlist, Instagram post/reel, TikTok video, X/Twitter status, or Facebook post/video/page
       }>                        // Platform is auto-detected from each URL
     }
+
+32. "tabBar" — Horizontal section/page menu bar
+    data: {
+      tabStyle: "underline" | "pills" | "tabs" | "buttons",
+      tabAlign: "left" | "center" | "right" | "stretch",
+      activeColor: string, // Optional hex or palette token
+      bgColor: string,     // Optional hex or palette token
+      items: Array<{ id: string, label: string, linkType: "page" | "section" | "custom", href: string, pageId: string, blockId: string }>
+    }
 `;
 
 export const AVAILABLE_OPERATIONS = `
@@ -325,7 +338,7 @@ export function buildSystemPrompt(availablePalettes: string[]): string {
   return `You are a website builder AI assistant embedded in the Keystone Web editor.
 Your ONLY job is to modify the user's website by producing structured operations.
 
-9. { "op": "setTemplate", "templateId": "luxe" | "vivid" | "airy" | "edge" | "classic" | "organic" | "sleek" | "vibrant" }
+9. { "op": "setTemplate", "templateId": "luxe" | "vivid" | "airy" | "edge" | "classic" | "organic" | "sleek" | "vibrant" | "atlas" | "editorial" | "booked" | "menu" | "craft" | "retro" | "proof" | "gallery" }
    Changes the overall site template/style. Use this early in a "build me a site" request to set the correct baseline aesthetic.
 
 ...
@@ -336,7 +349,8 @@ STRICT RULES:
 - The "message" field is a brief, friendly summary of what you did (1-2 sentences).
 - If the user asks something you cannot do with these operations, explain what you CAN do instead.
 - NEVER invent block types that aren't listed. NEVER add fields not in the schemas (except "__customCss" which is globally available).
-- Use "__customCss" for all styling adjustments requested by the user that aren't available as specific block fields (e.g. "make the background blue", "add a border", "increase padding").
+- Use palette-aware block fields before "__customCss" for colors (e.g. backgroundColor: "palette:accent", tab bgColor: "palette:secondary").
+- Use "__customCss" only for styling adjustments requested by the user that aren't available as specific block fields (e.g. unusual borders, shape treatments, spacing beyond available fields).
 - For NEW site creations (onboarding), ALWAYS start by picking the best template using "setTemplate" based on the user's business type or style preference.
 - Prefer using structured blocks (servicesGrid, testimonials, faq, etc.) over custom_html.
 - Only use custom_html when absolutely no existing block can achieve the user's goal (e.g. embedding a specific third-party widget).
@@ -356,6 +370,14 @@ TEMPLATE DESCRIPTIONS (pick the best match for the user's prompt):
 - "organic": Warm, natural, earthy tones, rounded shapes. Best for: Non-profits, Eco-friendly brands, Coffee Shops, Artisans.
 - "sleek": Ultra-minimal, monochrome + 1 accent color, bold typography. Best for: Architecture, High-fashion, Design Portfolios.
 - "vibrant": Playful, gradient headers, rounded buttons, dynamic feel. Best for: Education, Kids brands, Events, Lifestyle Blogs.
+- "atlas": Structured, professional, B2B, metrics-led. Best for: Consultants, SaaS, finance, agencies, professional services.
+- "editorial": Content-first, magazine-like, author-led. Best for: Blogs, publications, thought leadership, experts.
+- "booked": Appointment-first with booking flow. Best for: Clinics, therapists, salons, tutors, consultants.
+- "menu": Food/menu-first with ordering and hours. Best for: Restaurants, cafes, bakeries, food trucks.
+- "craft": Handmade, local, founder-story-led. Best for: Artisans, makers, local shops, boutique product brands.
+- "retro": Playful nostalgic/Y2K with chunky sections. Best for: Creators, pop-ups, events, youth brands, playful campaigns.
+- "proof": Trust/reviews/results-first. Best for: Contractors, clinics, legal, real estate, financial services.
+- "gallery": Image-heavy portfolio. Best for: Photographers, designers, artists, studios, architects.
 - Keep content professional and concise. Match the tone of the existing site content.
 - When adding multiple blocks, put them in a logical page order (hero first, CTA last, etc.).
 - When the user says "build me a website" or similar, create a full page layout with appropriate blocks.

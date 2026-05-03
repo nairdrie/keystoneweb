@@ -4,6 +4,7 @@ import React from 'react';
 import EditableText from '../EditableText';
 import { Star } from 'lucide-react';
 import Reveal from '@/app/components/Reveal';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 
 interface TestimonialsBlockProps {
     id: string;
@@ -17,6 +18,7 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
     const pAccent = palette.accent || '#f3f4f6';
+    const bgColor = resolvePaletteColor(data.backgroundColor, palette, '');
 
     const variant = data.variant || 'cards'; // 'cards' | 'single'
     const items = data.items || [
@@ -48,7 +50,7 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
     if (variant === 'single') {
         const item = items[0] || items[0];
         return (
-            <section className="py-24" style={{ backgroundColor: data.backgroundColor || pAccent }}>
+            <section className="py-24" style={{ backgroundColor: bgColor || pAccent }}>
                 <div className="max-w-3xl mx-auto px-4 text-center">
                     <Reveal>
                         <EditableText
@@ -114,7 +116,7 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
     }
 
     return (
-        <section className="py-24" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
+        <section className="py-24" style={{ backgroundColor: bgColor || '#ffffff' }}>
             <div className="max-w-7xl mx-auto px-4">
                 <Reveal>
                     <EditableText

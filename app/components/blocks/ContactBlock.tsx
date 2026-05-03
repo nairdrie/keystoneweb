@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import EditableText from '../EditableText';
 import { Phone, Mail, MapPin, Clock, Facebook, Instagram, Twitter, Linkedin, Youtube, X } from 'lucide-react';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 
 function TikTokIcon({ className }: { className?: string }) {
     return (
@@ -34,6 +35,7 @@ export default function ContactBlock({ id, data, isEditMode, palette, updateCont
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
     const pAccent = palette.accent || '#f3f4f6';
+    const bgColor = resolvePaletteColor(data.backgroundColor, palette, pAccent);
 
     const [editingSocial, setEditingSocial] = useState<string | null>(null);
     const [socialDraft, setSocialDraft] = useState('');
@@ -46,7 +48,7 @@ export default function ContactBlock({ id, data, isEditMode, palette, updateCont
     ];
 
     return (
-        <section className="py-24" style={{ backgroundColor: data.backgroundColor || pAccent }}>
+        <section className="py-24" style={{ backgroundColor: bgColor }}>
             <div className="max-w-5xl mx-auto px-4">
                 <EditableText
                     as="h2"

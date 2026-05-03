@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import { trackEvent } from '@/lib/analytics';
-import { DEFAULT_TEMPLATE_BLOCKS } from '@/lib/default-blocks';
+import { getTemplateMetadata } from '@/lib/db/template-queries';
+import { migratePaletteTokensInDesignData } from '@/lib/template-palette-migration';
 
 interface CreatePageRequest {
   siteId: string;
@@ -23,6 +24,12 @@ interface UpdatePageRequest {
   designData?: Record<string, any>;
   design_data?: Record<string, any>;
 }
+
+type PageRow = {
+  id: string;
+  design_data?: Record<string, unknown> | null;
+  [key: string]: unknown;
+};
 
 /**
  * GET /api/pages?siteId=xxx
@@ -48,7 +55,7 @@ export async function GET(request: NextRequest) {
     // Verify user owns the site
     const { data: site } = await supabase
       .from('sites')
-      .select('user_id')
+      .select('user_id, selected_template_id, design_data')
       .eq('id', siteId)
       .single();
 
@@ -71,7 +78,43 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ pages });
+    let responsePages = (pages || []) as PageRow[];
+    try {
+      const metadata = await getTemplateMetadata(site.selected_template_id);
+      if (metadata?.palettes && responsePages.length > 0) {
+        responsePages = await Promise.all(responsePages.map(async (page) => {
+          const migration = migratePaletteTokensInDesignData(
+            page.design_data || {},
+            metadata.palettes,
+            site.design_data?.__selectedPalette,
+          );
+
+          if (!migration.changed) return page;
+
+          const { data: migratedPage, error: migrationError } = await supabase
+            .from('pages')
+            .update({
+              design_data: migration.data,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', page.id)
+            .eq('site_id', siteId)
+            .select()
+            .single();
+
+          if (migrationError || !migratedPage) {
+            console.error('Failed to migrate page palette tokens:', migrationError);
+            return { ...page, design_data: migration.data };
+          }
+
+          return migratedPage;
+        }));
+      }
+    } catch (migrationErr) {
+      console.error('Error migrating page palette tokens:', migrationErr);
+    }
+
+    return NextResponse.json({ pages: responsePages });
   } catch (error) {
     console.error('Error in GET /api/pages:', error);
     return NextResponse.json(

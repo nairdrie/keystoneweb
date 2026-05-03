@@ -3,6 +3,7 @@
 import React from 'react';
 import EditableText from '../EditableText';
 import EditableButton from '../EditableButton';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 
 interface PricingBlockProps {
     id: string;
@@ -16,6 +17,7 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
     const pAccent = palette.accent || '#f3f4f6';
+    const bgColor = resolvePaletteColor(data.backgroundColor, palette, '');
 
     const variant = data.variant || 'cards'; // 'cards' | 'comparison' | 'simple'
 
@@ -65,7 +67,7 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
 
     if (variant === 'simple') {
         return (
-            <section className="py-24" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
+            <section className="py-24" style={{ backgroundColor: bgColor || '#ffffff' }}>
                 <div className="max-w-4xl mx-auto px-4">
                     <EditableText
                         as="h2"
@@ -152,7 +154,7 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
 
     // Cards variant (default)
     return (
-        <section className="py-24" style={{ backgroundColor: data.backgroundColor || pAccent }}>
+        <section className="py-24" style={{ backgroundColor: bgColor || pAccent }}>
             <div className="max-w-7xl mx-auto px-4">
                 <EditableText
                     as="h2"

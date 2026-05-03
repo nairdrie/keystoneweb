@@ -8,6 +8,7 @@ import {
     AlignLeft, Upload, X, Download, ChevronDown, ChevronUp, Link2
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -450,6 +451,7 @@ export default function ResourcesBlock({ id, data, isEditMode, palette, updateCo
     const context = useEditorContext();
     const siteId = context?.siteId;
     const primary = palette.primary || '#1f2937';
+    const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#f8fafc');
 
     const items: ResourceItem[] = data.items || [
         { id: uuidv4(), type: 'file', title: 'Getting Started Guide', description: 'Download our comprehensive onboarding PDF.' },
@@ -479,7 +481,7 @@ export default function ResourcesBlock({ id, data, isEditMode, palette, updateCo
     };
 
     return (
-        <section className="py-20" style={{ backgroundColor: data.backgroundColor || '#f8fafc' }}>
+        <section className="py-20" style={{ backgroundColor: bgColor }}>
             <div className="max-w-5xl mx-auto px-4">
 
                 {/* Header */}

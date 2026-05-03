@@ -39,6 +39,14 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+nextjs-portal,
+[data-nextjs-toast],
+[data-nextjs-dialog],
+[data-nextjs-dev-tools-button],
+[data-nextjs-dev-tools-panel] {
+  display: none !important;
+}
+
 button {
   cursor: pointer;
 }

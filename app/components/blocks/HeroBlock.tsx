@@ -8,6 +8,7 @@ import Reveal from '@/app/components/Reveal';
 import { useState, useEffect, useRef } from 'react';
 import { Video } from 'lucide-react';
 import PexelsVideoPickerModal from '@/app/components/PexelsVideoPickerModal';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 
 export default function HeroBlock({ block, palette }: { block: BlockData, palette: Record<string, string> }) {
     const context = useEditorContext();
@@ -20,6 +21,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#ef4444';
     const pAccent = palette.accent || '#f3f4f6';
+    const configuredBackgroundColor = resolvePaletteColor(block.data.backgroundColor, palette, '');
 
     const variant = block.data.variant || 'split'; // 'split' | 'centered' | 'fullImage' | 'minimal' | 'video'
     const title = block.data.title !== undefined ? block.data.title : 'Welcome to our site';
@@ -70,7 +72,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
     if (variant === 'minimal') {
         const showButton = block.data.showButton !== false;
         return (
-            <section className="hero hero-minimal py-40 relative" style={{ backgroundColor: pAccent }}>
+            <section className="hero hero-minimal py-40 relative" style={{ backgroundColor: configuredBackgroundColor || pAccent }}>
                 <div className="hero-container max-w-5xl mx-auto px-4">
                     <Reveal>
                         <EditableText
@@ -251,8 +253,8 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
         let customBgStyle: any = undefined;
         let hasCustomMedia = false;
         
-        if (bgType === 'color' && block.data.backgroundColor) {
-             customBgStyle = { backgroundColor: block.data.backgroundColor };
+        if (bgType === 'color' && configuredBackgroundColor) {
+             customBgStyle = { backgroundColor: configuredBackgroundColor };
         } else if (bgType === 'color') {
              customBgStyle = { background: `linear-gradient(135deg, ${pPrimary} 0%, ${pSecondary} 100%)` };
         } else {

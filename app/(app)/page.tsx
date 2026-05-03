@@ -8,16 +8,9 @@ import { Hammer, Check, ArrowRight, Loader2 } from 'lucide-react';
 import Header from '../components/Header';
 import MarketingFooter from '../components/MarketingFooter';
 import mapleLeaf from '../../assets/maple-leaf.png';
-import t1 from '../../assets/templates/1.png';
-import t2 from '../../assets/templates/2.png';
-import t3 from '../../assets/templates/3.png';
-import t4 from '../../assets/templates/4.png';
-import t5 from '../../assets/templates/5.png';
-import t6 from '../../assets/templates/6.png';
-import t7 from '../../assets/templates/7.png';
-import t8 from '../../assets/templates/8.png';
+import { TEMPLATE_PREVIEW_IMAGES, TEMPLATE_PREVIEW_STYLES } from '@/lib/template-preview-assets';
 
-const TEMPLATE_IMAGES = [t1, t2, t3, t4, t5, t6, t7, t8];
+const TEMPLATE_IMAGES = TEMPLATE_PREVIEW_STYLES.map((style) => TEMPLATE_PREVIEW_IMAGES[style]);
 
 const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 

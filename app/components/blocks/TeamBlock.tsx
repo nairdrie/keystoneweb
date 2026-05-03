@@ -5,6 +5,7 @@ import { Plus, Trash2, User } from 'lucide-react';
 import EditableText from '../EditableText';
 import EditableImage from '../EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 
 interface TeamBlockProps {
     id: string;
@@ -18,6 +19,8 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
     const context = useEditorContext();
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
+    const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
+    const cardBgColor = resolvePaletteColor(data.backgroundColor, palette, palette.accent || '#f8fafc');
 
     const variant = data.variant || 'grid'; // 'grid' | 'cards' | 'minimal'
     const showBio = data.showBio !== false; // Default to true if not specified
@@ -57,7 +60,7 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
 
     if (variant === 'minimal') {
         return (
-            <section className="py-24" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
+            <section className="py-24" style={{ backgroundColor: bgColor }}>
                 <div className="max-w-5xl mx-auto px-4">
                     <EditableText
                         as="h2"
@@ -149,7 +152,7 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
 
     if (variant === 'cards') {
         return (
-            <section className="py-24" style={{ backgroundColor: data.backgroundColor || palette.accent || '#f8fafc' }}>
+            <section className="py-24" style={{ backgroundColor: cardBgColor }}>
                 <div className="max-w-7xl mx-auto px-4">
                     <EditableText
                         as="h2"
@@ -253,7 +256,7 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
 
     // Grid variant (default) — centered circular photos
     return (
-        <section className="py-24" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
+        <section className="py-24" style={{ backgroundColor: bgColor }}>
             <div className="max-w-7xl mx-auto px-4">
                 <EditableText
                     as="h2"

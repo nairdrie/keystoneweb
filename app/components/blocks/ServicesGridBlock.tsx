@@ -3,6 +3,7 @@ import EditableText from '../EditableText';
 import EditableButton from '../EditableButton';
 import { Plus, X } from 'lucide-react';
 import Reveal from '@/app/components/Reveal';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 
 interface ServicesGridBlockProps {
     id: string;
@@ -16,6 +17,7 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
     const pAccent = palette.accent || '#f3f4f6';
+    const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
 
     const items = data.items || [
         { title: "Service 1", description: "First service description." },
@@ -42,7 +44,7 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
     };
 
     return (
-        <section className="py-24" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
+        <section className="py-24" style={{ backgroundColor: bgColor }}>
             <div className="max-w-7xl mx-auto px-4">
                 <div className="text-center max-w-3xl mx-auto mb-16">
                     <Reveal>
