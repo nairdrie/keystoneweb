@@ -1,5 +1,26 @@
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import Link from 'next/link';
+import LocalActivityTime from './LocalActivityTime';
+
+type RecentEvent = {
+  id: string;
+  event_type: string;
+  user_id: string | null;
+  site_id: string | null;
+  metadata: unknown;
+  created_at: string;
+};
+
+type UserRow = {
+  id: string;
+  email: string | null;
+  business_name: string | null;
+};
+
+type SiteRow = {
+  id: string;
+  site_slug: string | null;
+};
 
 // ── Tiny SVG bar chart rendered server-side ──────────────────────────────────
 
@@ -140,15 +161,16 @@ export default async function OpsOverviewPage() {
   }
 
   // Recent activity (last 25 events)
-  const { data: recentEvents } = await db
+  const { data: recentEventRows } = await db
     .from('analytics_events')
     .select('id, event_type, user_id, site_id, metadata, created_at')
     .order('created_at', { ascending: false })
     .limit(25);
+  const recentEvents = (recentEventRows ?? []) as RecentEvent[];
 
   // Enrich with user and site info
-  const userIds = [...new Set((recentEvents ?? []).map((e: any) => e.user_id).filter(Boolean))];
-  const siteIds = [...new Set((recentEvents ?? []).map((e: any) => e.site_id).filter(Boolean))];
+  const userIds = [...new Set(recentEvents.map((e) => e.user_id).filter((id): id is string => Boolean(id)))];
+  const siteIds = [...new Set(recentEvents.map((e) => e.site_id).filter((id): id is string => Boolean(id)))];
 
   const [{ data: userRows }, { data: siteRows }] = await Promise.all([
     userIds.length > 0
@@ -159,8 +181,8 @@ export default async function OpsOverviewPage() {
       : Promise.resolve({ data: [] }),
   ]);
 
-  const userMap: Record<string, { id: string; email: string | null; business_name: string | null }> =
-    Object.fromEntries((userRows ?? []).map((u: any) => [u.id, u]));
+  const userMap: Record<string, UserRow> =
+    Object.fromEntries(((userRows ?? []) as UserRow[]).map((u) => [u.id, u]));
 
   // Fallback: any user_id not in public.users (e.g. profile row missing) — look up via auth admin
   const missingUserIds = userIds.filter((id) => !userMap[id]);
@@ -178,7 +200,8 @@ export default async function OpsOverviewPage() {
       })
     );
   }
-  const siteMap = Object.fromEntries((siteRows ?? []).map((s: any) => [s.id, s]));
+  const siteMap: Record<string, SiteRow> =
+    Object.fromEntries(((siteRows ?? []) as SiteRow[]).map((s) => [s.id, s]));
 
   // Action verb for each event type (used in "[site] [verb] by [user] on [date]")
   const eventVerbs: Record<string, string> = {
@@ -276,25 +299,22 @@ export default async function OpsOverviewPage() {
         <div className="rounded-lg border border-gray-800 bg-gray-900 p-5">
           <h2 className="mb-4 text-sm font-semibold text-gray-300">Recent Activity</h2>
           <ul className="space-y-2 text-sm">
-            {(recentEvents ?? []).map((ev: any) => {
-              const user = userMap[ev.user_id];
-              const site = siteMap[ev.site_id];
+            {recentEvents.map((ev) => {
+              const user = ev.user_id ? userMap[ev.user_id] : undefined;
+              const site = ev.site_id ? siteMap[ev.site_id] : undefined;
               const userName = user?.business_name || user?.email || null;
               const siteName = site?.site_slug || null;
               const verb = eventVerbs[ev.event_type] ?? ev.event_type;
-              const dateStr = new Date(ev.created_at).toLocaleString('en-CA', {
-                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-              });
               return (
                 <li key={ev.id} className="text-sm text-gray-300">
                   {siteName && <span className="font-medium text-white">{siteName}</span>}{' '}
                   <span className="text-gray-400">{verb}</span>
                   {userName && <span className="text-gray-500"> by {userName}</span>}
-                  <span className="text-gray-600"> on {dateStr}</span>
+                  <span className="text-gray-600"> on <LocalActivityTime value={ev.created_at} /></span>
                 </li>
               );
             })}
-            {!recentEvents?.length && (
+            {recentEvents.length === 0 && (
               <li className="text-gray-600 text-xs">No events yet — events are recorded as users sign up, create sites, and subscribe.</li>
             )}
           </ul>

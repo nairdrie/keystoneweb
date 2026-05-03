@@ -39,6 +39,9 @@ export async function GET(request: NextRequest) {
 
   const db = createAdminClient();
 
+  // Legacy endpoint: only return inbound submissions so the synthesized
+  // outbound rows from migration 068 don't pollute the list shown to any
+  // older surface that still queries this route.
   let query = db
     .from('contact_submissions')
     .select(
@@ -46,6 +49,7 @@ export async function GET(request: NextRequest) {
       { count: 'exact' }
     )
     .eq('site_id', siteId)
+    .eq('direction', 'inbound')
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -60,12 +64,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch submissions' }, { status: 500 });
   }
 
-  // Unread count (new + needs_review, excluding spam/ai_handled/replied)
+  // Unread count: any inbound message that hasn't been opened, excluding spam.
   const { count: unreadCount } = await db
     .from('contact_submissions')
     .select('id', { count: 'exact', head: true })
     .eq('site_id', siteId)
-    .in('status', ['new', 'needs_review']);
+    .eq('direction', 'inbound')
+    .eq('is_read', false)
+    .neq('status', 'spam');
 
   return NextResponse.json({
     submissions: submissions ?? [],

@@ -16,7 +16,9 @@ interface EditableImageProps {
   fallback?: React.ReactNode;
   editOverlayStyle?: 'pill' | 'icon';
   allowUnsplash?: boolean;
+  showAttribution?: boolean;
   initialSettings?: ImageSettings;
+  initialAttribution?: UnsplashAttribution;
   /** Mark this as the LCP image: eager + fetchpriority=high. Default false → lazy. */
   priority?: boolean;
 }
@@ -32,19 +34,25 @@ export default function EditableImage({
   fallback,
   editOverlayStyle = 'pill',
   allowUnsplash = true,
+  showAttribution = true,
   initialSettings,
+  initialAttribution,
   priority = false,
 }: EditableImageProps) {
   const context = useEditorContext();
   const [previewUrl, setPreviewUrl] = useState<string | undefined>(imageUrl);
   const [modalOpen, setModalOpen] = useState(false);
   const [imageSettings, setImageSettings] = useState<ImageSettings>(initialSettings || { objectFit: 'cover', borderRadius: 0 });
-  const [attribution, setAttribution] = useState<UnsplashAttribution | undefined>();
+  const [attribution, setAttribution] = useState<UnsplashAttribution | undefined>(initialAttribution);
 
   // Sync previewUrl when imageUrl prop changes externally (undo/redo, page switch)
   useEffect(() => {
     setPreviewUrl(imageUrl);
   }, [imageUrl]);
+
+  useEffect(() => {
+    setAttribution(initialAttribution);
+  }, [initialAttribution]);
 
   const handleSave = (newUrl: string, settings: ImageSettings, attr?: UnsplashAttribution) => {
     setPreviewUrl(newUrl || undefined);
@@ -95,19 +103,6 @@ export default function EditableImage({
           fetchPriority={priority ? 'high' : 'auto'}
           decoding={priority ? 'sync' : 'async'}
         />
-        {/* Unsplash attribution */}
-        {allowUnsplash && attribution && (
-          <div className="absolute bottom-0 left-0 right-0 px-2 py-1 bg-black/40 text-white text-[10px] rounded-b">
-            Photo by{' '}
-            <a href={attribution.photographerUrl} target="_blank" rel="noopener noreferrer" className="underline">
-              {attribution.photographerName}
-            </a>
-            {' on '}
-            <a href={attribution.unsplashUrl} target="_blank" rel="noopener noreferrer" className="underline">
-              Unsplash
-            </a>
-          </div>
-        )}
       </div>
     );
   }
@@ -123,7 +118,7 @@ export default function EditableImage({
             className={`rounded ${className}`}
             style={imgStyle}
           />
-          <div className="absolute inset-0 rounded bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <div className="absolute inset-0 z-20 rounded bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
             {editOverlayStyle === 'icon' ? (
               <span className="p-2 bg-white text-red-600 rounded-full shadow-lg">
                 <Pencil className="w-4 h-4" />
@@ -136,8 +131,8 @@ export default function EditableImage({
             )}
           </div>
           {/* Unsplash attribution */}
-          {allowUnsplash && attribution && (
-            <div className="absolute bottom-0 left-0 right-0 px-2 py-1 bg-black/40 text-white text-[10px] rounded-b">
+          {allowUnsplash && showAttribution && attribution && (
+            <div className="absolute bottom-1 right-1 z-30 max-w-[calc(100%-0.5rem)] rounded bg-black/70 px-2 py-1 text-right text-[10px] leading-tight text-white opacity-0 shadow transition-opacity group-hover:opacity-100">
               Photo by{' '}
               <a
                 href={attribution.photographerUrl}

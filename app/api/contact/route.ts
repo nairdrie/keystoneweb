@@ -83,6 +83,14 @@ export async function POST(request: NextRequest) {
 
         const admin = createAdminClient();
 
+        // Resolve the site's primary inbox address so notifications carry the right addressId
+        const { data: primaryAddress } = await admin
+            .from('site_inbox_addresses')
+            .select('id')
+            .eq('site_id', siteId)
+            .eq('is_primary', true)
+            .maybeSingle();
+
         // 1. Persist the submission immediately
         const { data: submission, error: insertError } = await admin
             .from('contact_submissions')
@@ -93,8 +101,10 @@ export async function POST(request: NextRequest) {
                 sender_phone: phone ?? null,
                 message: composedMessage,
                 status: 'new',
+                direction: 'inbound',
                 source_type: source_type || 'contact_form',
                 metadata: metadata || {},
+                inbox_address_id: primaryAddress?.id ?? null,
             })
             .select('id')
             .single();
@@ -163,7 +173,19 @@ export async function POST(request: NextRequest) {
 
         // 3. Send email notification to owner (existing behaviour)
         const result = await sendContactFormNotification(
-            { siteName, customerName: name, customerEmail: email, customerPhone: phone, message: composedMessage, submissionId: submission?.id, siteId, sourceType: source_type, metadata },
+            {
+                siteName,
+                customerName: name,
+                customerEmail: email,
+                customerPhone: phone,
+                message: composedMessage,
+                submissionId: submission?.id,
+                siteId,
+                sourceType: source_type,
+                metadata,
+                inboxAddressId: primaryAddress?.id ?? null,
+                previewBody: composedMessage,
+            },
             ownerEmail
         );
 

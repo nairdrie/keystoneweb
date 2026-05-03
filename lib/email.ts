@@ -1,5 +1,6 @@
 import { buildMemberEmailHtml, type EmailBranding } from '@/lib/membership/email-template';
 import { resend } from '@/lib/email/resend';
+import { buildOwnerReplyAddress } from '@/lib/email/threading';
 
 interface BookingEmailData {
     serviceName: string;
@@ -962,6 +963,11 @@ interface ContactEmailData {
     siteId?: string;
     sourceType?: string;
     metadata?: any;
+    /** Inbox address that received this message — used to deep-link the right inbox tab. */
+    inboxAddressId?: string | null;
+    /** When supplied, replaces the message body in the email so owner can preview without opening admin. */
+    previewBody?: string | null;
+    subject?: string | null;
 }
 
 /**
@@ -969,14 +975,33 @@ interface ContactEmailData {
  */
 export async function sendContactFormNotification(data: ContactEmailData, ownerEmail: string) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.keystoneweb.ca';
-    const replyLink = data.submissionId && data.siteId
-        ? `${baseUrl}/admin/inbox/${data.submissionId}?siteId=${data.siteId}`
+    const inboxParams = new URLSearchParams();
+    if (data.siteId) inboxParams.set('siteId', data.siteId);
+    if (data.inboxAddressId) inboxParams.set('addressId', data.inboxAddressId);
+    if (data.submissionId) inboxParams.set('messageId', data.submissionId);
+    const replyLink = data.siteId
+        ? `${baseUrl}/admin/inbox?${inboxParams.toString()}`
         : null;
+    const previewSnippet = (data.previewBody ?? data.message ?? '').slice(0, 800);
+    const escapedPreview = previewSnippet
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n/g, '<br>');
+
+    // Build the per-thread reply address so the owner can hit Reply in their
+    // own email client and have it delivered straight back to the customer.
+    // submissionId is the threadId at this call site (set by the inbound webhook
+    // and the public contact form route).
+    const replyToAddress = data.submissionId
+        ? buildOwnerReplyAddress(data.submissionId)
+        : undefined;
 
     try {
         await resend.emails.send({
             from: 'Keystone Web Design <contact@keystoneweb.ca>',
             to: ownerEmail,
+            replyTo: replyToAddress,
             subject: data.sourceType === 'estimate_form' ? `New Estimate Request — ${data.siteName}` : `New Message — ${data.siteName}`,
             html: `
                 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px 0;">
@@ -1014,8 +1039,9 @@ export async function sendContactFormNotification(data: ContactEmailData, ownerE
                         </table>
                     </div>
                     ` : `
-                    <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
-                        <p style="margin: 0; font-size: 15px; color: #111827; white-space: pre-wrap; line-height: 1.5;">${data.message}</p>
+                    <div style="background: #f9fafb; border-left: 3px solid #dc2626; border-radius: 0 8px 8px 0; padding: 16px 18px; margin-bottom: 16px;">
+                        ${data.subject ? `<p style="margin: 0 0 8px; font-size: 13px; color: #4b5563; font-weight: 600;">${data.subject.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>` : ''}
+                        <p style="margin: 0; font-size: 15px; color: #111827; white-space: pre-wrap; line-height: 1.55;">${escapedPreview}${previewSnippet.length < (data.previewBody ?? data.message ?? '').length ? '…' : ''}</p>
                     </div>
                     `}
 
@@ -1026,12 +1052,21 @@ export async function sendContactFormNotification(data: ContactEmailData, ownerE
                         ${data.customerPhone ? `<p style="margin: 2px 0; font-size: 14px; color: #111827;">📱 <a href="tel:${data.customerPhone}" style="color: #0284c7;">${data.customerPhone}</a></p>` : ''}
                     </div>
 
+                    ${replyToAddress ? `
+                    <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; text-align: center;">
+                        <p style="margin: 0; font-size: 14px; color: #374151; line-height: 1.5;">
+                            <strong>Reply to this email</strong> to respond directly to <strong>${data.customerName}</strong>.
+                        </p>
+                        <p style="margin: 4px 0 0; font-size: 12px; color: #9ca3af;">Your reply will be delivered to ${data.customerEmail} and threaded in Keystone.</p>
+                    </div>
+                    ` : ''}
+
                     ${replyLink ? `
                     <div style="text-align: center; margin-bottom: 24px;">
                         <a href="${replyLink}" style="display: inline-block; background: #111827; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 28px; border-radius: 8px;">
-                            View &amp; Reply in Inbox
+                            Open in Keystone
                         </a>
-                        <p style="margin: 8px 0 0; font-size: 12px; color: #9ca3af;">Review the message, see AI analysis, and send a reply</p>
+                        <p style="margin: 8px 0 0; font-size: 12px; color: #9ca3af;">View the full conversation, AI analysis, and reply with rich formatting</p>
                     </div>
                     ` : ''}
 
@@ -1062,13 +1097,16 @@ export async function sendContactReplyEmail(data: {
     originalMessage: string;
     submissionId: string;  // used as a thread reference token
     replyToAddress?: string; // override Reply-To (e.g. subdomain@kswd.ca for threaded replies)
+    subject?: string;      // override the auto-generated subject
+    headers?: Record<string, string>; // extra RFC-822 headers (Message-ID, In-Reply-To, References)
 }) {
     try {
         const { data: sent, error } = await resend.emails.send({
             from: `${data.fromName} <${data.fromAddress}>`,
             to: data.toEmail,
             replyTo: data.replyToAddress || data.fromAddress,
-            subject: `Re: Your message to ${data.fromName}`,
+            subject: data.subject || `Re: Your message to ${data.fromName}`,
+            headers: data.headers,
             html: `
                 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;margin:0 auto;">
                     <div style="background:#f9fafb;border-left:4px solid #dc2626;padding:16px 20px;border-radius:0 8px 8px 0;margin-bottom:24px;">
@@ -1095,6 +1133,46 @@ export async function sendContactReplyEmail(data: {
     } catch (error) {
         console.error('Failed to send contact reply email:', error);
         return { success: false, error };
+    }
+}
+
+/**
+ * Generic outbound email helper for the admin email client (Compose + thread
+ * replies). Sends pre-sanitized HTML directly with optional RFC-822 threading
+ * headers. Returns the Resend message id on success.
+ */
+export async function sendComposedEmail(opts: {
+    from: string;            // already formatted "Name <addr>"
+    replyTo: string;
+    to: string[];
+    cc?: string[];
+    bcc?: string[];
+    subject: string;
+    html: string;            // sanitized
+    plainText?: string;
+    headers?: Record<string, string>;
+}) {
+    try {
+        const { data: sent, error } = await resend.emails.send({
+            from: opts.from,
+            to: opts.to,
+            cc: opts.cc?.length ? opts.cc : undefined,
+            bcc: opts.bcc?.length ? opts.bcc : undefined,
+            replyTo: opts.replyTo,
+            subject: opts.subject,
+            html: opts.html,
+            text: opts.plainText,
+            headers: opts.headers,
+        });
+
+        if (error) {
+            console.error('[sendComposedEmail] Resend error:', error);
+            return { success: false as const, error };
+        }
+        return { success: true as const, messageId: sent?.id ?? null };
+    } catch (error) {
+        console.error('[sendComposedEmail] Exception:', error);
+        return { success: false as const, error };
     }
 }
 

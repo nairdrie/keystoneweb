@@ -149,7 +149,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                         onClose={() => setShowPexelsPicker(false)}
                         onSelect={(url) => { updateData('videoUrl', url); setVideoInputValue(url); }}
                     />
-                    <div className="absolute top-4 right-4 z-20 flex items-start gap-2">
+                    <div className="absolute right-4 top-14 z-30 flex flex-col items-end gap-2">
                         {showVideoInput ? (
                             <div className="flex items-center gap-1.5 bg-black/80 backdrop-blur-sm rounded-lg px-2 py-1.5 shadow-xl">
                                 <Video className="w-3.5 h-3.5 text-white/60 shrink-0" />
@@ -191,16 +191,21 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                                 </button>
                             </div>
                         )}
-                        <EditableImage
-                            contentKey="image"
-                            imageUrl={imageUrl}
-                            isEditMode={isEditMode}
-                            onSave={(key, val) => updateData(key, val)}
-                            onUpload={context?.uploadImage}
-                            initialSettings={block.data.image__settings}
-                            className="w-28 h-16 object-cover rounded-lg shadow-lg border-2 border-white/50"
-                            placeholder="Fallback img"
-                        />
+                        <div className="h-16 w-28 overflow-hidden rounded-lg shadow-lg">
+                            <EditableImage
+                                contentKey="image"
+                                imageUrl={imageUrl}
+                                isEditMode={isEditMode}
+                                onSave={(key, val) => updateData(key, val)}
+                                onUpload={context?.uploadImage}
+                                initialSettings={block.data.image__settings}
+                                initialAttribution={block.data.image__attribution}
+                                className="h-full w-full object-cover rounded-lg border-2 border-white/50"
+                                placeholder="Fallback img"
+                                editOverlayStyle="icon"
+                                showAttribution={false}
+                            />
+                        </div>
                     </div>
                     </>
                 )}
@@ -350,7 +355,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
     // Full-image variant — text overlaid on image
     if (variant === 'fullImage') {
         return (
-            <section className="hero hero-fullimage relative min-h-[70vh] flex items-center overflow-hidden">
+            <section className="hero hero-fullimage group relative min-h-[70vh] flex items-center overflow-hidden">
                 {imageUrl ? (
                     <img src={imageUrl} alt={block.data.image__settings?.altText || ''} role={block.data.image__settings?.altText ? undefined : 'presentation'} className="hero-image absolute inset-0 w-full h-full object-cover" loading="eager" fetchPriority="high" decoding="sync" />
                 ) : (
@@ -359,7 +364,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                 {lcpImageUrl && <link rel="preload" as="image" href={lcpImageUrl} fetchPriority="high" />}
                 <div className="hero-overlay absolute inset-0 bg-black/50" />
                 {isEditMode && (
-                    <div className="absolute top-4 right-4 z-20">
+                    <div className="absolute right-4 top-14 z-30">
                         <EditableImage
                             contentKey="image"
                             imageUrl={imageUrl}
@@ -367,9 +372,36 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                             onSave={(key, val) => updateData(key, val)}
                             onUpload={context?.uploadImage}
                             initialSettings={block.data.image__settings}
+                            initialAttribution={block.data.image__attribution}
                             className="w-32 h-20 object-cover rounded-lg shadow-lg border-2 border-white/50"
                             placeholder="Set bg image"
+                            editOverlayStyle="icon"
+                            showAttribution={false}
                         />
+                    </div>
+                )}
+                {isEditMode && block.data.image__attribution && (
+                    <div className="absolute bottom-4 right-4 z-30 max-w-[min(24rem,calc(100%-2rem))] rounded bg-black/70 px-2 py-1 text-right text-[10px] leading-tight text-white opacity-0 shadow transition-opacity group-hover:opacity-100">
+                        Photo by{' '}
+                        <a
+                            href={block.data.image__attribution.photographerUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {block.data.image__attribution.photographerName}
+                        </a>
+                        {' on '}
+                        <a
+                            href={block.data.image__attribution.unsplashUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            Unsplash
+                        </a>
                     </div>
                 )}
                 <div className="hero-container max-w-5xl mx-auto px-4 py-24 relative z-10 text-center">
@@ -463,6 +495,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData, palett
                     <EditableImage
                         contentKey="image"
                         initialSettings={block.data.image__settings}
+                        initialAttribution={block.data.image__attribution}
                         imageUrl={imageUrl}
                         isEditMode={isEditMode}
                         onSave={(key, val) => updateData(key, val)}
