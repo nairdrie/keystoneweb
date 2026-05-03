@@ -6,6 +6,7 @@ import { useEditorContext } from '@/lib/editor-context';
 import EditableText from '../EditableText';
 import Reveal from '@/app/components/Reveal';
 import { Plus, Trash2, ExternalLink } from 'lucide-react';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 import UELogo from '@/assets/UE_logo.png';
 import DDLogo from '@/assets/DD_logo.png';
 import SKLogo from '@/assets/SK_logo.png';
@@ -140,7 +141,7 @@ export default function DeliveryLinksBlock({ id, data, isEditMode, palette, upda
   const links: DeliveryLink[] = data.links && data.links.length > 0
     ? (data.links as DeliveryLink[]).filter((l) => (l.platform as string) !== 'grubhub')
     : buildDefaultLinks();
-  const bgColor = data.backgroundColor || '';
+  const bgColor = resolvePaletteColor(data.backgroundColor, palette, '');
   const pPrimary = palette.primary || '#1f2937';
 
   // Edit-mode panel state

@@ -3,11 +3,43 @@ import { createClient } from '@/lib/db/supabase-server';
 import { trackEvent } from '@/lib/analytics';
 import { getPlanByName } from '@/lib/plans';
 import { getUserEffectiveLimits } from '@/lib/addons';
+import { getTemplateMetadata } from '@/lib/db/template-queries';
+import { migratePaletteTokensInDesignData } from '@/lib/template-palette-migration';
 
 interface PublishRequest {
   siteId: string;
   publishedDomain: string; // e.g., "mysite.keystoneweb.ca"
   reattachCustomDomain?: string; // domain from domain_purchases to reattach to sites.custom_domain
+}
+
+type DesignData = Record<string, unknown>;
+type PagePublishData = {
+  id: string;
+  design_data: DesignData;
+};
+
+function asDesignData(value: unknown): DesignData {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as DesignData
+    : {};
+}
+
+function getSelectedPalette(designData: DesignData): string | undefined {
+  return typeof designData.__selectedPalette === 'string'
+    ? designData.__selectedPalette
+    : undefined;
+}
+
+function pageHasBlockType(page: PagePublishData, blockType: string): boolean {
+  const blocks = page.design_data.blocks;
+  if (!Array.isArray(blocks)) return false;
+
+  return blocks.some((block) => (
+    block &&
+    typeof block === 'object' &&
+    'type' in block &&
+    block.type === blockType
+  ));
 }
 
 /**
@@ -42,7 +74,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: PublishRequest = await request.json();
-    let { siteId, publishedDomain, reattachCustomDomain } = body;
+    const { siteId, publishedDomain, reattachCustomDomain } = body;
 
     if (!siteId || !publishedDomain) {
       return NextResponse.json(
@@ -58,7 +90,7 @@ export async function POST(request: NextRequest) {
     // Fetch site and verify ownership
     const { data: site, error: siteError } = await supabase
       .from('sites')
-      .select('id, user_id, published_domain, design_data, translations_config, translations')
+      .select('id, user_id, published_domain, selected_template_id, design_data, translations_config, translations')
       .eq('id', siteId)
       .single();
 
@@ -133,6 +165,30 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    let siteDesignDataForPublish = asDesignData(site.design_data);
+    let templatePalettes: Record<string, Record<string, string>> | null = null;
+    try {
+      const metadata = await getTemplateMetadata(site.selected_template_id);
+      templatePalettes = metadata?.palettes || null;
+      if (templatePalettes) {
+        const migration = migratePaletteTokensInDesignData(
+          siteDesignDataForPublish,
+          templatePalettes,
+          getSelectedPalette(siteDesignDataForPublish),
+        );
+        siteDesignDataForPublish = migration.data;
+
+        if (migration.changed) {
+          await supabase
+            .from('sites')
+            .update({ design_data: siteDesignDataForPublish })
+            .eq('id', siteId);
+        }
+      }
+    } catch (migrationErr) {
+      console.error('Error migrating site palette tokens before publish:', migrationErr);
+    }
+
     // Update site with published domain (just subdomain) and status
     const { data: updatedSite, error: updateError } = await supabase
       .from('sites')
@@ -140,7 +196,7 @@ export async function POST(request: NextRequest) {
         published_domain: subdomain,
         is_published: true,
         published_at: new Date().toISOString(),
-        published_data: site.design_data || {},
+        published_data: siteDesignDataForPublish,
       })
       .eq('id', siteId)
       .select()
@@ -160,27 +216,44 @@ export async function POST(request: NextRequest) {
       .select('id, design_data')
       .eq('site_id', siteId);
 
+    const pagesForPublish: PagePublishData[] = [];
     if (pages && pages.length > 0) {
       for (const page of pages) {
+        let pageDesignDataForPublish = asDesignData(page.design_data);
+
+        if (templatePalettes) {
+          const migration = migratePaletteTokensInDesignData(
+            pageDesignDataForPublish,
+            templatePalettes,
+            getSelectedPalette(siteDesignDataForPublish),
+          );
+          pageDesignDataForPublish = migration.data;
+
+          if (migration.changed) {
+            await supabase
+              .from('pages')
+              .update({ design_data: pageDesignDataForPublish })
+              .eq('id', page.id);
+          }
+        }
+
+        pagesForPublish.push({ ...page, design_data: pageDesignDataForPublish });
+
         await supabase
           .from('pages')
-          .update({ published_data: page.design_data || {} })
+          .update({ published_data: pageDesignDataForPublish })
           .eq('id', page.id);
       }
     }
 
     // Precompute site-wide block flags so page renders don't need to scan all pages
-    const hasProductBlock = (pages || []).some((p: any) =>
-      ((p.design_data as any)?.blocks || []).some((b: any) => b.type === 'productGrid')
-    );
-    const hasMembershipBlock = (pages || []).some((p: any) =>
-      ((p.design_data as any)?.blocks || []).some((b: any) => b.type === 'membershipGate')
-    );
+    const hasProductBlock = pagesForPublish.some((page) => pageHasBlockType(page, 'productGrid'));
+    const hasMembershipBlock = pagesForPublish.some((page) => pageHasBlockType(page, 'membershipGate'));
 
     // Store precomputed flags in site's published_data
     if (hasProductBlock || hasMembershipBlock) {
       const enrichedPublishedData = {
-        ...(site.design_data || {}),
+        ...siteDesignDataForPublish,
         __hasProductBlock: hasProductBlock,
         __hasMembershipBlock: hasMembershipBlock,
       };
@@ -227,10 +300,10 @@ export async function POST(request: NextRequest) {
         site_id: siteId,
         user_id: user.id,
         event_type: 'publish',
-        site_design_data: site.design_data || {},
-        pages_snapshot: pages || [],
+        site_design_data: siteDesignDataForPublish,
+        pages_snapshot: pagesForPublish,
         site_title: updatedSite.site_slug,
-        selected_palette: (site.design_data as any)?.__selectedPalette,
+        selected_palette: getSelectedPalette(siteDesignDataForPublish),
       });
     } catch (historyErr) {
       console.error('Failed to record publish history:', historyErr);

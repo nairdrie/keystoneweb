@@ -2,6 +2,7 @@
 
 import React from 'react';
 import EditableText from '../EditableText';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 
 interface StatsBlockProps {
     id: string;
@@ -15,6 +16,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
     const pAccent = palette.accent || '#f3f4f6';
+    const configuredBackgroundColor = resolvePaletteColor(data.backgroundColor, palette, '');
 
     const items = data.items || [
         { value: '500+', label: 'Happy Clients' },
@@ -34,7 +36,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
 
     if (variant === 'cards') {
         return (
-            <section className="py-20 md:py-12 xl:py-20" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
+            <section className="py-20 md:py-12 xl:py-20" style={{ backgroundColor: configuredBackgroundColor || '#ffffff' }}>
                 <div className="max-w-7xl mx-auto px-4">
                     {data.title && (
                         <EditableText
@@ -81,7 +83,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
 
     // Banner variant (default) — full-width colored band
     return (
-        <section className="py-16 md:py-10 xl:py-16" style={{ backgroundColor: data.backgroundColor || pPrimary }}>
+        <section className="py-16 md:py-10 xl:py-16" style={{ backgroundColor: configuredBackgroundColor || pPrimary }}>
             <div className="max-w-7xl mx-auto px-4">
                 <div className={`grid gap-8 ${items.length <= 3 ? 'md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
                     {items.map((item: any, index: number) => (

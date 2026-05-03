@@ -31,6 +31,7 @@ export default function BlockWrapperEditor({
     onUpdateBlockData,
     customCss,
     onUpdateCustomCss,
+    palette,
     slug,
     scopedCss,
     paletteVars,
@@ -50,7 +51,6 @@ export default function BlockWrapperEditor({
         <motion.div
             key={`${id}-edit`}
             id={slug}
-            data-block-id={id}
             data-tour="builder-section"
             variants={staggerContainer as any}
             initial="show"
@@ -104,6 +104,7 @@ export default function BlockWrapperEditor({
                 customCss={customCss || ''}
                 onSaveCustomCss={(css) => onUpdateCustomCss?.(css)}
                 isProUser={isProUser}
+                palette={palette}
             />
         </motion.div>
     );

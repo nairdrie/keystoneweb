@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { X, Code, Lock, Crown, Image as ImageIcon, Upload, Trash2, LayoutTemplate, Palette } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import { AVAILABLE_BLOCKS } from './block-registry';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 
 interface BlockSettingsModalProps {
     isOpen: boolean;
@@ -16,6 +17,7 @@ interface BlockSettingsModalProps {
     customCss: string;
     onSaveCustomCss: (css: string) => void;
     isProUser: boolean;
+    palette?: Record<string, string>;
 }
 
 export default function BlockSettingsModal({
@@ -28,6 +30,7 @@ export default function BlockSettingsModal({
     customCss,
     onSaveCustomCss,
     isProUser,
+    palette = {},
 }: BlockSettingsModalProps) {
     const mouseDownOnBackdrop = useRef(false);
     const context = useEditorContext();
@@ -142,6 +145,8 @@ export default function BlockSettingsModal({
     // Carousel State
     const [carouselAutoPlay, setCarouselAutoPlay] = useState<boolean>(blockData?.autoPlay !== false);
     const [carouselInterval, setCarouselInterval] = useState<number>(blockData?.interval || 5);
+    const bgColorInputValue = getColorInputValue(bgColor, palette, '#000000');
+    const menuBgColorInputValue = getColorInputValue(menuBgColor, palette, '#ffffff');
 
     useEffect(() => {
         if (isOpen) {
@@ -504,9 +509,14 @@ export default function BlockSettingsModal({
                                     <div className="flex items-center gap-3">
                                         <input 
                                             type="color" 
-                                            value={bgColor || '#000000'} 
+                                            value={bgColorInputValue} 
                                             onChange={(e) => setBgColor(e.target.value)}
                                             className="w-10 h-10 rounded cursor-pointer"
+                                        />
+                                        <PaletteTokenButtons
+                                            selected={bgColor}
+                                            palette={palette}
+                                            onSelect={(token) => setBgColor(token)}
                                         />
                                         <input 
                                             type="text" 
@@ -686,9 +696,14 @@ export default function BlockSettingsModal({
                                 <div className="flex items-center gap-3">
                                     <input
                                         type="color"
-                                        value={menuBgColor || '#ffffff'}
+                                        value={menuBgColorInputValue}
                                         onChange={(e) => setMenuBgColor(e.target.value)}
                                         className="w-10 h-10 rounded cursor-pointer"
+                                    />
+                                    <PaletteTokenButtons
+                                        selected={menuBgColor}
+                                        palette={palette}
+                                        onSelect={(token) => setMenuBgColor(token)}
                                     />
                                     <input
                                         type="text"
@@ -777,4 +792,42 @@ export default function BlockSettingsModal({
     );
 
     return createPortal(modal, document.body);
+}
+
+function getColorInputValue(value: string, palette: Record<string, string>, fallback: string) {
+    const resolved = resolvePaletteColor(value, palette, fallback);
+    return /^#[0-9a-f]{6}$/i.test(resolved) ? resolved : fallback;
+}
+
+function PaletteTokenButtons({ selected, palette, onSelect }: {
+    selected: string;
+    palette: Record<string, string>;
+    onSelect: (token: string) => void;
+}) {
+    const tokens = [
+        { key: 'primary', label: 'P', title: 'Use palette primary' },
+        { key: 'secondary', label: 'S', title: 'Use palette secondary' },
+        { key: 'accent', label: 'A', title: 'Use palette accent' },
+    ];
+
+    return (
+        <div className="flex items-center gap-1">
+            {tokens.map(({ key, label, title }) => {
+                const token = `palette:${key}`;
+                const active = selected === token;
+                return (
+                    <button
+                        key={key}
+                        type="button"
+                        onClick={() => onSelect(token)}
+                        className={`w-8 h-8 rounded-full border text-[10px] font-bold shadow-sm transition-transform ${active ? 'border-slate-900 scale-105' : 'border-white'}`}
+                        style={{ backgroundColor: palette[key] || '#ffffff', color: key === 'accent' ? (palette.primary || '#0f172a') : '#ffffff' }}
+                        title={title}
+                    >
+                        {label}
+                    </button>
+                );
+            })}
+        </div>
+    );
 }

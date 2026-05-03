@@ -28,6 +28,8 @@ interface TabBarEditorProps {
     tabAlign: TabAlign;
     activeColor: string;
     bgColor: string;
+    activeColorSource: string;
+    bgColorSource: string;
     palette: Record<string, string>;
     updateContent: (key: string, value: any) => void;
     resolveHref: (item: NavItem) => string;
@@ -37,7 +39,7 @@ interface TabBarEditorProps {
 }
 
 export default function TabBarEditor({
-    items, tabStyle, tabAlign, activeColor, bgColor, updateContent, pages, blocks, siteId,
+    items, tabStyle, tabAlign, activeColor, bgColor, activeColorSource, bgColorSource, palette, updateContent, pages, blocks, siteId,
 }: TabBarEditorProps) {
     const [editingItem, setEditingItem] = useState<NavItem | null>(null);
 
@@ -148,6 +150,11 @@ export default function TabBarEditor({
                         className="w-6 h-6 rounded cursor-pointer border border-slate-200"
                         title="Active tab color"
                     />
+                    <PaletteTokenButtons
+                        selected={activeColorSource}
+                        palette={palette}
+                        onSelect={(token) => updateContent('activeColor', token)}
+                    />
                 </div>
                 <div className="flex items-center gap-1.5">
                     <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">Bar BG</span>
@@ -157,6 +164,11 @@ export default function TabBarEditor({
                         onChange={e => updateContent('bgColor', e.target.value)}
                         className="w-6 h-6 rounded cursor-pointer border border-slate-200"
                         title="Bar background color"
+                    />
+                    <PaletteTokenButtons
+                        selected={bgColorSource}
+                        palette={palette}
+                        onSelect={(token) => updateContent('bgColor', token)}
                     />
                     {bgColor && (
                         <button
@@ -179,6 +191,37 @@ export default function TabBarEditor({
                     onClose={() => setEditingItem(null)}
                 />
             )}
+        </div>
+    );
+}
+
+function PaletteTokenButtons({ selected, palette, onSelect }: {
+    selected: string;
+    palette: Record<string, string>;
+    onSelect: (token: string) => void;
+}) {
+    const tokens = [
+        { key: 'primary', title: 'Use palette primary' },
+        { key: 'secondary', title: 'Use palette secondary' },
+        { key: 'accent', title: 'Use palette accent' },
+    ];
+
+    return (
+        <div className="flex items-center gap-0.5">
+            {tokens.map(({ key, title }) => {
+                const token = `palette:${key}`;
+                const active = selected === token;
+                return (
+                    <button
+                        key={key}
+                        type="button"
+                        onClick={() => onSelect(token)}
+                        className={`w-5 h-5 rounded-full border transition-transform ${active ? 'border-slate-900 scale-110' : 'border-white shadow-sm'}`}
+                        style={{ backgroundColor: palette[key] || '#ffffff' }}
+                        title={title}
+                    />
+                );
+            })}
         </div>
     );
 }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEditorContext } from '@/lib/editor-context';
 import EditableText from '../EditableText';
 import Reveal from '@/app/components/Reveal';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 import {
   Plus, Trash2, Pencil, Check, X, Upload, Loader2,
   UtensilsCrossed, ExternalLink, Image as ImageIcon,
@@ -69,7 +70,20 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
   const pPrimary = palette.primary || '#1f2937';
   const pSecondary = palette.secondary || '#dc2626';
   const pAccent = palette.accent || '#f3f4f6';
-  const bgColor = data.backgroundColor || '';
+  const bgColor = resolvePaletteColor(data.backgroundColor, palette, '');
+  const fallbackItems: MenuItem[] = Array.isArray(data.fallbackItems)
+    ? data.fallbackItems.map((item: Partial<MenuItem>, index: number) => ({
+      id: item.id || `fallback-${index}`,
+      site_id: item.site_id || '',
+      name: item.name || `Menu item ${index + 1}`,
+      description: item.description ?? null,
+      price: item.price ?? null,
+      category: item.category || 'Menu',
+      image_url: item.image_url ?? null,
+      is_available: item.is_available !== false,
+      sort_order: item.sort_order ?? index,
+    }))
+    : [];
 
   useEffect(() => {
     if (!siteId) { setLoading(false); return; }
@@ -132,7 +146,9 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
 
   // ── Items Mode View ──────────────────────────────────────────────────────────
   if (mode === 'items' && !isEditMode) {
-    const grouped = groupByCategory(items.filter(i => i.is_available));
+    const publishedItems = items.filter(i => i.is_available);
+    const displayItems = publishedItems.length > 0 ? publishedItems : fallbackItems;
+    const grouped = groupByCategory(displayItems);
     const categories = Object.keys(grouped);
 
     if (loading) {

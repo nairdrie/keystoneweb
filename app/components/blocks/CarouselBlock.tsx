@@ -15,6 +15,7 @@ import {
 import EditableText from '../EditableText';
 import EditableImage from '../EditableImage';
 import Reveal from '@/app/components/Reveal';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 
 // ── Icon registry ─────────────────────────────────────────────────────────────
 
@@ -119,6 +120,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
   const pPrimary   = palette.primary   || '#1f2937';
   const pSecondary = palette.secondary || '#dc2626';
   const pAccent    = palette.accent    || '#f3f4f6';
+  const bgColor = resolvePaletteColor(data.backgroundColor, palette, '');
 
   const variant    = data.variant  || 'cards';
   const items: SlideItem[] = data.items?.length ? data.items : DEFAULT_ITEMS;
@@ -272,7 +274,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
     const showNav    = items.length > perPage;
 
     return (
-      <section className="py-24" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
+      <section className="py-24" style={{ backgroundColor: bgColor || '#ffffff' }}>
         <div className="max-w-7xl mx-auto px-4">
 
           {/* Section header */}
@@ -387,7 +389,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
 
   if (variant === 'slides') {
     return (
-      <section className="py-24" style={{ backgroundColor: data.backgroundColor || pAccent }}>
+      <section className="py-24" style={{ backgroundColor: bgColor || pAccent }}>
         <div className="max-w-7xl mx-auto px-4">
 
           {(data.title || isEditMode) && (
@@ -477,7 +479,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
   // ── VARIANT: minimal (default fallback) ───────────────────────────────────────
 
   return (
-    <section className="py-24" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
+    <section className="py-24" style={{ backgroundColor: bgColor || '#ffffff' }}>
       <div className="max-w-2xl mx-auto px-4 text-center">
 
         {(data.title || data.subtitle || isEditMode) && (

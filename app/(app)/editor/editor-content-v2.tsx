@@ -911,15 +911,17 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     const keyMap: Record<string, string> = {
       bgType: 'headerBgType',
       layout: 'headerLayout',
-      sticky: 'headerSticky',
-      rightElement: 'headerRightElement',
-      bannerEnabled: 'headerBannerEnabled',
+      rightElement: 'headerRightSide',
+      bannerEnabled: 'headerShowBanner',
       bannerText: 'headerBannerText',
     };
     for (const [configKey, siteKey] of Object.entries(keyMap)) {
       if (config[configKey] !== undefined) {
         handleUpdateSiteContent(siteKey, config[configKey]);
       }
+    }
+    if (typeof config.sticky === 'boolean') {
+      handleUpdateSiteContent('headerSticky', config.sticky ? 'always' : 'none');
     }
   }, [handleUpdateSiteContent]);
 

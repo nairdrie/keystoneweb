@@ -1,0 +1,217 @@
+
+> keystoneweb@0.2.0 dev
+> next dev --port 3010 --hostname 127.0.0.1
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://127.0.0.1:3010
+- Network:       http://127.0.0.1:3010
+- Environments: .env.local
+
+✓ Starting...
+Creating turbopack project { dir: 'C:\\Users\\Lugia\\DEV\\keystoneweb', testMode: true }
+✓ Ready in 1647ms
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/booked
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/booked 200 in 1726ms (compile: 924ms, proxy.ts: 92ms, render: 709ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/booked
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/booked 200 in 130ms (compile: 23ms, proxy.ts: 10ms, render: 97ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/bookings/services
+[Middleware] Auth error or session expired: Auth session missing!
+[Middleware] Incoming: 127.0.0.1:3010/api/bookings/settings
+[Middleware] Auth error or session expired: Auth session missing!
+[Middleware] Incoming: 127.0.0.1:3010/api/bookings/availability
+[Middleware] Auth error or session expired: Auth session missing!
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 451ms (compile: 412ms, proxy.ts: 33ms, render: 6ms)
+ GET /api/bookings/services?siteId=template-preview-booked 500 in 2.0s (compile: 322ms, proxy.ts: 28ms, render: 1689ms)
+ GET /api/bookings/settings?siteId=template-preview-booked 500 in 2.0s (compile: 349ms, proxy.ts: 29ms, render: 1660ms)
+ GET /api/bookings/availability?siteId=template-preview-booked 500 in 2.4s (compile: 272ms, proxy.ts: 31ms, render: 2.1s)
+ GET /favicon.ico 200 in 1981ms (compile: 867ms, render: 1114ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/booked
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/booked 200 in 105ms (compile: 18ms, proxy.ts: 6ms, render: 81ms)
+✓ Compiled in 1024ms
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/booked
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/booked 200 in 985ms (compile: 189ms, proxy.ts: 6ms, render: 790ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/bookings/services
+[Middleware] Auth error or session expired: Auth session missing!
+[Middleware] Incoming: 127.0.0.1:3010/api/bookings/settings
+[Middleware] Auth error or session expired: Auth session missing!
+[Middleware] Incoming: 127.0.0.1:3010/api/bookings/availability
+[Middleware] Auth error or session expired: Auth session missing!
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 431ms (compile: 362ms, proxy.ts: 64ms, render: 5ms)
+ GET /api/bookings/services?siteId=template-preview-booked 500 in 2.2s (compile: 231ms, proxy.ts: 35ms, render: 1962ms)
+ GET /api/bookings/settings?siteId=template-preview-booked 500 in 2.2s (compile: 240ms, proxy.ts: 38ms, render: 1958ms)
+ GET /api/bookings/availability?siteId=template-preview-booked 500 in 5.5s (compile: 240ms, proxy.ts: 40ms, render: 5.2s)
+ GET /favicon.ico 200 in 8.2s (compile: 279ms, render: 7.9s)
+✓ Compiled in 459ms
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/booked
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/booked 200 in 884ms (compile: 185ms, proxy.ts: 9ms, render: 690ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/bookings/services
+[Middleware] Auth error or session expired: Auth session missing!
+[Middleware] Incoming: 127.0.0.1:3010/api/bookings/settings
+[Middleware] Auth error or session expired: Auth session missing!
+[Middleware] Incoming: 127.0.0.1:3010/api/bookings/availability
+[Middleware] Auth error or session expired: Auth session missing!
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 347ms (compile: 292ms, proxy.ts: 51ms, render: 4ms)
+ GET /api/bookings/settings?siteId=template-preview-booked 500 in 2.6s (compile: 212ms, proxy.ts: 29ms, render: 2.3s)
+ GET /api/bookings/services?siteId=template-preview-booked 500 in 2.6s (compile: 210ms, proxy.ts: 28ms, render: 2.3s)
+ GET /api/bookings/availability?siteId=template-preview-booked 500 in 3.4s (compile: 213ms, proxy.ts: 30ms, render: 3.1s)
+ GET /favicon.ico 200 in 3.7s (compile: 252ms, render: 3.4s)
+✓ Compiled in 557ms
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/booked
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/booked 200 in 874ms (compile: 162ms, proxy.ts: 9ms, render: 703ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 52ms (compile: 30ms, proxy.ts: 13ms, render: 10ms)
+ GET /favicon.ico 200 in 1483ms (compile: 32ms, render: 1451ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/atlas
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/atlas 200 in 81ms (compile: 18ms, proxy.ts: 6ms, render: 57ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 76ms (compile: 59ms, proxy.ts: 12ms, render: 4ms)
+ GET /favicon.ico 200 in 898ms (compile: 26ms, render: 872ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/editorial
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/editorial 200 in 67ms (compile: 15ms, proxy.ts: 5ms, render: 47ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 52ms (compile: 38ms, proxy.ts: 9ms, render: 4ms)
+ GET /favicon.ico 200 in 797ms (compile: 28ms, render: 768ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/menu
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/menu 200 in 69ms (compile: 16ms, proxy.ts: 5ms, render: 48ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 61ms (compile: 48ms, proxy.ts: 7ms, render: 5ms)
+ GET /favicon.ico 200 in 704ms (compile: 24ms, render: 680ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/craft
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/craft 200 in 70ms (compile: 13ms, proxy.ts: 4ms, render: 53ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 63ms (compile: 50ms, proxy.ts: 9ms, render: 4ms)
+ GET /favicon.ico 200 in 1044ms (compile: 35ms, render: 1008ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/retro
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/retro 200 in 82ms (compile: 14ms, proxy.ts: 5ms, render: 63ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 60ms (compile: 45ms, proxy.ts: 10ms, render: 5ms)
+ GET /favicon.ico 200 in 541ms (compile: 23ms, render: 517ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/proof
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/proof 200 in 76ms (compile: 15ms, proxy.ts: 4ms, render: 57ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 35ms (compile: 26ms, proxy.ts: 6ms, render: 4ms)
+ GET /favicon.ico 200 in 669ms (compile: 22ms, render: 647ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/gallery
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/gallery 200 in 66ms (compile: 15ms, proxy.ts: 4ms, render: 47ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 57ms (compile: 39ms, proxy.ts: 15ms, render: 4ms)
+ GET /favicon.ico 200 in 811ms (compile: 20ms, render: 791ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/menu
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/menu 200 in 79ms (compile: 21ms, proxy.ts: 7ms, render: 51ms)
+✓ Compiled in 470ms
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/gallery
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/gallery 404 in 592ms (compile: 422ms, proxy.ts: 4ms, render: 166ms)
+ GET /favicon.ico 200 in 305ms (compile: 25ms, render: 280ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/gallery
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/gallery 200 in 2.2s (compile: 171ms, proxy.ts: 5ms, render: 2.1s)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/gallery
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/gallery 200 in 72ms (compile: 16ms, proxy.ts: 6ms, render: 49ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 83ms (compile: 54ms, proxy.ts: 11ms, render: 18ms)
+ GET /favicon.ico 200 in 5.3s (compile: 78ms, render: 5.2s)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/gallery
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/gallery 200 in 100ms (compile: 19ms, proxy.ts: 10ms, render: 71ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/gallery
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/gallery 200 in 78ms (compile: 16ms, proxy.ts: 4ms, render: 58ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 42ms (compile: 20ms, proxy.ts: 11ms, render: 11ms)
+ GET /favicon.ico 200 in 779ms (compile: 26ms, render: 754ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/gallery
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/gallery 200 in 64ms (compile: 14ms, proxy.ts: 6ms, render: 44ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 140ms (compile: 114ms, proxy.ts: 22ms, render: 4ms)
+ GET /favicon.ico 200 in 927ms (compile: 27ms, render: 900ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/atlas
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/atlas 200 in 86ms (compile: 16ms, proxy.ts: 8ms, render: 63ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 323ms (compile: 259ms, proxy.ts: 60ms, render: 3ms)
+ GET /favicon.ico 200 in 790ms (compile: 28ms, render: 762ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/editorial
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/editorial 200 in 89ms (compile: 14ms, proxy.ts: 5ms, render: 70ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 143ms (compile: 128ms, proxy.ts: 11ms, render: 4ms)
+ GET /favicon.ico 200 in 919ms (compile: 18ms, render: 901ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/booked
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/booked 200 in 86ms (compile: 14ms, proxy.ts: 5ms, render: 67ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 281ms (compile: 187ms, proxy.ts: 90ms, render: 3ms)
+ GET /favicon.ico 200 in 677ms (compile: 16ms, render: 661ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/menu
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/menu 200 in 92ms (compile: 14ms, proxy.ts: 6ms, render: 71ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 238ms (compile: 149ms, proxy.ts: 85ms, render: 4ms)
+ GET /favicon.ico 200 in 555ms (compile: 14ms, render: 541ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/craft
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/craft 200 in 77ms (compile: 16ms, proxy.ts: 6ms, render: 55ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 309ms (compile: 193ms, proxy.ts: 112ms, render: 4ms)
+ GET /favicon.ico 200 in 1017ms (compile: 17ms, render: 1000ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/retro
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/retro 200 in 89ms (compile: 13ms, proxy.ts: 5ms, render: 71ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 441ms (compile: 332ms, proxy.ts: 105ms, render: 4ms)
+ GET /favicon.ico 200 in 1009ms (compile: 20ms, render: 989ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/proof
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/proof 200 in 88ms (compile: 15ms, proxy.ts: 5ms, render: 69ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 297ms (compile: 283ms, proxy.ts: 10ms, render: 5ms)
+ GET /favicon.ico 200 in 682ms (compile: 29ms, render: 653ms)
+[Middleware] Incoming: 127.0.0.1:3010/template-preview/gallery
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /template-preview/gallery 200 in 92ms (compile: 18ms, proxy.ts: 8ms, render: 66ms)
+[Middleware] Incoming: 127.0.0.1:3010/api/membership/me
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/membership/me 200 in 52ms (compile: 36ms, proxy.ts: 11ms, render: 5ms)
+ GET /favicon.ico 200 in 1744ms (compile: 50ms, render: 1694ms)
+[?25h

@@ -4,6 +4,7 @@ import React from 'react';
 import EditableText from '../EditableText';
 import EditableImage from '../EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 
 interface LogoCloudBlockProps {
     id: string;
@@ -16,6 +17,7 @@ interface LogoCloudBlockProps {
 export default function LogoCloudBlock({ id, data, isEditMode, palette, updateContent }: LogoCloudBlockProps) {
     const context = useEditorContext();
     const pPrimary = palette.primary || '#1f2937';
+    const bgColor = resolvePaletteColor(data.backgroundColor, palette, '');
 
     const variant = data.variant || 'inline'; // 'inline' | 'grid' | 'marquee'
     const logos: string[] = data.logos || [];
@@ -30,7 +32,7 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
 
     if (variant === 'grid') {
         return (
-            <section className="py-20" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
+            <section className="py-20" style={{ backgroundColor: bgColor || '#ffffff' }}>
                 <div className="max-w-6xl mx-auto px-4">
                     <EditableText
                         as="p"
@@ -70,7 +72,7 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
 
     if (variant === 'marquee') {
         return (
-            <section className="py-12 overflow-hidden" style={{ backgroundColor: data.backgroundColor || palette.accent || '#f8fafc' }}>
+            <section className="py-12 overflow-hidden" style={{ backgroundColor: bgColor || palette.accent || '#f8fafc' }}>
                 <div className="max-w-7xl mx-auto px-4">
                     <EditableText
                         as="p"
@@ -116,7 +118,7 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
 
     // Inline variant (default) — single row of logos
     return (
-        <section className="py-16 border-y border-gray-100" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
+        <section className="py-16 border-y border-gray-100" style={{ backgroundColor: bgColor || '#ffffff' }}>
             <div className="max-w-7xl mx-auto px-4">
                 <EditableText
                     as="p"

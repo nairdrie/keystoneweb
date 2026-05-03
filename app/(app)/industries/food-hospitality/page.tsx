@@ -208,7 +208,7 @@ export default function FoodHospitalityIndustryPage() {
 
           <div className="text-center mt-10">
             <Link href="/templates" className="text-sm font-semibold text-red-600 hover:text-red-700 transition-colors">
-              See all 8 templates →
+              See all 16 templates →
             </Link>
           </div>
         </div>

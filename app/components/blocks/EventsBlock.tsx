@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEditorContext } from '@/lib/editor-context';
 import { CalendarDays, ExternalLink, ArrowDownUp, Eye, EyeOff } from 'lucide-react';
 import EditableText from '../EditableText';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 
 interface Event {
     id: string;
@@ -38,6 +39,7 @@ export default function EventsBlock({ id, data, isEditMode, palette, updateConte
 
     const pPrimary = palette.primary || '#1f2937';
     const pAccent = palette.accent || '#f8fafc';
+    const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
 
     const sortOrder: SortOrder = data.sortOrder || 'desc';
     const showPast: boolean = data.showPast ?? false;
@@ -56,7 +58,7 @@ export default function EventsBlock({ id, data, isEditMode, palette, updateConte
     // ── Edit mode ─────────────────────────────────────────────────────────────
     if (isEditMode) {
         return (
-            <section className="py-16" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
+            <section className="py-16" style={{ backgroundColor: bgColor }}>
                 <div className="max-w-5xl mx-auto px-4">
                     <EditableText
                         as="h2"
@@ -151,7 +153,7 @@ export default function EventsBlock({ id, data, isEditMode, palette, updateConte
 
     // ── View mode ─────────────────────────────────────────────────────────────
     return (
-        <section className="py-16" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
+        <section className="py-16" style={{ backgroundColor: bgColor }}>
             <div className="max-w-5xl mx-auto px-4">
                 {(data.title || data.subtitle) && (
                     <div className="text-center mb-12">

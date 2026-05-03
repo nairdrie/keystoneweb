@@ -1,6 +1,7 @@
 import React from 'react';
 import EditableText from '../EditableText';
 import Reveal from '@/app/components/Reveal';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 
 interface FeaturesListBlockProps {
     id: string;
@@ -13,6 +14,7 @@ interface FeaturesListBlockProps {
 export default function FeaturesListBlock({ id, data, isEditMode, palette, updateContent }: FeaturesListBlockProps) {
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
+    const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
 
     const items = data.items || [
         "Licensed & Insured Experts",
@@ -29,7 +31,7 @@ export default function FeaturesListBlock({ id, data, isEditMode, palette, updat
     };
 
     return (
-        <section className="py-24" style={{ backgroundColor: data.backgroundColor || '#ffffff' }}>
+        <section className="py-24" style={{ backgroundColor: bgColor }}>
             <div className="max-w-4xl mx-auto px-4">
                 <Reveal>
                     <EditableText

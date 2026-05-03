@@ -1,4 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
+import {
+  getStructuralTemplateMetadata,
+  getStructuralTemplatesForSelection,
+} from '@/lib/templates/structural-templates';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -20,6 +24,7 @@ export interface TemplateMetadata {
   has_gallery: boolean;
   created_at: string;
   updated_at: string;
+  default_content?: Record<string, unknown>;
 }
 
 /**
@@ -47,6 +52,11 @@ export async function getTemplateMetadata(
       
     data = fallbackData;
     error = fallbackError;
+  }
+
+  if (!data) {
+    const structuralTemplate = getStructuralTemplateMetadata(templateId);
+    if (structuralTemplate) return structuralTemplate as TemplateMetadata;
   }
 
   if (error) {
@@ -81,7 +91,27 @@ export async function getAllTemplateMetadata(filters?: {
     return [];
   }
 
-  return (data || []) as TemplateMetadata[];
+  const structuralTemplates = getStructuralTemplatesForSelection().filter((template) => {
+    const categoryMatches =
+      !filters?.category ||
+      template.category === filters.category ||
+      template.category === 'general';
+    const businessTypeMatches =
+      !filters?.business_type ||
+      template.business_type === filters.business_type ||
+      template.business_type === 'both';
+    return categoryMatches && businessTypeMatches;
+  });
+
+  const mergedById = new Map<string, TemplateMetadata>();
+  for (const template of (data || []) as TemplateMetadata[]) {
+    mergedById.set(template.template_id, template);
+  }
+  for (const template of structuralTemplates) {
+    mergedById.set(template.template_id, template as TemplateMetadata);
+  }
+
+  return Array.from(mergedById.values());
 }
 
 /**

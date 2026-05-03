@@ -3,6 +3,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { trackEvent } from '@/lib/analytics';
+import { getStructuralTemplateMetadata } from '@/lib/templates/structural-templates';
+import { getTemplateMetadata } from '@/lib/db/template-queries';
+import { migratePaletteTokensInDesignData } from '@/lib/template-palette-migration';
 
 interface CreateSiteRequest {
   selectedTemplateId: string;
@@ -79,8 +82,9 @@ export async function POST(request: NextRequest) {
       .eq('template_id', selectedTemplateId)
       .single();
 
-    const defaultContent = templateMeta?.default_content || {};
-    const palettes = templateMeta?.palettes || {};
+    const structuralTemplate = !templateMeta ? getStructuralTemplateMetadata(selectedTemplateId) : null;
+    const defaultContent = templateMeta?.default_content || structuralTemplate?.default_content || {};
+    const palettes = templateMeta?.palettes || structuralTemplate?.palettes || {};
 
     // Extract site-level fields from default_content
     const { blocks, extra_pages, __navItems: templateNavItems, ...siteHeaderFields } = defaultContent as any;
@@ -311,7 +315,40 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const siteData = mapSupabaseToSiteData(data);
+    let siteRow = data;
+    try {
+      const metadata = await getTemplateMetadata(data.selected_template_id);
+      if (metadata?.palettes) {
+        const migration = migratePaletteTokensInDesignData(
+          data.design_data || {},
+          metadata.palettes,
+          data.design_data?.__selectedPalette,
+        );
+
+        if (migration.changed) {
+          const { data: migratedSite, error: migrationError } = await supabase
+            .from('sites')
+            .update({
+              design_data: migration.data,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', siteId)
+            .select()
+            .single();
+
+          if (!migrationError && migratedSite) {
+            siteRow = migratedSite;
+          } else {
+            console.error('Failed to migrate site palette tokens:', migrationError);
+            siteRow = { ...data, design_data: migration.data };
+          }
+        }
+      }
+    } catch (migrationErr) {
+      console.error('Error migrating site palette tokens:', migrationErr);
+    }
+
+    const siteData = mapSupabaseToSiteData(siteRow);
     return NextResponse.json(siteData);
   } catch (error) {
     console.error('Error fetching site:', error);

@@ -273,9 +273,13 @@ const VALID_BLOCK_TYPES = new Set([
   'testimonials', 'stats', 'gallery', 'contact', 'faq', 'cta', 'booking',
   'productGrid', 'contact_form', 'map', 'custom_html', 'pricing', 'logoCloud', 'team', 'blog',
   'resources', 'carousel', 'video', 'deliveryLinks', 'menu', 'events', 'pdf', 'featuredQuote',
+  'estimateForm', 'socialFeed', 'tabBar',
   // 'chatSupport', // Hidden — not yet released
 ]);
-const VALID_TEMPLATES = new Set(['luxe', 'vivid', 'airy', 'edge', 'classic', 'organic', 'sleek', 'vibrant']);
+const VALID_TEMPLATES = new Set([
+  'luxe', 'vivid', 'airy', 'edge', 'classic', 'organic', 'sleek', 'vibrant',
+  'atlas', 'editorial', 'booked', 'menu', 'craft', 'retro', 'proof', 'gallery',
+]);
 const HEX_COLOR = /^#[0-9a-fA-F]{3,8}$/;
 
 function sanitizeOperations(operations: any[]): any[] {

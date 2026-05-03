@@ -3,6 +3,7 @@ import EditableText from '../EditableText';
 import EditableImage from '../EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
 import Reveal from '@/app/components/Reveal';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 
 interface AboutImageTextBlockProps {
     id: string;
@@ -16,6 +17,7 @@ export default function AboutImageTextBlock({ id, data, isEditMode, palette, upd
     const context = useEditorContext();
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
+    const bgColor = resolvePaletteColor(data.backgroundColor, palette, palette.accent || '#f3f4f6');
 
     const items = data.items || [
         "Licensed & Insured Experts",
@@ -32,7 +34,7 @@ export default function AboutImageTextBlock({ id, data, isEditMode, palette, upd
     };
 
     return (
-        <section className="py-24" style={{ backgroundColor: data.backgroundColor || palette.accent || '#f3f4f6' }}>
+        <section className="py-24" style={{ backgroundColor: bgColor }}>
             <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-2 gap-16 items-center">
                 {data.imagePosition === 'right' ? (
                     <>

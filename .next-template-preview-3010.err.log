@@ -1,0 +1,5 @@
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+
+thread 'tokio-runtime-worker' (38340) panicked at turbopack\crates\turbo-persistence\src\static_sorted_file.rs:387:51:
+range start index 305526 out of range for slice of length 305486
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
