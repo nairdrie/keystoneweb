@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Hammer, Check, ArrowRight, Loader2 } from 'lucide-react';
+import { Hammer, Check, ArrowRight, Loader2, Utensils, Paintbrush, Leaf, Fish } from 'lucide-react';
 import Header from '../components/Header';
 import MarketingFooter from '../components/MarketingFooter';
 import mapleLeaf from '../../assets/maple-leaf.png';
@@ -31,23 +31,132 @@ export default function HomePage() {
 }
 
 // ── HERO ────────────────────────────────────────────────────────────────
-const HERO_PROMPT = 'A site for my plumbing business in Sudbury';
+const HERO_DEMOS = [
+  {
+    prompt: 'A site for an arts and crafts studio in Vancouver',
+    business: 'Raincity Craft Studio',
+    result: 'Chose a handmade look with workshops, gallery sections, and warm colors.',
+    ops: ['choose_craft_style', 'add_workshops', 'build_gallery'],
+    preview: {
+      name: 'Raincity Craft Studio',
+      eyebrow: 'WORKSHOPS + HANDMADE GOODS',
+      headline: ['Make something', 'beautiful in Vancouver.'],
+      body: 'Beginner-friendly classes, local makers, and weekend markets.',
+      primaryAction: 'See Workshops',
+      secondaryAction: 'Shop Goods',
+      headerAction: 'Join a Class',
+      items: ['Pottery', 'Fiber Arts', 'Maker Markets'],
+      primary: '#7c2d12',
+      soft: '#fef3c7',
+      gradient: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 45%, #ffffff 100%)',
+      Icon: Paintbrush,
+    },
+  },
+  {
+    prompt: 'A site for a calm wellness clinic in Calgary',
+    business: 'Prairie Wellness',
+    result: 'Created a gentle service page with booking prompts and care pathways.',
+    ops: ['set_soft_palette', 'add_booking_cta', 'organize_services'],
+    preview: {
+      name: 'Prairie Wellness',
+      eyebrow: 'MASSAGE + RECOVERY + CARE',
+      headline: ['Feel better,', 'book easier.'],
+      body: 'Thoughtful treatments, simple booking, and care that fits your week.',
+      primaryAction: 'Book Online',
+      secondaryAction: 'Our Services',
+      headerAction: 'Start Booking',
+      items: ['Massage', 'Recovery', 'Wellness Plans'],
+      primary: '#047857',
+      soft: '#d1fae5',
+      gradient: 'linear-gradient(135deg, #ecfdf5 0%, #f0fdfa 55%, #ffffff 100%)',
+      Icon: Leaf,
+    },
+  },
+  {
+    prompt: 'A site for my plumbing business in Sudbury',
+    business: 'Sudbury Plumbing',
+    result: 'Picked a trustworthy blue palette and added a 24/7 callout.',
+    ops: ['select_template', 'generate_copy', 'set_palette'],
+    preview: {
+      name: 'Sudbury Plumbing',
+      eyebrow: '24/7 EMERGENCY',
+      headline: ['Plumbing in Sudbury,', 'fixed today.'],
+      body: 'Family-owned. Honest pricing. We answer the phone.',
+      primaryAction: 'Book Service',
+      secondaryAction: '(705) 555-1212',
+      headerAction: 'Call Now',
+      items: ['Emergency', 'Drain Care', 'Water Heaters'],
+      primary: '#075985',
+      soft: '#e0f2fe',
+      gradient: 'linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%)',
+      Icon: Hammer,
+    },
+  },
+  {
+    prompt: 'A site for a trendy restaurant in Toronto',
+    business: 'King West Table',
+    result: 'Built a bold food-first layout with menu highlights and reservations.',
+    ops: ['pick_menu_layout', 'write_hero_copy', 'add_reservations'],
+    preview: {
+      name: 'King West Table',
+      eyebrow: 'DINNER + COCKTAILS + LATE NIGHT',
+      headline: ['Toronto plates,', 'made for sharing.'],
+      body: 'Seasonal small plates, low lights, and a room that hums.',
+      primaryAction: 'Reserve',
+      secondaryAction: 'View Menu',
+      headerAction: 'Book a Table',
+      items: ['Small Plates', 'Cocktails', 'Private Dining'],
+      primary: '#9a3412',
+      soft: '#ffedd5',
+      gradient: 'linear-gradient(135deg, #fff7ed 0%, #fff1f2 55%, #ffffff 100%)',
+      Icon: Utensils,
+    },
+  },
+  {
+    prompt: 'A site for a fishing charter business in Halifax',
+    business: 'Harbourline Charters',
+    result: 'Designed a coast-ready booking page with trip options and Atlantic blue styling.',
+    ops: ['set_coastal_style', 'add_trip_cards', 'enable_booking'],
+    preview: {
+      name: 'Harbourline Charters',
+      eyebrow: 'HALIFAX FISHING CHARTERS',
+      headline: ['Atlantic trips,', 'ready at sunrise.'],
+      body: 'Guided harbour and offshore charters for families, friends, and serious anglers.',
+      primaryAction: 'Book a Charter',
+      secondaryAction: 'Trip Options',
+      headerAction: 'Check Dates',
+      items: ['Harbour Trips', 'Offshore Runs', 'Private Groups'],
+      primary: '#0e7490',
+      soft: '#cffafe',
+      gradient: 'linear-gradient(135deg, #ecfeff 0%, #e0f2fe 48%, #ffffff 100%)',
+      Icon: Fish,
+    },
+  },
+];
 
 function HeroSlab() {
   // 0: idle, 1: typing, 2: building, 3: rendered
   const [step, setStep] = useState(0);
-  const isIdle = step === 0;
+  const [demoIndex, setDemoIndex] = useState(0);
+  const demo = HERO_DEMOS[demoIndex];
 
   useEffect(() => {
+    setStep(0);
     const seq: Array<[number, number]> = [
       [800, 1],
       [3200, 2],
       [4400, 3],
-      [9000, 0],
+      [8600, 0],
     ];
     const timers = seq.map(([t, s]) => setTimeout(() => setStep(s), t));
-    return () => timers.forEach(clearTimeout);
-  }, [isIdle]);
+    const nextDemoTimer = setTimeout(() => {
+      setDemoIndex((current) => (current + 1) % HERO_DEMOS.length);
+    }, 9400);
+    return () => {
+      timers.forEach(clearTimeout);
+      clearTimeout(nextDemoTimer);
+    };
+  }, [demoIndex]);
 
   return (
     <section className="relative overflow-hidden bg-white px-6 pt-20 pb-16">
@@ -135,18 +244,18 @@ function HeroSlab() {
         </div>
 
         {/* RIGHT: builder demo */}
-        <BuilderDemo step={step} />
+        <BuilderDemo step={step} demo={demo} />
       </div>
     </section>
   );
 }
 
-function BuilderDemo({ step }: { step: number }) {
+function BuilderDemo({ step, demo }: { step: number; demo: typeof HERO_DEMOS[number] }) {
   const [tIdx, setTIdx] = useState(0);
 
   useEffect(() => {
     if (step !== 1) {
-      setTIdx(step >= 2 ? HERO_PROMPT.length : 0);
+      setTIdx(step >= 2 ? demo.prompt.length : 0);
       return;
     }
     setTIdx(0);
@@ -154,12 +263,12 @@ function BuilderDemo({ step }: { step: number }) {
     const id = setInterval(() => {
       i++;
       setTIdx(i);
-      if (i >= HERO_PROMPT.length) clearInterval(id);
+      if (i >= demo.prompt.length) clearInterval(id);
     }, 60);
     return () => clearInterval(id);
-  }, [step]);
+  }, [demo.prompt, step]);
 
-  const showText = step === 0 ? '' : step === 1 ? HERO_PROMPT.slice(0, tIdx) : HERO_PROMPT;
+  const showText = step === 0 ? '' : step === 1 ? demo.prompt.slice(0, tIdx) : demo.prompt;
 
   return (
     <div
@@ -224,7 +333,7 @@ function BuilderDemo({ step }: { step: number }) {
                     </span>
                   ) : (
                     <>
-                      Built a starter for <strong>Sudbury Plumbing</strong>. Picked a warm palette and added a 24/7 callout.
+                      Built a starter for <strong>{demo.business}</strong>. {demo.result}
                     </>
                   )}
                 </div>
@@ -233,7 +342,7 @@ function BuilderDemo({ step }: { step: number }) {
 
             {step >= 3 && (
               <div className="mt-2 flex flex-col gap-1">
-                {['select_template', 'generate_copy', 'set_palette'].map((t, i) => (
+                {demo.ops.map((t, i) => (
                   <div
                     key={t}
                     className="ksw-pop inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[9px] text-slate-600"
@@ -270,7 +379,7 @@ function BuilderDemo({ step }: { step: number }) {
               </div>
             ) : (
               <div className="ksw-fade">
-                <FakeSitePreview />
+                <FakeSitePreview demo={demo} />
               </div>
             )}
           </div>
@@ -300,38 +409,51 @@ function BuilderDemo({ step }: { step: number }) {
   );
 }
 
-function FakeSitePreview() {
+function FakeSitePreview({ demo }: { demo: typeof HERO_DEMOS[number] }) {
+  const { preview } = demo;
+  const PreviewIcon = preview.Icon;
+
   return (
     <div className="font-sans text-[11px] leading-snug" style={{ transform: 'scale(.98)' }}>
       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
         <div className="flex items-center gap-1.5">
-          <div className="flex h-4 w-4 items-center justify-center rounded bg-sky-900">
-            <Hammer className="h-[9px] w-[9px] text-white" />
+          <div className="flex h-4 w-4 items-center justify-center rounded" style={{ backgroundColor: preview.primary }}>
+            <PreviewIcon className="h-[9px] w-[9px] text-white" />
           </div>
-          <span className="text-[11px] font-extrabold text-sky-900">Sudbury Plumbing</span>
+          <span className="text-[11px] font-extrabold" style={{ color: preview.primary }}>
+            {preview.name}
+          </span>
         </div>
-        <button className="rounded-full bg-sky-900 px-2 py-1 text-[9px] font-bold text-white">Call Now</button>
+        <button className="rounded-full px-2 py-1 text-[9px] font-bold text-white" style={{ backgroundColor: preview.primary }}>
+          {preview.headerAction}
+        </button>
       </div>
-      <div className="bg-gradient-to-br from-sky-50 to-white px-4 pt-4 pb-4.5">
-        <div className="mb-1.5 text-[9px] font-bold text-sky-900">● 24/7 EMERGENCY</div>
-        <div className="mb-1.5 text-lg font-black leading-tight tracking-tight text-sky-900">
-          Plumbing in Sudbury,<br />fixed today.
+      <div className="ksw-preview-hero px-4 pt-4 pb-4.5" style={{ background: preview.gradient }}>
+        <div className="mb-1.5 text-[9px] font-bold" style={{ color: preview.primary }}>
+          {preview.eyebrow}
+        </div>
+        <div className="mb-1.5 text-lg font-black leading-tight tracking-tight" style={{ color: preview.primary }}>
+          {preview.headline[0]}<br />{preview.headline[1]}
         </div>
         <div className="mb-2 text-[9px] text-slate-600">
-          Family-owned. Honest pricing. We answer the phone.
+          {preview.body}
         </div>
         <div className="flex gap-1.5">
-          <span className="rounded-full bg-sky-900 px-2.5 py-1 text-[9px] font-bold text-white">Book Service</span>
-          <span className="rounded-full border border-sky-900 px-2.5 py-1 text-[9px] font-bold text-sky-900">(705) 555-1212</span>
+          <span className="rounded-full px-2.5 py-1 text-[9px] font-bold text-white" style={{ backgroundColor: preview.primary }}>
+            {preview.primaryAction}
+          </span>
+          <span className="rounded-full border px-2.5 py-1 text-[9px] font-bold" style={{ borderColor: preview.primary, color: preview.primary }}>
+            {preview.secondaryAction}
+          </span>
         </div>
       </div>
       <div className="grid grid-cols-3 gap-1.5 px-4 py-3">
-        {['Emergency', 'Drain Care', 'Water Heaters'].map((s) => (
+        {preview.items.map((s) => (
           <div key={s} className="rounded-md border border-slate-200 bg-white p-2">
-            <div className="mb-1 flex h-4 w-4 items-center justify-center rounded bg-sky-100">
-              <Hammer className="h-2.5 w-2.5 text-sky-900" />
+            <div className="mb-1 flex h-4 w-4 items-center justify-center rounded" style={{ backgroundColor: preview.soft }}>
+              <PreviewIcon className="h-2.5 w-2.5" style={{ color: preview.primary }} />
             </div>
-            <div className="text-[9px] font-bold text-sky-900">{s}</div>
+            <div className="text-[9px] font-bold" style={{ color: preview.primary }}>{s}</div>
           </div>
         ))}
       </div>

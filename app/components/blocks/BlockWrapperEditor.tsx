@@ -1,8 +1,9 @@
 'use client';
 
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, cloneElement, isValidElement, useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useEditorContext } from '@/lib/editor-context';
-import { ArrowUp, ArrowDown, Trash2, Settings } from 'lucide-react';
+import { ArrowUp, ArrowDown, Trash2, Settings, ExternalLink, UtensilsCrossed } from 'lucide-react';
 import BlockSettingsModal from './BlockSettingsModal';
 import { motion } from 'framer-motion';
 import { staggerContainer } from '@/lib/motion';
@@ -37,18 +38,69 @@ export default function BlockWrapperEditor({
     paletteVars,
 }: BlockWrapperEditorProps) {
     const context = useEditorContext();
+    const router = useRouter();
     const isProUser = context?.isProUser || false;
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [isSelected, setIsSelected] = useState(false);
+    const [draftData, setDraftData] = useState<Record<string, unknown> | null>(null);
+    const wrapperRef = useRef<HTMLDivElement>(null);
+    const settingsButtonRef = useRef<HTMLButtonElement>(null);
+
+    const closeSettings = useCallback(() => {
+        setSettingsOpen(false);
+        setDraftData(null);
+        window.setTimeout(() => settingsButtonRef.current?.focus(), 0);
+    }, []);
 
     useEffect(() => {
-        const handleWalkthroughReset = () => setSettingsOpen(false);
+        const handleWalkthroughReset = () => closeSettings();
 
         window.addEventListener(WALKTHROUGH_RESET_EVENT, handleWalkthroughReset);
         return () => window.removeEventListener(WALKTHROUGH_RESET_EVENT, handleWalkthroughReset);
+    }, [closeSettings]);
+
+    useEffect(() => {
+        const handleDocumentPointerDown = (event: PointerEvent) => {
+            if (!wrapperRef.current?.contains(event.target as Node)) {
+                setIsSelected(false);
+            }
+        };
+
+        document.addEventListener('pointerdown', handleDocumentPointerDown);
+        return () => document.removeEventListener('pointerdown', handleDocumentPointerDown);
     }, []);
+
+    const openSettings = () => {
+        setIsSelected(true);
+        if (type === 'menu') {
+            setDraftData((data || {}) as Record<string, unknown>);
+        }
+        setSettingsOpen(true);
+    };
+
+    const manageMenuItems = () => {
+        if (!context?.siteId) return;
+
+        const navigate = () => router.push(`/admin/menu?siteId=${context.siteId}`);
+        if (context.requestNavigation) context.requestNavigation(navigate);
+        else navigate();
+    };
+
+    const previewData = type === 'menu' && draftData ? draftData : data;
+    const draftCustomCss = typeof draftData?.__customCss === 'string' ? draftData.__customCss : '';
+    const previewScopedCss = type === 'menu' && draftData
+        ? scopeCustomCss(id, draftCustomCss)
+        : scopedCss;
+    const previewChildren = type === 'menu' && previewData
+        ? cloneChildrenWithData(children, previewData)
+        : children;
+    const controlsVisibleClass = isSelected
+        ? 'opacity-100'
+        : 'opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100';
 
     return (
         <motion.div
+            ref={wrapperRef}
             key={`${id}-edit`}
             id={slug}
             data-tour="builder-section"
@@ -56,17 +108,42 @@ export default function BlockWrapperEditor({
             initial="show"
             animate="show"
             style={paletteVars}
-            className={`relative group w-full border-2 border-transparent hover:border-slate-300 [@media(hover:none)]:border-slate-300/60 transition-colors ks-block ks-block-${type}`}
+            onClick={() => setIsSelected(true)}
+            className={`relative group w-full border-2 hover:border-slate-300 [@media(hover:none)]:border-slate-300/60 transition-colors ks-block ks-block-${type} ${isSelected ? 'border-blue-400' : 'border-transparent'}`}
         >
             {/* Editor controls are intentionally outside data-block-id so block __customCss cannot affect them */}
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity bg-white shadow-md border border-slate-200 rounded-md flex overflow-hidden z-[100]">
-                <button
-                    onClick={() => setSettingsOpen(true)}
-                    className="p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-100 transition-colors"
-                    title="Block Settings"
-                >
-                    <Settings className="w-4 h-4" />
-                </button>
+            <div className={`absolute top-2 right-2 ${controlsVisibleClass} transition-opacity bg-white shadow-md border border-slate-200 rounded-md flex overflow-hidden z-[100]`}>
+                {type === 'menu' ? (
+                    <>
+                        <button
+                            ref={settingsButtonRef}
+                            onClick={openSettings}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-100 transition-colors"
+                            title="Menu Settings"
+                        >
+                            <Settings className="w-4 h-4" />
+                            Menu Settings
+                        </button>
+                        <button
+                            onClick={manageMenuItems}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-100 transition-colors"
+                            title="Manage Menu Items"
+                        >
+                            <UtensilsCrossed className="w-4 h-4" />
+                            Manage Items
+                            <ExternalLink className="w-3 h-3 opacity-60" />
+                        </button>
+                    </>
+                ) : (
+                    <button
+                        ref={settingsButtonRef}
+                        onClick={openSettings}
+                        className="p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-100 transition-colors"
+                        title="Block Settings"
+                    >
+                        <Settings className="w-4 h-4" />
+                    </button>
+                )}
                 <button
                     onClick={() => context?.moveBlock?.(id, 'up')}
                     className="p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-100 transition-colors"
@@ -90,13 +167,13 @@ export default function BlockWrapperEditor({
                 </button>
             </div>
             <div data-block-id={id}>
-                {scopedCss && <style dangerouslySetInnerHTML={{ __html: scopedCss }} />}
-                {children}
+                {previewScopedCss && <style dangerouslySetInnerHTML={{ __html: previewScopedCss }} />}
+                {previewChildren}
             </div>
 
             <BlockSettingsModal
                 isOpen={settingsOpen}
-                onClose={() => setSettingsOpen(false)}
+                onClose={closeSettings}
                 blockId={id}
                 blockType={type}
                 blockData={data}
@@ -105,7 +182,48 @@ export default function BlockWrapperEditor({
                 onSaveCustomCss={(css) => onUpdateCustomCss?.(css)}
                 isProUser={isProUser}
                 palette={palette}
+                onDraftBlockDataChange={type === 'menu' ? setDraftData : undefined}
             />
         </motion.div>
     );
+}
+
+function cloneChildrenWithData(children: ReactNode, data: Record<string, unknown>): ReactNode {
+    return isValidElement<{ data?: Record<string, unknown> }>(children)
+        ? cloneElement(children, { data })
+        : children;
+}
+
+function scopeCustomCss(id: string, customCss?: string): string {
+    if (!customCss) return '';
+    const blockScope = `[data-block-id="${id}"]`;
+
+    return customCss
+        .split('}')
+        .filter(rule => rule.trim())
+        .map(rule => {
+            const trimmed = rule.trim();
+            if (!trimmed) return '';
+
+            if (trimmed.startsWith('@')) {
+                return `${trimmed}}`;
+            }
+
+            const declarationStart = trimmed.indexOf('{');
+            if (declarationStart === -1) {
+                return `${blockScope} ${trimmed}}`;
+            }
+
+            const selectorText = trimmed.slice(0, declarationStart).trim();
+            const declarations = trimmed.slice(declarationStart + 1).trim();
+            const scopedSelectors = selectorText
+                .split(',')
+                .map(selector => selector.trim())
+                .filter(Boolean)
+                .map(selector => selector.startsWith(blockScope) ? selector : `${blockScope} ${selector}`)
+                .join(', ');
+
+            return `${scopedSelectors} { ${declarations} }`;
+        })
+        .join('\n');
 }

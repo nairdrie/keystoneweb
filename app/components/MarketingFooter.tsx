@@ -19,6 +19,7 @@ export default function MarketingFooter() {
 
           {/* Legal Links */}
           <div className="flex gap-6 text-xs text-slate-400">
+            <Link href="/builder-blocks" className="hover:text-slate-600 transition-colors">Builder Blocks</Link>
             <Link href="/terms" className="hover:text-slate-600 transition-colors">Terms of Service</Link>
             <Link href="/privacy" className="hover:text-slate-600 transition-colors">Privacy Policy</Link>
           </div>

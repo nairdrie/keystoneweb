@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, Eye, EyeOff, Image as ImageIcon, Tablet, Smartphone, Monitor, Layout, Lock } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, BookOpen, Eye, EyeOff, Image as ImageIcon, Tablet, Smartphone, Monitor, Layout, Lock } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
@@ -360,7 +360,7 @@ export default function FloatingToolbar({
         {
         target: '[data-tour="builder-help-button"]',
         title: 'Need help later?',
-        description: 'If you ever want to revisit this guide, look for the help button in the bottom-right corner. Clicking it will restart the tutorial whenever you need a refresher.',
+        description: 'If you ever want to revisit this guide or open block documentation, look for the help button in the bottom-right corner and choose the option you need.',
         placement: 'left',
         autoMinimizeOnObstruction: false,
         animateFinishToTarget: true,
@@ -1676,9 +1676,20 @@ export default function FloatingToolbar({
               <ChevronDown className={`w-4 h-4 transition-transform ${changes.length > 0 ? 'text-amber-700' : 'text-slate-500'} ${showChanges ? 'rotate-180' : ''}`} />
             </button>
 
+            <div className="flex gap-2 mt-2">
+              <button onClick={onUndo} disabled={!canUndo} className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 font-semibold text-xs rounded transition-colors">
+                <RotateCcw className="w-3 h-3" />
+                Undo
+              </button>
+              <button onClick={onRedo} disabled={!canRedo} className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 font-semibold text-xs rounded transition-colors">
+                <RotateCw className="w-3 h-3" />
+                Redo
+              </button>
+            </div>
+
             {showChanges && (
-              <div className="mt-2 p-3 bg-white border border-slate-200 rounded-lg space-y-2 max-h-40 overflow-y-auto shadow-inner">
-                {changes.map((change) => (
+              <div className="mt-2 p-3 space-y-2 max-h-28 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-inner">
+                {changes.length > 0 ? changes.map((change) => (
                   <div key={change.id} className="text-[10px] text-slate-700 pb-2 border-b border-slate-100 last:border-b-0">
                     <div className="font-bold text-slate-900 mb-0.5">{change.label}</div>
                     <div className="text-slate-600 flex flex-col gap-0.5">
@@ -1686,12 +1697,9 @@ export default function FloatingToolbar({
                       <span className="text-green-600 break-all">{change.to || '(empty)'}</span>
                     </div>
                   </div>
-                ))}
-                {/* Undo/Redo */}
-                <div className="flex gap-2 pt-1">
-                  <button onClick={onUndo} disabled={!canUndo} className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 font-semibold text-xs rounded transition-colors"><RotateCcw className="w-3 h-3" /> Undo</button>
-                  <button onClick={onRedo} disabled={!canRedo} className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 font-semibold text-xs rounded transition-colors"><RotateCw className="w-3 h-3" /> Redo</button>
-                </div>
+                )) : (
+                  <div className="text-[10px] font-semibold text-slate-500">No unsaved changes</div>
+                )}
               </div>
             )}
           </div>
@@ -2201,15 +2209,33 @@ export default function FloatingToolbar({
           <button
             type="button"
             data-tour="builder-help-button"
-            onClick={openWalkthrough}
             className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-white shadow-xl transition-colors hover:bg-slate-700"
-            aria-label="Restart tutorial"
-            title="Restart tutorial"
+            aria-label="Open help options"
+            aria-haspopup="menu"
+            title="Help"
           >
             <HelpCircle className="h-5 w-5" />
           </button>
-          <div className="pointer-events-none absolute bottom-14 right-0 rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-            Restart tutorial
+          <div className="pointer-events-none absolute bottom-12 right-0 w-56 translate-y-1 pb-2 opacity-0 transition-all group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:translate-y-0 group-focus-within:opacity-100">
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-2xl">
+              <button
+                type="button"
+                onClick={openWalkthrough}
+                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950 focus:bg-slate-100 focus:outline-none"
+              >
+                <HelpCircle className="h-4 w-4 text-slate-500" />
+                Restart tutorial
+              </button>
+              <a
+                href="/builder-blocks"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-red-50 hover:text-red-700 focus:bg-red-50 focus:text-red-700 focus:outline-none"
+              >
+                <BookOpen className="h-4 w-4 text-red-500" />
+                Block docs
+              </a>
+            </div>
           </div>
         </div>
       </div>
