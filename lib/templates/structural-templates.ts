@@ -638,7 +638,7 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
       bodyFont: 'Karla',
       navButtonText: 'Shop Local',
       headerBgType: 'white',
-      headerLogoPosition: 'center',
+      headerLogoPosition: 'left',
       headerNavPosition: 'center',
       headerRightSide: 'cta',
       __navItems: [
