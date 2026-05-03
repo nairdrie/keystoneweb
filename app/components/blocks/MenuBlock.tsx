@@ -9,7 +9,7 @@ import { resolvePaletteColor } from '@/lib/palette-colors';
 import {
   Plus, Trash2, Pencil, Check, X, Upload, Loader2,
   UtensilsCrossed, ExternalLink, Image as ImageIcon,
-  FileText, List,
+  FileText, List, Star, ChevronUp, ChevronDown, ChevronRight, GripVertical,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -17,12 +17,16 @@ import {
 interface MenuItem {
   id: string;
   site_id: string;
+  menu_section: string | null;
+  menu_section_order: number | null;
   name: string;
   description: string | null;
   price: string | null;
   category: string;
+  category_order: number | null;
   image_url: string | null;
   is_available: boolean;
+  is_featured: boolean;
   sort_order: number;
 }
 
@@ -36,6 +40,17 @@ interface MenuBlockProps {
 
 type MenuVariant = 'list' | 'grid' | 'cards' | 'compact';
 type CategoryStyle = 'heading' | 'badge' | 'divider';
+const DEFAULT_MENU_SECTION = 'Main Menu';
+const DEFAULT_MENU_SECTION_ORDERS: Record<string, number> = {
+  breakfast: 0,
+  brunch: 1,
+  lunch: 2,
+  dinner: 3,
+  drinks: 4,
+};
+const MENU_DRAG_TYPE = 'application/x-keystone-menu-section';
+const CATEGORY_DRAG_TYPE = 'application/x-keystone-menu-category';
+const ITEM_DRAG_TYPE = 'application/x-keystone-menu-item';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -48,6 +63,69 @@ function groupByCategory(items: MenuItem[]): Record<string, MenuItem[]> {
   }, {} as Record<string, MenuItem[]>);
 }
 
+function getMenuSection(item: MenuItem): string {
+  return item.menu_section || DEFAULT_MENU_SECTION;
+}
+
+function getCategoryKey(section: string, category: string): string {
+  return `${section}::${category}`;
+}
+
+function groupByMenuSection(items: MenuItem[]): Record<string, MenuItem[]> {
+  return items.reduce((acc, item) => {
+    const section = getMenuSection(item);
+    if (!acc[section]) acc[section] = [];
+    acc[section].push(item);
+    return acc;
+  }, {} as Record<string, MenuItem[]>);
+}
+
+function getDefaultMenuSectionOrder(section: string): number {
+  return DEFAULT_MENU_SECTION_ORDERS[section.trim().toLowerCase()] ?? Number.MAX_SAFE_INTEGER;
+}
+
+function getMenuSectionOrder(section: string, items: MenuItem[]): number {
+  const explicitOrders = items
+    .map(item => item.menu_section_order)
+    .filter((order): order is number => typeof order === 'number' && Number.isFinite(order));
+
+  if (explicitOrders.length > 0) return Math.min(...explicitOrders);
+  return getDefaultMenuSectionOrder(section);
+}
+
+function getOrderedMenuSections(groupedByMenu: Record<string, MenuItem[]>): string[] {
+  return Object.keys(groupedByMenu).sort((a, b) => {
+    const orderDiff = getMenuSectionOrder(a, groupedByMenu[a]) - getMenuSectionOrder(b, groupedByMenu[b]);
+    if (orderDiff !== 0) return orderDiff;
+    return a.localeCompare(b);
+  });
+}
+
+function getCategoryOrder(category: string, items: MenuItem[]): number {
+  const explicitOrders = items
+    .map(item => item.category_order)
+    .filter((order): order is number => typeof order === 'number' && Number.isFinite(order));
+
+  if (explicitOrders.length > 0) return Math.min(...explicitOrders);
+  return Number.MAX_SAFE_INTEGER;
+}
+
+function getOrderedCategories(groupedByCategory: Record<string, MenuItem[]>): string[] {
+  return Object.keys(groupedByCategory).sort((a, b) => {
+    const orderDiff = getCategoryOrder(a, groupedByCategory[a]) - getCategoryOrder(b, groupedByCategory[b]);
+    if (orderDiff !== 0) return orderDiff;
+    return a.localeCompare(b);
+  });
+}
+
+function sortMenuItems(items: MenuItem[]): MenuItem[] {
+  return [...items].sort((a, b) => {
+    const orderDiff = (a.sort_order ?? 0) - (b.sort_order ?? 0);
+    if (orderDiff !== 0) return orderDiff;
+    return a.name.localeCompare(b.name);
+  });
+}
+
 // ─── Main Block ───────────────────────────────────────────────────────────────
 
 export default function MenuBlock({ id, data, isEditMode, palette, updateContent }: MenuBlockProps) {
@@ -57,6 +135,7 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
   const requestNavigation = context?.requestNavigation;
 
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [activeMenu, setActiveMenu] = useState('');
   const [loading, setLoading] = useState(true);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -65,7 +144,9 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
   const variant: MenuVariant = data.variant || 'list';
   const showPrices: boolean = data.showPrices !== false;
   const showDescriptions: boolean = data.showDescriptions !== false;
-  const showImages: boolean = data.showImages === true;
+  const showRegularImages: boolean = data.showImages === true;
+  const showFeaturedImages: boolean = data.showFeaturedImages !== false;
+  const showMenuTabs: boolean = data.showMenuTabs !== false;
   const categoryStyle: CategoryStyle = data.categoryStyle || 'heading';
   const pPrimary = palette.primary || '#1f2937';
   const pSecondary = palette.secondary || '#dc2626';
@@ -78,9 +159,13 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
       name: item.name || `Menu item ${index + 1}`,
       description: item.description ?? null,
       price: item.price ?? null,
+      menu_section: item.menu_section || DEFAULT_MENU_SECTION,
+      menu_section_order: item.menu_section_order ?? getDefaultMenuSectionOrder(item.menu_section || DEFAULT_MENU_SECTION),
       category: item.category || 'Menu',
+      category_order: item.category_order ?? index,
       image_url: item.image_url ?? null,
       is_available: item.is_available !== false,
+      is_featured: item.is_featured === true,
       sort_order: item.sort_order ?? index,
     }))
     : [];
@@ -148,8 +233,13 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
   if (mode === 'items' && !isEditMode) {
     const publishedItems = items.filter(i => i.is_available);
     const displayItems = publishedItems.length > 0 ? publishedItems : fallbackItems;
-    const grouped = groupByCategory(displayItems);
-    const categories = Object.keys(grouped);
+    const groupedByMenu = groupByMenuSection(displayItems);
+    const menuSections = getOrderedMenuSections(groupedByMenu);
+    const selectedMenu = menuSections.includes(activeMenu) ? activeMenu : (menuSections[0] || DEFAULT_MENU_SECTION);
+    const sectionItems = showMenuTabs && menuSections.length > 1 ? (groupedByMenu[selectedMenu] || []) : displayItems;
+    const grouped = groupByCategory(sectionItems);
+    const categories = getOrderedCategories(grouped);
+    const shouldShowImage = (item: MenuItem) => item.is_featured ? showFeaturedImages : showRegularImages;
 
     if (loading) {
       return (
@@ -186,7 +276,17 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
           {categories.length === 0 ? (
             <p className="text-center text-slate-400 py-12">No menu items yet.</p>
           ) : (
-            <div className="space-y-12">
+            <>
+              {showMenuTabs && menuSections.length > 1 && (
+                <MenuSectionTabs
+                  sections={menuSections}
+                  activeSection={selectedMenu}
+                  onSelect={setActiveMenu}
+                  pPrimary={pPrimary}
+                  pSecondary={pSecondary}
+                />
+              )}
+              <div className="space-y-12">
               {categories.map(cat => (
                 <div key={cat}>
                   {/* Category header */}
@@ -195,33 +295,34 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
                   {/* Items */}
                   {variant === 'grid' ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-5">
-                      {grouped[cat].map(item => (
-                        <GridItem key={item.id} item={item} palette={palette} showPrices={showPrices} showDescriptions={showDescriptions} showImages={showImages} />
+                      {sortMenuItems(grouped[cat]).map(item => (
+                        <GridItem key={item.id} item={item} palette={palette} showPrices={showPrices} showDescriptions={showDescriptions} showImages={shouldShowImage(item)} />
                       ))}
                     </div>
                   ) : variant === 'cards' ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-5">
-                      {grouped[cat].map(item => (
-                        <CardItem key={item.id} item={item} palette={palette} showPrices={showPrices} showDescriptions={showDescriptions} showImages={showImages} />
+                      {sortMenuItems(grouped[cat]).map(item => (
+                        <CardItem key={item.id} item={item} palette={palette} showPrices={showPrices} showDescriptions={showDescriptions} showImages={shouldShowImage(item)} />
                       ))}
                     </div>
                   ) : variant === 'compact' ? (
-                    <div className="mt-3 divide-y" style={{ borderColor: `${pPrimary}15` }}>
-                      {grouped[cat].map(item => (
-                        <CompactItem key={item.id} item={item} palette={palette} showPrices={showPrices} />
+                    <div className="mt-3 divide-y divide-slate-100/80">
+                      {sortMenuItems(grouped[cat]).map(item => (
+                        <CompactItem key={item.id} item={item} palette={palette} showPrices={showPrices} showDescriptions={showDescriptions} />
                       ))}
                     </div>
                   ) : (
                     // Default: list
                     <div className="mt-4 space-y-0">
-                      {grouped[cat].map(item => (
-                        <ListItem key={item.id} item={item} palette={palette} showPrices={showPrices} showDescriptions={showDescriptions} showImages={showImages} />
+                      {sortMenuItems(grouped[cat]).map(item => (
+                        <ListItem key={item.id} item={item} palette={palette} showPrices={showPrices} showDescriptions={showDescriptions} showImages={shouldShowImage(item)} />
                       ))}
                     </div>
                   )}
                 </div>
               ))}
-            </div>
+              </div>
+            </>
           )}
         </div>
       </section>
@@ -357,14 +458,20 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
             <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-slate-300" /></div>
           ) : items.length > 0 ? (
             <div className="space-y-2">
-              {Object.entries(groupByCategory(items)).map(([cat, catItems]) => (
+              {Object.entries(groupByCategory(items))
+                .sort(([a, aItems], [b, bItems]) => {
+                  const orderDiff = getCategoryOrder(a, aItems) - getCategoryOrder(b, bItems);
+                  if (orderDiff !== 0) return orderDiff;
+                  return a.localeCompare(b);
+                })
+                .map(([cat, catItems]) => (
                 <div key={cat} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
                   <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
                     <span className="text-xs font-bold text-slate-600 uppercase tracking-wide">{cat}</span>
                     <span className="ml-2 text-xs text-slate-400">{catItems.length} item{catItems.length !== 1 ? 's' : ''}</span>
                   </div>
                   <div className="divide-y divide-slate-100">
-                    {catItems.slice(0, 4).map(item => (
+                    {sortMenuItems(catItems).slice(0, 4).map(item => (
                       <div key={item.id} className="flex items-center justify-between px-4 py-2.5">
                         <div className="flex items-center gap-2 min-w-0">
                           <span className={`w-2 h-2 rounded-full shrink-0 ${item.is_available ? 'bg-green-400' : 'bg-slate-200'}`} />
@@ -408,6 +515,43 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
 
 // ─── Item View Sub-components ─────────────────────────────────────────────────
 
+function MenuSectionTabs({
+  sections,
+  activeSection,
+  onSelect,
+  pPrimary,
+  pSecondary,
+}: {
+  sections: string[];
+  activeSection: string;
+  onSelect: (section: string) => void;
+  pPrimary: string;
+  pSecondary: string;
+}) {
+  return (
+    <div className="mb-10 flex flex-wrap items-center justify-center gap-2">
+      {sections.map(section => {
+        const isActive = section === activeSection;
+        return (
+          <button
+            key={section}
+            type="button"
+            onClick={() => onSelect(section)}
+            className="rounded-full border px-5 py-2 text-sm font-bold transition-all"
+            style={{
+              borderColor: isActive ? pSecondary : `${pPrimary}20`,
+              backgroundColor: isActive ? pSecondary : 'transparent',
+              color: isActive ? '#ffffff' : pPrimary,
+            }}
+          >
+            {section}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function CategoryHeader({ label, style, pPrimary, pSecondary, pAccent }: { label: string; style: CategoryStyle; pPrimary: string; pSecondary: string; pAccent: string }) {
   if (style === 'badge') {
     return (
@@ -440,13 +584,16 @@ function ListItem({ item, palette, showPrices, showDescriptions, showImages }: {
   const pSecondary = palette.secondary || '#dc2626';
   return (
     <Reveal>
-      <div className="flex gap-4 py-4 border-b last:border-b-0" style={{ borderColor: `${pPrimary}10` }}>
+      <div className="flex gap-4 py-4 border-b last:border-b-0" style={{ borderColor: `${pPrimary}08` }}>
         {showImages && item.image_url && (
           <img src={item.image_url} alt={item.name} className="w-16 h-16 object-cover rounded-lg shrink-0" />
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline justify-between gap-3">
-            <span className="font-bold" style={{ color: pPrimary }}>{item.name}</span>
+            <span className="inline-flex items-center gap-1.5 font-bold" style={{ color: pPrimary }}>
+              {item.name}
+              {item.is_featured && <FeaturedMark color={pSecondary} />}
+            </span>
             {showPrices && item.price && (
               <span className="font-bold shrink-0 text-sm" style={{ color: pSecondary }}>{item.price}</span>
             )}
@@ -474,7 +621,10 @@ function GridItem({ item, palette, showPrices, showDescriptions, showImages }: {
         )}
         <div className="p-4">
           <div className="flex items-start justify-between gap-2 mb-1">
-            <span className="font-bold text-sm leading-tight" style={{ color: pPrimary }}>{item.name}</span>
+            <span className="inline-flex items-center gap-1.5 font-bold text-sm leading-tight" style={{ color: pPrimary }}>
+              {item.name}
+              {item.is_featured && <FeaturedMark color={pSecondary} />}
+            </span>
             {showPrices && item.price && (
               <span className="font-black text-sm shrink-0" style={{ color: pSecondary }}>{item.price}</span>
             )}
@@ -503,7 +653,10 @@ function CardItem({ item, palette, showPrices, showDescriptions, showImages }: {
         ) : null}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-1">
-            <span className="font-bold text-base leading-tight" style={{ color: pPrimary }}>{item.name}</span>
+            <span className="inline-flex items-center gap-1.5 font-bold text-base leading-tight" style={{ color: pPrimary }}>
+              {item.name}
+              {item.is_featured && <FeaturedMark color={pSecondary} />}
+            </span>
             {showPrices && item.price && (
               <span className="font-black text-lg shrink-0" style={{ color: pSecondary }}>{item.price}</span>
             )}
@@ -517,12 +670,20 @@ function CardItem({ item, palette, showPrices, showDescriptions, showImages }: {
   );
 }
 
-function CompactItem({ item, palette, showPrices }: { item: MenuItem; palette: Record<string, string>; showPrices: boolean }) {
+function CompactItem({ item, palette, showPrices, showDescriptions }: { item: MenuItem; palette: Record<string, string>; showPrices: boolean; showDescriptions: boolean }) {
   const pPrimary = palette.primary || '#1f2937';
   const pSecondary = palette.secondary || '#dc2626';
   return (
-    <Reveal className="flex items-center justify-between py-2 gap-4">
-      <span className="text-sm" style={{ color: pPrimary }}>{item.name}</span>
+    <Reveal className="flex items-start justify-between py-2.5 gap-4">
+      <div className="min-w-0">
+        <span className="inline-flex items-center gap-1.5 text-sm font-medium" style={{ color: pPrimary }}>
+          {item.name}
+          {item.is_featured && <FeaturedMark color={pSecondary} />}
+        </span>
+        {showDescriptions && item.description && (
+          <p className="mt-0.5 text-xs leading-snug opacity-55" style={{ color: pPrimary }}>{item.description}</p>
+        )}
+      </div>
       {showPrices && item.price && (
         <span className="font-bold text-sm shrink-0" style={{ color: pSecondary }}>{item.price}</span>
       )}
@@ -530,24 +691,32 @@ function CompactItem({ item, palette, showPrices }: { item: MenuItem; palette: R
   );
 }
 
+function FeaturedMark({ color }: { color: string }) {
+  return <Star className="w-3.5 h-3.5 shrink-0" style={{ color, fill: color }} aria-label="Featured" />;
+}
+
 // ─── Menu Manager (admin panel component) ─────────────────────────────────────
 
 interface ItemForm {
+  menu_section: string;
   name: string;
   description: string;
   price: string;
   category: string;
   image_url: string;
   is_available: boolean;
+  is_featured: boolean;
 }
 
 const EMPTY_FORM: ItemForm = {
+  menu_section: DEFAULT_MENU_SECTION,
   name: '',
   description: '',
   price: '',
   category: 'General',
   image_url: '',
   is_available: true,
+  is_featured: false,
 };
 
 export function MenuManager({ siteId, palette }: { siteId: string; palette: Record<string, string> }) {
@@ -561,11 +730,15 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
   const [imageUploading, setImageUploading] = useState<string | null>(null); // itemId or 'new'
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [collapsedMenus, setCollapsedMenus] = useState<Set<string>>(new Set());
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
 
   const pSecondary = palette.secondary || '#dc2626';
 
   // Derived: known categories
   const knownCategories = Array.from(new Set(items.map(i => i.category).filter(Boolean)));
+  const knownMenuSections = Array.from(new Set(items.map(i => getMenuSection(i)).filter(Boolean)));
 
   useEffect(() => {
     fetchItems();
@@ -644,6 +817,258 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
     }
   }
 
+  async function handleToggleFeatured(item: MenuItem) {
+    const res = await fetch('/api/menu', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: item.id, siteId, is_featured: !item.is_featured }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setItems(prev => prev.map(i => i.id === item.id ? data.item : i));
+    }
+  }
+
+  function toggleMenuCollapsed(section: string) {
+    setCollapsedMenus(prev => {
+      const next = new Set(prev);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
+  }
+
+  function toggleCategoryCollapsed(section: string, category: string) {
+    const key = getCategoryKey(section, category);
+    setCollapsedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  async function persistMenuSectionOrder(reorderedSections: string[]) {
+    const orderBySection = new Map(reorderedSections.map((name, index) => [name, index]));
+    const affectedItems = items.filter(item => orderBySection.has(getMenuSection(item)));
+
+    setItems(prev => prev.map(item => {
+      const order = orderBySection.get(getMenuSection(item));
+      return order === undefined ? item : { ...item, menu_section_order: order };
+    }));
+
+    const responses = await Promise.all(affectedItems.map(item => {
+      const order = orderBySection.get(getMenuSection(item));
+      return fetch('/api/menu', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id, siteId, menu_section_order: order }),
+      });
+    }));
+
+    if (responses.some(res => !res.ok)) {
+      setError('Failed to reorder menus.');
+      await fetchItems();
+    }
+  }
+
+  async function handleMoveMenuSection(section: string, direction: -1 | 1) {
+    const currentIndex = menuSections.indexOf(section);
+    const targetIndex = currentIndex + direction;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= menuSections.length) return;
+
+    const reorderedSections = [...menuSections];
+    [reorderedSections[currentIndex], reorderedSections[targetIndex]] = [reorderedSections[targetIndex], reorderedSections[currentIndex]];
+    await persistMenuSectionOrder(reorderedSections);
+  }
+
+  async function handleDropMenuSection(sourceSection: string, targetSection: string) {
+    if (!sourceSection || sourceSection === targetSection) return;
+    const sourceIndex = menuSections.indexOf(sourceSection);
+    const targetIndex = menuSections.indexOf(targetSection);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+
+    const reorderedSections = [...menuSections];
+    const [moved] = reorderedSections.splice(sourceIndex, 1);
+    reorderedSections.splice(targetIndex, 0, moved);
+    await persistMenuSectionOrder(reorderedSections);
+  }
+
+  async function persistCategoryOrder(section: string, reorderedCategories: string[]) {
+    const orderByCategory = new Map(reorderedCategories.map((name, index) => [name, index]));
+    const affectedItems = items.filter(item => getMenuSection(item) === section && orderByCategory.has(item.category));
+
+    setItems(prev => prev.map(item => {
+      if (getMenuSection(item) !== section) return item;
+      const order = orderByCategory.get(item.category);
+      return order === undefined ? item : { ...item, category_order: order };
+    }));
+
+    const responses = await Promise.all(affectedItems.map(item => {
+      const order = orderByCategory.get(item.category);
+      return fetch('/api/menu', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id, siteId, category_order: order }),
+      });
+    }));
+
+    if (responses.some(res => !res.ok)) {
+      setError('Failed to reorder categories.');
+      await fetchItems();
+    }
+  }
+
+  async function handleMoveMenuCategory(section: string, category: string, direction: -1 | 1) {
+    const sectionGrouped = groupByCategory(groupedByMenu[section] || []);
+    const orderedCategories = getOrderedCategories(sectionGrouped);
+    const currentIndex = orderedCategories.indexOf(category);
+    const targetIndex = currentIndex + direction;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= orderedCategories.length) return;
+
+    const reorderedCategories = [...orderedCategories];
+    [reorderedCategories[currentIndex], reorderedCategories[targetIndex]] = [reorderedCategories[targetIndex], reorderedCategories[currentIndex]];
+    await persistCategoryOrder(section, reorderedCategories);
+  }
+
+  async function handleDropMenuCategory(section: string, sourceCategory: string, targetCategory: string) {
+    if (!sourceCategory || sourceCategory === targetCategory) return;
+    const sectionGrouped = groupByCategory(groupedByMenu[section] || []);
+    const orderedCategories = getOrderedCategories(sectionGrouped);
+    const sourceIndex = orderedCategories.indexOf(sourceCategory);
+    const targetIndex = orderedCategories.indexOf(targetCategory);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+
+    const reorderedCategories = [...orderedCategories];
+    const [moved] = reorderedCategories.splice(sourceIndex, 1);
+    reorderedCategories.splice(targetIndex, 0, moved);
+    await persistCategoryOrder(section, reorderedCategories);
+  }
+
+  async function persistMenuItemOrder(reorderedItems: MenuItem[]) {
+    const orderById = new Map(reorderedItems.map((menuItem, index) => [menuItem.id, index]));
+
+    setItems(prev => prev.map(menuItem => {
+      const order = orderById.get(menuItem.id);
+      return order === undefined ? menuItem : { ...menuItem, sort_order: order };
+    }));
+
+    const responses = await Promise.all(reorderedItems.map((menuItem, index) => (
+      fetch('/api/menu', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: menuItem.id, siteId, sort_order: index }),
+      })
+    )));
+
+    if (responses.some(res => !res.ok)) {
+      setError('Failed to reorder menu items.');
+      await fetchItems();
+    }
+  }
+
+  async function persistMenuItemPlacement(
+    sourceItemId: string,
+    targetSection: string,
+    targetCategory: string,
+    targetIndex: number,
+  ) {
+    const movedItem = items.find(item => item.id === sourceItemId);
+    if (!movedItem) return;
+
+    const sourceSection = getMenuSection(movedItem);
+    const sourceCategory = movedItem.category;
+    const sameGroup = sourceSection === targetSection && sourceCategory === targetCategory;
+    const targetSectionItems = groupedByMenu[targetSection] || [];
+    const targetSectionGrouped = groupByCategory(targetSectionItems);
+    const targetCategoryItems = sortMenuItems(
+      items.filter(item => getMenuSection(item) === targetSection && item.category === targetCategory && item.id !== sourceItemId),
+    );
+    const clampedIndex = Math.max(0, Math.min(targetIndex, targetCategoryItems.length));
+    const menuSectionOrder = getMenuSectionOrder(targetSection, targetSectionItems);
+    const categoryOrder = getCategoryOrder(targetCategory, targetSectionGrouped[targetCategory] || []);
+    const movedItemUpdate: MenuItem = {
+      ...movedItem,
+      menu_section: targetSection,
+      menu_section_order: menuSectionOrder,
+      category: targetCategory,
+      category_order: categoryOrder,
+    };
+
+    const targetReordered = [...targetCategoryItems];
+    targetReordered.splice(clampedIndex, 0, movedItemUpdate);
+    const sourceReordered = sameGroup
+      ? []
+      : sortMenuItems(items.filter(item => getMenuSection(item) === sourceSection && item.category === sourceCategory && item.id !== sourceItemId));
+
+    const updateById = new Map<string, Partial<MenuItem>>();
+    targetReordered.forEach((item, index) => {
+      updateById.set(item.id, {
+        menu_section: targetSection,
+        menu_section_order: menuSectionOrder,
+        category: targetCategory,
+        category_order: categoryOrder,
+        sort_order: index,
+      });
+    });
+    sourceReordered.forEach((item, index) => {
+      updateById.set(item.id, { sort_order: index });
+    });
+
+    setItems(prev => prev.map(item => {
+      const update = updateById.get(item.id);
+      return update ? { ...item, ...update } : item;
+    }));
+
+    const responses = await Promise.all(Array.from(updateById.entries()).map(([id, update]) => (
+      fetch('/api/menu', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, siteId, ...update }),
+      })
+    )));
+
+    if (responses.some(res => !res.ok)) {
+      setError('Failed to move menu item.');
+      await fetchItems();
+    }
+  }
+
+  async function handleMoveMenuItem(item: MenuItem, direction: -1 | 1) {
+    const section = getMenuSection(item);
+    const groupItems = sortMenuItems(items.filter(i => getMenuSection(i) === section && i.category === item.category));
+    const currentIndex = groupItems.findIndex(i => i.id === item.id);
+    const targetIndex = currentIndex + direction;
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= groupItems.length) return;
+
+    const reorderedItems = [...groupItems];
+    [reorderedItems[currentIndex], reorderedItems[targetIndex]] = [reorderedItems[targetIndex], reorderedItems[currentIndex]];
+    await persistMenuItemOrder(reorderedItems);
+  }
+
+  async function handleDropMenuItem(sourceItemId: string, targetItem: MenuItem) {
+    if (!sourceItemId || sourceItemId === targetItem.id) return;
+    const section = getMenuSection(targetItem);
+    const groupItems = sortMenuItems(items.filter(i => getMenuSection(i) === section && i.category === targetItem.category));
+    const targetIndex = groupItems.findIndex(i => i.id === targetItem.id);
+    if (targetIndex < 0) return;
+
+    await persistMenuItemPlacement(sourceItemId, section, targetItem.category, targetIndex);
+  }
+
+  async function handleDropMenuItemIntoCategory(sourceItemId: string, targetSection: string, targetCategory: string) {
+    if (!sourceItemId) return;
+    const targetCount = items.filter(item => getMenuSection(item) === targetSection && item.category === targetCategory && item.id !== sourceItemId).length;
+    await persistMenuItemPlacement(sourceItemId, targetSection, targetCategory, targetCount);
+  }
+
+  async function handleDropMenuItemIntoSection(sourceItemId: string, targetSection: string) {
+    if (!sourceItemId) return;
+    const sectionGrouped = groupByCategory(groupedByMenu[targetSection] || []);
+    const targetCategory = getOrderedCategories(sectionGrouped)[0] || 'General';
+    await handleDropMenuItemIntoCategory(sourceItemId, targetSection, targetCategory);
+  }
+
   async function handleImageUpload(file: File, target: 'new' | string) {
     setImageUploading(target);
     try {
@@ -673,18 +1098,20 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
   function startEdit(item: MenuItem) {
     setEditingId(item.id);
     setEditForm({
+      menu_section: getMenuSection(item),
       name: item.name,
       description: item.description || '',
       price: item.price || '',
       category: item.category,
       image_url: item.image_url || '',
       is_available: item.is_available,
+      is_featured: item.is_featured === true,
     });
     setError('');
   }
 
-  const grouped = groupByCategory(items);
-  const categories = Object.keys(grouped);
+  const groupedByMenu = groupByMenuSection(items);
+  const menuSections = getOrderedMenuSections(groupedByMenu);
 
   if (loading) {
     return (
@@ -702,7 +1129,7 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
 
       {/* Header actions */}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-500">{items.length} item{items.length !== 1 ? 's' : ''} across {categories.length} categor{categories.length !== 1 ? 'ies' : 'y'}</p>
+        <p className="text-sm text-slate-500">{items.length} item{items.length !== 1 ? 's' : ''} across {menuSections.length} menu{menuSections.length !== 1 ? 's' : ''}</p>
         <button
           onClick={() => { setShowAdd(true); setAddForm(EMPTY_FORM); setError(''); }}
           className="flex items-center gap-1.5 px-4 py-2 text-white text-sm font-bold rounded-lg transition-colors hover:opacity-90"
@@ -724,6 +1151,7 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
             <ItemFormFields
               form={addForm}
               onChange={setAddForm}
+              knownMenuSections={knownMenuSections}
               knownCategories={knownCategories}
               onImageUpload={f => handleImageUpload(f, 'new')}
               imageUploading={imageUploading === 'new'}
@@ -753,20 +1181,173 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
         </div>
       ) : (
         <div className="space-y-4">
-          {categories.map(cat => (
-            <div key={cat} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-              <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">{cat}</span>
-                <span className="text-xs text-slate-400">{grouped[cat].length} item{grouped[cat].length !== 1 ? 's' : ''}</span>
-              </div>
-              <div className="divide-y divide-slate-100">
-                {grouped[cat].map(item => (
-                  <div key={item.id}>
+          {menuSections.map((section, sectionIndex) => {
+            const sectionGrouped = groupByCategory(groupedByMenu[section]);
+            const orderedCategories = getOrderedCategories(sectionGrouped);
+            const isMenuCollapsed = collapsedMenus.has(section);
+            const menuDragKey = `menu:${section}`;
+            return (
+              <div
+                key={section}
+                onDragOver={e => { e.preventDefault(); setDragOverTarget(menuDragKey); }}
+                onDragLeave={() => setDragOverTarget(current => current === menuDragKey ? null : current)}
+                onDrop={e => {
+                  e.preventDefault();
+                  setDragOverTarget(null);
+                  const itemId = e.dataTransfer.getData(ITEM_DRAG_TYPE);
+                  if (itemId) {
+                    handleDropMenuItemIntoSection(itemId, section);
+                    return;
+                  }
+                  handleDropMenuSection(e.dataTransfer.getData(MENU_DRAG_TYPE), section);
+                }}
+                className={`bg-white rounded-xl border overflow-hidden shadow-sm transition-all ${
+                  dragOverTarget === menuDragKey ? 'border-blue-300 ring-2 ring-blue-100' : 'border-slate-200'
+                }`}
+              >
+                <div className="px-4 py-3 bg-slate-900 text-white flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => toggleMenuCollapsed(section)}
+                      title={isMenuCollapsed ? 'Expand menu' : 'Collapse menu'}
+                      className="rounded-md p-1 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                    >
+                      {isMenuCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </button>
+                    <button
+                      type="button"
+                      draggable
+                      onDragStart={e => {
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData(MENU_DRAG_TYPE, section);
+                      }}
+                      onDragEnd={() => setDragOverTarget(null)}
+                      title="Drag menu to reorder"
+                      className="cursor-grab rounded-md p-1 text-white/50 transition-colors hover:bg-white/10 hover:text-white active:cursor-grabbing"
+                    >
+                      <GripVertical className="h-4 w-4" />
+                    </button>
+                    <span className="truncate text-sm font-bold">{section}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-white/60">{groupedByMenu[section].length} item{groupedByMenu[section].length !== 1 ? 's' : ''}</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleMoveMenuSection(section, -1)}
+                        disabled={sectionIndex === 0}
+                        title="Move menu up"
+                        className="rounded-md p-1 text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent"
+                      >
+                        <ChevronUp className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMoveMenuSection(section, 1)}
+                        disabled={sectionIndex === menuSections.length - 1}
+                        title="Move menu down"
+                        className="rounded-md p-1 text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                {!isMenuCollapsed && orderedCategories.map((cat, categoryIndex) => {
+                  const catItems = sectionGrouped[cat];
+                  const orderedCatItems = sortMenuItems(catItems);
+                  const categoryKey = getCategoryKey(section, cat);
+                  const categoryDragKey = `category:${categoryKey}`;
+                  const isCategoryCollapsed = collapsedCategories.has(categoryKey);
+                  return (
+                  <div
+                    key={`${section}-${cat}`}
+                    onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverTarget(categoryDragKey); }}
+                    onDragLeave={e => { e.stopPropagation(); setDragOverTarget(current => current === categoryDragKey ? null : current); }}
+                    onDrop={e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDragOverTarget(null);
+                      const itemId = e.dataTransfer.getData(ITEM_DRAG_TYPE);
+                      if (itemId) {
+                        handleDropMenuItemIntoCategory(itemId, section, cat);
+                        return;
+                      }
+                      handleDropMenuCategory(section, e.dataTransfer.getData(CATEGORY_DRAG_TYPE), cat);
+                    }}
+                    className={dragOverTarget === categoryDragKey ? 'ring-2 ring-blue-100' : ''}
+                  >
+                    <div className="px-4 py-2.5 bg-slate-50 border-y border-slate-200 flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => toggleCategoryCollapsed(section, cat)}
+                          title={isCategoryCollapsed ? 'Expand category' : 'Collapse category'}
+                          className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                        >
+                          {isCategoryCollapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        </button>
+                        <button
+                          type="button"
+                          draggable
+                          onDragStart={e => {
+                            e.stopPropagation();
+                            e.dataTransfer.effectAllowed = 'move';
+                            e.dataTransfer.setData(CATEGORY_DRAG_TYPE, cat);
+                          }}
+                          onDragEnd={() => setDragOverTarget(null)}
+                          title="Drag category to reorder"
+                          className="cursor-grab rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 active:cursor-grabbing"
+                        >
+                          <GripVertical className="h-3.5 w-3.5" />
+                        </button>
+                        <span className="truncate text-xs font-bold text-slate-700 uppercase tracking-wide">{cat}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-400">{catItems.length} item{catItems.length !== 1 ? 's' : ''}</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleMoveMenuCategory(section, cat, -1)}
+                            disabled={categoryIndex === 0}
+                            title="Move category up"
+                            className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                          >
+                            <ChevronUp className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMoveMenuCategory(section, cat, 1)}
+                            disabled={categoryIndex === orderedCategories.length - 1}
+                            title="Move category down"
+                            className="rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                          >
+                            <ChevronDown className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    {!isCategoryCollapsed && <div className="divide-y divide-slate-100">
+                      {orderedCatItems.map((item, itemIndex) => (
+                        <div
+                          key={item.id}
+                          onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverTarget(`item:${item.id}`); }}
+                          onDragLeave={e => { e.stopPropagation(); setDragOverTarget(current => current === `item:${item.id}` ? null : current); }}
+                          onDrop={e => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDragOverTarget(null);
+                            handleDropMenuItem(e.dataTransfer.getData(ITEM_DRAG_TYPE), item);
+                          }}
+                          className={dragOverTarget === `item:${item.id}` ? 'bg-blue-50/60' : ''}
+                        >
                     {editingId === item.id ? (
                       <div className="p-4 bg-blue-50/50">
                         <ItemFormFields
                           form={editForm}
                           onChange={setEditForm}
+                          knownMenuSections={knownMenuSections}
                           knownCategories={knownCategories}
                           onImageUpload={f => handleImageUpload(f, item.id)}
                           imageUploading={imageUploading === item.id}
@@ -786,6 +1367,20 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
                       </div>
                     ) : (
                       <div className="flex items-center gap-3 px-4 py-3 group">
+                        <button
+                          type="button"
+                          draggable
+                          onDragStart={e => {
+                            e.stopPropagation();
+                            e.dataTransfer.effectAllowed = 'move';
+                            e.dataTransfer.setData(ITEM_DRAG_TYPE, item.id);
+                          }}
+                          onDragEnd={() => setDragOverTarget(null)}
+                          title="Drag item to reorder"
+                          className="shrink-0 cursor-grab rounded-md p-1 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-600 active:cursor-grabbing"
+                        >
+                          <GripVertical className="h-4 w-4" />
+                        </button>
                         {/* Availability dot */}
                         <button
                           onClick={() => handleToggleAvailable(item)}
@@ -808,6 +1403,12 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
                         <div className="flex-1 min-w-0">
                           <div className="flex items-baseline gap-2">
                             <span className={`font-semibold text-sm ${item.is_available ? 'text-slate-800' : 'text-slate-400 line-through'}`}>{item.name}</span>
+                            {item.is_featured && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-600">
+                                <Star className="w-3 h-3 fill-current" />
+                                Featured
+                              </span>
+                            )}
                             {item.price && <span className="text-xs font-bold" style={{ color: pSecondary }}>{item.price}</span>}
                           </div>
                           {item.description && (
@@ -817,6 +1418,33 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
 
                         {/* Actions */}
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <button
+                            onClick={() => handleMoveMenuItem(item, -1)}
+                            disabled={itemIndex === 0}
+                            title="Move item up"
+                            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                          >
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleMoveMenuItem(item, 1)}
+                            disabled={itemIndex === orderedCatItems.length - 1}
+                            title="Move item down"
+                            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+                          >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleFeatured(item)}
+                            title={item.is_featured ? 'Remove featured' : 'Mark featured'}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              item.is_featured
+                                ? 'text-amber-500 bg-amber-50 hover:bg-amber-100'
+                                : 'text-slate-400 hover:text-amber-500 hover:bg-amber-50'
+                            }`}
+                          >
+                            <Star className={`w-3.5 h-3.5 ${item.is_featured ? 'fill-current' : ''}`} />
+                          </button>
                           <button
                             onClick={() => startEdit(item)}
                             className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
@@ -833,11 +1461,15 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
                         </div>
                       </div>
                     )}
+                        </div>
+                      ))}
+                    </div>}
                   </div>
-                ))}
+                  );
+                })}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -849,18 +1481,32 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
 function ItemFormFields({
   form,
   onChange,
+  knownMenuSections,
   knownCategories,
   onImageUpload,
   imageUploading,
 }: {
   form: ItemForm;
   onChange: (f: ItemForm) => void;
+  knownMenuSections: string[];
   knownCategories: string[];
   onImageUpload: (f: File) => void;
   imageUploading: boolean;
 }) {
+  const [showMenuSuggestions, setShowMenuSuggestions] = useState(false);
   const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
-  const suggestions = knownCategories.filter(c => c !== form.category && c.toLowerCase().includes(form.category.toLowerCase()));
+  const [menuIsFiltering, setMenuIsFiltering] = useState(false);
+  const [categoryIsFiltering, setCategoryIsFiltering] = useState(false);
+  const menuSearch = form.menu_section.trim().toLowerCase();
+  const categorySearch = form.category.trim().toLowerCase();
+  const menuSuggestions = knownMenuSections.filter(section => (
+    section !== form.menu_section &&
+    (!menuIsFiltering || !menuSearch || section.toLowerCase().includes(menuSearch))
+  ));
+  const suggestions = knownCategories.filter(c => (
+    c !== form.category &&
+    (!categoryIsFiltering || !categorySearch || c.toLowerCase().includes(categorySearch))
+  ));
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -874,6 +1520,35 @@ function ItemFormFields({
           placeholder="e.g. Margherita Pizza"
           className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
+      </div>
+
+      {/* Menu section */}
+      <div className="relative">
+        <label className="text-xs font-semibold text-slate-600 block mb-1">Menu</label>
+        <input
+          type="text"
+          value={form.menu_section}
+          onChange={e => { onChange({ ...form, menu_section: e.target.value }); setMenuIsFiltering(true); setShowMenuSuggestions(true); }}
+          onClick={() => { setMenuIsFiltering(false); setShowMenuSuggestions(true); }}
+          onFocus={() => { setMenuIsFiltering(false); setShowMenuSuggestions(true); }}
+          onBlur={() => setTimeout(() => { setShowMenuSuggestions(false); setMenuIsFiltering(false); }, 150)}
+          placeholder="e.g. Breakfast, Lunch, Dinner"
+          className="w-full border border-slate-200 rounded-lg px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <ChevronDown className="pointer-events-none absolute right-3 top-8 h-4 w-4 text-slate-400" />
+        {showMenuSuggestions && menuSuggestions.length > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-1 max-h-48 overflow-auto bg-white border border-slate-200 rounded-lg shadow-lg z-10">
+            {menuSuggestions.map(section => (
+              <button
+                key={section}
+                onMouseDown={() => { onChange({ ...form, menu_section: section }); setMenuIsFiltering(false); setShowMenuSuggestions(false); }}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 text-slate-700"
+              >
+                {section}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Price */}
@@ -894,18 +1569,20 @@ function ItemFormFields({
         <input
           type="text"
           value={form.category}
-          onChange={e => { onChange({ ...form, category: e.target.value }); setShowCategorySuggestions(true); }}
-          onFocus={() => setShowCategorySuggestions(true)}
-          onBlur={() => setTimeout(() => setShowCategorySuggestions(false), 150)}
+          onChange={e => { onChange({ ...form, category: e.target.value }); setCategoryIsFiltering(true); setShowCategorySuggestions(true); }}
+          onClick={() => { setCategoryIsFiltering(false); setShowCategorySuggestions(true); }}
+          onFocus={() => { setCategoryIsFiltering(false); setShowCategorySuggestions(true); }}
+          onBlur={() => setTimeout(() => { setShowCategorySuggestions(false); setCategoryIsFiltering(false); }, 150)}
           placeholder="e.g. Appetizers"
-          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border border-slate-200 rounded-lg px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
+        <ChevronDown className="pointer-events-none absolute right-3 top-8 h-4 w-4 text-slate-400" />
         {showCategorySuggestions && suggestions.length > 0 && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-10 overflow-hidden">
+          <div className="absolute top-full left-0 right-0 mt-1 max-h-48 overflow-auto bg-white border border-slate-200 rounded-lg shadow-lg z-10">
             {suggestions.map(s => (
               <button
                 key={s}
-                onMouseDown={() => { onChange({ ...form, category: s }); setShowCategorySuggestions(false); }}
+                onMouseDown={() => { onChange({ ...form, category: s }); setCategoryIsFiltering(false); setShowCategorySuggestions(false); }}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 text-slate-700"
               >
                 {s}
@@ -951,15 +1628,29 @@ function ItemFormFields({
       </div>
 
       {/* Availability */}
-      <div className="sm:col-span-2 flex items-center gap-3">
+      <div className="sm:col-span-2 flex flex-wrap items-center gap-4">
+        <label className="flex items-center gap-3 cursor-pointer">
+          <button
+            type="button"
+            onClick={() => onChange({ ...form, is_available: !form.is_available })}
+            className={`relative w-10 h-5 rounded-full transition-colors ${form.is_available ? 'bg-green-400' : 'bg-slate-200'}`}
+          >
+            <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.is_available ? 'left-5.5 translate-x-0.5' : 'left-0.5'}`} />
+          </button>
+          <span className="text-sm text-slate-600">{form.is_available ? 'Available' : 'Unavailable (hidden on site)'}</span>
+        </label>
         <button
           type="button"
-          onClick={() => onChange({ ...form, is_available: !form.is_available })}
-          className={`relative w-10 h-5 rounded-full transition-colors ${form.is_available ? 'bg-green-400' : 'bg-slate-200'}`}
+          onClick={() => onChange({ ...form, is_featured: !form.is_featured })}
+          className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+            form.is_featured
+              ? 'border-amber-200 bg-amber-50 text-amber-600'
+              : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+          }`}
         >
-          <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.is_available ? 'left-5.5 translate-x-0.5' : 'left-0.5'}`} />
+          <Star className={`w-4 h-4 ${form.is_featured ? 'fill-current' : ''}`} />
+          Featured item
         </button>
-        <span className="text-sm text-slate-600">{form.is_available ? 'Available' : 'Unavailable (hidden on site)'}</span>
       </div>
     </div>
   );

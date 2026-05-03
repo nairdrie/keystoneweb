@@ -24,6 +24,7 @@ interface BlogPost {
     author: string | null;
     tags: string[];
     is_published: boolean;
+    is_featured: boolean;
     published_at: string | null;
     sort_order: number;
     created_at: string;
@@ -82,6 +83,7 @@ function BlogViewer({ siteId, data, palette }: {
             author: post.author || null,
             tags: Array.isArray(post.tags) ? post.tags : [],
             is_published: post.is_published !== false,
+            is_featured: post.is_featured === true,
             published_at: post.published_at || null,
             sort_order: post.sort_order || index,
             created_at: post.created_at || new Date().toISOString(),
@@ -221,7 +223,8 @@ function ListLayout({ posts, onOpen, pSecondary, opts }: { posts: BlogPost[]; on
 }
 
 function MagazineLayout({ posts, onOpen, pSecondary, opts }: { posts: BlogPost[]; onOpen: (p: BlogPost) => void; pSecondary: string; opts: DisplayOpts }) {
-    const [featured, ...rest] = posts;
+    const featured = posts.find(post => post.is_featured) || posts[0];
+    const rest = posts.filter(post => post.id !== featured?.id);
     return (
         <div className="space-y-6">
             {featured && (

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { trackEvent } from '@/lib/analytics';
 import { getStructuralTemplateMetadata } from '@/lib/templates/structural-templates';
+import { seedTemplateAdminContent } from '@/lib/templates/admin-seed-data';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import { migratePaletteTokensInDesignData } from '@/lib/template-palette-migration';
 
@@ -252,6 +253,12 @@ export async function POST(request: NextRequest) {
       if (extraPagesError) {
         console.error('Supabase error creating extra pages:', extraPagesError);
       }
+    }
+
+    try {
+      await seedTemplateAdminContent(createAdminClient(), siteId, selectedTemplateId);
+    } catch (seedError) {
+      console.error('Failed to seed template admin content:', seedError);
     }
 
     trackEvent('site_create', {

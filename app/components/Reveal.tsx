@@ -14,12 +14,20 @@ export default function Reveal({ children, className = '', delay }: RevealProps)
   const context = useEditorContext();
   const isEditMode = context?.isEditMode || false;
 
+  const animationProps = isEditMode
+    ? { animate: 'show' as const }
+    : {
+        initial: 'hidden' as const,
+        whileInView: 'show' as const,
+        viewport: { once: true, margin: '-50px' },
+      };
+
   return (
     <motion.div
-      variants={revealVariants as any}
+      variants={revealVariants}
       className={className}
       transition={delay ? { delay } : undefined}
-      animate={isEditMode ? "show" : undefined}
+      {...animationProps}
     >
       {children}
     </motion.div>

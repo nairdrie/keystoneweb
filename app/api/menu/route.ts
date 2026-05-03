@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -9,12 +10,16 @@ import { NextRequest, NextResponse } from 'next/server';
  *   CREATE TABLE menu_items (
  *     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  *     site_id     UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+ *     menu_section TEXT NOT NULL DEFAULT 'Main Menu',
+ *     menu_section_order INTEGER NOT NULL DEFAULT 0,
  *     name        TEXT NOT NULL,
  *     description TEXT,
  *     price       TEXT,
  *     category    TEXT NOT NULL DEFAULT 'General',
+ *     category_order INTEGER NOT NULL DEFAULT 0,
  *     image_url   TEXT,
  *     is_available BOOLEAN NOT NULL DEFAULT true,
+ *     is_featured BOOLEAN NOT NULL DEFAULT false,
  *     sort_order  INTEGER NOT NULL DEFAULT 0,
  *     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
  *   );
@@ -37,12 +42,15 @@ export async function GET(request: NextRequest) {
   const siteId = request.nextUrl.searchParams.get('siteId');
   if (!siteId) return NextResponse.json({ error: 'Missing siteId' }, { status: 400 });
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data, error } = await supabase
     .from('menu_items')
     .select('*')
     .eq('site_id', siteId)
+    .order('menu_section_order', { ascending: true })
+    .order('menu_section', { ascending: true })
+    .order('category_order', { ascending: true })
     .order('category', { ascending: true })
     .order('sort_order', { ascending: true });
 
@@ -58,18 +66,56 @@ export async function POST(request: NextRequest) {
   if (authErr || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
-  const { siteId, name, description, price, category, image_url, is_available } = body;
+  const { siteId, menu_section, menu_section_order, name, description, price, category, category_order, image_url, is_available, is_featured } = body;
   if (!siteId || !name) return NextResponse.json({ error: 'Missing siteId or name' }, { status: 400 });
 
   const { data: site } = await supabase.from('sites').select('user_id').eq('id', siteId).single();
   if (!site || site.user_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  const sectionName = menu_section || 'Main Menu';
+
+  const { data: existingSection } = await supabase
+    .from('menu_items')
+    .select('menu_section_order')
+    .eq('site_id', siteId)
+    .eq('menu_section', sectionName)
+    .limit(1);
+
+  const { data: lastSection } = await supabase
+    .from('menu_items')
+    .select('menu_section_order')
+    .eq('site_id', siteId)
+    .order('menu_section_order', { ascending: false })
+    .limit(1);
+
+  const sectionOrder = menu_section_order ?? existingSection?.[0]?.menu_section_order ?? ((lastSection?.[0]?.menu_section_order ?? -1) + 1);
+  const categoryName = category || 'General';
+
+  const { data: existingCategory } = await supabase
+    .from('menu_items')
+    .select('category_order')
+    .eq('site_id', siteId)
+    .eq('menu_section', sectionName)
+    .eq('category', categoryName)
+    .limit(1);
+
+  const { data: lastCategory } = await supabase
+    .from('menu_items')
+    .select('category_order')
+    .eq('site_id', siteId)
+    .eq('menu_section', sectionName)
+    .order('category_order', { ascending: false })
+    .limit(1);
+
+  const categoryOrder = category_order ?? existingCategory?.[0]?.category_order ?? ((lastCategory?.[0]?.category_order ?? -1) + 1);
 
   // Get next sort_order for this category
   const { data: existing } = await supabase
     .from('menu_items')
     .select('sort_order')
     .eq('site_id', siteId)
-    .eq('category', category || 'General')
+    .eq('menu_section', sectionName)
+    .eq('category', categoryName)
     .order('sort_order', { ascending: false })
     .limit(1);
 
@@ -79,12 +125,16 @@ export async function POST(request: NextRequest) {
     .from('menu_items')
     .insert({
       site_id: siteId,
+      menu_section: sectionName,
+      menu_section_order: sectionOrder,
       name,
       description: description || null,
       price: price || null,
-      category: category || 'General',
+      category: categoryName,
+      category_order: categoryOrder,
       image_url: image_url || null,
       is_available: is_available !== false,
+      is_featured: is_featured === true,
       sort_order: nextOrder,
     })
     .select()
@@ -102,19 +152,78 @@ export async function PUT(request: NextRequest) {
   if (authErr || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
-  const { id, siteId, name, description, price, category, image_url, is_available, sort_order } = body;
+  const { id, siteId, menu_section, menu_section_order, name, description, price, category, category_order, image_url, is_available, is_featured, sort_order } = body;
   if (!id || !siteId) return NextResponse.json({ error: 'Missing id or siteId' }, { status: 400 });
 
   const { data: site } = await supabase.from('sites').select('user_id').eq('id', siteId).single();
   if (!site || site.user_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  const updates: Record<string, any> = {};
+  const updates: Record<string, string | number | boolean | null> = {};
+  if (menu_section !== undefined) {
+    const sectionName = menu_section || 'Main Menu';
+    updates.menu_section = sectionName;
+
+    if (menu_section_order === undefined) {
+      const { data: existingSection } = await supabase
+        .from('menu_items')
+        .select('menu_section_order')
+        .eq('site_id', siteId)
+        .eq('menu_section', sectionName)
+        .limit(1);
+
+      const { data: lastSection } = await supabase
+        .from('menu_items')
+        .select('menu_section_order')
+        .eq('site_id', siteId)
+        .order('menu_section_order', { ascending: false })
+        .limit(1);
+
+      updates.menu_section_order = existingSection?.[0]?.menu_section_order ?? ((lastSection?.[0]?.menu_section_order ?? -1) + 1);
+    }
+  }
+  if (menu_section_order !== undefined) updates.menu_section_order = menu_section_order;
   if (name !== undefined) updates.name = name;
   if (description !== undefined) updates.description = description || null;
   if (price !== undefined) updates.price = price || null;
-  if (category !== undefined) updates.category = category || 'General';
+  if (category !== undefined) {
+    const categoryName = category || 'General';
+    updates.category = categoryName;
+
+    if (category_order === undefined) {
+      let sectionName = typeof updates.menu_section === 'string' ? updates.menu_section : null;
+      if (!sectionName) {
+        const { data: currentItem } = await supabase
+          .from('menu_items')
+          .select('menu_section')
+          .eq('id', id)
+          .eq('site_id', siteId)
+          .single();
+        sectionName = currentItem?.menu_section || 'Main Menu';
+      }
+
+      const { data: existingCategory } = await supabase
+        .from('menu_items')
+        .select('category_order')
+        .eq('site_id', siteId)
+        .eq('menu_section', sectionName)
+        .eq('category', categoryName)
+        .limit(1);
+
+      const { data: lastCategory } = await supabase
+        .from('menu_items')
+        .select('category_order')
+        .eq('site_id', siteId)
+        .eq('menu_section', sectionName)
+        .order('category_order', { ascending: false })
+        .limit(1);
+
+      updates.category_order = existingCategory?.[0]?.category_order ?? ((lastCategory?.[0]?.category_order ?? -1) + 1);
+    }
+  }
+  if (category_order !== undefined) updates.category_order = category_order;
   if (image_url !== undefined) updates.image_url = image_url || null;
   if (is_available !== undefined) updates.is_available = is_available;
+  if (is_featured !== undefined) updates.is_featured = is_featured;
   if (sort_order !== undefined) updates.sort_order = sort_order;
 
   const { data: item, error } = await supabase
