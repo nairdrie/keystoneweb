@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 import Image from 'next/image';
-import KeystoneLogoImage from '@/assets/logo/keystone-logo.png';
+import KeystoneOperationsLogoImage from '@/assets/logo/keystone-operations-logo.png';
 
 export default function OpsHeader({
   userEmail,
@@ -14,6 +14,7 @@ export default function OpsHeader({
   pendingModerationCount = 0,
   newLaunchCount = 0,
   newLeadsCount = 0,
+  usePathPrefix,
 }: {
   userEmail?: string;
   openSupportCount?: number;
@@ -21,9 +22,21 @@ export default function OpsHeader({
   pendingModerationCount?: number;
   newLaunchCount?: number;
   newLeadsCount?: number;
+  usePathPrefix?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
+  const shouldPrefixOpsLinks = usePathPrefix ?? (pathname === '/ops' || pathname.startsWith('/ops/'));
+
+  const resolveOpsHref = (href: string) => {
+    if (!shouldPrefixOpsLinks) return href;
+    if (href === '/') return '/ops';
+    return `/ops${href}`;
+  };
+
+  const normalizeOpsPath = (path: string) => (
+    path === '/ops' ? '/' : path.startsWith('/ops/') ? path.slice(4) : path
+  );
 
   const navLinks = [
     { href: '/', label: 'Overview' },
@@ -44,19 +57,16 @@ export default function OpsHeader({
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-8">
-            <Link href="/" className="flex items-center gap-4 group">
-              <div className="relative w-28 h-16">
+            <Link href={resolveOpsHref('/')} className="group flex shrink-0 items-center">
+              <div className="relative h-11 w-[158px] sm:w-[174px]">
                 <Image
-                  src={KeystoneLogoImage}
-                  alt="Keystone"
+                  src={KeystoneOperationsLogoImage}
+                  alt="Keystone Operations"
                   fill
                   className="object-contain"
                   priority
                 />
               </div>
-              <span className="text-sm font-bold tracking-widest text-white uppercase group-hover:text-emerald-400 transition-colors">
-                Operations
-              </span>
             </Link>
 
             {/* Desktop Nav */}
@@ -64,9 +74,9 @@ export default function OpsHeader({
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
-                  href={link.href}
+                  href={resolveOpsHref(link.href)}
                   className={`flex items-center gap-1.5 hover:text-white transition-colors ${
-                    pathname === link.href ? 'text-white font-medium' : ''
+                    normalizeOpsPath(pathname) === link.href ? 'text-white font-medium' : ''
                   }`}
                 >
                   {link.label}
@@ -108,10 +118,10 @@ export default function OpsHeader({
           {navLinks.map((link) => (
             <Link
               key={link.href}
-              href={link.href}
+              href={resolveOpsHref(link.href)}
               onClick={() => setIsOpen(false)}
               className={`flex items-center justify-between px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                pathname === link.href
+                normalizeOpsPath(pathname) === link.href
                   ? 'bg-gray-800 text-white'
                   : 'text-gray-400 hover:bg-gray-800 hover:text-white'
               }`}

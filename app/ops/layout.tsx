@@ -1,13 +1,18 @@
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { APP_URL } from '@/lib/env/domain';
+import { APP_URL, parseHost } from '@/lib/env/domain';
 import OpsHeader from './OpsHeader';
 import '../(app)/globals.css';
 
 export const metadata = { title: 'Keystone Ops' };
 
 export default async function OpsLayout({ children }: { children: React.ReactNode }) {
+  const requestHeaders = await headers();
+  const host = requestHeaders.get('host') || '';
+  const usePathPrefix = parseHost(host).kind !== 'ops';
+
   // Verify authenticated
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -86,6 +91,7 @@ export default async function OpsLayout({ children }: { children: React.ReactNod
             pendingModerationCount={moderationCount ?? 0}
             newLaunchCount={newLaunchCount}
             newLeadsCount={newLeadsCount ?? 0}
+            usePathPrefix={usePathPrefix}
           />
 
           <main className="w-full px-4 py-8 sm:px-6 lg:px-8">

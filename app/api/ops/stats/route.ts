@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { createClient } from '@/lib/db/supabase-server';
 
@@ -25,7 +25,7 @@ async function assertAdmin(): Promise<{ userId: string } | null> {
  * GET /api/ops/stats
  * Returns aggregate platform statistics for the ops dashboard.
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   const admin = await assertAdmin();
   if (!admin) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     { count: upgrades30d },
   ] = await Promise.all([
     db.from('users').select('id', { count: 'exact', head: true }),
-    db.from('user_subscriptions').select('id', { count: 'exact', head: true }).eq('subscription_status', 'active'),
+    db.from('user_subscriptions').select('user_id', { count: 'exact', head: true }).eq('subscription_status', 'active'),
     db.from('sites').select('id', { count: 'exact', head: true }).not('user_id', 'is', null),
     db.from('sites').select('id', { count: 'exact', head: true }).eq('is_published', true),
     db.from('support_requests').select('id', { count: 'exact', head: true }).in('status', ['open', 'in_progress']),
