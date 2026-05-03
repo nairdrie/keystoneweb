@@ -397,6 +397,7 @@ function productIsIdentical(existing: any, incoming: any): boolean {
         existing.currency === incoming.currency &&
         existing.status === incoming.status &&
         existing.inventory_count === incoming.inventory_count &&
+        existing.is_featured === incoming.is_featured &&
         JSON.stringify(existing.variants) === JSON.stringify(incoming.variants)
     );
 }
@@ -625,6 +626,7 @@ export async function POST(req: NextRequest) {
                         ? row[tagsIdx].split(',').map((t: string) => t.trim()).filter(Boolean)
                         : [];
 
+                    const isFeatured = featIdx >= 0 ? parseBool(row[featIdx]) : false;
                     const incoming = {
                         description,
                         price_cents: priceCents,
@@ -635,6 +637,7 @@ export async function POST(req: NextRequest) {
                         inventory_count: inventoryCount,
                         category: productCategory,
                         tags: productTags,
+                        is_featured: isFeatured,
                     };
 
                     if (existingItem) {

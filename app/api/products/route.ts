@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     const category = request.nextUrl.searchParams.get('category')?.trim() || '';
     const subcategory = request.nextUrl.searchParams.get('subcategory')?.trim() || '';
     const status = request.nextUrl.searchParams.get('status')?.trim() || '';
+    const featuredOnly = request.nextUrl.searchParams.get('featuredOnly') === 'true';
     const page = Math.max(1, parseInt(request.nextUrl.searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(request.nextUrl.searchParams.get('limit') || '50')));
     const offset = (page - 1) * limit;
@@ -45,6 +46,10 @@ export async function GET(request: NextRequest) {
 
     if (subcategory) {
         query = query.eq('subcategory', subcategory);
+    }
+
+    if (featuredOnly) {
+        query = query.eq('is_featured', true);
     }
 
     if (status === 'draft' || status === 'published') {
@@ -193,7 +198,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { siteId, name, brand, description, price_cents, compare_at_cents, currency, images, variants, options, inventory_count, vendor_id, category, subcategory, tags, tier_prices, allowed_package_ids, external_url } = body;
+    const { siteId, name, brand, description, price_cents, compare_at_cents, currency, images, variants, options, inventory_count, vendor_id, category, subcategory, tags, tier_prices, allowed_package_ids, external_url, is_featured } = body;
 
     if (!siteId || !name) {
         return NextResponse.json({ error: 'Missing siteId or name' }, { status: 400 });
@@ -277,6 +282,7 @@ export async function POST(request: NextRequest) {
             tier_prices: membershipValidation.tierPrices ?? [],
             allowed_package_ids: membershipValidation.allowedPackageIds ?? [],
             external_url: normalizedExternalUrl,
+            is_featured: !!is_featured,
         })
         .select()
         .single();
@@ -320,7 +326,7 @@ export async function PUT(request: NextRequest) {
 
     const updates: Record<string, any> = { updated_at: new Date().toISOString() };
 
-    const allowedFields = ['name', 'brand', 'description', 'price_cents', 'compare_at_cents', 'currency', 'images', 'variants', 'inventory_count', 'is_active', 'sort_order', 'status', 'category', 'subcategory', 'tags', 'vendor_id'];
+    const allowedFields = ['name', 'brand', 'description', 'price_cents', 'compare_at_cents', 'currency', 'images', 'variants', 'inventory_count', 'is_active', 'is_featured', 'sort_order', 'status', 'category', 'subcategory', 'tags', 'vendor_id'];
 
     for (const key of allowedFields) {
         if (fields[key] !== undefined) updates[key] = fields[key];

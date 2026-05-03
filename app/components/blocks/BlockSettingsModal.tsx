@@ -105,6 +105,7 @@ export default function BlockSettingsModal({
         ],
         productGrid: [
             { id: 'grid', label: 'Grid' },
+            { id: 'row', label: 'Scrolling Row' },
             { id: 'gridWithSidebar', label: 'Grid + Category Sidebar' },
             { id: 'list', label: 'List View' },
         ],
