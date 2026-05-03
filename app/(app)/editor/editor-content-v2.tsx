@@ -101,6 +101,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   const [templateComponent, setTemplateComponent] = useState<React.ComponentType<any> | null>(null);
   const [selectedPaletteKey, setSelectedPaletteKey] = useState<string>('default');
   const [availablePalettes, setAvailablePalettes] = useState<Record<string, Record<string, string>>>({});
+  const [templateInfo, setTemplateInfo] = useState<{ name: string; thumbnailUrl?: string; description?: string } | null>(null);
   const [paletteData, setPaletteData] = useState<Record<string, string>>({});
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
   const [editMode, setEditMode] = useState(false);
@@ -432,6 +433,11 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
 
       // Process and apply metadata (palettes, customizables) FIRST
       if (metadata) {
+        setTemplateInfo({
+          name: metadata.name,
+          thumbnailUrl: metadata.thumbnail_url,
+          description: metadata.description,
+        });
         const palettesObj = metadata.palettes || {};
         const paletteKeys = Object.keys(palettesObj);
         setAvailablePalettes(palettesObj);
@@ -1124,6 +1130,9 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
             }
             fetchPages();
           }}
+          templateName={templateInfo?.name}
+          templateThumbnailUrl={templateInfo?.thumbnailUrl}
+          templateDescription={templateInfo?.description}
           templatePalettes={paletteArray}
           selectedPalette={currentPalette}
           onSelectPalette={(palette) => handlePaletteChange(palette.name)}

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, Eye, EyeOff, Image as ImageIcon, Tablet, Smartphone, Monitor } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, Eye, EyeOff, Image as ImageIcon, Tablet, Smartphone, Monitor, Layout, Lock } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
@@ -46,6 +46,8 @@ interface FloatingToolbarProps {
   onUpdateSiteContent?: (key: string, value: any) => void;
   currentSiteId?: string;
   templateName?: string;
+  templateThumbnailUrl?: string;
+  templateDescription?: string;
   templatePalettes?: Palette[];
   selectedPalette?: Palette;
   onSelectPalette?: (palette: Palette) => void;
@@ -129,6 +131,8 @@ export default function FloatingToolbar({
   onUpdateSiteContent = () => { },
   currentSiteId,
   templateName,
+  templateThumbnailUrl,
+  templateDescription,
   templatePalettes = [],
   selectedPalette,
   onSelectPalette,
@@ -810,6 +814,82 @@ export default function FloatingToolbar({
 
       {/* Scrollable Accordions */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+
+        {/* Template Section */}
+        <div className="border border-slate-200 rounded-lg bg-white shadow-sm">
+          <button
+            onClick={() => toggleSection('template')}
+            className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors rounded-t-lg"
+          >
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+              <Layout className="w-3.5 h-3.5" />
+              Template
+            </span>
+            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('template') ? 'rotate-180' : ''}`} />
+          </button>
+
+          {openSections.includes('template') && (
+            <div className="p-4 border-t border-slate-200 space-y-4">
+              {/* Currently selected template */}
+              <div>
+                <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2">Current Template</h3>
+                <div className="rounded-lg border border-slate-200 bg-white overflow-hidden">
+                  {templateThumbnailUrl ? (
+                    <div className="aspect-[16/10] bg-slate-100 overflow-hidden">
+                      <img
+                        src={templateThumbnailUrl}
+                        alt={templateName || 'Template preview'}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="aspect-[16/10] bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center">
+                      <Layout className="w-8 h-8 text-slate-400" />
+                    </div>
+                  )}
+                  <div className="p-3">
+                    <p className="text-sm font-semibold text-slate-800 truncate">
+                      {templateName || 'Untitled template'}
+                    </p>
+                    {templateDescription && (
+                      <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                        {templateDescription}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Change template — coming soon */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide">Change Template</h3>
+                  <span className="text-[9px] font-bold uppercase tracking-wide text-violet-600 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded">
+                    Coming Soon
+                  </span>
+                </div>
+                <div className="relative rounded-lg border border-dashed border-slate-300 bg-gradient-to-br from-slate-50 to-white p-3">
+                  <div className="grid grid-cols-3 gap-2 opacity-50 pointer-events-none">
+                    {[0, 1, 2].map((i) => (
+                      <div
+                        key={i}
+                        className="aspect-[4/3] rounded-md bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200 flex items-center justify-center"
+                      >
+                        <Layout className="w-4 h-4 text-slate-400" />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex items-start gap-2">
+                    <Lock className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
+                    <p className="text-[11px] text-slate-500 leading-snug">
+                      Browse and switch between templates without losing your content. Coming soon.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Logos Section */}
         <div className="border border-slate-200 rounded-lg bg-white shadow-sm" style={{ overflow: 'visible' }}>
