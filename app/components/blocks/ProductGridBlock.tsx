@@ -6,7 +6,7 @@ import { useCart } from '../ecommerce/CartProvider';
 import {
     Package, Plus, Trash2, Loader2, ShoppingCart, X,
     ImageIcon, Upload, Download, Send, Search,
-    ChevronLeft, ChevronRight, Tag, Pencil, Lock, Crown,
+    ChevronLeft, ChevronRight, Tag, Pencil, Lock, Crown, Star, ArrowRight,
 } from 'lucide-react';
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
 import ProductDescriptionEditor from '../ProductDescriptionEditor';
@@ -28,6 +28,7 @@ interface Product {
     options?: Array<{ name: string; values: Array<{ label: string; priceModifierCents: number }>; defaultIndex: number }>;
     inventory_count: number;
     is_active: boolean;
+    is_featured: boolean;
     sort_order: number;
     status: string;
     category: string | null;
@@ -75,6 +76,11 @@ function ProductGridBlockEditMode({ siteId, data, updateContent }: { siteId: str
     const [categoryTree, setCategoryTree] = useState<Record<string, string[]>>({});
     const categoryFilter: string = data?.categoryFilter || '';
     const subcategoryFilter: string = data?.subcategoryFilter || '';
+    const featuredOnly: boolean = !!data?.featuredOnly;
+    const showSeeMore: boolean = !!data?.showSeeMore;
+    const seeMoreLabel: string = data?.seeMoreLabel ?? 'View all';
+    const seeMoreHref: string = data?.seeMoreHref ?? '';
+    const variant: string = data?.variant || 'grid';
 
     useEffect(() => {
         (async () => {
@@ -95,11 +101,13 @@ function ProductGridBlockEditMode({ siteId, data, updateContent }: { siteId: str
             <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
                 <ShoppingCart className="w-6 h-6 text-slate-400" />
             </div>
-            <div className="w-full max-w-sm">
-                <div className="font-bold text-slate-800 mb-1">Manage Products in Admin</div>
-                <div className="text-sm text-slate-500 mb-4">Add, edit, and manage your products and store settings from your Admin Dashboard.</div>
+            <div className="w-full max-w-md">
+                <div className="font-bold text-slate-800 mb-1">Products Block</div>
+                <div className="text-sm text-slate-500 mb-4">
+                    Filter what this block shows. Choose a layout from the block's settings (gear icon) to switch between grid, scrolling row, sidebar, or list.
+                </div>
 
-                <div className="text-left mb-4 space-y-2">
+                <div className="text-left mb-4 space-y-3">
                     <div>
                         <label className="text-xs font-semibold text-slate-600 mb-1 block">Show category</label>
                         <select
@@ -133,8 +141,70 @@ function ProductGridBlockEditMode({ siteId, data, updateContent }: { siteId: str
                             </select>
                         </div>
                     )}
-                    <p className="text-[11px] text-slate-400">
-                        When scoped to a specific category or subcategory, the sidebar is hidden on the live site.
+
+                    <div className="flex items-start gap-2 pt-1">
+                        <button
+                            type="button"
+                            onClick={() => updateContent('featuredOnly', !featuredOnly)}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 mt-0.5 ${featuredOnly ? 'bg-amber-400' : 'bg-slate-200'}`}
+                            aria-pressed={featuredOnly}
+                        >
+                            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${featuredOnly ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                        </button>
+                        <div className="flex-1">
+                            <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer" onClick={() => updateContent('featuredOnly', !featuredOnly)}>
+                                <Star className={`w-3.5 h-3.5 ${featuredOnly ? 'text-amber-500 fill-amber-400' : 'text-slate-400'}`} />
+                                Featured products only
+                            </label>
+                            <p className="text-[11px] text-slate-500 mt-0.5">Only show products that are flagged as featured.</p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-start gap-2">
+                        <button
+                            type="button"
+                            onClick={() => updateContent('showSeeMore', !showSeeMore)}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 mt-0.5 ${showSeeMore ? 'bg-blue-500' : 'bg-slate-200'}`}
+                            aria-pressed={showSeeMore}
+                        >
+                            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${showSeeMore ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                        </button>
+                        <div className="flex-1">
+                            <label className="text-xs font-semibold text-slate-700 cursor-pointer" onClick={() => updateContent('showSeeMore', !showSeeMore)}>
+                                Show "view more" button
+                            </label>
+                            <p className="text-[11px] text-slate-500 mt-0.5">Adds a button at the end of the row that links to a full collection page.</p>
+                        </div>
+                    </div>
+                    {showSeeMore && (
+                        <div className="pl-11 space-y-2">
+                            <div>
+                                <label className="text-xs font-semibold text-slate-600 mb-1 block">Button label</label>
+                                <input
+                                    type="text"
+                                    value={seeMoreLabel}
+                                    onChange={e => updateContent('seeMoreLabel', e.target.value)}
+                                    placeholder="View all"
+                                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-semibold text-slate-600 mb-1 block">Button link</label>
+                                <input
+                                    type="text"
+                                    value={seeMoreHref}
+                                    onChange={e => updateContent('seeMoreHref', e.target.value)}
+                                    placeholder="/shop or /shop?category=Apparel"
+                                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <p className="text-[11px] text-slate-400 mt-1">Use a path like <code>/shop</code> or an absolute URL.</p>
+                            </div>
+                        </div>
+                    )}
+
+                    <p className="text-[11px] text-slate-400 pt-1">
+                        Layout: <span className="font-semibold capitalize">{variant === 'gridWithSidebar' ? 'Grid + sidebar' : variant === 'row' ? 'Scrolling row' : variant}</span> — change in the block's settings (gear icon).
+                        {' '}When scoped to a specific category, the sidebar is hidden on the live site.
                     </p>
                 </div>
 
@@ -283,6 +353,16 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: product.id, is_active: !product.is_active }),
+        });
+        const data = await res.json();
+        if (data.product) setProducts(products.map(p => p.id === product.id ? data.product : p));
+    };
+
+    const handleToggleFeatured = async (product: Product) => {
+        const res = await fetch('/api/products', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: product.id, is_featured: !product.is_featured }),
         });
         const data = await res.json();
         if (data.product) setProducts(products.map(p => p.id === product.id ? data.product : p));
@@ -473,6 +553,13 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                                     )}
                                 </div>
                                 <button
+                                    onClick={() => handleToggleFeatured(product)}
+                                    title={product.is_featured ? 'Unfeature product' : 'Mark as featured'}
+                                    className={`p-1.5 rounded border shrink-0 transition-colors ${product.is_featured ? 'border-amber-300 bg-amber-50 text-amber-600 hover:bg-amber-100' : 'border-slate-200 text-slate-400 hover:bg-amber-50 hover:text-amber-500'}`}
+                                >
+                                    <Star className={`w-4 h-4 ${product.is_featured ? 'fill-amber-400' : ''}`} />
+                                </button>
+                                <button
                                     onClick={() => setMembershipEditProduct(product)}
                                     title="Membership pricing & access"
                                     className="p-1.5 rounded border border-slate-200 hover:bg-emerald-50 text-emerald-600 hover:text-emerald-700 shrink-0"
@@ -629,6 +716,7 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
         product?.allowed_package_ids ?? []
     );
     const [externalUrl, setExternalUrl] = useState(product?.external_url ?? '');
+    const [isFeatured, setIsFeatured] = useState<boolean>(!!product?.is_featured);
     const [gateEnabled, setGateEnabled] = useState(
         (product?.allowed_package_ids ?? []).length > 0
     );
@@ -832,6 +920,7 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
             tier_prices: tier_prices_arr,
             allowed_package_ids: gateEnabled ? allowedPackageIds : [],
             external_url: externalUrl.trim() || null,
+            is_featured: isFeatured,
         };
 
         setSaving(true);
@@ -1015,6 +1104,25 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
                     className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 />
                 <p className="text-[11px] text-slate-400 mt-1">Used to suggest related products on the detail page.</p>
+            </div>
+
+            {/* Featured */}
+            <div className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 bg-amber-50/40">
+                <button
+                    type="button"
+                    onClick={() => setIsFeatured(v => !v)}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 mt-0.5 ${isFeatured ? 'bg-amber-400' : 'bg-slate-200'}`}
+                    aria-pressed={isFeatured}
+                >
+                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${isFeatured ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                </button>
+                <div className="flex-1">
+                    <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer" onClick={() => setIsFeatured(v => !v)}>
+                        <Star className={`w-3.5 h-3.5 ${isFeatured ? 'text-amber-500 fill-amber-400' : 'text-slate-400'}`} />
+                        Featured product
+                    </label>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Mark this product as featured so it can appear in "Featured" Products blocks on the home page.</p>
+                </div>
             </div>
 
             {/* Vendor / Fulfillment */}
@@ -1474,8 +1582,12 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
 
     const blockCategory: string = data?.categoryFilter || '';
     const blockSubcategory: string = data?.subcategoryFilter || '';
+    const featuredOnly: boolean = !!data?.featuredOnly;
+    const showSeeMore: boolean = !!data?.showSeeMore;
+    const seeMoreLabel: string = (data?.seeMoreLabel ?? '').trim() || 'View all';
+    const seeMoreHref: string = (data?.seeMoreHref ?? '').trim();
     const lockedToCategory = !!blockCategory;
-    const variant: 'grid' | 'gridWithSidebar' | 'list' = data?.variant || 'grid';
+    const variant: 'grid' | 'gridWithSidebar' | 'list' | 'row' = data?.variant || 'grid';
     const effectiveVariant = lockedToCategory && variant === 'gridWithSidebar' ? 'grid' : variant;
     const pSecondary = palette.secondary || '#dc2626';
 
@@ -1583,6 +1695,7 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
     const nas = activeSubcategory.toLowerCase();
 
     const filteredProducts = products.filter(p => {
+        if (featuredOnly && !p.is_featured) return false;
         const cat = (p.category || '').toLowerCase();
         const sub = (p.subcategory || '').toLowerCase();
         if (lockedToCategory) {
@@ -1594,6 +1707,14 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
         if (nas && sub !== nas) return false;
         return true;
     });
+
+    // When the block is scoped to featured/category and there's nothing to
+    // show, hide the section entirely instead of rendering an empty grid —
+    // home pages often stack several scoped Products blocks and a missing
+    // collection should disappear cleanly rather than leave a hole.
+    if (filteredProducts.length === 0 && (featuredOnly || lockedToCategory)) {
+        return null;
+    }
 
     const visibleProducts = [...filteredProducts].sort((a, b) => {
         switch (sortBy) {
@@ -1768,6 +1889,67 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
         );
     };
 
+    const seeMoreButton = (showSeeMore && seeMoreHref) ? (
+        <a
+            href={seeMoreHref}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
+            style={{ backgroundColor: pSecondary }}
+        >
+            {seeMoreLabel}
+            <ArrowRight className="w-4 h-4" />
+        </a>
+    ) : null;
+
+    const inlineSeeMore = (showSeeMore && seeMoreHref) ? (
+        <a
+            href={seeMoreHref}
+            className="inline-flex items-center gap-1 text-sm font-semibold hover:underline"
+            style={{ color: pSecondary }}
+        >
+            {seeMoreLabel}
+            <ArrowRight className="w-4 h-4" />
+        </a>
+    ) : null;
+
+    if (effectiveVariant === 'row') {
+        return (
+            <section className="py-12 px-4" id="products">
+                <div className="max-w-7xl mx-auto">
+                    {(featuredOnly || inlineSeeMore) && (
+                        <div className="flex items-center justify-between gap-3 mb-4">
+                            {featuredOnly ? (
+                                <h3 className="text-base sm:text-lg font-bold text-slate-900 inline-flex items-center gap-2">
+                                    <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
+                                    Featured{blockCategory ? ` — ${blockCategory}` : ''}{blockSubcategory ? ` › ${blockSubcategory}` : ''}
+                                </h3>
+                            ) : <span />}
+                            {inlineSeeMore}
+                        </div>
+                    )}
+                    <div className="-mx-4 px-4 overflow-x-auto scroll-smooth">
+                        <div className="flex gap-4 md:gap-6 pb-2 snap-x snap-mandatory">
+                            {visibleProducts.map(p => (
+                                <div key={p.id} className="snap-start flex-shrink-0 w-56 sm:w-64 md:w-72">
+                                    {renderCard(p)}
+                                </div>
+                            ))}
+                            {showSeeMore && seeMoreHref && (
+                                <a
+                                    href={seeMoreHref}
+                                    className="snap-start flex-shrink-0 w-56 sm:w-64 md:w-72 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300 transition-colors flex flex-col items-center justify-center gap-2 text-slate-600 hover:text-slate-900 font-semibold"
+                                    style={{ minHeight: 280 }}
+                                >
+                                    <ArrowRight className="w-6 h-6" />
+                                    <span>{seeMoreLabel}</span>
+                                </a>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </section>
+        );
+    }
+
     if (effectiveVariant === 'list') {
         return (
             <section className="py-16 px-4" id="products">
@@ -1776,6 +1958,9 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
                     <div className="space-y-4">
                         {visibleProducts.map(renderListRow)}
                     </div>
+                    {seeMoreButton && (
+                        <div className="mt-8 flex justify-center">{seeMoreButton}</div>
+                    )}
                 </div>
             </section>
         );
@@ -1841,6 +2026,9 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
                             {visibleProducts.map(renderCard)}
                         </div>
+                        {seeMoreButton && (
+                            <div className="mt-8 flex justify-center">{seeMoreButton}</div>
+                        )}
                     </div>
                 </div>
             </section>
@@ -1851,10 +2039,23 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
     return (
         <section className="py-16 px-4" id="products">
             <div className="max-w-7xl mx-auto">
-                <Toolbar />
+                {featuredOnly ? (
+                    <div className="flex items-center justify-between gap-3 mb-4">
+                        <h3 className="text-base sm:text-lg font-bold text-slate-900 inline-flex items-center gap-2">
+                            <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
+                            Featured{blockCategory ? ` — ${blockCategory}` : ''}{blockSubcategory ? ` › ${blockSubcategory}` : ''}
+                        </h3>
+                        {inlineSeeMore}
+                    </div>
+                ) : (
+                    <Toolbar />
+                )}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
                     {visibleProducts.map(renderCard)}
                 </div>
+                {!featuredOnly && seeMoreButton && (
+                    <div className="mt-8 flex justify-center">{seeMoreButton}</div>
+                )}
             </div>
         </section>
     );
