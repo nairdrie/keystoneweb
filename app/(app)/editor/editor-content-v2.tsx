@@ -940,6 +940,115 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     });
   }, [addChange]);
 
+  // Walk a blocks tree and replace any buttonTextLink:{linkType:'page',pageSlug}
+  // with the actual pageId/href for that slug. Mutates a deep copy and returns it.
+  const resolvePageSlugLinks = useCallback((blocks: BlockData[], slugToPageId: Record<string, string>): BlockData[] => {
+    const resolveOne = (val: unknown): unknown => {
+      if (Array.isArray(val)) return val.map(resolveOne);
+      if (val && typeof val === 'object') {
+        const obj = val as Record<string, unknown>;
+        // Recognize a link-shaped object with pageSlug
+        if (obj.linkType === 'page' && typeof obj.pageSlug === 'string') {
+          const slug = obj.pageSlug.toLowerCase();
+          const pageId = slugToPageId[slug];
+          if (pageId) {
+            return {
+              linkType: 'page',
+              href: slug === 'home' ? '/' : `/${slug}`,
+              pageId,
+            };
+          }
+          // Slug didn't resolve — drop pageSlug to avoid leaking it into content
+          const rest: Record<string, unknown> = { ...obj };
+          delete rest.pageSlug;
+          return resolveOne(rest);
+        }
+        const out: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(obj)) out[k] = resolveOne(v);
+        return out;
+      }
+      return val;
+    };
+    return blocks.map((b) => ({ ...b, data: resolveOne(b.data) as Record<string, unknown> }));
+  }, []);
+
+  const aiCreatePages = useCallback(async (newPages: Array<{ slug: string; title: string; displayName: string; isVisibleInNav: boolean; blocks: BlockData[] }>) => {
+    if (!siteId || !Array.isArray(newPages) || newPages.length === 0) return;
+
+    // Build a slug → pageId map. Existing pages first, then newly-created ones.
+    const slugToPageId: Record<string, string> = {};
+    for (const p of pages) slugToPageId[p.slug.toLowerCase()] = p.id;
+
+    // Create each page server-side via the existing createPage path.
+    // Skip slugs that already exist (don't clobber the user's pages).
+    const created: Array<{ id: string; slug: string; title: string; displayName: string; blocks: BlockData[]; isVisibleInNav: boolean }> = [];
+    for (const p of newPages) {
+      const lower = p.slug.toLowerCase();
+      if (slugToPageId[lower]) continue;
+      try {
+        const newPage = await createPage(p.slug, p.title, p.displayName);
+        slugToPageId[lower] = newPage.id;
+        created.push({ id: newPage.id, slug: p.slug, title: p.title, displayName: p.displayName, blocks: p.blocks, isVisibleInNav: p.isVisibleInNav });
+      } catch (err) {
+        console.error('[AI] Failed to create page', p.slug, err);
+      }
+    }
+
+    if (created.length === 0) return;
+
+    // Resolve pageSlug links inside each new page's blocks now that we know all IDs.
+    // Persist each new page's blocks to the server.
+    for (const p of created) {
+      const resolvedBlocks = resolvePageSlugLinks(p.blocks, slugToPageId);
+      try {
+        await fetch('/api/pages', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            id: p.id,
+            siteId,
+            designData: { blocks: resolvedBlocks },
+            isVisibleInNav: p.isVisibleInNav,
+          }),
+        });
+      } catch (err) {
+        console.error('[AI] Failed to save blocks for page', p.slug, err);
+      }
+    }
+
+    // Resolve pageSlug links in the home page's current blocks too (replaceBlocks
+    // typically ran before createPages, so the home blocks may reference these slugs).
+    setEditableContent((prev) => {
+      const currentBlocks: BlockData[] = Array.isArray(prev.blocks) ? prev.blocks : [];
+      const resolved = resolvePageSlugLinks(currentBlocks, slugToPageId);
+      // Only update if something actually changed
+      if (JSON.stringify(currentBlocks) === JSON.stringify(resolved)) return prev;
+      return { ...prev, blocks: resolved };
+    });
+
+    // Add nav items for the new pages (skip pages that already have a nav entry).
+    const currentNav: NavItem[] = siteContentRef.current.__navItems || [];
+    const existingPageIds = new Set(currentNav.map((n) => n.pageId).filter(Boolean));
+    const navAdditions: NavItem[] = created
+      .filter((p) => p.isVisibleInNav && !existingPageIds.has(p.id))
+      .map((p) => ({
+        id: `nav-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        label: p.displayName,
+        linkType: 'page' as const,
+        href: `/${p.slug}`,
+        pageId: p.id,
+      }));
+    if (navAdditions.length > 0) {
+      const updatedNavItems = [...currentNav, ...navAdditions];
+      addChange('siteContent:navItems', 'AI: Added pages to navigation', JSON.stringify(currentNav), JSON.stringify(updatedNavItems));
+      setSiteContent((prev) => ({ ...prev, __navItems: updatedNavItems }));
+    }
+
+    // Refresh pages list so PageSelector and the editor see the new pages immediately.
+    fetchPages();
+  }, [siteId, pages, createPage, fetchPages, addChange, resolvePageSlugLinks]);
+
   const aiCallbacks = useMemo(() => ({
     onAddBlock: aiAddBlock,
     onUpdateBlock: aiUpdateBlock,
@@ -951,7 +1060,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     onSetCustomColors: aiSetCustomColors,
     onSetTemplate: aiSetTemplate,
     onSetHeaderConfig: aiSetHeaderConfig,
-  }), [aiAddBlock, aiUpdateBlock, aiRemoveBlock, aiReorderBlocks, aiReplaceBlocks, aiSetSiteTitle, aiSetFont, aiSetCustomColors, aiSetTemplate, aiSetHeaderConfig]);
+    onCreatePages: aiCreatePages,
+  }), [aiAddBlock, aiUpdateBlock, aiRemoveBlock, aiReorderBlocks, aiReplaceBlocks, aiSetSiteTitle, aiSetFont, aiSetCustomColors, aiSetTemplate, aiSetHeaderConfig, aiCreatePages]);
 
   const getAiSiteState = useCallback(() => ({
     title: siteTitle,

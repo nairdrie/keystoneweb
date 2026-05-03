@@ -231,7 +231,7 @@ async function callAnthropic(apiKey: string, model: string, system: string, hist
       signal: controller.signal,
       body: JSON.stringify({
         model,
-        max_tokens: 4096,
+        max_tokens: 8192,
         system,
         messages: [
           ...history,
@@ -267,7 +267,7 @@ async function callAnthropic(apiKey: string, model: string, system: string, hist
 // operations with valid block types pass through. This prevents prompt injection
 // from producing arbitrary payloads.
 
-const VALID_OPS = new Set(['addBlock', 'updateBlock', 'removeBlock', 'reorderBlocks', 'setSiteTitle', 'setFont', 'setCustomColors', 'setTemplate', 'replaceBlocks', 'setHeaderConfig']);
+const VALID_OPS = new Set(['addBlock', 'updateBlock', 'removeBlock', 'reorderBlocks', 'setSiteTitle', 'setFont', 'setCustomColors', 'setTemplate', 'replaceBlocks', 'setHeaderConfig', 'createPages']);
 const VALID_BLOCK_TYPES = new Set([
   'hero', 'text', 'image', 'servicesGrid', 'featuresList', 'aboutImageText',
   'testimonials', 'stats', 'gallery', 'contact', 'faq', 'cta', 'booking',
@@ -305,6 +305,31 @@ function sanitizeOperations(operations: any[]): any[] {
             };
           }).filter(Boolean);
           return { op: 'replaceBlocks', blocks: sanitizedBlocks };
+        }
+        case 'createPages': {
+          if (!Array.isArray(op.pages)) return null;
+          const sanitizedPages = op.pages.map((p: any, pIdx: number) => {
+            if (!p || typeof p !== 'object') return null;
+            const rawSlug = typeof p.slug === 'string' ? p.slug.toLowerCase().trim() : '';
+            // Slug must be lowercase alphanumeric + hyphens, not "home"
+            const slug = rawSlug.replace(/[^a-z0-9-]/g, '').replace(/^-+|-+$/g, '').slice(0, 60);
+            if (!slug || slug === 'home') return null;
+            const title = typeof p.title === 'string' ? stripTags(p.title).slice(0, 100) : slug;
+            const displayName = typeof p.displayName === 'string' ? stripTags(p.displayName).slice(0, 100) : title;
+            const isVisibleInNav = p.isVisibleInNav !== false;
+            const blocks = Array.isArray(p.blocks) ? p.blocks.map((b: any, bIdx: number) => {
+              if (!b || typeof b !== 'object' || !VALID_BLOCK_TYPES.has(b.blockType)) return null;
+              const data = (typeof b.data === 'object' && b.data !== null) ? b.data : {};
+              return {
+                id: `block-${Date.now()}-${pIdx}-${bIdx}-${Math.random().toString(36).substr(2, 9)}`,
+                type: b.blockType,
+                data: deepSanitizeStrings(data),
+              };
+            }).filter(Boolean) : [];
+            return { slug, title, displayName, isVisibleInNav, blocks };
+          }).filter(Boolean);
+          if (sanitizedPages.length === 0) return null;
+          return { op: 'createPages', pages: sanitizedPages };
         }
         case 'addBlock': {
           if (!VALID_BLOCK_TYPES.has(op.blockType)) return null;
@@ -468,7 +493,7 @@ async function callOpenAI(apiKey: string, model: string, system: string, history
       signal: controller.signal,
       body: JSON.stringify({
         model,
-        max_tokens: 4096,
+        max_tokens: 8192,
         messages: [
           { role: 'system', content: system },
           ...history,

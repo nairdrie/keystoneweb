@@ -32,6 +32,14 @@ interface SiteState {
   bodyFont?: string;
 }
 
+export interface AICreatePagesPayload {
+  slug: string;
+  title: string;
+  displayName: string;
+  isVisibleInNav: boolean;
+  blocks: any[];
+}
+
 interface AIBuilderCallbacks {
   onAddBlock: (type: string, data: Record<string, any>, index?: number) => void;
   onUpdateBlock: (blockId: string, updates: Record<string, any>) => void;
@@ -43,6 +51,7 @@ interface AIBuilderCallbacks {
   onSetTemplate: (templateId: string) => void;
   onReplaceBlocks: (blocks: any[]) => void;
   onSetHeaderConfig: (config: Record<string, any>) => void;
+  onCreatePages: (pages: AICreatePagesPayload[]) => void | Promise<void>;
 }
 
 export function useAIBuilder(
@@ -152,9 +161,11 @@ export function useAIBuilder(
         return;
       }
 
-      // Apply operations
+      // Apply operations sequentially. createPages is async (it hits the
+      // server) so we await it — page creation must finish before we resolve
+      // pageSlug button references in any blocks added by replaceBlocks.
       for (const op of operations) {
-        applyOperation(op, callbacks);
+        await applyOperation(op, callbacks);
       }
 
       const assistantMsg: AIMessage = {
@@ -208,7 +219,7 @@ export function useAIBuilder(
   return { messages, isLoading, sendMessage, cancel, clearMessages, showUpgradeModal, dismissUpgradeModal, authExpired, remaining };
 }
 
-function applyOperation(op: AIOperation, callbacks: AIBuilderCallbacks) {
+async function applyOperation(op: AIOperation, callbacks: AIBuilderCallbacks): Promise<void> {
   switch (op.op) {
     case 'setTemplate':
       if (op.templateId) {
@@ -220,12 +231,16 @@ function applyOperation(op: AIOperation, callbacks: AIBuilderCallbacks) {
         callbacks.onReplaceBlocks(op.blocks);
       }
       break;
+    case 'createPages':
+      if (Array.isArray(op.pages)) {
+        await callbacks.onCreatePages(op.pages);
+      }
+      break;
     case 'addBlock':
       callbacks.onAddBlock(op.blockType, op.data || {}, op.index);
       break;
     case 'updateBlock':
       if (op.blockId && op.updates) {
-        // Apply each field individually through the existing updateBlockData path
         callbacks.onUpdateBlock(op.blockId, op.updates);
       }
       break;
