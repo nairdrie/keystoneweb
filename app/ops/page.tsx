@@ -1,15 +1,9 @@
+import { headers } from 'next/headers';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import Link from 'next/link';
-import LocalActivityTime from './LocalActivityTime';
-
-type RecentEvent = {
-  id: string;
-  event_type: string;
-  user_id: string | null;
-  site_id: string | null;
-  metadata: unknown;
-  created_at: string;
-};
+import { parseHost } from '@/lib/env/domain';
+import { getOpsAccessContext } from '@/lib/ops/access';
+import OpsOverviewDashboard from './OpsOverviewDashboard';
+import type { DashboardEvent } from './dashboard-helpers';
 
 type UserRow = {
   id: string;
@@ -20,306 +14,234 @@ type UserRow = {
 type SiteRow = {
   id: string;
   site_slug: string | null;
+  is_published: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
+  published_at: string | null;
 };
 
-// ── Tiny SVG bar chart rendered server-side ──────────────────────────────────
+type SupportItem = {
+  id: string;
+  subject: string | null;
+  status: string | null;
+  priority: string | null;
+  created_at: string;
+};
 
-function BarChart({
-  data,
-  label,
-  color = '#10b981',
-}: {
-  data: number[];
-  label: string;
-  color?: string;
-}) {
-  const max = Math.max(...data, 1);
-  const w = 600;
-  const h = 80;
-  const barW = Math.floor(w / data.length);
-  const gap = Math.max(1, Math.floor(barW * 0.15));
+type LaunchItem = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  business_name: string | null;
+  status: string | null;
+  created_at: string;
+};
 
-  return (
-    <div>
-      <p className="mb-2 text-xs text-gray-400">{label}</p>
-      <svg
-        viewBox={`0 0 ${w} ${h}`}
-        className="w-full"
-        style={{ height: 80 }}
-        aria-hidden
-      >
-        {data.map((val, i) => {
-          const barH = Math.max(Math.round((val / max) * h), val > 0 ? 2 : 0);
-          return (
-            <rect
-              key={i}
-              x={i * barW + gap / 2}
-              y={h - barH}
-              width={barW - gap}
-              height={barH}
-              fill={color}
-              rx={2}
-            />
-          );
-        })}
-      </svg>
-    </div>
-  );
+type SubscriptionRow = {
+  subscription_status: string | null;
+};
+
+const TRACKED_EVENT_TYPES = [
+  'user_signup',
+  'user_signin',
+  'site_create',
+  'site_edit',
+  'site_publish',
+  'subscription_upgrade',
+  'subscription_cancel',
+  'domain_purchase',
+  'site_delete',
+  'site_transfer_created',
+  'site_transfer_accepted',
+  'site_unpublish',
+];
+
+function isoDaysAgo(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString();
 }
 
-// ── Stat card ────────────────────────────────────────────────────────────────
-
-function StatCard({
-  label,
-  value,
-  sub,
-  accent,
-  href,
-}: {
-  label: string;
-  value: number | string;
-  sub?: string;
-  accent?: string;
-  href?: string;
-}) {
-  const content = (
-    <div className={`rounded-lg border border-gray-800 bg-gray-900 p-5 ${href ? 'hover:border-gray-600 transition-colors' : ''}`}>
-      <p className="text-xs text-gray-500 uppercase tracking-wider">{label}</p>
-      <p className={`mt-1 text-3xl font-bold ${accent ?? 'text-white'}`}>{value}</p>
-      {sub && <p className="mt-1 text-xs text-gray-500">{sub}</p>}
-    </div>
-  );
-  return href ? <Link href={href}>{content}</Link> : content;
+function countByStatus(rows: SubscriptionRow[]) {
+  return rows.reduce<Record<string, number>>((counts, row) => {
+    const status = row.subscription_status?.trim() || 'unknown';
+    counts[status] = (counts[status] ?? 0) + 1;
+    return counts;
+  }, {});
 }
-
-// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function OpsOverviewPage() {
   const db = createAdminClient();
-  const now = new Date();
-  const day7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const day30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const access = await getOpsAccessContext();
+  const requestHeaders = await headers();
+  const host = requestHeaders.get('host') || '';
+  const opsBasePath = parseHost(host).kind === 'ops' ? '' : '/ops';
+  const refreshedAt = new Date().toISOString();
+  const day30 = isoDaysAgo(30);
+  const day730 = isoDaysAgo(730);
 
-  // Aggregate stats
+  let supportCountQuery = db
+    .from('support_requests')
+    .select('id', { count: 'exact', head: true })
+    .in('status', ['open', 'in_progress']);
+
+  let urgentSupportQuery = db
+    .from('support_requests')
+    .select('id', { count: 'exact', head: true })
+    .in('status', ['open', 'in_progress'])
+    .in('priority', ['urgent', 'high']);
+
+  let supportItemsQuery = db
+    .from('support_requests')
+    .select('id, subject, status, priority, created_at')
+    .in('status', ['open', 'in_progress'])
+    .order('created_at', { ascending: false })
+    .limit(6);
+
+  if (access && !access.isAdmin && access.agentContactEmail) {
+    supportCountQuery = supportCountQuery.eq('from_email', access.agentContactEmail);
+    urgentSupportQuery = urgentSupportQuery.eq('from_email', access.agentContactEmail);
+    supportItemsQuery = supportItemsQuery.eq('from_email', access.agentContactEmail);
+  }
+
+  const launchCountQuery = access?.isAdmin
+    ? db.from('launch_requests').select('id', { count: 'exact', head: true }).eq('status', 'new')
+    : Promise.resolve({ count: 0 });
+
+  const launchItemsQuery = access?.isAdmin
+    ? db
+      .from('launch_requests')
+      .select('id, name, email, business_name, status, created_at')
+      .eq('status', 'new')
+      .order('created_at', { ascending: false })
+      .limit(6)
+    : Promise.resolve({ data: [] });
+
   const [
     { count: totalUsers },
-    { count: activeSubs },
+    { count: activeSubscriptions },
     { count: totalSites },
     { count: publishedSites },
+    { count: draftSites },
     { count: openSupport },
+    { count: urgentSupport },
     { count: newLaunchRequests },
-    { count: signups7d },
-    { count: signups30d },
-    { count: siteCreates30d },
-    { count: siteEdits30d },
-    { count: sitePublishes30d },
-    { count: upgrades30d },
+    { count: staleDraftSites },
+    { data: subscriptionRows },
+    { data: supportItems },
+    { data: launchItems },
+    { data: recentSiteRows },
+    { data: chartRows },
+    { data: recentEventRows },
   ] = await Promise.all([
     db.from('users').select('id', { count: 'exact', head: true }),
-    db.from('user_subscriptions').select('id', { count: 'exact', head: true }).eq('subscription_status', 'active'),
+    db.from('user_subscriptions').select('user_id', { count: 'exact', head: true }).eq('subscription_status', 'active'),
     db.from('sites').select('id', { count: 'exact', head: true }).not('user_id', 'is', null),
-    db.from('sites').select('id', { count: 'exact', head: true }).eq('is_published', true),
-    db.from('support_requests').select('id', { count: 'exact', head: true }).in('status', ['open', 'in_progress']),
-    db.from('launch_requests').select('id', { count: 'exact', head: true }).eq('status', 'new'),
-    db.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'user_signup').gte('created_at', day7),
-    db.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'user_signup').gte('created_at', day30),
-    db.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'site_create').gte('created_at', day30),
-    db.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'site_edit').gte('created_at', day30),
-    db.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'site_publish').gte('created_at', day30),
-    db.from('analytics_events').select('id', { count: 'exact', head: true }).eq('event_type', 'subscription_upgrade').gte('created_at', day30),
+    db.from('sites').select('id', { count: 'exact', head: true }).not('user_id', 'is', null).eq('is_published', true),
+    db.from('sites').select('id', { count: 'exact', head: true }).not('user_id', 'is', null).eq('is_published', false),
+    supportCountQuery,
+    urgentSupportQuery,
+    launchCountQuery,
+    db
+      .from('sites')
+      .select('id', { count: 'exact', head: true })
+      .not('user_id', 'is', null)
+      .eq('is_published', false)
+      .lt('created_at', day30),
+    db.from('user_subscriptions').select('subscription_status'),
+    supportItemsQuery,
+    launchItemsQuery,
+    db
+      .from('sites')
+      .select('id, site_slug, is_published, created_at, updated_at, published_at')
+      .not('user_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(8),
+    db
+      .from('analytics_events')
+      .select('id, event_type, user_id, site_id, metadata, created_at')
+      .in('event_type', TRACKED_EVENT_TYPES)
+      .gte('created_at', day730)
+      .order('created_at', { ascending: true }),
+    db
+      .from('analytics_events')
+      .select('id, event_type, user_id, site_id, metadata, created_at')
+      .in('event_type', TRACKED_EVENT_TYPES)
+      .order('created_at', { ascending: false })
+      .limit(100),
   ]);
 
-  // Build 30-day daily buckets for charts
-  const dates: string[] = [];
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-    dates.push(d.toISOString().slice(0, 10));
-  }
-
-  const { data: chartRows } = await db
-    .from('analytics_events')
-    .select('event_type, created_at')
-    .in('event_type', ['user_signup', 'site_create', 'site_edit', 'site_publish', 'subscription_upgrade'])
-    .gte('created_at', day30)
-    .order('created_at', { ascending: true });
-
-  const signupSeries = new Array(30).fill(0);
-  const createSeries = new Array(30).fill(0);
-  const editSeries = new Array(30).fill(0);
-  const publishSeries = new Array(30).fill(0);
-  const upgradeSeries = new Array(30).fill(0);
-
-  for (const row of chartRows ?? []) {
-    const dk = (row.created_at as string).slice(0, 10);
-    const idx = dates.indexOf(dk);
-    if (idx === -1) continue;
-    if (row.event_type === 'user_signup') signupSeries[idx]++;
-    if (row.event_type === 'site_create') createSeries[idx]++;
-    if (row.event_type === 'site_edit') editSeries[idx]++;
-    if (row.event_type === 'site_publish') publishSeries[idx]++;
-    if (row.event_type === 'subscription_upgrade') upgradeSeries[idx]++;
-  }
-
-  // Recent activity (last 25 events)
-  const { data: recentEventRows } = await db
-    .from('analytics_events')
-    .select('id, event_type, user_id, site_id, metadata, created_at')
-    .order('created_at', { ascending: false })
-    .limit(25);
-  const recentEvents = (recentEventRows ?? []) as RecentEvent[];
-
-  // Enrich with user and site info
-  const userIds = [...new Set(recentEvents.map((e) => e.user_id).filter((id): id is string => Boolean(id)))];
-  const siteIds = [...new Set(recentEvents.map((e) => e.site_id).filter((id): id is string => Boolean(id)))];
+  const events = (chartRows ?? []) as DashboardEvent[];
+  const recentEvents = (recentEventRows ?? []) as DashboardEvent[];
+  const eventUserIds = events.map((event) => event.user_id);
+  const eventSiteIds = events.map((event) => event.site_id);
+  const userIds = Array.from(new Set([...eventUserIds, ...recentEvents.map((event) => event.user_id)]
+    .filter((id): id is string => Boolean(id))));
+  const siteIds = Array.from(new Set([
+    ...eventSiteIds,
+    ...recentEvents.map((event) => event.site_id),
+    ...((recentSiteRows ?? []) as SiteRow[]).map((site) => site.id),
+  ].filter((id): id is string => Boolean(id))));
 
   const [{ data: userRows }, { data: siteRows }] = await Promise.all([
     userIds.length > 0
       ? db.from('users').select('id, email, business_name').in('id', userIds)
       : Promise.resolve({ data: [] }),
     siteIds.length > 0
-      ? db.from('sites').select('id, site_slug').in('id', siteIds)
+      ? db
+        .from('sites')
+        .select('id, site_slug, is_published, created_at, updated_at, published_at')
+        .in('id', siteIds)
       : Promise.resolve({ data: [] }),
   ]);
 
-  const userMap: Record<string, UserRow> =
-    Object.fromEntries(((userRows ?? []) as UserRow[]).map((u) => [u.id, u]));
+  const users: Record<string, UserRow> =
+    Object.fromEntries(((userRows ?? []) as UserRow[]).map((user) => [user.id, user]));
 
-  // Fallback: any user_id not in public.users (e.g. profile row missing) — look up via auth admin
-  const missingUserIds = userIds.filter((id) => !userMap[id]);
+  const missingUserIds = userIds.filter((id) => !users[id]);
   if (missingUserIds.length > 0) {
     await Promise.all(
-      missingUserIds.map(async (uid) => {
+      missingUserIds.slice(0, 25).map(async (uid) => {
         try {
           const { data: { user: authUser } } = await db.auth.admin.getUserById(uid);
           if (authUser?.email) {
-            userMap[uid] = { id: authUser.id, email: authUser.email, business_name: null };
+            users[uid] = { id: authUser.id, email: authUser.email, business_name: null };
           }
         } catch {
-          // auth user doesn't exist or request failed — leave blank
+          // Leave missing users unnamed in the activity feed.
         }
-      })
+      }),
     );
   }
-  const siteMap: Record<string, SiteRow> =
-    Object.fromEntries(((siteRows ?? []) as SiteRow[]).map((s) => [s.id, s]));
 
-  // Action verb for each event type (used in "[site] [verb] by [user] on [date]")
-  const eventVerbs: Record<string, string> = {
-    user_signup: 'signed up',
-    user_signin: 'signed in',
-    site_create: 'created',
-    site_edit: 'edited',
-    site_publish: 'published',
-    subscription_upgrade: 'subscribed',
-    subscription_cancel: 'cancelled',
-    domain_purchase: 'bought a domain',
-  };
+  const sites: Record<string, SiteRow> =
+    Object.fromEntries(((siteRows ?? []) as SiteRow[]).map((site) => [site.id, site]));
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-2xl font-bold text-white">Platform Overview</h1>
-
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        <StatCard label="Total Users" value={totalUsers ?? 0} href="/users" />
-        <StatCard
-          label="Active Subs"
-          value={activeSubs ?? 0}
-          accent="text-emerald-400"
-          sub={`${upgrades30d ?? 0} new in 30d`}
-        />
-        <StatCard
-          label="Total Sites"
-          value={totalSites ?? 0}
-        />
-        <StatCard
-          label="Published Sites"
-          value={publishedSites ?? 0}
-          accent="text-emerald-400"
-        />
-        <StatCard
-          label="New Signups"
-          value={signups7d ?? 0}
-          sub="last 7 days"
-          accent="text-sky-400"
-        />
-        <StatCard
-          label="Open Support"
-          value={openSupport ?? 0}
-          accent={(openSupport ?? 0) > 0 ? 'text-amber-400' : 'text-white'}
-          href="/support"
-        />
-        <StatCard
-          label="New Launch Requests"
-          value={newLaunchRequests ?? 0}
-          accent={(newLaunchRequests ?? 0) > 0 ? 'text-amber-400' : 'text-white'}
-          href="/launch"
-        />
-      </div>
-
-      {/* 30-day charts */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-        <div className="rounded-lg border border-gray-800 bg-gray-900 p-5">
-          <h2 className="mb-4 text-sm font-semibold text-gray-300">
-            Signups — last 30 days ({signups30d ?? 0} total)
-          </h2>
-          <BarChart data={signupSeries} label="" color="#38bdf8" />
-          <p className="mt-2 text-right text-xs text-gray-600">
-            {dates[0]} → {dates[dates.length - 1]}
-          </p>
-        </div>
-
-        <div className="rounded-lg border border-gray-800 bg-gray-900 p-5">
-          <h2 className="mb-4 text-sm font-semibold text-gray-300">
-            Site Activity — last 30 days
-          </h2>
-          <BarChart data={createSeries} label={`Creates (${siteCreates30d ?? 0})`} color="#a78bfa" />
-          <div className="mt-3">
-            <BarChart data={editSeries} label={`Edits (${siteEdits30d ?? 0})`} color="#fbbf24" />
-          </div>
-          <div className="mt-3">
-            <BarChart data={publishSeries} label={`Publishes (${sitePublishes30d ?? 0})`} color="#10b981" />
-          </div>
-          <p className="mt-2 text-right text-xs text-gray-600">
-            {dates[0]} → {dates[dates.length - 1]}
-          </p>
-        </div>
-
-        <div className="rounded-lg border border-gray-800 bg-gray-900 p-5">
-          <h2 className="mb-4 text-sm font-semibold text-gray-300">
-            New Subscriptions — last 30 days ({upgrades30d ?? 0} total)
-          </h2>
-          <BarChart data={upgradeSeries} label="" color="#f59e0b" />
-          <p className="mt-2 text-right text-xs text-gray-600">
-            {dates[0]} → {dates[dates.length - 1]}
-          </p>
-        </div>
-
-        {/* Recent events */}
-        <div className="rounded-lg border border-gray-800 bg-gray-900 p-5">
-          <h2 className="mb-4 text-sm font-semibold text-gray-300">Recent Activity</h2>
-          <ul className="space-y-2 text-sm">
-            {recentEvents.map((ev) => {
-              const user = ev.user_id ? userMap[ev.user_id] : undefined;
-              const site = ev.site_id ? siteMap[ev.site_id] : undefined;
-              const userName = user?.business_name || user?.email || null;
-              const siteName = site?.site_slug || null;
-              const verb = eventVerbs[ev.event_type] ?? ev.event_type;
-              return (
-                <li key={ev.id} className="text-sm text-gray-300">
-                  {siteName && <span className="font-medium text-white">{siteName}</span>}{' '}
-                  <span className="text-gray-400">{verb}</span>
-                  {userName && <span className="text-gray-500"> by {userName}</span>}
-                  <span className="text-gray-600"> on <LocalActivityTime value={ev.created_at} /></span>
-                </li>
-              );
-            })}
-            {recentEvents.length === 0 && (
-              <li className="text-gray-600 text-xs">No events yet — events are recorded as users sign up, create sites, and subscribe.</li>
-            )}
-          </ul>
-        </div>
-      </div>
-    </div>
+    <OpsOverviewDashboard
+      stats={{
+        totalUsers: totalUsers ?? 0,
+        activeSubscriptions: activeSubscriptions ?? 0,
+        totalSites: totalSites ?? 0,
+        publishedSites: publishedSites ?? 0,
+        openSupport: openSupport ?? 0,
+        urgentSupport: urgentSupport ?? 0,
+        newLaunchRequests: newLaunchRequests ?? 0,
+        draftSites: draftSites ?? 0,
+        staleDraftSites: staleDraftSites ?? 0,
+        subscriptionStatusCounts: countByStatus((subscriptionRows ?? []) as SubscriptionRow[]),
+      }}
+      events={events}
+      recentEvents={recentEvents}
+      users={users}
+      sites={sites}
+      supportItems={(supportItems ?? []) as SupportItem[]}
+      launchItems={(launchItems ?? []) as LaunchItem[]}
+      recentSites={(recentSiteRows ?? []) as SiteRow[]}
+      refreshedAt={refreshedAt}
+      opsBasePath={opsBasePath}
+      canViewUsers={access?.isAdmin ?? false}
+      canViewLaunch={access?.isAdmin ?? false}
+    />
   );
 }
