@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
         .select('geo_restriction')
         .eq('id', packageId)
         .eq('site_id', siteId)
+        .eq('is_archived', false)
         .single();
 
       if (pkg?.geo_restriction?.allowed_countries?.length) {

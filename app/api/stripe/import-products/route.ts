@@ -48,7 +48,8 @@ export async function POST(request: NextRequest) {
     const { data: existingPackages } = await supabase
       .from('membership_packages')
       .select('id, stripe_price_id')
-      .eq('site_id', siteId);
+      .eq('site_id', siteId)
+      .eq('is_archived', false);
 
     const existingByPriceId = new Map(
       (existingPackages || [])

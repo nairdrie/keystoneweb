@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
     let query = supabase
         .from('products')
         .select('*', { count: 'exact' })
-        .eq('site_id', siteId);
+        .eq('site_id', siteId)
+        .eq('is_archived', false);
 
     if (search) {
         const pattern = `%${search}%`;
@@ -71,6 +72,7 @@ export async function GET(request: NextRequest) {
         .from('products')
         .select('category, subcategory')
         .eq('site_id', siteId)
+        .eq('is_archived', false)
         .not('category', 'is', null)
         .order('category');
 
@@ -309,7 +311,8 @@ export async function PUT(request: NextRequest) {
             .from('products')
             .update({ status: 'published', updated_at: new Date().toISOString() })
             .eq('site_id', fields.siteId)
-            .eq('status', 'draft');
+            .eq('status', 'draft')
+            .eq('is_archived', false);
         if (pubError) return NextResponse.json({ error: pubError.message }, { status: 500 });
         return NextResponse.json({ success: true });
     }
@@ -400,7 +403,7 @@ export async function DELETE(request: NextRequest) {
 
     const { error } = await supabase
         .from('products')
-        .delete()
+        .update({ is_archived: true, archived_on: new Date().toISOString() })
         .eq('id', productId);
 
     if (error) {

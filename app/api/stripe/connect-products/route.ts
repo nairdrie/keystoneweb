@@ -120,7 +120,8 @@ export async function POST(request: NextRequest) {
         const { data: existingProducts } = await supabase
             .from('products')
             .select('name')
-            .eq('site_id', siteId);
+            .eq('site_id', siteId)
+            .eq('is_archived', false);
 
         const existingNames = new Set(
             (existingProducts || []).map(p => p.name.toLowerCase())

@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
         .from('booking_categories')
         .select('*')
         .eq('site_id', siteId)
+        .eq('is_archived', false)
         .order('sort_order', { ascending: true });
 
     if (error) {
@@ -133,7 +134,7 @@ export async function DELETE(request: NextRequest) {
 
     const { error } = await supabase
         .from('booking_categories')
-        .delete()
+        .update({ is_archived: true, archived_on: new Date().toISOString() })
         .eq('id', categoryId);
 
     if (error) {

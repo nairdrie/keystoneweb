@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
         .from('products')
         .select('*')
         .eq('site_id', siteId)
+        .eq('is_archived', false)
         .order('sort_order');
 
     if (error) {

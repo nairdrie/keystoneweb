@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
         .select('*')
         .eq('id', serviceId)
         .eq('is_active', true)
+        .eq('is_archived', false)
         .single();
 
     if (svcError || !service) {

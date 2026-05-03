@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
     .from('menu_items')
     .select('*')
     .eq('site_id', siteId)
+    .eq('is_archived', false)
     .order('category', { ascending: true })
     .order('sort_order', { ascending: true });
 
@@ -145,7 +146,7 @@ export async function DELETE(request: NextRequest) {
 
   const { error } = await supabase
     .from('menu_items')
-    .delete()
+    .update({ is_archived: true, archived_on: new Date().toISOString() })
     .eq('id', id)
     .eq('site_id', siteId);
 

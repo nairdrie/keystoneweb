@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
       .select('*')
       .eq('site_id', siteId)
       .eq('is_active', true)
+      .eq('is_archived', false)
       .order('sort_order', { ascending: true });
 
     if (error) {
@@ -215,10 +216,10 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Soft-delete by deactivating (members may reference this package)
+    // Soft-delete by archiving (members may still reference this package).
     const { error } = await supabase
       .from('membership_packages')
-      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .update({ is_archived: true, archived_on: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', packageId)
       .eq('site_id', siteId);
 

@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
         membership_packages(id, name)
       `, { count: 'exact' })
       .eq('site_id', siteId)
+      .eq('is_archived', false)
       .order(sortColumn, { ascending })
       .range(offset, offset + limit - 1);
 
@@ -159,17 +160,17 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Delete sessions first
+    // Invalidate any active sessions so an archived member can't keep using them.
     await supabase
       .from('member_sessions')
       .delete()
       .eq('member_id', memberId)
       .eq('site_id', siteId);
 
-    // Delete member
+    // Soft-delete the member record (recoverable; preserves order/subscription history).
     const { error } = await supabase
       .from('members')
-      .delete()
+      .update({ is_archived: true, archived_on: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', memberId)
       .eq('site_id', siteId);
 

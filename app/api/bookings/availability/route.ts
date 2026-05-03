@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
         .from('booking_blocked_dates')
         .select('*')
         .eq('site_id', siteId)
+        .eq('is_archived', false)
         .gte('blocked_date', today)
         .order('blocked_date', { ascending: true });
 
@@ -144,7 +145,7 @@ export async function DELETE(request: NextRequest) {
 
     const { error } = await supabase
         .from('booking_blocked_dates')
-        .delete()
+        .update({ is_archived: true, archived_on: new Date().toISOString() })
         .eq('id', id);
 
     if (error) {

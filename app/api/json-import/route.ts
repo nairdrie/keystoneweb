@@ -241,7 +241,8 @@ export async function POST(req: NextRequest) {
         const { data: existingItemsRaw } = await supabase
             .from('products')
             .select('*')
-            .eq('site_id', siteId);
+            .eq('site_id', siteId)
+            .eq('is_archived', false);
         const existingItems = (existingItemsRaw || []) as any[];
 
         const existingByName = new Map<string, any>();

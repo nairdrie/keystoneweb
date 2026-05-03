@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
     .from('events')
     .select('*')
     .eq('site_id', siteId)
+    .eq('is_archived', false)
     .order('event_date', { ascending });
 
   if (!includePast) {
@@ -152,7 +153,7 @@ export async function DELETE(request: NextRequest) {
 
   const { error } = await supabase
     .from('events')
-    .delete()
+    .update({ is_archived: true, archived_on: new Date().toISOString() })
     .eq('id', id)
     .eq('site_id', siteId);
 

@@ -44,6 +44,7 @@ export async function GET(
           .select('slug, published_at, created_at')
           .eq('site_id', site.id)
           .eq('is_published', true)
+          .eq('is_archived', false)
       : Promise.resolve({ data: [] as Array<{ slug: string; published_at: string | null; created_at: string }> }),
   ]);
 

@@ -108,7 +108,8 @@ export async function getEmailRecipients(
     .select('email, name')
     .eq('site_id', siteId)
     .eq('status', 'active')
-    .eq('marketing_opt_in', true);
+    .eq('marketing_opt_in', true)
+    .eq('is_archived', false);
 
   if (error) {
     console.error('[marketing/email] Failed to fetch recipients:', error);

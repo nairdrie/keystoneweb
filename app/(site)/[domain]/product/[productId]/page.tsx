@@ -33,6 +33,7 @@ export async function generateMetadata({
         .eq('id', productId)
         .eq('site_id', site.id)
         .eq('is_active', true)
+        .eq('is_archived', false)
         .single();
 
     if (!product) return { title: 'Product Not Found' };
@@ -88,6 +89,7 @@ export default async function CustomDomainProductDetailPage({
             .eq('id', productId)
             .eq('site_id', site.id)
             .eq('is_active', true)
+            .eq('is_archived', false)
             .single();
 
         if (prodError || !product) {
@@ -107,6 +109,7 @@ export default async function CustomDomainProductDetailPage({
             .select('*')
             .eq('site_id', site.id)
             .eq('is_active', true)
+            .eq('is_archived', false)
             .order('sort_order');
 
         // Get template + palette from homepage

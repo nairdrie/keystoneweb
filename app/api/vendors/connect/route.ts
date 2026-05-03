@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
             .from('vendors')
             .select('stripe_account_id, site_id')
             .eq('id', vendorId)
+            .eq('is_archived', false)
             .single();
 
         if (!vendor) {
@@ -75,6 +76,7 @@ export async function POST(request: NextRequest) {
             .from('vendors')
             .select('*')
             .eq('id', vendorId)
+            .eq('is_archived', false)
             .single();
 
         if (!vendor) {

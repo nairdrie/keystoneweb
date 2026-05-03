@@ -27,11 +27,11 @@ async function resolveFromToken(token: string | undefined, requiredSiteId?: stri
 
   const { data: member } = await supabase
     .from('members')
-    .select('id, site_id, package_id, status')
+    .select('id, site_id, package_id, status, is_archived')
     .eq('id', payload.memberId)
     .eq('site_id', payload.siteId)
     .single();
-  if (!member || member.status === 'cancelled') return null;
+  if (!member || member.is_archived || member.status === 'cancelled') return null;
 
   return {
     memberId: member.id,
