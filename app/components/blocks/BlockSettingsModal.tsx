@@ -114,9 +114,18 @@ export default function BlockSettingsModal({
     const hasVariantSettings = !!VARIANTS[blockType];
     const hasBackgroundSettings = blockType === 'hero';
     const hasMenuSettings = blockType === 'menu';
+    const hasGallerySettings = blockType === 'gallery';
 
-    type TabType = 'layout' | 'background' | 'menu' | 'css';
-    const defaultTab: TabType = hasVariantSettings ? 'layout' : (hasBackgroundSettings ? 'background' : hasMenuSettings ? 'menu' : 'css');
+    type TabType = 'layout' | 'background' | 'menu' | 'gallery' | 'css';
+    const defaultTab: TabType = hasVariantSettings
+        ? 'layout'
+        : hasBackgroundSettings
+            ? 'background'
+            : hasMenuSettings
+                ? 'menu'
+                : hasGallerySettings
+                    ? 'gallery'
+                    : 'css';
 
     const [localCss, setLocalCss] = useState(customCss);
     const [activeTab, setActiveTab] = useState<TabType>(defaultTab);
@@ -146,6 +155,14 @@ export default function BlockSettingsModal({
     // Carousel State
     const [carouselAutoPlay, setCarouselAutoPlay] = useState<boolean>(blockData?.autoPlay !== false);
     const [carouselInterval, setCarouselInterval] = useState<number>(blockData?.interval || 5);
+
+    // Gallery State
+    const [galleryColumns, setGalleryColumns] = useState<number>(blockData?.columns || 3);
+    const [galleryShowLightboxNav, setGalleryShowLightboxNav] = useState<boolean>(blockData?.showLightboxNav !== false);
+    const [galleryShowLightboxThumbs, setGalleryShowLightboxThumbs] = useState<boolean>(blockData?.showLightboxThumbs !== false);
+    const [galleryShowSeeMore, setGalleryShowSeeMore] = useState<boolean>(blockData?.showSeeMore === true);
+    const [galleryAutoScroll, setGalleryAutoScroll] = useState<boolean>(blockData?.autoScroll === true);
+    const [galleryAutoScrollRows, setGalleryAutoScrollRows] = useState<number>(blockData?.autoScrollRows || 2);
     const bgColorInputValue = getColorInputValue(bgColor, palette, '#000000');
     const menuBgColorInputValue = getColorInputValue(menuBgColor, palette, '#ffffff');
 
@@ -168,6 +185,12 @@ export default function BlockSettingsModal({
             setHeroShowButton(blockData?.showButton !== false);
             setCarouselAutoPlay(blockData?.autoPlay !== false);
             setCarouselInterval(blockData?.interval || 5);
+            setGalleryColumns(blockData?.columns || 3);
+            setGalleryShowLightboxNav(blockData?.showLightboxNav !== false);
+            setGalleryShowLightboxThumbs(blockData?.showLightboxThumbs !== false);
+            setGalleryShowSeeMore(blockData?.showSeeMore === true);
+            setGalleryAutoScroll(blockData?.autoScroll === true);
+            setGalleryAutoScrollRows(blockData?.autoScrollRows || 2);
         }
     }, [isOpen, customCss, blockType, blockData, defaultTab]);
 
@@ -205,6 +228,15 @@ export default function BlockSettingsModal({
         if (blockType === 'carousel') {
             updates['autoPlay'] = carouselAutoPlay;
             updates['interval'] = carouselInterval;
+        }
+
+        if (blockType === 'gallery') {
+            updates['columns'] = galleryColumns;
+            updates['showLightboxNav'] = galleryShowLightboxNav;
+            updates['showLightboxThumbs'] = galleryShowLightboxThumbs;
+            updates['showSeeMore'] = galleryShowSeeMore;
+            updates['autoScroll'] = galleryAutoScroll;
+            updates['autoScrollRows'] = galleryAutoScrollRows;
         }
 
         if (Object.keys(updates).length > 0 && context?.updateBlockDataBatch) {
@@ -315,6 +347,17 @@ export default function BlockSettingsModal({
                             }`}
                         >
                             <Palette className="w-4 h-4" />
+                            Style
+                        </button>
+                    )}
+                    {hasGallerySettings && (
+                        <button
+                            onClick={() => setActiveTab('gallery')}
+                            className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                                activeTab === 'gallery' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+                            }`}
+                        >
+                            <LayoutTemplate className="w-4 h-4" />
                             Style
                         </button>
                     )}
@@ -721,6 +764,115 @@ export default function BlockSettingsModal({
                                     </button>
                                 </div>
                                 <p className="text-xs text-slate-500 mt-1">Leave blank to use the site's default style.</p>
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                                <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
+                                <button onClick={handleSave} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-lg transition-colors">Save Style</button>
+                            </div>
+                        </div>
+                    ) : activeTab === 'gallery' && hasGallerySettings ? (
+                        <div className="space-y-6">
+                            {/* Columns */}
+                            <div>
+                                <p className="text-sm font-medium text-slate-700 mb-3">Columns</p>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[2, 3, 4].map(n => (
+                                        <button
+                                            key={n}
+                                            onClick={() => setGalleryColumns(n)}
+                                            className={`p-3 border rounded-xl text-center text-sm font-medium transition-all ${
+                                                galleryColumns === n
+                                                    ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
+                                                    : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            {n}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Lightbox options */}
+                            <div className="pt-4 border-t border-slate-100">
+                                <p className="text-sm font-medium text-slate-700 mb-3">Expanded Image (Lightbox)</p>
+                                <div className="space-y-3">
+                                    {[
+                                        { label: 'Show prev / next nav buttons', desc: 'Click arrows to step through images', value: galleryShowLightboxNav, setter: setGalleryShowLightboxNav },
+                                        { label: 'Show thumbnail strip', desc: 'Click thumbnails along the bottom to jump', value: galleryShowLightboxThumbs, setter: setGalleryShowLightboxThumbs },
+                                    ].map(({ label, desc, value, setter }) => (
+                                        <label key={label} className="flex items-center justify-between cursor-pointer group">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm text-slate-700 group-hover:text-slate-900 font-medium">{label}</span>
+                                                <span className="text-xs text-slate-500">{desc}</span>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setter(!value)}
+                                                className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${value ? 'bg-blue-600' : 'bg-slate-200'}`}
+                                            >
+                                                <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${value ? 'left-[22px]' : 'left-0.5'}`} />
+                                            </button>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* See More button */}
+                            <div className="pt-4 border-t border-slate-100">
+                                <p className="text-sm font-medium text-slate-700 mb-3">See More Button</p>
+                                <label className="flex items-center justify-between cursor-pointer group">
+                                    <div className="flex flex-col">
+                                        <span className="text-sm text-slate-700 group-hover:text-slate-900 font-medium">Show "See More" button</span>
+                                        <span className="text-xs text-slate-500">Click the button on the page to customize text and link</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setGalleryShowSeeMore(!galleryShowSeeMore)}
+                                        className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${galleryShowSeeMore ? 'bg-blue-600' : 'bg-slate-200'}`}
+                                    >
+                                        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${galleryShowSeeMore ? 'left-[22px]' : 'left-0.5'}`} />
+                                    </button>
+                                </label>
+                            </div>
+
+                            {/* Auto-scroll */}
+                            <div className="pt-4 border-t border-slate-100 space-y-4">
+                                <p className="text-sm font-medium text-slate-700">Auto-Scroll</p>
+                                <label className="flex items-center justify-between cursor-pointer group">
+                                    <div className="flex flex-col">
+                                        <span className="text-sm text-slate-700 group-hover:text-slate-900 font-medium">Auto-scroll images</span>
+                                        <span className="text-xs text-slate-500">Continuously scroll through images horizontally</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setGalleryAutoScroll(!galleryAutoScroll)}
+                                        className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${galleryAutoScroll ? 'bg-blue-600' : 'bg-slate-200'}`}
+                                    >
+                                        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${galleryAutoScroll ? 'left-[22px]' : 'left-0.5'}`} />
+                                    </button>
+                                </label>
+
+                                {galleryAutoScroll && (
+                                    <div>
+                                        <p className="text-sm font-medium text-slate-700 mb-2">Rows: {galleryAutoScrollRows}</p>
+                                        <div className="grid grid-cols-4 gap-2">
+                                            {[1, 2, 3, 4].map(n => (
+                                                <button
+                                                    key={n}
+                                                    onClick={() => setGalleryAutoScrollRows(n)}
+                                                    className={`p-2 border rounded-lg text-center text-sm font-medium transition-all ${
+                                                        galleryAutoScrollRows === n
+                                                            ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
+                                                            : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                                    }`}
+                                                >
+                                                    {n}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
