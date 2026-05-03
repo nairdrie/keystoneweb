@@ -64,6 +64,9 @@ export function useAIBuilder(
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [authExpired, setAuthExpired] = useState(false);
   const [remaining, setRemaining] = useState<UsageRemaining | null>(null);
+  // Live progress message from the orchestrator's NDJSON stream during a
+  // multi-pass new-site build. Null whenever no streamed build is running.
+  const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const wasCancelledRef = useRef(false);
 
@@ -75,7 +78,7 @@ export function useAIBuilder(
       .catch(() => {});
   }, []);
 
-  const sendMessage = useCallback(async (prompt: string, options?: { isNewSite?: boolean }) => {
+  const sendMessage = useCallback(async (prompt: string, options?: { isNewSite?: boolean; wizardData?: unknown }) => {
     if (!prompt.trim() || isLoading) return;
 
     wasCancelledRef.current = false;
@@ -105,6 +108,7 @@ export function useAIBuilder(
           siteState,
           availablePalettes,
           ...(options?.isNewSite ? { isNewSite: true } : {}),
+          ...(options?.wizardData ? { wizardData: options.wizardData } : {}),
         }),
       });
 
@@ -142,19 +146,66 @@ export function useAIBuilder(
         return;
       }
 
-      const data = await res.json();
-      const operations: AIOperation[] = data.operations || [];
-      const message: string = data.message || 'Done.';
+      // Two response shapes:
+      //  - Plain JSON (incremental edits): { operations, message, remaining? }
+      //  - NDJSON stream (orchestrated new-site builds): one JSON object per
+      //    line; each "progress" line drives the loader subtitle, and the
+      //    final "result" line carries the full operations payload.
+      const contentType = res.headers.get('content-type') || '';
+      const isStream = contentType.includes('application/x-ndjson');
 
-      // Update remaining from successful response
-      if (data.remaining) setRemaining(data.remaining);
+      let operations: AIOperation[] = [];
+      let message = 'Done.';
+      let parseError = false;
 
-      // If the server flagged a parse error, treat it as an error message
-      if (data.parseError) {
+      if (isStream && res.body) {
+        setProgressMessage('Planning your site…');
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+        let sawResult = false;
+        let streamDone = false;
+        while (!streamDone) {
+          const { done, value } = await reader.read();
+          if (done) { streamDone = true; break; }
+          buf += decoder.decode(value, { stream: true });
+          let nlIdx;
+          while ((nlIdx = buf.indexOf('\n')) !== -1) {
+            const line = buf.slice(0, nlIdx).trim();
+            buf = buf.slice(nlIdx + 1);
+            if (!line) continue;
+            try {
+              const evt = JSON.parse(line);
+              if (evt?.type === 'progress' && typeof evt.message === 'string') {
+                setProgressMessage(evt.message);
+              } else if (evt?.type === 'result') {
+                operations = Array.isArray(evt.operations) ? evt.operations : [];
+                message = typeof evt.message === 'string' ? evt.message : 'Done.';
+                if (evt.remaining) setRemaining(evt.remaining);
+                if (evt.parseError) parseError = true;
+                sawResult = true;
+              } else if (evt?.type === 'error') {
+                parseError = true;
+                if (typeof evt.message === 'string') message = evt.message;
+              }
+            } catch { /* ignore malformed line */ }
+          }
+        }
+        setProgressMessage(null);
+        if (!sawResult) parseError = true;
+      } else {
+        const data = await res.json();
+        operations = data.operations || [];
+        message = data.message || 'Done.';
+        if (data.remaining) setRemaining(data.remaining);
+        if (data.parseError) parseError = true;
+      }
+
+      if (parseError) {
         const errMsg: AIMessage = {
           id: `msg-${Date.now()}-err`,
           role: 'assistant',
-          content: message,
+          content: message || 'Sorry, I had trouble processing that request. Please try again.',
           isError: true,
         };
         setMessages(prev => [...prev, errMsg]);
@@ -198,6 +249,7 @@ export function useAIBuilder(
       setMessages(prev => [...prev, errMsg]);
     } finally {
       setIsLoading(false);
+      setProgressMessage(null);
       abortRef.current = null;
     }
   }, [isLoading, getSiteState, availablePalettes, callbacks]);
@@ -216,7 +268,7 @@ export function useAIBuilder(
     setShowUpgradeModal(false);
   }, []);
 
-  return { messages, isLoading, sendMessage, cancel, clearMessages, showUpgradeModal, dismissUpgradeModal, authExpired, remaining };
+  return { messages, isLoading, sendMessage, cancel, clearMessages, showUpgradeModal, dismissUpgradeModal, authExpired, remaining, progressMessage };
 }
 
 async function applyOperation(op: AIOperation, callbacks: AIBuilderCallbacks): Promise<void> {

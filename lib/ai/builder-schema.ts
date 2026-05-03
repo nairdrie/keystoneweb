@@ -641,3 +641,207 @@ Do NOT mention this creative direction in your "message" field. Just apply it.
 
 `;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Orchestrator system prompts
+// ─────────────────────────────────────────────────────────────────────────────
+// New-site builds run as three focused Claude calls (plan → home → per-page).
+// Each call gets a small, scoped system prompt instead of the giant unified
+// one above. This keeps each call within token budget and lets the model
+// actually focus on writing tailored copy.
+//
+// All three reuse `generateCreativeSeed` so the whole site keeps a consistent
+// creative direction across calls.
+
+export interface WizardData {
+  description: string;
+  styleIds?: string[];
+  styleLabels?: string[];
+  pageIds?: string[];
+  pageLabels?: string[];
+  extras?: string;
+}
+
+export interface SitePlan {
+  siteTitle: string;
+  templateId: string;
+  paletteName?: string;
+  customColors?: { primary?: string; secondary?: string; accent?: string };
+  headerConfig?: Record<string, unknown>;
+  fonts?: { heading?: string; body?: string };
+  voice: string;
+  homeBrief: string;
+  pages: Array<{ slug: string; title: string; displayName?: string; brief: string }>;
+}
+
+function renderWizardBrief(wizardData: WizardData): string {
+  const parts: string[] = ['NEW SITE BRIEF (the user filled this out in the onboarding wizard):'];
+  parts.push(`- Business / site description: ${wizardData.description}`);
+  if (wizardData.styleLabels && wizardData.styleLabels.length > 0) {
+    parts.push(`- Visual style preferences: ${wizardData.styleLabels.join(', ')}`);
+  }
+  if (wizardData.pageLabels && wizardData.pageLabels.length > 0) {
+    parts.push(`- Pages requested (besides Home): ${wizardData.pageLabels.join(', ')}`);
+  } else {
+    parts.push('- Pages requested: Home only');
+  }
+  if (wizardData.extras) {
+    parts.push(`- Additional notes: ${wizardData.extras}`);
+  }
+  return parts.join('\n');
+}
+
+const ANTI_PATTERNS = `
+COPY ANTI-PATTERNS — these are forbidden. Every block's copy MUST reference the user's actual business or niche.
+- ❌ "Welcome to our site" / "Welcome to our website" — banned. Hero titles must reference the actual business.
+- ❌ "We're glad you're here" — banned.
+- ❌ "Get Started" with no context — banned. Buttons say what happens (e.g. "Book a strategy call", "View the menu", "Read the latest").
+- ❌ "Our services" / "Explore what we offer" / "Learn more" — banned as standalone phrases.
+- ❌ Empty title/subtitle/description fields — every block field that exists in the schema must have content tailored to the brand.
+- ❌ Generic Lorem-ipsum-style filler — write specific, plausible copy using the brief.
+`;
+
+/**
+ * Phase A — Plan call.
+ *
+ * Tiny system prompt. The model picks the template, palette, fonts, header,
+ * site title, and a one-line brief per page. No block content yet.
+ */
+export function buildPlanSystemPrompt(wizardData: WizardData, availablePalettes: string[], seed: CreativeSeed): string {
+  return `You are the planning step of a website-building AI. Your ONLY job is to choose a template, palette, fonts, header layout, site title, and a brief per page. Block content comes in later steps.
+
+${renderWizardBrief(wizardData)}
+
+${renderCreativeSeed(seed)}
+
+TEMPLATES (pick the BEST FIT for the brief):
+- "luxe": Sophisticated serif, generous whitespace. Salons, spas, high-end consulting, boutiques.
+- "vivid": Loud chunky sans, saturated colors. Marketing agencies, fitness, modern bold brands.
+- "airy": Light pastels, rounded floating elements. Portfolios, personal brands, wellness, photographers.
+- "edge": Dark mode, angular, neon. Software, gaming, cyber, nightlife.
+- "classic": Traditional, structured, top utility bar. Law, finance, trades, medical.
+- "organic": Warm earthy tones, rounded. Non-profits, eco, coffee, garden centers.
+- "sleek": Ultra-minimal monochrome + accent. Architecture, fashion, design portfolios.
+- "vibrant": Playful gradient headers. Education, kids, events.
+- "atlas": Structured B2B, metrics + proof. Pages: Home, Services, Contact. Fonts: Space Grotesk + Inter.
+- "editorial": Magazine-style, author-led. Pages: Home, Articles, About. Fonts: Libre Baskerville + Source Sans 3.
+- "booked": Appointment-first. Pages: Home, Services, Book. Font: Nunito.
+- "menu": Restaurant/cafe. Pages: Home, Menu, Visit. Fonts: Playfair Display + Lato.
+- "craft": Warm handmade/local. Pages: Home, Story, Shop. Fonts: Fraunces + Karla.
+- "retro": Y2K playful, chunky. Pages: Home, Drops, Contact. Fonts: Space Grotesk + DM Sans.
+- "proof": Trust/reviews/results. Pages: Home, Results, Estimate. Fonts: Merriweather + Source Sans 3.
+- "gallery": Image-first portfolio. Pages: Home, Portfolio, Inquire. Fonts: Sora + Inter.
+
+AVAILABLE COLOR PALETTES on each template: ${availablePalettes.length > 0 ? availablePalettes.join(', ') : '(use template defaults)'}
+
+SITE TITLE RULES:
+- If the user's description names a brand (e.g. "The Daily Bugle", "Marlow Made"), USE THAT NAME.
+- Otherwise infer a short brand-appropriate name from the description (e.g. "a plumber in Buffalo" → "North Buffalo Plumbing"). Do NOT use generic placeholder titles like "My Website".
+
+HEADER CONFIG:
+- bgType: "white" | "primary" | "secondary" | "gradient" — match the brand personality
+- layout: "default" (logo-left/nav-right) | "centeredAboveNav" (luxury/elegant)
+- rightElement: "cta" | "social" | "none"
+- bannerEnabled / bannerText: optional thin announcement bar above the header
+
+PAGE BRIEFS:
+- Include EVERY page the user requested (use slugs they specified or sensible defaults like "shop", "services", "about", "contact", "menu", "booking", "gallery", "portfolio", "blog", "articles", "pricing", "faq", "team").
+- Each brief is ONE sentence describing what blocks should populate that page (e.g. "blog feed in magazine layout + subscribe cta", "contact_form + contact info + map").
+- The home page brief should describe 5-7 blocks total.
+- Slugs must be lowercase a-z0-9-, must NOT be "home".
+
+RESPONSE FORMAT — output ONLY raw JSON, no markdown fences, no prose. Shape:
+{
+  "siteTitle": "<short brand name>",
+  "templateId": "<one of the template ids above>",
+  "paletteName": "<one of the available palette names for the chosen template>",
+  "customColors": { "primary": "#hex", "secondary": "#hex", "accent": "#hex" },  // OPTIONAL — omit unless you really want a custom palette
+  "headerConfig": { "bgType": "white", "layout": "default", "rightElement": "cta", "sticky": true, "bannerEnabled": false, "bannerText": "" },
+  "fonts": { "heading": "<google font>", "body": "<google font>" },
+  "voice": "<one sentence describing the brand voice / tone>",
+  "homeBrief": "<one sentence with 5-7 block ideas>",
+  "pages": [
+    { "slug": "<lowercase-slug>", "title": "<title>", "displayName": "<nav label>", "brief": "<one sentence>" }
+  ]
+}`;
+}
+
+/**
+ * Phase B — Home build call.
+ *
+ * Given the plan from Phase A, produce 5-8 fully populated home blocks. The
+ * call only emits one operation, so no operations list — just `{ blocks }`.
+ */
+export function buildHomeSystemPrompt(plan: SitePlan, wizardData: WizardData, seed: CreativeSeed): string {
+  return `You are the home-page step of a website-building AI. Your ONLY job is to produce 5-8 fully populated blocks for the home page.
+
+${renderWizardBrief(wizardData)}
+
+PLAN ALREADY DECIDED (use it — do NOT change template, palette, title, or fonts):
+- Site title: ${plan.siteTitle}
+- Template: ${plan.templateId}
+- Palette: ${plan.paletteName ?? '(default)'}
+- Fonts: heading="${plan.fonts?.heading ?? '(default)'}", body="${plan.fonts?.body ?? '(default)'}"
+- Voice: ${plan.voice}
+- Home brief: ${plan.homeBrief}
+- Other pages this site has (you can link to them via buttonTextLink:{linkType:"page",pageSlug:"<slug>"}): ${plan.pages.map((p) => p.slug).join(', ') || 'none'}
+
+${renderCreativeSeed(seed)}
+
+${ANTI_PATTERNS}
+
+RULES:
+- Produce 5-8 blocks total.
+- Open with a hero. Title MUST reference ${plan.siteTitle} or its niche specifically — never "Welcome to our site".
+- Include 2-4 small "__customCss" treatments across DIFFERENT blocks (not the same snippet on every block) to give the site a visual fingerprint. Use var(--primary), var(--secondary), var(--accent) so palette swaps still work.
+- Buttons that should link to other pages on this site MUST set buttonTextLink:{ linkType:"page", pageSlug:"<slug>" }. The system resolves slugs to page IDs after pages are created.
+- Do NOT include image URLs — image fields are managed by the user separately.
+
+${BLOCK_SCHEMAS}
+
+RESPONSE FORMAT — output ONLY raw JSON, no markdown fences, no prose. Shape:
+{ "blocks": [ { "blockType": "hero", "data": { ... } }, { "blockType": "...", "data": { ... } } ] }`;
+}
+
+/**
+ * Phase C — Per-page build call. One call per page, run in parallel.
+ *
+ * Tiny scope: a single page's blocks. The model has plenty of attention
+ * budget to write actually tailored copy.
+ */
+export function buildPageSystemPrompt(plan: SitePlan, page: { slug: string; title: string; brief: string }, wizardData: WizardData, seed: CreativeSeed): string {
+  return `You are the page-build step of a website-building AI. Your ONLY job is to produce 3-5 fully populated blocks for ONE specific page.
+
+${renderWizardBrief(wizardData)}
+
+SITE CONTEXT (do NOT change these — they are already set):
+- Site title: ${plan.siteTitle}
+- Template: ${plan.templateId}
+- Voice: ${plan.voice}
+- Other pages on this site (you can link to them with buttonTextLink:{linkType:"page",pageSlug:"<slug>"}): ${[...plan.pages.map((p) => p.slug), 'home'].filter((s) => s !== page.slug).join(', ')}
+
+THIS PAGE:
+- Slug: ${page.slug}
+- Title: ${page.title}
+- Brief: ${page.brief}
+
+${renderCreativeSeed(seed)}
+
+${ANTI_PATTERNS}
+
+RULES:
+- Produce 3-5 blocks tailored specifically to this page's brief.
+- Every block must have copy that fits ${plan.siteTitle} — no generic placeholders.
+- For a contact page, ALWAYS include contact_form + contact info; map is optional.
+- For a shop/store page, include productGrid (it's empty by default — that's fine, the user adds products later).
+- For a booking page, include the booking block.
+- For a gallery/portfolio page, include the gallery block.
+- For a blog/articles page, include the blog block.
+- 1-3 small "__customCss" treatments are welcome but not required.
+- Buttons that should link to other pages MUST use buttonTextLink:{ linkType:"page", pageSlug:"<slug>" }.
+
+${BLOCK_SCHEMAS}
+
+RESPONSE FORMAT — output ONLY raw JSON, no markdown fences, no prose. Shape:
+{ "blocks": [ { "blockType": "...", "data": { ... } } ] }`;
+}

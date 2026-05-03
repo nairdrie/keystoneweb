@@ -79,6 +79,7 @@ interface FloatingToolbarProps {
   // AI Builder
   aiMessages?: AIMessage[];
   aiIsLoading?: boolean;
+  aiProgressMessage?: string | null;
   onAiSend?: (message: string) => void;
   onAiCancel?: () => void;
   onAiClear?: () => void;
@@ -161,6 +162,7 @@ export default function FloatingToolbar({
   isEditMode = false,
   aiMessages = [],
   aiIsLoading = false,
+  aiProgressMessage = null,
   onAiSend,
   onAiCancel,
   onAiClear,
@@ -1336,6 +1338,7 @@ export default function FloatingToolbar({
               <AIBuilderPanel
                 messages={aiMessages}
                 isLoading={aiIsLoading}
+                progressMessage={aiProgressMessage}
                 onSend={onAiSend || (() => { })}
                 onCancel={onAiCancel || (() => { })}
                 onClear={onAiClear || (() => { })}

@@ -1113,13 +1113,22 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     if (prompt) {
       aiOnboardingSentRef.current = true;
       sessionStorage.removeItem('keystoneAiOnboardingPrompt');
+      // Pick up the structured wizard answers if the onboarding wizard stored
+      // them. Sent server-side as wizardData so the orchestrator can build a
+      // tailored multi-page site without leaking schema syntax into the chat.
+      let wizardData: Record<string, unknown> | undefined;
+      try {
+        const raw = sessionStorage.getItem('keystoneAiOnboardingWizardData');
+        if (raw) wizardData = JSON.parse(raw);
+      } catch { /* ignore malformed payloads */ }
+      sessionStorage.removeItem('keystoneAiOnboardingWizardData');
       setAiOnboardingBuilding(true);
       // Open the sidebar — the AI Builder section is already requested via
       // focusAiBuilder's initial state, which makes the toolbar's mount
       // effect expand it on the very first commit.
       setSidebarOpen(true);
       setTimeout(() => {
-        aiBuilder.sendMessage(prompt!, { isNewSite: true });
+        aiBuilder.sendMessage(prompt!, { isNewSite: true, wizardData });
       }, 500);
     }
   }, [templateComponent]);
@@ -1262,6 +1271,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
           isEditMode={editMode}
           aiMessages={aiBuilder.messages}
           aiIsLoading={aiBuilder.isLoading}
+          aiProgressMessage={aiBuilder.progressMessage}
           onAiSend={aiBuilder.sendMessage}
           onAiCancel={aiBuilder.cancel}
           onAiClear={aiBuilder.clearMessages}
@@ -1418,7 +1428,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
           >
             <div className="w-full">
               {aiOnboardingBuilding ? (
-                <EditorLoadingScreen variant="fill" message="AI is building your site..." />
+                <EditorLoadingScreen variant="fill" message="AI is building your site..." liveMessage={aiBuilder.progressMessage} />
               ) : templateComponent
                 ? createElement(
                     templateComponent,

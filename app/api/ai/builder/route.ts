@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { buildSystemPrompt, generateCreativeSeed } from '@/lib/ai/builder-schema';
+import { buildSystemPrompt, generateCreativeSeed, type WizardData } from '@/lib/ai/builder-schema';
+import { orchestrateNewSiteBuild, type ProgressEvent } from '@/lib/ai/builder-orchestrator';
 import { checkAndRecordUsage, getUsageRemaining, UserPlan } from './rate-limit';
 import { getUserEffectiveLimits } from '@/lib/addons';
 
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { prompt, history, siteState, availablePalettes, isNewSite } = body;
+    const { prompt, history, siteState, availablePalettes, isNewSite, wizardData } = body;
 
     if (!prompt || typeof prompt !== 'string') {
       return NextResponse.json({ error: 'Missing prompt.' }, { status: 400 });
@@ -117,6 +118,21 @@ export async function POST(req: NextRequest) {
     // Ops admins get an unlimited prompt length for internal site building.
     if (!isOpsAdmin && prompt.length > 1000) {
       return NextResponse.json({ error: 'Prompt is too long. Please keep it under 1000 characters.' }, { status: 400 });
+    }
+
+    // ── Orchestrator path ─────────────────────────────────────────────
+    // For new-site builds with structured wizard data, run the multi-pass
+    // orchestrator and stream NDJSON progress events back to the client.
+    // Falls through to the single-call path below if either flag is missing.
+    if (isNewSite && wizardData && typeof wizardData === 'object') {
+      const wd = sanitizeWizardData(wizardData);
+      console.log(`[AI Builder] Orchestrating new-site build — userId=${user.id} pages=${wd.pageLabels?.join(',') ?? 'none'}`);
+      return streamOrchestrator({
+        wizardData: wd,
+        availablePalettes: Array.isArray(availablePalettes) ? availablePalettes : [],
+        remaining: rateLimitResult.remaining,
+        signal: req.signal,
+      });
     }
 
     // Filter history to latest N messages (e.g., 10 turns) to manage context window
@@ -333,6 +349,13 @@ function sanitizeOperations(operations: any[]): any[] {
                 data: deepSanitizeStrings(data),
               };
             }).filter(Boolean) : [];
+            // Defence-in-depth: drop pages with no blocks. The orchestrator's
+            // recipe fallback should prevent this, but if the single-call
+            // path produces an empty page we don't want to save it.
+            if (blocks.length === 0) {
+              console.warn(`[AI Builder] Dropped empty-blocks page slug=${slug}`);
+              return null;
+            }
             return { slug, title, displayName, isVisibleInNav, blocks };
           }).filter(Boolean);
           if (sanitizedPages.length === 0) return null;
@@ -522,4 +545,76 @@ async function callOpenAI(apiKey: string, model: string, system: string, history
   } finally {
     clearTimeout(timer);
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Orchestrator integration
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Sanitize the wizardData payload from the client. */
+function sanitizeWizardData(raw: any): WizardData {
+  const description = typeof raw.description === 'string' ? raw.description.slice(0, 1000) : '';
+  const styleIds = Array.isArray(raw.styleIds) ? raw.styleIds.filter((s: any) => typeof s === 'string').slice(0, 8) : [];
+  const styleLabels = Array.isArray(raw.styleLabels) ? raw.styleLabels.filter((s: any) => typeof s === 'string').slice(0, 8) : [];
+  const pageIds = Array.isArray(raw.pageIds) ? raw.pageIds.filter((s: any) => typeof s === 'string').slice(0, 16) : [];
+  const pageLabels = Array.isArray(raw.pageLabels) ? raw.pageLabels.filter((s: any) => typeof s === 'string').slice(0, 16) : [];
+  const extras = typeof raw.extras === 'string' ? raw.extras.slice(0, 1000) : '';
+  return { description, styleIds, styleLabels, pageIds, pageLabels, extras };
+}
+
+/**
+ * Run the orchestrator and stream its progress events as NDJSON. Each event
+ * (one JSON object per line, terminated with \n) tells the client either
+ * which phase is running or, for the terminal "result" event, the full
+ * sanitized operations payload.
+ */
+function streamOrchestrator(input: {
+  wizardData: WizardData;
+  availablePalettes: string[];
+  remaining: any;
+  signal?: AbortSignal;
+}): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = (evt: ProgressEvent | { type: 'result'; operations: any[]; message: string; remaining: any }) => {
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify(evt) + '\n'));
+        } catch {
+          /* controller already closed */
+        }
+      };
+
+      try {
+        await orchestrateNewSiteBuild(
+          { wizardData: input.wizardData, availablePalettes: input.availablePalettes, signal: input.signal },
+          (evt) => {
+            if (evt.type === 'progress') {
+              send(evt);
+            } else if (evt.type === 'result') {
+              // Run the same sanitizer the single-call path uses so the
+              // client gets identical-shape ops regardless of which path ran.
+              const sanitized = sanitizeOperations(evt.operations);
+              send({ type: 'result', operations: sanitized, message: evt.message, remaining: input.remaining });
+            } else if (evt.type === 'error') {
+              send({ type: 'error', message: evt.message });
+            }
+          }
+        );
+      } catch (err: any) {
+        console.error('[AI Builder] Orchestrator unhandled error:', err?.message || err);
+        send({ type: 'error', message: 'Something went wrong while building your site. Please try again.' });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'application/x-ndjson; charset=utf-8',
+      'Cache-Control': 'no-store, no-transform',
+      'X-Accel-Buffering': 'no',
+    },
+  });
 }

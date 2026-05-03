@@ -26,6 +26,12 @@ const ARCH_REPLAY_MS = 5500;
 interface Props {
     message?: string;
     /**
+     * Live progress message from the orchestrator. When provided, it pins
+     * the displayed text (no rotation) so the user sees real-time feedback
+     * like "Writing the About page…" instead of the generic loop.
+     */
+    liveMessage?: string | null;
+    /**
      * 'fullscreen' (default): occupies the entire viewport (min-h-screen).
      * 'fill': fills the parent container — used when the loader is shown in
      * place of the editor preview while the AI builder is still running on
@@ -34,19 +40,19 @@ interface Props {
     variant?: 'fullscreen' | 'fill';
 }
 
-export default function EditorLoadingScreen({ message, variant = 'fullscreen' }: Props = {}) {
+export default function EditorLoadingScreen({ message, liveMessage, variant = 'fullscreen' }: Props = {}) {
     const isAiBuilding = !!message; // if a message is passed, we're in AI building mode
     const [messageIndex, setMessageIndex] = useState(0);
     const [archKey, setArchKey] = useState(0); // changing key forces re-mount → replays animation
 
-    // Cycle through building messages
+    // Cycle through generic messages only when there's no live progress.
     useEffect(() => {
-        if (!isAiBuilding) return;
+        if (!isAiBuilding || liveMessage) return;
         const interval = setInterval(() => {
             setMessageIndex((prev: number) => (prev + 1) % AI_BUILDING_MESSAGES.length);
         }, MESSAGE_CYCLE_MS);
         return () => clearInterval(interval);
-    }, [isAiBuilding]);
+    }, [isAiBuilding, liveMessage]);
 
     // Replay arch animation periodically
     useEffect(() => {
@@ -57,7 +63,11 @@ export default function EditorLoadingScreen({ message, variant = 'fullscreen' }:
         return () => clearInterval(interval);
     }, [isAiBuilding]);
 
-    const displayMessage = isAiBuilding ? AI_BUILDING_MESSAGES[messageIndex] : message;
+    const displayMessage = liveMessage
+        ? liveMessage
+        : isAiBuilding
+            ? AI_BUILDING_MESSAGES[messageIndex]
+            : message;
 
     // Precise SVG coordinates spanning an arch with inner radius 30 and outer radius 70.
     // Center at (100, 90). The pillars extend straight down to y=170.

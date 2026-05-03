@@ -6,8 +6,9 @@ import { Sparkles, ArrowRight, ArrowLeft, X, Zap, Check } from 'lucide-react';
 interface AIOnboardingWizardProps {
   /** Pre-fill the first stage's description (e.g. from the entry textarea) */
   initialDescription?: string;
-  /** Called when the user is ready to build. Receives the composed prompt. */
-  onSubmit: (composedPrompt: string) => void;
+  /** Called when the user is ready to build. Receives a clean natural-language
+   *  prompt for the chat panel AND the structured wizard data for the API. */
+  onSubmit: (composedPrompt: string, wizardData: WizardMetadata) => void;
   /** Close the wizard without submitting (X button in the top-right). */
   onClose: () => void;
   /** Whether the parent is currently building (disables submit, shows spinner). */
@@ -131,7 +132,7 @@ export default function AIOnboardingWizard({
   };
   const handleSubmit = () => {
     if (!canSubmit) return;
-    onSubmit(composedPrompt);
+    onSubmit(composedPrompt, buildWizardMetadata({ description, styleIds, pageIds, extras }));
   };
 
   const togglePill = (list: string[], setList: (v: string[]) => void, id: string, opts?: { max?: number; required?: boolean }) => {
@@ -451,38 +452,63 @@ interface ComposeArgs {
 }
 
 /**
- * Compose the user's wizard answers into a single structured prompt for the AI.
- * Stages with no useful input are simply omitted so a "Build now" after stage 1
- * still produces a clean prompt.
+ * Structured form of the wizard's answers, sent server-side as `wizardData`
+ * so the API can use it in the system prompt without leaking into the chat.
+ */
+export interface WizardMetadata {
+  description: string;
+  styleIds: string[];
+  styleLabels: string[];
+  pageIds: string[];
+  pageLabels: string[];
+  extras: string;
+}
+
+export function buildWizardMetadata({ description, styleIds, pageIds, extras }: ComposeArgs): WizardMetadata {
+  const styleLabels = styleIds
+    .map((id) => STYLE_OPTIONS.find((o) => o.id === id)?.label)
+    .filter((x): x is string => Boolean(x));
+  const pageLabels = pageIds
+    .filter((id) => id !== 'home')
+    .map((id) => PAGE_OPTIONS.find((p) => p.id === id)?.label)
+    .filter((x): x is string => Boolean(x));
+  return {
+    description: description.trim(),
+    styleIds: [...styleIds],
+    styleLabels,
+    pageIds: [...pageIds],
+    pageLabels,
+    extras: extras.trim(),
+  };
+}
+
+/**
+ * Compose the user's wizard answers into a clean natural-language sentence
+ * the user could plausibly have typed themselves. This is what shows up in
+ * the AI chat panel — no operation names, no JSON syntax, no schema hints.
+ * The structured data goes through `wizardData` instead.
+ *
+ * Stages with no useful input are simply omitted so a "Build now" after
+ * stage 1 still produces a sensible prompt.
  */
 function buildComposedPrompt({ description, styleIds, pageIds, extras }: ComposeArgs): string {
   const parts: string[] = [];
-
-  parts.push('Build me a complete website. Use setTemplate, replaceBlocks (for the home page), createPages (for the supporting pages), and setHeaderConfig as appropriate.');
-  parts.push('');
-  parts.push(`About the business: ${description.trim()}`);
+  parts.push(`I'm building ${description.trim()}.`);
 
   const styleLabels = styleIds.map((id) => STYLE_OPTIONS.find((o) => o.id === id)?.label).filter(Boolean) as string[];
   if (styleLabels.length > 0) {
-    parts.push('');
-    parts.push(`Style preferences: ${styleLabels.join(' + ')}. Pick a template, palette, fonts, and __customCss treatments that match this feel.`);
+    const joined = styleLabels.length === 1 ? styleLabels[0].toLowerCase() : styleLabels.map((s) => s.toLowerCase()).join(' and ');
+    parts.push(`I'd like it to feel ${joined}.`);
   }
 
-  // Always tell the AI which pages — even default ['home'] — so it doesn't
-  // invent extras the user didn't ask for.
   const pageLabels = pageIds.filter((id) => id !== 'home').map((id) => PAGE_OPTIONS.find((p) => p.id === id)?.label).filter(Boolean) as string[];
   if (pageLabels.length > 0) {
-    parts.push('');
-    parts.push(`Pages I want (besides Home): ${pageLabels.join(', ')}. Use createPages for each. Link buttons (hero, CTA) to the right pages with buttonTextLink:{linkType:"page",pageSlug:"<slug>"}.`);
-  } else {
-    parts.push('');
-    parts.push('Pages: Home only. Build a single rich Home page.');
+    parts.push(`I'd like these pages besides Home: ${pageLabels.join(', ')}.`);
   }
 
   if (extras.trim()) {
-    parts.push('');
     parts.push(`Other notes: ${extras.trim()}`);
   }
 
-  return parts.join('\n');
+  return parts.join('\n\n');
 }

@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth/context';
 import Header from './Header';
 import { Sparkles, Send } from 'lucide-react';
 import SiteLimitModal from './SiteLimitModal';
-import AIOnboardingWizard from './AIOnboardingWizard';
+import AIOnboardingWizard, { type WizardMetadata } from './AIOnboardingWizard';
 import { TEMPLATE_PREVIEW_STYLES } from '@/lib/template-preview-assets';
 
 type BusinessType = 'services' | 'products' | 'portfolio' | 'nonprofit' | 'other' | null;
@@ -218,7 +218,7 @@ export default function OnboardingWizard() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          selectedTemplateId: 'airy_general',
+          selectedTemplateId: 'atlas_general',
           businessType: 'services',
           category: 'general',
           userId: user.id,
@@ -332,16 +332,25 @@ export default function OnboardingWizard() {
 
   // Submits the AI build flow. If `promptOverride` is provided (from the wizard
   // with all stages composed), use that instead of the entry textarea state.
-  const handleAiSubmit = async (eOrPrompt?: React.FormEvent | string, promptOverride?: string) => {
+  // `wizardData` (when present) is the structured form of the wizard answers
+  // and gets stashed for the editor to forward to the AI builder API.
+  const handleAiSubmit = async (eOrPrompt?: React.FormEvent | string, promptOverride?: string, wizardData?: WizardMetadata) => {
     const isEvent = eOrPrompt && typeof (eOrPrompt as any).preventDefault === 'function';
     if (isEvent) (eOrPrompt as React.FormEvent).preventDefault();
     const finalPrompt = (promptOverride ?? (typeof eOrPrompt === 'string' ? eOrPrompt : undefined) ?? aiPrompt).trim();
 
     if (!finalPrompt || aiLoading) return;
 
+    const stashWizardData = () => {
+      if (wizardData) {
+        sessionStorage.setItem('keystoneAiOnboardingWizardData', JSON.stringify(wizardData));
+      }
+    };
+
     // If not authenticated, store prompt and redirect to signup/login first
     if (!user) {
       sessionStorage.setItem('keystoneAiOnboardingPrompt', finalPrompt);
+      stashWizardData();
       router.push('/signup?aiOnboarding=true');
       return;
     }
@@ -355,7 +364,7 @@ export default function OnboardingWizard() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          selectedTemplateId: 'airy_general',
+          selectedTemplateId: 'atlas_general',
           businessType: 'services',
           category: 'general',
           userId: user.id,
@@ -369,6 +378,7 @@ export default function OnboardingWizard() {
         } else if (res.status === 401) {
           // Session expired — store prompt and redirect to signin
           sessionStorage.setItem('keystoneAiOnboardingPrompt', finalPrompt);
+          stashWizardData();
           router.push('/signin?aiOnboarding=true');
         } else {
           console.error('[Onboarding] AI site creation failed', {
@@ -396,6 +406,7 @@ export default function OnboardingWizard() {
 
       // Store the AI prompt in sessionStorage so the editor can pick it up
       sessionStorage.setItem('keystoneAiOnboardingPrompt', finalPrompt);
+      stashWizardData();
 
       router.push(`/editor?siteId=${siteId}`);
     } catch (error) {
@@ -492,9 +503,9 @@ export default function OnboardingWizard() {
             setShowAiWizard(false);
             setAiError(null);
           }}
-          onSubmit={(composedPrompt) => {
+          onSubmit={(composedPrompt, wizardData) => {
             setAiPrompt(composedPrompt);
-            handleAiSubmit(composedPrompt);
+            handleAiSubmit(composedPrompt, undefined, wizardData);
           }}
         />
       )}
