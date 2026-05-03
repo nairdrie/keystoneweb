@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { buildSystemPrompt } from '@/lib/ai/builder-schema';
+import { buildSystemPrompt, generateCreativeSeed } from '@/lib/ai/builder-schema';
 import { checkAndRecordUsage, getUsageRemaining, UserPlan } from './rate-limit';
 import { getUserEffectiveLimits } from '@/lib/addons';
 
@@ -137,7 +137,11 @@ CURRENT SITE STATE:
 - Body Font: ${siteState.bodyFont || 'default'}
 ` : '';
 
-    const systemPrompt = buildSystemPrompt(availablePalettes || []);
+    // For NEW site builds, mint a fresh creative seed so every user gets a
+    // visibly different site even when their prompts are similar. Skipped for
+    // incremental edits — those should stay consistent with what's there.
+    const creativeSeed = isNewSite ? generateCreativeSeed() : undefined;
+    const systemPrompt = buildSystemPrompt(availablePalettes || [], creativeSeed);
 
     const newSiteContext = isNewSite ? `
 CONTEXT: This is a BRAND NEW site being built from scratch via onboarding. The current blocks are default template placeholders and should ALL be removed and replaced with blocks tailored to the user's request. Start by removing every existing block, then add your new blocks.
@@ -151,6 +155,9 @@ USER REQUEST: ${prompt}`;
     const startTime = Date.now();
     console.log(`[AI Builder] Request started — provider=${apiProvider} model=${modelId} promptLen=${prompt.length} historyLen=${sanitizedHistory.length} isNewSite=${!!isNewSite} isOpsAdmin=${isOpsAdmin} userId=${user.id}`);
     console.log(`[AI Builder] Prompt: ${prompt.slice(0, 500)}${prompt.length > 500 ? `... (${prompt.length} chars total)` : ''}`);
+    if (creativeSeed) {
+      console.log(`[AI Builder] Creative seed:`, creativeSeed);
+    }
 
     try {
       if (apiProvider === 'anthropic') {

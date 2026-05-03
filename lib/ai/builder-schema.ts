@@ -354,7 +354,7 @@ AVAILABLE OPERATIONS (you MUST respond with a JSON object containing an "operati
 `;
 
 
-export function buildSystemPrompt(availablePalettes: string[]): string {
+export function buildSystemPrompt(availablePalettes: string[], creativeSeed?: CreativeSeed): string {
   return `You are a website builder AI assistant embedded in the Keystone Web editor.
 Your ONLY job is to modify the user's website by producing structured operations.
 
@@ -413,6 +413,7 @@ TEMPLATE SELECTION HEURISTICS:
 - "events / pop-up / drops / creators / youth brand" → retro or vibrant
 - "tech / software / gaming / cyber" → edge
 
+${creativeSeed ? renderCreativeSeed(creativeSeed) : ''}
 CONSCIOUSLY VARY YOUR OUTPUT — anti-monotony rules:
 - Do NOT default to the same hero variant every time. Pick from "split" (most common, image+text), "centered" (clean, button-first), "fullImage" (lifestyle/restaurants/galleries), "minimal" (editorial/clean), "video" (when motion adds to the brand).
 - Do NOT default to the same nav layout every time. centeredAboveNav suits luxury/salon/spa/restaurant/editorial; default suits most others.
@@ -501,4 +502,142 @@ RESPONSE FORMAT: Output ONLY raw JSON. Do NOT wrap in markdown code fences (no \
 
 If you cannot help or the request is unclear, respond with:
 { "operations": [], "message": "I can help you with... [explanation of what you can do]" }`;
+}
+
+/**
+ * Creative seed — server-side randomization that gets baked into the system
+ * prompt so identical-looking user prompts produce visually different sites.
+ *
+ * The model is stateless across requests, so without this every "build me a
+ * plumbing site" lands on the same defaults. The seed acts as a tie-breaker:
+ * for any given user prompt there are many valid designs, and these nudges
+ * pick which valid one the model lands on this time.
+ *
+ * The seed never overrides the user's actual prompt — if they ask for a
+ * restaurant, the template still has to be food-appropriate. The seed only
+ * influences the dimensions where the prompt leaves real choice (palette
+ * temperature, hero variant, CSS treatment family, header layout, etc.).
+ */
+export interface CreativeSeed {
+  paletteMood: string;
+  heroVariant: string;
+  headerStyle: string;
+  cssTreatment: string;
+  blockFlavor: string;
+  copyTone: string;
+  fontPairingHint: string;
+}
+
+const PALETTE_MOODS = [
+  'Lean toward muted, dusty earth tones (clay, sage, ochre, stone)',
+  'Lean toward saturated, confident jewel tones (emerald, navy, garnet)',
+  'Lean toward soft pastels and washed-out tints',
+  'Lean toward high-contrast monochrome with a single bright accent',
+  'Lean toward warm cream/off-white backgrounds with deep brown/black ink',
+  'Lean toward cool slate/blue backgrounds with one warm accent',
+  'Lean toward dark mode (deep charcoal/black) with a neon or pastel accent',
+  'Lean toward sunbleached / Mediterranean (terracotta, cream, sea blue)',
+  'Lean toward botanical greens with cream and a coral pop',
+  'Lean toward vintage Y2K (sticker pink, lime, cobalt) — only when the brand is playful',
+];
+
+const HERO_VARIANTS = [
+  'Favor the "split" hero variant unless the brand really needs something else',
+  'Favor the "centered" hero variant — clean and button-led',
+  'Favor the "fullImage" hero variant — lifestyle/atmospheric',
+  'Favor the "minimal" hero variant — editorial-quiet, no big art',
+  'Favor the "video" hero variant ONLY if the brand benefits from motion (food, fitness, hospitality, lifestyle)',
+];
+
+const HEADER_STYLES = [
+  'Header: white bgType + default layout + cta on right',
+  'Header: primary bgType + default layout + cta on right (bold/branded feel)',
+  'Header: gradient bgType + default layout + cta on right (energetic feel)',
+  'Header: white bgType + centeredAboveNav + cta on right (luxury/elegant feel)',
+  'Header: white bgType + default layout + social icons on right (lifestyle/personal feel)',
+  'Header: white bgType + default layout + nothing on right (ultra-minimal)',
+  'Header: white bgType + centeredAboveNav + announcement banner enabled (editorial feel)',
+  'Header: primary bgType + centeredAboveNav (formal/institutional feel)',
+];
+
+const CSS_TREATMENTS = [
+  'Soft organic — generous border-radius (24-44px) on images and cards, subtle shadows, no harsh edges',
+  'Sharp brutalist — border-radius 0, 2-3px solid borders, blocky offset shadows ("8px 8px 0 var(--primary)")',
+  'Magazine grid — thin 1px hairlines between sections, uppercase eyebrows, tight letter-spacing on titles',
+  'Sticker shadows — "6px 6px 0 var(--secondary)" offset shadows on buttons and image cards',
+  'Asymmetric — one or two blocks have border-radius like "44% 56% 54% 46%" (organic blob shape) on images',
+  'Quiet luxury — wide letter-spacing on uppercase headings, hairline 1px borders, no shadows',
+  'Editorial column — content max-width 720px on text-heavy blocks, larger body type (1.125rem), serif drop caps',
+  'Neon edge — glowing box-shadow with the secondary color, dark backgrounds, bright outline buttons',
+  'Cut-paper — slightly rotated cards (-1deg / +1deg) and tape-style borders for playful brands',
+  'Heavy borders — 4px solid var(--primary) section dividers between major page sections',
+];
+
+const BLOCK_FLAVORS = [
+  'Proof-heavy — include logoCloud and stats early; use featuredQuote variant "multiGrid"',
+  'Story-heavy — open with hero + aboutImageText + featuredQuote (essay variant) before any grids',
+  'Product-heavy — open with hero, then carousel or productGrid, then trust signals',
+  'Calm and quiet — fewer blocks (4-5), more whitespace, prefer "minimal" variants',
+  'Dense and energetic — more blocks (6-8), include carousel + tabBar + cta to keep momentum',
+  'Service-led — emphasize servicesGrid + pricing + faq with a contact_form near the end',
+  'Trust-led — stats banner, logoCloud, testimonials cards, faq, and a clear cta',
+  'Visual-led — gallery + featuredQuote (split variant with photo) + minimal copy',
+];
+
+const COPY_TONES = [
+  'Tone: confident and crisp — short sentences, declarative headlines',
+  'Tone: warm and conversational — second person ("you"), inviting',
+  'Tone: playful and witty — wordplay welcome, punchy headlines',
+  'Tone: authoritative and precise — specific numbers, technical terms used correctly',
+  'Tone: lyrical and considered — slightly literary, longer flowing sentences in body copy',
+  'Tone: practical and plain — say exactly what the business does in the headline, no metaphors',
+  'Tone: aspirational — paint a picture of the outcome, not the service',
+];
+
+const FONT_PAIRINGS = [
+  'If you do change fonts, pair Fraunces (heading) with Inter (body)',
+  'If you do change fonts, pair Space Grotesk (heading) with Inter (body)',
+  'If you do change fonts, pair Playfair Display (heading) with Lato (body)',
+  'If you do change fonts, pair Libre Baskerville (heading) with Source Sans 3 (body)',
+  'If you do change fonts, pair Sora (heading) with Inter (body)',
+  'If you do change fonts, pair Outfit (heading) with DM Sans (body)',
+  'If you do change fonts, pair Merriweather (heading) with Source Sans 3 (body)',
+  'If you do change fonts, pair Karla (heading) with Karla (body) — single-family approach',
+  'If you do change fonts, pair Nunito (heading) with Nunito (body) — soft, friendly',
+  'If you do change fonts, pair Crimson Text (heading) with Inter (body)',
+];
+
+function pickFrom<T>(pool: readonly T[], rng: () => number): T {
+  return pool[Math.floor(rng() * pool.length)];
+}
+
+/**
+ * Produce a fresh creative seed. Pass a seeded RNG to make builds reproducible
+ * for testing; otherwise Math.random is used so every request is different.
+ */
+export function generateCreativeSeed(rng: () => number = Math.random): CreativeSeed {
+  return {
+    paletteMood: pickFrom(PALETTE_MOODS, rng),
+    heroVariant: pickFrom(HERO_VARIANTS, rng),
+    headerStyle: pickFrom(HEADER_STYLES, rng),
+    cssTreatment: pickFrom(CSS_TREATMENTS, rng),
+    blockFlavor: pickFrom(BLOCK_FLAVORS, rng),
+    copyTone: pickFrom(COPY_TONES, rng),
+    fontPairingHint: pickFrom(FONT_PAIRINGS, rng),
+  };
+}
+
+function renderCreativeSeed(seed: CreativeSeed): string {
+  return `
+CREATIVE DIRECTION FOR THIS REQUEST (treat these as tie-breakers — the user's actual prompt always wins, but when there is real choice, lean these ways so that two similar prompts produce visibly different sites):
+- ${seed.paletteMood}
+- ${seed.heroVariant}
+- ${seed.headerStyle}
+- CSS treatment family: ${seed.cssTreatment}. Apply 2-4 small __customCss snippets in this family across DIFFERENT blocks (not the same snippet on every block).
+- Block flavor: ${seed.blockFlavor}
+- ${seed.copyTone}
+- ${seed.fontPairingHint}
+Do NOT mention this creative direction in your "message" field. Just apply it.
+
+`;
 }
