@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth/context';
 import Header from './Header';
 import { Sparkles, Send } from 'lucide-react';
 import SiteLimitModal from './SiteLimitModal';
+import AIOnboardingWizard, { type WizardMetadata } from './AIOnboardingWizard';
 import { TEMPLATE_PREVIEW_STYLES } from '@/lib/template-preview-assets';
 
 type BusinessType = 'services' | 'products' | 'portfolio' | 'nonprofit' | 'other' | null;
@@ -145,6 +146,7 @@ export default function OnboardingWizard() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [showSiteLimit, setShowSiteLimit] = useState(false);
+  const [showAiWizard, setShowAiWizard] = useState(false);
   const aiInputRef = useRef<HTMLTextAreaElement>(null);
   // Use a ref to prevent re-fetching on tab-switch (Supabase auth token refresh
   // fires onAuthStateChange which creates a new user object reference)
@@ -216,7 +218,7 @@ export default function OnboardingWizard() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          selectedTemplateId: 'airy_general',
+          selectedTemplateId: 'atlas_general',
           businessType: 'services',
           category: 'general',
           userId: user.id,
@@ -328,13 +330,27 @@ export default function OnboardingWizard() {
     router.push(`/onboarding?businessType=${businessType}&category=${cat}&page=1`);
   };
 
-  const handleAiSubmit = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!aiPrompt.trim() || aiLoading) return;
+  // Submits the AI build flow. If `promptOverride` is provided (from the wizard
+  // with all stages composed), use that instead of the entry textarea state.
+  // `wizardData` (when present) is the structured form of the wizard answers
+  // and gets stashed for the editor to forward to the AI builder API.
+  const handleAiSubmit = async (eOrPrompt?: React.FormEvent | string, promptOverride?: string, wizardData?: WizardMetadata) => {
+    const isEvent = eOrPrompt && typeof (eOrPrompt as any).preventDefault === 'function';
+    if (isEvent) (eOrPrompt as React.FormEvent).preventDefault();
+    const finalPrompt = (promptOverride ?? (typeof eOrPrompt === 'string' ? eOrPrompt : undefined) ?? aiPrompt).trim();
+
+    if (!finalPrompt || aiLoading) return;
+
+    const stashWizardData = () => {
+      if (wizardData) {
+        sessionStorage.setItem('keystoneAiOnboardingWizardData', JSON.stringify(wizardData));
+      }
+    };
 
     // If not authenticated, store prompt and redirect to signup/login first
     if (!user) {
-      sessionStorage.setItem('keystoneAiOnboardingPrompt', aiPrompt.trim());
+      sessionStorage.setItem('keystoneAiOnboardingPrompt', finalPrompt);
+      stashWizardData();
       router.push('/signup?aiOnboarding=true');
       return;
     }
@@ -348,7 +364,7 @@ export default function OnboardingWizard() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          selectedTemplateId: 'airy_general',
+          selectedTemplateId: 'atlas_general',
           businessType: 'services',
           category: 'general',
           userId: user.id,
@@ -361,7 +377,8 @@ export default function OnboardingWizard() {
           setShowSiteLimit(true);
         } else if (res.status === 401) {
           // Session expired — store prompt and redirect to signin
-          sessionStorage.setItem('keystoneAiOnboardingPrompt', aiPrompt.trim());
+          sessionStorage.setItem('keystoneAiOnboardingPrompt', finalPrompt);
+          stashWizardData();
           router.push('/signin?aiOnboarding=true');
         } else {
           console.error('[Onboarding] AI site creation failed', {
@@ -388,7 +405,8 @@ export default function OnboardingWizard() {
       }
 
       // Store the AI prompt in sessionStorage so the editor can pick it up
-      sessionStorage.setItem('keystoneAiOnboardingPrompt', aiPrompt.trim());
+      sessionStorage.setItem('keystoneAiOnboardingPrompt', finalPrompt);
+      stashWizardData();
 
       router.push(`/editor?siteId=${siteId}`);
     } catch (error) {
@@ -474,6 +492,23 @@ export default function OnboardingWizard() {
   return (
     <div className="min-h-screen bg-white">
       {showSiteLimit && <SiteLimitModal plan="Basic" limit={1} onDismiss={() => setShowSiteLimit(false)} />}
+
+      {showAiWizard && (
+        <AIOnboardingWizard
+          initialDescription={aiPrompt}
+          submitting={aiLoading}
+          error={aiError}
+          onClose={() => {
+            if (aiLoading) return;
+            setShowAiWizard(false);
+            setAiError(null);
+          }}
+          onSubmit={(composedPrompt, wizardData) => {
+            setAiPrompt(composedPrompt);
+            handleAiSubmit(composedPrompt, undefined, wizardData);
+          }}
+        />
+      )}
 
       {/* Header */}
       <Header />
@@ -633,7 +668,14 @@ export default function OnboardingWizard() {
                       />
                     </div>
 
-                  <form onSubmit={handleAiSubmit} className="relative">
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!aiPrompt.trim() || aiLoading) return;
+                      setShowAiWizard(true);
+                    }}
+                    className="relative"
+                  >
                     <div className="bg-white rounded-2xl border-2 border-slate-200 hover:border-violet-300 focus-within:border-violet-500 shadow-lg transition-all p-1">
                       <textarea
                         ref={aiInputRef}
@@ -642,10 +684,10 @@ export default function OnboardingWizard() {
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
-                            handleAiSubmit();
+                            if (aiPrompt.trim() && !aiLoading) setShowAiWizard(true);
                           }
                         }}
-                        placeholder="e.g. A modern plumbing business website with a hero section, services grid, testimonials, and contact form..."
+                        placeholder="e.g. A modern plumbing business website..."
                         rows={3}
                         className="w-full resize-none bg-transparent px-4 py-3 text-slate-800 placeholder-slate-400 focus:outline-none text-base"
                       />
@@ -666,12 +708,15 @@ export default function OnboardingWizard() {
                           ) : (
                             <>
                               <Sparkles className="w-4 h-4" />
-                              Build My Site
+                              Continue
                             </>
                           )}
                         </button>
                       </div>
                     </div>
+                    <p className="mt-2 text-center text-xs text-slate-500">
+                      Archie will ask a few quick questions, or you can skip ahead and build right away.
+                    </p>
                   </form>
 
                   {aiError && (

@@ -18,13 +18,16 @@ const BUILDING_MESSAGES = [
   'Polishing every pixel...',
 ];
 
-function BuildingText() {
+function BuildingText({ liveMessage }: { liveMessage?: string | null }) {
   const [msgIndex, setMsgIndex] = useState(0);
   const [displayed, setDisplayed] = useState('');
   const [charIndex, setCharIndex] = useState(0);
   const currentMsg = BUILDING_MESSAGES[msgIndex];
 
   useEffect(() => {
+    // When the orchestrator is streaming progress, pin its message and skip
+    // the typewriter rotation so the user sees real-time phase feedback.
+    if (liveMessage) return;
     if (charIndex < currentMsg.length) {
       const timer = setTimeout(() => {
         setDisplayed(currentMsg.slice(0, charIndex + 1));
@@ -40,7 +43,11 @@ function BuildingText() {
       setCharIndex(0);
     }, 2400);
     return () => clearTimeout(timer);
-  }, [charIndex, msgIndex, currentMsg]);
+  }, [charIndex, msgIndex, currentMsg, liveMessage]);
+
+  if (liveMessage) {
+    return <span>{liveMessage}</span>;
+  }
 
   return (
     <span className="text-[12px]">
@@ -53,6 +60,8 @@ function BuildingText() {
 interface AIBuilderPanelProps {
   messages: AIMessage[];
   isLoading: boolean;
+  /** Live progress message from the orchestrator (e.g. "Writing the About page…"). */
+  progressMessage?: string | null;
   onSend: (message: string) => void;
   onCancel: () => void;
   onClear: () => void;
@@ -168,7 +177,7 @@ const QUICK_PROMPTS = [
   'Change the color scheme to something modern and dark',
 ];
 
-export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, onClear, onUndo, canUndo = false, isPro, isBasic = false, isFree = false, remaining, showUpgradeModal = false, onDismissUpgradeModal }: AIBuilderPanelProps) {
+export default function AIBuilderPanel({ messages, isLoading, progressMessage, onSend, onCancel, onClear, onUndo, canUndo = false, isPro, isBasic = false, isFree = false, remaining, showUpgradeModal = false, onDismissUpgradeModal }: AIBuilderPanelProps) {
   const [input, setInput] = useState('');
   const [showUsageModal, setShowUsageModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -344,7 +353,7 @@ export default function AIBuilderPanel({ messages, isLoading, onSend, onCancel, 
             <div className="flex justify-start">
               <div className="bg-slate-100 text-slate-500 px-3 py-2 rounded-xl rounded-bl-sm flex items-center gap-2">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <BuildingText />
+                <BuildingText liveMessage={progressMessage} />
               </div>
             </div>
           )}
