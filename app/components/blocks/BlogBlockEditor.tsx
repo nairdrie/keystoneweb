@@ -18,7 +18,7 @@ import {
     AlignLeft, AlignCenter, AlignRight, AlignJustify,
     ListOrdered, Quote, Code, Link as LinkIcon, Undo, Redo,
     Heading1, Heading2, Heading3, Pilcrow, Minus, ExternalLink,
-    Tag, Calendar, User,
+    Tag, Calendar, User, Star,
 } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -33,12 +33,29 @@ interface BlogPost {
     author: string | null;
     tags: string[];
     is_published: boolean;
+    is_featured: boolean;
     published_at: string | null;
     sort_order: number;
     created_at: string;
 }
 
 type LayoutStyle = 'grid' | 'list' | 'magazine';
+
+function getPostTime(post: BlogPost) {
+    return new Date(post.published_at || post.created_at).getTime();
+}
+
+function sortPostsNewestFirst(posts: BlogPost[]) {
+    return [...posts].sort((a, b) => getPostTime(b) - getPostTime(a));
+}
+
+function mergePost(posts: BlogPost[], post: BlogPost) {
+    const next = posts.map((existing) => {
+        if (existing.id === post.id) return post;
+        return post.is_featured ? { ...existing, is_featured: false } : existing;
+    });
+    return sortPostsNewestFirst(next);
+}
 
 interface BlogBlockProps {
     id: string;
@@ -235,7 +252,7 @@ export function BlogPostsManager({ siteId, palette }: {
             const res = await fetch(`/api/blog/posts?siteId=${siteId}`);
             if (!res.ok) throw new Error('Failed to fetch');
             const d = await res.json();
-            setPosts(d.posts || []);
+            setPosts(sortPostsNewestFirst(d.posts || []));
         } catch (err) {
             console.error(err);
         } finally {
@@ -256,7 +273,17 @@ export function BlogPostsManager({ siteId, palette }: {
             body: JSON.stringify({ id: post.id, is_published: !post.is_published }),
         });
         const d = await res.json();
-        if (d.post) setPosts(posts.map(p => p.id === post.id ? d.post : p));
+        if (d.post) setPosts(mergePost(posts, d.post));
+    };
+
+    const handleToggleFeatured = async (post: BlogPost) => {
+        const res = await fetch('/api/blog/posts', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: post.id, is_featured: !post.is_featured }),
+        });
+        const d = await res.json();
+        if (d.post) setPosts(mergePost(posts, d.post));
     };
 
     const handlePublishAll = async () => {
@@ -280,7 +307,7 @@ export function BlogPostsManager({ siteId, palette }: {
                 post={editingPost}
                 palette={palette}
                 onSaved={(updated) => {
-                    setPosts(posts.map(p => p.id === updated.id ? updated : p));
+                    setPosts(mergePost(posts, updated));
                     setEditingPost(null);
                 }}
                 onBack={() => setEditingPost(null)}
@@ -295,7 +322,10 @@ export function BlogPostsManager({ siteId, palette }: {
                 post={null}
                 palette={palette}
                 onSaved={(created) => {
-                    setPosts([...posts, created]);
+                    setPosts(sortPostsNewestFirst(created.is_featured
+                        ? posts.map(post => ({ ...post, is_featured: false })).concat(created)
+                        : posts.concat(created)
+                    ));
                     setShowNewPost(false);
                 }}
                 onBack={() => setShowNewPost(false)}
@@ -364,6 +394,9 @@ export function BlogPostsManager({ siteId, palette }: {
                                 {!post.is_published && (
                                     <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex-shrink-0">Draft</span>
                                 )}
+                                {post.is_featured && (
+                                    <span className="text-[10px] font-bold bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full flex-shrink-0">Featured</span>
+                                )}
                             </div>
                             {post.excerpt && (
                                 <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{post.excerpt}</p>
@@ -379,6 +412,17 @@ export function BlogPostsManager({ siteId, palette }: {
                             </div>
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                                onClick={() => handleToggleFeatured(post)}
+                                title={post.is_featured ? 'Remove featured article' : 'Set as featured article'}
+                                className={`p-1.5 rounded-lg transition-colors ${
+                                    post.is_featured
+                                        ? 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'
+                                        : 'text-slate-400 hover:text-yellow-600 hover:bg-yellow-50'
+                                }`}
+                            >
+                                <Star className={`w-4 h-4 ${post.is_featured ? 'fill-current' : ''}`} />
+                            </button>
                             <button
                                 onClick={() => handleTogglePublish(post)}
                                 title={post.is_published ? 'Unpublish' : 'Publish'}
@@ -943,7 +987,8 @@ function MagazineLayout({ posts, onOpen, pPrimary, pSecondary, displayOpts }: {
     pSecondary: string;
     displayOpts: DisplayOpts;
 }) {
-    const [featured, ...rest] = posts;
+    const featured = posts.find(post => post.is_featured) || posts[0];
+    const rest = posts.filter(post => post.id !== featured?.id);
 
     return (
         <div className="space-y-6">

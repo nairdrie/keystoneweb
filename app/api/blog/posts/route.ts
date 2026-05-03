@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
         .select('*')
         .eq('site_id', siteId)
         .eq('is_archived', false)
-        .order('sort_order', { ascending: true })
+        .order('published_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false });
 
     if (error) {
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { siteId, title, excerpt, content, cover_image, author, tags, is_published } = body;
+    const { siteId, title, excerpt, content, cover_image, author, tags, is_published, is_featured } = body;
 
     if (!siteId || !title) {
         return NextResponse.json({ error: 'Missing siteId or title' }, { status: 400 });
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate unique slug
-    let baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const baseSlug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     let slug = baseSlug;
     let attempt = 0;
     while (true) {
@@ -131,6 +131,17 @@ export async function POST(request: NextRequest) {
 
     const nextOrder = (existing?.[0]?.sort_order ?? -1) + 1;
 
+    if (is_featured === true) {
+        const { error: featuredError } = await supabase
+            .from('blog_posts')
+            .update({ is_featured: false })
+            .eq('site_id', siteId);
+
+        if (featuredError) {
+            return NextResponse.json({ error: featuredError.message }, { status: 500 });
+        }
+    }
+
     const { data, error } = await supabase
         .from('blog_posts')
         .insert({
@@ -143,6 +154,7 @@ export async function POST(request: NextRequest) {
             author: author || null,
             tags: tags || [],
             is_published: is_published ?? false,
+            is_featured: is_featured === true,
             published_at: is_published ? new Date().toISOString() : null,
             sort_order: nextOrder,
         })
@@ -171,8 +183,18 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'Missing post id' }, { status: 400 });
     }
 
-    const updates: Record<string, any> = { updated_at: new Date().toISOString() };
-    const allowedFields = ['title', 'excerpt', 'content', 'cover_image', 'author', 'tags', 'is_published', 'sort_order'];
+    const { data: current, error: currentError } = await supabase
+        .from('blog_posts')
+        .select('site_id, published_at')
+        .eq('id', id)
+        .single();
+
+    if (currentError || !current) {
+        return NextResponse.json({ error: currentError?.message || 'Post not found' }, { status: 404 });
+    }
+
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    const allowedFields = ['title', 'excerpt', 'content', 'cover_image', 'author', 'tags', 'is_published', 'is_featured', 'sort_order'];
 
     for (const key of allowedFields) {
         if (fields[key] !== undefined) updates[key] = fields[key];
@@ -186,9 +208,20 @@ export async function PUT(request: NextRequest) {
     // Set published_at when first publishing
     if (fields.is_published === true) {
         // Only set published_at if not already set
-        const { data: current } = await supabase.from('blog_posts').select('published_at').eq('id', id).single();
         if (current && !current.published_at) {
             updates.published_at = new Date().toISOString();
+        }
+    }
+
+    if (fields.is_featured === true) {
+        const { error: featuredError } = await supabase
+            .from('blog_posts')
+            .update({ is_featured: false })
+            .eq('site_id', current.site_id)
+            .neq('id', id);
+
+        if (featuredError) {
+            return NextResponse.json({ error: featuredError.message }, { status: 500 });
         }
     }
 

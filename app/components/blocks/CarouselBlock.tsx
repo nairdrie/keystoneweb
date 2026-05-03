@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import EditableText from '../EditableText';
 import EditableImage from '../EditableImage';
+import type { ImageSettings } from '../ImageEditorModal';
 import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 
@@ -106,12 +107,23 @@ interface SlideItem {
   text: string;
 }
 
+interface CarouselData {
+  title?: string;
+  subtitle?: string;
+  variant?: 'cards' | 'slides' | 'minimal' | string;
+  items?: SlideItem[];
+  autoPlay?: boolean;
+  interval?: number;
+  backgroundColor?: string;
+  [key: string]: unknown;
+}
+
 interface CarouselBlockProps {
   id: string;
-  data: any;
+  data: CarouselData;
   isEditMode: boolean;
   palette: Record<string, string>;
-  updateContent: (key: string, value: any) => void;
+  updateContent: (key: string, value: unknown) => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -123,7 +135,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
   const bgColor = resolvePaletteColor(data.backgroundColor, palette, '');
 
   const variant    = data.variant  || 'cards';
-  const items: SlideItem[] = data.items?.length ? data.items : DEFAULT_ITEMS;
+  const items: SlideItem[] = Array.isArray(data.items) && data.items.length ? data.items : DEFAULT_ITEMS;
   const autoPlay   = data.autoPlay !== false;
   const intervalMs = (data.interval || 5) * 1000;
 
@@ -131,8 +143,10 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
   const [iconPickerIdx, setIconPickerIdx] = useState<number | null>(null);
 
   // Reset on block change, clamp on items shrink
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setCurrent(0); }, [id]);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (current >= items.length) setCurrent(Math.max(0, items.length - 1));
   }, [items.length, current]);
 
@@ -145,7 +159,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
 
   // ── Item CRUD ────────────────────────────────────────────────────────────────
 
-  const updateItem = (idx: number, field: string, value: any) =>
+  const updateItem = (idx: number, field: string, value: unknown) =>
     updateContent('items', items.map((item, i) => i === idx ? { ...item, [field]: value } : item));
 
   const addItem = () => {
@@ -258,6 +272,13 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
     </div>
   );
 
+  const getImageSettings = (key: string): ImageSettings | undefined => {
+    const value = data[key];
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? value as ImageSettings
+      : undefined;
+  };
+
   const pickerEl = iconPickerIdx !== null ? (
     <IconPickerModal
       value={items[iconPickerIdx]?.icon || 'Star'}
@@ -272,6 +293,23 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
     const perPage    = 3;
     const maxCurrent = Math.max(0, items.length - perPage);
     const showNav    = items.length > perPage;
+    const renderViewCard = (item: SlideItem, idx: number) => (
+      <div className="bg-white rounded-2xl p-7 border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full">
+        <div className="mb-5 flex-shrink-0">
+          {item.mediaType === 'image' && item.image ? (
+            <img src={item.image} alt={item.title} className="w-full h-44 object-cover rounded-xl" />
+          ) : item.mediaType === 'image' ? (
+            <div className="w-full h-44 rounded-xl bg-slate-100 flex items-center justify-center">
+              <Camera className="w-10 h-10 text-slate-300" />
+            </div>
+          ) : (
+            renderIconDisplay(item, idx, 'md')
+          )}
+        </div>
+        <h3 className="text-xl font-bold mb-2" style={{ color: pPrimary }}>{item.title}</h3>
+        <p className="text-sm leading-relaxed flex-1" style={{ color: pPrimary, opacity: 0.7 }}>{item.text}</p>
+      </div>
+    );
 
     return (
       <section className="py-24" style={{ backgroundColor: bgColor || '#ffffff' }}>
@@ -316,7 +354,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                       {item.mediaType === 'image' ? (
                         <EditableImage
                           contentKey={`carousel_${idx}_image`} imageUrl={item.image}
-                          initialSettings={data[`carousel_${idx}_image__settings`]}
+                          initialSettings={getImageSettings(`carousel_${idx}_image__settings`)}
                           isEditMode={isEditMode} onSave={(_, v) => updateItem(idx, 'image', v)}
                           className="w-full h-44 object-cover rounded-xl"
                         />
@@ -346,32 +384,26 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
             </>
           ) : (
             <>
-              <div className="overflow-hidden">
+              <div className="space-y-6 md:hidden">
+                {items.map((item, idx) => (
+                  <div key={idx}>
+                    {renderViewCard(item, idx)}
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden overflow-hidden md:block">
                 <div style={trackStyle(perPage)}>
                   {items.map((item, idx) => (
                     <div key={idx} style={itemWidthStyle()} className="px-3">
-                      <div className="bg-white rounded-2xl p-7 border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full">
-                        <div className="mb-5 flex-shrink-0">
-                          {item.mediaType === 'image' && item.image ? (
-                            <img src={item.image} alt={item.title} className="w-full h-44 object-cover rounded-xl" />
-                          ) : item.mediaType === 'image' ? (
-                            <div className="w-full h-44 rounded-xl bg-slate-100 flex items-center justify-center">
-                              <Camera className="w-10 h-10 text-slate-300" />
-                            </div>
-                          ) : (
-                            renderIconDisplay(item, idx, 'md')
-                          )}
-                        </div>
-                        <h3 className="text-xl font-bold mb-2" style={{ color: pPrimary }}>{item.title}</h3>
-                        <p className="text-sm leading-relaxed flex-1" style={{ color: pPrimary, opacity: 0.7 }}>{item.text}</p>
-                      </div>
+                      {renderViewCard(item, idx)}
                     </div>
                   ))}
                 </div>
               </div>
 
               {showNav && (
-                <div className="flex items-center justify-center gap-4 mt-8">
+                <div className="hidden items-center justify-center gap-4 mt-8 md:flex">
                   {renderArrow('prev', () => setCurrent(c => Math.max(0, c - 1)), current === 0)}
                   {renderDots(maxCurrent + 1, i => setCurrent(i))}
                   {renderArrow('next', () => setCurrent(c => Math.min(maxCurrent, c + 1)), current >= maxCurrent)}
@@ -415,7 +447,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                       {item.mediaType === 'image' ? (
                         <EditableImage
                           contentKey={`carousel_${idx}_image`} imageUrl={item.image}
-                          initialSettings={data[`carousel_${idx}_image__settings`]}
+                          initialSettings={getImageSettings(`carousel_${idx}_image__settings`)}
                           isEditMode={isEditMode && idx === current}
                           onSave={(_, v) => updateItem(idx, 'image', v)}
                           className="w-full h-80 object-cover"
@@ -512,7 +544,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                       isEditMode && idx === current ? (
                         <EditableImage
                           contentKey={`carousel_${idx}_image`} imageUrl={item.image}
-                          initialSettings={data[`carousel_${idx}_image__settings`]}
+                          initialSettings={getImageSettings(`carousel_${idx}_image__settings`)}
                           isEditMode={isEditMode} onSave={(_, v) => updateItem(idx, 'image', v)}
                           className="w-48 h-48 object-cover rounded-2xl mx-auto"
                         />

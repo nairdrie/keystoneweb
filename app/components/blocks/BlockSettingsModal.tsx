@@ -90,11 +90,6 @@ export default function BlockSettingsModal({
             { id: 'slides', label: 'Split Slides' },
             { id: 'minimal', label: 'Minimal / Centered' },
         ],
-        blog: [
-            { id: 'grid', label: 'Card Grid' },
-            { id: 'list', label: 'List View' },
-            { id: 'magazine', label: 'Magazine (Featured + Grid)' },
-        ],
         video: [
             { id: 'contained', label: 'Contained (Centered)' },
             { id: 'fullWidth', label: 'Full Width' },
@@ -143,6 +138,8 @@ export default function BlockSettingsModal({
     const [menuShowPrices, setMenuShowPrices] = useState<boolean>(blockData?.showPrices !== false);
     const [menuShowDescriptions, setMenuShowDescriptions] = useState<boolean>(blockData?.showDescriptions !== false);
     const [menuShowImages, setMenuShowImages] = useState<boolean>(blockData?.showImages === true);
+    const [menuShowFeaturedImages, setMenuShowFeaturedImages] = useState<boolean>(blockData?.showFeaturedImages !== false);
+    const [menuShowTabs, setMenuShowTabs] = useState<boolean>(blockData?.showMenuTabs !== false);
     const [menuCategoryStyle, setMenuCategoryStyle] = useState<string>(blockData?.categoryStyle || 'heading');
     const [menuBgColor, setMenuBgColor] = useState<string>(blockData?.backgroundColor || '');
 
@@ -179,6 +176,8 @@ export default function BlockSettingsModal({
             setMenuShowPrices(blockData?.showPrices !== false);
             setMenuShowDescriptions(blockData?.showDescriptions !== false);
             setMenuShowImages(blockData?.showImages === true);
+            setMenuShowFeaturedImages(blockData?.showFeaturedImages !== false);
+            setMenuShowTabs(blockData?.showMenuTabs !== false);
             setMenuCategoryStyle(blockData?.categoryStyle || 'heading');
             setMenuBgColor(blockData?.backgroundColor || '');
             setTeamShowBio(blockData?.showBio !== false);
@@ -217,6 +216,8 @@ export default function BlockSettingsModal({
             updates['showPrices'] = menuShowPrices;
             updates['showDescriptions'] = menuShowDescriptions;
             updates['showImages'] = menuShowImages;
+            updates['showFeaturedImages'] = menuShowFeaturedImages;
+            updates['showMenuTabs'] = menuShowTabs;
             updates['categoryStyle'] = menuCategoryStyle;
             updates['backgroundColor'] = menuBgColor;
         }
@@ -263,6 +264,20 @@ export default function BlockSettingsModal({
             onUpdateBlockData('variant', variantId);
         }
     };
+
+    const menuVariant = blockData?.variant || 'list';
+    const menuSupportsImages = menuVariant !== 'compact';
+    const menuDisplayOptions = [
+        { label: 'Show prices', value: menuShowPrices, setter: setMenuShowPrices },
+        { label: 'Show descriptions', value: menuShowDescriptions, setter: setMenuShowDescriptions },
+        { label: 'Show menu tabs', value: menuShowTabs, setter: setMenuShowTabs },
+        ...(menuSupportsImages
+            ? [
+                { label: 'Show featured item photos', value: menuShowFeaturedImages, setter: setMenuShowFeaturedImages },
+                { label: 'Show regular item photos', value: menuShowImages, setter: setMenuShowImages },
+            ]
+            : []),
+    ];
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, isCarousel: boolean) => {
         const file = e.target.files?.[0];
@@ -691,11 +706,7 @@ export default function BlockSettingsModal({
                             <div>
                                 <p className="text-sm font-medium text-slate-700 mb-3">Display Options</p>
                                 <div className="space-y-3">
-                                    {[
-                                        { label: 'Show prices', value: menuShowPrices, setter: setMenuShowPrices },
-                                        { label: 'Show descriptions', value: menuShowDescriptions, setter: setMenuShowDescriptions },
-                                        { label: 'Show item photos', value: menuShowImages, setter: setMenuShowImages },
-                                    ].map(({ label, value, setter }) => (
+                                    {menuDisplayOptions.map(({ label, value, setter }) => (
                                         <label key={label} className="flex items-center justify-between cursor-pointer group">
                                             <span className="text-sm text-slate-600 group-hover:text-slate-800">{label}</span>
                                             <button
