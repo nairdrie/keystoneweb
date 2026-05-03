@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
         .select('duration_minutes')
         .eq('id', serviceId)
         .eq('is_active', true)
+        .eq('is_archived', false)
         .single();
 
     if (svcError || !service) {
@@ -74,6 +75,7 @@ export async function GET(request: NextRequest) {
         .select('id')
         .eq('site_id', siteId)
         .eq('blocked_date', date)
+        .eq('is_archived', false)
         .limit(1);
 
     if (blocked && blocked.length > 0) {

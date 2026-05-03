@@ -21,6 +21,7 @@ async function getVendorByToken(supabase: any, token: string) {
         .from('vendors')
         .select('*')
         .eq('id', tokenRow.vendor_id)
+        .eq('is_archived', false)
         .single();
 
     return vendor ? { ...vendor, tokenSiteId: tokenRow.site_id } : null;

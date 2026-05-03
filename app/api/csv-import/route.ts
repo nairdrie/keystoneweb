@@ -345,7 +345,8 @@ async function resolveCategoryIds(
     const { data: existing } = await supabase
         .from('booking_categories')
         .select('id, name, sort_order')
-        .eq('site_id', siteId);
+        .eq('site_id', siteId)
+        .eq('is_archived', false);
 
     const categoryMap = new Map<string, string>(); // lowercase → id
     let maxOrder = -1;
@@ -523,7 +524,8 @@ export async function POST(req: NextRequest) {
         const { data: existingItemsRaw } = await supabase
             .from(table)
             .select('*')
-            .eq('site_id', siteId);
+            .eq('site_id', siteId)
+            .eq('is_archived', false);
         const existingItems = (existingItemsRaw || []) as any[];
 
         // Map lowercase name → existing record

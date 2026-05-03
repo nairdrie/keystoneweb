@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
       .eq('id', packageId)
       .eq('site_id', siteId)
       .eq('is_active', true)
+      .eq('is_archived', false)
       .single();
 
     if (!pkg || !pkg.stripe_price_id) {

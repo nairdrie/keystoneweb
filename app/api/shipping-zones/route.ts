@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
         .from('shipping_zones')
         .select('*')
         .eq('site_id', siteId)
+        .eq('is_archived', false)
         .order('sort_order');
 
     if (error) {
@@ -154,7 +155,7 @@ export async function DELETE(request: NextRequest) {
 
     const { error } = await supabase
         .from('shipping_zones')
-        .delete()
+        .update({ is_archived: true, archived_on: new Date().toISOString() })
         .eq('id', id);
 
     if (error) {

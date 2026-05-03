@@ -87,7 +87,8 @@ export async function POST(request: NextRequest) {
         .select('id, email, name')
         .eq('site_id', siteId)
         .eq('status', 'active')
-        .eq('marketing_opt_in', true);
+        .eq('marketing_opt_in', true)
+        .eq('is_archived', false);
 
       if (targetPackageIds && targetPackageIds.length > 0) {
         membersQuery = membersQuery.in('package_id', targetPackageIds);

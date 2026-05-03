@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
         .from('shipping_zones')
         .select('*')
         .eq('site_id', siteId)
+        .eq('is_archived', false)
         .order('sort_order');
 
     if (error) {

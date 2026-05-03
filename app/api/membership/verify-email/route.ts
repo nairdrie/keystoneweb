@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
       .eq('site_id', siteId)
       .eq('email_verification_token', token)
       .eq('status', 'pending')
+      .eq('is_archived', false)
       .single();
 
     if (!member) {

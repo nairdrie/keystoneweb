@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
         .from('booking_services')
         .select('*, booking_categories(name)')
         .eq('site_id', siteId)
+        .eq('is_archived', false)
         .order('sort_order', { ascending: true });
 
     if (error) {
@@ -114,7 +115,8 @@ export async function PUT(request: NextRequest) {
             .from('booking_services')
             .update({ status: 'published', updated_at: new Date().toISOString() })
             .eq('site_id', bodySiteId)
-            .eq('status', 'draft');
+            .eq('status', 'draft')
+            .eq('is_archived', false);
         if (pubError) return NextResponse.json({ error: pubError.message }, { status: 500 });
         return NextResponse.json({ success: true });
     }
@@ -169,7 +171,7 @@ export async function DELETE(request: NextRequest) {
 
     const { error } = await supabase
         .from('booking_services')
-        .delete()
+        .update({ is_archived: true, archived_on: new Date().toISOString() })
         .eq('id', serviceId);
 
     if (error) {

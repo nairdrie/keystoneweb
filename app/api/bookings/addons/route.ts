@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
         .from('booking_addons')
         .select('*')
         .eq('site_id', siteId)
+        .eq('is_archived', false)
         .order('created_at', { ascending: true });
 
     if (error) {
@@ -106,7 +107,10 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { error } = await supabase.from('booking_addons').delete().eq('id', addonId);
+    const { error } = await supabase
+        .from('booking_addons')
+        .update({ is_archived: true, archived_on: new Date().toISOString() })
+        .eq('id', addonId);
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }

@@ -37,7 +37,8 @@ export async function GET(
       .from('blog_posts')
       .select('slug, published_at, created_at')
       .eq('site_id', site.id)
-      .eq('is_published', true),
+      .eq('is_published', true)
+      .eq('is_archived', false),
   ]);
 
   let sitemap = `<?xml version="1.0" encoding="UTF-8"?>

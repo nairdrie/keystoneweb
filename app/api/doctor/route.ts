@@ -49,7 +49,8 @@ export async function GET(request: NextRequest) {
         .from('booking_services')
         .select('*')
         .eq('site_id', siteId)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .eq('is_archived', false);
 
     // Fetch ecommerce settings
     const { data: ecommerceSettings } = await supabase
@@ -63,7 +64,8 @@ export async function GET(request: NextRequest) {
         .from('products')
         .select('id, name, price_cents, is_active, images')
         .eq('site_id', siteId)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .eq('is_archived', false);
 
     return NextResponse.json({
         site: {

@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
       .select('id, email, password_hash, name, status, email_verified, avatar_url, package_id')
       .eq('site_id', siteId)
       .eq('email', emailLower)
+      .eq('is_archived', false)
       .single();
 
     if (!member) {

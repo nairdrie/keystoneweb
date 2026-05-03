@@ -133,6 +133,7 @@ async function gatherSiteContext(
       .select('name, description, duration_minutes, price_cents, currency, is_active')
       .eq('site_id', siteId)
       .eq('is_active', true)
+      .eq('is_archived', false)
       .limit(20);
 
     if (services && services.length > 0) {
@@ -159,6 +160,7 @@ async function gatherSiteContext(
       .from('products')
       .select('name, description, price_cents, compare_at_cents, variants, inventory_count')
       .eq('site_id', siteId)
+      .eq('is_archived', false)
       .limit(30);
 
     if (products && products.length > 0) {

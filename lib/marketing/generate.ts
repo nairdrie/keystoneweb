@@ -318,6 +318,7 @@ export async function assembleContextFromSite(
     .select('title, description, price')
     .eq('site_id', siteId)
     .eq('is_active', true)
+    .eq('is_archived', false)
     .limit(20);
 
   // Pull booking services
@@ -325,6 +326,7 @@ export async function assembleContextFromSite(
     .from('booking_services')
     .select('name, description, price')
     .eq('site_id', siteId)
+    .eq('is_archived', false)
     .limit(20);
 
   const websiteUrl = site?.custom_domain

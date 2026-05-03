@@ -42,6 +42,7 @@ export default async function BlogPostPage({
             .eq('slug', slug)
             .eq('site_id', site.id)
             .eq('is_published', true)
+            .eq('is_archived', false)
             .single();
 
         if (postError || !post) {
@@ -61,6 +62,7 @@ export default async function BlogPostPage({
             .select('id, title, slug, excerpt, cover_image, author, tags, published_at, created_at')
             .eq('site_id', site.id)
             .eq('is_published', true)
+            .eq('is_archived', false)
             .neq('id', post.id)
             .order('published_at', { ascending: false })
             .limit(4);

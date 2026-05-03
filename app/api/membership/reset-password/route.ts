@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
       .select('id, password_reset_expires_at')
       .eq('site_id', siteId)
       .eq('password_reset_token', token)
+      .eq('is_archived', false)
       .single();
 
     if (!member) {

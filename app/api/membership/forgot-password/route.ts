@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
       .select('id, name')
       .eq('site_id', siteId)
       .eq('email', emailLower)
+      .eq('is_archived', false)
       .in('status', ['active', 'pending'])
       .single();
 

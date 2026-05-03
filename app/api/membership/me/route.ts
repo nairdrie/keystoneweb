@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     const { data: member } = await supabase
       .from('members')
       .select(`
-        id, email, name, avatar_url, custom_fields, status,
+        id, email, name, avatar_url, custom_fields, status, is_archived,
         package_id, subscription_status, current_period_end,
         marketing_opt_in, signed_up_at, last_login_at,
         membership_packages(id, name, price_cents, currency, billing_interval, features)
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       .eq('site_id', payload.siteId)
       .single();
 
-    if (!member || member.status === 'cancelled') {
+    if (!member || member.is_archived || member.status === 'cancelled') {
       return NextResponse.json({ member: null }, { status: 200 });
     }
 

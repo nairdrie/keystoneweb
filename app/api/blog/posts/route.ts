@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
             .select('*')
             .eq('id', postId)
             .eq('site_id', siteId)
+            .eq('is_archived', false)
             .single();
 
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -40,6 +41,7 @@ export async function GET(request: NextRequest) {
             .select('*')
             .eq('slug', slug)
             .eq('site_id', siteId)
+            .eq('is_archived', false)
             .single();
 
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -50,6 +52,7 @@ export async function GET(request: NextRequest) {
         .from('blog_posts')
         .select('*')
         .eq('site_id', siteId)
+        .eq('is_archived', false)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
 
@@ -218,7 +221,7 @@ export async function DELETE(request: NextRequest) {
 
     const { error } = await supabase
         .from('blog_posts')
-        .delete()
+        .update({ is_archived: true, archived_on: new Date().toISOString() })
         .eq('id', postId);
 
     if (error) {
