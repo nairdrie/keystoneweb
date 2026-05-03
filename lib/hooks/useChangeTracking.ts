@@ -3,6 +3,7 @@ import { useState, useCallback } from 'react';
 export interface Change {
   id: string;
   field: string;
+  mergeKey?: string;
   label: string;
   from: string;
   to: string;
@@ -352,6 +353,7 @@ function diffBlocks(oldBlocksRaw: string, newBlocksRaw: string, callerLabel?: st
     if (added.length > 0 && newBlocks.length > oldBlocks.length) {
       const blockNames = added.map(b => getBlockLabel(b.type));
       return {
+        mergeKey: `blocks:add:${added.map(b => b.id).join(',')}`,
         label: added.length === 1
           ? `Added ${blockNames[0]} Block`
           : `Added ${added.length} Blocks`,
@@ -365,6 +367,7 @@ function diffBlocks(oldBlocksRaw: string, newBlocksRaw: string, callerLabel?: st
     if (removed.length > 0 && newBlocks.length < oldBlocks.length) {
       const blockNames = removed.map(b => getBlockLabel(b.type));
       return {
+        mergeKey: `blocks:remove:${removed.map(b => b.id).join(',')}`,
         label: removed.length === 1
           ? `Removed ${blockNames[0]} Block`
           : `Removed ${removed.length} Blocks`,
@@ -396,18 +399,18 @@ function diffBlocks(oldBlocksRaw: string, newBlocksRaw: string, callerLabel?: st
           if (key.endsWith('__styles') && typeof oldVal === 'object' && typeof newVal === 'object') {
             const styleDiff = formatStyleChange(oldVal, newVal);
             if (styleDiff) {
-              return { label: `${blockLabel} — ${fieldLabel}`, from: styleDiff.from, to: styleDiff.to };
+              return { mergeKey: `blocks:${newB.id}:${key}`, label: `${blockLabel} — ${fieldLabel}`, from: styleDiff.from, to: styleDiff.to };
             }
           }
 
           // Array changes (items, members, tiers, etc.)
           if (Array.isArray(oldVal) && Array.isArray(newVal)) {
             const summary = summarizeArrayChange(oldVal, newVal, fieldLabel);
-            return { label: `${blockLabel} — ${fieldLabel}`, from: summary.from, to: summary.to };
+            return { mergeKey: `blocks:${newB.id}:${key}`, label: `${blockLabel} — ${fieldLabel}`, from: summary.from, to: summary.to };
           }
 
           // Simple value changes
-          return { label: `${blockLabel} — ${fieldLabel}`, from: formatValue(oldVal, key), to: formatValue(newVal, key) };
+          return { mergeKey: `blocks:${newB.id}:${key}`, label: `${blockLabel} — ${fieldLabel}`, from: formatValue(oldVal, key), to: formatValue(newVal, key) };
         }
       }
 
@@ -416,6 +419,7 @@ function diffBlocks(oldBlocksRaw: string, newBlocksRaw: string, callerLabel?: st
       const newIdOrder = newBlocks.map(b => b.id);
       if (oldIdOrder.some((id: string, i: number) => id !== newIdOrder[i])) {
         return {
+          mergeKey: 'blocks:order',
           label: 'Reordered Blocks',
           from: oldBlocks.map(b => getBlockLabel(b.type)).join(' → '),
           to: newBlocks.map(b => getBlockLabel(b.type)).join(' → '),
@@ -428,6 +432,7 @@ function diffBlocks(oldBlocksRaw: string, newBlocksRaw: string, callerLabel?: st
       const allNew = newBlocks.every(b => !oldIds.has(b.id));
       if (allNew && newBlocks.length > 0) {
         return {
+          mergeKey: 'blocks:replace',
           label: callerLabel || 'Redesigned Layout',
           from: oldBlocks.length === 0 ? '(empty)' : `${oldBlocks.length} blocks`,
           to: `${newBlocks.length} blocks`,
@@ -472,11 +477,13 @@ export function useChangeTracking() {
       let finalTo = to;
       let rawFrom = from;
       let rawTo = to;
+      let mergeKey = field;
 
       // === BLOCKS ===
       if (field === 'blocks') {
         const diff = diffBlocks(from, to, label);
         if (diff) {
+          mergeKey = diff.mergeKey || `${field}:${diff.label || label}`;
           finalLabel = diff.label || label;
           finalFrom = diff.from || from;
           finalTo = diff.to || to;
@@ -525,6 +532,7 @@ export function useChangeTracking() {
       const newChange: Change = {
         id: `${field}-${Date.now()}`,
         field,
+        mergeKey,
         label: finalLabel,
         from: finalFrom,
         to: finalTo,
@@ -535,7 +543,7 @@ export function useChangeTracking() {
 
       // Check if we're modifying an existing field change
       const existingChangeIndex = prev.changes.findIndex(
-        (c) => c.field === field
+        (c) => (c.mergeKey || c.field) === mergeKey
       );
 
       let updatedChanges: Change[];

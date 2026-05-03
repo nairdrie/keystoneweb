@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useEditorContext } from '@/lib/editor-context';
 import EditableText from '../EditableText';
@@ -10,6 +11,8 @@ import {
   Plus, Trash2, Pencil, Check, X, Upload, Loader2,
   UtensilsCrossed, ExternalLink, Image as ImageIcon,
   FileText, List, Star, ChevronUp, ChevronDown, ChevronRight, GripVertical,
+  Flame, Leaf, Vegan, WheatOff, Sprout, Salad, Sandwich, Soup, Pizza,
+  Milk, Nut, Fish, Egg, Heart, Coffee, Circle,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -27,7 +30,22 @@ interface MenuItem {
   image_url: string | null;
   is_available: boolean;
   is_featured: boolean;
+  icon_tags?: string[] | null;
   sort_order: number;
+}
+
+interface MenuSectionRecord {
+  id?: string;
+  name: string;
+  sort_order: number | null;
+}
+
+interface MenuIconOption {
+  id: string;
+  label: string;
+  icon: string;
+  sort_order?: number | null;
+  isDefault?: boolean;
 }
 
 interface MenuBlockProps {
@@ -40,6 +58,9 @@ interface MenuBlockProps {
 
 type MenuVariant = 'list' | 'grid' | 'cards' | 'compact';
 type CategoryStyle = 'heading' | 'badge' | 'divider';
+type ItemDetailImageFit = 'contain' | 'cover' | 'center' | 'stretch';
+type ItemDetailPhotoVisibility = 'always' | 'menu';
+type MenuIconLegendMode = 'all' | 'used' | 'custom';
 const DEFAULT_MENU_SECTION = 'Main Menu';
 const DEFAULT_MENU_SECTION_ORDERS: Record<string, number> = {
   breakfast: 0,
@@ -51,6 +72,50 @@ const DEFAULT_MENU_SECTION_ORDERS: Record<string, number> = {
 const MENU_DRAG_TYPE = 'application/x-keystone-menu-section';
 const CATEGORY_DRAG_TYPE = 'application/x-keystone-menu-category';
 const ITEM_DRAG_TYPE = 'application/x-keystone-menu-item';
+const DEFAULT_MENU_ICON_OPTIONS: MenuIconOption[] = [
+  { id: 'gluten_free', label: 'Gluten-free', icon: 'wheat-off', sort_order: 0, isDefault: true },
+  { id: 'vegetarian', label: 'Vegetarian', icon: 'leaf', sort_order: 1, isDefault: true },
+  { id: 'vegan', label: 'Vegan', icon: 'vegan', sort_order: 2, isDefault: true },
+  { id: 'spicy', label: 'Spicy', icon: 'flame', sort_order: 3, isDefault: true },
+];
+const MENU_ICON_PICKER_OPTIONS = [
+  { id: 'wheat-off', label: 'Wheat off' },
+  { id: 'leaf', label: 'Leaf' },
+  { id: 'vegan', label: 'Vegan' },
+  { id: 'flame', label: 'Flame' },
+  { id: 'sprout', label: 'Sprout' },
+  { id: 'salad', label: 'Salad' },
+  { id: 'sandwich', label: 'Sandwich' },
+  { id: 'soup', label: 'Soup' },
+  { id: 'pizza', label: 'Pizza' },
+  { id: 'milk', label: 'Milk' },
+  { id: 'nut', label: 'Nut' },
+  { id: 'fish', label: 'Fish' },
+  { id: 'egg', label: 'Egg' },
+  { id: 'star', label: 'Star' },
+  { id: 'heart', label: 'Heart' },
+  { id: 'coffee', label: 'Coffee' },
+  { id: 'circle', label: 'Circle' },
+];
+const MENU_ICON_COMPONENTS: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
+  'wheat-off': WheatOff,
+  leaf: Leaf,
+  vegan: Vegan,
+  flame: Flame,
+  sprout: Sprout,
+  salad: Salad,
+  sandwich: Sandwich,
+  soup: Soup,
+  pizza: Pizza,
+  milk: Milk,
+  nut: Nut,
+  fish: Fish,
+  egg: Egg,
+  star: Star,
+  heart: Heart,
+  coffee: Coffee,
+  circle: Circle,
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -101,6 +166,28 @@ function getOrderedMenuSections(groupedByMenu: Record<string, MenuItem[]>): stri
   });
 }
 
+function getOrderedCombinedMenuSections(groupedByMenu: Record<string, MenuItem[]>, sectionRecords: MenuSectionRecord[]): string[] {
+  const orderBySection = new Map<string, number>();
+
+  sectionRecords.forEach((section, index) => {
+    const name = section.name.trim();
+    if (!name) return;
+    orderBySection.set(name, typeof section.sort_order === 'number' ? section.sort_order : index);
+  });
+
+  Object.entries(groupedByMenu).forEach(([section, sectionItems]) => {
+    if (!orderBySection.has(section)) {
+      orderBySection.set(section, getMenuSectionOrder(section, sectionItems));
+    }
+  });
+
+  return Array.from(orderBySection.keys()).sort((a, b) => {
+    const orderDiff = (orderBySection.get(a) ?? Number.MAX_SAFE_INTEGER) - (orderBySection.get(b) ?? Number.MAX_SAFE_INTEGER);
+    if (orderDiff !== 0) return orderDiff;
+    return a.localeCompare(b);
+  });
+}
+
 function getCategoryOrder(category: string, items: MenuItem[]): number {
   const explicitOrders = items
     .map(item => item.category_order)
@@ -126,6 +213,60 @@ function sortMenuItems(items: MenuItem[]): MenuItem[] {
   });
 }
 
+function normalizeMenuIconTags(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(
+    value
+      .filter((tag): tag is string => typeof tag === 'string')
+      .map(tag => tag.trim())
+      .filter(Boolean),
+  ));
+}
+
+function getCombinedMenuIconOptions(customOptions: MenuIconOption[]): MenuIconOption[] {
+  const seen = new Set<string>();
+  return [...DEFAULT_MENU_ICON_OPTIONS, ...customOptions]
+    .filter(option => {
+      if (!option.id || seen.has(option.id)) return false;
+      seen.add(option.id);
+      return true;
+    })
+    .sort((a, b) => {
+      const orderDiff = (a.sort_order ?? Number.MAX_SAFE_INTEGER) - (b.sort_order ?? Number.MAX_SAFE_INTEGER);
+      if (orderDiff !== 0) return orderDiff;
+      return a.label.localeCompare(b.label);
+    });
+}
+
+function getMenuItemIconOptions(item: MenuItem, iconOptions: MenuIconOption[]): MenuIconOption[] {
+  const selectedTags = normalizeMenuIconTags(item.icon_tags);
+  if (selectedTags.length === 0) return [];
+
+  const optionById = new Map(iconOptions.map(option => [option.id, option]));
+  return selectedTags
+    .map(tag => optionById.get(tag))
+    .filter((option): option is MenuIconOption => !!option);
+}
+
+function getLegendMenuIconOptions(
+  items: MenuItem[],
+  iconOptions: MenuIconOption[],
+  mode: MenuIconLegendMode,
+  selectedIds: string[],
+): MenuIconOption[] {
+  if (mode === 'custom') {
+    const selected = new Set(selectedIds);
+    return iconOptions.filter(option => selected.has(option.id));
+  }
+
+  if (mode === 'used') {
+    const usedTags = new Set(items.flatMap(item => normalizeMenuIconTags(item.icon_tags)));
+    return iconOptions.filter(option => usedTags.has(option.id));
+  }
+
+  return iconOptions;
+}
+
 // ─── Main Block ───────────────────────────────────────────────────────────────
 
 export default function MenuBlock({ id, data, isEditMode, palette, updateContent }: MenuBlockProps) {
@@ -135,9 +276,11 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
   const requestNavigation = context?.requestNavigation;
 
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [menuIconOptions, setMenuIconOptions] = useState<MenuIconOption[]>([]);
   const [activeMenu, setActiveMenu] = useState('');
   const [loading, setLoading] = useState(true);
   const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [selectedDetailItem, setSelectedDetailItem] = useState<MenuItem | null>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
   const mode: 'items' | 'pdf' = data.mode || 'items';
@@ -147,7 +290,27 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
   const showRegularImages: boolean = data.showImages === true;
   const showFeaturedImages: boolean = data.showFeaturedImages !== false;
   const showMenuTabs: boolean = data.showMenuTabs !== false;
+  const showMenuIcons: boolean = data.showMenuIcons !== false;
+  const showMenuIconLegend: boolean = data.showMenuIconLegend === true;
+  const menuIconLegendPosition: 'top' | 'bottom' = data.menuIconLegendPosition === 'top' ? 'top' : 'bottom';
+  const menuIconLegendMode: MenuIconLegendMode = data.menuIconLegendMode === 'used' || data.menuIconLegendMode === 'custom'
+    ? data.menuIconLegendMode
+    : 'all';
+  const menuIconLegendIds = normalizeMenuIconTags(data.menuIconLegendIds);
   const categoryStyle: CategoryStyle = data.categoryStyle || 'heading';
+  const itemDetailEnabled: boolean = data.itemDetailEnabled === true;
+  const itemDetailShowPhoto: boolean = data.itemDetailShowPhoto !== false;
+  const itemDetailPhotoVisibility: ItemDetailPhotoVisibility = data.itemDetailPhotoVisibility === 'menu' ? 'menu' : 'always';
+  const itemDetailShowName: boolean = data.itemDetailShowName !== false;
+  const itemDetailShowDescription: boolean = data.itemDetailShowDescription !== false;
+  const itemDetailShowPrice: boolean = data.itemDetailShowPrice !== false;
+  const itemDetailShowCategory: boolean = data.itemDetailShowCategory === true;
+  const itemDetailShowIcons: boolean = data.itemDetailShowIcons === true;
+  const itemDetailImageFit: ItemDetailImageFit = ['contain', 'cover', 'center', 'stretch'].includes(data.itemDetailImageFit)
+    ? data.itemDetailImageFit
+    : 'contain';
+  const itemDetailCaptionBg = resolvePaletteColor(data.itemDetailCaptionBg, palette, '#0f172a');
+  const itemDetailTextColor = resolvePaletteColor(data.itemDetailTextColor, palette, '#ffffff');
   const pPrimary = palette.primary || '#1f2937';
   const pSecondary = palette.secondary || '#dc2626';
   const pAccent = palette.accent || '#f3f4f6';
@@ -166,6 +329,7 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
       image_url: item.image_url ?? null,
       is_available: item.is_available !== false,
       is_featured: item.is_featured === true,
+      icon_tags: normalizeMenuIconTags(item.icon_tags),
       sort_order: item.sort_order ?? index,
     }))
     : [];
@@ -174,10 +338,17 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
     if (!siteId) { setLoading(false); return; }
     fetch(`/api/menu?siteId=${siteId}`)
       .then(r => r.ok ? r.json() : { items: [] })
-      .then(d => setItems(d.items || []))
+      .then(d => {
+        setItems(d.items || []);
+        setMenuIconOptions(Array.isArray(d.iconOptions) ? d.iconOptions : []);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [siteId]);
+
+  useEffect(() => {
+    if (!itemDetailEnabled) setSelectedDetailItem(null);
+  }, [itemDetailEnabled]);
 
   // ── PDF Mode View ────────────────────────────────────────────────────────────
   if (mode === 'pdf' && !isEditMode) {
@@ -230,16 +401,34 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
   }
 
   // ── Items Mode View ──────────────────────────────────────────────────────────
-  if (mode === 'items' && !isEditMode) {
+  if (mode === 'items') {
     const publishedItems = items.filter(i => i.is_available);
     const displayItems = publishedItems.length > 0 ? publishedItems : fallbackItems;
     const groupedByMenu = groupByMenuSection(displayItems);
     const menuSections = getOrderedMenuSections(groupedByMenu);
-    const selectedMenu = menuSections.includes(activeMenu) ? activeMenu : (menuSections[0] || DEFAULT_MENU_SECTION);
-    const sectionItems = showMenuTabs && menuSections.length > 1 ? (groupedByMenu[selectedMenu] || []) : displayItems;
+    const previewMenu = isEditMode && typeof data.__previewMenuSection === 'string' ? data.__previewMenuSection : '';
+    const selectedMenu = previewMenu && menuSections.includes(previewMenu)
+      ? previewMenu
+      : menuSections.includes(activeMenu)
+        ? activeMenu
+        : (menuSections[0] || DEFAULT_MENU_SECTION);
+    const shouldFilterByMenu = !!previewMenu || (showMenuTabs && menuSections.length > 1);
+    const sectionItems = shouldFilterByMenu ? (groupedByMenu[selectedMenu] || []) : displayItems;
     const grouped = groupByCategory(sectionItems);
     const categories = getOrderedCategories(grouped);
     const shouldShowImage = (item: MenuItem) => item.is_featured ? showFeaturedImages : showRegularImages;
+    const shouldShowDetailPhoto = (item: MenuItem) => (
+      itemDetailShowPhoto &&
+      (
+        itemDetailPhotoVisibility === 'always' ||
+        (Boolean(item.image_url) && variant !== 'compact' && shouldShowImage(item))
+      )
+    );
+    const handleSelectDetailItem = itemDetailEnabled ? (item: MenuItem) => setSelectedDetailItem(item) : undefined;
+    const combinedMenuIconOptions = getCombinedMenuIconOptions(menuIconOptions);
+    const legendIconOptions = showMenuIcons && showMenuIconLegend
+      ? getLegendMenuIconOptions(sectionItems, combinedMenuIconOptions, menuIconLegendMode, menuIconLegendIds)
+      : [];
 
     if (loading) {
       return (
@@ -255,16 +444,42 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
       <section className="py-20" style={{ backgroundColor: bgColor || '#fff' }}>
         <div className="max-w-5xl mx-auto px-4">
           {/* Section heading */}
-          {(data.menuTitle || data.menuSubtitle) && (
+          {(data.menuTitle || data.menuSubtitle || isEditMode) && (
             <div className="text-center mb-14">
-              {data.menuTitle && (
+              {(data.menuTitle || isEditMode) && (
                 <Reveal>
-                  <h2 className="text-4xl font-bold mb-3" style={{ color: pPrimary }}>{data.menuTitle}</h2>
+                  {isEditMode ? (
+                    <EditableText
+                      as="h2"
+                      contentKey="menuTitle"
+                      content={data.menuTitle}
+                      defaultValue="Our Menu"
+                      isEditMode={isEditMode}
+                      onSave={(key, val) => updateContent(key, val)}
+                      className="text-4xl font-bold mb-3"
+                      style={{ color: pPrimary }}
+                    />
+                  ) : (
+                    <h2 className="text-4xl font-bold mb-3" style={{ color: pPrimary }}>{data.menuTitle}</h2>
+                  )}
                 </Reveal>
               )}
-              {data.menuSubtitle && (
+              {(data.menuSubtitle || isEditMode) && (
                 <Reveal>
-                  <p className="text-lg opacity-70" style={{ color: pPrimary }}>{data.menuSubtitle}</p>
+                  {isEditMode ? (
+                    <EditableText
+                      as="p"
+                      contentKey="menuSubtitle"
+                      content={data.menuSubtitle}
+                      defaultValue=""
+                      isEditMode={isEditMode}
+                      onSave={(key, val) => updateContent(key, val)}
+                      className="text-lg opacity-70"
+                      style={{ color: pPrimary }}
+                    />
+                  ) : (
+                    <p className="text-lg opacity-70" style={{ color: pPrimary }}>{data.menuSubtitle}</p>
+                  )}
                 </Reveal>
               )}
               <Reveal>
@@ -286,6 +501,9 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
                   pSecondary={pSecondary}
                 />
               )}
+              {legendIconOptions.length > 0 && menuIconLegendPosition === 'top' && (
+                <MenuIconLegend iconOptions={legendIconOptions} palette={palette} />
+              )}
               <div className="space-y-12">
               {categories.map(cat => (
                 <div key={cat}>
@@ -296,35 +514,55 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
                   {variant === 'grid' ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-5">
                       {sortMenuItems(grouped[cat]).map(item => (
-                        <GridItem key={item.id} item={item} palette={palette} showPrices={showPrices} showDescriptions={showDescriptions} showImages={shouldShowImage(item)} />
+                        <GridItem key={item.id} item={item} palette={palette} iconOptions={showMenuIcons ? combinedMenuIconOptions : []} showPrices={showPrices} showDescriptions={showDescriptions} showImages={shouldShowImage(item)} onSelect={handleSelectDetailItem} />
                       ))}
                     </div>
                   ) : variant === 'cards' ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-5">
                       {sortMenuItems(grouped[cat]).map(item => (
-                        <CardItem key={item.id} item={item} palette={palette} showPrices={showPrices} showDescriptions={showDescriptions} showImages={shouldShowImage(item)} />
+                        <CardItem key={item.id} item={item} palette={palette} iconOptions={showMenuIcons ? combinedMenuIconOptions : []} showPrices={showPrices} showDescriptions={showDescriptions} showImages={shouldShowImage(item)} onSelect={handleSelectDetailItem} />
                       ))}
                     </div>
                   ) : variant === 'compact' ? (
                     <div className="mt-3 divide-y divide-slate-100/80">
                       {sortMenuItems(grouped[cat]).map(item => (
-                        <CompactItem key={item.id} item={item} palette={palette} showPrices={showPrices} showDescriptions={showDescriptions} />
+                        <CompactItem key={item.id} item={item} palette={palette} iconOptions={showMenuIcons ? combinedMenuIconOptions : []} showPrices={showPrices} showDescriptions={showDescriptions} onSelect={handleSelectDetailItem} />
                       ))}
                     </div>
                   ) : (
                     // Default: list
                     <div className="mt-4 space-y-0">
                       {sortMenuItems(grouped[cat]).map(item => (
-                        <ListItem key={item.id} item={item} palette={palette} showPrices={showPrices} showDescriptions={showDescriptions} showImages={shouldShowImage(item)} />
+                        <ListItem key={item.id} item={item} palette={palette} iconOptions={showMenuIcons ? combinedMenuIconOptions : []} showPrices={showPrices} showDescriptions={showDescriptions} showImages={shouldShowImage(item)} onSelect={handleSelectDetailItem} />
                       ))}
                     </div>
                   )}
                 </div>
               ))}
               </div>
+              {legendIconOptions.length > 0 && menuIconLegendPosition === 'bottom' && (
+                <MenuIconLegend iconOptions={legendIconOptions} palette={palette} />
+              )}
             </>
           )}
         </div>
+        {itemDetailEnabled && selectedDetailItem && (
+          <MenuItemDetailViewer
+            item={selectedDetailItem}
+            palette={palette}
+            onClose={() => setSelectedDetailItem(null)}
+            showPhoto={shouldShowDetailPhoto(selectedDetailItem)}
+            showName={itemDetailShowName}
+            showDescription={itemDetailShowDescription}
+            showPrice={itemDetailShowPrice}
+            showCategory={itemDetailShowCategory}
+            showIcons={itemDetailShowIcons}
+            iconOptions={combinedMenuIconOptions}
+            imageFit={itemDetailImageFit}
+            captionBg={itemDetailCaptionBg}
+            textColor={itemDetailTextColor}
+          />
+        )}
       </section>
     );
   }
@@ -371,7 +609,7 @@ export default function MenuBlock({ id, data, isEditMode, palette, updateContent
         <div className="flex items-center gap-1 p-0.5 bg-white rounded-full border border-slate-200 text-xs font-bold">
           <button
             onClick={() => updateContent('mode', 'items')}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-full transition-all ${mode === 'items' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-800'}`}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-full transition-all ${data.mode === 'items' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:text-slate-800'}`}
           >
             <List className="w-3 h-3" />
             Item List
@@ -579,12 +817,97 @@ function CategoryHeader({ label, style, pPrimary, pSecondary, pAccent }: { label
   );
 }
 
-function ListItem({ item, palette, showPrices, showDescriptions, showImages }: { item: MenuItem; palette: Record<string, string>; showPrices: boolean; showDescriptions: boolean; showImages: boolean }) {
+function MenuItemFrame({
+  item,
+  onSelect,
+  className,
+  style,
+  children,
+}: {
+  item: MenuItem;
+  onSelect?: (item: MenuItem) => void;
+  className: string;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+}) {
+  if (!onSelect) {
+    return <div className={className} style={style}>{children}</div>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect(item);
+      }}
+      className={`${className} cursor-zoom-in appearance-none bg-transparent text-left transition-colors hover:bg-slate-900/[0.03] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+      style={style}
+      aria-label={`View details for ${item.name}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function MenuIconGlyph({ icon, className }: { icon: string; className?: string }) {
+  const Icon = MENU_ICON_COMPONENTS[icon] || Circle;
+  return <Icon className={className || 'h-3.5 w-3.5'} aria-hidden="true" />;
+}
+
+function MenuItemIconBadges({ item, iconOptions, palette }: { item: MenuItem; iconOptions: MenuIconOption[]; palette: Record<string, string> }) {
+  const pSecondary = palette.secondary || '#dc2626';
+  const itemIconOptions = getMenuItemIconOptions(item, iconOptions);
+  if (itemIconOptions.length === 0) return null;
+
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1 align-middle">
+      {itemIconOptions.map(option => (
+        <span
+          key={option.id}
+          className="inline-flex h-5 w-5 items-center justify-center rounded-full border bg-white text-[10px]"
+          style={{ borderColor: `${pSecondary}30`, color: pSecondary }}
+          title={option.label}
+          aria-label={option.label}
+        >
+          <MenuIconGlyph icon={option.icon} className="h-3 w-3" />
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function MenuIconLegend({ iconOptions, palette }: { iconOptions: MenuIconOption[]; palette: Record<string, string> }) {
+  const pPrimary = palette.primary || '#1f2937';
+  const pSecondary = palette.secondary || '#dc2626';
+
+  return (
+    <Reveal>
+      <div className="my-8 rounded-xl border bg-white/70 px-4 py-3" style={{ borderColor: `${pPrimary}12` }}>
+        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm" style={{ color: pPrimary }}>
+          {iconOptions.map(option => (
+            <span key={option.id} className="inline-flex items-center gap-2">
+              <span
+                className="inline-flex h-6 w-6 items-center justify-center rounded-full border bg-white"
+                style={{ borderColor: `${pSecondary}30`, color: pSecondary }}
+              >
+                <MenuIconGlyph icon={option.icon} className="h-3.5 w-3.5" />
+              </span>
+              <span className="font-medium opacity-80">{option.label}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+    </Reveal>
+  );
+}
+
+function ListItem({ item, palette, iconOptions, showPrices, showDescriptions, showImages, onSelect }: { item: MenuItem; palette: Record<string, string>; iconOptions: MenuIconOption[]; showPrices: boolean; showDescriptions: boolean; showImages: boolean; onSelect?: (item: MenuItem) => void }) {
   const pPrimary = palette.primary || '#1f2937';
   const pSecondary = palette.secondary || '#dc2626';
   return (
     <Reveal>
-      <div className="flex gap-4 py-4 border-b last:border-b-0" style={{ borderColor: `${pPrimary}08` }}>
+      <MenuItemFrame item={item} onSelect={onSelect} className="flex w-full gap-4 rounded-lg border-b py-4 last:border-b-0" style={{ borderColor: `${pPrimary}08` }}>
         {showImages && item.image_url && (
           <img src={item.image_url} alt={item.name} className="w-16 h-16 object-cover rounded-lg shrink-0" />
         )}
@@ -593,6 +916,7 @@ function ListItem({ item, palette, showPrices, showDescriptions, showImages }: {
             <span className="inline-flex items-center gap-1.5 font-bold" style={{ color: pPrimary }}>
               {item.name}
               {item.is_featured && <FeaturedMark color={pSecondary} />}
+              <MenuItemIconBadges item={item} iconOptions={iconOptions} palette={palette} />
             </span>
             {showPrices && item.price && (
               <span className="font-bold shrink-0 text-sm" style={{ color: pSecondary }}>{item.price}</span>
@@ -602,18 +926,18 @@ function ListItem({ item, palette, showPrices, showDescriptions, showImages }: {
             <p className="text-sm mt-0.5 leading-snug opacity-60" style={{ color: pPrimary }}>{item.description}</p>
           )}
         </div>
-      </div>
+      </MenuItemFrame>
     </Reveal>
   );
 }
 
-function GridItem({ item, palette, showPrices, showDescriptions, showImages }: { item: MenuItem; palette: Record<string, string>; showPrices: boolean; showDescriptions: boolean; showImages: boolean }) {
+function GridItem({ item, palette, iconOptions, showPrices, showDescriptions, showImages, onSelect }: { item: MenuItem; palette: Record<string, string>; iconOptions: MenuIconOption[]; showPrices: boolean; showDescriptions: boolean; showImages: boolean; onSelect?: (item: MenuItem) => void }) {
   const pPrimary = palette.primary || '#1f2937';
   const pSecondary = palette.secondary || '#dc2626';
   const pAccent = palette.accent || '#f3f4f6';
   return (
     <Reveal>
-      <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: pAccent, borderColor: `${pPrimary}10` }}>
+      <MenuItemFrame item={item} onSelect={onSelect} className="block w-full overflow-hidden rounded-xl border" style={{ backgroundColor: pAccent, borderColor: `${pPrimary}10` }}>
         {showImages && item.image_url && (
           <div className="aspect-video w-full overflow-hidden">
             <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
@@ -624,6 +948,7 @@ function GridItem({ item, palette, showPrices, showDescriptions, showImages }: {
             <span className="inline-flex items-center gap-1.5 font-bold text-sm leading-tight" style={{ color: pPrimary }}>
               {item.name}
               {item.is_featured && <FeaturedMark color={pSecondary} />}
+              <MenuItemIconBadges item={item} iconOptions={iconOptions} palette={palette} />
             </span>
             {showPrices && item.price && (
               <span className="font-black text-sm shrink-0" style={{ color: pSecondary }}>{item.price}</span>
@@ -633,17 +958,17 @@ function GridItem({ item, palette, showPrices, showDescriptions, showImages }: {
             <p className="text-xs leading-snug opacity-60" style={{ color: pPrimary }}>{item.description}</p>
           )}
         </div>
-      </div>
+      </MenuItemFrame>
     </Reveal>
   );
 }
 
-function CardItem({ item, palette, showPrices, showDescriptions, showImages }: { item: MenuItem; palette: Record<string, string>; showPrices: boolean; showDescriptions: boolean; showImages: boolean }) {
+function CardItem({ item, palette, iconOptions, showPrices, showDescriptions, showImages, onSelect }: { item: MenuItem; palette: Record<string, string>; iconOptions: MenuIconOption[]; showPrices: boolean; showDescriptions: boolean; showImages: boolean; onSelect?: (item: MenuItem) => void }) {
   const pPrimary = palette.primary || '#1f2937';
   const pSecondary = palette.secondary || '#dc2626';
   return (
     <Reveal>
-      <div className="flex gap-4 rounded-xl border p-4 bg-white" style={{ borderColor: `${pPrimary}10` }}>
+      <MenuItemFrame item={item} onSelect={onSelect} className="flex w-full gap-4 rounded-xl border bg-white p-4" style={{ borderColor: `${pPrimary}10` }}>
         {showImages && item.image_url ? (
           <img src={item.image_url} alt={item.name} className="w-24 h-24 object-cover rounded-lg shrink-0" />
         ) : showImages ? (
@@ -656,6 +981,7 @@ function CardItem({ item, palette, showPrices, showDescriptions, showImages }: {
             <span className="inline-flex items-center gap-1.5 font-bold text-base leading-tight" style={{ color: pPrimary }}>
               {item.name}
               {item.is_featured && <FeaturedMark color={pSecondary} />}
+              <MenuItemIconBadges item={item} iconOptions={iconOptions} palette={palette} />
             </span>
             {showPrices && item.price && (
               <span className="font-black text-lg shrink-0" style={{ color: pSecondary }}>{item.price}</span>
@@ -665,30 +991,174 @@ function CardItem({ item, palette, showPrices, showDescriptions, showImages }: {
             <p className="text-sm leading-relaxed mt-1 opacity-70" style={{ color: pPrimary }}>{item.description}</p>
           )}
         </div>
-      </div>
+      </MenuItemFrame>
     </Reveal>
   );
 }
 
-function CompactItem({ item, palette, showPrices, showDescriptions }: { item: MenuItem; palette: Record<string, string>; showPrices: boolean; showDescriptions: boolean }) {
+function CompactItem({ item, palette, iconOptions, showPrices, showDescriptions, onSelect }: { item: MenuItem; palette: Record<string, string>; iconOptions: MenuIconOption[]; showPrices: boolean; showDescriptions: boolean; onSelect?: (item: MenuItem) => void }) {
   const pPrimary = palette.primary || '#1f2937';
   const pSecondary = palette.secondary || '#dc2626';
   return (
-    <Reveal className="flex items-start justify-between py-2.5 gap-4">
-      <div className="min-w-0">
-        <span className="inline-flex items-center gap-1.5 text-sm font-medium" style={{ color: pPrimary }}>
-          {item.name}
-          {item.is_featured && <FeaturedMark color={pSecondary} />}
-        </span>
-        {showDescriptions && item.description && (
-          <p className="mt-0.5 text-xs leading-snug opacity-55" style={{ color: pPrimary }}>{item.description}</p>
+    <Reveal>
+      <MenuItemFrame item={item} onSelect={onSelect} className="flex w-full items-start justify-between gap-4 rounded-lg py-2.5">
+        <div className="min-w-0">
+          <span className="inline-flex items-center gap-1.5 text-sm font-medium" style={{ color: pPrimary }}>
+            {item.name}
+            {item.is_featured && <FeaturedMark color={pSecondary} />}
+            <MenuItemIconBadges item={item} iconOptions={iconOptions} palette={palette} />
+          </span>
+          {showDescriptions && item.description && (
+            <p className="mt-0.5 text-xs leading-snug opacity-55" style={{ color: pPrimary }}>{item.description}</p>
+          )}
+        </div>
+        {showPrices && item.price && (
+          <span className="font-bold text-sm shrink-0" style={{ color: pSecondary }}>{item.price}</span>
         )}
-      </div>
-      {showPrices && item.price && (
-        <span className="font-bold text-sm shrink-0" style={{ color: pSecondary }}>{item.price}</span>
-      )}
+      </MenuItemFrame>
     </Reveal>
   );
+}
+
+function MenuItemDetailViewer({
+  item,
+  palette,
+  onClose,
+  showPhoto,
+  showName,
+  showDescription,
+  showPrice,
+  showCategory,
+  showIcons,
+  iconOptions,
+  imageFit,
+  captionBg,
+  textColor,
+}: {
+  item: MenuItem;
+  palette: Record<string, string>;
+  onClose: () => void;
+  showPhoto: boolean;
+  showName: boolean;
+  showDescription: boolean;
+  showPrice: boolean;
+  showCategory: boolean;
+  showIcons: boolean;
+  iconOptions: MenuIconOption[];
+  imageFit: ItemDetailImageFit;
+  captionBg: string;
+  textColor: string;
+}) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const itemIconOptions = showIcons ? getMenuItemIconOptions(item, iconOptions) : [];
+  const hasCaption = showName || showDescription || showPrice || showCategory || itemIconOptions.length > 0;
+  const hasPhotoArea = showPhoto;
+  const pSecondary = palette.secondary || '#dc2626';
+  const imageFitClass: Record<ItemDetailImageFit, string> = {
+    contain: 'h-full w-full object-contain',
+    cover: 'h-full w-full object-cover',
+    center: 'max-h-full max-w-full object-contain',
+    stretch: 'h-full w-full object-fill',
+  };
+  const imageFitLabel: Record<ItemDetailImageFit, string> = {
+    contain: 'Full image',
+    cover: 'Fill frame',
+    center: 'Centered image',
+    stretch: 'Stretched image',
+  };
+
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
+
+  const viewer = (
+    <div
+      className="fixed inset-0 z-[10050] flex items-center justify-center bg-slate-950/85 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${item.name} menu item details`}
+      onClick={onClose}
+    >
+      <div
+        className="relative flex max-h-[92vh] w-[min(96vw,1100px)] flex-col overflow-hidden rounded-2xl bg-slate-950 shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button
+          ref={closeButtonRef}
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 z-10 rounded-full bg-black/55 p-2 text-white shadow-lg transition-colors hover:bg-black/75 focus:outline-none focus:ring-2 focus:ring-white"
+          aria-label="Close menu item details"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        {hasPhotoArea && (
+          <div className={`flex min-h-0 items-center justify-center bg-slate-950 ${hasCaption ? 'h-[min(62vh,680px)]' : 'h-[min(88vh,860px)]'}`}>
+            {item.image_url ? (
+              <img
+                src={item.image_url}
+                alt={item.name}
+                className={imageFitClass[imageFit]}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-slate-900">
+                <div className="flex h-24 w-24 items-center justify-center rounded-full bg-white/10">
+                  <UtensilsCrossed className="h-12 w-12 text-white/35" />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {hasCaption && (
+          <div
+            className={`${hasPhotoArea ? 'max-h-[28vh] shadow-[0_-18px_60px_rgba(0,0,0,0.35)]' : 'max-h-[86vh]'} shrink-0 overflow-y-auto p-5 sm:p-7`}
+            style={{ backgroundColor: captionBg, color: textColor }}
+          >
+            {(showCategory || (showPrice && item.price) || itemIconOptions.length > 0) && (
+              <div className="mb-2 flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wide opacity-80">
+                <span className="sr-only">Image display mode: {imageFitLabel[imageFit]}</span>
+                {showCategory && <span>{item.category || getMenuSection(item)}</span>}
+                {showPrice && item.price && (
+                  <span className="rounded-full px-2 py-0.5 text-[11px]" style={{ backgroundColor: pSecondary, color: '#ffffff' }}>
+                    {item.price}
+                  </span>
+                )}
+                {itemIconOptions.length > 0 && (
+                  <MenuItemIconBadges item={item} iconOptions={iconOptions} palette={palette} />
+                )}
+              </div>
+            )}
+            {showName && (
+              <h3 className="text-2xl font-black leading-tight sm:text-4xl">
+                {item.name}
+              </h3>
+            )}
+            {showDescription && item.description && (
+              <p className="mt-2 max-w-3xl text-sm leading-relaxed opacity-85 sm:text-base">
+                {item.description}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  return createPortal(viewer, document.body);
 }
 
 function FeaturedMark({ color }: { color: string }) {
@@ -706,6 +1176,7 @@ interface ItemForm {
   image_url: string;
   is_available: boolean;
   is_featured: boolean;
+  icon_tags: string[];
 }
 
 const EMPTY_FORM: ItemForm = {
@@ -717,28 +1188,42 @@ const EMPTY_FORM: ItemForm = {
   image_url: '',
   is_available: true,
   is_featured: false,
+  icon_tags: [],
 };
 
 export function MenuManager({ siteId, palette }: { siteId: string; palette: Record<string, string> }) {
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [menuSectionRecords, setMenuSectionRecords] = useState<MenuSectionRecord[]>([]);
+  const [customMenuIconOptions, setCustomMenuIconOptions] = useState<MenuIconOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const [showIconManager, setShowIconManager] = useState(false);
+  const [newMenuName, setNewMenuName] = useState('');
+  const [newIconLabel, setNewIconLabel] = useState('');
+  const [newIconName, setNewIconName] = useState('circle');
   const [addForm, setAddForm] = useState<ItemForm>(EMPTY_FORM);
   const [editForm, setEditForm] = useState<ItemForm>(EMPTY_FORM);
   const [imageUploading, setImageUploading] = useState<string | null>(null); // itemId or 'new'
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingMenuSection, setDeletingMenuSection] = useState<string | null>(null);
+  const [deletingCategoryKey, setDeletingCategoryKey] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [collapsedMenus, setCollapsedMenus] = useState<Set<string>>(new Set());
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
 
   const pSecondary = palette.secondary || '#dc2626';
+  const allMenuIconOptions = getCombinedMenuIconOptions(customMenuIconOptions);
 
   // Derived: known categories
   const knownCategories = Array.from(new Set(items.map(i => i.category).filter(Boolean)));
-  const knownMenuSections = Array.from(new Set(items.map(i => getMenuSection(i)).filter(Boolean)));
+  const knownMenuSections = Array.from(new Set([
+    ...menuSectionRecords.map(section => section.name).filter(Boolean),
+    ...items.map(i => getMenuSection(i)).filter(Boolean),
+  ]));
 
   useEffect(() => {
     fetchItems();
@@ -750,6 +1235,8 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
       const res = await fetch(`/api/menu?siteId=${siteId}`);
       const data = await res.json();
       setItems(data.items || []);
+      setMenuSectionRecords(Array.isArray(data.sections) ? data.sections : []);
+      setCustomMenuIconOptions(Array.isArray(data.iconOptions) ? data.iconOptions : []);
     } finally {
       setLoading(false);
     }
@@ -768,10 +1255,102 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Failed to add item.'); return; }
       setItems(prev => [...prev, data.item]);
+      setMenuSectionRecords(prev => {
+        const sectionName = getMenuSection(data.item);
+        if (prev.some(section => section.name === sectionName)) return prev;
+        return [...prev, { name: sectionName, sort_order: data.item.menu_section_order ?? menuSections.length }];
+      });
       setAddForm(EMPTY_FORM);
       setShowAdd(false);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleAddMenu() {
+    const menuName = newMenuName.trim();
+    if (!menuName) { setError('Menu name is required.'); return; }
+    setSaving(true);
+    setError('');
+    try {
+      const res = await fetch('/api/menu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create-menu-section', siteId, name: menuName }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Failed to add menu.'); return; }
+      setMenuSectionRecords(prev => {
+        const withoutDuplicate = prev.filter(section => section.name.toLowerCase() !== menuName.toLowerCase());
+        return [...withoutDuplicate, data.section || { name: menuName, sort_order: menuSections.length }];
+      });
+      setNewMenuName('');
+      setShowAddMenu(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleAddMenuIconOption() {
+    const label = newIconLabel.trim();
+    if (!label) { setError('Icon label is required.'); return; }
+    setSaving(true);
+    setError('');
+    try {
+      const res = await fetch('/api/menu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create-menu-icon-option', siteId, label, icon: newIconName }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || 'Failed to add menu icon.'); return; }
+      setCustomMenuIconOptions(prev => [...prev, data.option]);
+      setNewIconLabel('');
+      setNewIconName('circle');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleUpdateMenuIconOption(option: MenuIconOption, changes: Partial<MenuIconOption>) {
+    if (option.isDefault) return;
+    const next = { ...option, ...changes };
+    if (!next.label.trim()) return;
+    setCustomMenuIconOptions(prev => prev.map(current => current.id === option.id ? next : current));
+
+    const res = await fetch('/api/menu', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'update-menu-icon-option',
+        siteId,
+        id: option.id,
+        label: next.label,
+        icon: next.icon,
+      }),
+    });
+    if (!res.ok) {
+      setError('Failed to update menu icon.');
+      await fetchItems();
+    }
+  }
+
+  async function handleDeleteMenuIconOption(option: MenuIconOption) {
+    if (option.isDefault || !confirm(`Delete "${option.label}" menu icon?`)) return;
+    setCustomMenuIconOptions(prev => prev.filter(current => current.id !== option.id));
+    setItems(prev => prev.map(item => ({
+      ...item,
+      icon_tags: normalizeMenuIconTags(item.icon_tags).filter(tag => tag !== option.id),
+    })));
+
+    const res = await fetch('/api/menu', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete-menu-icon-option', siteId, id: option.id }),
+    });
+    if (!res.ok) {
+      setError('Failed to delete menu icon.');
+      await fetchItems();
     }
   }
 
@@ -802,6 +1381,84 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
       setItems(prev => prev.filter(i => i.id !== id));
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleDeleteMenuSection(section: string) {
+    const sectionItems = items.filter(item => getMenuSection(item) === section);
+    const itemCount = sectionItems.length;
+    const itemText = `${itemCount} item${itemCount !== 1 ? 's' : ''}`;
+    const message = itemCount > 0
+      ? `Delete the "${section}" menu? This will also delete ${itemText} inside it.`
+      : `Delete the empty "${section}" menu?`;
+
+    if (!confirm(message)) return;
+
+    setDeletingMenuSection(section);
+    setError('');
+    try {
+      const res = await fetch('/api/menu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete-menu-section', siteId, name: section }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || 'Failed to delete menu.');
+        return;
+      }
+
+      const deletedIds = new Set(sectionItems.map(item => item.id));
+      setItems(prev => prev.filter(item => getMenuSection(item) !== section));
+      setMenuSectionRecords(prev => prev.filter(record => record.name !== section));
+      setCollapsedMenus(prev => {
+        const next = new Set(prev);
+        next.delete(section);
+        return next;
+      });
+      setCollapsedCategories(prev => {
+        const next = new Set(Array.from(prev).filter(key => !key.startsWith(`${section}::`)));
+        return next;
+      });
+      if (editingId && deletedIds.has(editingId)) setEditingId(null);
+    } finally {
+      setDeletingMenuSection(null);
+    }
+  }
+
+  async function handleDeleteMenuCategory(section: string, category: string) {
+    const categoryItems = items.filter(item => getMenuSection(item) === section && item.category === category);
+    const itemCount = categoryItems.length;
+    const itemText = `${itemCount} item${itemCount !== 1 ? 's' : ''}`;
+    const message = `Delete the "${category}" category from "${section}"? This will also delete ${itemText} inside it.`;
+
+    if (!confirm(message)) return;
+
+    const categoryKey = getCategoryKey(section, category);
+    setDeletingCategoryKey(categoryKey);
+    setError('');
+    try {
+      const res = await fetch('/api/menu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete-menu-category', siteId, menu_section: section, category }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || 'Failed to delete category.');
+        return;
+      }
+
+      const deletedIds = new Set(categoryItems.map(item => item.id));
+      setItems(prev => prev.filter(item => !(getMenuSection(item) === section && item.category === category)));
+      setCollapsedCategories(prev => {
+        const next = new Set(prev);
+        next.delete(categoryKey);
+        return next;
+      });
+      if (editingId && deletedIds.has(editingId)) setEditingId(null);
+    } finally {
+      setDeletingCategoryKey(null);
     }
   }
 
@@ -852,6 +1509,10 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
     const orderBySection = new Map(reorderedSections.map((name, index) => [name, index]));
     const affectedItems = items.filter(item => orderBySection.has(getMenuSection(item)));
 
+    setMenuSectionRecords(prev => reorderedSections.map((name, index) => (
+      prev.find(section => section.name === name) || { name, sort_order: index }
+    )).map((section, index) => ({ ...section, sort_order: index })));
+
     setItems(prev => prev.map(item => {
       const order = orderBySection.get(getMenuSection(item));
       return order === undefined ? item : { ...item, menu_section_order: order };
@@ -866,7 +1527,13 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
       });
     }));
 
-    if (responses.some(res => !res.ok)) {
+    const sectionResponse = await fetch('/api/menu', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reorder-menu-sections', siteId, sections: reorderedSections }),
+    });
+
+    if (responses.some(res => !res.ok) || !sectionResponse.ok) {
       setError('Failed to reorder menus.');
       await fetchItems();
     }
@@ -1106,12 +1773,13 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
       image_url: item.image_url || '',
       is_available: item.is_available,
       is_featured: item.is_featured === true,
+      icon_tags: normalizeMenuIconTags(item.icon_tags),
     });
     setError('');
   }
 
   const groupedByMenu = groupByMenuSection(items);
-  const menuSections = getOrderedMenuSections(groupedByMenu);
+  const menuSections = getOrderedCombinedMenuSections(groupedByMenu, menuSectionRecords);
 
   if (loading) {
     return (
@@ -1130,15 +1798,81 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
       {/* Header actions */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-slate-500">{items.length} item{items.length !== 1 ? 's' : ''} across {menuSections.length} menu{menuSections.length !== 1 ? 's' : ''}</p>
-        <button
-          onClick={() => { setShowAdd(true); setAddForm(EMPTY_FORM); setError(''); }}
-          className="flex items-center gap-1.5 px-4 py-2 text-white text-sm font-bold rounded-lg transition-colors hover:opacity-90"
-          style={{ backgroundColor: pSecondary }}
-        >
-          <Plus className="w-4 h-4" />
-          Add Item
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setShowAddMenu(true); setShowAdd(false); setNewMenuName(''); setError(''); }}
+            className="flex items-center gap-1.5 px-4 py-2 border border-blue-200 bg-blue-50 text-blue-700 text-sm font-bold rounded-lg transition-colors hover:bg-blue-100"
+          >
+            <Plus className="w-4 h-4" />
+            Add Menu
+          </button>
+          <button
+            onClick={() => setShowIconManager(!showIconManager)}
+            className="flex items-center gap-1.5 px-4 py-2 border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-bold rounded-lg transition-colors hover:bg-emerald-100"
+          >
+            <Leaf className="w-4 h-4" />
+            Menu Icons
+          </button>
+          <button
+            onClick={() => { setShowAdd(true); setShowAddMenu(false); setAddForm(EMPTY_FORM); setError(''); }}
+            className="flex items-center gap-1.5 px-4 py-2 text-white text-sm font-bold rounded-lg transition-colors hover:opacity-90"
+            style={{ backgroundColor: pSecondary }}
+          >
+            <Plus className="w-4 h-4" />
+            Add Item
+          </button>
+        </div>
       </div>
+
+      {showIconManager && (
+        <MenuIconManager
+          options={allMenuIconOptions}
+          customOptions={customMenuIconOptions}
+          newLabel={newIconLabel}
+          newIcon={newIconName}
+          saving={saving}
+          onNewLabelChange={setNewIconLabel}
+          onNewIconChange={setNewIconName}
+          onAdd={handleAddMenuIconOption}
+          onUpdate={handleUpdateMenuIconOption}
+          onDelete={handleDeleteMenuIconOption}
+        />
+      )}
+
+      {/* Add Menu form */}
+      {showAddMenu && (
+        <div className="bg-white rounded-xl border border-blue-200 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
+            <span className="text-sm font-bold text-blue-800">New Blank Menu</span>
+            <button onClick={() => setShowAddMenu(false)} className="text-blue-400 hover:text-blue-700"><X className="w-4 h-4" /></button>
+          </div>
+          <div className="p-4">
+            <label className="text-xs font-semibold text-slate-500 block mb-1">Menu name</label>
+            <input
+              autoFocus
+              value={newMenuName}
+              onChange={e => setNewMenuName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') handleAddMenu();
+                if (e.key === 'Escape') setShowAddMenu(false);
+              }}
+              placeholder="Breakfast, Lunch, Dinner..."
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <div className="flex gap-2 mt-4 justify-end">
+              <button onClick={() => setShowAddMenu(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+              <button
+                onClick={handleAddMenu}
+                disabled={saving}
+                className="flex items-center gap-1.5 px-5 py-2 border border-blue-200 bg-blue-600 text-white text-sm font-bold rounded-lg disabled:opacity-60 hover:bg-blue-700 transition-colors"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                Add Menu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Item form */}
       {showAdd && (
@@ -1153,6 +1887,7 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
               onChange={setAddForm}
               knownMenuSections={knownMenuSections}
               knownCategories={knownCategories}
+              menuIconOptions={allMenuIconOptions}
               onImageUpload={f => handleImageUpload(f, 'new')}
               imageUploading={imageUploading === 'new'}
             />
@@ -1173,16 +1908,17 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
       )}
 
       {/* Item list by category */}
-      {items.length === 0 && !showAdd ? (
+      {menuSections.length === 0 && !showAdd && !showAddMenu ? (
         <div className="text-center py-16 text-slate-400">
           <UtensilsCrossed className="w-12 h-12 mx-auto mb-3 opacity-20" />
-          <p className="font-medium">No menu items yet</p>
-          <p className="text-sm mt-1">Add your first item above.</p>
+          <p className="font-medium">No menus yet</p>
+          <p className="text-sm mt-1">Add a blank menu or create your first item above.</p>
         </div>
       ) : (
         <div className="space-y-4">
           {menuSections.map((section, sectionIndex) => {
-            const sectionGrouped = groupByCategory(groupedByMenu[section]);
+            const sectionItems = groupedByMenu[section] || [];
+            const sectionGrouped = groupByCategory(sectionItems);
             const orderedCategories = getOrderedCategories(sectionGrouped);
             const isMenuCollapsed = collapsedMenus.has(section);
             const menuDragKey = `menu:${section}`;
@@ -1231,7 +1967,7 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
                     <span className="truncate text-sm font-bold">{section}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-white/60">{groupedByMenu[section].length} item{groupedByMenu[section].length !== 1 ? 's' : ''}</span>
+                    <span className="text-xs text-white/60">{sectionItems.length} item{sectionItems.length !== 1 ? 's' : ''}</span>
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
@@ -1251,9 +1987,37 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
                       >
                         <ChevronDown className="h-4 w-4" />
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteMenuSection(section)}
+                        disabled={deletingMenuSection === section}
+                        title="Delete menu"
+                        aria-label={`Delete ${section} menu`}
+                        className="rounded-md p-1 text-white/70 transition-colors hover:bg-red-500/20 hover:text-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {deletingMenuSection === section ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                      </button>
                     </div>
                   </div>
                 </div>
+                {!isMenuCollapsed && orderedCategories.length === 0 && (
+                  <div
+                    onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverTarget(`empty-menu:${section}`); }}
+                    onDragLeave={e => { e.stopPropagation(); setDragOverTarget(current => current === `empty-menu:${section}` ? null : current); }}
+                    onDrop={e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDragOverTarget(null);
+                      handleDropMenuItemIntoSection(e.dataTransfer.getData(ITEM_DRAG_TYPE), section);
+                    }}
+                    className={`px-4 py-8 text-center text-sm text-slate-400 ${dragOverTarget === `empty-menu:${section}` ? 'bg-blue-50 text-blue-500' : 'bg-white'}`}
+                  >
+                    <p className="font-medium text-slate-500">This menu is empty.</p>
+                    <p className="mt-1 text-xs">
+                      Add an item and choose <span className="font-medium">{section}</span> as its menu.
+                    </p>
+                  </div>
+                )}
                 {!isMenuCollapsed && orderedCategories.map((cat, categoryIndex) => {
                   const catItems = sectionGrouped[cat];
                   const orderedCatItems = sortMenuItems(catItems);
@@ -1325,6 +2089,16 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
                           >
                             <ChevronDown className="h-3.5 w-3.5" />
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteMenuCategory(section, cat)}
+                            disabled={deletingCategoryKey === categoryKey}
+                            title="Delete category"
+                            aria-label={`Delete ${cat} category`}
+                            className="rounded-md p-1 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {deletingCategoryKey === categoryKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1349,6 +2123,7 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
                           onChange={setEditForm}
                           knownMenuSections={knownMenuSections}
                           knownCategories={knownCategories}
+                          menuIconOptions={allMenuIconOptions}
                           onImageUpload={f => handleImageUpload(f, item.id)}
                           imageUploading={imageUploading === item.id}
                         />
@@ -1409,6 +2184,7 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
                                 Featured
                               </span>
                             )}
+                            <MenuItemIconBadges item={item} iconOptions={allMenuIconOptions} palette={palette} />
                             {item.price && <span className="text-xs font-bold" style={{ color: pSecondary }}>{item.price}</span>}
                           </div>
                           {item.description && (
@@ -1478,11 +2254,167 @@ export function MenuManager({ siteId, palette }: { siteId: string; palette: Reco
 
 // ─── Item Form Fields ─────────────────────────────────────────────────────────
 
+function MenuIconManager({
+  customOptions,
+  newLabel,
+  newIcon,
+  saving,
+  onNewLabelChange,
+  onNewIconChange,
+  onAdd,
+  onUpdate,
+  onDelete,
+}: {
+  options: MenuIconOption[];
+  customOptions: MenuIconOption[];
+  newLabel: string;
+  newIcon: string;
+  saving: boolean;
+  onNewLabelChange: (label: string) => void;
+  onNewIconChange: (icon: string) => void;
+  onAdd: () => void;
+  onUpdate: (option: MenuIconOption, changes: Partial<MenuIconOption>) => void;
+  onDelete: (option: MenuIconOption) => void;
+}) {
+  const [draftCustomOptions, setDraftCustomOptions] = useState<MenuIconOption[]>(customOptions);
+
+  useEffect(() => {
+    setDraftCustomOptions(customOptions);
+  }, [customOptions]);
+
+  return (
+    <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
+      <h4 className="text-sm font-bold text-emerald-900">Menu Icons</h4>
+      <p className="mt-0.5 text-xs text-emerald-700/80">Assign dietary or custom icons to each menu item.</p>
+
+      <div className="mt-4 space-y-4">
+        <div>
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-emerald-800">Built-in icons</p>
+          <div className="flex flex-wrap gap-2">
+            {DEFAULT_MENU_ICON_OPTIONS.map(option => (
+              <span key={option.id} className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800">
+                <MenuIconGlyph icon={option.icon} className="h-3.5 w-3.5" />
+                {option.label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-emerald-100 bg-white p-3">
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Custom icons</p>
+          <div className="space-y-2">
+            {draftCustomOptions.length === 0 && (
+              <p className="text-xs text-slate-400">No custom menu icons yet.</p>
+            )}
+            {draftCustomOptions.map(option => (
+              <div key={option.id} className="flex items-center gap-2">
+                <MenuIconPicker
+                  value={option.icon}
+                  onChange={icon => {
+                    const next = { ...option, icon };
+                    setDraftCustomOptions(prev => prev.map(current => current.id === option.id ? next : current));
+                    onUpdate(option, { icon });
+                  }}
+                  compact
+                />
+                <input
+                  value={option.label}
+                  onChange={e => {
+                    const label = e.target.value;
+                    setDraftCustomOptions(prev => prev.map(current => current.id === option.id ? { ...current, label } : current));
+                  }}
+                  onBlur={() => onUpdate(option, { label: option.label })}
+                  onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                  className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => onDelete(option)}
+                  className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                  aria-label={`Delete ${option.label}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <MenuIconPicker value={newIcon} onChange={onNewIconChange} compact />
+            <input
+              value={newLabel}
+              onChange={e => onNewLabelChange(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') onAdd(); }}
+              placeholder="Custom label, e.g. Dairy-free"
+              className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            <button
+              type="button"
+              onClick={onAdd}
+              disabled={saving}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              Add Icon
+            </button>
+          </div>
+        </div>
+
+        <p className="text-xs text-emerald-700/75">
+          These options appear in the item editor below. The public menu legend is controlled in the Menu block settings.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function MenuIconPicker({ value, onChange, compact = false }: { value: string; onChange: (icon: string) => void; compact?: boolean }) {
+  if (compact) {
+    return (
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="h-10 rounded-lg border border-slate-200 bg-white px-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+        aria-label="Choose menu icon"
+      >
+        {MENU_ICON_PICKER_OPTIONS.map(option => (
+          <option key={option.id} value={option.id}>{option.label}</option>
+        ))}
+      </select>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-6 gap-2">
+      {MENU_ICON_PICKER_OPTIONS.map(option => {
+        const isSelected = value === option.id;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => onChange(option.id)}
+            title={option.label}
+            aria-pressed={isSelected}
+            className={`flex h-10 items-center justify-center rounded-lg border transition-colors ${
+              isSelected
+                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+            }`}
+          >
+            <MenuIconGlyph icon={option.id} className="h-4 w-4" />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function ItemFormFields({
   form,
   onChange,
   knownMenuSections,
   knownCategories,
+  menuIconOptions,
   onImageUpload,
   imageUploading,
 }: {
@@ -1490,6 +2422,7 @@ function ItemFormFields({
   onChange: (f: ItemForm) => void;
   knownMenuSections: string[];
   knownCategories: string[];
+  menuIconOptions: MenuIconOption[];
   onImageUpload: (f: File) => void;
   imageUploading: boolean;
 }) {
@@ -1602,6 +2535,38 @@ function ItemFormFields({
           rows={2}
           className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
         />
+      </div>
+
+      {/* Menu icons */}
+      <div className="sm:col-span-2">
+        <label className="text-xs font-semibold text-slate-600 block mb-2">Menu icons</label>
+        <div className="flex flex-wrap gap-2">
+          {menuIconOptions.map(option => {
+            const selectedTags = normalizeMenuIconTags(form.icon_tags);
+            const isSelected = selectedTags.includes(option.id);
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => {
+                  const nextTags = isSelected
+                    ? selectedTags.filter(tag => tag !== option.id)
+                    : [...selectedTags, option.id];
+                  onChange({ ...form, icon_tags: nextTags });
+                }}
+                aria-pressed={isSelected}
+                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  isSelected
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                    : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                }`}
+              >
+                <MenuIconGlyph icon={option.icon} className="h-3.5 w-3.5" />
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Image */}

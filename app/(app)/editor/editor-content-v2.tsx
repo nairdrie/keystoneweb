@@ -106,6 +106,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
   const [editMode, setEditMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [menuInspectorOpen, setMenuInspectorOpen] = useState(false);
   const [viewAsMember, setViewAsMember] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
 
@@ -118,6 +119,16 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
       }
       hasInitSidebarRef.current = true;
     }
+  }, []);
+
+  useEffect(() => {
+    const handleMenuInspectorState = (event: Event) => {
+      const detail = (event as CustomEvent<{ open?: boolean }>).detail;
+      setMenuInspectorOpen(detail?.open === true);
+    };
+
+    window.addEventListener('ks:menu-inspector-state', handleMenuInspectorState);
+    return () => window.removeEventListener('ks:menu-inspector-state', handleMenuInspectorState);
   }, []);
   const [editableContent, setEditableContent] = useState<Record<string, any>>({});
   const [siteContent, setSiteContent] = useState<Record<string, any>>({});
@@ -1232,7 +1243,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   return (
     <CartProvider siteId={siteId || ''}>
       <div
-        className={`fixed inset-0 flex flex-col overflow-hidden transition-[margin] duration-300 ease-out ${sidebarOpen ? 'lg:ml-[22rem]' : ''}`}
+        className={`fixed inset-0 flex flex-col overflow-hidden transition-[margin] duration-300 ease-out ${sidebarOpen ? 'lg:ml-[22rem]' : ''} ${menuInspectorOpen ? 'lg:mr-[28rem]' : ''}`}
       >
         {/* Floating Toolbar / Sidebar */}
         <FloatingToolbar
@@ -1317,12 +1328,18 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
             {/* Hamburger Menu Button (Toggle settings panel on all screen sizes) */}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="flex-shrink-0 flex items-center hover:opacity-80 transition-opacity mr-4 text-white"
+              className="relative flex-shrink-0 flex items-center hover:opacity-80 transition-opacity mr-4 text-white"
               title={sidebarOpen ? "Close settings" : "Open settings"}
+              aria-label={sidebarOpen ? "Close settings" : "Open settings"}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
+              {!sidebarOpen && changesHook.changes.length > 0 && (
+                <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-none text-white shadow ring-2 ring-white">
+                  {changesHook.changes.length > 99 ? '99+' : changesHook.changes.length}
+                </span>
+              )}
             </button>
 
             {/* Page Selector */}
