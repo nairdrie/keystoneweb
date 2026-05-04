@@ -8,6 +8,7 @@ import FloatingToolbar from '@/app/components/FloatingToolbar';
 import { EditorProvider, BlockData, NavItem } from '@/lib/editor-context';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
+import { getTemplatePreviewImage } from '@/lib/template-preview-assets';
 import { useAuth } from '@/lib/auth/context';
 import { useImageUpload } from '@/lib/hooks/useImageUpload';
 import { useChangeTracking } from '@/lib/hooks/useChangeTracking';
@@ -497,7 +498,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
       if (metadata) {
         setTemplateInfo({
           name: metadata.name,
-          thumbnailUrl: metadata.thumbnail_url,
+          thumbnailUrl: getTemplatePreviewImage(templateId) || metadata.thumbnail_url,
           description: metadata.description,
         });
         const palettesObj = metadata.palettes || {};
