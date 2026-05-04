@@ -14,9 +14,18 @@ export const DEFAULT_TEMPLATE_BLOCKS: Record<string, any[]> = {
             id: uuidv4(),
             type: 'hero',
             data: {
-                title: "Expert Services You Can Trust",
-                subtitle: "We provide top-notch professional guarantees with decades of combined experience. Available 24/7 for all your needs.",
-                buttonText: "Get a Free Quote",
+                cards: [{
+                    id: 'classic-hero-1',
+                    content: {
+                        title: { enabled: true, value: 'Expert Services You Can Trust', align: 'left' },
+                        subtitle: { enabled: true, value: 'We provide top-notch professional guarantees with decades of combined experience. Available 24/7 for all your needs.', align: 'left' },
+                        cta: { enabled: true, label: 'Get a Free Quote', align: 'left' },
+                        image: { enabled: false, url: '', side: 'right' },
+                    },
+                    background: { type: 'gradient', gradient: { from: 'palette:accent', to: 'palette:accent', angle: 0 }, overlay: { color: '#000000', opacity: 0 } },
+                }],
+                transition: { type: 'fade', intervalSec: 5, pauseOnHover: true },
+                height: { mode: 'fitContent', valuePx: 600 },
             }
         },
         {
@@ -94,11 +103,18 @@ export const DEFAULT_TEMPLATE_BLOCKS: Record<string, any[]> = {
             id: uuidv4(),
             type: 'hero',
             data: {
-                title: "Simplicity is the ultimate sophistication.",
-                subtitle: "Elevating your everyday experience through focused, intentional service execution.",
-                buttonText: "Discover Our Method",
-                // Passing a hint for the block renderer to know it should render minimalist
-                align: 'center'
+                cards: [{
+                    id: 'minimal-hero-1',
+                    content: {
+                        title: { enabled: true, value: 'Simplicity is the ultimate sophistication.', align: 'center' },
+                        subtitle: { enabled: true, value: 'Elevating your everyday experience through focused, intentional service execution.', align: 'center' },
+                        cta: { enabled: true, label: 'Discover Our Method', align: 'center' },
+                        image: { enabled: false, url: '', side: 'right' },
+                    },
+                    background: { type: 'gradient', gradient: { from: 'palette:accent', to: 'palette:accent', angle: 0 }, overlay: { color: '#000000', opacity: 0 } },
+                }],
+                transition: { type: 'fade', intervalSec: 5, pauseOnHover: true },
+                height: { mode: 'fitContent', valuePx: 600 },
             }
         },
         {
@@ -142,10 +158,18 @@ export const DEFAULT_TEMPLATE_BLOCKS: Record<string, any[]> = {
             id: uuidv4(),
             type: 'hero',
             data: {
-                title: "Modern Solutions for Modern Problems.",
-                subtitle: "Fast, reliable, and technologically advanced service delivery right to your door.",
-                buttonText: "Schedule Service",
-                align: 'left'
+                cards: [{
+                    id: 'modern-hero-1',
+                    content: {
+                        title: { enabled: true, value: 'Modern Solutions for Modern Problems.', align: 'left' },
+                        subtitle: { enabled: true, value: 'Fast, reliable, and technologically advanced service delivery right to your door.', align: 'left' },
+                        cta: { enabled: true, label: 'Schedule Service', align: 'left' },
+                        image: { enabled: false, url: '', side: 'right' },
+                    },
+                    background: { type: 'gradient', gradient: { from: 'palette:primary', to: 'palette:secondary', angle: 135 }, overlay: { color: '#000000', opacity: 0 } },
+                }],
+                transition: { type: 'fade', intervalSec: 5, pauseOnHover: true },
+                height: { mode: 'fitContent', valuePx: 600 },
             }
         },
         {

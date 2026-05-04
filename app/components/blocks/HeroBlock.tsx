@@ -1,511 +1,363 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import { BlockData, useEditorContext } from '@/lib/editor-context';
 import EditableText from '@/app/components/EditableText';
 import EditableImage from '@/app/components/EditableImage';
-import EditableButton from '@/app/components/EditableButton';
+import EditableButton, { type ButtonIconData, type ButtonLinkData } from '@/app/components/EditableButton';
+import type { ImageSettings, UnsplashAttribution } from '@/app/components/ImageEditorModal';
 import Reveal from '@/app/components/Reveal';
-import { useState, useEffect, useRef } from 'react';
-import { Video } from 'lucide-react';
-import PexelsVideoPickerModal from '@/app/components/PexelsVideoPickerModal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import {
+    DEFAULT_CTA_LABEL,
+    DEFAULT_SUBTITLE,
+    DEFAULT_TITLE,
+    HeroBackground,
+    HeroCard,
+    HeroData,
+    legacyVariantClass,
+    migrateLegacyHeroData,
+} from './hero/hero-schema';
+import { HeroBgAnimation } from './hero/HeroBgAnimations';
 
-export default function HeroBlock({ block, palette }: { block: BlockData, palette: Record<string, string> }) {
+const TEXT_ALIGN_CLASS: Record<'left' | 'center' | 'right', string> = {
+    left: 'text-left',
+    center: 'text-center',
+    right: 'text-right',
+};
+
+const FLEX_ALIGN_CLASS: Record<'left' | 'center' | 'right', string> = {
+    left: 'justify-start',
+    center: 'justify-center',
+    right: 'justify-end',
+};
+
+export default function HeroBlock({ block, palette }: { block: BlockData; palette: Record<string, string> }) {
     const context = useEditorContext();
     const isEditMode = context?.isEditMode || false;
 
-    const updateData = (key: string, value: any) => {
-        context?.updateBlockData?.(block.id, key, value);
+    const data: HeroData = useMemo(() => migrateLegacyHeroData(block.data), [block.data]);
+
+    const cards = data.cards;
+    const cardCount = cards.length;
+    const transition = data.transition;
+    const heightCfg = data.height;
+
+    const editorActiveIndex = typeof block.data?.__activeCardIndex === 'number' ? block.data.__activeCardIndex : null;
+    const pauseRotation = block.data?.__pauseRotation === true;
+
+    const [autoIndex, setAutoIndex] = useState(0);
+    const activeIndex = editorActiveIndex !== null
+        ? Math.max(0, Math.min(editorActiveIndex, cardCount - 1))
+        : Math.max(0, Math.min(autoIndex, cardCount - 1));
+
+    useEffect(() => {
+        if (cardCount <= 1 || pauseRotation || transition.type === 'none') return;
+        const id = setInterval(() => {
+            setAutoIndex((i) => (i + 1) % cardCount);
+        }, Math.max(2, transition.intervalSec) * 1000);
+        return () => clearInterval(id);
+    }, [cardCount, pauseRotation, transition.intervalSec, transition.type]);
+
+    const updateData = (cardIndex: number) => (key: string, value: unknown) => {
+        // Inline-edit a content field of a specific card. Persists by writing
+        // the whole `cards` array back through editor context.
+        const next = cards.map((c, i) => {
+            if (i !== cardIndex) return c;
+            const nc: HeroCard = JSON.parse(JSON.stringify(c));
+            // Keys we know how to project back into the new schema
+            if (key === 'title') {
+                nc.content.title.value = String(value ?? '');
+            } else if (key === 'subtitle') {
+                nc.content.subtitle.value = String(value ?? '');
+            } else if (key === 'buttonText') {
+                nc.content.cta.label = String(value ?? '');
+            } else if (key === 'buttonTextLink') {
+                nc.content.cta.link = value;
+            } else if (key === 'buttonTextIcon') {
+                nc.content.cta.icon = value;
+            } else if (key === 'image') {
+                nc.content.image.url = String(value ?? '');
+            } else if (key === 'image__settings') {
+                nc.content.image.settings = value;
+            } else if (key === 'image__attribution') {
+                nc.content.image.attribution = value;
+            }
+            return nc;
+        });
+        context?.updateBlockData?.(block.id, 'cards', next);
+
+        // Style metadata (font/color) is still keyed off the old `__styles`
+        // properties — pass through unchanged so existing element-level
+        // settings keep working.
+        if (key.endsWith('__styles')) {
+            context?.updateBlockData?.(block.id, key, value);
+        }
     };
 
+    // Pick the LCP image URL for hint preloading
+    const lcpImageUrl: string | null = useMemo(() => {
+        if (isEditMode) return null;
+        const c = cards[0];
+        if (!c) return null;
+        if (c.background.type === 'image' && c.background.image?.url) return c.background.image.url;
+        if (c.content.image.enabled && c.content.image.url) return c.content.image.url;
+        return null;
+    }, [cards, isEditMode]);
+
+    // Compute height styles
+    const heightStyles = useMemo<React.CSSProperties>(() => {
+        const out: React.CSSProperties = {};
+        if (heightCfg.mode === 'manual') {
+            out.minHeight = `${heightCfg.valuePx}px`;
+        } else if (heightCfg.mode === 'fitScreen') {
+            // Will be refined via inline CSS class targeting first-block context.
+            out.minHeight = '100dvh';
+        }
+        return out;
+    }, [heightCfg]);
+
+    return (
+        <section
+            className={`hero relative overflow-hidden ks-hero-${heightCfg.mode}`}
+            style={heightStyles}
+            data-hero-cards={cardCount}
+        >
+            {/* fit-screen header awareness, scoped to .first-block-offset wrapping */}
+            <style dangerouslySetInnerHTML={{ __html: HERO_HEIGHT_CSS }} />
+
+            {lcpImageUrl && <link rel="preload" as="image" href={lcpImageUrl} fetchPriority="high" />}
+
+            {cards.map((card, i) => {
+                const isActive = i === activeIndex;
+                const transitionStyles = computeCardTransition(transition.type, isActive, i, activeIndex, cardCount);
+                return (
+                    <div
+                        key={card.id}
+                        className={`absolute inset-0 ${legacyVariantClass(card)} ${isActive ? 'ks-hero-card-active' : ''}`}
+                        style={{
+                            ...transitionStyles,
+                            position: cardCount === 1 ? 'relative' : 'absolute',
+                        }}
+                        aria-hidden={!isActive}
+                    >
+                        <HeroCardRenderer
+                            card={card}
+                            palette={palette}
+                            isEditMode={isEditMode && isActive}
+                            onSave={updateData(i)}
+                            uploadImage={context?.uploadImage}
+                            blockData={block.data}
+                        />
+                    </div>
+                );
+            })}
+
+            {/* Card dots in non-edit mode */}
+            {!isEditMode && cardCount > 1 && transition.type !== 'none' && (
+                <div className="absolute bottom-4 left-1/2 z-30 -translate-x-1/2 flex gap-2">
+                    {cards.map((_, i) => (
+                        <button
+                            key={i}
+                            type="button"
+                            onClick={() => setAutoIndex(i)}
+                            aria-label={`Go to card ${i + 1}`}
+                            className={`h-2 w-2 rounded-full transition-all ${i === activeIndex ? 'bg-white w-6' : 'bg-white/50 hover:bg-white/70'}`}
+                        />
+                    ))}
+                </div>
+            )}
+        </section>
+    );
+}
+
+const HERO_HEIGHT_CSS = `
+.first-block-offset > .ks-block .hero.ks-hero-fitScreen { min-height: calc(100dvh - var(--ks-header-height, 0px)); }
+:root[data-ks-header-overlay="true"] .first-block-offset > .ks-block .hero.ks-hero-fitScreen {
+    min-height: 100dvh;
+    padding-top: var(--ks-header-height, 0px);
+}
+`;
+
+function computeCardTransition(
+    type: 'fade' | 'slide' | 'none',
+    isActive: boolean,
+    cardIndex: number,
+    activeIndex: number,
+    cardCount: number,
+): React.CSSProperties {
+    if (cardCount <= 1) return { opacity: 1 };
+    if (type === 'none') return { opacity: isActive ? 1 : 0, pointerEvents: isActive ? 'auto' : 'none' };
+    if (type === 'fade') {
+        return {
+            opacity: isActive ? 1 : 0,
+            transition: 'opacity 700ms ease-in-out',
+            pointerEvents: isActive ? 'auto' : 'none',
+        };
+    }
+    // slide: shift translateX
+    const offset = (cardIndex - activeIndex) * 100;
+    return {
+        transform: `translateX(${offset}%)`,
+        transition: 'transform 700ms ease-in-out',
+        pointerEvents: isActive ? 'auto' : 'none',
+    };
+}
+
+function HeroCardRenderer({
+    card,
+    palette,
+    isEditMode,
+    onSave,
+    uploadImage,
+    blockData,
+}: {
+    card: HeroCard;
+    palette: Record<string, string>;
+    isEditMode: boolean;
+    onSave: (key: string, value: unknown) => void;
+    uploadImage?: (file: File, contentKey: string) => Promise<string>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    blockData: Record<string, any> | undefined;
+}) {
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#ef4444';
     const pAccent = palette.accent || '#f3f4f6';
-    const configuredBackgroundColor = resolvePaletteColor(block.data.backgroundColor, palette, '');
 
-    const variant = block.data.variant || 'split'; // 'split' | 'centered' | 'fullImage' | 'minimal' | 'video'
-    const title = block.data.title !== undefined ? block.data.title : 'Welcome to our site';
-    const subtitle = block.data.subtitle !== undefined ? block.data.subtitle : 'We offer the best services available.';
-    const imageUrl = block.data.image || '';
-    const buttonText = block.data.buttonText !== undefined ? block.data.buttonText : 'Get a Free Quote';
-    const videoUrl = block.data.videoUrl || '';
-    const [videoInputValue, setVideoInputValue] = useState(videoUrl);
-    const [showVideoInput, setShowVideoInput] = useState(false);
-    const [showPexelsPicker, setShowPexelsPicker] = useState(false);
-    const videoInputRef = useRef<HTMLInputElement>(null);
+    const showText = card.content.title.enabled || card.content.subtitle.enabled || card.content.cta.enabled;
+    const showForeground = card.content.image.enabled && (card.content.image.url || isEditMode);
+    const imageOnRight = card.content.image.side !== 'left';
 
-    useEffect(() => { setVideoInputValue(videoUrl); }, [videoUrl]);
-    useEffect(() => { if (showVideoInput) videoInputRef.current?.focus(); }, [showVideoInput]);
+    // Default text color: white when on a media background, primary otherwise.
+    const isMediaBg = card.background.type === 'image' || card.background.type === 'video' || card.background.type === 'animation';
+    const textColor = isMediaBg ? '#ffffff' : pPrimary;
 
-    // Advanced Background Carousel State
-    const carouselImages: string[] = Array.isArray(block.data.bgCarouselImages) ? block.data.bgCarouselImages : [];
-    const carouselInterval = (block.data.bgCarouselTiming || 5) * 1000;
-    const carouselTransition: 'fade' | 'swipe' | 'scroll' = block.data.bgCarouselTransition || 'fade';
-    const [currentSlide, setCurrentSlide] = useState(0);
-
-    useEffect(() => {
-        // Smooth scroll mode uses CSS animation, no JS interval needed
-        if (block.data.bgType !== 'carousel' || carouselImages.length <= 1 || carouselTransition === 'scroll') return;
-        const interval = setInterval(() => {
-            setCurrentSlide(s => (s + 1) % carouselImages.length);
-        }, carouselInterval);
-        return () => clearInterval(interval);
-    }, [block.data.bgType, carouselImages.length, carouselInterval, carouselTransition]);
-
-    // Pick the LCP image URL for this hero so we can hint the browser to
-    // start fetching it during HTML parse. React 19 hoists <link> into <head>.
-    const lcpImageUrl: string | null = isEditMode
-        ? null
-        : variant === 'centered'
-            ? (block.data.bgType === 'image' && block.data.bgImage)
-                ? block.data.bgImage
-                : (block.data.bgType === 'carousel' && carouselImages[0])
-                    ? carouselImages[0]
-                    : null
-            : variant === 'video'
-                ? (videoUrl ? null : imageUrl || null)
-                : (variant === 'fullImage' || variant === 'split')
-                    ? imageUrl || null
-                    : null;
-
-    // Minimal variant — large typography, no image, clean background
-    if (variant === 'minimal') {
-        const showButton = block.data.showButton !== false;
-        return (
-            <section className="hero hero-minimal py-40 relative" style={{ backgroundColor: configuredBackgroundColor || pAccent }}>
-                <div className="hero-container max-w-5xl mx-auto px-4">
-                    <Reveal>
-                        <EditableText
-                            as="h1"
-                            contentKey="title"
-                            styleData={block.data['title__styles']}
-                            content={title}
-                            defaultValue="Welcome to our site"
-                            isEditMode={isEditMode}
-                            onSave={(key, val) => updateData(key, val)}
-                            className="hero-title text-6xl md:text-8xl font-black mb-8 leading-[0.95] tracking-tight"
-                            style={{ color: pPrimary }}
-                        />
-                    </Reveal>
-                    <div className="hero-footer flex flex-col md:flex-row md:items-end md:justify-between gap-8">
-                        <Reveal className="max-w-xl">
-                            <EditableText
-                                as="p"
-                                contentKey="subtitle"
-                                styleData={block.data['subtitle__styles']}
-                                content={subtitle}
-                                defaultValue="We offer the best services available."
-                                isEditMode={isEditMode}
-                                onSave={(key, val) => updateData(key, val)}
-                                className="hero-subtitle text-xl md:text-2xl text-gray-500"
-                            />
-                        </Reveal>
-                        {showButton && (
-                            <Reveal>
-                                <EditableButton
-                                    contentKey="buttonText"
-                                    label={buttonText}
-                                    linkData={block.data.buttonTextLink}
-                                    iconData={block.data.buttonTextIcon}
-                                    defaultLabel="Get Started"
-                                    isEditMode={isEditMode}
-                                    onSave={(key, val) => updateData(key, val)}
-                                    className="hero-button px-10 py-4 text-lg font-bold rounded-full shadow-lg hover:scale-105 transition-transform text-white inline-block flex-shrink-0"
-                                    style={{ backgroundColor: pSecondary }}
-                                />
-                            </Reveal>
-                        )}
-                    </div>
-                </div>
-            </section>
-        );
-    }
-
-    // Video variant — video background with text overlay
-    if (variant === 'video') {
-        return (
-            <section className="hero hero-video relative min-h-[80vh] flex items-center overflow-hidden">
-                {videoUrl ? (
-                    <video
-                        autoPlay
-                        muted
-                        loop
-                        playsInline
-                        className="hero-video-bg absolute inset-0 w-full h-full object-cover"
-                    >
-                        <source src={videoUrl} type="video/mp4" />
-                    </video>
-                ) : imageUrl ? (
-                    <img src={imageUrl} alt={block.data.image__settings?.altText || ''} role={block.data.image__settings?.altText ? undefined : 'presentation'} className="hero-image absolute inset-0 w-full h-full object-cover" loading="eager" fetchPriority="high" decoding="sync" />
-                ) : (
-                    <div className="hero-bg-fallback absolute inset-0" style={{ background: `linear-gradient(135deg, ${pPrimary}, ${pSecondary})` }} />
-                )}
-                {lcpImageUrl && <link rel="preload" as="image" href={lcpImageUrl} fetchPriority="high" />}
-                <div className="hero-overlay absolute inset-0 bg-black/60" />
-                {isEditMode && (
-                    <>
-                    <PexelsVideoPickerModal
-                        isOpen={showPexelsPicker}
-                        onClose={() => setShowPexelsPicker(false)}
-                        onSelect={(url) => { updateData('videoUrl', url); setVideoInputValue(url); }}
-                    />
-                    <div className="absolute right-4 top-14 z-30 flex flex-col items-end gap-2">
-                        {showVideoInput ? (
-                            <div className="flex items-center gap-1.5 bg-black/80 backdrop-blur-sm rounded-lg px-2 py-1.5 shadow-xl">
-                                <Video className="w-3.5 h-3.5 text-white/60 shrink-0" />
-                                <input
-                                    ref={videoInputRef}
-                                    type="url"
-                                    value={videoInputValue}
-                                    onChange={(e) => setVideoInputValue(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') { updateData('videoUrl', videoInputValue); setShowVideoInput(false); }
-                                        if (e.key === 'Escape') { setVideoInputValue(videoUrl); setShowVideoInput(false); }
-                                    }}
-                                    placeholder="https://example.com/video.mp4"
-                                    className="w-64 bg-transparent text-white text-xs outline-none placeholder:text-white/40"
-                                />
-                                <button
-                                    onClick={() => { updateData('videoUrl', videoInputValue); setShowVideoInput(false); }}
-                                    className="text-xs font-bold text-emerald-400 hover:text-emerald-300 ml-1"
-                                >Set</button>
-                                <button
-                                    onClick={() => { setVideoInputValue(videoUrl); setShowVideoInput(false); }}
-                                    className="text-xs text-white/50 hover:text-white ml-0.5"
-                                >✕</button>
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-1.5">
-                                <button
-                                    onClick={() => setShowPexelsPicker(true)}
-                                    className="flex items-center gap-1.5 bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg transition-colors"
-                                >
-                                    <Video className="w-3.5 h-3.5" />
-                                    Search Pexels
-                                </button>
-                                <button
-                                    onClick={() => setShowVideoInput(true)}
-                                    className="flex items-center gap-1.5 bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-lg transition-colors"
-                                >
-                                    {videoUrl ? 'Change URL' : 'Paste URL'}
-                                </button>
-                            </div>
-                        )}
-                        <div className="h-16 w-28 overflow-hidden rounded-lg shadow-lg">
+    return (
+        <>
+            <BackgroundLayer bg={card.background} palette={palette} />
+            <div className="hero-container relative z-10 mx-auto flex h-full w-full max-w-7xl items-center px-4 py-20 md:py-24">
+                <div className={`grid w-full gap-10 items-center ${showForeground && showText ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
+                    {showText && (
+                        <div className={`hero-content ${imageOnRight || !showForeground ? 'order-1' : 'order-2 md:order-1'}`}>
+                            {card.content.title.enabled && (
+                                <Reveal>
+                                    <EditableText
+                                        as="h1"
+                                        contentKey="title"
+                                        styleData={blockData?.['title__styles'] as string | Record<string, unknown> | undefined}
+                                        content={card.content.title.value}
+                                        defaultValue={DEFAULT_TITLE}
+                                        isEditMode={isEditMode}
+                                        onSave={onSave}
+                                        className={`hero-title text-4xl md:text-6xl font-extrabold leading-tight ${TEXT_ALIGN_CLASS[card.content.title.align]}`}
+                                        style={{ color: textColor }}
+                                    />
+                                </Reveal>
+                            )}
+                            {card.content.subtitle.enabled && (
+                                <Reveal>
+                                    <EditableText
+                                        as="p"
+                                        contentKey="subtitle"
+                                        styleData={blockData?.['subtitle__styles'] as string | Record<string, unknown> | undefined}
+                                        content={card.content.subtitle.value}
+                                        defaultValue={DEFAULT_SUBTITLE}
+                                        isEditMode={isEditMode}
+                                        onSave={onSave}
+                                        className={`hero-subtitle mt-6 text-lg md:text-xl ${TEXT_ALIGN_CLASS[card.content.subtitle.align]}`}
+                                        style={{ color: isMediaBg ? 'rgba(255,255,255,0.85)' : 'rgba(15,23,42,0.7)' }}
+                                    />
+                                </Reveal>
+                            )}
+                            {card.content.cta.enabled && (
+                                <Reveal>
+                                    <div className={`mt-8 flex ${FLEX_ALIGN_CLASS[card.content.cta.align]}`}>
+                                        <EditableButton
+                                            contentKey="buttonText"
+                                            label={card.content.cta.label}
+                                            linkData={card.content.cta.link as Partial<ButtonLinkData> | undefined}
+                                            iconData={card.content.cta.icon as ButtonIconData | undefined}
+                                            defaultLabel={DEFAULT_CTA_LABEL}
+                                            isEditMode={isEditMode}
+                                            onSave={onSave}
+                                            className="hero-button px-8 py-4 text-white font-bold rounded-lg shadow-lg hover:opacity-90 transition-opacity inline-block"
+                                            style={{ backgroundColor: isMediaBg ? pSecondary : pSecondary, color: '#ffffff' }}
+                                        />
+                                    </div>
+                                </Reveal>
+                            )}
+                        </div>
+                    )}
+                    {showForeground && (
+                        <Reveal className={imageOnRight ? 'order-2' : 'order-1 md:order-1'}>
                             <EditableImage
                                 contentKey="image"
-                                imageUrl={imageUrl}
+                                initialSettings={card.content.image.settings as ImageSettings | undefined}
+                                initialAttribution={card.content.image.attribution as UnsplashAttribution | undefined}
+                                imageUrl={card.content.image.url}
                                 isEditMode={isEditMode}
-                                onSave={(key, val) => updateData(key, val)}
-                                onUpload={context?.uploadImage}
-                                initialSettings={block.data.image__settings}
-                                initialAttribution={block.data.image__attribution}
-                                className="h-full w-full object-cover rounded-lg border-2 border-white/50"
-                                placeholder="Fallback img"
-                                editOverlayStyle="icon"
-                                showAttribution={false}
+                                onSave={onSave}
+                                onUpload={uploadImage}
+                                className="hero-image w-full h-96 object-cover rounded-2xl shadow-xl"
+                                placeholder="Click to upload hero image"
+                                priority
                             />
-                        </div>
-                    </div>
-                    </>
-                )}
-                <div className="hero-container max-w-5xl mx-auto px-4 py-24 relative z-10 text-center">
-                    <Reveal>
-                        <EditableText
-                            as="h1"
-                            contentKey="title"
-                            styleData={block.data['title__styles']}
-                            content={title}
-                            defaultValue="Welcome to our site"
-                            isEditMode={isEditMode}
-                            onSave={(key, val) => updateData(key, val)}
-                            className="hero-title text-5xl md:text-7xl font-black mb-6 leading-tight text-white drop-shadow-lg"
-                        />
-                    </Reveal>
-                    <Reveal className="max-w-2xl mx-auto">
-                        <EditableText
-                            as="p"
-                            contentKey="subtitle"
-                            styleData={block.data['subtitle__styles']}
-                            content={subtitle}
-                            defaultValue="We offer the best services available."
-                            isEditMode={isEditMode}
-                            onSave={(key, val) => updateData(key, val)}
-                            className="hero-subtitle text-xl md:text-2xl text-white/85 mb-10"
-                        />
-                    </Reveal>
-                    <Reveal>
-                        <EditableButton
-                            contentKey="buttonText"
-                            label={buttonText}
-                            linkData={block.data.buttonTextLink}
-                            iconData={block.data.buttonTextIcon}
-                            defaultLabel="Get a Free Quote"
-                            isEditMode={isEditMode}
-                            onSave={(key, val) => updateData(key, val)}
-                            className="hero-button px-10 py-4 text-lg font-bold rounded-full shadow-xl hover:scale-105 transition-transform text-white inline-block"
-                            style={{ backgroundColor: pSecondary }}
-                        />
-                    </Reveal>
+                        </Reveal>
+                    )}
                 </div>
-            </section>
-        );
-    }
-
-    // Centered variant — text-centered, no image, gradient background
-    if (variant === 'centered') {
-        const bgType = block.data.bgType || 'color';
-        let customBgStyle: any = undefined;
-        let hasCustomMedia = false;
-        
-        if (bgType === 'color' && configuredBackgroundColor) {
-             customBgStyle = { backgroundColor: configuredBackgroundColor };
-        } else if (bgType === 'color') {
-             customBgStyle = { background: `linear-gradient(135deg, ${pPrimary} 0%, ${pSecondary} 100%)` };
-        } else {
-             customBgStyle = { backgroundColor: '#000' };
-             hasCustomMedia = true;
-        }
-
-        return (
-            <section
-                className="hero hero-centered py-32 text-center relative overflow-hidden"
-                style={customBgStyle}
-            >
-                {lcpImageUrl && <link rel="preload" as="image" href={lcpImageUrl} fetchPriority="high" />}
-                {/* Media Backgrounds */}
-                {bgType === 'image' && block.data.bgImage && (
-                    <>
-                        <div className="hero-bg-image absolute inset-0 z-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${block.data.bgImage})` }} />
-                        <div className="hero-overlay absolute inset-0 z-0 bg-black/60" />
-                    </>
-                )}
-                {bgType === 'carousel' && carouselImages.length > 0 && (
-                    <>
-                        {carouselTransition === 'fade' && carouselImages.map((img, i) => (
-                            <div key={i} className={`hero-bg-carousel-slide absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-opacity duration-1000 ${i === currentSlide ? 'opacity-100' : 'opacity-0'}`} style={{ backgroundImage: `url(${img})` }} />
-                        ))}
-                        {carouselTransition === 'swipe' && (
-                            <div className="hero-bg-carousel absolute inset-0 z-0 overflow-hidden">
-                                <div className="hero-bg-carousel-track flex h-full transition-transform duration-700 ease-in-out" style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
-                                    {carouselImages.map((img, i) => (
-                                        <div key={i} className="hero-bg-carousel-slide w-full h-full flex-shrink-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${img})` }} />
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        {carouselTransition === 'scroll' && (
-                            <div className="hero-bg-carousel absolute inset-0 z-0 overflow-hidden">
-                                <style>{`@keyframes heroCarouselScroll { from { transform: translateX(0) } to { transform: translateX(-50%) } }`}</style>
-                                <div className="hero-bg-carousel-track flex h-full" style={{ width: `${carouselImages.length * 200}%`, animation: `heroCarouselScroll ${carouselImages.length * (block.data.bgCarouselTiming || 5)}s linear infinite` }}>
-                                    {[...carouselImages, ...carouselImages].map((img, i) => (
-                                        <div key={i} className="hero-bg-carousel-slide h-full flex-shrink-0 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: `url(${img})`, width: `${100 / (carouselImages.length * 2)}%` }} />
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        <div className="hero-overlay absolute inset-0 z-0 bg-black/60" />
-                    </>
-                )}
-
-                {!hasCustomMedia && <div className="hero-decoration absolute inset-0 opacity-10 z-0" style={{ backgroundImage: 'radial-gradient(circle at 30% 50%, white 0%, transparent 60%)' }} />}
-                <div className="hero-container max-w-4xl mx-auto px-4 relative z-10">
-                    <Reveal>
-                        <EditableText
-                            as="h1"
-                            contentKey="title"
-                            styleData={block.data['title__styles']}
-                            content={title}
-                            defaultValue="Welcome to our site"
-                            isEditMode={isEditMode}
-                            onSave={(key, val) => updateData(key, val)}
-                            className="hero-title text-5xl md:text-6xl font-black mb-6 leading-tight text-white"
-                        />
-                    </Reveal>
-                    <Reveal className="max-w-2xl mx-auto">
-                        <EditableText
-                            as="p"
-                            contentKey="subtitle"
-                            styleData={block.data['subtitle__styles']}
-                            content={subtitle}
-                            defaultValue="We offer the best services available."
-                            isEditMode={isEditMode}
-                            onSave={(key, val) => updateData(key, val)}
-                            className="hero-subtitle text-xl md:text-2xl text-white/85 mb-10"
-                        />
-                    </Reveal>
-                    <Reveal>
-                        <EditableButton
-                            contentKey="buttonText"
-                            label={buttonText}
-                            linkData={block.data.buttonTextLink}
-                            iconData={block.data.buttonTextIcon}
-                            defaultLabel="Get a Free Quote"
-                            isEditMode={isEditMode}
-                            onSave={(key, val) => updateData(key, val)}
-                            className="hero-button px-10 py-4 text-lg font-bold rounded-full shadow-xl hover:scale-105 transition-transform inline-block"
-                            style={{ backgroundColor: '#ffffff', color: pPrimary }}
-                        />
-                    </Reveal>
-                </div>
-            </section>
-        );
-    }
-
-    // Full-image variant — text overlaid on image
-    if (variant === 'fullImage') {
-        return (
-            <section className="hero hero-fullimage group relative min-h-[70vh] flex items-center overflow-hidden">
-                {imageUrl ? (
-                    <img src={imageUrl} alt={block.data.image__settings?.altText || ''} role={block.data.image__settings?.altText ? undefined : 'presentation'} className="hero-image absolute inset-0 w-full h-full object-cover" loading="eager" fetchPriority="high" decoding="sync" />
-                ) : (
-                    <div className="hero-bg-fallback absolute inset-0" style={{ backgroundColor: pPrimary }} />
-                )}
-                {lcpImageUrl && <link rel="preload" as="image" href={lcpImageUrl} fetchPriority="high" />}
-                <div className="hero-overlay absolute inset-0 bg-black/50" />
-                {isEditMode && (
-                    <div className="absolute right-4 top-14 z-30">
-                        <EditableImage
-                            contentKey="image"
-                            imageUrl={imageUrl}
-                            isEditMode={isEditMode}
-                            onSave={(key, val) => updateData(key, val)}
-                            onUpload={context?.uploadImage}
-                            initialSettings={block.data.image__settings}
-                            initialAttribution={block.data.image__attribution}
-                            className="w-32 h-20 object-cover rounded-lg shadow-lg border-2 border-white/50"
-                            placeholder="Set bg image"
-                            editOverlayStyle="icon"
-                            showAttribution={false}
-                        />
-                    </div>
-                )}
-                {isEditMode && block.data.image__attribution && (
-                    <div className="absolute bottom-4 right-4 z-30 max-w-[min(24rem,calc(100%-2rem))] rounded bg-black/70 px-2 py-1 text-right text-[10px] leading-tight text-white opacity-0 shadow transition-opacity group-hover:opacity-100">
-                        Photo by{' '}
-                        <a
-                            href={block.data.image__attribution.photographerUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="underline"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            {block.data.image__attribution.photographerName}
-                        </a>
-                        {' on '}
-                        <a
-                            href={block.data.image__attribution.unsplashUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="underline"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            Unsplash
-                        </a>
-                    </div>
-                )}
-                <div className="hero-container max-w-5xl mx-auto px-4 py-24 relative z-10 text-center">
-                    <Reveal>
-                        <EditableText
-                            as="h1"
-                            contentKey="title"
-                            styleData={block.data['title__styles']}
-                            content={title}
-                            defaultValue="Welcome to our site"
-                            isEditMode={isEditMode}
-                            onSave={(key, val) => updateData(key, val)}
-                            className="hero-title text-5xl md:text-7xl font-black mb-6 leading-tight text-white"
-                        />
-                    </Reveal>
-                    <Reveal className="max-w-2xl mx-auto">
-                        <EditableText
-                            as="p"
-                            contentKey="subtitle"
-                            styleData={block.data['subtitle__styles']}
-                            content={subtitle}
-                            defaultValue="We offer the best services available."
-                            isEditMode={isEditMode}
-                            onSave={(key, val) => updateData(key, val)}
-                            className="hero-subtitle text-xl md:text-2xl text-white/80 mb-10"
-                        />
-                    </Reveal>
-                    <Reveal>
-                        <EditableButton
-                            contentKey="buttonText"
-                            label={buttonText}
-                            linkData={block.data.buttonTextLink}
-                            iconData={block.data.buttonTextIcon}
-                            defaultLabel="Get a Free Quote"
-                            isEditMode={isEditMode}
-                            onSave={(key, val) => updateData(key, val)}
-                            className="hero-button px-10 py-4 text-lg font-bold rounded-full shadow-xl hover:scale-105 transition-transform text-white inline-block"
-                            style={{ backgroundColor: pSecondary }}
-                        />
-                    </Reveal>
-                </div>
-            </section>
-        );
-    }
-
-    // Split variant (default) — text left, image right
-    return (
-        <section className="hero hero-split py-24" style={{ backgroundColor: pAccent }}>
-            <div className="hero-container max-w-7xl mx-auto px-4 grid md:grid-cols-2 gap-12 items-center">
-                <div className="hero-content">
-                    <Reveal>
-                        <EditableText
-                            as="h1"
-                            contentKey="title"
-                            styleData={block.data['title__styles']}
-                            content={title}
-                            defaultValue="Welcome to our site"
-                            isEditMode={isEditMode}
-                            onSave={(key, val) => updateData(key, val)}
-                            className="hero-title text-5xl font-extrabold mb-6 leading-tight text-gray-900"
-                        />
-                    </Reveal>
-                    <Reveal>
-                        <EditableText
-                            as="p"
-                            contentKey="subtitle"
-                            styleData={block.data['subtitle__styles']}
-                            content={subtitle}
-                            defaultValue="We offer the best services available."
-                            isEditMode={isEditMode}
-                            onSave={(key, val) => updateData(key, val)}
-                            className="hero-subtitle text-xl text-gray-600 mb-8"
-                        />
-                    </Reveal>
-                    <Reveal>
-                        <EditableButton
-                            contentKey="buttonText"
-                            label={buttonText}
-                            linkData={block.data.buttonTextLink}
-                            iconData={block.data.buttonTextIcon}
-                            defaultLabel="Get a Free Quote"
-                            isEditMode={isEditMode}
-                            onSave={(key, val) => updateData(key, val)}
-                            className="hero-button px-8 py-4 text-white font-bold rounded-lg shadow-lg hover:opacity-90 transition-opacity inline-block"
-                            style={{ backgroundColor: pSecondary }}
-                        />
-                    </Reveal>
-                </div>
-                <Reveal>
-                    {lcpImageUrl && <link rel="preload" as="image" href={lcpImageUrl} fetchPriority="high" />}
-                    <EditableImage
-                        contentKey="image"
-                        initialSettings={block.data.image__settings}
-                        initialAttribution={block.data.image__attribution}
-                        imageUrl={imageUrl}
-                        isEditMode={isEditMode}
-                        onSave={(key, val) => updateData(key, val)}
-                        onUpload={context?.uploadImage}
-                        className="hero-image w-full h-96 object-cover rounded-2xl shadow-xl"
-                        placeholder="Click to upload hero image"
-                        priority
-                    />
-                </Reveal>
             </div>
-        </section>
+        </>
+    );
+    // suppress unused warning for pAccent (kept for potential future styling parity)
+    void pAccent;
+}
+
+function BackgroundLayer({ bg, palette }: { bg: HeroBackground; palette: Record<string, string> }) {
+    const overlay = bg.overlay || { color: '#000000', opacity: 0 };
+
+    let mediaLayer: React.ReactNode = null;
+    const baseStyle: React.CSSProperties = {};
+
+    if (bg.type === 'image' && bg.image?.url) {
+        mediaLayer = (
+            <div
+                className="hero-bg-image absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+                style={{ backgroundImage: `url(${bg.image.url})` }}
+            />
+        );
+    } else if (bg.type === 'video' && bg.video?.url) {
+        mediaLayer = (
+            <video
+                autoPlay
+                muted
+                loop
+                playsInline
+                className="hero-video-bg absolute inset-0 z-0 h-full w-full object-cover"
+            >
+                <source src={bg.video.url} type="video/mp4" />
+            </video>
+        );
+    } else if (bg.type === 'gradient' && bg.gradient) {
+        const from = resolvePaletteColor(bg.gradient.from, palette, palette.primary || '#1f2937');
+        const to = resolvePaletteColor(bg.gradient.to, palette, palette.secondary || '#ef4444');
+        const via = bg.gradient.via ? resolvePaletteColor(bg.gradient.via, palette, '#ffffff') : null;
+        const stops = via ? `${from}, ${via}, ${to}` : `${from}, ${to}`;
+        baseStyle.background = `linear-gradient(${bg.gradient.angle}deg, ${stops})`;
+    } else if (bg.type === 'animation' && bg.animation) {
+        mediaLayer = <HeroBgAnimation id={bg.animation.id} />;
+    } else {
+        baseStyle.backgroundColor = palette.accent || '#f3f4f6';
+    }
+
+    return (
+        <div className="hero-bg-fallback absolute inset-0 z-0" style={baseStyle}>
+            {mediaLayer}
+            {overlay.opacity > 0 && (
+                <div
+                    className="hero-overlay absolute inset-0 z-0"
+                    style={{ backgroundColor: overlay.color, opacity: overlay.opacity }}
+                />
+            )}
+        </div>
     );
 }

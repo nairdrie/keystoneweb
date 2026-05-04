@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Menu, X, Settings, Facebook, Instagram, Twitter, Linkedin, Youtube, Phone } from 'lucide-react';
+import { useHeaderHeight } from '@/lib/hooks/useHeaderHeight';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEditorContext } from '@/lib/editor-context';
@@ -70,6 +71,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     const updateSiteContent = context?.updateSiteContent || (() => {});
     const pathname = usePathname();
     const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
+    const headerRef = useRef<HTMLElement | null>(null);
 
     // Member auth state — needed early for CTA replacement
     const memberCtx = useMember();
@@ -120,6 +122,10 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     const userSetBg     = !!siteContent.headerBgType;
     const effectiveBg   = userSetBg ? bgType : (defaults.bgType || 'white');
     const isTransparent = effectiveBg === 'transparent';
+
+    // Publish the header height + overlay-ness to CSS so first-block heroes can
+    // size themselves around the header.
+    useHeaderHeight(headerRef, { overlay: overlay || isTransparent });
     const textIsLight   = isTransparent ? overlay : getTextIsLight(effectiveBg, palette, bgCustom);
 
     // When bg is white (user-selected or default-white), apply bgClass; otherwise use inline style
@@ -652,7 +658,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         return (
             <>
                 {bannerEl}
-                <header className={`${wrapperClass} ${isEditMode ? 'group relative' : ''}`}>
+                <header ref={headerRef} className={`${wrapperClass} ${isEditMode ? 'group relative' : ''}`}>
                     {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
                     <div className="pt-3 px-4">
                         <div
@@ -740,6 +746,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
             <>
                 {bannerEl}
                 <header
+                    ref={headerRef}
                     className={`ks-site-header ${overlay ? overlayWrapperClass : innerHeaderClass} ${isEditMode ? 'group relative' : 'relative'}`}
                     style={overlay ? {} : headerInlineStyle}
                 >
@@ -763,7 +770,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
     return (
         <>
             {bannerEl}
-            <header className={overlay ? `${overlayWrapperClass} ${isEditMode ? 'group relative' : ''}` : innerClassName} style={overlay ? {} : innerStyle}>
+            <header ref={headerRef} className={overlay ? `${overlayWrapperClass} ${isEditMode ? 'group relative' : ''}` : innerClassName} style={overlay ? {} : innerStyle}>
                 {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
                 {overlay ? (
                     <div className={innerClassName} style={innerStyle}>

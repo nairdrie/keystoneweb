@@ -106,7 +106,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
   const [editMode, setEditMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [menuInspectorOpen, setMenuInspectorOpen] = useState(false);
+  const [blockInspectorOpen, setBlockInspectorOpen] = useState(false);
   const [viewAsMember, setViewAsMember] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
 
@@ -122,13 +122,13 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   }, []);
 
   useEffect(() => {
-    const handleMenuInspectorState = (event: Event) => {
+    const handleBlockInspectorState = (event: Event) => {
       const detail = (event as CustomEvent<{ open?: boolean }>).detail;
-      setMenuInspectorOpen(detail?.open === true);
+      setBlockInspectorOpen(detail?.open === true);
     };
 
-    window.addEventListener('ks:menu-inspector-state', handleMenuInspectorState);
-    return () => window.removeEventListener('ks:menu-inspector-state', handleMenuInspectorState);
+    window.addEventListener('ks:block-inspector-state', handleBlockInspectorState);
+    return () => window.removeEventListener('ks:block-inspector-state', handleBlockInspectorState);
   }, []);
   const [editableContent, setEditableContent] = useState<Record<string, any>>({});
   const [siteContent, setSiteContent] = useState<Record<string, any>>({});
@@ -1243,7 +1243,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   return (
     <CartProvider siteId={siteId || ''}>
       <div
-        className={`fixed inset-0 flex flex-col overflow-hidden transition-[margin] duration-300 ease-out ${sidebarOpen ? 'lg:ml-[22rem]' : ''} ${menuInspectorOpen ? 'lg:mr-[28rem]' : ''}`}
+        className={`fixed inset-0 flex flex-col overflow-hidden transition-[margin] duration-300 ease-out ${sidebarOpen ? 'lg:ml-[22rem]' : ''} ${blockInspectorOpen ? 'lg:mr-[28rem]' : ''}`}
       >
         {/* Floating Toolbar / Sidebar */}
         <FloatingToolbar
