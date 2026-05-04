@@ -48,9 +48,20 @@ export interface HeroTransition {
     pauseOnHover: boolean;
 }
 
-export interface HeroHeight {
+export interface HeroHeightConfig {
     mode: HeightMode;
     valuePx: number;
+    /** Fit-screen only: also subtract the height of the next N sibling blocks
+     *  so e.g. "header + hero + next block" exactly fills one viewport. */
+    revealNext: number;
+}
+
+export type HeroBreakpoint = 'desktop' | 'tablet' | 'mobile';
+
+export interface HeroHeight {
+    desktop: HeroHeightConfig;
+    tablet: HeroHeightConfig;
+    mobile: HeroHeightConfig;
 }
 
 export interface HeroData {
@@ -92,9 +103,16 @@ export const DEFAULT_TRANSITION: HeroTransition = {
     pauseOnHover: true,
 };
 
-export const DEFAULT_HEIGHT: HeroHeight = {
+export const DEFAULT_HEIGHT_CONFIG: HeroHeightConfig = {
     mode: 'fitContent',
     valuePx: 600,
+    revealNext: 0,
+};
+
+export const DEFAULT_HEIGHT: HeroHeight = {
+    desktop: { ...DEFAULT_HEIGHT_CONFIG },
+    tablet: { ...DEFAULT_HEIGHT_CONFIG },
+    mobile: { ...DEFAULT_HEIGHT_CONFIG },
 };
 
 /**
@@ -220,11 +238,16 @@ export function migrateLegacyHeroData(raw: unknown): HeroData {
 
     let heightMode: HeightMode = 'fitContent';
     if (variant === 'video' || variant === 'fullImage') heightMode = 'fitScreen';
+    const legacyHeightCfg: HeroHeightConfig = { mode: heightMode, valuePx: 600, revealNext: 0 };
 
     return {
         cards,
         transition,
-        height: { mode: heightMode, valuePx: 600 },
+        height: {
+            desktop: { ...legacyHeightCfg },
+            tablet: { ...legacyHeightCfg },
+            mobile: { ...legacyHeightCfg },
+        },
     };
 }
 
@@ -257,10 +280,31 @@ function normalizeHeroData(data: Record<string, unknown> & { cards?: HeroCard[];
     return {
         cards: cards.length > 0 ? cards : [makeDefaultCard('card-0')],
         transition: { ...DEFAULT_TRANSITION, ...(data.transition || {}) },
-        height: { ...DEFAULT_HEIGHT, ...(data.height || {}) },
+        height: normalizeHeroHeight(data.height),
         __activeCardIndex: data.__activeCardIndex,
         __pauseRotation: data.__pauseRotation,
         __customCss: data.__customCss,
+    };
+}
+
+/** Coerces any prior shape of `height` (legacy single-config or new
+ *  per-breakpoint) into the per-breakpoint structure the renderer expects. */
+function normalizeHeroHeight(raw: unknown): HeroHeight {
+    const r = (raw || {}) as Partial<HeroHeight> & Partial<HeroHeightConfig>;
+    // Legacy: { mode, valuePx } with no per-breakpoint keys → fan out to all three.
+    if (typeof r.mode === 'string' && !r.desktop && !r.tablet && !r.mobile) {
+        const cfg: HeroHeightConfig = {
+            mode: r.mode as HeightMode,
+            valuePx: typeof r.valuePx === 'number' ? r.valuePx : 600,
+            revealNext: 0,
+        };
+        return { desktop: { ...cfg }, tablet: { ...cfg }, mobile: { ...cfg } };
+    }
+    const desktop: HeroHeightConfig = { ...DEFAULT_HEIGHT_CONFIG, ...(r.desktop || {}) };
+    return {
+        desktop,
+        tablet: { ...desktop, ...(r.tablet || {}) },
+        mobile: { ...desktop, ...(r.mobile || {}) },
     };
 }
 

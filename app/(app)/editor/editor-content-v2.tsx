@@ -15,6 +15,7 @@ import AlertModal from '@/app/components/ui/AlertModal';
 import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 import PageSelector from '@/app/components/PageSelector';
 import EmbeddedToggle from '@/app/components/EmbeddedToggle';
+import DevicePreviewSelect, { type PreviewDevice } from '@/app/components/DevicePreviewSelect';
 import { usePages } from '@/lib/hooks/usePages';
 import { useAIBuilder } from '@/lib/hooks/useAIBuilder';
 import { CartProvider } from '@/app/components/ecommerce/CartProvider';
@@ -40,6 +41,33 @@ export interface SiteData {
   createdAt: string;
   updatedAt: string;
 }
+
+// Visual frame for the device preview dropdown. The wrapper sets a max-width
+// so the canvas behaves like a phone/tablet, and a parent class
+// (.ks-preview-{device}) lets per-block CSS (notably HeroBlock) override its
+// media queries to match the picked breakpoint regardless of actual viewport.
+const PREVIEW_FRAME_CSS = `
+.ks-preview-mode { background: #0f172a; padding: 1.25rem; }
+.ks-preview-mode > .ks-preview-inner {
+  background: white;
+  margin: 0 auto;
+  box-shadow: 0 18px 60px rgba(0,0,0,.35);
+  overflow: hidden;
+  position: relative;
+  border-radius: 18px;
+}
+.ks-preview-desktop > .ks-preview-inner { max-width: 1280px; border-radius: 8px; }
+.ks-preview-tablet > .ks-preview-inner {
+  max-width: 820px;
+  border: 12px solid #1e293b;
+  border-radius: 28px;
+}
+.ks-preview-mobile > .ks-preview-inner {
+  max-width: 390px;
+  border: 12px solid #1e293b;
+  border-radius: 36px;
+}
+`;
 
 export interface EditorContentProps {
   publicSiteData?: SiteData;
@@ -105,6 +133,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   const [paletteData, setPaletteData] = useState<Record<string, string>>({});
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
   const [editMode, setEditMode] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('auto');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [blockInspectorOpen, setBlockInspectorOpen] = useState(false);
   const [viewAsMember, setViewAsMember] = useState(false);
@@ -1405,6 +1434,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
                 </button>
               </div>
             )}
+            <DevicePreviewSelect value={previewDevice} onChange={setPreviewDevice} />
             <EmbeddedToggle
               isActive={editMode}
               onToggle={setEditMode}
@@ -1415,7 +1445,13 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
         </div>
 
         {/* Template Render Wrapper (This section alone scrolls, so sticky headers inside templates stick to the top of THIS container, right below our Editor banner) */}
-        <div data-tour="builder-canvas" className="flex-1 overflow-y-auto w-full relative">
+        <div
+          data-tour="builder-canvas"
+          data-preview-device={previewDevice}
+          className={`flex-1 overflow-y-auto w-full relative ${previewDevice !== 'auto' ? `ks-preview-mode ks-preview-${previewDevice}` : ''}`}
+        >
+          <style dangerouslySetInnerHTML={{ __html: PREVIEW_FRAME_CSS }} />
+          <div className="ks-preview-inner">
           <MemberProvider siteId={siteId || ''} overrideMember={hasMembershipGate ? (viewAsMember ? MOCK_MEMBER : null) : undefined}>
           <EditorProvider
             value={{
@@ -1479,6 +1515,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
             </div>
           </EditorProvider>
           </MemberProvider>
+          </div>
         </div>
 
         <AlertModal

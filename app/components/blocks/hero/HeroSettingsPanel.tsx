@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
     AlignCenter, AlignLeft, AlignRight, Crown, Image as ImageIcon, MoveLeft, MoveRight,
     Plus, Trash2, Copy, ChevronUp, ChevronDown, Video, Palette as PaletteIcon, Sparkles,
+    Monitor, Tablet, Smartphone,
 } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockSettingsPanel from '../BlockSettingsPanel';
@@ -19,9 +20,11 @@ import {
     Align,
     BgType,
     HeroBackground,
+    HeroBreakpoint,
     HeroCard,
     HeroData,
     HeroHeight,
+    HeroHeightConfig,
     HeroTransition,
     ImageSide,
     makeCardId,
@@ -48,7 +51,7 @@ const BG_TYPE_OPTIONS: { id: BgType; label: string; Icon: typeof ImageIcon }[] =
     { id: 'animation', label: 'Animation', Icon: Sparkles },
 ];
 
-const HEIGHT_OPTIONS: { id: HeroHeight['mode']; label: string }[] = [
+const HEIGHT_OPTIONS: { id: HeroHeightConfig['mode']; label: string }[] = [
     { id: 'fitContent', label: 'Fit content' },
     { id: 'fitScreen', label: 'Fit screen' },
     { id: 'manual', label: 'Manual' },
@@ -69,6 +72,7 @@ export default function HeroSettingsPanel({
     const [cards, setCards] = useState<HeroCard[]>(persistedData.cards);
     const [transition, setTransition] = useState<HeroTransition>(persistedData.transition);
     const [height, setHeight] = useState<HeroHeight>(persistedData.height);
+    const [activeHeightBp, setActiveHeightBp] = useState<HeroBreakpoint>('desktop');
     const [activeIndex, setActiveIndex] = useState<number>(0);
     const [localCss, setLocalCss] = useState<string>(customCss);
 
@@ -569,46 +573,12 @@ export default function HeroSettingsPanel({
                     isCollapsed={sectionState.isCollapsed('height')}
                     onToggle={() => sectionState.toggle('height')}
                 >
-                    <div className="space-y-3">
-                        <div className="grid grid-cols-3 gap-2">
-                            {HEIGHT_OPTIONS.map(({ id, label }) => {
-                                const isActive = height.mode === id;
-                                return (
-                                    <button
-                                        key={id}
-                                        type="button"
-                                        onClick={() => setHeight({ ...height, mode: id })}
-                                        aria-pressed={isActive}
-                                        className={`rounded-xl border px-3 py-2 text-center text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                            isActive ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                                        }`}
-                                    >
-                                        {label}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        {height.mode === 'manual' && (
-                            <div>
-                                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                                    Height: {height.valuePx}px
-                                </label>
-                                <input
-                                    type="range"
-                                    min={200}
-                                    max={1200}
-                                    step={20}
-                                    value={height.valuePx}
-                                    onChange={(e) => setHeight({ ...height, valuePx: parseInt(e.target.value) || 600 })}
-                                    className="w-full accent-blue-600"
-                                />
-                            </div>
-                        )}
-                        <p className="text-xs leading-relaxed text-slate-500">
-                            Fit-screen automatically subtracts a sticky header&rsquo;s height, or pads
-                            below a transparent / overlay header — for first-block heroes only.
-                        </p>
-                    </div>
+                    <HeightSettings
+                        value={height}
+                        onChange={setHeight}
+                        activeBp={activeHeightBp}
+                        onActiveBpChange={setActiveHeightBp}
+                    />
                 </InspectorSection>
 
                 {/* ADVANCED */}
@@ -834,6 +804,132 @@ function GradientControls({
                     className="w-full accent-blue-600"
                 />
             </div>
+        </div>
+    );
+}
+
+const BREAKPOINT_TABS: { id: HeroBreakpoint; label: string; Icon: typeof Monitor }[] = [
+    { id: 'desktop', label: 'Desktop', Icon: Monitor },
+    { id: 'tablet', label: 'Tablet', Icon: Tablet },
+    { id: 'mobile', label: 'Mobile', Icon: Smartphone },
+];
+
+const REVEAL_NEXT_OPTIONS = [
+    { value: 0, label: 'None' },
+    { value: 1, label: '1 block' },
+    { value: 2, label: '2 blocks' },
+    { value: 3, label: '3 blocks' },
+];
+
+function HeightSettings({
+    value,
+    onChange,
+    activeBp,
+    onActiveBpChange,
+}: {
+    value: HeroHeight;
+    onChange: (next: HeroHeight) => void;
+    activeBp: HeroBreakpoint;
+    onActiveBpChange: (bp: HeroBreakpoint) => void;
+}) {
+    const cfg = value[activeBp];
+    const updateCfg = (patch: Partial<HeroHeightConfig>) => {
+        onChange({ ...value, [activeBp]: { ...cfg, ...patch } });
+    };
+
+    return (
+        <div className="space-y-3">
+            {/* Breakpoint switcher */}
+            <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1">
+                {BREAKPOINT_TABS.map(({ id, label, Icon }) => {
+                    const isActive = activeBp === id;
+                    return (
+                        <button
+                            key={id}
+                            type="button"
+                            onClick={() => onActiveBpChange(id)}
+                            aria-pressed={isActive}
+                            title={label}
+                            className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                isActive ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                        >
+                            <Icon className="h-4 w-4" />
+                            {label}
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* Mode chips for the active breakpoint */}
+            <div className="grid grid-cols-3 gap-2">
+                {HEIGHT_OPTIONS.map(({ id, label }) => {
+                    const isActive = cfg.mode === id;
+                    return (
+                        <button
+                            key={id}
+                            type="button"
+                            onClick={() => updateCfg({ mode: id })}
+                            aria-pressed={isActive}
+                            className={`rounded-xl border px-3 py-2 text-center text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                isActive ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                            }`}
+                        >
+                            {label}
+                        </button>
+                    );
+                })}
+            </div>
+
+            {cfg.mode === 'manual' && (
+                <div>
+                    <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                        Height: {cfg.valuePx}px
+                    </label>
+                    <input
+                        type="range"
+                        min={200}
+                        max={1200}
+                        step={20}
+                        value={cfg.valuePx}
+                        onChange={(e) => updateCfg({ valuePx: parseInt(e.target.value) || 600 })}
+                        className="w-full accent-blue-600"
+                    />
+                </div>
+            )}
+
+            {cfg.mode === 'fitScreen' && (
+                <div>
+                    <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                        Reveal next section
+                    </label>
+                    <div className="grid grid-cols-4 gap-1">
+                        {REVEAL_NEXT_OPTIONS.map(({ value: v, label }) => {
+                            const isActive = (cfg.revealNext || 0) === v;
+                            return (
+                                <button
+                                    key={v}
+                                    type="button"
+                                    onClick={() => updateCfg({ revealNext: v })}
+                                    aria-pressed={isActive}
+                                    className={`rounded-md border px-2 py-1.5 text-xs font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                        isActive ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                                    }`}
+                                >
+                                    {label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                        Hero shrinks so this many block(s) following it also fit on screen.
+                    </p>
+                </div>
+            )}
+
+            <p className="text-xs leading-relaxed text-slate-500">
+                Each device size has its own setting — switch tabs above to tune it. Fit-screen subtracts a sticky header automatically (or pads below a transparent header) for first-block heroes.
+            </p>
         </div>
     );
 }
