@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BlockData, useEditorContext } from '@/lib/editor-context';
 import EditableText from '@/app/components/EditableText';
 import EditableImage from '@/app/components/EditableImage';
@@ -13,8 +13,11 @@ import {
     DEFAULT_SUBTITLE,
     DEFAULT_TITLE,
     HeroBackground,
+    HeroBreakpoint,
     HeroCard,
     HeroData,
+    HeroHeight,
+    HeroHeightConfig,
     legacyVariantClass,
     migrateLegacyHeroData,
 } from './hero/hero-schema';
@@ -120,28 +123,69 @@ export default function HeroBlock({
         return null;
     }, [cards, isEditMode]);
 
-    // Compute height styles
-    const heightStyles = useMemo<React.CSSProperties>(() => {
-        const out: React.CSSProperties = {};
-        if (heightCfg.mode === 'manual') {
-            out.minHeight = `${heightCfg.valuePx}px`;
-        } else if (heightCfg.mode === 'fitScreen') {
-            // Will be refined via inline CSS class targeting first-block context.
-            out.minHeight = '100dvh';
-        }
-        return out;
+    // Per-breakpoint height CSS — emitted as a scoped <style> tag so the
+    // correct min-height is applied at SSR (no hydration flash on mobile).
+    const heroScopeClass = `ks-hero-${block.id}`;
+    const heightCss = useMemo(() => buildHeroHeightCss(heroScopeClass, heightCfg), [heroScopeClass, heightCfg]);
+
+    // Measure next-N sibling heights and publish as --hero-peek-height so
+    // fit-screen + revealNext can subtract them from 100dvh. The count and
+    // mode for the *current* breakpoint are picked at runtime; the CSS still
+    // honors per-breakpoint mode via media queries above.
+    const sectionRef = useRef<HTMLElement>(null);
+    useEffect(() => {
+        const section = sectionRef.current;
+        if (!section) return;
+        const wrapper = section.closest('[data-tour="builder-section-frame"]') as HTMLElement | null;
+        let observers: ResizeObserver[] = [];
+
+        const update = () => {
+            const w = window.innerWidth;
+            const bp: HeroBreakpoint = w >= 1024 ? 'desktop' : w >= 640 ? 'tablet' : 'mobile';
+            const cfg = heightCfg[bp];
+            if (cfg.mode !== 'fitScreen' || !cfg.revealNext || cfg.revealNext <= 0 || !wrapper) {
+                section.style.removeProperty('--hero-peek-height');
+                return;
+            }
+            // Disconnect prior observers; re-attach to the new sibling set.
+            observers.forEach((o) => o.disconnect());
+            observers = [];
+            const peeked: HTMLElement[] = [];
+            let cur = wrapper.nextElementSibling as HTMLElement | null;
+            while (cur && peeked.length < cfg.revealNext) {
+                peeked.push(cur);
+                cur = cur.nextElementSibling as HTMLElement | null;
+            }
+            const total = peeked.reduce((sum, el) => sum + el.getBoundingClientRect().height, 0);
+            section.style.setProperty('--hero-peek-height', `${total}px`);
+
+            const obs = new ResizeObserver(() => {
+                const t = peeked.reduce((sum, el) => sum + el.getBoundingClientRect().height, 0);
+                section.style.setProperty('--hero-peek-height', `${t}px`);
+            });
+            peeked.forEach((el) => obs.observe(el));
+            observers.push(obs);
+        };
+
+        update();
+        window.addEventListener('resize', update);
+        return () => {
+            window.removeEventListener('resize', update);
+            observers.forEach((o) => o.disconnect());
+            section.style.removeProperty('--hero-peek-height');
+        };
     }, [heightCfg]);
 
     const activeCard = cards[activeIndex] ?? cards[0];
 
     return (
         <section
-            className={`hero relative overflow-hidden ks-hero-${heightCfg.mode}`}
-            style={heightStyles}
+            ref={sectionRef}
+            className={`hero relative overflow-hidden ${heroScopeClass}`}
             data-hero-cards={cardCount}
         >
-            {/* fit-screen header awareness, scoped to .first-block-offset wrapping */}
-            <style dangerouslySetInnerHTML={{ __html: HERO_HEIGHT_CSS }} />
+            {/* Per-block, per-breakpoint height + header-aware fit-screen CSS. */}
+            <style dangerouslySetInnerHTML={{ __html: heightCss + HERO_GLOBAL_CSS }} />
 
             {lcpImageUrl && <link rel="preload" as="image" href={lcpImageUrl} fetchPriority="high" />}
 
@@ -203,21 +247,57 @@ export default function HeroBlock({
     );
 }
 
-const HERO_HEIGHT_CSS = `
-.first-block-offset > .ks-block .hero.ks-hero-fitScreen { min-height: calc(100dvh - var(--ks-header-height, 0px)); }
-:root[data-ks-header-overlay="true"] .first-block-offset > .ks-block .hero.ks-hero-fitScreen {
-    min-height: 100dvh;
-    padding-top: var(--ks-header-height, 0px);
-}
-/* Cap inline font-size on small screens so a desktop-tuned size doesn't
-   blow out on phones. !important is required to beat EditableText's inline
-   style (typography modal saves a single fixed font-size). Templates can
-   still override via their own !important rules in __customCss. */
+/* Mobile font-size cap (shared, not per-block). Caps inline font-size set
+   by EditableText so a desktop-tuned size doesn't blow out on phones. */
+const HERO_GLOBAL_CSS = `
 @media (max-width: 640px) {
     .ks-block-hero .hero-title { font-size: clamp(1.875rem, 8vw, 3rem) !important; }
     .ks-block-hero .hero-subtitle { font-size: clamp(0.9375rem, 4vw, 1.25rem) !important; }
 }
 `;
+
+/** Emits per-block, per-breakpoint min-height CSS. Scoped via a unique class
+ *  applied to the hero <section> so multiple heroes on a page don't collide. */
+function buildHeroHeightCss(scopeClass: string, h: HeroHeight): string {
+    const sel = `.${scopeClass}`;
+    const minH = (cfg: HeroHeightConfig): string => {
+        if (cfg.mode === 'manual') return `${cfg.valuePx}px`;
+        if (cfg.mode === 'fitScreen') return `calc(100dvh - var(--ks-header-height, 0px) - var(--hero-peek-height, 0px))`;
+        return 'auto';
+    };
+    const overlayMinH = (cfg: HeroHeightConfig): string => {
+        // For overlay/transparent headers, don't subtract — pad-top instead.
+        if (cfg.mode === 'manual') return `${cfg.valuePx}px`;
+        if (cfg.mode === 'fitScreen') return `calc(100dvh - var(--hero-peek-height, 0px))`;
+        return 'auto';
+    };
+    const overlayPad = (cfg: HeroHeightConfig): string =>
+        cfg.mode === 'fitScreen' ? 'var(--ks-header-height, 0px)' : '0';
+
+    // Mobile-first cascade: define mobile, override at >=640px (tablet),
+    // then >=1024px (desktop). Keeps SSR honest on the smallest device.
+    return `
+${sel} { min-height: ${minH(h.mobile)}; }
+:root[data-ks-header-overlay="true"] .first-block-offset > .ks-block ${sel} {
+    min-height: ${overlayMinH(h.mobile)};
+    padding-top: ${overlayPad(h.mobile)};
+}
+@media (min-width: 640px) {
+    ${sel} { min-height: ${minH(h.tablet)}; }
+    :root[data-ks-header-overlay="true"] .first-block-offset > .ks-block ${sel} {
+        min-height: ${overlayMinH(h.tablet)};
+        padding-top: ${overlayPad(h.tablet)};
+    }
+}
+@media (min-width: 1024px) {
+    ${sel} { min-height: ${minH(h.desktop)}; }
+    :root[data-ks-header-overlay="true"] .first-block-offset > .ks-block ${sel} {
+        min-height: ${overlayMinH(h.desktop)};
+        padding-top: ${overlayPad(h.desktop)};
+    }
+}
+`;
+}
 
 function computeCardTransition(
     type: 'fade' | 'slide' | 'none',
