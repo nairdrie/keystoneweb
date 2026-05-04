@@ -2,7 +2,7 @@
 
 import type { ComponentType } from 'react';
 import dynamic from 'next/dynamic';
-import { ExternalLink, Settings, UtensilsCrossed } from 'lucide-react';
+import { ExternalLink, Package, Settings, UtensilsCrossed } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { EditorContextType } from '@/lib/editor-context';
 
@@ -44,6 +44,7 @@ export interface PanelEntry {
 
 const MenuSettingsPanel = dynamic(() => import('./menu/MenuSettingsPanel'), { ssr: false });
 const HeroSettingsPanel = dynamic(() => import('./hero/HeroSettingsPanel'), { ssr: false });
+const ProductSettingsPanel = dynamic(() => import('./product/ProductSettingsPanel'), { ssr: false });
 
 export const BLOCK_PANEL_REGISTRY: Record<string, PanelEntry> = {
     menu: {
@@ -63,6 +64,20 @@ export const BLOCK_PANEL_REGISTRY: Record<string, PanelEntry> = {
     hero: {
         title: 'Hero Settings',
         component: HeroSettingsPanel,
+    },
+    productGrid: {
+        title: 'Product Settings',
+        component: ProductSettingsPanel,
+        primaryButton: { label: 'Product Settings', icon: Settings },
+        secondaryActions: [
+            {
+                id: 'manage-products',
+                label: 'Manage Products',
+                icon: Package,
+                suffixIcon: ExternalLink,
+                getHref: (ctx) => ctx?.siteId ? `/admin/ecommerce?siteId=${ctx.siteId}` : null,
+            },
+        ],
     },
 };
 
