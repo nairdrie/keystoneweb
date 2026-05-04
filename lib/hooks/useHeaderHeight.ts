@@ -22,17 +22,24 @@ export function useHeaderHeight(
     const { overlay } = options;
 
     useEffect(() => {
-        const root = typeof document !== 'undefined' ? document.documentElement : null;
+        // Use the ref'd element's ownerDocument — when the header is rendered
+        // inside the editor's iframe-based device preview, the React tree runs
+        // in the parent window but the actual DOM lives in the iframe's
+        // document. Setting CSS vars on the parent's <html> wouldn't cascade
+        // through the iframe boundary.
+        const el = ref.current;
+        const root = el?.ownerDocument?.documentElement
+            ?? (typeof document !== 'undefined' ? document.documentElement : null);
         if (!root) return;
         root.dataset.ksHeaderOverlay = overlay ? 'true' : 'false';
         return () => {
             delete root.dataset.ksHeaderOverlay;
         };
-    }, [overlay]);
+    }, [overlay, ref]);
 
     useEffect(() => {
         const el = ref.current;
-        const root = typeof document !== 'undefined' ? document.documentElement : null;
+        const root = el?.ownerDocument?.documentElement ?? null;
         if (!el || !root) return;
 
         const apply = (height: number) => {

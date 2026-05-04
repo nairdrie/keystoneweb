@@ -16,6 +16,7 @@ import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 import PageSelector from '@/app/components/PageSelector';
 import EmbeddedToggle from '@/app/components/EmbeddedToggle';
 import DevicePreviewSelect, { type PreviewDevice } from '@/app/components/DevicePreviewSelect';
+import PreviewIframe from '@/app/components/PreviewIframe';
 import { usePages } from '@/lib/hooks/usePages';
 import { useAIBuilder } from '@/lib/hooks/useAIBuilder';
 import { CartProvider } from '@/app/components/ecommerce/CartProvider';
@@ -43,29 +44,50 @@ export interface SiteData {
 }
 
 // Visual frame for the device preview dropdown. The wrapper sets a max-width
-// so the canvas behaves like a phone/tablet, and a parent class
-// (.ks-preview-{device}) lets per-block CSS (notably HeroBlock) override its
-// media queries to match the picked breakpoint regardless of actual viewport.
+// and aspect-ratio so the canvas behaves like a phone/tablet, and the inner
+// content is rendered in an iframe so its viewport matches the device width
+// and Tailwind / per-block media queries fire natively.
 const PREVIEW_FRAME_CSS = `
-.ks-preview-mode { background: #0f172a; padding: 1.25rem; }
+.ks-preview-mode {
+  background: #0f172a;
+  padding: 1.25rem;
+  overflow: hidden !important;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
 .ks-preview-mode > .ks-preview-inner {
   background: white;
-  margin: 0 auto;
   box-shadow: 0 18px 60px rgba(0,0,0,.35);
   overflow: hidden;
   position: relative;
-  border-radius: 18px;
 }
-.ks-preview-desktop > .ks-preview-inner { max-width: 1280px; border-radius: 8px; }
+.ks-preview-desktop > .ks-preview-inner {
+  width: 100%;
+  max-width: 1280px;
+  height: 100%;
+  border-radius: 8px;
+}
 .ks-preview-tablet > .ks-preview-inner {
-  max-width: 820px;
+  width: 820px;
+  max-width: 100%;
+  height: min(1180px, 100%);
   border: 12px solid #1e293b;
   border-radius: 28px;
 }
 .ks-preview-mobile > .ks-preview-inner {
-  max-width: 390px;
+  width: 390px;
+  max-width: 100%;
+  height: min(844px, 100%);
   border: 12px solid #1e293b;
   border-radius: 36px;
+}
+.ks-preview-mode .ks-preview-iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: white;
 }
 `;
 
@@ -1451,7 +1473,6 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
           className={`flex-1 overflow-y-auto w-full relative ${previewDevice !== 'auto' ? `ks-preview-mode ks-preview-${previewDevice}` : ''}`}
         >
           <style dangerouslySetInnerHTML={{ __html: PREVIEW_FRAME_CSS }} />
-          <div className="ks-preview-inner">
           <MemberProvider siteId={siteId || ''} overrideMember={hasMembershipGate ? (viewAsMember ? MOCK_MEMBER : null) : undefined}>
           <EditorProvider
             value={{
@@ -1488,34 +1509,45 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
               requestNavigation,
             }}
           >
-            <div className="w-full">
-              {aiOnboardingBuilding ? (
-                <EditorLoadingScreen variant="fill" message="AI is building your site..." liveMessage={aiBuilder.progressMessage} />
-              ) : templateComponent
-                ? createElement(
-                    templateComponent,
-                    { palette: paletteData, isEditMode: editMode },
-                    previewProductId ? (
+            {(() => {
+              const renderedContent = (
+                <div className="w-full">
+                  {aiOnboardingBuilding ? (
+                    <EditorLoadingScreen variant="fill" message="AI is building your site..." liveMessage={aiBuilder.progressMessage} />
+                  ) : templateComponent
+                    ? createElement(
+                        templateComponent,
+                        { palette: paletteData, isEditMode: editMode },
+                        previewProductId ? (
+                          <PreviewProductPage
+                            productId={previewProductId}
+                            siteId={siteId!}
+                            palette={paletteData}
+                            siteName={siteTitle}
+                          />
+                        ) : undefined
+                      )
+                    : previewProductId ? (
                       <PreviewProductPage
                         productId={previewProductId}
                         siteId={siteId!}
                         palette={paletteData}
                         siteName={siteTitle}
                       />
-                    ) : undefined
-                  )
-                : previewProductId ? (
-                  <PreviewProductPage
-                    productId={previewProductId}
-                    siteId={siteId!}
-                    palette={paletteData}
-                    siteName={siteTitle}
-                  />
-                ) : null}
-            </div>
+                    ) : null}
+                </div>
+              );
+              if (previewDevice === 'auto') return renderedContent;
+              return (
+                <div className="ks-preview-inner">
+                  <PreviewIframe bodyClassName={`ks-preview-${previewDevice}`}>
+                    {renderedContent}
+                  </PreviewIframe>
+                </div>
+              );
+            })()}
           </EditorProvider>
           </MemberProvider>
-          </div>
         </div>
 
         <AlertModal
