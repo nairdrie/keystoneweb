@@ -175,14 +175,16 @@ export default function HeroSettingsPanel({
             updates['__customCss'] = localCss;
         }
         // Clear legacy fields so the new schema is the source of truth.
+        // NOTE: title__styles / subtitle__styles / buttonText__styles are NOT
+        // legacy — they're typography metadata still consumed by EditableText
+        // via blockData['<key>__styles']. Don't clear them.
         const legacyKeys = [
             'variant', 'showButton',
-            'title', 'subtitle', 'buttonText', 'buttonTextLink', 'buttonTextIcon', 'buttonText__styles',
+            'title', 'subtitle', 'buttonText', 'buttonTextLink', 'buttonTextIcon',
             'image', 'image__settings', 'image__attribution',
             'videoUrl',
             'bgType', 'bgImage', 'bgCarouselImages', 'bgCarouselTiming', 'bgCarouselTransition',
             'backgroundColor',
-            'title__styles', 'subtitle__styles',
         ];
         for (const key of legacyKeys) {
             if (key in (blockData || {})) updates[key] = undefined;
