@@ -26,7 +26,7 @@ export default function ImpersonationBanner({ userEmail }: { userEmail: string }
   }
 
   return (
-    <div className="bg-amber-600 text-white px-4 py-2 fixed top-0 left-0 w-full z-[10000] flex items-center justify-between shadow-lg h-9">
+    <div className="fixed top-0 left-1/2 -translate-x-1/2 z-[10000] flex items-center gap-3 bg-amber-600 text-white px-4 py-2 rounded-b-xl shadow-lg">
       <div className="flex items-center gap-2 text-sm font-semibold">
         <UserCircle className="w-4 h-4" />
         <span>You are currently impersonating <span className="underline">{userEmail}</span></span>
@@ -34,7 +34,7 @@ export default function ImpersonationBanner({ userEmail }: { userEmail: string }
       <button
         onClick={stopImpersonating}
         disabled={loading}
-        className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 px-3 py-1 rounded text-xs font-bold transition-colors"
+        className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 px-3 py-1 rounded-full text-xs font-bold transition-colors"
       >
         {loading ? 'Stopping...' : 'Stop Impersonating'}
         <X className="w-3.5 h-3.5" />
