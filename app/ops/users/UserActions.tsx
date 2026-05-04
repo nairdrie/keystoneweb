@@ -157,7 +157,7 @@ export default function UserActions({ userId, userEmail, isBanned, currentPlan, 
         <button
           onClick={handleImpersonate}
           disabled={loading}
-          className="p-1.5 rounded-md bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+          className="p-1.5 rounded-md bg-amber-600 text-white hover:bg-amber-500 transition-colors disabled:opacity-50"
           title="Login As"
         >
           <UserCircle className="w-4 h-4" />
