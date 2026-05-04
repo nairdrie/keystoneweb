@@ -57,16 +57,6 @@ export default async function RootLayout({
       >
         <AuthProvider initialUser={user}>
           <PlatformJsonLd />
-          
-          <style dangerouslySetInnerHTML={{
-            __html: `
-            :root {
-              --impersonation-height: ${isImpersonated ? '36px' : '0px'};
-            }
-            body {
-              padding-top: var(--impersonation-height) !important;
-            }
-          `}} />
           {isImpersonated && <ImpersonationBanner userEmail={user.email || 'User'} />}
 
           {children}
