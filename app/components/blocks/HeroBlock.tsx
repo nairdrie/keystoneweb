@@ -209,6 +209,14 @@ const HERO_HEIGHT_CSS = `
     min-height: 100dvh;
     padding-top: var(--ks-header-height, 0px);
 }
+/* Cap inline font-size on small screens so a desktop-tuned size doesn't
+   blow out on phones. !important is required to beat EditableText's inline
+   style (typography modal saves a single fixed font-size). Templates can
+   still override via their own !important rules in __customCss. */
+@media (max-width: 640px) {
+    .ks-block-hero .hero-title { font-size: clamp(1.875rem, 8vw, 3rem) !important; }
+    .ks-block-hero .hero-subtitle { font-size: clamp(0.9375rem, 4vw, 1.25rem) !important; }
+}
 `;
 
 function computeCardTransition(
@@ -295,7 +303,7 @@ function HeroCardContent({
                                     defaultValue={DEFAULT_TITLE}
                                     isEditMode={isEditMode}
                                     onSave={onSave}
-                                    className={`hero-title text-4xl md:text-6xl font-extrabold leading-tight ${TEXT_ALIGN_CLASS[card.content.title.align]}`}
+                                    className={`hero-title text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight ${TEXT_ALIGN_CLASS[card.content.title.align]}`}
                                     style={{ color: textColor }}
                                 />
                             </Reveal>
@@ -310,7 +318,7 @@ function HeroCardContent({
                                     defaultValue={DEFAULT_SUBTITLE}
                                     isEditMode={isEditMode}
                                     onSave={onSave}
-                                    className={`hero-subtitle mt-6 text-lg md:text-xl ${TEXT_ALIGN_CLASS[card.content.subtitle.align]}`}
+                                    className={`hero-subtitle mt-6 text-base sm:text-lg md:text-xl ${TEXT_ALIGN_CLASS[card.content.subtitle.align]}`}
                                     style={{ color: isMediaBg ? 'rgba(255,255,255,0.85)' : 'rgba(15,23,42,0.7)' }}
                                 />
                             </Reveal>
