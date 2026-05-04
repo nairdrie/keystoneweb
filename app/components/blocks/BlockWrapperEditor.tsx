@@ -3,8 +3,9 @@
 import { ReactNode, cloneElement, isValidElement, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useEditorContext } from '@/lib/editor-context';
-import { ArrowUp, ArrowDown, Trash2, Settings, ExternalLink, UtensilsCrossed } from 'lucide-react';
+import { ArrowUp, ArrowDown, Trash2, Settings } from 'lucide-react';
 import BlockSettingsModal from './BlockSettingsModal';
+import { getPanelEntry, hasInspectorPanel } from './block-panel-registry';
 import { motion } from 'framer-motion';
 import { staggerContainer } from '@/lib/motion';
 
@@ -46,6 +47,9 @@ export default function BlockWrapperEditor({
     const wrapperRef = useRef<HTMLDivElement>(null);
     const settingsButtonRef = useRef<HTMLButtonElement>(null);
 
+    const usesPanel = hasInspectorPanel(type);
+    const panelEntry = getPanelEntry(type);
+
     const closeSettings = useCallback(() => {
         setSettingsOpen(false);
         setDraftData(null);
@@ -72,31 +76,27 @@ export default function BlockWrapperEditor({
 
     const openSettings = () => {
         setIsSelected(true);
-        if (type === 'menu') {
+        if (usesPanel) {
             setDraftData((data || {}) as Record<string, unknown>);
         }
         setSettingsOpen(true);
     };
 
-    const manageMenuItems = () => {
-        if (!context?.siteId) return;
-
-        const navigate = () => router.push(`/admin/menu?siteId=${context.siteId}`);
-        if (context.requestNavigation) context.requestNavigation(navigate);
-        else navigate();
-    };
-
-    const previewData = type === 'menu' && draftData ? draftData : data;
+    const previewData = usesPanel && draftData ? draftData : data;
     const draftCustomCss = typeof draftData?.__customCss === 'string' ? draftData.__customCss : '';
-    const previewScopedCss = type === 'menu' && draftData
+    const previewScopedCss = usesPanel && draftData
         ? scopeCustomCss(id, draftCustomCss)
         : scopedCss;
-    const previewChildren = type === 'menu' && previewData
+    const previewChildren = usesPanel && previewData
         ? cloneChildrenWithData(children, previewData)
         : children;
     const controlsVisibleClass = isSelected
         ? 'opacity-100'
         : 'opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100';
+
+    const primaryButton = panelEntry?.primaryButton;
+    const PrimaryIcon = primaryButton?.icon ?? Settings;
+    const secondaryActions = panelEntry?.secondaryActions ?? [];
 
     return (
         <motion.div
@@ -113,27 +113,16 @@ export default function BlockWrapperEditor({
         >
             {/* Editor controls are intentionally outside data-block-id so block __customCss cannot affect them */}
             <div className={`absolute top-2 right-2 ${controlsVisibleClass} transition-opacity bg-white shadow-md border border-slate-200 rounded-md flex overflow-hidden z-[100]`}>
-                {type === 'menu' ? (
-                    <>
-                        <button
-                            ref={settingsButtonRef}
-                            onClick={openSettings}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-100 transition-colors"
-                            title="Menu Settings"
-                        >
-                            <Settings className="w-4 h-4" />
-                            Menu Settings
-                        </button>
-                        <button
-                            onClick={manageMenuItems}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-100 transition-colors"
-                            title="Manage Menu Items"
-                        >
-                            <UtensilsCrossed className="w-4 h-4" />
-                            Manage Items
-                            <ExternalLink className="w-3 h-3 opacity-60" />
-                        </button>
-                    </>
+                {primaryButton ? (
+                    <button
+                        ref={settingsButtonRef}
+                        onClick={openSettings}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-100 transition-colors"
+                        title={primaryButton.label}
+                    >
+                        <PrimaryIcon className="w-4 h-4" />
+                        {primaryButton.label}
+                    </button>
                 ) : (
                     <button
                         ref={settingsButtonRef}
@@ -144,6 +133,29 @@ export default function BlockWrapperEditor({
                         <Settings className="w-4 h-4" />
                     </button>
                 )}
+                {secondaryActions.map((action) => {
+                    const Icon = action.icon;
+                    const SuffixIcon = action.suffixIcon;
+                    const handleClick = () => {
+                        const href = action.getHref?.(context ?? null, id);
+                        if (!href) return;
+                        const navigate = () => router.push(href);
+                        if (context?.requestNavigation) context.requestNavigation(navigate);
+                        else navigate();
+                    };
+                    return (
+                        <button
+                            key={action.id}
+                            onClick={handleClick}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-100 transition-colors"
+                            title={action.label}
+                        >
+                            <Icon className="w-4 h-4" />
+                            {action.label}
+                            {SuffixIcon && <SuffixIcon className="w-3 h-3 opacity-60" />}
+                        </button>
+                    );
+                })}
                 <button
                     onClick={() => context?.moveBlock?.(id, 'up')}
                     className="p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-100 transition-colors"
@@ -182,7 +194,7 @@ export default function BlockWrapperEditor({
                 onSaveCustomCss={(css) => onUpdateCustomCss?.(css)}
                 isProUser={isProUser}
                 palette={palette}
-                onDraftBlockDataChange={type === 'menu' ? setDraftData : undefined}
+                onDraftBlockDataChange={usesPanel ? setDraftData : undefined}
             />
         </motion.div>
     );

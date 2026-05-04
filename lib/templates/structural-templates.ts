@@ -27,6 +27,47 @@ const thumb = (id: string) => getTemplatePreviewImage(id) || image(id, 400, 300)
 
 const block = (type: string, data: Record<string, unknown> = {}) => ({ type, data });
 
+// ── Hero helpers (new schema: cards / transition / height) ─────────────────
+type HAlign = 'left' | 'center' | 'right';
+type HSide = 'left' | 'right';
+const hCard = (
+  id: string,
+  title: string,
+  subtitle: string,
+  ctaLabel: string,
+  align: HAlign,
+  background: Record<string, unknown>,
+  opts: { ctaEnabled?: boolean; ctaLink?: unknown; image?: { url: string; side?: HSide } } = {},
+) => ({
+  id,
+  content: {
+    title: { enabled: true, value: title, align },
+    subtitle: { enabled: true, value: subtitle, align },
+    cta: { enabled: opts.ctaEnabled !== false, label: ctaLabel, link: opts.ctaLink, align },
+    image: { enabled: !!opts.image, url: opts.image?.url || '', side: opts.image?.side || 'right' },
+  },
+  background,
+});
+const hBgGradient = (from: string, to: string, angle = 0, opacity = 0) => ({
+  type: 'gradient',
+  gradient: { from, to, angle },
+  overlay: { color: '#000000', opacity },
+});
+const hBgImage = (url: string, opacity = 0.5) => ({
+  type: 'image',
+  image: { url },
+  overlay: { color: '#000000', opacity },
+});
+const heroBlockData = (
+  cards: unknown[],
+  opts: { customCss?: string; height?: 'fitContent' | 'fitScreen' | 'manual'; transition?: 'fade' | 'slide' | 'none'; intervalSec?: number } = {},
+) => ({
+  cards,
+  transition: { type: opts.transition || 'fade', intervalSec: opts.intervalSec || 5, pauseOnHover: true },
+  height: { mode: opts.height || 'fitContent', valuePx: 600 },
+  ...(opts.customCss ? { __customCss: opts.customCss } : {}),
+});
+
 const navItem = (label: string, pageSlug: string) => ({
   label,
   linkType: 'page',
@@ -110,15 +151,19 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
         navItem('Contact', 'contact'),
       ],
       blocks: [
-        block('hero', {
-          variant: 'split',
-          title: 'Operational clarity for complex teams',
-          subtitle: 'Strategy, systems, and reporting for companies that need cleaner decisions and faster execution.',
-          buttonText: 'Book Strategy Call',
-          buttonTextLink: ctaLink,
-          image: image('photo-1497366811353-6870744d04b2'),
-          __customCss: '.hero-split { background: linear-gradient(180deg, var(--accent) 0%, #ffffff 100%) !important; } .hero-content { border-left: 6px solid var(--secondary); padding-left: 2rem; } .hero-title { letter-spacing: 0; } .hero-image { border-radius: 8px !important; box-shadow: 24px 24px 0 color-mix(in srgb, var(--secondary) 18%, white) !important; }',
-        }),
+        block('hero', heroBlockData([
+          hCard(
+            'atlas-hero-1',
+            'Operational clarity for complex teams',
+            'Strategy, systems, and reporting for companies that need cleaner decisions and faster execution.',
+            'Book Strategy Call',
+            'left',
+            hBgGradient('palette:accent', '#ffffff', 180, 0),
+            { ctaLink, image: { url: image('photo-1497366811353-6870744d04b2'), side: 'right' } },
+          ),
+        ], {
+          customCss: '.hero-split { background: linear-gradient(180deg, var(--accent) 0%, #ffffff 100%) !important; } .hero-content { border-left: 6px solid var(--secondary); padding-left: 2rem; } .hero-title { letter-spacing: 0; } .hero-image { border-radius: 8px !important; box-shadow: 24px 24px 0 color-mix(in srgb, var(--secondary) 18%, white) !important; }',
+        })),
         block('logoCloud', {
           title: 'Trusted by growth-stage teams, operators, and boards',
           variant: 'marquee',
@@ -263,14 +308,19 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
         navItem('About', 'about'),
       ],
       blocks: [
-        block('hero', {
-          variant: 'minimal',
-          showButton: false,
-          title: 'Ideas for people building what comes next',
-          subtitle: 'Sharp essays, interviews, and field notes for founders, operators, and independent brands.',
-          backgroundColor: 'palette:accent',
-          __customCss: 'section { border-bottom: 1px solid var(--primary); } .hero-container { max-width: 72rem !important; } .hero-title { text-transform: uppercase; font-weight: 900; } .hero-footer { border-top: 1px solid var(--primary); padding-top: 2rem; }',
-        }),
+        block('hero', heroBlockData([
+          hCard(
+            'editorial-hero-1',
+            'Ideas for people building what comes next',
+            'Sharp essays, interviews, and field notes for founders, operators, and independent brands.',
+            '',
+            'left',
+            hBgGradient('palette:accent', 'palette:accent', 0, 0),
+            { ctaEnabled: false },
+          ),
+        ], {
+          customCss: 'section { border-bottom: 1px solid var(--primary); } .hero-container { max-width: 72rem !important; } .hero-title { text-transform: uppercase; font-weight: 900; } .hero-footer { border-top: 1px solid var(--primary); padding-top: 2rem; }',
+        })),
         block('resources', {
           title: 'Featured desk',
           subtitle: 'Start with the current issue.',
@@ -381,16 +431,19 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
         navItem('Book', 'booking'),
       ],
       blocks: [
-        block('hero', {
-          variant: 'centered',
-          bgType: 'color',
-          backgroundColor: 'palette:accent',
-          title: 'Book the right appointment in minutes',
-          subtitle: 'A calm, practical layout for service providers who want visitors to schedule without friction.',
-          buttonText: 'Book Now',
-          buttonTextLink: bookingLink,
-          __customCss: 'section { border-bottom: 1px solid color-mix(in srgb, var(--secondary) 18%, white); } .hero-title { color: var(--primary) !important; } .hero-subtitle { color: color-mix(in srgb, var(--primary) 76%, white) !important; } .hero-button { background: var(--secondary) !important; color: white !important; border-radius: 14px !important; } .hero-decoration { display: none; }',
-        }),
+        block('hero', heroBlockData([
+          hCard(
+            'booked-hero-1',
+            'Book the right appointment in minutes',
+            'A calm, practical layout for service providers who want visitors to schedule without friction.',
+            'Book Now',
+            'center',
+            hBgGradient('palette:accent', 'palette:accent', 0, 0),
+            { ctaLink: bookingLink },
+          ),
+        ], {
+          customCss: 'section { border-bottom: 1px solid color-mix(in srgb, var(--secondary) 18%, white); } .hero-title { color: var(--primary) !important; } .hero-subtitle { color: color-mix(in srgb, var(--primary) 76%, white) !important; } .hero-button { background: var(--secondary) !important; color: white !important; border-radius: 14px !important; } .hero-decoration { display: none; }',
+        })),
         block('booking', {}),
         block('servicesGrid', {
           title: 'Choose your visit',
@@ -501,14 +554,19 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
         navItem('Visit', 'visit'),
       ],
       blocks: [
-        block('hero', {
-          variant: 'fullImage',
-          title: 'A neighborhood table with a seasonal menu',
-          subtitle: 'Small plates, fresh pasta, and a dining room built for unhurried evenings.',
-          buttonText: 'View Menu',
-          image: image('photo-1517248135467-4c7edcad34c4'),
-          __customCss: '.hero-container { text-align: left !important; margin-left: max(1rem, calc((100vw - 72rem) / 2)) !important; margin-right: auto !important; } .hero-title, .hero-subtitle { max-width: 42rem; } .hero-button { border-radius: 8px !important; } .hero-overlay { background: linear-gradient(90deg, rgba(0,0,0,.72), rgba(0,0,0,.2)) !important; }',
-        }),
+        block('hero', heroBlockData([
+          hCard(
+            'menu-hero-1',
+            'A neighborhood table with a seasonal menu',
+            'Small plates, fresh pasta, and a dining room built for unhurried evenings.',
+            'View Menu',
+            'center',
+            hBgImage(image('photo-1517248135467-4c7edcad34c4'), 0.5),
+          ),
+        ], {
+          height: 'fitScreen',
+          customCss: '.hero-container { text-align: left !important; margin-left: max(1rem, calc((100vw - 72rem) / 2)) !important; margin-right: auto !important; } .hero-title, .hero-subtitle { max-width: 42rem; } .hero-button { border-radius: 8px !important; } .hero-overlay { background: linear-gradient(90deg, rgba(0,0,0,.72), rgba(0,0,0,.2)) !important; }',
+        })),
         block('menu', {
           menuTitle: 'Menu highlights',
           menuSubtitle: 'Browse brunch, dinner, and drinks by section.',
@@ -624,14 +682,19 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
         navItem('Shop', 'shop'),
       ],
       blocks: [
-        block('hero', {
-          variant: 'split',
-          title: 'Small-batch goods with a human hand',
-          subtitle: 'Warm, tactile, locally made pieces for homes that prefer character over sameness.',
-          buttonText: 'Shop Local',
-          image: image('photo-1452860606245-08befc0ff44b'),
-          __customCss: '.hero-split { background: var(--accent) !important; overflow: hidden; } .hero-container { position: relative; } .hero-container:before { content: ""; position: absolute; width: 240px; height: 240px; border-radius: 999px; background: color-mix(in srgb, var(--secondary) 24%, white); left: -80px; top: -40px; z-index: 0; } .hero-content, .hero-container > div { position: relative; z-index: 1; } .hero-image { border-radius: 44% 56% 54% 46% !important; box-shadow: -18px 18px 0 color-mix(in srgb, var(--secondary) 42%, white) !important; } .hero-button { border-radius: 999px !important; }',
-        }),
+        block('hero', heroBlockData([
+          hCard(
+            'craft-hero-1',
+            'Small-batch goods with a human hand',
+            'Warm, tactile, locally made pieces for homes that prefer character over sameness.',
+            'Shop Local',
+            'left',
+            hBgGradient('palette:accent', 'palette:accent', 0, 0),
+            { image: { url: image('photo-1452860606245-08befc0ff44b'), side: 'right' } },
+          ),
+        ], {
+          customCss: '.hero-split { background: var(--accent) !important; overflow: hidden; } .hero-container { position: relative; } .hero-container:before { content: ""; position: absolute; width: 240px; height: 240px; border-radius: 999px; background: color-mix(in srgb, var(--secondary) 24%, white); left: -80px; top: -40px; z-index: 0; } .hero-content, .hero-container > div { position: relative; z-index: 1; } .hero-image { border-radius: 44% 56% 54% 46% !important; box-shadow: -18px 18px 0 color-mix(in srgb, var(--secondary) 42%, white) !important; } .hero-button { border-radius: 999px !important; }',
+        })),
         block('carousel', {
           title: 'Made in small runs',
           subtitle: 'A showcase that feels closer to a market table than a product grid.',
@@ -764,15 +827,18 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
         navItem('Contact', 'contact'),
       ],
       blocks: [
-        block('hero', {
-          variant: 'centered',
-          bgType: 'color',
-          backgroundColor: 'palette:accent',
-          title: 'Make the internet fun again',
-          subtitle: 'A bold starter layout for pop-ups, creators, youth brands, events, and playful campaigns.',
-          buttonText: 'Start Something',
-          __customCss: 'section { border-top: 4px solid var(--primary); border-bottom: 4px solid var(--primary); } .hero-title { color: var(--primary) !important; text-shadow: 4px 4px 0 var(--secondary); } .hero-subtitle { color: var(--primary) !important; font-weight: 800; } .hero-button { background: var(--primary) !important; color: var(--accent) !important; border: 3px solid var(--primary); border-radius: 4px !important; box-shadow: 6px 6px 0 var(--secondary) !important; } .hero-decoration { display: none; }',
-        }),
+        block('hero', heroBlockData([
+          hCard(
+            'retro-hero-1',
+            'Make the internet fun again',
+            'A bold starter layout for pop-ups, creators, youth brands, events, and playful campaigns.',
+            'Start Something',
+            'center',
+            hBgGradient('palette:accent', 'palette:accent', 0, 0),
+          ),
+        ], {
+          customCss: 'section { border-top: 4px solid var(--primary); border-bottom: 4px solid var(--primary); } .hero-title { color: var(--primary) !important; text-shadow: 4px 4px 0 var(--secondary); } .hero-subtitle { color: var(--primary) !important; font-weight: 800; } .hero-button { background: var(--primary) !important; color: var(--accent) !important; border: 3px solid var(--primary); border-radius: 4px !important; box-shadow: 6px 6px 0 var(--secondary) !important; } .hero-decoration { display: none; }',
+        })),
         block('tabBar', {
           tabStyle: 'buttons',
           tabAlign: 'stretch',
@@ -899,14 +965,19 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
         navItem('Estimate', 'estimate'),
       ],
       blocks: [
-        block('hero', {
-          variant: 'video',
-          title: 'Trust is the first conversion',
-          subtitle: 'A credibility-led layout for businesses where proof, reviews, and risk reversal matter.',
-          buttonText: 'Request Review',
-          image: image('photo-1450101499163-c8848c66ca85'),
-          __customCss: '.hero-overlay { background: color-mix(in srgb, var(--primary) 72%, transparent) !important; } .hero-button { border-radius: 8px !important; }',
-        }),
+        block('hero', heroBlockData([
+          hCard(
+            'proof-hero-1',
+            'Trust is the first conversion',
+            'A credibility-led layout for businesses where proof, reviews, and risk reversal matter.',
+            'Request Review',
+            'center',
+            hBgImage(image('photo-1450101499163-c8848c66ca85'), 0.5),
+          ),
+        ], {
+          height: 'fitScreen',
+          customCss: '.hero-overlay { background: color-mix(in srgb, var(--primary) 72%, transparent) !important; } .hero-button { border-radius: 8px !important; }',
+        })),
         block('logoCloud', {
           title: 'Certifications, partners, and local recognition',
           variant: 'grid',
@@ -1062,21 +1133,39 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
         navItem('Inquire', 'inquire'),
       ],
       blocks: [
-        block('hero', {
-          variant: 'centered',
-          bgType: 'carousel',
-          bgCarouselImages: [
-            image('photo-1492691527719-9d1e07e534b4'),
-            image('photo-1516035069371-29a1b244cc32'),
-            image('photo-1500530855697-b586d89ba3ee'),
-          ],
-          bgCarouselTiming: 6,
-          bgCarouselTransition: 'fade',
-          title: 'A portfolio that lets the work breathe',
-          subtitle: 'Large images, lean copy, and direct project pathways for photographers, designers, makers, and studios.',
-          buttonText: 'View Portfolio',
-          __customCss: '.hero-centered { min-height: 86vh; display: flex; align-items: flex-end; padding-bottom: 6rem; } .hero-container { text-align: left !important; max-width: 72rem !important; } .hero-title, .hero-subtitle { max-width: 44rem; } .hero-button { display: none !important; } .hero-overlay { background: linear-gradient(180deg, rgba(0,0,0,.08), rgba(0,0,0,.68)) !important; }',
-        }),
+        block('hero', heroBlockData([
+          hCard(
+            'gallery-hero-1',
+            'A portfolio that lets the work breathe',
+            'Large images, lean copy, and direct project pathways for photographers, designers, makers, and studios.',
+            'View Portfolio',
+            'left',
+            hBgImage(image('photo-1492691527719-9d1e07e534b4'), 0.5),
+            { ctaEnabled: false },
+          ),
+          hCard(
+            'gallery-hero-2',
+            'A portfolio that lets the work breathe',
+            'Large images, lean copy, and direct project pathways for photographers, designers, makers, and studios.',
+            'View Portfolio',
+            'left',
+            hBgImage(image('photo-1516035069371-29a1b244cc32'), 0.5),
+            { ctaEnabled: false },
+          ),
+          hCard(
+            'gallery-hero-3',
+            'A portfolio that lets the work breathe',
+            'Large images, lean copy, and direct project pathways for photographers, designers, makers, and studios.',
+            'View Portfolio',
+            'left',
+            hBgImage(image('photo-1500530855697-b586d89ba3ee'), 0.5),
+            { ctaEnabled: false },
+          ),
+        ], {
+          height: 'fitScreen',
+          intervalSec: 6,
+          customCss: '.hero-centered { min-height: 86vh; display: flex; align-items: flex-end; padding-bottom: 6rem; } .hero-container { text-align: left !important; max-width: 72rem !important; } .hero-title, .hero-subtitle { max-width: 44rem; } .hero-button { display: none !important; } .hero-overlay { background: linear-gradient(180deg, rgba(0,0,0,.08), rgba(0,0,0,.68)) !important; }',
+        })),
         block('image', {
           image: image('photo-1516035069371-29a1b244cc32'),
           image__settings: { altText: 'Large featured portfolio image' },
