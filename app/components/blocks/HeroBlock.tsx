@@ -137,11 +137,20 @@ export default function HeroBlock({
         const section = sectionRef.current;
         if (!section) return;
         const wrapper = section.closest('[data-tour="builder-section-frame"]') as HTMLElement | null;
+        const previewHost = section.closest('.ks-preview-mode') as HTMLElement | null;
         let observers: ResizeObserver[] = [];
 
-        const update = () => {
+        const detectBreakpoint = (): HeroBreakpoint => {
+            // Editor's device preview dropdown overrides the natural viewport.
+            if (previewHost?.classList.contains('ks-preview-mobile')) return 'mobile';
+            if (previewHost?.classList.contains('ks-preview-tablet')) return 'tablet';
+            if (previewHost?.classList.contains('ks-preview-desktop')) return 'desktop';
             const w = window.innerWidth;
-            const bp: HeroBreakpoint = w >= 1024 ? 'desktop' : w >= 640 ? 'tablet' : 'mobile';
+            return w >= 1024 ? 'desktop' : w >= 640 ? 'tablet' : 'mobile';
+        };
+
+        const update = () => {
+            const bp = detectBreakpoint();
             const cfg = heightCfg[bp];
             if (cfg.mode !== 'fitScreen' || !cfg.revealNext || cfg.revealNext <= 0 || !wrapper) {
                 section.style.removeProperty('--hero-peek-height');
@@ -169,8 +178,15 @@ export default function HeroBlock({
 
         update();
         window.addEventListener('resize', update);
+        // React to preview-device class flips so revealNext's count updates
+        // when the user picks a different device from the editor dropdown.
+        const classObs = previewHost
+            ? new MutationObserver(update)
+            : null;
+        classObs?.observe(previewHost!, { attributes: true, attributeFilter: ['class'] });
         return () => {
             window.removeEventListener('resize', update);
+            classObs?.disconnect();
             observers.forEach((o) => o.disconnect());
             section.style.removeProperty('--hero-peek-height');
         };
@@ -257,7 +273,10 @@ const HERO_GLOBAL_CSS = `
 `;
 
 /** Emits per-block, per-breakpoint min-height CSS. Scoped via a unique class
- *  applied to the hero <section> so multiple heroes on a page don't collide. */
+ *  applied to the hero <section> so multiple heroes on a page don't collide.
+ *  Also emits parent-class overrides (.ks-preview-{device}) so the editor's
+ *  device preview dropdown forces a specific breakpoint regardless of the
+ *  actual viewport width. */
 function buildHeroHeightCss(scopeClass: string, h: HeroHeight): string {
     const sel = `.${scopeClass}`;
     const minH = (cfg: HeroHeightConfig): string => {
@@ -274,28 +293,25 @@ function buildHeroHeightCss(scopeClass: string, h: HeroHeight): string {
     const overlayPad = (cfg: HeroHeightConfig): string =>
         cfg.mode === 'fitScreen' ? 'var(--ks-header-height, 0px)' : '0';
 
-    // Mobile-first cascade: define mobile, override at >=640px (tablet),
-    // then >=1024px (desktop). Keeps SSR honest on the smallest device.
+    const block = (cfg: HeroHeightConfig, scope = sel): string => `
+${scope} { min-height: ${minH(cfg)}; }
+:root[data-ks-header-overlay="true"] .first-block-offset > .ks-block ${scope} {
+    min-height: ${overlayMinH(cfg)};
+    padding-top: ${overlayPad(cfg)};
+}`;
+
+    // Mobile-first cascade: define mobile, override at >=640px (tablet), then
+    // >=1024px (desktop). Then class-scoped overrides for the editor preview
+    // (specificity .ks-preview-* + ${sel} beats unmediated rules and rules
+    // inside @media queries since classes add specificity but media queries
+    // do not).
     return `
-${sel} { min-height: ${minH(h.mobile)}; }
-:root[data-ks-header-overlay="true"] .first-block-offset > .ks-block ${sel} {
-    min-height: ${overlayMinH(h.mobile)};
-    padding-top: ${overlayPad(h.mobile)};
-}
-@media (min-width: 640px) {
-    ${sel} { min-height: ${minH(h.tablet)}; }
-    :root[data-ks-header-overlay="true"] .first-block-offset > .ks-block ${sel} {
-        min-height: ${overlayMinH(h.tablet)};
-        padding-top: ${overlayPad(h.tablet)};
-    }
-}
-@media (min-width: 1024px) {
-    ${sel} { min-height: ${minH(h.desktop)}; }
-    :root[data-ks-header-overlay="true"] .first-block-offset > .ks-block ${sel} {
-        min-height: ${overlayMinH(h.desktop)};
-        padding-top: ${overlayPad(h.desktop)};
-    }
-}
+${block(h.mobile)}
+@media (min-width: 640px) { ${block(h.tablet)} }
+@media (min-width: 1024px) { ${block(h.desktop)} }
+${block(h.mobile, `.ks-preview-mobile ${sel}`)}
+${block(h.tablet, `.ks-preview-tablet ${sel}`)}
+${block(h.desktop, `.ks-preview-desktop ${sel}`)}
 `;
 }
 
