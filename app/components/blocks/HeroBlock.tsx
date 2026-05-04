@@ -137,7 +137,16 @@ export default function HeroBlock({
         const section = sectionRef.current;
         if (!section) return;
         const wrapper = section.closest('[data-tour="builder-section-frame"]') as HTMLElement | null;
-        const previewHost = section.closest('.ks-preview-mode') as HTMLElement | null;
+        // When rendered inside the editor's preview iframe, parent-window
+        // markers like `.ks-preview-mode` aren't reachable from inside the
+        // iframe document. The iframe itself is sized to the device, so the
+        // iframe's own `innerWidth` already reflects the breakpoint — we just
+        // detect that case and skip the parent-class lookup.
+        const ownerWin = section.ownerDocument?.defaultView ?? window;
+        const isInIframe = ownerWin !== window;
+        const previewHost = isInIframe
+            ? null
+            : (section.closest('.ks-preview-mode') as HTMLElement | null);
         let observers: ResizeObserver[] = [];
 
         const detectBreakpoint = (): HeroBreakpoint => {
@@ -145,7 +154,7 @@ export default function HeroBlock({
             if (previewHost?.classList.contains('ks-preview-mobile')) return 'mobile';
             if (previewHost?.classList.contains('ks-preview-tablet')) return 'tablet';
             if (previewHost?.classList.contains('ks-preview-desktop')) return 'desktop';
-            const w = window.innerWidth;
+            const w = ownerWin.innerWidth;
             return w >= 1024 ? 'desktop' : w >= 640 ? 'tablet' : 'mobile';
         };
 
@@ -177,7 +186,7 @@ export default function HeroBlock({
         };
 
         update();
-        window.addEventListener('resize', update);
+        ownerWin.addEventListener('resize', update);
         // React to preview-device class flips so revealNext's count updates
         // when the user picks a different device from the editor dropdown.
         const classObs = previewHost
@@ -185,7 +194,7 @@ export default function HeroBlock({
             : null;
         classObs?.observe(previewHost!, { attributes: true, attributeFilter: ['class'] });
         return () => {
-            window.removeEventListener('resize', update);
+            ownerWin.removeEventListener('resize', update);
             classObs?.disconnect();
             observers.forEach((o) => o.disconnect());
             section.style.removeProperty('--hero-peek-height');
