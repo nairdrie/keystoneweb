@@ -32,19 +32,34 @@ const FLEX_ALIGN_CLASS: Record<'left' | 'center' | 'right', string> = {
     right: 'justify-end',
 };
 
-export default function HeroBlock({ block, palette }: { block: BlockData; palette: Record<string, string> }) {
+export default function HeroBlock({
+    block,
+    data: dataProp,
+    palette,
+}: {
+    block: BlockData;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data?: Record<string, any>;
+    palette: Record<string, string>;
+}) {
     const context = useEditorContext();
     const isEditMode = context?.isEditMode || false;
 
-    const data: HeroData = useMemo(() => migrateLegacyHeroData(block.data), [block.data]);
+    // BlockWrapperEditor overrides the `data` prop with draft data during
+    // the live-preview flow (cloneElement). Prefer that when present so
+    // settings-panel changes show on the canvas instantly. Fall back to the
+    // persisted block.data for non-edit / non-draft renders.
+    const rawData = dataProp ?? block.data;
+
+    const data: HeroData = useMemo(() => migrateLegacyHeroData(rawData), [rawData]);
 
     const cards = data.cards;
     const cardCount = cards.length;
     const transition = data.transition;
     const heightCfg = data.height;
 
-    const editorActiveIndex = typeof block.data?.__activeCardIndex === 'number' ? block.data.__activeCardIndex : null;
-    const pauseRotation = block.data?.__pauseRotation === true;
+    const editorActiveIndex = typeof rawData?.__activeCardIndex === 'number' ? rawData.__activeCardIndex : null;
+    const pauseRotation = rawData?.__pauseRotation === true;
 
     const [autoIndex, setAutoIndex] = useState(0);
     const activeIndex = editorActiveIndex !== null
@@ -117,6 +132,8 @@ export default function HeroBlock({ block, palette }: { block: BlockData; palett
         return out;
     }, [heightCfg]);
 
+    const activeCard = cards[activeIndex] ?? cards[0];
+
     return (
         <section
             className={`hero relative overflow-hidden ks-hero-${heightCfg.mode}`}
@@ -128,6 +145,8 @@ export default function HeroBlock({ block, palette }: { block: BlockData; palett
 
             {lcpImageUrl && <link rel="preload" as="image" href={lcpImageUrl} fetchPriority="high" />}
 
+            {/* All cards layered absolutely so backgrounds always fill the section
+                (which is sized below by the in-flow content sizer or by min-height). */}
             {cards.map((card, i) => {
                 const isActive = i === activeIndex;
                 const transitionStyles = computeCardTransition(transition.type, isActive, i, activeIndex, cardCount);
@@ -135,10 +154,7 @@ export default function HeroBlock({ block, palette }: { block: BlockData; palett
                     <div
                         key={card.id}
                         className={`absolute inset-0 ${legacyVariantClass(card)} ${isActive ? 'ks-hero-card-active' : ''}`}
-                        style={{
-                            ...transitionStyles,
-                            position: cardCount === 1 ? 'relative' : 'absolute',
-                        }}
+                        style={transitionStyles}
                         aria-hidden={!isActive}
                     >
                         <HeroCardRenderer
@@ -147,11 +163,27 @@ export default function HeroBlock({ block, palette }: { block: BlockData; palett
                             isEditMode={isEditMode && isActive}
                             onSave={updateData(i)}
                             uploadImage={context?.uploadImage}
-                            blockData={block.data}
+                            blockData={rawData}
                         />
                     </div>
                 );
             })}
+
+            {/* In-flow sizer: an invisible duplicate of the active card's content layer.
+                This is what gives the section its intrinsic height in fit-content mode
+                so the absolutely-positioned backgrounds have something to fill. For
+                fit-screen / manual modes the section's min-height is what dominates. */}
+            {activeCard && (
+                <div className="invisible relative z-0 pointer-events-none" aria-hidden>
+                    <HeroCardContent
+                        card={activeCard}
+                        palette={palette}
+                        isEditMode={false}
+                        onSave={() => {}}
+                        blockData={rawData}
+                    />
+                </div>
+            )}
 
             {/* Card dots in non-edit mode */}
             {!isEditMode && cardCount > 1 && transition.type !== 'none' && (
@@ -204,7 +236,24 @@ function computeCardTransition(
     };
 }
 
-function HeroCardRenderer({
+function HeroCardRenderer(props: {
+    card: HeroCard;
+    palette: Record<string, string>;
+    isEditMode: boolean;
+    onSave: (key: string, value: unknown) => void;
+    uploadImage?: (file: File, contentKey: string) => Promise<string>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    blockData: Record<string, any> | undefined;
+}) {
+    return (
+        <>
+            <BackgroundLayer bg={props.card.background} palette={props.palette} />
+            <HeroCardContent {...props} />
+        </>
+    );
+}
+
+function HeroCardContent({
     card,
     palette,
     isEditMode,
@@ -222,7 +271,6 @@ function HeroCardRenderer({
 }) {
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#ef4444';
-    const pAccent = palette.accent || '#f3f4f6';
 
     const showText = card.content.title.enabled || card.content.subtitle.enabled || card.content.cta.enabled;
     const showForeground = card.content.image.enabled && (card.content.image.url || isEditMode);
@@ -233,83 +281,78 @@ function HeroCardRenderer({
     const textColor = isMediaBg ? '#ffffff' : pPrimary;
 
     return (
-        <>
-            <BackgroundLayer bg={card.background} palette={palette} />
-            <div className="hero-container relative z-10 mx-auto flex h-full w-full max-w-7xl items-center px-4 py-20 md:py-24">
-                <div className={`grid w-full gap-10 items-center ${showForeground && showText ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
-                    {showText && (
-                        <div className={`hero-content ${imageOnRight || !showForeground ? 'order-1' : 'order-2 md:order-1'}`}>
-                            {card.content.title.enabled && (
-                                <Reveal>
-                                    <EditableText
-                                        as="h1"
-                                        contentKey="title"
-                                        styleData={blockData?.['title__styles'] as string | Record<string, unknown> | undefined}
-                                        content={card.content.title.value}
-                                        defaultValue={DEFAULT_TITLE}
+        <div className="hero-container relative z-10 mx-auto flex h-full w-full max-w-7xl items-center px-4 py-20 md:py-24">
+            <div className={`grid w-full gap-10 items-center ${showForeground && showText ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
+                {showText && (
+                    <div className={`hero-content ${imageOnRight || !showForeground ? 'order-1' : 'order-2 md:order-1'}`}>
+                        {card.content.title.enabled && (
+                            <Reveal>
+                                <EditableText
+                                    as="h1"
+                                    contentKey="title"
+                                    styleData={blockData?.['title__styles'] as string | Record<string, unknown> | undefined}
+                                    content={card.content.title.value}
+                                    defaultValue={DEFAULT_TITLE}
+                                    isEditMode={isEditMode}
+                                    onSave={onSave}
+                                    className={`hero-title text-4xl md:text-6xl font-extrabold leading-tight ${TEXT_ALIGN_CLASS[card.content.title.align]}`}
+                                    style={{ color: textColor }}
+                                />
+                            </Reveal>
+                        )}
+                        {card.content.subtitle.enabled && (
+                            <Reveal>
+                                <EditableText
+                                    as="p"
+                                    contentKey="subtitle"
+                                    styleData={blockData?.['subtitle__styles'] as string | Record<string, unknown> | undefined}
+                                    content={card.content.subtitle.value}
+                                    defaultValue={DEFAULT_SUBTITLE}
+                                    isEditMode={isEditMode}
+                                    onSave={onSave}
+                                    className={`hero-subtitle mt-6 text-lg md:text-xl ${TEXT_ALIGN_CLASS[card.content.subtitle.align]}`}
+                                    style={{ color: isMediaBg ? 'rgba(255,255,255,0.85)' : 'rgba(15,23,42,0.7)' }}
+                                />
+                            </Reveal>
+                        )}
+                        {card.content.cta.enabled && (
+                            <Reveal>
+                                <div className={`mt-8 flex ${FLEX_ALIGN_CLASS[card.content.cta.align]}`}>
+                                    <EditableButton
+                                        contentKey="buttonText"
+                                        label={card.content.cta.label}
+                                        linkData={card.content.cta.link as Partial<ButtonLinkData> | undefined}
+                                        iconData={card.content.cta.icon as ButtonIconData | undefined}
+                                        defaultLabel={DEFAULT_CTA_LABEL}
                                         isEditMode={isEditMode}
                                         onSave={onSave}
-                                        className={`hero-title text-4xl md:text-6xl font-extrabold leading-tight ${TEXT_ALIGN_CLASS[card.content.title.align]}`}
-                                        style={{ color: textColor }}
+                                        className="hero-button px-8 py-4 text-white font-bold rounded-lg shadow-lg hover:opacity-90 transition-opacity inline-block"
+                                        style={{ backgroundColor: pSecondary, color: '#ffffff' }}
                                     />
-                                </Reveal>
-                            )}
-                            {card.content.subtitle.enabled && (
-                                <Reveal>
-                                    <EditableText
-                                        as="p"
-                                        contentKey="subtitle"
-                                        styleData={blockData?.['subtitle__styles'] as string | Record<string, unknown> | undefined}
-                                        content={card.content.subtitle.value}
-                                        defaultValue={DEFAULT_SUBTITLE}
-                                        isEditMode={isEditMode}
-                                        onSave={onSave}
-                                        className={`hero-subtitle mt-6 text-lg md:text-xl ${TEXT_ALIGN_CLASS[card.content.subtitle.align]}`}
-                                        style={{ color: isMediaBg ? 'rgba(255,255,255,0.85)' : 'rgba(15,23,42,0.7)' }}
-                                    />
-                                </Reveal>
-                            )}
-                            {card.content.cta.enabled && (
-                                <Reveal>
-                                    <div className={`mt-8 flex ${FLEX_ALIGN_CLASS[card.content.cta.align]}`}>
-                                        <EditableButton
-                                            contentKey="buttonText"
-                                            label={card.content.cta.label}
-                                            linkData={card.content.cta.link as Partial<ButtonLinkData> | undefined}
-                                            iconData={card.content.cta.icon as ButtonIconData | undefined}
-                                            defaultLabel={DEFAULT_CTA_LABEL}
-                                            isEditMode={isEditMode}
-                                            onSave={onSave}
-                                            className="hero-button px-8 py-4 text-white font-bold rounded-lg shadow-lg hover:opacity-90 transition-opacity inline-block"
-                                            style={{ backgroundColor: isMediaBg ? pSecondary : pSecondary, color: '#ffffff' }}
-                                        />
-                                    </div>
-                                </Reveal>
-                            )}
-                        </div>
-                    )}
-                    {showForeground && (
-                        <Reveal className={imageOnRight ? 'order-2' : 'order-1 md:order-1'}>
-                            <EditableImage
-                                contentKey="image"
-                                initialSettings={card.content.image.settings as ImageSettings | undefined}
-                                initialAttribution={card.content.image.attribution as UnsplashAttribution | undefined}
-                                imageUrl={card.content.image.url}
-                                isEditMode={isEditMode}
-                                onSave={onSave}
-                                onUpload={uploadImage}
-                                className="hero-image w-full h-96 object-cover rounded-2xl shadow-xl"
-                                placeholder="Click to upload hero image"
-                                priority
-                            />
-                        </Reveal>
-                    )}
-                </div>
+                                </div>
+                            </Reveal>
+                        )}
+                    </div>
+                )}
+                {showForeground && (
+                    <Reveal className={imageOnRight ? 'order-2' : 'order-1 md:order-1'}>
+                        <EditableImage
+                            contentKey="image"
+                            initialSettings={card.content.image.settings as ImageSettings | undefined}
+                            initialAttribution={card.content.image.attribution as UnsplashAttribution | undefined}
+                            imageUrl={card.content.image.url}
+                            isEditMode={isEditMode}
+                            onSave={onSave}
+                            onUpload={uploadImage}
+                            className="hero-image w-full h-96 object-cover rounded-2xl shadow-xl"
+                            placeholder="Click to upload hero image"
+                            priority
+                        />
+                    </Reveal>
+                )}
             </div>
-        </>
+        </div>
     );
-    // suppress unused warning for pAccent (kept for potential future styling parity)
-    void pAccent;
 }
 
 function BackgroundLayer({ bg, palette }: { bg: HeroBackground; palette: Record<string, string> }) {
