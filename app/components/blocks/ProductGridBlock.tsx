@@ -6,11 +6,14 @@ import { useCart } from '../ecommerce/CartProvider';
 import {
     Package, Plus, Trash2, Loader2, ShoppingCart, X,
     ImageIcon, Upload, Download, Send, Search,
-    ChevronLeft, ChevronRight, Tag, Pencil, Lock, Crown, Star, ArrowRight,
+    ChevronLeft, ChevronRight, Tag, Pencil, Lock, Crown, Star,
 } from 'lucide-react';
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
 import ProductDescriptionEditor from '../ProductDescriptionEditor';
+import EditableButton, { type ButtonIconData, type ButtonLinkData } from '@/app/components/EditableButton';
+import EditableText from '@/app/components/EditableText';
 import { stripHtml } from '@/lib/ecommerce/description';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 import { useRouter, usePathname } from 'next/navigation';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -62,165 +65,14 @@ export default function ProductGridBlock({ id, data, isEditMode, palette, update
         return <div className="py-12 text-center text-slate-400">Product block requires a saved site.</div>;
     }
 
-    if (isEditMode) {
-        return <ProductGridBlockEditMode siteId={siteId} data={data} updateContent={updateContent} />;
-    }
-
-    return <ProductGrid siteId={siteId} palette={palette} data={data} />;
-}
-
-function ProductGridBlockEditMode({ siteId, data, updateContent }: { siteId: string; data: any; updateContent: (key: string, value: any) => void }) {
-    const router = useRouter();
-    const editorContext = useEditorContext();
-    const requestNavigation = editorContext?.requestNavigation;
-    const [categoryTree, setCategoryTree] = useState<Record<string, string[]>>({});
-    const categoryFilter: string = data?.categoryFilter || '';
-    const subcategoryFilter: string = data?.subcategoryFilter || '';
-    const featuredOnly: boolean = !!data?.featuredOnly;
-    const showSeeMore: boolean = !!data?.showSeeMore;
-    const seeMoreLabel: string = data?.seeMoreLabel ?? 'View all';
-    const seeMoreHref: string = data?.seeMoreHref ?? '';
-    const variant: string = data?.variant || 'grid';
-
-    useEffect(() => {
-        (async () => {
-            try {
-                const res = await fetch(`/api/products?siteId=${siteId}&limit=1`);
-                if (!res.ok) return;
-                const d = await res.json();
-                setCategoryTree(d.categoryTree || {});
-            } catch {}
-        })();
-    }, [siteId]);
-
-    const categories = Object.keys(categoryTree).sort();
-    const subcategories = categoryFilter ? (categoryTree[categoryFilter] || []) : [];
-
     return (
-        <div className="py-12 px-6 flex flex-col items-center justify-center text-center gap-4 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
-            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
-                <ShoppingCart className="w-6 h-6 text-slate-400" />
-            </div>
-            <div className="w-full max-w-md">
-                <div className="font-bold text-slate-800 mb-1">Products Block</div>
-                <div className="text-sm text-slate-500 mb-4">
-                    Filter what this block shows. Choose a layout from the block's settings (gear icon) to switch between grid, scrolling row, sidebar, or list.
-                </div>
-
-                <div className="text-left mb-4 space-y-3">
-                    <div>
-                        <label className="text-xs font-semibold text-slate-600 mb-1 block">Show category</label>
-                        <select
-                            value={categoryFilter}
-                            onChange={e => {
-                                const next = e.target.value;
-                                updateContent('categoryFilter', next);
-                                // Clear subcategory when category changes, since it's scoped to the parent.
-                                if (subcategoryFilter) updateContent('subcategoryFilter', '');
-                            }}
-                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="">All categories</option>
-                            {categories.map(c => (
-                                <option key={c} value={c}>{c}</option>
-                            ))}
-                        </select>
-                    </div>
-                    {categoryFilter && subcategories.length > 0 && (
-                        <div>
-                            <label className="text-xs font-semibold text-slate-600 mb-1 block">Show subcategory</label>
-                            <select
-                                value={subcategoryFilter}
-                                onChange={e => updateContent('subcategoryFilter', e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="">All {categoryFilter}</option>
-                                {subcategories.map(s => (
-                                    <option key={s} value={s}>{s}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-
-                    <div className="flex items-start gap-2 pt-1">
-                        <button
-                            type="button"
-                            onClick={() => updateContent('featuredOnly', !featuredOnly)}
-                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 mt-0.5 ${featuredOnly ? 'bg-amber-400' : 'bg-slate-200'}`}
-                            aria-pressed={featuredOnly}
-                        >
-                            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${featuredOnly ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
-                        </button>
-                        <div className="flex-1">
-                            <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer" onClick={() => updateContent('featuredOnly', !featuredOnly)}>
-                                <Star className={`w-3.5 h-3.5 ${featuredOnly ? 'text-amber-500 fill-amber-400' : 'text-slate-400'}`} />
-                                Featured products only
-                            </label>
-                            <p className="text-[11px] text-slate-500 mt-0.5">Only show products that are flagged as featured.</p>
-                        </div>
-                    </div>
-
-                    <div className="flex items-start gap-2">
-                        <button
-                            type="button"
-                            onClick={() => updateContent('showSeeMore', !showSeeMore)}
-                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors flex-shrink-0 mt-0.5 ${showSeeMore ? 'bg-blue-500' : 'bg-slate-200'}`}
-                            aria-pressed={showSeeMore}
-                        >
-                            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${showSeeMore ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
-                        </button>
-                        <div className="flex-1">
-                            <label className="text-xs font-semibold text-slate-700 cursor-pointer" onClick={() => updateContent('showSeeMore', !showSeeMore)}>
-                                Show "view more" button
-                            </label>
-                            <p className="text-[11px] text-slate-500 mt-0.5">Adds a button at the end of the row that links to a full collection page.</p>
-                        </div>
-                    </div>
-                    {showSeeMore && (
-                        <div className="pl-11 space-y-2">
-                            <div>
-                                <label className="text-xs font-semibold text-slate-600 mb-1 block">Button label</label>
-                                <input
-                                    type="text"
-                                    value={seeMoreLabel}
-                                    onChange={e => updateContent('seeMoreLabel', e.target.value)}
-                                    placeholder="View all"
-                                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="text-xs font-semibold text-slate-600 mb-1 block">Button link</label>
-                                <input
-                                    type="text"
-                                    value={seeMoreHref}
-                                    onChange={e => updateContent('seeMoreHref', e.target.value)}
-                                    placeholder="/shop or /shop?category=Apparel"
-                                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
-                                <p className="text-[11px] text-slate-400 mt-1">Use a path like <code>/shop</code> or an absolute URL.</p>
-                            </div>
-                        </div>
-                    )}
-
-                    <p className="text-[11px] text-slate-400 pt-1">
-                        Layout: <span className="font-semibold capitalize">{variant === 'gridWithSidebar' ? 'Grid + sidebar' : variant === 'row' ? 'Scrolling row' : variant}</span> — change in the block's settings (gear icon).
-                        {' '}When scoped to a specific category, the sidebar is hidden on the live site.
-                    </p>
-                </div>
-
-                <button
-                    onClick={() => {
-                        const go = () => router.push(`/admin/ecommerce?siteId=${siteId}`);
-                        if (requestNavigation) requestNavigation(go);
-                        else go();
-                    }}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold rounded-lg transition-colors"
-                >
-                    <Package className="w-4 h-4" />
-                    Manage Products
-                </button>
-            </div>
-        </div>
+        <ProductGrid
+            siteId={siteId}
+            palette={palette}
+            data={data}
+            isEditMode={isEditMode}
+            updateContent={updateContent}
+        />
     );
 }
 
@@ -1564,7 +1416,19 @@ function MembershipPricingModal({
 
 type SortKey = 'featured' | 'popular' | 'az' | 'za';
 
-function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Record<string, string>; data?: any }) {
+function ProductGrid({
+    siteId,
+    palette,
+    data,
+    isEditMode = false,
+    updateContent,
+}: {
+    siteId: string;
+    palette: Record<string, string>;
+    data?: any;
+    isEditMode?: boolean;
+    updateContent?: (key: string, value: any) => void;
+}) {
     const [products, setProducts] = useState<Product[]>([]);
     const [categoryTree, setCategoryTree] = useState<Record<string, string[]>>({});
     const [popularity, setPopularity] = useState<Record<string, number>>({});
@@ -1584,12 +1448,30 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
     const blockSubcategory: string = data?.subcategoryFilter || '';
     const featuredOnly: boolean = !!data?.featuredOnly;
     const showSeeMore: boolean = !!data?.showSeeMore;
-    const seeMoreLabel: string = (data?.seeMoreLabel ?? '').trim() || 'View all';
-    const seeMoreHref: string = (data?.seeMoreHref ?? '').trim();
+    // Prefer EditableButton-style fields; fall back to legacy seeMoreLabel/seeMoreHref.
+    const seeMoreLabel: string = (data?.seeMore ?? data?.seeMoreLabel ?? '').toString().trim() || 'View all';
+    const seeMoreLink: Partial<ButtonLinkData> | undefined =
+        (data?.seeMoreLink as Partial<ButtonLinkData> | undefined)
+        ?? (data?.seeMoreHref ? { linkType: 'custom', href: String(data.seeMoreHref) } : undefined);
+    const seeMoreIcon: ButtonIconData | undefined = data?.seeMoreIcon as ButtonIconData | undefined;
+    const seeMoreHref: string = (seeMoreLink?.href ?? '').toString().trim();
+    const hasSeeMoreTarget = !!(seeMoreLink?.pageId || seeMoreLink?.blockId || seeMoreHref);
+    const featuredHeading: string = (data?.featuredHeading ?? '').toString();
+    const featuredHeadingStyles = data?.featuredHeading__styles;
+    const defaultFeaturedHeading = `Featured${blockCategory ? ` — ${blockCategory}` : ''}${blockSubcategory ? ` › ${blockSubcategory}` : ''}`;
     const lockedToCategory = !!blockCategory;
     const variant: 'grid' | 'gridWithSidebar' | 'list' | 'row' = data?.variant || 'grid';
     const effectiveVariant = lockedToCategory && variant === 'gridWithSidebar' ? 'grid' : variant;
     const pSecondary = palette.secondary || '#dc2626';
+    const sectionBg = resolvePaletteColor(data?.backgroundColor, palette, '#ffffff') || '#ffffff';
+    // Carousel autoscroll settings (row variant only)
+    const autoScroll: boolean = data?.autoScroll !== false;
+    const autoScrollIntervalSec: number = typeof data?.autoScrollIntervalSec === 'number' ? data.autoScrollIntervalSec : 5;
+    const autoScrollPauseOnHover: boolean = data?.autoScrollPauseOnHover !== false;
+
+    const handleSeeMoreSave = (key: string, value: any) => {
+        updateContent?.(key, value);
+    };
 
     useEffect(() => {
         (async () => {
@@ -1625,14 +1507,17 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
     }, [sortBy, siteId, popularityLoaded]);
 
     if (loading) {
-        return <section className="py-16 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-400" /></section>;
+        return <section className="py-16 text-center" style={{ backgroundColor: sectionBg }}><Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-400" /></section>;
     }
 
     if (products.length === 0) {
         return (
-            <section className="py-16 text-center text-slate-400">
+            <section className="py-16 text-center text-slate-400" style={{ backgroundColor: sectionBg }}>
                 <Package className="w-10 h-10 mx-auto mb-3" />
                 <p className="font-medium">Products coming soon</p>
+                {isEditMode && (
+                    <p className="mt-2 text-xs text-slate-400">Add products from the &ldquo;Manage Products&rdquo; button above.</p>
+                )}
             </section>
         );
     }
@@ -1712,8 +1597,22 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
     // show, hide the section entirely instead of rendering an empty grid —
     // home pages often stack several scoped Products blocks and a missing
     // collection should disappear cleanly rather than leave a hole.
-    if (filteredProducts.length === 0 && (featuredOnly || lockedToCategory)) {
+    // In edit mode, keep the block visible so the editor can still tweak settings.
+    if (filteredProducts.length === 0 && (featuredOnly || lockedToCategory) && !isEditMode) {
         return null;
+    }
+    if (filteredProducts.length === 0 && isEditMode) {
+        return (
+            <section className="py-16 text-center text-slate-400" style={{ backgroundColor: sectionBg }} id="products">
+                <Package className="w-10 h-10 mx-auto mb-3" />
+                <p className="font-medium">No products match the current filters</p>
+                <p className="mt-1 text-xs text-slate-400">
+                    {featuredOnly && 'Featured-only is on. '}
+                    {lockedToCategory && `Scoped to "${blockCategory}${blockSubcategory ? ' › ' + blockSubcategory : ''}". `}
+                    Adjust filters in the Product Settings panel.
+                </p>
+            </section>
+        );
     }
 
     const visibleProducts = [...filteredProducts].sort((a, b) => {
@@ -1889,62 +1788,73 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
         );
     };
 
-    const seeMoreButton = (showSeeMore && seeMoreHref) ? (
-        <a
-            href={seeMoreHref}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all"
-            style={{ backgroundColor: pSecondary }}
-        >
-            {seeMoreLabel}
-            <ArrowRight className="w-4 h-4" />
-        </a>
-    ) : null;
+    // Show the see-more button whenever the toggle is on (edit mode shows it for editing
+    // even before a target is configured). On the published site, hide if no target exists.
+    const renderSeeMoreButton = (className: string, style?: React.CSSProperties) => {
+        if (!showSeeMore) return null;
+        if (!isEditMode && !hasSeeMoreTarget) return null;
+        return (
+            <EditableButton
+                contentKey="seeMore"
+                label={seeMoreLabel}
+                linkData={seeMoreLink}
+                iconData={seeMoreIcon}
+                defaultLabel="View all"
+                isEditMode={isEditMode}
+                onSave={handleSeeMoreSave}
+                className={className}
+                style={style}
+                defaultShape="rounded"
+                defaultFill="filled"
+            />
+        );
+    };
 
-    const inlineSeeMore = (showSeeMore && seeMoreHref) ? (
-        <a
-            href={seeMoreHref}
-            className="inline-flex items-center gap-1 text-sm font-semibold hover:underline"
-            style={{ color: pSecondary }}
-        >
-            {seeMoreLabel}
-            <ArrowRight className="w-4 h-4" />
-        </a>
-    ) : null;
+    const seeMoreButton = renderSeeMoreButton(
+        'inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white shadow-md hover:shadow-lg transition-all',
+        { backgroundColor: pSecondary, color: '#ffffff' },
+    );
+
+    const inlineSeeMore = renderSeeMoreButton(
+        'inline-flex items-center gap-1 text-sm font-semibold hover:underline',
+        { color: pSecondary },
+    );
 
     if (effectiveVariant === 'row') {
         return (
-            <section className="py-12 px-4" id="products">
+            <section className="py-12 px-4" id="products" style={{ backgroundColor: sectionBg }}>
                 <div className="max-w-7xl mx-auto">
-                    {(featuredOnly || inlineSeeMore) && (
+                    {featuredOnly && (
                         <div className="flex items-center justify-between gap-3 mb-4">
-                            {featuredOnly ? (
-                                <h3 className="text-base sm:text-lg font-bold text-slate-900 inline-flex items-center gap-2">
-                                    <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
-                                    Featured{blockCategory ? ` — ${blockCategory}` : ''}{blockSubcategory ? ` › ${blockSubcategory}` : ''}
-                                </h3>
-                            ) : <span />}
+                            <h3 className="text-base sm:text-lg font-bold text-slate-900 inline-flex items-center gap-2">
+                                <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
+                                <EditableText
+                                    contentKey="featuredHeading"
+                                    content={featuredHeading}
+                                    defaultValue={defaultFeaturedHeading}
+                                    isEditMode={isEditMode}
+                                    onSave={handleSeeMoreSave}
+                                    as="span"
+                                    styleData={featuredHeadingStyles}
+                                />
+                            </h3>
                             {inlineSeeMore}
                         </div>
                     )}
-                    <div className="-mx-4 px-4 overflow-x-auto scroll-smooth">
-                        <div className="flex gap-4 md:gap-6 pb-2 snap-x snap-mandatory">
-                            {visibleProducts.map(p => (
-                                <div key={p.id} className="snap-start flex-shrink-0 w-56 sm:w-64 md:w-72">
-                                    {renderCard(p)}
-                                </div>
-                            ))}
-                            {showSeeMore && seeMoreHref && (
-                                <a
-                                    href={seeMoreHref}
-                                    className="snap-start flex-shrink-0 w-56 sm:w-64 md:w-72 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 hover:bg-white hover:border-slate-300 transition-colors flex flex-col items-center justify-center gap-2 text-slate-600 hover:text-slate-900 font-semibold"
-                                    style={{ minHeight: 280 }}
-                                >
-                                    <ArrowRight className="w-6 h-6" />
-                                    <span>{seeMoreLabel}</span>
-                                </a>
-                            )}
-                        </div>
-                    </div>
+                    <ProductCarouselRow
+                        autoScroll={autoScroll && !isEditMode}
+                        intervalSec={autoScrollIntervalSec}
+                        pauseOnHover={autoScrollPauseOnHover}
+                    >
+                        {visibleProducts.map(p => (
+                            <div key={p.id} data-product-card className="snap-start flex-shrink-0 w-56 sm:w-64 md:w-72">
+                                {renderCard(p)}
+                            </div>
+                        ))}
+                    </ProductCarouselRow>
+                    {!featuredOnly && seeMoreButton && (
+                        <div className="mt-6 flex justify-center">{seeMoreButton}</div>
+                    )}
                 </div>
             </section>
         );
@@ -1952,7 +1862,7 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
 
     if (effectiveVariant === 'list') {
         return (
-            <section className="py-16 px-4" id="products">
+            <section className="py-16 px-4" id="products" style={{ backgroundColor: sectionBg }}>
                 <div className="max-w-5xl mx-auto">
                     <Toolbar />
                     <div className="space-y-4">
@@ -1969,7 +1879,7 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
     if (effectiveVariant === 'gridWithSidebar') {
         const sidebarCategories = Object.keys(categoryTree).sort();
         return (
-            <section className="py-16 px-4" id="products">
+            <section className="py-16 px-4" id="products" style={{ backgroundColor: sectionBg }}>
                 <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-8">
                     <aside className="lg:sticky lg:top-24 lg:self-start">
                         <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Categories</h4>
@@ -2037,13 +1947,21 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
 
     // Default: grid
     return (
-        <section className="py-16 px-4" id="products">
+        <section className="py-16 px-4" id="products" style={{ backgroundColor: sectionBg }}>
             <div className="max-w-7xl mx-auto">
                 {featuredOnly ? (
                     <div className="flex items-center justify-between gap-3 mb-4">
                         <h3 className="text-base sm:text-lg font-bold text-slate-900 inline-flex items-center gap-2">
                             <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
-                            Featured{blockCategory ? ` — ${blockCategory}` : ''}{blockSubcategory ? ` › ${blockSubcategory}` : ''}
+                            <EditableText
+                                contentKey="featuredHeading"
+                                content={featuredHeading}
+                                defaultValue={defaultFeaturedHeading}
+                                isEditMode={isEditMode}
+                                onSave={handleSeeMoreSave}
+                                as="span"
+                                styleData={featuredHeadingStyles}
+                            />
                         </h3>
                         {inlineSeeMore}
                     </div>
@@ -2058,5 +1976,113 @@ function ProductGrid({ siteId, palette, data }: { siteId: string; palette: Recor
                 )}
             </div>
         </section>
+    );
+}
+
+// ─── Carousel row ───────────────────────────────────────────────────────────────
+// Smoothly auto-scrolls product-by-product. Pauses on hover/focus/touch by default,
+// and respects prefers-reduced-motion.
+
+function ProductCarouselRow({
+    autoScroll,
+    intervalSec,
+    pauseOnHover,
+    children,
+}: {
+    autoScroll: boolean;
+    intervalSec: number;
+    pauseOnHover: boolean;
+    children: React.ReactNode;
+}) {
+    const scrollerRef = useRef<HTMLDivElement>(null);
+    const [paused, setPaused] = useState(false);
+    const [canScrollPrev, setCanScrollPrev] = useState(false);
+    const [canScrollNext, setCanScrollNext] = useState(false);
+
+    const measure = useCallback(() => {
+        const el = scrollerRef.current;
+        if (!el) return;
+        const max = el.scrollWidth - el.clientWidth;
+        setCanScrollPrev(el.scrollLeft > 4);
+        setCanScrollNext(el.scrollLeft < max - 4);
+    }, []);
+
+    useEffect(() => {
+        const el = scrollerRef.current;
+        if (!el) return;
+        measure();
+        el.addEventListener('scroll', measure, { passive: true });
+        const ro = new ResizeObserver(measure);
+        ro.observe(el);
+        return () => {
+            el.removeEventListener('scroll', measure);
+            ro.disconnect();
+        };
+    }, [measure, children]);
+
+    const scrollByOne = useCallback((dir: 1 | -1) => {
+        const el = scrollerRef.current;
+        if (!el) return;
+        const card = el.querySelector<HTMLElement>('[data-product-card]');
+        const gap = 24; // matches gap-4 / md:gap-6
+        const step = (card?.offsetWidth ?? 240) + gap;
+        const max = el.scrollWidth - el.clientWidth;
+        let next = el.scrollLeft + dir * step;
+        if (dir === 1 && next >= max - 4) next = 0;
+        else if (dir === -1 && next <= 4) next = max;
+        el.scrollTo({ left: next, behavior: 'smooth' });
+    }, []);
+
+    useEffect(() => {
+        if (!autoScroll || paused) return;
+        if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+        const id = window.setInterval(() => scrollByOne(1), Math.max(2000, intervalSec * 1000));
+        return () => window.clearInterval(id);
+    }, [autoScroll, paused, intervalSec, scrollByOne]);
+
+    const handleEnter = () => { if (pauseOnHover) setPaused(true); };
+    const handleLeave = () => { if (pauseOnHover) setPaused(false); };
+
+    return (
+        <div
+            className="relative"
+            onMouseEnter={handleEnter}
+            onMouseLeave={handleLeave}
+            onFocusCapture={() => setPaused(true)}
+            onBlurCapture={() => setPaused(false)}
+            onTouchStart={() => setPaused(true)}
+            onTouchEnd={() => setPaused(false)}
+        >
+            <div
+                ref={scrollerRef}
+                className="-mx-4 px-4 overflow-x-auto scroll-smooth no-scrollbar"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+                <style>{`.no-scrollbar::-webkit-scrollbar{display:none;}`}</style>
+                <div className="flex gap-4 md:gap-6 pb-2 snap-x snap-mandatory">
+                    {children}
+                </div>
+            </div>
+            {canScrollPrev && (
+                <button
+                    type="button"
+                    onClick={() => scrollByOne(-1)}
+                    aria-label="Previous"
+                    className="hidden sm:flex absolute left-1 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/95 shadow-lg border border-slate-200 items-center justify-center text-slate-700 hover:bg-white transition"
+                >
+                    <ChevronLeft className="w-5 h-5" />
+                </button>
+            )}
+            {canScrollNext && (
+                <button
+                    type="button"
+                    onClick={() => scrollByOne(1)}
+                    aria-label="Next"
+                    className="hidden sm:flex absolute right-1 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white/95 shadow-lg border border-slate-200 items-center justify-center text-slate-700 hover:bg-white transition"
+                >
+                    <ChevronRight className="w-5 h-5" />
+                </button>
+            )}
+        </div>
     );
 }

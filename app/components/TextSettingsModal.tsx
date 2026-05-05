@@ -1,8 +1,29 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Type, Search } from 'lucide-react';
+import { X, Type, Search, Sparkles } from 'lucide-react';
 import { createPortal } from 'react-dom';
+
+export interface TextShadowSettings {
+    enabled: boolean;
+    x: number;
+    y: number;
+    blur: number;
+    color: string;
+}
+
+export const DEFAULT_TEXT_SHADOW: TextShadowSettings = {
+    enabled: true,
+    x: 0,
+    y: 2,
+    blur: 8,
+    color: 'rgba(0,0,0,0.35)',
+};
+
+export function textShadowToCss(s?: TextShadowSettings | null): string | undefined {
+    if (!s || !s.enabled) return undefined;
+    return `${s.x}px ${s.y}px ${s.blur}px ${s.color}`;
+}
 
 const POPULAR_FONTS = [
     // Modern sans-serifs
@@ -27,6 +48,7 @@ interface TextStyles {
     fontSize?: string; // e.g. '16px', '1.5rem', 'text-sm'
     color?: string;    // hex or 'red-500'
     fontWeight?: string; // e.g. '400', '700'
+    textShadow?: TextShadowSettings;
 }
 
 interface TextSettingsModalProps {
@@ -48,7 +70,7 @@ export default function TextSettingsModal({
 }: TextSettingsModalProps) {
     const mouseDownOnBackdrop = useRef(false);
     const [styles, setStyles] = useState<TextStyles>(initialStyles || {});
-    const [activeTab, setActiveTab] = useState<'font' | 'size' | 'weight' | 'color'>('font');
+    const [activeTab, setActiveTab] = useState<'font' | 'size' | 'weight' | 'color' | 'shadow'>('font');
     const [searchQuery, setSearchQuery] = useState('');
 
     // Reset local state when opened with new initialStyles
@@ -81,6 +103,7 @@ export default function TextSettingsModal({
         if (styles.fontSize) cleanedStyles.fontSize = styles.fontSize;
         if (styles.color) cleanedStyles.color = styles.color;
         if (styles.fontWeight) cleanedStyles.fontWeight = styles.fontWeight;
+        if (styles.textShadow && styles.textShadow.enabled) cleanedStyles.textShadow = styles.textShadow;
 
         onSave(cleanedStyles);
         onClose();
@@ -138,6 +161,12 @@ export default function TextSettingsModal({
                         onClick={() => setActiveTab('color')}
                     >
                         Color
+                    </button>
+                    <button
+                        className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'shadow' ? 'border-red-500 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                        onClick={() => setActiveTab('shadow')}
+                    >
+                        Shadow
                     </button>
                 </div>
 
@@ -341,6 +370,156 @@ export default function TextSettingsModal({
 
                         </div>
                     )}
+
+                    {/* SHADOW TAB */}
+                    {activeTab === 'shadow' && (() => {
+                        const shadow = styles.textShadow ?? { ...DEFAULT_TEXT_SHADOW, enabled: false };
+                        const update = (patch: Partial<TextShadowSettings>) =>
+                            setStyles({ ...styles, textShadow: { ...shadow, ...patch } });
+                        const previewShadow = textShadowToCss(shadow);
+                        return (
+                            <div className="space-y-6">
+                                <div className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-lg">
+                                    <div className="flex items-center gap-3">
+                                        <Sparkles className="w-5 h-5 text-red-500" />
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-900">Drop Shadow</p>
+                                            <p className="text-[11px] text-slate-500">Adds depth behind the text.</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        role="switch"
+                                        aria-checked={shadow.enabled}
+                                        onClick={() => update(shadow.enabled
+                                            ? { enabled: false }
+                                            : { ...DEFAULT_TEXT_SHADOW, enabled: true })}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${shadow.enabled ? 'bg-red-500' : 'bg-slate-300'}`}
+                                    >
+                                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${shadow.enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                                    </button>
+                                </div>
+
+                                <div
+                                    className="rounded-lg border border-slate-200 bg-gradient-to-br from-slate-50 to-slate-100 px-6 py-8 text-center"
+                                    style={{ opacity: shadow.enabled ? 1 : 0.4 }}
+                                >
+                                    <span
+                                        className="text-3xl font-bold text-slate-900"
+                                        style={{ textShadow: previewShadow }}
+                                    >
+                                        {previewText?.trim() || 'Preview'}
+                                    </span>
+                                </div>
+
+                                <div className={`space-y-5 transition-opacity ${shadow.enabled ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
+                                    <div>
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Offset X</label>
+                                            <span className="text-[11px] font-mono text-slate-600">{shadow.x}px</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min={-20}
+                                            max={20}
+                                            step={1}
+                                            value={shadow.x}
+                                            onChange={(e) => update({ x: Number(e.target.value) })}
+                                            className="w-full accent-red-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Offset Y</label>
+                                            <span className="text-[11px] font-mono text-slate-600">{shadow.y}px</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min={-20}
+                                            max={20}
+                                            step={1}
+                                            value={shadow.y}
+                                            onChange={(e) => update({ y: Number(e.target.value) })}
+                                            className="w-full accent-red-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Blur</label>
+                                            <span className="text-[11px] font-mono text-slate-600">{shadow.blur}px</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min={0}
+                                            max={40}
+                                            step={1}
+                                            value={shadow.blur}
+                                            onChange={(e) => update({ blur: Number(e.target.value) })}
+                                            className="w-full accent-red-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs font-bold uppercase text-slate-500 tracking-wider mb-1.5 block">Shadow Color</label>
+                                        <div className="flex gap-3">
+                                            <div className="w-12 h-12 rounded-lg border border-slate-300 shadow-sm overflow-hidden shrink-0 relative">
+                                                <input
+                                                    type="color"
+                                                    value={(shadow.color.startsWith('#') ? shadow.color : '#000000')}
+                                                    onChange={(e) => update({ color: e.target.value })}
+                                                    className="absolute -inset-2 w-[150%] h-[150%] cursor-pointer border-0"
+                                                />
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={shadow.color}
+                                                onChange={(e) => update({ color: e.target.value })}
+                                                placeholder="#000000 or rgba(0,0,0,0.35)"
+                                                className="flex-1 px-4 border border-slate-300 rounded-lg focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 font-mono text-sm"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Presets</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {[
+                                                { label: 'Subtle', val: { x: 0, y: 2, blur: 8, color: 'rgba(0,0,0,0.35)' } },
+                                                { label: 'Soft Glow', val: { x: 0, y: 0, blur: 16, color: 'rgba(0,0,0,0.45)' } },
+                                                { label: 'Bold Lift', val: { x: 0, y: 6, blur: 14, color: 'rgba(0,0,0,0.5)' } },
+                                                { label: 'Retro', val: { x: 3, y: 3, blur: 0, color: 'rgba(0,0,0,1)' } },
+                                            ].map(preset => {
+                                                const isActive = shadow.enabled
+                                                    && shadow.x === preset.val.x
+                                                    && shadow.y === preset.val.y
+                                                    && shadow.blur === preset.val.blur
+                                                    && shadow.color === preset.val.color;
+                                                return (
+                                                    <button
+                                                        key={preset.label}
+                                                        onClick={() => update({ enabled: true, ...preset.val })}
+                                                        className={`flex flex-col text-left px-4 py-3 rounded-lg border transition-all ${isActive
+                                                            ? 'bg-red-50 border-red-500 shadow-[0_0_0_2px_rgba(239,68,68,0.2)]'
+                                                            : 'bg-white border-slate-200 hover:border-slate-400 hover:shadow-sm'
+                                                        }`}
+                                                    >
+                                                        <span
+                                                            className="text-base font-bold text-slate-900"
+                                                            style={{ textShadow: textShadowToCss({ enabled: true, ...preset.val }) }}
+                                                        >
+                                                            {preset.label}
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                 </div>
 

@@ -86,12 +86,6 @@ export default function BlockSettingsModal({
             { id: 'simple', label: 'Inquiry Form' },
             { id: 'calculator', label: 'Estimate Calculator' },
         ],
-        productGrid: [
-            { id: 'grid', label: 'Grid' },
-            { id: 'row', label: 'Scrolling Row' },
-            { id: 'gridWithSidebar', label: 'Grid + Category Sidebar' },
-            { id: 'list', label: 'List View' },
-        ],
     };
 
     const hasVariantSettings = !!VARIANTS[blockType];
@@ -289,6 +283,53 @@ export default function BlockSettingsModal({
                                     })}
                                 </div>
                             </div>
+                            {blockType === 'aboutImageText' && (
+                                <div>
+                                    <p className="text-sm font-medium text-slate-700 mb-3">Image Position</p>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {[
+                                            { value: 'left', label: 'Image Left, Text Right' },
+                                            { value: 'right', label: 'Text Left, Image Right' },
+                                        ].map(opt => {
+                                            const current = blockData?.imagePosition || 'left';
+                                            const isSelected = current === opt.value;
+                                            return (
+                                                <button
+                                                    key={opt.value}
+                                                    onClick={() => onUpdateBlockData && onUpdateBlockData('imagePosition', opt.value)}
+                                                    className={`p-4 border rounded-xl text-left transition-all ${
+                                                        isSelected
+                                                            ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600 shadow-sm'
+                                                            : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        {opt.value === 'left' ? (
+                                                            <>
+                                                                <span className="inline-block h-5 w-7 rounded bg-slate-300" />
+                                                                <span className="inline-flex flex-col gap-0.5">
+                                                                    <span className="inline-block h-1 w-8 rounded bg-slate-400" />
+                                                                    <span className="inline-block h-1 w-6 rounded bg-slate-300" />
+                                                                </span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <span className="inline-flex flex-col gap-0.5">
+                                                                    <span className="inline-block h-1 w-8 rounded bg-slate-400" />
+                                                                    <span className="inline-block h-1 w-6 rounded bg-slate-300" />
+                                                                </span>
+                                                                <span className="inline-block h-5 w-7 rounded bg-slate-300" />
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                    <div className="font-semibold text-sm text-slate-900">{opt.label}</div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
                             {blockType === 'team' && (
                                 <div>
                                     <p className="text-sm font-medium text-slate-700 mb-3">Columns</p>

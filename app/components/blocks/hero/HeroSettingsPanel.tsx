@@ -98,6 +98,17 @@ export default function HeroSettingsPanel({
         onDraftBlockDataChange(draft);
     }, [cards, transition, height, activeIndex, localCss, blockData, onDraftBlockDataChange]);
 
+    // Canvas dots can also switch the active card; sync our state when they do.
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const detail = (e as CustomEvent<{ blockId: string; index: number }>).detail;
+            if (!detail || detail.blockId !== blockId) return;
+            setActiveIndex(detail.index);
+        };
+        window.addEventListener('ks:hero-set-active-card', handler);
+        return () => window.removeEventListener('ks:hero-set-active-card', handler);
+    }, [blockId]);
+
     const updateActiveCard = (mutator: (card: HeroCard) => HeroCard) => {
         setCards((prev) => prev.map((c, i) => (i === activeIndex ? mutator(c) : c)));
     };
