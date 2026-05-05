@@ -33,11 +33,16 @@ interface NavMenuProps {
     itemClassName?: string;
     /** Additional CSS classes for the submenu dropdown panel (desktop) */
     submenuClassName?: string;
+    /** Filter to nav items belonging to a specific bar (primary/secondary). */
+    bar?: 'primary' | 'secondary';
 }
 
-export default function NavMenuEditor({ className = '', itemClassName = '', submenuClassName = '' }: NavMenuProps) {
+export default function NavMenuEditor({ className = '', itemClassName = '', submenuClassName = '', bar }: NavMenuProps) {
     const context = useEditorContext();
-    const navItems = context?.navItems || [];
+    const allNavItems = context?.navItems || [];
+    const navItems = bar
+        ? allNavItems.filter(it => (it.bar || 'primary') === bar)
+        : allNavItems;
     const isEditMode = context?.isEditMode || false;
     const updateNavItems = context?.updateNavItems;
     const pages = context?.pages || [];
@@ -99,7 +104,7 @@ export default function NavMenuEditor({ className = '', itemClassName = '', subm
 
     const handleSaveItem = (updated: NavItem) => {
         if (editingParentId) {
-            const newItems = navItems.map((it) => {
+            const newItems = allNavItems.map((it) => {
                 if (it.id === editingParentId) {
                     const newChildren = (it.children || []).map(c => c.id === updated.id ? updated : c);
                     return { ...it, children: newChildren };
@@ -108,7 +113,7 @@ export default function NavMenuEditor({ className = '', itemClassName = '', subm
             });
             updateNavItems?.(newItems);
         } else {
-            const newItems = navItems.map((it) => (it.id === updated.id ? updated : it));
+            const newItems = allNavItems.map((it) => (it.id === updated.id ? updated : it));
             updateNavItems?.(newItems);
         }
         setEditingItem(null);
@@ -121,14 +126,15 @@ export default function NavMenuEditor({ className = '', itemClassName = '', subm
             label: 'New Link',
             linkType: 'custom',
             href: '#',
+            ...(bar ? { bar } : {}),
         };
-        updateNavItems?.([...navItems, newItem]);
+        updateNavItems?.([...allNavItems, newItem]);
         setEditingItem(newItem);
         setEditingParentId(null);
     };
 
     const handleDeleteItem = (id: string) => {
-        updateNavItems?.(navItems.filter((it) => it.id !== id));
+        updateNavItems?.(allNavItems.filter((it) => it.id !== id));
     };
 
     const handleAddSubItem = (parentId: string) => {
@@ -138,7 +144,7 @@ export default function NavMenuEditor({ className = '', itemClassName = '', subm
             linkType: 'custom',
             href: '#',
         };
-        const newItems = navItems.map((it) => {
+        const newItems = allNavItems.map((it) => {
             if (it.id === parentId) {
                 return { ...it, children: [...(it.children || []), newSub] };
             }
@@ -150,7 +156,7 @@ export default function NavMenuEditor({ className = '', itemClassName = '', subm
     };
 
     const handleDeleteSubItem = (parentId: string, subId: string) => {
-        const newItems = navItems.map((it) => {
+        const newItems = allNavItems.map((it) => {
             if (it.id === parentId) {
                 return { ...it, children: (it.children || []).filter(c => c.id !== subId) };
             }
@@ -173,15 +179,24 @@ export default function NavMenuEditor({ className = '', itemClassName = '', subm
         if (!over || active.id === over.id) return;
         const oldIndex = navItems.findIndex(item => item.id === active.id);
         const newIndex = navItems.findIndex(item => item.id === over.id);
-        if (oldIndex !== -1 && newIndex !== -1) {
-            updateNavItems?.(arrayMove(navItems, oldIndex, newIndex));
+        if (oldIndex === -1 || newIndex === -1) return;
+        const reorderedFiltered = arrayMove(navItems, oldIndex, newIndex);
+        if (!bar) {
+            updateNavItems?.(reorderedFiltered);
+            return;
         }
+        // Re-stitch the reordered filtered items back into the full nav list,
+        // preserving the positions of items from other bars.
+        const filteredIds = new Set(navItems.map(i => i.id));
+        const queue = [...reorderedFiltered];
+        const merged = allNavItems.map(it => filteredIds.has(it.id) ? (queue.shift() || it) : it);
+        updateNavItems?.(merged);
     };
 
     const handleSubItemDragEnd = (parentId: string) => (event: DragEndEvent) => {
         const { active, over } = event;
         if (!over || active.id === over.id) return;
-        const newItems = navItems.map(item => {
+        const newItems = allNavItems.map(item => {
             if (item.id !== parentId) return item;
             const children = item.children || [];
             const oldIndex = children.findIndex(c => c.id === active.id);

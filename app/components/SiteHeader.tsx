@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Menu, X, Settings, Facebook, Instagram, Twitter, Linkedin, Youtube, Phone } from 'lucide-react';
+import { Menu, X, Settings, Facebook, Instagram, Twitter, Linkedin, Youtube, Phone, User } from 'lucide-react';
 import { useHeaderHeight } from '@/lib/hooks/useHeaderHeight';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -14,7 +14,11 @@ import HeaderProductSearch from '@/app/components/ecommerce/HeaderProductSearch'
 import HeaderMemberIcon from '@/app/components/membership/HeaderMemberIcon';
 import { useMember } from '@/app/components/membership/MemberProvider';
 import HeaderLanguageSelector from '@/app/components/HeaderLanguageSelector';
-import HeaderSettingsModal, {
+import HeaderSettingsPanel, {
+    DEFAULT_HEADER_ELEMENT_ORDER,
+    type HeaderRightElement,
+} from '@/app/components/blocks/header/HeaderSettingsPanel';
+import {
     type SiteHeaderDefaults,
     type HeaderBgType,
     type HeaderLayout,
@@ -97,6 +101,26 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
         ? Boolean(siteContent.headerShowBanner)
         : (defaults.showBanner ?? false);
     const rightSide: 'cta' | 'social' | 'none' = siteContent.headerRightSide || 'cta';
+
+    // New: secondary nav bar
+    const secondaryBarEnabled: boolean = !!siteContent.headerSecondaryBarEnabled;
+    const secondaryBarBgType: 'primary' | 'secondary' | 'custom' = siteContent.headerSecondaryBarBgType || 'secondary';
+    const secondaryBarBgColor: string = siteContent.headerSecondaryBarBgColor || '';
+
+    // New: search style + always-visible profile icon
+    const searchStyle: 'icon' | 'wide' = siteContent.headerSearchStyle || 'icon';
+    const profileAlwaysVisible: boolean = !!siteContent.headerProfileAlwaysVisible;
+
+    // New: configurable element order for the desktop right-side cluster
+    const rawElementOrder = Array.isArray(siteContent.headerElementOrder) ? siteContent.headerElementOrder : null;
+    const elementOrder: HeaderRightElement[] = (() => {
+        const valid = (rawElementOrder || []).filter(
+            (v: unknown): v is HeaderRightElement =>
+                typeof v === 'string' && (DEFAULT_HEADER_ELEMENT_ORDER as readonly string[]).includes(v)
+        );
+        DEFAULT_HEADER_ELEMENT_ORDER.forEach((el) => { if (!valid.includes(el)) valid.push(el); });
+        return valid;
+    })();
 
     // Typography
     const navFontSize      = siteContent.headerNavFontSize    || '';
@@ -381,18 +405,38 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
     const mobileIconColor = textIsLight ? 'text-white' : 'text-slate-500';
     const cartIconColor   = textIsLight ? '#ffffff' : pPrimary;
 
-    // When a member is signed in, replace CTA with profile icon + welcome text on all pages
-    const memberRightEl = member ? (() => {
-        const firstName = member.name?.split(' ')[0] || member.email.split('@')[0];
-        return (
-            <div className="flex items-center gap-2">
-                <span className={`hidden md:block text-sm ${textIsLight ? 'text-white/80' : 'text-slate-600'}`}>
-                    Welcome, {firstName}
-                </span>
-                <HeaderMemberIcon color={cartIconColor} />
-            </div>
-        );
-    })() : null;
+    // Profile slot: member icon when signed in, or always-visible "sign in" icon
+    // when configured (links to /signin for unauthed visitors).
+    const profileSlotEl = (() => {
+        if (member) {
+            const firstName = member.name?.split(' ')[0] || member.email.split('@')[0];
+            return (
+                <div className="flex items-center gap-2">
+                    <span className={`hidden md:block text-sm ${textIsLight ? 'text-white/80' : 'text-slate-600'}`}>
+                        Welcome, {firstName}
+                    </span>
+                    <HeaderMemberIcon color={cartIconColor} />
+                </div>
+            );
+        }
+        if (profileAlwaysVisible) {
+            return (
+                <Link
+                    href={isEditMode ? '#' : '/signin'}
+                    onClick={isEditMode ? (e) => e.preventDefault() : undefined}
+                    aria-label="Sign in"
+                    className="relative p-2 rounded-full hover:bg-slate-100 transition-colors inline-flex items-center justify-center"
+                    style={{ color: cartIconColor }}
+                >
+                    <User className="w-5 h-5" />
+                </Link>
+            );
+        }
+        return null;
+    })();
+
+    // Backwards-compat alias used by existing layout code paths.
+    const memberRightEl = profileSlotEl;
 
     const rightEl = (() => {
         if (rightSide === 'none') return memberRightEl;
@@ -461,11 +505,9 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
     ) : null;
 
     const settingsModal = settingsOpen ? (
-        <HeaderSettingsModal
+        <HeaderSettingsPanel
             isOpen={settingsOpen}
             onClose={() => setSettingsOpen(false)}
-            siteContent={siteContent}
-            updateSiteContent={updateSiteContent}
             palette={palette}
             defaults={defaults}
             isProUser={isProUser}
@@ -486,16 +528,69 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
                 className="flex items-center gap-6"
                 itemClassName={resolvedNavItemClass}
                 submenuClassName={resolvedSubmenuClass}
+                bar={secondaryBarEnabled ? 'primary' : undefined}
             />
         </div>
     );
 
+    // Secondary navigation bar (rendered below the header when enabled).
+    const secondaryBarBgStyle: React.CSSProperties = (() => {
+        if (secondaryBarBgType === 'primary') return { backgroundColor: pPrimary };
+        if (secondaryBarBgType === 'secondary') return { backgroundColor: pSecondary };
+        if (secondaryBarBgColor) return { backgroundColor: secondaryBarBgColor };
+        return { backgroundColor: pSecondary };
+    })();
+    const secondaryBarTextLight = (() => {
+        const bgHex = secondaryBarBgType === 'primary'
+            ? pPrimary
+            : secondaryBarBgType === 'custom'
+                ? (secondaryBarBgColor || pSecondary)
+                : pSecondary;
+        return isHexDark(bgHex);
+    })();
+    const secondaryBarItemClass = secondaryBarTextLight
+        ? 'text-sm font-medium text-white/85 hover:text-white transition-colors'
+        : 'text-sm font-medium text-slate-700 hover:text-slate-900 transition-colors';
+    const secondaryBarSubmenuClass = secondaryBarTextLight
+        ? 'bg-slate-900 border border-slate-700 shadow-xl'
+        : 'bg-white border border-slate-100 shadow-lg';
+
+    const secondaryBarEl = secondaryBarEnabled ? (
+        <div className="hidden md:block border-t border-black/10" style={secondaryBarBgStyle}>
+            <div className={`${containerClass} mx-auto px-4 py-2 flex items-center justify-center`}>
+                <div className="ks-nav-items ks-nav-secondary">
+                    <NavMenu
+                        className="flex items-center gap-6"
+                        itemClassName={secondaryBarItemClass}
+                        submenuClassName={secondaryBarSubmenuClass}
+                        bar="secondary"
+                    />
+                </div>
+            </div>
+        </div>
+    ) : null;
+
+    // CTA slot: skipped when a member is signed in (profile slot owns the right side then).
+    const ctaSlotEl = member ? null : rightEl;
+
     const desktopUtilsEl = (
         <>
-            <HeaderLanguageSelector />
-            <HeaderProductSearch color={cartIconColor} />
-            <HeaderCartIcon color={cartIconColor} />
-            {rightEl}
+            {elementOrder.map((el) => {
+                switch (el) {
+                    case 'language':
+                        return <HeaderLanguageSelector key="language" />;
+                    case 'search':
+                        return <HeaderProductSearch key="search" color={cartIconColor} style={searchStyle} />;
+                    case 'cart':
+                        return <HeaderCartIcon key="cart" color={cartIconColor} />;
+                    case 'profile':
+                        return profileSlotEl ? <span key="profile">{profileSlotEl}</span> : null;
+                    case 'cta':
+                        return ctaSlotEl ? <span key="cta">{ctaSlotEl}</span> : null;
+                    default:
+                        return null;
+                }
+            })}
         </>
     );
 
@@ -685,6 +780,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
                             {drawerMenu}
                         </div>
                     </div>
+                    {secondaryBarEl}
                     {settingsCog}
                     {settingsModal}
                 </header>
@@ -739,6 +835,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
                         {drawerMenu}
                     </div>
                 </nav>
+                {secondaryBarEl}
             </>
         );
 
@@ -782,6 +879,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
                             {renderSingleRow()}
                             {drawerMenu}
                         </div>
+                        {secondaryBarEl}
                         {settingsCog}
                         {settingsModal}
                     </div>
@@ -795,6 +893,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
                             {renderSingleRow()}
                             {drawerMenu}
                         </div>
+                        {secondaryBarEl}
                         {settingsCog}
                         {settingsModal}
                     </>
