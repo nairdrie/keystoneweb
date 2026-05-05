@@ -11,6 +11,7 @@ import {
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
 import ProductDescriptionEditor from '../ProductDescriptionEditor';
 import EditableButton, { type ButtonIconData, type ButtonLinkData } from '@/app/components/EditableButton';
+import EditableText from '@/app/components/EditableText';
 import { stripHtml } from '@/lib/ecommerce/description';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import { useRouter, usePathname } from 'next/navigation';
@@ -1455,6 +1456,9 @@ function ProductGrid({
     const seeMoreIcon: ButtonIconData | undefined = data?.seeMoreIcon as ButtonIconData | undefined;
     const seeMoreHref: string = (seeMoreLink?.href ?? '').toString().trim();
     const hasSeeMoreTarget = !!(seeMoreLink?.pageId || seeMoreLink?.blockId || seeMoreHref);
+    const featuredHeading: string = (data?.featuredHeading ?? '').toString();
+    const featuredHeadingStyles = data?.featuredHeading__styles;
+    const defaultFeaturedHeading = `Featured${blockCategory ? ` — ${blockCategory}` : ''}${blockSubcategory ? ` › ${blockSubcategory}` : ''}`;
     const lockedToCategory = !!blockCategory;
     const variant: 'grid' | 'gridWithSidebar' | 'list' | 'row' = data?.variant || 'grid';
     const effectiveVariant = lockedToCategory && variant === 'gridWithSidebar' ? 'grid' : variant;
@@ -1824,7 +1828,15 @@ function ProductGrid({
                         <div className="flex items-center justify-between gap-3 mb-4">
                             <h3 className="text-base sm:text-lg font-bold text-slate-900 inline-flex items-center gap-2">
                                 <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
-                                Featured{blockCategory ? ` — ${blockCategory}` : ''}{blockSubcategory ? ` › ${blockSubcategory}` : ''}
+                                <EditableText
+                                    contentKey="featuredHeading"
+                                    content={featuredHeading}
+                                    defaultValue={defaultFeaturedHeading}
+                                    isEditMode={isEditMode}
+                                    onSave={handleSeeMoreSave}
+                                    as="span"
+                                    styleData={featuredHeadingStyles}
+                                />
                             </h3>
                             {inlineSeeMore}
                         </div>
@@ -1941,7 +1953,15 @@ function ProductGrid({
                     <div className="flex items-center justify-between gap-3 mb-4">
                         <h3 className="text-base sm:text-lg font-bold text-slate-900 inline-flex items-center gap-2">
                             <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
-                            Featured{blockCategory ? ` — ${blockCategory}` : ''}{blockSubcategory ? ` › ${blockSubcategory}` : ''}
+                            <EditableText
+                                contentKey="featuredHeading"
+                                content={featuredHeading}
+                                defaultValue={defaultFeaturedHeading}
+                                isEditMode={isEditMode}
+                                onSave={handleSeeMoreSave}
+                                as="span"
+                                styleData={featuredHeadingStyles}
+                            />
                         </h3>
                         {inlineSeeMore}
                     </div>
