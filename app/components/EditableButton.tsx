@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
 import { Pencil, Settings } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { usePathname } from 'next/navigation';
@@ -24,6 +24,23 @@ export interface ButtonIconData {
     fill?: ButtonFill;
     iconOnly?: boolean;
 }
+
+const RADIUS_CLASS_RE = /\brounded(?:-(?:none|sm|md|lg|xl|2xl|3xl|full))?\b/g;
+const SHADOW_CLASS_RE = /\bshadow(?:-(?:none|sm|md|lg|xl|2xl|inner))?\b|\bshadow-\[[^\]]+\]/g;
+const PADDING_X_CLASS_RE = /\bpx-\d+(?:\.\d+)?\b/g;
+const PADDING_Y_CLASS_RE = /\bpy-\d+(?:\.\d+)?\b/g;
+
+const SHAPE_RADIUS_CLASS: Record<ButtonShape, string> = {
+    square: 'rounded-none',
+    rounded: 'rounded-lg',
+    pill: 'rounded-full',
+};
+
+const SHAPE_RADIUS_VALUE: Record<ButtonShape, string> = {
+    square: '0px',
+    rounded: '0.5rem',
+    pill: '9999px',
+};
 
 interface EditableButtonProps {
     /** Key prefix for storing button data in block data */
@@ -74,6 +91,7 @@ export default function EditableButton({
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [controlsOnLeft, setControlsOnLeft] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
+    const buttonId = useId().replace(/[^a-zA-Z0-9_-]/g, '');
     const pathname = usePathname();
     const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
@@ -90,6 +108,8 @@ export default function EditableButton({
     const currentIcon = iconData?.icon;
     const currentIconPosition = iconData?.iconPosition || 'left';
     const isIconOnly = !!iconData?.iconOnly && !!currentIcon;
+    const resolvedButton = resolveButtonPresentation(className, style, iconData, defaultShape, defaultFill);
+    const overrideCss = buildButtonOverrideCss(buttonId, iconData);
 
     // Detect if we should show controls on the left based on screen position
     useEffect(() => {
@@ -187,15 +207,18 @@ export default function EditableButton({
     if (isEditMode) {
         return (
             <>
+                {overrideCss && <style dangerouslySetInnerHTML={{ __html: overrideCss }} />}
                 <div
                     ref={containerRef}
+                    data-ks-editable-button
+                    data-ks-editable-button-id={buttonId}
                     onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         setIsEditing(true);
                     }}
-                    className={`${className} cursor-pointer relative group/btn inline-flex items-center justify-center`}
-                    style={style}
+                    className={`${resolvedButton.className} cursor-pointer relative group/btn inline-flex items-center justify-center`}
+                    style={resolvedButton.style}
                 >
                     {renderButtonContent()}
                     
@@ -256,14 +279,118 @@ export default function EditableButton({
     const href = resolveHref();
 
     return (
-        <a
-            href={href}
-            target={isExternal ? '_blank' : undefined}
-            rel={isExternal ? 'noopener noreferrer' : undefined}
-            className={className}
-            style={style}
-        >
-            {renderButtonContent()}
-        </a>
+        <>
+            {overrideCss && <style dangerouslySetInnerHTML={{ __html: overrideCss }} />}
+            <a
+                href={href}
+                target={isExternal ? '_blank' : undefined}
+                rel={isExternal ? 'noopener noreferrer' : undefined}
+                data-ks-editable-button
+                data-ks-editable-button-id={buttonId}
+                className={resolvedButton.className}
+                style={resolvedButton.style}
+            >
+                {renderButtonContent()}
+            </a>
+        </>
     );
+}
+
+function buildButtonOverrideCss(buttonId: string, iconData: ButtonIconData | undefined): string {
+    if (!buttonId || (!iconData?.shape && !iconData?.fill)) return '';
+    const selector = `[data-ks-editable-button][data-ks-editable-button-id="${buttonId}"]`;
+    const declarations: string[] = [];
+
+    if (iconData?.shape) {
+        declarations.push(`border-radius: ${SHAPE_RADIUS_VALUE[iconData.shape]} !important`);
+    }
+
+    if (iconData?.shape || iconData?.fill) {
+        declarations.push('box-shadow: none !important');
+    }
+
+    if (iconData?.fill === 'ghost') {
+        declarations.push('border: none !important');
+    }
+
+    return declarations.length ? `${selector} { ${declarations.join('; ')}; }` : '';
+}
+
+function resolveButtonPresentation(
+    className: string,
+    style: React.CSSProperties | undefined,
+    iconData: ButtonIconData | undefined,
+    defaultShape: ButtonShape | undefined,
+    defaultFill: ButtonFill | undefined,
+): { className: string; style: React.CSSProperties | undefined } {
+    let nextClassName = className;
+    const nextStyle: React.CSSProperties = { ...(style || {}) };
+    const shape = iconData?.shape;
+    const fill = iconData?.fill;
+
+    if (shape) {
+        nextClassName = stripClasses(nextClassName, RADIUS_CLASS_RE);
+        nextClassName = `${nextClassName} ${SHAPE_RADIUS_CLASS[shape]}`.trim();
+        nextStyle.borderRadius = SHAPE_RADIUS_VALUE[shape];
+    } else if (defaultShape && !hasClass(nextClassName, RADIUS_CLASS_RE)) {
+        nextClassName = `${nextClassName} ${SHAPE_RADIUS_CLASS[defaultShape]}`.trim();
+    }
+
+    if (fill) {
+        const accent = resolveButtonAccent(nextStyle);
+        if (fill === 'outline') {
+            nextClassName = stripClasses(nextClassName, SHADOW_CLASS_RE);
+            nextStyle.background = 'transparent';
+            nextStyle.backgroundColor = 'transparent';
+            nextStyle.color = accent;
+            nextStyle.border = `2px solid ${accent}`;
+            nextStyle.boxShadow = 'none';
+        } else if (fill === 'ghost') {
+            nextClassName = stripClasses(nextClassName, SHADOW_CLASS_RE);
+            nextStyle.background = 'transparent';
+            nextStyle.backgroundColor = 'transparent';
+            nextStyle.color = accent;
+            nextStyle.border = 'none';
+            nextStyle.boxShadow = 'none';
+        } else if (fill === 'filled') {
+            nextStyle.backgroundColor = accent;
+            nextStyle.color = '#ffffff';
+            nextStyle.border = 'none';
+        }
+    } else if (defaultFill === 'ghost' || defaultFill === 'outline') {
+        nextClassName = stripClasses(nextClassName, SHADOW_CLASS_RE);
+    }
+
+    if (iconData?.iconOnly && iconData.icon) {
+        nextClassName = stripClasses(stripClasses(nextClassName, PADDING_X_CLASS_RE), PADDING_Y_CLASS_RE);
+        nextClassName = `${nextClassName} p-3`.trim();
+    }
+
+    return {
+        className: normalizeClasses(nextClassName),
+        style: Object.keys(nextStyle).length > 0 ? nextStyle : style,
+    };
+}
+
+function resolveButtonAccent(style: React.CSSProperties): string {
+    for (const value of [style.backgroundColor, style.background, style.borderColor, style.color]) {
+        if (typeof value === 'string' && value && value !== 'transparent') {
+            return value;
+        }
+    }
+    return '#1f2937';
+}
+
+function stripClasses(className: string, pattern: RegExp): string {
+    pattern.lastIndex = 0;
+    return normalizeClasses(className.replace(pattern, ' '));
+}
+
+function hasClass(className: string, pattern: RegExp): boolean {
+    pattern.lastIndex = 0;
+    return pattern.test(className);
+}
+
+function normalizeClasses(className: string): string {
+    return className.replace(/\s+/g, ' ').trim();
 }

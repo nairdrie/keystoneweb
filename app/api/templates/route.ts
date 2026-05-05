@@ -4,7 +4,9 @@ import {
   ALL_TEMPLATE_STYLES,
   getStructuralTemplatesForSelection,
   getTemplateStyleTag,
+  isStructuralTemplateId,
 } from '@/lib/templates/structural-templates';
+import { formatTemplateNameForCategory } from '@/lib/templates/template-category-labels';
 import { getTemplatePreviewImage } from '@/lib/template-preview-assets';
 
 interface Template {
@@ -37,6 +39,7 @@ export async function GET(request: NextRequest) {
       business_type: businessType,
     });
     const structuralTemplates = getStructuralTemplatesForSelection();
+    const structuralTemplateIds = new Set(structuralTemplates.map((template) => template.template_id));
 
     const mergedById = new Map<string, TemplateMetadata>();
     for (const template of [...dbTemplates, ...structuralTemplates]) {
@@ -57,13 +60,14 @@ export async function GET(request: NextRequest) {
     const templates: Template[] = templatesForSelection.map((t) => {
       const styleTag = getStyleTag(t.template_id);
       const tags = [styleTag, 'Multi-page'].filter(Boolean);
+      const shouldUseCategoryName = structuralTemplateIds.has(t.template_id) || isStructuralTemplateId(t.template_id);
       if (t.business_type === 'products') tags.push('Shop');
       if (t.business_type === 'services') tags.push('Booking');
       if (t.business_type === 'portfolio') tags.push('Portfolio');
       if (t.business_type === 'both') tags.push('Flexible');
       return {
         id: t.template_id,
-        name: t.name,
+        name: shouldUseCategoryName ? formatTemplateNameForCategory(t.name, category) : t.name,
         category: t.category,
         tags,
         imageUrl: getTemplatePreviewImage(t.template_id) || t.thumbnail_url || `/templates/luxe.png`,

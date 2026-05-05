@@ -8,7 +8,8 @@ import FloatingToolbar from '@/app/components/FloatingToolbar';
 import { EditorProvider, BlockData, NavItem } from '@/lib/editor-context';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
-import { getTemplatePreviewImage } from '@/lib/template-preview-assets';
+import { isStructuralTemplateId } from '@/lib/templates/structural-templates';
+import { formatTemplateNameForCategory } from '@/lib/templates/template-category-labels';
 import { useAuth } from '@/lib/auth/context';
 import { useImageUpload } from '@/lib/hooks/useImageUpload';
 import { useChangeTracking } from '@/lib/hooks/useChangeTracking';
@@ -348,8 +349,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   useEffect(() => {
     if (!site?.selectedTemplateId) return;
 
-    loadTemplateComponent(site.selectedTemplateId, site.designData?.__selectedPalette);
-  }, [site?.selectedTemplateId]);
+    loadTemplateComponent(site.selectedTemplateId, site.designData?.__selectedPalette, site.category);
+  }, [site?.selectedTemplateId, site?.category]);
   // Fetch pages when site loads (guard prevents re-fetch when fetchPages identity
   // changes due to pageIdFromUrl updating after URL is written with the page id)
   useEffect(() => {
@@ -480,7 +481,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     }
   };
 
-  const loadTemplateComponent = async (templateId: string, savedPaletteKey?: string) => {
+  const loadTemplateComponent = async (templateId: string, savedPaletteKey?: string, categoryForName?: string) => {
     try {
       // Fetch both component and metadata concurrently for speed
       const [component, metadata] = await Promise.all([
@@ -496,9 +497,12 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
 
       // Process and apply metadata (palettes, customizables) FIRST
       if (metadata) {
+        const templateDisplayName = isStructuralTemplateId(templateId) && templateId !== 'custom_ai'
+          ? formatTemplateNameForCategory(metadata.name, categoryForName)
+          : metadata.name;
         setTemplateInfo({
-          name: metadata.name,
-          thumbnailUrl: getTemplatePreviewImage(templateId) || metadata.thumbnail_url,
+          name: templateDisplayName,
+          thumbnailUrl: metadata.thumbnail_url,
           description: metadata.description,
         });
         const palettesObj = metadata.palettes || {};
@@ -542,6 +546,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     // Track content change first
     addChange(`content:${key}`, `Content: ${key}`, oldValue, value);
 
+    editableContentRef.current = { ...editableContentRef.current, [key]: value };
     setEditableContent((prev) => ({
       ...prev,
       [key]: value,
@@ -559,6 +564,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
       typeof value === 'object' ? JSON.stringify(value) : String(value)
     );
 
+    siteContentRef.current = { ...siteContentRef.current, [key]: value };
     setSiteContent((prev) => ({ ...prev, [key]: value }));
   }, [addChange]);
 
@@ -607,6 +613,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
       addChange('siteContent:navItems', 'Navigation Menu', JSON.stringify(oldItems), JSON.stringify(items));
     }
 
+    siteContentRef.current = { ...siteContentRef.current, __navItems: items };
     setSiteContent((prev) => ({ ...prev, __navItems: items }));
   }, [addChange]);
 
@@ -797,7 +804,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
 
       // Site-level design data (header, palette, nav items — shared across all pages)
       const siteDesignData = {
-        ...siteContent,
+        ...siteContentRef.current,
         __selectedPalette: selectedPaletteKey,
         ...(selectedPaletteKey === 'custom' ? {
           __customPalette_primary: paletteData.primary,
@@ -808,7 +815,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
 
       // Page-level design data (blocks and page-specific content)
       const pageDesignData = {
-        ...editableContent,
+        ...editableContentRef.current,
       };
 
       const res = await fetch('/api/sites', {
@@ -937,11 +944,11 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   }, [addChange]);
 
   const aiReplaceBlocks = useCallback((blocks: BlockData[]) => {
-    setEditableContent((prev) => {
-      const currentBlocks: BlockData[] = Array.isArray(prev.blocks) ? prev.blocks : [];
-      addChange('blocks', 'AI: Complete redesign', JSON.stringify(currentBlocks), JSON.stringify(blocks));
-      return { ...prev, blocks };
-    });
+    const nextBlocks = Array.isArray(blocks) ? blocks : [];
+    const currentBlocks: BlockData[] = Array.isArray(editableContentRef.current.blocks) ? editableContentRef.current.blocks : [];
+    addChange('blocks', 'AI: Complete redesign', JSON.stringify(currentBlocks), JSON.stringify(nextBlocks));
+    editableContentRef.current = { ...editableContentRef.current, blocks: nextBlocks };
+    setEditableContent((prev) => ({ ...prev, blocks: nextBlocks }));
   }, [addChange]);
 
   const aiSetSiteTitle = useCallback((title: string) => {
@@ -979,18 +986,43 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   const aiSetHeaderConfig = useCallback((config: Record<string, any>) => {
     const keyMap: Record<string, string> = {
       bgType: 'headerBgType',
+      bgColor: 'headerBgColor',
       layout: 'headerLayout',
+      logoPosition: 'headerLogoPosition',
+      navPosition: 'headerNavPosition',
+      desktopMenuStyle: 'headerDesktopMenuStyle',
+      hamburgerPosition: 'headerHamburgerPosition',
+      overlay: 'headerOverlay',
       rightElement: 'headerRightSide',
       bannerEnabled: 'headerShowBanner',
       bannerText: 'headerBannerText',
+      bannerBgType: 'headerBannerBgType',
+      bannerBgColor: 'headerBannerBgColor',
+      socialFacebook: 'headerSocialFacebook',
+      socialInstagram: 'headerSocialInstagram',
+      socialX: 'headerSocialX',
+      socialLinkedin: 'headerSocialLinkedin',
+      socialYoutube: 'headerSocialYoutube',
+      navFontSize: 'headerNavFontSize',
+      navFontWeight: 'headerNavFontWeight',
+      navColor: 'headerNavColor',
+      headerCustomCss: 'headerCustomCss',
+      showMemberSignIn: 'headerShowMemberSignIn',
+      memberSignInText: 'headerMemberSignInText',
+      showProductSearch: 'headerShowProductSearch',
     };
     for (const [configKey, siteKey] of Object.entries(keyMap)) {
       if (config[configKey] !== undefined) {
         handleUpdateSiteContent(siteKey, config[configKey]);
       }
     }
-    if (typeof config.sticky === 'boolean') {
+    if (config.sticky === 'always' || config.sticky === 'none') {
+      handleUpdateSiteContent('headerSticky', config.sticky);
+    } else if (typeof config.sticky === 'boolean') {
       handleUpdateSiteContent('headerSticky', config.sticky ? 'always' : 'none');
+    }
+    if (config.logoPosition && !config.layout) {
+      handleUpdateSiteContent('headerLayout', config.logoPosition === 'above' ? 'centeredAboveNav' : 'default');
     }
   }, [handleUpdateSiteContent]);
 
@@ -999,6 +1031,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     if (!currentSite?.id) return;
     const prevTemplateId = currentSite.selectedTemplateId;
 
+    siteRef.current = { ...currentSite, selectedTemplateId: templateId };
     setSite(prev => prev ? { ...prev, selectedTemplateId: templateId } : prev);
     setTemplateComponent(null); // Show loading
     getTemplateComponent(templateId).then(comp => {
@@ -1048,14 +1081,30 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     const slugToPageId: Record<string, string> = {};
     for (const p of pages) slugToPageId[p.slug.toLowerCase()] = p.id;
 
-    // Create each page server-side via the existing createPage path.
-    // Skip slugs that already exist (don't clobber the user's pages).
+    // Create each page server-side without using the normal createPage helper.
+    // That helper changes the selected page as a side effect, which can wipe
+    // the generated Home blocks during onboarding before auto-save runs.
     const created: Array<{ id: string; slug: string; title: string; displayName: string; blocks: BlockData[]; isVisibleInNav: boolean }> = [];
     for (const p of newPages) {
       const lower = p.slug.toLowerCase();
       if (slugToPageId[lower]) continue;
       try {
-        const newPage = await createPage(p.slug, p.title, p.displayName);
+        const res = await fetch('/api/pages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            siteId,
+            slug: p.slug,
+            title: p.title,
+            displayName: p.displayName,
+          }),
+        });
+        if (!res.ok) {
+          throw new Error(`Failed to create page ${p.slug}`);
+        }
+        const data = await res.json();
+        const newPage = data.page;
         slugToPageId[lower] = newPage.id;
         created.push({ id: newPage.id, slug: p.slug, title: p.title, displayName: p.displayName, blocks: p.blocks, isVisibleInNav: p.isVisibleInNav });
       } catch (err) {
@@ -1070,7 +1119,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     for (const p of created) {
       const resolvedBlocks = resolvePageSlugLinks(p.blocks, slugToPageId);
       try {
-        await fetch('/api/pages', {
+        const res = await fetch('/api/pages', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -1081,6 +1130,9 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
             isVisibleInNav: p.isVisibleInNav,
           }),
         });
+        if (!res.ok) {
+          throw new Error(`Failed to save blocks for page ${p.slug}`);
+        }
       } catch (err) {
         console.error('[AI] Failed to save blocks for page', p.slug, err);
       }
@@ -1088,13 +1140,12 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
 
     // Resolve pageSlug links in the home page's current blocks too (replaceBlocks
     // typically ran before createPages, so the home blocks may reference these slugs).
-    setEditableContent((prev) => {
-      const currentBlocks: BlockData[] = Array.isArray(prev.blocks) ? prev.blocks : [];
-      const resolved = resolvePageSlugLinks(currentBlocks, slugToPageId);
-      // Only update if something actually changed
-      if (JSON.stringify(currentBlocks) === JSON.stringify(resolved)) return prev;
-      return { ...prev, blocks: resolved };
-    });
+    const currentBlocks: BlockData[] = Array.isArray(editableContentRef.current.blocks) ? editableContentRef.current.blocks : [];
+    const resolved = resolvePageSlugLinks(currentBlocks, slugToPageId);
+    if (JSON.stringify(currentBlocks) !== JSON.stringify(resolved)) {
+      editableContentRef.current = { ...editableContentRef.current, blocks: resolved };
+      setEditableContent((prev) => ({ ...prev, blocks: resolved }));
+    }
 
     // Add nav items for the new pages (skip pages that already have a nav entry).
     const currentNav: NavItem[] = siteContentRef.current.__navItems || [];
@@ -1111,12 +1162,31 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     if (navAdditions.length > 0) {
       const updatedNavItems = [...currentNav, ...navAdditions];
       addChange('siteContent:navItems', 'AI: Added pages to navigation', JSON.stringify(currentNav), JSON.stringify(updatedNavItems));
+      siteContentRef.current = { ...siteContentRef.current, __navItems: updatedNavItems };
       setSiteContent((prev) => ({ ...prev, __navItems: updatedNavItems }));
     }
 
-    // Refresh pages list so PageSelector and the editor see the new pages immediately.
-    fetchPages();
-  }, [siteId, pages, createPage, fetchPages, addChange, resolvePageSlugLinks]);
+    // The onboarding auto-save refreshes pages after Home has been persisted.
+    // Fetching here can reload the still-unsaved Home page and wipe the
+    // generated blocks from local state before that save happens.
+  }, [siteId, pages, addChange, resolvePageSlugLinks]);
+
+  const aiSeedSampleData = useCallback(async (samples: Record<string, any>) => {
+    if (!siteId || !samples || typeof samples !== 'object') return;
+    try {
+      const res = await fetch('/api/ai/builder/sample-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ siteId, samples }),
+      });
+      if (!res.ok) {
+        throw new Error('Failed to seed AI sample data');
+      }
+    } catch (err) {
+      console.error('[AI] Failed to seed sample data', err);
+    }
+  }, [siteId]);
 
   const aiCallbacks = useMemo(() => ({
     onAddBlock: aiAddBlock,
@@ -1130,7 +1200,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     onSetTemplate: aiSetTemplate,
     onSetHeaderConfig: aiSetHeaderConfig,
     onCreatePages: aiCreatePages,
-  }), [aiAddBlock, aiUpdateBlock, aiRemoveBlock, aiReorderBlocks, aiReplaceBlocks, aiSetSiteTitle, aiSetFont, aiSetCustomColors, aiSetTemplate, aiSetHeaderConfig, aiCreatePages]);
+    onSeedSampleData: aiSeedSampleData,
+  }), [aiAddBlock, aiUpdateBlock, aiRemoveBlock, aiReorderBlocks, aiReplaceBlocks, aiSetSiteTitle, aiSetFont, aiSetCustomColors, aiSetTemplate, aiSetHeaderConfig, aiCreatePages, aiSeedSampleData]);
 
   const getAiSiteState = useCallback(() => ({
     title: siteTitle,
@@ -1213,10 +1284,11 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   useEffect(() => {
     if (aiOnboardingBuilding && aiOnboardingDidStartRef.current && !aiBuilder.isLoading) {
       // Small delay so operations apply before revealing
-      const timer = setTimeout(() => {
+      const timer = setTimeout(async () => {
         setAiOnboardingBuilding(false);
         // Force an immediate save so the user doesn't lose the newly generated AI site
-        handleSaveDesign();
+        await handleSaveDesign();
+        await fetchPages();
       }, 300);
       return () => clearTimeout(timer);
     }

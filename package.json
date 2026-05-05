@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "npm run test:ai-builder",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "template:previews": "node scripts/generate-template-previews.mjs"
+    "template:previews": "node scripts/generate-template-previews.mjs",
+    "test:ai-builder": "node scripts/verify-ai-builder-capabilities.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

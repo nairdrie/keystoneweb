@@ -52,6 +52,7 @@ interface AIBuilderCallbacks {
   onReplaceBlocks: (blocks: any[]) => void;
   onSetHeaderConfig: (config: Record<string, any>) => void;
   onCreatePages: (pages: AICreatePagesPayload[]) => void | Promise<void>;
+  onSeedSampleData: (samples: Record<string, any>) => void | Promise<void>;
 }
 
 export function useAIBuilder(
@@ -286,6 +287,11 @@ async function applyOperation(op: AIOperation, callbacks: AIBuilderCallbacks): P
     case 'createPages':
       if (Array.isArray(op.pages)) {
         await callbacks.onCreatePages(op.pages);
+      }
+      break;
+    case 'seedSampleData':
+      if (op.samples && typeof op.samples === 'object') {
+        await callbacks.onSeedSampleData(op.samples);
       }
       break;
     case 'addBlock':

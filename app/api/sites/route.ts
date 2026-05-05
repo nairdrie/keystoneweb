@@ -4,6 +4,7 @@ import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { trackEvent } from '@/lib/analytics';
 import { getStructuralTemplateMetadata } from '@/lib/templates/structural-templates';
+import { personalizeTemplateContentForCategory } from '@/lib/templates/template-content-personalization';
 import { seedTemplateAdminContent } from '@/lib/templates/admin-seed-data';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import { migratePaletteTokensInDesignData } from '@/lib/template-palette-migration';
@@ -83,8 +84,12 @@ export async function POST(request: NextRequest) {
       .eq('template_id', selectedTemplateId)
       .single();
 
-    const structuralTemplate = !templateMeta ? getStructuralTemplateMetadata(selectedTemplateId) : null;
-    const defaultContent = templateMeta?.default_content || structuralTemplate?.default_content || {};
+    const structuralTemplate = getStructuralTemplateMetadata(selectedTemplateId);
+    const baseDefaultContent = templateMeta?.default_content || structuralTemplate?.default_content || {};
+    const shouldApplyTemplateArchitecture = selectedTemplateId !== 'custom_ai';
+    const defaultContent = shouldApplyTemplateArchitecture
+      ? personalizeTemplateContentForCategory(baseDefaultContent, { category, businessType, templateId: selectedTemplateId })
+      : baseDefaultContent;
     const palettes = templateMeta?.palettes || structuralTemplate?.palettes || {};
 
     // Extract site-level fields from default_content
@@ -256,7 +261,7 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      await seedTemplateAdminContent(createAdminClient(), siteId, selectedTemplateId);
+      await seedTemplateAdminContent(createAdminClient(), siteId, selectedTemplateId, { businessType, category });
     } catch (seedError) {
       console.error('Failed to seed template admin content:', seedError);
     }
