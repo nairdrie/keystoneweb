@@ -39,6 +39,11 @@ export default function ProductSettingsPanel({
     const [categoryFilter, setCategoryFilter] = useState<string>(blockData?.categoryFilter || '');
     const [subcategoryFilter, setSubcategoryFilter] = useState<string>(blockData?.subcategoryFilter || '');
     const [featuredOnly, setFeaturedOnly] = useState<boolean>(!!blockData?.featuredOnly);
+    // Backward-compat: existing featured blocks didn't have this field but
+    // always rendered a title — default to featuredOnly when unset.
+    const [showTitle, setShowTitle] = useState<boolean>(
+        typeof blockData?.showTitle === 'boolean' ? blockData.showTitle : !!blockData?.featuredOnly,
+    );
     const [showSeeMore, setShowSeeMore] = useState<boolean>(!!blockData?.showSeeMore);
     const [bgColor, setBgColor] = useState<string>(blockData?.backgroundColor || '');
     const [autoScroll, setAutoScroll] = useState<boolean>(blockData?.autoScroll !== false);
@@ -79,6 +84,7 @@ export default function ProductSettingsPanel({
             categoryFilter,
             subcategoryFilter,
             featuredOnly,
+            showTitle,
             showSeeMore,
             backgroundColor: bgColor,
             autoScroll,
@@ -92,6 +98,7 @@ export default function ProductSettingsPanel({
         categoryFilter,
         subcategoryFilter,
         featuredOnly,
+        showTitle,
         showSeeMore,
         bgColor,
         autoScroll,
@@ -106,11 +113,13 @@ export default function ProductSettingsPanel({
 
     const bgInputValue = getColorInputValue(bgColor, palette, '#ffffff');
 
+    const persistedShowTitle = typeof blockData?.showTitle === 'boolean' ? blockData.showTitle : !!blockData?.featuredOnly;
     const hasUnsavedChanges = useMemo(() => (
         variant !== ((blockData?.variant as VariantId) || 'grid') ||
         categoryFilter !== (blockData?.categoryFilter || '') ||
         subcategoryFilter !== (blockData?.subcategoryFilter || '') ||
         featuredOnly !== !!blockData?.featuredOnly ||
+        showTitle !== persistedShowTitle ||
         showSeeMore !== !!blockData?.showSeeMore ||
         bgColor !== (blockData?.backgroundColor || '') ||
         autoScroll !== (blockData?.autoScroll !== false) ||
@@ -123,6 +132,8 @@ export default function ProductSettingsPanel({
         categoryFilter,
         subcategoryFilter,
         featuredOnly,
+        showTitle,
+        persistedShowTitle,
         showSeeMore,
         bgColor,
         autoScroll,
@@ -138,6 +149,7 @@ export default function ProductSettingsPanel({
             categoryFilter,
             subcategoryFilter,
             featuredOnly,
+            showTitle,
             showSeeMore,
             backgroundColor: bgColor,
             autoScroll,
@@ -156,6 +168,7 @@ export default function ProductSettingsPanel({
         setCategoryFilter(blockData?.categoryFilter || '');
         setSubcategoryFilter(blockData?.subcategoryFilter || '');
         setFeaturedOnly(!!blockData?.featuredOnly);
+        setShowTitle(persistedShowTitle);
         setShowSeeMore(!!blockData?.showSeeMore);
         setBgColor(blockData?.backgroundColor || '');
         setAutoScroll(blockData?.autoScroll !== false);
@@ -229,6 +242,13 @@ export default function ProductSettingsPanel({
                         description="Only show products flagged as featured."
                         checked={featuredOnly}
                         onChange={() => setFeaturedOnly(!featuredOnly)}
+                    />
+
+                    <InspectorToggle
+                        label="Show title"
+                        description="Edit the title text and style directly on the canvas."
+                        checked={showTitle}
+                        onChange={() => setShowTitle(!showTitle)}
                     />
 
                     <InspectorToggle

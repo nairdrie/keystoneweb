@@ -1458,7 +1458,12 @@ function ProductGrid({
     const hasSeeMoreTarget = !!(seeMoreLink?.pageId || seeMoreLink?.blockId || seeMoreHref);
     const featuredHeading: string = (data?.featuredHeading ?? '').toString();
     const featuredHeadingStyles = data?.featuredHeading__styles;
-    const defaultFeaturedHeading = `Featured${blockCategory ? ` — ${blockCategory}` : ''}${blockSubcategory ? ` › ${blockSubcategory}` : ''}`;
+    const defaultFeaturedHeading = featuredOnly
+        ? `Featured${blockCategory ? ` — ${blockCategory}` : ''}${blockSubcategory ? ` › ${blockSubcategory}` : ''}`
+        : `${blockCategory || 'Our Products'}${blockSubcategory ? ` — ${blockSubcategory}` : ''}`;
+    // Backward-compat: featured-only blocks always rendered a title before this
+    // toggle existed, so default `showTitle` to `featuredOnly` when unset.
+    const showTitle: boolean = typeof data?.showTitle === 'boolean' ? data.showTitle : featuredOnly;
     const lockedToCategory = !!blockCategory;
     const variant: 'grid' | 'gridWithSidebar' | 'list' | 'row' = data?.variant || 'grid';
     const effectiveVariant = lockedToCategory && variant === 'gridWithSidebar' ? 'grid' : variant;
@@ -1820,27 +1825,28 @@ function ProductGrid({
         { color: pSecondary },
     );
 
+    const titleRow = showTitle ? (
+        <div className="flex items-center justify-between gap-3 mb-4">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                <EditableText
+                    contentKey="featuredHeading"
+                    content={featuredHeading}
+                    defaultValue={defaultFeaturedHeading}
+                    isEditMode={isEditMode}
+                    onSave={handleSeeMoreSave}
+                    as="span"
+                    styleData={featuredHeadingStyles}
+                />
+            </h3>
+            {inlineSeeMore}
+        </div>
+    ) : null;
+
     if (effectiveVariant === 'row') {
         return (
             <section className="py-12 px-4" id="products" style={{ backgroundColor: sectionBg }}>
                 <div className="max-w-7xl mx-auto">
-                    {featuredOnly && (
-                        <div className="flex items-center justify-between gap-3 mb-4">
-                            <h3 className="text-base sm:text-lg font-bold text-slate-900 inline-flex items-center gap-2">
-                                <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
-                                <EditableText
-                                    contentKey="featuredHeading"
-                                    content={featuredHeading}
-                                    defaultValue={defaultFeaturedHeading}
-                                    isEditMode={isEditMode}
-                                    onSave={handleSeeMoreSave}
-                                    as="span"
-                                    styleData={featuredHeadingStyles}
-                                />
-                            </h3>
-                            {inlineSeeMore}
-                        </div>
-                    )}
+                    {titleRow}
                     <ProductCarouselRow
                         autoScroll={autoScroll && !isEditMode}
                         intervalSec={autoScrollIntervalSec}
@@ -1852,7 +1858,7 @@ function ProductGrid({
                             </div>
                         ))}
                     </ProductCarouselRow>
-                    {!featuredOnly && seeMoreButton && (
+                    {!showTitle && seeMoreButton && (
                         <div className="mt-6 flex justify-center">{seeMoreButton}</div>
                     )}
                 </div>
@@ -1864,7 +1870,8 @@ function ProductGrid({
         return (
             <section className="py-16 px-4" id="products" style={{ backgroundColor: sectionBg }}>
                 <div className="max-w-5xl mx-auto">
-                    <Toolbar />
+                    {titleRow}
+                    {!showTitle && <Toolbar />}
                     <div className="space-y-4">
                         {visibleProducts.map(renderListRow)}
                     </div>
@@ -1932,11 +1939,12 @@ function ProductGrid({
                         </ul>
                     </aside>
                     <div>
-                        <Toolbar />
+                        {titleRow}
+                        {!showTitle && <Toolbar />}
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
                             {visibleProducts.map(renderCard)}
                         </div>
-                        {seeMoreButton && (
+                        {!showTitle && seeMoreButton && (
                             <div className="mt-8 flex justify-center">{seeMoreButton}</div>
                         )}
                     </div>
@@ -1949,29 +1957,11 @@ function ProductGrid({
     return (
         <section className="py-16 px-4" id="products" style={{ backgroundColor: sectionBg }}>
             <div className="max-w-7xl mx-auto">
-                {featuredOnly ? (
-                    <div className="flex items-center justify-between gap-3 mb-4">
-                        <h3 className="text-base sm:text-lg font-bold text-slate-900 inline-flex items-center gap-2">
-                            <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
-                            <EditableText
-                                contentKey="featuredHeading"
-                                content={featuredHeading}
-                                defaultValue={defaultFeaturedHeading}
-                                isEditMode={isEditMode}
-                                onSave={handleSeeMoreSave}
-                                as="span"
-                                styleData={featuredHeadingStyles}
-                            />
-                        </h3>
-                        {inlineSeeMore}
-                    </div>
-                ) : (
-                    <Toolbar />
-                )}
+                {showTitle ? titleRow : !featuredOnly && <Toolbar />}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
                     {visibleProducts.map(renderCard)}
                 </div>
-                {!featuredOnly && seeMoreButton && (
+                {!showTitle && seeMoreButton && (
                     <div className="mt-8 flex justify-center">{seeMoreButton}</div>
                 )}
             </div>
