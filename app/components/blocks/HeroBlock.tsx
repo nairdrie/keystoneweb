@@ -65,17 +65,41 @@ export default function HeroBlock({
     const pauseRotation = rawData?.__pauseRotation === true;
 
     const [autoIndex, setAutoIndex] = useState(0);
+    // When the settings panel is closed, the canvas dots still need to drive
+    // which card is in focus for inline editing. Track that here.
+    const [editIndex, setEditIndex] = useState<number>(0);
+    const clamp = (n: number) => Math.max(0, Math.min(n, cardCount - 1));
     const activeIndex = editorActiveIndex !== null
-        ? Math.max(0, Math.min(editorActiveIndex, cardCount - 1))
-        : Math.max(0, Math.min(autoIndex, cardCount - 1));
+        ? clamp(editorActiveIndex)
+        : isEditMode
+            ? clamp(editIndex)
+            : clamp(autoIndex);
+
+    // Mirror the settings-panel selection so closing the panel doesn't reset
+    // the canvas to card 0 — the editor stays parked on whatever card they
+    // were last working on.
+    useEffect(() => {
+        if (editorActiveIndex !== null) setEditIndex(editorActiveIndex);
+    }, [editorActiveIndex]);
 
     useEffect(() => {
+        if (isEditMode) return;
         if (cardCount <= 1 || pauseRotation || transition.type === 'none') return;
         const id = setInterval(() => {
             setAutoIndex((i) => (i + 1) % cardCount);
         }, Math.max(2, transition.intervalSec) * 1000);
         return () => clearInterval(id);
-    }, [cardCount, pauseRotation, transition.intervalSec, transition.type]);
+    }, [cardCount, pauseRotation, transition.intervalSec, transition.type, isEditMode]);
+
+    const setActiveCardForEditing = (i: number) => {
+        setEditIndex(i);
+        // Notify the settings panel (if open) so its activeIndex stays in sync.
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('ks:hero-set-active-card', {
+                detail: { blockId: block.id, index: i },
+            }));
+        }
+    };
 
     const updateData = (cardIndex: number) => (key: string, value: unknown) => {
         // Inline-edit a content field of a specific card. Persists by writing
@@ -218,7 +242,7 @@ export default function HeroBlock({
                 (which is sized below by the in-flow content sizer or by min-height). */}
             {cards.map((card, i) => {
                 const isActive = i === activeIndex;
-                const transitionStyles = computeCardTransition(transition.type, isActive, i, activeIndex, cardCount);
+                const transitionStyles = computeCardTransition(transition.type, isActive, i, activeIndex, cardCount, isEditMode);
                 return (
                     <div
                         key={card.id}
@@ -254,7 +278,8 @@ export default function HeroBlock({
                 </div>
             )}
 
-            {/* Card dots in non-edit mode */}
+            {/* Card dots — published view animates the active dot;
+                edit mode shows them so the editor can pick which card to edit. */}
             {!isEditMode && cardCount > 1 && transition.type !== 'none' && (
                 <div className="absolute bottom-4 left-1/2 z-30 -translate-x-1/2 flex gap-2">
                     {cards.map((_, i) => (
@@ -266,6 +291,35 @@ export default function HeroBlock({
                             className={`h-2 w-2 rounded-full transition-all ${i === activeIndex ? 'bg-white w-6' : 'bg-white/50 hover:bg-white/70'}`}
                         />
                     ))}
+                </div>
+            )}
+            {isEditMode && cardCount > 1 && (
+                <div
+                    className="absolute bottom-4 left-1/2 z-30 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-slate-900/80 px-2.5 py-1.5 text-white shadow-lg backdrop-blur"
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    {cards.map((_, i) => {
+                        const isActive = i === activeIndex;
+                        return (
+                            <button
+                                key={i}
+                                type="button"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setActiveCardForEditing(i);
+                                }}
+                                aria-pressed={isActive}
+                                aria-label={`Edit card ${i + 1}`}
+                                className={`grid h-6 w-6 place-items-center rounded-full text-[11px] font-bold transition-colors ${
+                                    isActive ? 'bg-white text-slate-900' : 'bg-white/15 text-white hover:bg-white/30'
+                                }`}
+                            >
+                                {i + 1}
+                            </button>
+                        );
+                    })}
                 </div>
             )}
         </section>
@@ -330,8 +384,14 @@ function computeCardTransition(
     cardIndex: number,
     activeIndex: number,
     cardCount: number,
+    isEditMode: boolean,
 ): React.CSSProperties {
     if (cardCount <= 1) return { opacity: 1 };
+    // In edit mode, swap cards instantly — no fade/slide. The dots at the
+    // bottom drive which card is in focus for inline editing.
+    if (isEditMode) {
+        return { opacity: isActive ? 1 : 0, pointerEvents: isActive ? 'auto' : 'none' };
+    }
     if (type === 'none') return { opacity: isActive ? 1 : 0, pointerEvents: isActive ? 'auto' : 'none' };
     if (type === 'fade') {
         return {
