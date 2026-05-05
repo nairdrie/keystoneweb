@@ -16,7 +16,13 @@ interface Product {
     status: string;
 }
 
-export default function HeaderProductSearch({ color = '#475569' }: { color?: string }) {
+export default function HeaderProductSearch({
+    color = '#475569',
+    style = 'icon',
+}: {
+    color?: string;
+    style?: 'icon' | 'wide';
+}) {
     const context = useEditorContext();
     const pathname = usePathname();
     const router = useRouter();
@@ -28,7 +34,7 @@ export default function HeaderProductSearch({ color = '#475569' }: { color?: str
 
     const showSearch = context?.siteContent?.headerShowProductSearch !== false;
 
-    const [open, setOpen] = useState(false);
+    const [open, setOpen] = useState(style === 'wide');
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<Product[]>([]);
     const [loading, setLoading] = useState(false);
@@ -96,7 +102,9 @@ export default function HeaderProductSearch({ color = '#475569' }: { color?: str
 
     if (!hasProductBlock || !showSearch) return null;
 
-    if (!open) {
+    const isWide = style === 'wide';
+
+    if (!open && !isWide) {
         return (
             <button
                 onClick={() => setOpen(true)}
@@ -112,7 +120,7 @@ export default function HeaderProductSearch({ color = '#475569' }: { color?: str
     return (
         <div ref={containerRef} className="relative z-[200]">
             {/* Search input */}
-            <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-full px-3 py-1.5 shadow-sm min-w-[240px]">
+            <div className={`flex items-center gap-2 bg-white border border-slate-200 rounded-full px-3 py-1.5 shadow-sm ${isWide ? 'min-w-[280px] md:min-w-[360px]' : 'min-w-[240px]'}`}>
                 <Search className="w-4 h-4 text-slate-400 shrink-0" />
                 <input
                     ref={inputRef}
@@ -124,14 +132,21 @@ export default function HeaderProductSearch({ color = '#475569' }: { color?: str
                 />
                 {loading ? (
                     <Loader2 className="w-4 h-4 text-slate-400 animate-spin shrink-0" />
-                ) : (
+                ) : !isWide ? (
                     <button
                         onClick={() => { setOpen(false); setQuery(''); setResults([]); }}
                         className="p-0.5 hover:bg-slate-100 rounded-full transition-colors shrink-0"
                     >
                         <X className="w-3.5 h-3.5 text-slate-400" />
                     </button>
-                )}
+                ) : query ? (
+                    <button
+                        onClick={() => { setQuery(''); setResults([]); }}
+                        className="p-0.5 hover:bg-slate-100 rounded-full transition-colors shrink-0"
+                    >
+                        <X className="w-3.5 h-3.5 text-slate-400" />
+                    </button>
+                ) : null}
             </div>
 
             {/* Results dropdown */}

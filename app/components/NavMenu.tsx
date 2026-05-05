@@ -13,6 +13,12 @@ interface NavMenuProps {
     className?: string;
     itemClassName?: string;
     submenuClassName?: string;
+    /**
+     * Filter to nav items belonging to a specific bar. When undefined, items
+     * without a `bar` field render together with primary-bar items (legacy
+     * behavior).
+     */
+    bar?: 'primary' | 'secondary';
 }
 
 // Editor (sortable, edit modal, drag handles) is loaded only in edit mode so
@@ -30,9 +36,12 @@ export default function NavMenu(props: NavMenuProps) {
     return <NavMenuView {...props} />;
 }
 
-function NavMenuView({ className = '', itemClassName = '', submenuClassName = '' }: NavMenuProps) {
+function NavMenuView({ className = '', itemClassName = '', submenuClassName = '', bar }: NavMenuProps) {
     const context = useEditorContext();
-    const navItems = context?.navItems || [];
+    const allNavItems = context?.navItems || [];
+    const navItems = bar
+        ? allNavItems.filter(it => (it.bar || 'primary') === bar)
+        : allNavItems;
     const pages = context?.pages || [];
     const blocks = context?.blocks || [];
     const pathname = usePathname();

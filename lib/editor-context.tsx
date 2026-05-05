@@ -17,6 +17,11 @@ export interface NavItem {
   blockId?: string;
   /** Optional sub-items for dropdown menus */
   children?: NavItem[];
+  /**
+   * Which header bar this item renders on. Defaults to 'primary'.
+   * Used when the secondary navigation bar is enabled in Header Settings.
+   */
+  bar?: 'primary' | 'secondary';
 }
 
 export interface EditorContextType {
