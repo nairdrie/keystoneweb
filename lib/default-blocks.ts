@@ -1,5 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
 
+const responsiveHeroHeight = (mode: 'fitContent' | 'fitScreen' | 'manual' = 'fitContent', valuePx = 600) => ({
+    desktop: { mode, valuePx, revealNext: 0 },
+    tablet: { mode, valuePx: Math.max(520, valuePx - 40), revealNext: 0 },
+    mobile: { mode: mode === 'fitScreen' ? 'fitContent' : mode, valuePx: Math.max(480, valuePx - 80), revealNext: 0 },
+});
+
 /**
  * Defines the initial array of completely pre-filled blocks to inject into the `design_data.blocks`
  * when a fresh "Home" page is generated based on the selected Template.
@@ -25,7 +31,7 @@ export const DEFAULT_TEMPLATE_BLOCKS: Record<string, any[]> = {
                     background: { type: 'gradient', gradient: { from: 'palette:accent', to: 'palette:accent', angle: 0 }, overlay: { color: '#000000', opacity: 0 } },
                 }],
                 transition: { type: 'fade', intervalSec: 5, pauseOnHover: true },
-                height: { mode: 'fitContent', valuePx: 600 },
+                height: responsiveHeroHeight(),
             }
         },
         {
@@ -114,7 +120,7 @@ export const DEFAULT_TEMPLATE_BLOCKS: Record<string, any[]> = {
                     background: { type: 'gradient', gradient: { from: 'palette:accent', to: 'palette:accent', angle: 0 }, overlay: { color: '#000000', opacity: 0 } },
                 }],
                 transition: { type: 'fade', intervalSec: 5, pauseOnHover: true },
-                height: { mode: 'fitContent', valuePx: 600 },
+                height: responsiveHeroHeight(),
             }
         },
         {
@@ -169,7 +175,7 @@ export const DEFAULT_TEMPLATE_BLOCKS: Record<string, any[]> = {
                     background: { type: 'gradient', gradient: { from: 'palette:primary', to: 'palette:secondary', angle: 135 }, overlay: { color: '#000000', opacity: 0 } },
                 }],
                 transition: { type: 'fade', intervalSec: 5, pauseOnHover: true },
-                height: { mode: 'fitContent', valuePx: 600 },
+                height: responsiveHeroHeight(),
             }
         },
         {

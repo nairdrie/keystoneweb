@@ -1,4 +1,5 @@
 import { getTemplatePreviewImage } from '@/lib/template-preview-assets';
+import { AI_ONBOARDING_TEMPLATE_ID } from '@/lib/templates/ai-template';
 
 export interface StructuralTemplateMetadata {
   id: string;
@@ -30,6 +31,7 @@ const block = (type: string, data: Record<string, unknown> = {}) => ({ type, dat
 // ── Hero helpers (new schema: cards / transition / height) ─────────────────
 type HAlign = 'left' | 'center' | 'right';
 type HSide = 'left' | 'right';
+type HHeightMode = 'fitContent' | 'fitScreen' | 'manual';
 const hCard = (
   id: string,
   title: string,
@@ -58,13 +60,22 @@ const hBgImage = (url: string, opacity = 0.5) => ({
   image: { url },
   overlay: { color: '#000000', opacity },
 });
+const hHeight = (mode: HHeightMode = 'fitContent', valuePx = 600, revealNext = 0) => ({
+  desktop: { mode, valuePx, revealNext },
+  tablet: { mode, valuePx: Math.max(520, valuePx - 40), revealNext },
+  mobile: {
+    mode: mode === 'fitScreen' ? 'fitContent' : mode,
+    valuePx: Math.max(480, valuePx - 80),
+    revealNext: 0,
+  },
+});
 const heroBlockData = (
   cards: unknown[],
-  opts: { customCss?: string; height?: 'fitContent' | 'fitScreen' | 'manual'; transition?: 'fade' | 'slide' | 'none'; intervalSec?: number } = {},
+  opts: { customCss?: string; height?: HHeightMode; transition?: 'fade' | 'slide' | 'none'; intervalSec?: number; valuePx?: number; revealNext?: number } = {},
 ) => ({
   cards,
   transition: { type: opts.transition || 'fade', intervalSec: opts.intervalSec || 5, pauseOnHover: true },
-  height: { mode: opts.height || 'fitContent', valuePx: 600 },
+  height: hHeight(opts.height || 'fitContent', opts.valuePx || 600, opts.revealNext || 0),
   ...(opts.customCss ? { __customCss: opts.customCss } : {}),
 });
 
@@ -88,6 +99,45 @@ const customizables = {
   gallery: ['title', 'subtitle', 'images', 'columns'],
   estimateForm: ['title', 'description', 'variant', 'fields'],
   contact: ['title', 'subtitle', 'phone', 'email', 'address', 'hours'],
+};
+
+const AI_ONBOARDING_TEMPLATE_METADATA: StructuralTemplateMetadata = {
+  id: 'ai-onboarding-custom',
+  template_id: AI_ONBOARDING_TEMPLATE_ID,
+  name: 'Custom',
+  description: 'A blank AI-generated starting point. Archie creates the page structure, content, styling, and settings from the onboarding prompt.',
+  category: 'general',
+  business_type: 'both',
+  palettes: {
+    Default: { primary: '#111827', secondary: '#ef4444', accent: '#f8fafc' },
+    Warm: { primary: '#3f2a1d', secondary: '#d97706', accent: '#fff7ed' },
+    Fresh: { primary: '#0f766e', secondary: '#2563eb', accent: '#ecfeff' },
+    Editorial: { primary: '#18181b', secondary: '#be123c', accent: '#fafafa' },
+  },
+  customizables,
+  thumbnail_url: '/templates/custom-ai.svg',
+  multi_page: true,
+  has_blog: true,
+  has_gallery: true,
+  created_at: CREATED_AT,
+  updated_at: CREATED_AT,
+  default_content: {
+    siteTitle: 'Custom Site',
+    titleFont: 'Inter',
+    bodyFont: 'Inter',
+    navButtonText: 'Contact',
+    headerBgType: 'white',
+    headerLogoPosition: 'left',
+    headerNavPosition: 'right',
+    headerDesktopMenuStyle: 'inline',
+    headerRightSide: 'cta',
+    headerSticky: 'always',
+    __navItems: [
+      navItem('Home', 'home'),
+    ],
+    blocks: [],
+    extra_pages: [],
+  },
 };
 
 const ctaLink = { linkType: 'custom', href: '/contact' };
@@ -574,9 +624,23 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
           showPrices: true,
           showDescriptions: true,
           showImages: true,
+          showFeaturedImages: true,
           showMenuTabs: true,
+          showMenuIcons: true,
           categoryStyle: 'badge',
           backgroundColor: 'palette:accent',
+          showMenuIconLegend: true,
+          menuIconLegendPosition: 'bottom',
+          menuIconLegendMode: 'used',
+          itemDetailEnabled: true,
+          itemDetailShowPhoto: true,
+          itemDetailPhotoVisibility: 'menu',
+          itemDetailShowName: true,
+          itemDetailShowDescription: true,
+          itemDetailShowPrice: true,
+          itemDetailShowCategory: false,
+          itemDetailShowIcons: true,
+          itemDetailImageFit: 'cover',
         }),
         block('gallery', {
           title: 'From the kitchen',
@@ -623,8 +687,23 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
               variant: 'list',
               showPrices: true,
               showDescriptions: true,
+              showImages: false,
+              showFeaturedImages: true,
               showMenuTabs: true,
+              showMenuIcons: true,
               categoryStyle: 'divider',
+              showMenuIconLegend: true,
+              menuIconLegendPosition: 'bottom',
+              menuIconLegendMode: 'used',
+              itemDetailEnabled: true,
+              itemDetailShowPhoto: true,
+              itemDetailPhotoVisibility: 'menu',
+              itemDetailShowName: true,
+              itemDetailShowDescription: true,
+              itemDetailShowPrice: true,
+              itemDetailShowCategory: true,
+              itemDetailShowIcons: true,
+              itemDetailImageFit: 'contain',
             }),
           ],
         },
@@ -1255,11 +1334,13 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
 
 export function isStructuralTemplateId(templateId: string): boolean {
   const id = templateId.toLowerCase().replace(/-/g, '_');
+  if (id === AI_ONBOARDING_TEMPLATE_ID) return true;
   return STRUCTURAL_TEMPLATE_STYLES.some((style) => id === style || id.startsWith(`${style}_`));
 }
 
 export function getStructuralTemplateMetadata(templateId: string): StructuralTemplateMetadata | null {
   const id = templateId.toLowerCase().replace(/-/g, '_');
+  if (id === AI_ONBOARDING_TEMPLATE_ID) return AI_ONBOARDING_TEMPLATE_METADATA;
   return (
     STRUCTURAL_TEMPLATE_METADATA.find((template) => template.template_id === id) ||
     STRUCTURAL_TEMPLATE_METADATA.find((template) => template.template_id.startsWith(`${id}_`)) ||
@@ -1279,5 +1360,6 @@ export function getTemplateStyleTag(templateId: string): string {
   if (id.includes('bold')) return 'Bold';
   if (id.includes('elegant')) return 'Elegant';
   if (id.includes('starter')) return 'Starter';
+  if (id === AI_ONBOARDING_TEMPLATE_ID) return 'Custom';
   return '';
 }

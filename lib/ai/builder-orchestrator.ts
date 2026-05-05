@@ -2,7 +2,7 @@
  * New-site orchestrator. Splits the build into three focused Claude calls so
  * each call has plenty of attention budget for tailored copy:
  *
- *   1. Plan — pick template, palette, fonts, header, site title, page briefs
+ *   1. Plan — lock the AI template, then pick palette, fonts, header, site title, page briefs
  *   2. Home — fully populate 5–8 home blocks
  *   3. Pages (parallel) — one Claude call per supporting page, 3–5 blocks each
  *
@@ -21,23 +21,25 @@ import {
   type WizardData,
   type SitePlan,
 } from './builder-schema';
+import { AI_SUPPORTED_BLOCK_TYPES, sanitizeAiBlockData, sanitizeAiCustomColors, sanitizeAiHeaderConfig } from './block-capabilities';
 import { callAi, extractJSON, getProviderConfig } from './ai-client';
-import { getRecipeBlocks, type RecipeBlock } from './page-recipes';
+import { type RecipeBlock } from './page-recipes';
+import { AI_ONBOARDING_TEMPLATE_ID } from '@/lib/templates/ai-template';
+import { buildAiSampleData, enrichBlocksWithSampleMedia, hasAiSampleData } from './sample-data';
+import {
+  buildFallbackBlocksForArchitecture,
+  buildSiteArchitecture,
+  type ArchitectureBlock,
+} from './site-architecture';
+import {
+  getTemplateStyleProfileNames,
+  isTemplateStyleProfileId,
+  recommendTemplateStyleProfileIds,
+} from '@/lib/templates/template-style-profiles';
 
 // Mirror the route's allow-lists so the orchestrator's output is already
 // safe by the time it lands in `sanitizeOperations`.
-const VALID_BLOCK_TYPES = new Set([
-  'hero', 'text', 'image', 'servicesGrid', 'featuresList', 'aboutImageText',
-  'testimonials', 'stats', 'gallery', 'contact', 'faq', 'cta', 'booking',
-  'productGrid', 'contact_form', 'map', 'custom_html', 'pricing', 'logoCloud', 'team', 'blog',
-  'resources', 'carousel', 'video', 'deliveryLinks', 'menu', 'events', 'pdf', 'featuredQuote',
-  'estimateForm', 'socialFeed', 'tabBar',
-]);
-const VALID_TEMPLATES = new Set([
-  'luxe', 'vivid', 'airy', 'edge', 'classic', 'organic', 'sleek', 'vibrant',
-  'atlas', 'editorial', 'booked', 'menu', 'craft', 'retro', 'proof', 'gallery',
-]);
-const HEX = /^#[0-9a-fA-F]{3,8}$/;
+const VALID_BLOCK_TYPES = new Set<string>(AI_SUPPORTED_BLOCK_TYPES);
 
 export interface OrchestratorOperation {
   op: string;
@@ -71,22 +73,35 @@ export async function orchestrateNewSiteBuild(input: OrchestrateInput, emit: Emi
   }
 
   const seed = generateCreativeSeed();
+  const architecture = buildSiteArchitecture({
+    businessType: wizardData.businessType,
+    category: wizardData.category,
+    templateId: wizardData.templateId,
+    requestedPageIds: wizardData.pageIds,
+    requestedPageLabels: wizardData.pageLabels,
+    description: wizardData.description,
+    extras: wizardData.extras,
+  });
   console.log('[AI Builder] Orchestrator: seed=', seed);
+  console.log(
+    `[AI Builder] Architecture: category=${architecture.categoryLabel} pages=${architecture.pages.map((p) => `${p.slug}[${p.blocks.map((b) => b.blockType).join('+')}]`).join(',') || '(none)'}`,
+  );
 
   // ── Phase A — Plan ────────────────────────────────────────────────────
   emit({ type: 'progress', step: 'plan', message: 'Planning your site…' });
 
   let plan: SitePlan;
   try {
-    const planSystem = buildPlanSystemPrompt(wizardData, availablePalettes, seed);
+    const planSystem = buildPlanSystemPrompt(wizardData, availablePalettes, seed, architecture);
     const planRaw = await callAi({
       apiKey, model, system: planSystem, user: 'Produce the plan now.', maxTokens: 2048, signal,
     }, provider);
-    plan = sanitizePlan(extractJSON<Partial<SitePlan>>(planRaw), wizardData);
-    console.log(`[AI Builder] Plan: tpl=${plan.templateId} title="${plan.siteTitle}" pages=${plan.pages.map((p) => p.slug).join(',') || '(none)'}`);
+    plan = sanitizePlan(extractJSON<Partial<SitePlan>>(planRaw), wizardData, architecture);
+    logPlan(plan);
   } catch (err: unknown) {
     console.error('[AI Builder] Plan call failed — using fallback plan', errorMessage(err));
-    plan = derivePlanFromBrief(wizardData);
+    plan = derivePlanFromBrief(wizardData, architecture);
+    logPlan(plan, 'fallback');
   }
 
   // ── Phase B — Home ────────────────────────────────────────────────────
@@ -98,11 +113,16 @@ export async function orchestrateNewSiteBuild(input: OrchestrateInput, emit: Emi
     const homeRaw = await callAi({
       apiKey, model, system: homeSystem, user: 'Produce the home blocks now.', maxTokens: 4096, signal,
     }, provider);
-    homeBlocks = sanitizeRecipeBlocks(extractJSON<{ blocks?: unknown[] }>(homeRaw)?.blocks);
+    homeBlocks = fitBlocksToArchitecture(
+      sanitizeRecipeBlocks(extractJSON<{ blocks?: unknown[] }>(homeRaw)?.blocks),
+      plan.homeArchitecture?.blocks,
+      plan.siteTitle,
+      'home',
+    );
     console.log(`[AI Builder] Home built: ${homeBlocks.length} blocks`);
   } catch (err: unknown) {
     console.error('[AI Builder] Home call failed', errorMessage(err));
-    homeBlocks = [];
+    homeBlocks = buildFallbackBlocksForArchitecture(plan.homeArchitecture?.blocks, plan.siteTitle, 'home');
   }
 
   // ── Phase C — Pages (parallel) ────────────────────────────────────────
@@ -115,16 +135,21 @@ export async function orchestrateNewSiteBuild(input: OrchestrateInput, emit: Emi
       const pageRaw = await callAi({
         apiKey, model, system: pageSystem, user: `Produce the blocks for the "${page.slug}" page now.`, maxTokens: 3072, signal,
       }, provider);
-      const blocks = sanitizeRecipeBlocks(extractJSON<{ blocks?: unknown[] }>(pageRaw)?.blocks);
+      const blocks = fitBlocksToArchitecture(
+        sanitizeRecipeBlocks(extractJSON<{ blocks?: unknown[] }>(pageRaw)?.blocks),
+        page.blocks,
+        plan.siteTitle,
+        page.slug,
+      );
       if (blocks.length === 0) {
-        console.warn(`[AI Builder] Page ${page.slug}: AI returned no blocks — using recipe fallback`);
-        return { page, blocks: getRecipeBlocks(page.slug, plan.siteTitle) };
+        console.warn(`[AI Builder] Page ${page.slug}: AI returned no architecture blocks - using architecture fallback`);
+        return { page, blocks: buildFallbackBlocksForArchitecture(page.blocks, plan.siteTitle, page.slug) };
       }
       console.log(`[AI Builder] Page ${page.slug}: ${blocks.length} blocks`);
       return { page, blocks };
     } catch (err: unknown) {
-      console.error(`[AI Builder] Page ${page.slug} call failed — using recipe fallback`, errorMessage(err));
-      return { page, blocks: getRecipeBlocks(page.slug, plan.siteTitle) };
+      console.error(`[AI Builder] Page ${page.slug} call failed - using architecture fallback`, errorMessage(err));
+      return { page, blocks: buildFallbackBlocksForArchitecture(page.blocks, plan.siteTitle, page.slug) };
     }
   })());
   const pageResults = await Promise.all(pagePromises);
@@ -132,26 +157,41 @@ export async function orchestrateNewSiteBuild(input: OrchestrateInput, emit: Emi
   // ── Assembly ──────────────────────────────────────────────────────────
   emit({ type: 'progress', step: 'finalize', message: 'Putting it all together…' });
 
-  // Home falls back to a "text + cta" recipe only if the home call totally
-  // failed. The wizard's first stage has at least 5 chars, so we always
-  // have something to write about.
+  // Home falls back to the deterministic architecture only if the home call
+  // failed after sanitization.
   if (homeBlocks.length === 0) {
-    homeBlocks = [
-      { blockType: 'hero', data: {
-        variant: 'split',
-        title: plan.siteTitle,
-        subtitle: wizardData.description.slice(0, 200),
-        buttonText: 'Get in touch',
-        buttonTextLink: { linkType: 'page', pageSlug: 'contact' },
-      } },
-      { blockType: 'cta', data: {
-        title: `Welcome to ${plan.siteTitle}`,
-        subtitle: 'Edit this section to introduce your business.',
-        buttonText: 'Contact us',
-        buttonTextLink: { linkType: 'page', pageSlug: 'contact' },
-      } },
-    ];
+    homeBlocks = buildFallbackBlocksForArchitecture(plan.homeArchitecture?.blocks, plan.siteTitle, 'home');
   }
+
+  const allGeneratedBlocks = [
+    ...homeBlocks,
+    ...pageResults.flatMap(({ blocks }) => blocks),
+  ];
+  const sampleData = buildAiSampleData({
+    wizardData,
+    siteTitle: plan.siteTitle,
+    pages: plan.pages,
+    blocks: allGeneratedBlocks,
+  });
+
+  homeBlocks = enrichBlocksWithSampleMedia(homeBlocks, {
+    wizardData,
+    siteTitle: plan.siteTitle,
+    pages: plan.pages,
+    blocks: allGeneratedBlocks,
+    pageSlug: 'home',
+  });
+
+  const enrichedPageResults = pageResults.map(({ page, blocks }) => ({
+    page,
+    blocks: enrichBlocksWithSampleMedia(blocks, {
+      wizardData,
+      siteTitle: plan.siteTitle,
+      pages: plan.pages,
+      blocks: allGeneratedBlocks,
+      pageSlug: page.slug,
+    }),
+  }));
 
   const operations: OrchestratorOperation[] = [];
   operations.push({ op: 'setTemplate', templateId: plan.templateId });
@@ -164,14 +204,17 @@ export async function orchestrateNewSiteBuild(input: OrchestrateInput, emit: Emi
   if (plan.headerConfig && Object.keys(plan.headerConfig).length > 0) {
     operations.push({ op: 'setHeaderConfig', config: plan.headerConfig });
   }
+  if (hasAiSampleData(sampleData)) {
+    operations.push({ op: 'seedSampleData', samples: sampleData });
+  }
   operations.push({
     op: 'replaceBlocks',
     blocks: homeBlocks.map((b) => ({ blockType: b.blockType, data: b.data })),
   });
-  if (pageResults.length > 0) {
+  if (enrichedPageResults.length > 0) {
     operations.push({
       op: 'createPages',
-      pages: pageResults.map(({ page, blocks }) => ({
+      pages: enrichedPageResults.map(({ page, blocks }) => ({
         slug: page.slug,
         title: page.title,
         displayName: page.displayName ?? page.title,
@@ -184,7 +227,7 @@ export async function orchestrateNewSiteBuild(input: OrchestrateInput, emit: Emi
   emit({
     type: 'result',
     operations,
-    message: `Built your ${plan.templateId} site — ${plan.siteTitle} with ${pageResults.length + 1} page${pageResults.length === 0 ? '' : 's'}.`,
+    message: `Built your custom site - ${plan.siteTitle} with ${enrichedPageResults.length + 1} page${enrichedPageResults.length === 0 ? '' : 's'}.`,
   });
 }
 
@@ -192,37 +235,22 @@ export async function orchestrateNewSiteBuild(input: OrchestrateInput, emit: Emi
 // Sanitizers
 // ─────────────────────────────────────────────────────────────────────────────
 
-function sanitizePlan(raw: Partial<SitePlan> | null | undefined, wizardData: WizardData): SitePlan {
-  const fallback = derivePlanFromBrief(wizardData);
+function sanitizePlan(raw: Partial<SitePlan> | null | undefined, wizardData: WizardData, architecture?: ReturnType<typeof buildSiteArchitecture>): SitePlan {
+  const fallback = derivePlanFromBrief(wizardData, architecture);
   if (!raw || typeof raw !== 'object') return fallback;
 
   const siteTitle = typeof raw.siteTitle === 'string' && raw.siteTitle.trim() ? raw.siteTitle.trim().slice(0, 100) : fallback.siteTitle;
-  const templateId = typeof raw.templateId === 'string' && VALID_TEMPLATES.has(raw.templateId.toLowerCase())
-    ? raw.templateId.toLowerCase()
-    : fallback.templateId;
+  const templateId = AI_ONBOARDING_TEMPLATE_ID;
   const paletteName = typeof raw.paletteName === 'string' ? raw.paletteName.slice(0, 60) : undefined;
 
-  const customColors: Record<string, string> = {};
-  if (raw.customColors && typeof raw.customColors === 'object') {
-    for (const k of ['primary', 'secondary', 'accent'] as const) {
-      const v = (raw.customColors as Record<string, unknown>)[k];
-      if (typeof v === 'string' && HEX.test(v)) customColors[k] = v;
-    }
-  }
+  const customColors = raw.customColors && typeof raw.customColors === 'object'
+    ? sanitizeAiCustomColors(raw.customColors as Record<string, unknown>)
+    : {};
 
-  const headerConfig: Record<string, unknown> = {};
-  if (raw.headerConfig && typeof raw.headerConfig === 'object') {
-    const VALID_BG = new Set(['white', 'primary', 'secondary', 'gradient']);
-    const VALID_LAYOUT = new Set(['default', 'centeredAboveNav']);
-    const VALID_RIGHT = new Set(['cta', 'social', 'none']);
-    const h = raw.headerConfig as Record<string, unknown>;
-    if (typeof h.bgType === 'string' && VALID_BG.has(h.bgType)) headerConfig.bgType = h.bgType;
-    if (typeof h.layout === 'string' && VALID_LAYOUT.has(h.layout)) headerConfig.layout = h.layout;
-    if (typeof h.rightElement === 'string' && VALID_RIGHT.has(h.rightElement)) headerConfig.rightElement = h.rightElement;
-    if (typeof h.sticky === 'boolean') headerConfig.sticky = h.sticky;
-    if (typeof h.bannerEnabled === 'boolean') headerConfig.bannerEnabled = h.bannerEnabled;
-    if (typeof h.bannerText === 'string') headerConfig.bannerText = h.bannerText.slice(0, 200);
-  }
+  const headerConfig = sanitizeAiHeaderConfig(
+    raw.headerConfig,
+    (value) => value.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/javascript\s*:/gi, ''),
+  );
 
   const fonts: { heading?: string; body?: string } = {};
   if (raw.fonts && typeof raw.fonts === 'object') {
@@ -232,32 +260,16 @@ function sanitizePlan(raw: Partial<SitePlan> | null | undefined, wizardData: Wiz
   }
 
   const voice = typeof raw.voice === 'string' && raw.voice.trim() ? raw.voice.trim().slice(0, 300) : fallback.voice;
-  const homeBrief = typeof raw.homeBrief === 'string' && raw.homeBrief.trim() ? raw.homeBrief.trim().slice(0, 500) : fallback.homeBrief;
+  const styleProfileIds = sanitizeStyleProfileIds(raw.styleProfileIds, fallback.styleProfileIds);
+  const designBrief = typeof raw.designBrief === 'string' && raw.designBrief.trim()
+    ? raw.designBrief.trim().slice(0, 500)
+    : fallback.designBrief;
+  const homeBrief = architecture?.home.brief
+    ?? (typeof raw.homeBrief === 'string' && raw.homeBrief.trim() ? raw.homeBrief.trim().slice(0, 500) : fallback.homeBrief);
 
-  // Pages — we honor the AI's slugs first; if it dropped any the user requested,
-  // we backfill from the wizard pageIds so the user never gets fewer pages than asked.
-  const aiPages = Array.isArray(raw.pages) ? raw.pages : [];
-  const sanitizedPages: SitePlan['pages'] = [];
-  const seen = new Set<string>();
-  for (const p of aiPages) {
-    if (!p || typeof p !== 'object') continue;
-    const pp = p as Record<string, unknown>;
-    const slugRaw = typeof pp.slug === 'string' ? pp.slug : '';
-    const slug = slugRaw.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/^-+|-+$/g, '').slice(0, 60);
-    if (!slug || slug === 'home' || seen.has(slug)) continue;
-    seen.add(slug);
-    const title = typeof pp.title === 'string' ? pp.title.slice(0, 60) : prettify(slug);
-    const displayName = typeof pp.displayName === 'string' ? pp.displayName.slice(0, 60) : title;
-    const brief = typeof pp.brief === 'string' ? pp.brief.slice(0, 300) : `Build the ${title} page.`;
-    sanitizedPages.push({ slug, title, displayName, brief });
-  }
-  // Backfill any user-requested page that the AI omitted.
-  for (const fp of fallback.pages) {
-    if (!seen.has(fp.slug)) {
-      sanitizedPages.push(fp);
-      seen.add(fp.slug);
-    }
-  }
+  // Page and block architecture is deterministic. The plan call can provide
+  // voice/style/title direction, but it cannot change site structure.
+  const sanitizedPages: SitePlan['pages'] = architecture?.pages ?? fallback.pages;
 
   return {
     siteTitle,
@@ -267,7 +279,10 @@ function sanitizePlan(raw: Partial<SitePlan> | null | undefined, wizardData: Wiz
     headerConfig: Object.keys(headerConfig).length > 0 ? headerConfig : undefined,
     fonts: Object.keys(fonts).length > 0 ? fonts : undefined,
     voice,
+    styleProfileIds,
+    designBrief,
     homeBrief,
+    homeArchitecture: architecture?.home ?? fallback.homeArchitecture,
     pages: sanitizedPages,
   };
 }
@@ -277,37 +292,60 @@ function sanitizePlan(raw: Partial<SitePlan> | null | undefined, wizardData: Wiz
  * fails entirely. Picks a template based on style chips, uses page chips as
  * the page list, and assigns one-line briefs.
  */
-function derivePlanFromBrief(wizardData: WizardData): SitePlan {
-  const styleToTemplate: Record<string, string> = {
-    bold: 'vivid',
-    minimal: 'sleek',
-    warm: 'organic',
-    luxury: 'luxe',
-    playful: 'vibrant',
-    dark: 'edge',
-    editorial: 'editorial',
-    earthy: 'organic',
-  };
-
-  const templateId = wizardData.styleIds?.find((s) => styleToTemplate[s])
-    ? styleToTemplate[wizardData.styleIds.find((s) => styleToTemplate[s])!]
-    : 'classic';
+function derivePlanFromBrief(wizardData: WizardData, architecture?: ReturnType<typeof buildSiteArchitecture>): SitePlan {
+  const templateId = AI_ONBOARDING_TEMPLATE_ID;
 
   const siteTitle = guessSiteTitle(wizardData.description);
+  const styleProfileIds = recommendTemplateStyleProfileIds({
+    styleIds: wizardData.styleIds,
+    styleLabels: wizardData.styleLabels,
+    description: wizardData.description,
+  }).slice(0, 2);
+  const styleNames = getTemplateStyleProfileNames(styleProfileIds);
 
   const requestedSlugs = (wizardData.pageIds ?? []).filter((id) => id && id !== 'home');
-  const pages: SitePlan['pages'] = requestedSlugs.map((slug) => {
+  const pages: SitePlan['pages'] = architecture?.pages ?? requestedSlugs.map((slug) => {
     const title = prettify(slug);
-    return { slug, title, displayName: title, brief: `Standard ${title} page for the site.` };
+    return { slug, title, displayName: title, role: slug, brief: `Standard ${title} page for the site.`, blocks: [] };
   });
 
   return {
     siteTitle,
     templateId,
     voice: 'Clear, friendly, on-brand.',
-    homeBrief: 'Hero with the brand promise, services or about section, social proof, and a clear CTA.',
+    styleProfileIds,
+    designBrief: styleNames.length
+      ? `Custom AI baseline styled with ${styleNames.join(' + ')} cues through palette, fonts, header settings, and block layout choices.`
+      : 'Custom AI baseline styled through palette, fonts, header settings, and block layout choices.',
+    homeBrief: architecture?.home.brief ?? 'Hero with the brand promise, services or about section, social proof, and a clear CTA.',
+    homeArchitecture: architecture?.home,
     pages,
   };
+}
+
+function sanitizeStyleProfileIds(raw: unknown, fallback?: string[]): string[] | undefined {
+  const ids: string[] = [];
+  const add = (value: unknown) => {
+    if (isTemplateStyleProfileId(value) && !ids.includes(value)) ids.push(value);
+  };
+
+  if (Array.isArray(raw)) {
+    raw.forEach(add);
+  } else {
+    add(raw);
+  }
+
+  return ids.length > 0 ? ids.slice(0, 2) : fallback;
+}
+
+function logPlan(plan: SitePlan, mode?: 'fallback') {
+  const styleIds = plan.styleProfileIds?.length ? plan.styleProfileIds.join('/') : 'none';
+  const styleNames = getTemplateStyleProfileNames(plan.styleProfileIds).join(' + ') || 'none';
+  const designBrief = plan.designBrief ? ` design="${plan.designBrief.slice(0, 180)}"` : '';
+  const modePrefix = mode ? ` (${mode})` : '';
+  console.log(
+    `[AI Builder] Plan${modePrefix}: tpl=${plan.templateId} style=${styleIds} styleNames="${styleNames}" title="${plan.siteTitle}" pages=${plan.pages.map((p) => p.slug).join(',') || '(none)'}${designBrief}`,
+  );
 }
 
 function guessSiteTitle(description: string): string {
@@ -331,6 +369,29 @@ function errorMessage(err: unknown): string {
   return String(err);
 }
 
+function fitBlocksToArchitecture(
+  blocks: RecipeBlock[],
+  architectureBlocks: readonly ArchitectureBlock[] | undefined,
+  siteTitle: string,
+  pageSlug: string,
+): RecipeBlock[] {
+  if (!architectureBlocks || architectureBlocks.length === 0) return blocks;
+
+  const queues = new Map<string, RecipeBlock[]>();
+  for (const block of blocks) {
+    const queue = queues.get(block.blockType) ?? [];
+    queue.push(block);
+    queues.set(block.blockType, queue);
+  }
+
+  return architectureBlocks.map((spec) => {
+    const queue = queues.get(spec.blockType);
+    const next = queue?.shift();
+    if (next) return next;
+    return buildFallbackBlocksForArchitecture([spec], siteTitle, pageSlug)[0];
+  }).filter((block): block is RecipeBlock => Boolean(block));
+}
+
 function sanitizeRecipeBlocks(raw: unknown): RecipeBlock[] {
   if (!Array.isArray(raw)) return [];
   const out: RecipeBlock[] = [];
@@ -338,8 +399,7 @@ function sanitizeRecipeBlocks(raw: unknown): RecipeBlock[] {
     if (!b || typeof b !== 'object') continue;
     const bb = b as Record<string, unknown>;
     if (typeof bb.blockType !== 'string' || !VALID_BLOCK_TYPES.has(bb.blockType)) continue;
-    const data = (bb.data && typeof bb.data === 'object') ? (bb.data as Record<string, unknown>) : {};
-    out.push({ blockType: bb.blockType, data });
+    out.push({ blockType: bb.blockType, data: sanitizeAiBlockData(bb.blockType, bb.data) });
   }
   return out;
 }

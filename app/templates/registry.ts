@@ -20,6 +20,10 @@ export async function getTemplateComponent(templateId: string): Promise<Template
   try {
     const n = templateId.toLowerCase().replace(/-/g, '_');
 
+    if (n === 'custom_ai' || n.includes('ai_custom')) {
+      const templateModule = await import('./master/MinimalWhiteTemplate');
+      return templateModule.MinimalWhiteTemplate;
+    }
     if (n.includes('luxe')) {
       const templateModule = await import('./master/LuxeTemplate');
       return templateModule.LuxeTemplate;
@@ -106,6 +110,7 @@ export async function getTemplateComponent(templateId: string): Promise<Template
 export function isTemplateRegistered(templateId: string): boolean {
   const n = templateId.toLowerCase().replace(/-/g, '_');
   return (
+    n === 'custom_ai' || n.includes('ai_custom') ||
     n.includes('luxe') || n.includes('vivid') || n.includes('airy') || n.includes('edge') ||
     n.includes('classic') || n.includes('organic') || n.includes('sleek') || n.includes('vibrant') ||
     n.includes('atlas') || n.includes('editorial') || n.includes('booked') || n.includes('menu') ||

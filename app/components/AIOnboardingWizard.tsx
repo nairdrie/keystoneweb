@@ -29,7 +29,7 @@ const PROMPT_EXAMPLES = [
   'A non-profit that organizes community cleanups and tree planting events...',
 ];
 
-// Style chips — informs template selection + tone for the AI.
+// Style chips - informs the generated palette, layout, and tone.
 const STYLE_OPTIONS = [
   { id: 'bold', label: 'Bold & loud', hint: 'Big type, saturated colors' },
   { id: 'minimal', label: 'Clean & minimal', hint: 'White space, restrained' },
@@ -232,7 +232,7 @@ export default function AIOnboardingWizard({
                 What should it <span className="bg-gradient-to-r from-violet-300 to-pink-300 bg-clip-text text-transparent">feel</span> like?
               </h1>
               <p className="mb-8 max-w-xl text-lg text-white/70">
-                Pick up to two — Archie picks a matching template and palette.
+                Pick up to two - Archie uses them to shape the layout, palette, and tone.
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {STYLE_OPTIONS.map((opt) => {

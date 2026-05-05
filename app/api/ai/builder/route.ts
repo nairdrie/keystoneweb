@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { buildSystemPrompt, generateCreativeSeed, type WizardData } from '@/lib/ai/builder-schema';
+import { AI_SUPPORTED_BLOCK_TYPES, sanitizeAiBlockData, sanitizeAiCustomColors, sanitizeAiHeaderConfig } from '@/lib/ai/block-capabilities';
 import { orchestrateNewSiteBuild, type ProgressEvent } from '@/lib/ai/builder-orchestrator';
+import { AI_ONBOARDING_TEMPLATE_ID } from '@/lib/templates/ai-template';
+import { sanitizeAiSampleDataPayload, hasAiSampleData } from '@/lib/ai/sample-data';
 import { checkAndRecordUsage, getUsageRemaining, UserPlan } from './rate-limit';
 import { getUserEffectiveLimits } from '@/lib/addons';
 
@@ -160,7 +163,7 @@ CURRENT SITE STATE:
     const systemPrompt = buildSystemPrompt(availablePalettes || [], creativeSeed);
 
     const newSiteContext = isNewSite ? `
-CONTEXT: This is a BRAND NEW site being built from scratch via onboarding. The current blocks are default template placeholders and should ALL be removed and replaced with blocks tailored to the user's request. Start by removing every existing block, then add your new blocks.
+CONTEXT: This is a BRAND NEW site being built from scratch via onboarding. Use the AI-only Custom baseline and replace any starter blocks with blocks tailored to the user's request.
 ` : '';
 
     const latestUserMessage = `${siteContext}${newSiteContext}
@@ -213,7 +216,7 @@ USER REQUEST: ${prompt}`;
     // Server-side validation: sanitize operations before returning to client.
     // Even if the LLM is manipulated via prompt injection, only valid operations
     // with valid block types can pass through.
-    const sanitized = sanitizeOperations(parsed.operations || []);
+    const sanitized = sanitizeOperations(parsed.operations || [], { siteState });
 
     console.log(`[AI Builder] Done in ${elapsed}ms — operations=${sanitized.length} message="${(parsed.message || '').slice(0, 100)}"`);
 
@@ -290,23 +293,23 @@ async function callAnthropic(apiKey: string, model: string, system: string, hist
 // operations with valid block types pass through. This prevents prompt injection
 // from producing arbitrary payloads.
 
-const VALID_OPS = new Set(['addBlock', 'updateBlock', 'removeBlock', 'reorderBlocks', 'setSiteTitle', 'setFont', 'setCustomColors', 'setTemplate', 'replaceBlocks', 'setHeaderConfig', 'createPages']);
-const VALID_BLOCK_TYPES = new Set([
-  'hero', 'text', 'image', 'servicesGrid', 'featuresList', 'aboutImageText',
-  'testimonials', 'stats', 'gallery', 'contact', 'faq', 'cta', 'booking',
-  'productGrid', 'contact_form', 'map', 'custom_html', 'pricing', 'logoCloud', 'team', 'blog',
-  'resources', 'carousel', 'video', 'deliveryLinks', 'menu', 'events', 'pdf', 'featuredQuote',
-  'estimateForm', 'socialFeed', 'tabBar',
-  // 'chatSupport', // Hidden — not yet released
-]);
+const VALID_OPS = new Set(['addBlock', 'updateBlock', 'removeBlock', 'reorderBlocks', 'setSiteTitle', 'setFont', 'setCustomColors', 'setTemplate', 'replaceBlocks', 'setHeaderConfig', 'createPages', 'seedSampleData']);
+const VALID_BLOCK_TYPES = new Set<string>(AI_SUPPORTED_BLOCK_TYPES);
 const VALID_TEMPLATES = new Set([
   'luxe', 'vivid', 'airy', 'edge', 'classic', 'organic', 'sleek', 'vibrant',
   'atlas', 'editorial', 'booked', 'menu', 'craft', 'retro', 'proof', 'gallery',
+  AI_ONBOARDING_TEMPLATE_ID,
 ]);
-const HEX_COLOR = /^#[0-9a-fA-F]{3,8}$/;
 
-function sanitizeOperations(operations: any[]): any[] {
+function sanitizeOperations(operations: any[], options: { siteState?: any; allowSampleData?: boolean } = {}): any[] {
   if (!Array.isArray(operations)) return [];
+  const blockTypeById = new Map<string, string>();
+  const currentBlocks = Array.isArray(options.siteState?.blocks) ? options.siteState.blocks : [];
+  for (const block of currentBlocks) {
+    if (block && typeof block.id === 'string' && typeof block.type === 'string') {
+      blockTypeById.set(block.id, block.type);
+    }
+  }
 
   return operations
     .filter((op): op is Record<string, any> => op && typeof op === 'object' && VALID_OPS.has(op.op))
@@ -320,7 +323,7 @@ function sanitizeOperations(operations: any[]): any[] {
           if (!Array.isArray(op.blocks)) return null;
           const sanitizedBlocks = op.blocks.map((b: any, idx: number) => {
             if (!b || typeof b !== 'object' || !VALID_BLOCK_TYPES.has(b.blockType)) return null;
-            const data = (typeof b.data === 'object' && b.data !== null) ? b.data : {};
+            const data = sanitizeAiBlockData(b.blockType, b.data);
             return {
               id: `block-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
               type: b.blockType,
@@ -342,7 +345,7 @@ function sanitizeOperations(operations: any[]): any[] {
             const isVisibleInNav = p.isVisibleInNav !== false;
             const blocks = Array.isArray(p.blocks) ? p.blocks.map((b: any, bIdx: number) => {
               if (!b || typeof b !== 'object' || !VALID_BLOCK_TYPES.has(b.blockType)) return null;
-              const data = (typeof b.data === 'object' && b.data !== null) ? b.data : {};
+              const data = sanitizeAiBlockData(b.blockType, b.data);
               return {
                 id: `block-${Date.now()}-${pIdx}-${bIdx}-${Math.random().toString(36).substr(2, 9)}`,
                 type: b.blockType,
@@ -361,9 +364,15 @@ function sanitizeOperations(operations: any[]): any[] {
           if (sanitizedPages.length === 0) return null;
           return { op: 'createPages', pages: sanitizedPages };
         }
+        case 'seedSampleData': {
+          if (!options.allowSampleData) return null;
+          const samples = sanitizeAiSampleDataPayload(op.samples);
+          if (!hasAiSampleData(samples)) return null;
+          return { op: 'seedSampleData', samples };
+        }
         case 'addBlock': {
           if (!VALID_BLOCK_TYPES.has(op.blockType)) return null;
-          const data = (typeof op.data === 'object' && op.data !== null) ? op.data : {};
+          const data = sanitizeAiBlockData(op.blockType, op.data);
           // Strip <script> tags from any string value in block data
           const cleanData = deepSanitizeStrings(data);
           return {
@@ -375,7 +384,10 @@ function sanitizeOperations(operations: any[]): any[] {
         }
         case 'updateBlock': {
           if (typeof op.blockId !== 'string' || typeof op.updates !== 'object') return null;
-          return { op: 'updateBlock', blockId: op.blockId, updates: deepSanitizeStrings(op.updates) };
+          const blockType = blockTypeById.get(op.blockId);
+          if (!blockType || !VALID_BLOCK_TYPES.has(blockType)) return null;
+          const updates = sanitizeAiBlockData(blockType, op.updates);
+          return { op: 'updateBlock', blockId: op.blockId, updates: deepSanitizeStrings(updates) };
         }
         case 'removeBlock': {
           if (typeof op.blockId !== 'string') return null;
@@ -396,27 +408,13 @@ function sanitizeOperations(operations: any[]): any[] {
           return { op: 'setFont', target: op.target, font: fontName };
         }
         case 'setCustomColors': {
-          const colors: Record<string, string> = {};
-          for (const key of ['primary', 'secondary', 'accent'] as const) {
-            if (typeof op[key] === 'string' && HEX_COLOR.test(op[key])) {
-              colors[key] = op[key];
-            }
-          }
+          const colors = sanitizeAiCustomColors(op);
           if (Object.keys(colors).length === 0) return null;
           return { op: 'setCustomColors', ...colors };
         }
         case 'setHeaderConfig': {
           if (!op.config || typeof op.config !== 'object') return null;
-          const VALID_BG_TYPES = new Set(['white', 'primary', 'secondary', 'gradient', 'custom']);
-          const VALID_LAYOUTS = new Set(['default', 'centeredAboveNav']);
-          const VALID_RIGHT_ELEMENTS = new Set(['cta', 'social', 'none']);
-          const config: Record<string, any> = {};
-          if (VALID_BG_TYPES.has(op.config.bgType)) config.bgType = op.config.bgType;
-          if (VALID_LAYOUTS.has(op.config.layout)) config.layout = op.config.layout;
-          if (typeof op.config.sticky === 'boolean') config.sticky = op.config.sticky;
-          if (VALID_RIGHT_ELEMENTS.has(op.config.rightElement)) config.rightElement = op.config.rightElement;
-          if (typeof op.config.bannerEnabled === 'boolean') config.bannerEnabled = op.config.bannerEnabled;
-          if (typeof op.config.bannerText === 'string') config.bannerText = stripTags(op.config.bannerText).slice(0, 200);
+          const config = sanitizeAiHeaderConfig(op.config, stripTags);
           if (Object.keys(config).length === 0) return null;
           return { op: 'setHeaderConfig', config };
         }
@@ -448,6 +446,10 @@ function stripTags(str: string): string {
   return str
     .replace(/<script[\s\S]*?<\/script>/gi, '')
     .replace(/<script[\s>]/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<style[\s>]/gi, '')
+    .replace(/\sstyle\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/@import\s+[^;<>]+;?/gi, '')
     .replace(/javascript\s*:/gi, '')
     .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
 }
@@ -559,7 +561,11 @@ function sanitizeWizardData(raw: any): WizardData {
   const pageIds = Array.isArray(raw.pageIds) ? raw.pageIds.filter((s: any) => typeof s === 'string').slice(0, 16) : [];
   const pageLabels = Array.isArray(raw.pageLabels) ? raw.pageLabels.filter((s: any) => typeof s === 'string').slice(0, 16) : [];
   const extras = typeof raw.extras === 'string' ? raw.extras.slice(0, 1000) : '';
-  return { description, styleIds, styleLabels, pageIds, pageLabels, extras };
+  const businessType = typeof raw.businessType === 'string' ? raw.businessType.slice(0, 80) : undefined;
+  const category = typeof raw.category === 'string' ? raw.category.slice(0, 80) : undefined;
+  const categoryLabel = typeof raw.categoryLabel === 'string' ? raw.categoryLabel.slice(0, 120) : undefined;
+  const templateId = typeof raw.templateId === 'string' ? raw.templateId.slice(0, 120) : undefined;
+  return { description, styleIds, styleLabels, pageIds, pageLabels, extras, businessType, category, categoryLabel, templateId };
 }
 
 /**
@@ -594,7 +600,7 @@ function streamOrchestrator(input: {
             } else if (evt.type === 'result') {
               // Run the same sanitizer the single-call path uses so the
               // client gets identical-shape ops regardless of which path ran.
-              const sanitized = sanitizeOperations(evt.operations);
+              const sanitized = sanitizeOperations(evt.operations, { allowSampleData: true });
               send({ type: 'result', operations: sanitized, message: evt.message, remaining: input.remaining });
             } else if (evt.type === 'error') {
               send({ type: 'error', message: evt.message });

@@ -6,7 +6,11 @@ import EditableImage from '../EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
 import Reveal from '@/app/components/Reveal';
 import { Plus, X } from 'lucide-react';
-import { resolvePaletteColor } from '@/lib/palette-colors';
+import {
+    readableAccentColorForBackground,
+    readableTextColorForBackground,
+    resolvePaletteColor,
+} from '@/lib/palette-colors';
 
 interface FeaturedQuoteBlockProps {
     id: string;
@@ -24,6 +28,8 @@ export default function FeaturedQuoteBlock({ id, data, isEditMode, palette, upda
 
     const variant = data.variant || 'centered';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, pAccent);
+    const textColor = readableTextColorForBackground(bgColor, pPrimary);
+    const accentColor = readableAccentColorForBackground(bgColor, pSecondary, textColor);
 
     if (variant === 'multiGrid') {
         return (
@@ -32,8 +38,8 @@ export default function FeaturedQuoteBlock({ id, data, isEditMode, palette, upda
                 isEditMode={isEditMode}
                 updateContent={updateContent}
                 uploadImage={context?.uploadImage}
-                pPrimary={pPrimary}
-                pSecondary={pSecondary}
+                pPrimary={textColor}
+                pSecondary={accentColor}
                 bgColor={bgColor}
             />
         );
@@ -46,8 +52,8 @@ export default function FeaturedQuoteBlock({ id, data, isEditMode, palette, upda
                 isEditMode={isEditMode}
                 updateContent={updateContent}
                 uploadImage={context?.uploadImage}
-                pPrimary={pPrimary}
-                pSecondary={pSecondary}
+                pPrimary={textColor}
+                pSecondary={accentColor}
                 bgColor={bgColor}
             />
         );
@@ -60,8 +66,8 @@ export default function FeaturedQuoteBlock({ id, data, isEditMode, palette, upda
                 isEditMode={isEditMode}
                 updateContent={updateContent}
                 uploadImage={context?.uploadImage}
-                pPrimary={pPrimary}
-                pSecondary={pSecondary}
+                pPrimary={textColor}
+                pSecondary={accentColor}
                 bgColor={bgColor}
             />
         );
@@ -74,8 +80,8 @@ export default function FeaturedQuoteBlock({ id, data, isEditMode, palette, upda
                 isEditMode={isEditMode}
                 updateContent={updateContent}
                 uploadImage={context?.uploadImage}
-                pPrimary={pPrimary}
-                pSecondary={pSecondary}
+                pPrimary={textColor}
+                pSecondary={accentColor}
                 bgColor={bgColor}
             />
         );
@@ -88,8 +94,8 @@ export default function FeaturedQuoteBlock({ id, data, isEditMode, palette, upda
             isEditMode={isEditMode}
             updateContent={updateContent}
             uploadImage={context?.uploadImage}
-            pPrimary={pPrimary}
-            pSecondary={pSecondary}
+            pPrimary={textColor}
+            pSecondary={accentColor}
             bgColor={bgColor}
         />
     );
@@ -224,7 +230,7 @@ function EssayVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
                                 isEditMode={isEditMode}
                                 onSave={(key, value) => updateContent(key, value)}
                                 className="text-sm mt-0.5"
-                                style={{ color: pPrimary, opacity: 0.55 }}
+                                style={{ color: pPrimary }}
                             />
                             <EditableText
                                 as="p"
@@ -234,7 +240,7 @@ function EssayVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
                                 isEditMode={isEditMode}
                                 onSave={(key, value) => updateContent(key, value)}
                                 className="text-xs mt-1 italic"
-                                style={{ color: pSecondary, opacity: 0.8 }}
+                                style={{ color: pPrimary }}
                             />
                         </div>
                     </div>
@@ -304,7 +310,7 @@ function CenteredVariant({ data, isEditMode, updateContent, uploadImage, pPrimar
                                 isEditMode={isEditMode}
                                 onSave={(key, value) => updateContent(key, value)}
                                 className="text-sm mt-0.5"
-                                style={{ color: pPrimary, opacity: 0.55 }}
+                                style={{ color: pPrimary }}
                             />
                         </div>
                     </div>
@@ -368,7 +374,7 @@ function SplitVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
                         className="text-sm mt-0.5"
-                        style={{ color: pPrimary, opacity: 0.55 }}
+                        style={{ color: pPrimary }}
                     />
                 </div>
             </div>
@@ -600,7 +606,7 @@ function MinimalVariant({ data, isEditMode, updateContent, uploadImage, pPrimary
                                     isEditMode={isEditMode}
                                     onSave={(key, value) => updateContent(key, value)}
                                     className="text-xs mt-0.5"
-                                    style={{ color: pPrimary, opacity: 0.55 }}
+                                    style={{ color: pPrimary }}
                                 />
                             </div>
                         </div>

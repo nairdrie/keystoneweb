@@ -1,3 +1,13 @@
+import { HEADER_CONFIG_OPERATION_TEXT, renderBlockSchemas } from './block-capabilities';
+import { AI_ONBOARDING_TEMPLATE_ID } from '@/lib/templates/ai-template';
+import { renderTemplateStyleProfilesForAi, TEMPLATE_STYLE_PROFILE_IDS } from '@/lib/templates/template-style-profiles';
+import {
+  renderArchitectureForAi,
+  renderPageArchitectureForAi,
+  type ArchitecturePage,
+  type SiteArchitecture,
+} from './site-architecture';
+
 /**
  * AI Builder Schema & System Prompt
  *
@@ -6,306 +16,16 @@
  * user can do manually through the editor UI.
  */
 
-export const BLOCK_SCHEMAS = `
-AVAILABLE BLOCK TYPES AND THEIR DATA SCHEMAS:
-
-Color fields that accept a hex color also accept palette tokens: "palette:primary", "palette:secondary", or "palette:accent". Prefer palette tokens when styling templates so user palette changes continue to work.
-
-1. "hero" — Hero/Banner section
-   data: {
-     title: string,           // Main headline
-     subtitle: string,        // Supporting text
-     buttonText: string,      // CTA button label
-     buttonTextLink: { linkType: "page" | "section" | "custom", pageSlug: string, href: string }, // Optional. Use linkType:"page" with pageSlug to link to another page in the site (e.g. {linkType:"page",pageSlug:"shop"}). The pageSlug is automatically resolved to the real page ID after pages are created.
-     variant: "split" | "centered" | "fullImage" | "minimal" | "video", // Layout variant (default: "split")
-     videoUrl: string         // Only for "video" variant. Use a placeholder if not provided.
-   }
-
-2. "text" — Rich text paragraph
-   data: {
-     html: string             // HTML content (supports <h2>, <p>, <strong>, <em>, <ul>, <li>)
-   }
-
-3. "image" — Image section
-   data: {
-     caption: string          // Image caption text
-   }
-
-4. "servicesGrid" — Services grid layout
-   data: {
-     title: string,
-     subtitle: string,
-     items: Array<{ title: string, description: string }>   // 1-6 service items
-   }
-
-5. "featuresList" — Features / Why Us bullet list
-   data: {
-     title: string,
-     items: string[]          // Array of feature strings (e.g. ["Fast Shipping", "24/7 Support"])
-   }
-
-6. "aboutImageText" — About section with image + text
-   data: {
-     title: string,
-     description: string,     // Optional paragraph text
-     imagePosition: "left" | "right",
-     items: string[]          // Bullet point strings (e.g. ["Licensed & Insured", "Free Estimates"])
-   }
-
-7. "testimonials" — Customer testimonials
-   data: {
-     title: string,
-     subtitle: string,
-     variant: "cards" | "single",
-     items: Array<{ name: string, role: string, quote: string, rating: number }>  // 1-6 testimonials, rating 1-5
-   }
-
-8. "stats" — Statistics / numbers display
-   data: {
-     title: string,           // Optional heading
-     variant: "banner" | "cards",
-     items: Array<{ value: string, label: string }>   // e.g. { value: "500+", label: "Happy Clients" }
-   }
-
-9. "gallery" — Image gallery (images uploaded separately by user)
-   data: {
-     title: string,
-     subtitle: string,
-     columns: 2 | 3 | 4
-   }
-
-10. "contact" — Contact information display
-    data: {
-      title: string,
-      subtitle: string,
-      phone: string,
-      email: string,
-      address: string,
-      hours: string
-    }
-
-11. "faq" — FAQ accordion
-    data: {
-      title: string,
-      subtitle: string,
-      items: Array<{ question: string, answer: string }>   // 2-8 FAQ items
-    }
-
-12. "cta" — Call to action banner
-    data: {
-      title: string,
-      subtitle: string,
-      buttonText: string,
-      buttonTextLink: { linkType: "page" | "section" | "custom", pageSlug: string, href: string }, // Optional. Use linkType:"page" with pageSlug to link to another page (e.g. {linkType:"page",pageSlug:"contact"}).
-      showPattern: boolean    // Decorative background pattern
-    }
-
-13. "contact_form" — Contact form (functional, sends emails)
-    data: {
-      title: string,
-      description: string,
-      submitText: string,
-      successMessage: string
-    }
-
-14. "map" — Google Map embed
-    data: {
-      title: string,
-      address: string         // Physical address to display on the map
-    }
-
-15. "pricing" — Pricing tiers / comparison
-    data: {
-      title: string,
-      subtitle: string,
-      variant: "cards" | "simple" | "comparison",
-      tiers: Array<{ name: string, price: string, period: string, description: string, features: string[], highlighted: boolean }>
-    }
-
-16. "logoCloud" — Partner / Client logos
-    data: {
-      title: string,
-      variant: "inline" | "grid" | "marquee"
-    }
-
-17. "team" — Team member profiles
-    data: {
-      title: string,
-      variant: "grid" | "cards" | "minimal",
-      members: Array<{ name: string, role: string, bio: string }>
-    }
-
-18. "blog" — Blog post feed (requires user to add posts separately)
-    data: {
-      title: string,
-      layout: "grid" | "list" | "magazine",
-      fallbackPosts: Array<{ id: string, title: string, slug: string, excerpt: string, cover_image: string, author: string, tags: string[], is_published: boolean, published_at: string, created_at: string }> // Optional placeholder posts for brand-new templates
-    }
-
-19. "booking" — Online booking / appointments (requires user setup)
-    data: {}
-
-20. "productGrid" — E-commerce product display (requires user to add products)
-    data: {}
-
-21. "resources" — Resources section with downloadable files, text articles, and external links
-    data: {
-      title: string,
-      subtitle: string,
-      variant: "grid" | "list",   // "grid" = card grid, "list" = document-style list
-      items: Array<{
-        id: string,
-        type: "file" | "text" | "link",
-        title: string,
-        description: string,
-        // file type only:
-        fileUrl: string,
-        fileName: string,
-        fileType: "pdf" | "image",
-        // text type only:
-        body: string,
-        // link type only:
-        url: string,
-        openInNewTab: boolean
-      }>
-    }
-
-22. "custom_html" — Custom HTML/CSS embed (USE SPARINGLY — only when no other block can achieve the goal)
-    data: {
-      html: string            // Raw HTML+CSS. No <script> tags allowed. Style tags and iframes are OK.
-    }
-
-23. "carousel" — Scrolling content carousel with image or icon + title + text
-    data: {
-      title: string,            // Optional section heading
-      subtitle: string,         // Optional section subheading
-      variant: "cards" | "slides" | "minimal",
-      items: Array<{
-        mediaType: "image" | "icon",  // "icon" uses a Lucide icon; "image" uses an uploaded photo
-        icon: string,                  // Lucide icon name (e.g. "Star", "Zap", "Shield") — used when mediaType is "icon"
-        title: string,
-        text: string
-      }>   // 2–8 items recommended
-    }
-
-24. "video" — External video embed (YouTube, Vimeo, or direct .mp4 link)
-    data: {
-      title: string,            // Optional section heading shown above the video
-      caption: string,          // Optional caption shown below the video
-      videoUrl: string,         // YouTube, Vimeo, or direct video URL (no self-hosted streaming)
-      variant: "contained" | "fullWidth"  // "contained" = centered max-w-4xl; "fullWidth" = edge-to-edge
-    }
-
-25. "deliveryLinks" — Delivery app link buttons (Uber Eats, DoorDash, Skip the Dishes, custom)
-    data: {
-      title: string,          // e.g. "Order Online"
-      subtitle: string,       // e.g. "Fresh food delivered to your door"
-      backgroundColor: string, // Optional hex or palette token. Leave blank for default accent.
-      links: Array<{
-        id: string,
-        platform: "ubereats" | "doordash" | "skipthedishes" | "custom",
-        label: string,        // Display name (auto-filled for known platforms, required for "custom")
-        url: string,          // Full URL to the restaurant's page on that platform
-        enabled: boolean      // Only enabled links with a URL are shown to visitors
-      }>
-    }
-
-26. "menu" — Restaurant / food menu (requires user to add menu items via Admin)
-    data: {
-      title: string,            // e.g. "Our Menu"
-      subtitle: string,         // e.g. "Fresh, locally sourced ingredients"
-      mode: "items" | "pdf",    // "items" = structured menu from admin, "pdf" = uploaded PDF (default: "items")
-      variant: "list" | "grid" | "cards" | "compact",  // Layout style (default: "list")
-      showPrices: boolean,      // Show prices next to items (default: true)
-      showDescriptions: boolean, // Show item descriptions (default: true)
-      showImages: boolean,      // Show item images (default: false)
-      categoryStyle: "heading" | "badge" | "divider",  // How categories are displayed (default: "heading")
-      fallbackItems: Array<{ id: string, name: string, description: string, price: string, category: string, image_url: string, is_available: boolean, sort_order: number }> // Optional placeholder items when no admin menu exists yet
-    }
-
-27. "events" — Events feed (requires user to add events via Admin)
-    data: {
-      title: string,            // e.g. "Upcoming Events"
-      subtitle: string,         // e.g. "Stay up to date with what's happening"
-      sortOrder: "desc" | "asc", // "desc" = newest first, "asc" = closest/soonest first (default: "desc")
-      showPast: boolean          // Whether to include past events (default: false)
-    }
-
-28. "pdf" — PDF document viewer (user uploads PDF separately)
-    data: {
-      title: string,            // Optional section heading
-      showDownload: boolean,    // Show a download button below the viewer (default: true)
-      downloadLabel: string     // Download button label (default: "Download PDF")
-    }
-
-29. "featuredQuote" — Featured quote / spotlight testimonial with photo
-    data: {
-      variant: "centered" | "split" | "minimal" | "essay" | "multiGrid",  // Layout style (default: "centered")
-      quote: string,            // The quote text
-      personName: string,       // Person's name
-      personTitle: string,      // Person's role / company (e.g. "CEO, Acme Corp")
-      title: string,            // Optional section heading (used by "essay" and "multiGrid" variants)
-      imagePosition: "left" | "right",  // Image position for "split" and "essay" variants (default: "right")
-      // "multiGrid" variant uses a people array instead of single quote:
-      people: Array<{ name: string, title: string, quote: string }>  // 2-6 people for multiGrid variant
-    }
-
-30. "estimateForm" — Quote & estimate request form with optional live pricing calculator
-    data: {
-      title: string,               // Form heading
-      description: string,         // Supporting text
-      submitText: string,          // Submit button label (default: "Get My Estimate")
-      successMessage: string,      // Success message after submission
-      variant: "simple" | "calculator",  // "simple" = inquiry form, "calculator" = with live pricing (default: "simple")
-      fields: Array<{              // 1-20 custom intake fields
-        id: string,                // Unique field ID (use UUID)
-        label: string,             // Field label
-        type: "select" | "number" | "text" | "textarea" | "checkbox",
-        required: boolean,
-        options: string[],         // For "select" type only
-        unit: string               // Optional unit label (e.g. "sq ft", "hours")
-      }>,
-      pricingEnabled: boolean,     // Enable live pricing (only for "calculator" variant)
-      pricingBasePrice: number,    // Base price in cents
-      pricingCurrency: string,     // Currency code (default: "CAD")
-      pricingRangeSpread: number,  // Spread percentage as decimal (default: 0.15 = 15%)
-      pricingDisclaimer: string,   // Mandatory disclaimer text
-      showName: boolean,           // Show name field (default: true)
-      showEmail: boolean,          // Show email field (default: true)
-      showPhone: boolean,          // Show phone field (default: true)
-      showMessage: boolean         // Show additional notes field (default: false)
-    }
-
-31. "socialFeed" — Social media embeds from YouTube, Instagram, TikTok, X/Twitter, and Facebook (single posts, reels, videos, tweets, or a Facebook page timeline)
-    data: {
-      title: string,            // Optional section heading (e.g. "Follow us on social")
-      subtitle: string,         // Optional supporting text below the title
-      variant: "grid" | "single",  // "grid" = multiple embeds in columns; "single" = one centered embed (default: "grid")
-      columns: 1 | 2 | 3 | 4,   // Grid columns at desktop (default: 3, ignored when variant="single")
-      items: Array<{
-        id: string,             // Unique ID (use UUID)
-        url: string             // Public URL to a YouTube video/playlist, Instagram post/reel, TikTok video, X/Twitter status, or Facebook post/video/page
-      }>                        // Platform is auto-detected from each URL
-    }
-
-32. "tabBar" — Horizontal section/page menu bar
-    data: {
-      tabStyle: "underline" | "pills" | "tabs" | "buttons",
-      tabAlign: "left" | "center" | "right" | "stretch",
-      activeColor: string, // Optional hex or palette token
-      bgColor: string,     // Optional hex or palette token
-      items: Array<{ id: string, label: string, linkType: "page" | "section" | "custom", href: string, pageId: string, blockId: string }>
-    }
-`;
+export const BLOCK_SCHEMAS = renderBlockSchemas();
 
 export const AVAILABLE_OPERATIONS = `
 AVAILABLE OPERATIONS (you MUST respond with a JSON object containing an "operations" array and a "message" string):
 
-1. { "op": "addBlock", "blockType": "<type>", "data": { "title": "...", "__customCss": "h2 { color: red; }" }, "index": <number> }
+1. { "op": "addBlock", "blockType": "<type>", "data": { "title": "..." }, "index": <number> }
    Adds a new block. "index" is the position (0 = top). Omit index to append at end.
 
-2. { "op": "updateBlock", "blockId": "<id>", "updates": { "<key>": <value>, "__customCss": "h2 { color: red; }" } }
-   Updates specific fields on an existing block. Only include the fields you want to change. Use "__customCss" to add block-specific CSS.
+2. { "op": "updateBlock", "blockId": "<id>", "updates": { "<key>": <value> } }
+   Updates specific fields on an existing block. Only include the fields you want to change.
 
 3. { "op": "removeBlock", "blockId": "<id>" }
    Removes a block entirely.
@@ -325,14 +45,7 @@ AVAILABLE OPERATIONS (you MUST respond with a JSON object containing an "operati
 8. { "op": "setCustomColors", "primary": "<hex>", "secondary": "<hex>", "accent": "<hex>" }
    Sets custom color palette. All three are optional — only include colors you want to change.
 
-9. { "op": "setHeaderConfig", "config": { "bgType": "primary" | "secondary" | "gradient" | "white", "layout": "default" | "centeredAboveNav", "sticky": true | false, "rightElement": "cta" | "social" | "none", "bannerEnabled": true | false, "bannerText": "<string>" } }
-   Customizes the site header appearance. All config keys are optional — only include what you want to change.
-   - bgType: header background color (default=white, primary=brand color, gradient=primary→secondary)
-   - layout: "default" = logo-left nav-right, "centeredAboveNav" = logo/title centered above nav (elegant/luxury feel)
-   - sticky: whether header stays visible as user scrolls
-   - rightElement: what appears on the right side of the nav — CTA button, social links, or nothing
-   - bannerEnabled: show a thin announcement bar above the header
-   - bannerText: text shown in the announcement banner
+${HEADER_CONFIG_OPERATION_TEXT}
 
 10. { "op": "createPages", "pages": [
       { "slug": "shop", "title": "Shop", "displayName": "Shop", "isVisibleInNav": true, "blocks": [ { "blockType": "productGrid", "data": {} }, { "blockType": "cta", "data": {...} } ] },
@@ -346,7 +59,7 @@ AVAILABLE OPERATIONS (you MUST respond with a JSON object containing an "operati
      • Shop/Store → productGrid + featuredQuote + cta
      • Services → servicesGrid + pricing + faq + cta
      • About → aboutImageText + team + featuredQuote + cta
-     • Contact → contact_form + contact + map
+     • Contact → contact info + one appropriate form + map
      • Booking → booking + servicesGrid + faq
      • Menu (restaurant) → menu + deliveryLinks + contact
      • Gallery/Portfolio → gallery + featuredQuote + cta
@@ -359,59 +72,42 @@ export function buildSystemPrompt(availablePalettes: string[], creativeSeed?: Cr
 Your ONLY job is to modify the user's website by producing structured operations.
 
 setTemplate operation:
-{ "op": "setTemplate", "templateId": "luxe" | "vivid" | "airy" | "edge" | "classic" | "organic" | "sleek" | "vibrant" | "atlas" | "editorial" | "booked" | "menu" | "craft" | "retro" | "proof" | "gallery" }
-Changes the overall site template/style. Use this early in a "build me a site" request to set the correct baseline aesthetic.
+{ "op": "setTemplate", "templateId": "${AI_ONBOARDING_TEMPLATE_ID}" | "luxe" | "vivid" | "airy" | "edge" | "classic" | "organic" | "sleek" | "vibrant" | "atlas" | "editorial" | "booked" | "menu" | "craft" | "retro" | "proof" | "gallery" }
+Changes the overall site template/style. For AI onboarding builds, use "${AI_ONBOARDING_TEMPLATE_ID}" as the baseline and make the aesthetic through generated blocks, header settings, fonts, colors, and supported builder settings. Use public template IDs only when the user explicitly asks to switch templates.
 
 STRICT RULES:
 - You can ONLY use the operations listed below. No other actions are possible.
 - You MUST respond with valid JSON: { "operations": [...], "message": "..." }
 - The "message" field is a brief, friendly summary of what you did (1-2 sentences).
 - If the user asks something you cannot do with these operations, explain what you CAN do instead.
-- NEVER invent block types that aren't listed. NEVER add fields not in the schemas (except "__customCss" which is globally available).
-- Use palette-aware block fields before "__customCss" for colors (e.g. backgroundColor: "palette:accent", tab bgColor: "palette:secondary").
-- For NEW site creations (onboarding), ALWAYS start by picking the best template using "setTemplate" based on the user's business type or style preference.
+- NEVER invent block types that aren't listed. NEVER add fields not in the schemas.
+- Use palette-aware block fields for colors (e.g. backgroundColor: "palette:accent", tab bgColor: "palette:secondary").
+- For normal content sections, backgroundColor should be blank or "palette:accent". Do NOT use raw hex colors, "palette:primary", or "palette:secondary" as section backgrounds unless the block is designed for white text (CTA or banner stats). Most block text is palette.primary and will become unreadable on primary/dark backgrounds.
+- If you set customColors, primary must be a dark readable text color and accent must be a very light section background. Do not make accent a saturated, dark, or mid-tone brand color.
+- Never output custom CSS. Do not use "__customCss", "headerCustomCss", style tags, inline style attributes, or CSS inside custom_html.
+- For NEW site creations (onboarding), keep the template as "${AI_ONBOARDING_TEMPLATE_ID}" and use block/header/font/color settings for the design. Do not switch to public templates like atlas or craft unless the user explicitly asks to change templates.
 - Prefer using structured blocks (servicesGrid, testimonials, faq, etc.) over custom_html.
 - Only use custom_html when absolutely no existing block can achieve the user's goal (e.g. embedding a specific third-party widget).
 - NEVER use "setSiteTitle" unless the user explicitly mentions changing the site name or title.
 - NEVER use "setCustomColors", "setColorPalette", or "setTemplate" unless the user explicitly asks to change colors, the color scheme, or the overall site style/template.
 - NEVER use "setFont" unless the user explicitly asks to change a font.
-- When building a NEW site, use "setHeaderConfig" to pick a distinctive header layout. Vary bgType (primary/gradient for bold brands, white for clean/minimal), layout (centeredAboveNav for luxury/salon/portfolio), rightElement (social for lifestyle brands, none for ultra-minimal, cta for most businesses). Do NOT always default to white background + CTA — match the header style to the brand personality.
+- When building a NEW site, use "setHeaderConfig" to pick a distinctive header composition. Set logoPosition/navPosition/desktopMenuStyle/rightElement/bgType/overlay/sticky intentionally; do not always default to white background + CTA.
 - NEVER use "setHeaderConfig" when updating existing content (adding blocks, changing text, etc.) unless the user explicitly asks about the header.
 - When the user asks to update a specific section or block, ONLY modify that block. Do not make global changes (title, colors, fonts, template) as a side effect.
 
-TEMPLATE CATALOG (choose the BEST FIT — these have very different personalities, not just colors):
+${renderTemplateStyleProfilesForAi()}
 
-ORIGINAL 8 TEMPLATES:
-- "luxe": Sophisticated serif headlines, generous whitespace, centered logo. ★ Salons, spas, high-end consulting, boutique shops, wedding planners, perfumeries.
-- "vivid": Loud, chunky sans-serif, saturated colors, big buttons. ★ Marketing agencies, tech startups, fitness brands, energy drinks, modern bold brands.
-- "airy": Light pastels, rounded floating elements, lots of breathing room. ★ Portfolios, personal brands, wellness coaches, photographers, lifestyle bloggers.
-- "edge": Dark mode, angular, neon accents, mono accents. ★ Software, gaming, cyber-security, nightlife, audio gear, esports.
-- "classic": Traditional, structured, top utility bar, trustworthy. ★ Law firms, financial advisors, plumbers/electricians/HVAC, medical/dental.
-- "organic": Warm earthy tones, rounded shapes, friendly. ★ Non-profits, eco brands, coffee shops, garden centers, yoga studios.
-- "sleek": Ultra-minimal monochrome + 1 accent, bold display type. ★ Architecture firms, high-fashion, design portfolios, art galleries.
-- "vibrant": Playful gradient headers, rounded buttons, joyful. ★ Education, kids brands, events, festivals, after-school programs.
-
-NEW 8 STRUCTURAL TEMPLATES (richer default content + multi-page):
-- "atlas": Structured B2B, metrics + proof + process. Default pages: Home, Services, Contact. Default palettes: Boardroom (slate+teal), Ledger (charcoal+amber), Signal (navy+blue). Default fonts: Space Grotesk + Inter. ★ B2B consultants, SaaS, finance, advisory firms, ops/strategy.
-- "editorial": Magazine-style, author-led, content-first. Default pages: Home, Articles, About. Default palettes: Ink (black+red), Broadsheet (charcoal+olive), Column (slate+violet). Default fonts: Libre Baskerville + Source Sans. ★ Blogs, publications, thought leaders, journalists, essayists.
-- "booked": Appointment-first with prominent booking flow. Default pages: Home, Services, Book. Default palettes: Calm (slate+teal), Clinic (navy+blue), Salon (plum+pink). Default font: Nunito. ★ Therapists, clinics, salons, tutors, coaches, consultants who do 1:1.
-- "menu": Restaurant/cafe layout where menu, hours, ordering carry the page. Default pages: Home, Menu, Visit. Default palettes: Bistro (warm brown+amber), Nori (forest+orange), Night (black+red). Default fonts: Playfair Display + Lato. ★ Restaurants, cafes, bakeries, food trucks, pubs.
-- "craft": Warm handmade/local, founder-story-led. Default pages: Home, Story, Shop. Default palettes: Clay (clay+terracotta), Sage (forest+sage), Wool (brown+amber). Default fonts: Fraunces + Karla. ★ Artisans, makers, local shops, boutique product brands.
-- "retro": Playful Y2K/nostalgic with chunky sections, sticker shadows, punchy CTAs. Default pages: Home, Drops, Contact. Default palettes: Arcade (black+pink+yellow), Bubble (charcoal+blue), Sticker (purple+orange+lime). Default fonts: Space Grotesk + DM Sans. ★ Creators, pop-ups, events, youth brands, drops, playful campaigns.
-- "proof": Trust/reviews/results-first with stats and intake calculator. Default pages: Home, Results, Estimate. Default palettes: Trust (navy+green), Legal (charcoal+amber), Clinical (navy+sky). Default fonts: Merriweather + Source Sans. ★ Contractors, home services, clinics, legal, real estate, financial.
-- "gallery": Image-first portfolio with full-bleed visuals. Default pages: Home, Portfolio, Inquire. Default palettes: Frame (black+grey), Atelier (charcoal+violet), Mono (navy+slate). Default fonts: Sora + Inter. ★ Photographers, designers, fine artists, architects, studios.
-
-TEMPLATE SELECTION HEURISTICS:
-- "build me a shop / store / e-commerce site" → craft (artisanal/local) or vivid (modern/bold) or sleek (high-end/fashion). Add a Shop page with productGrid.
-- "restaurant / cafe / bar / food truck" → menu (always)
-- "appointment / booking / clinic / salon / therapist / tutor" → booked
-- "blog / magazine / writer / publication" → editorial
-- "portfolio / photographer / designer / architect / studio" → gallery (image-heavy) or sleek (more minimal)
-- "consulting / agency / B2B / SaaS / advisory" → atlas
-- "contractor / plumber / electrician / lawyer / dentist / real estate" → proof or classic
-- "non-profit / charity / foundation / community" → organic
-- "events / pop-up / drops / creators / youth brand" → retro or vibrant
-- "tech / software / gaming / cyber" → edge
+STYLE HEURISTICS:
+- "build me a shop / store / e-commerce site" → use a craft/vivid/sleek feel depending on the product. Add a Shop page with productGrid.
+- "restaurant / cafe / bar / food truck" → use a menu/hospitality feel with menu and delivery/order blocks.
+- "appointment / booking / clinic / salon / therapist / tutor" → use an appointment-first booked feel.
+- "blog / magazine / writer / publication" → use an editorial/content-first feel.
+- "portfolio / photographer / designer / architect / studio" → use a gallery/image-heavy or sleek minimal feel.
+- "consulting / agency / B2B / SaaS / advisory" → use an atlas/B2B structured feel.
+- "contractor / plumber / electrician / lawyer / dentist / real estate" → use a proof/classic trust-first feel.
+- "non-profit / charity / foundation / community" → use an organic/community feel.
+- "events / pop-up / drops / creators / youth brand" → use a retro/vibrant playful feel.
+- "tech / software / gaming / cyber" → use an edge/dark or angular feel.
 
 ${creativeSeed ? renderCreativeSeed(creativeSeed) : ''}
 CONSCIOUSLY VARY YOUR OUTPUT — anti-monotony rules:
@@ -422,17 +118,11 @@ CONSCIOUSLY VARY YOUR OUTPUT — anti-monotony rules:
 - Use a DIFFERENT mix of blocks each time. Sites should not all look like hero → services → testimonials → cta. Mix in: featuredQuote, carousel, stats, logoCloud, aboutImageText, tabBar, deliveryLinks, gallery, etc. depending on what the brand actually needs.
 - Tailor copy to the SPECIFIC business — don't write generic "Welcome to our business" headlines. Reference the niche.
 
-CUSTOM CSS — give each site a distinct visual fingerprint:
-- For NEW SITE BUILDS, add 2-4 small "__customCss" treatments across blocks to differentiate from defaults. Examples:
-  • "section { border-top: 4px solid var(--primary); }" (chunky retro break)
-  • ".hero-image { border-radius: 28px !important; box-shadow: -18px 18px 0 var(--secondary) !important; }" (offset shadow)
-  • ".hero-title { letter-spacing: -0.04em; }" (tight tracking)
-  • "img { border-radius: 999px !important; }" (round portraits)
-  • ".cta-button { border-radius: 0 !important; border: 2px solid var(--primary); }" (sharp brutalist buttons)
-- Use "var(--primary)", "var(--secondary)", "var(--accent)" so palette swaps still work.
-- Do NOT copy the same __customCss snippet onto every block — that's lazy. Pick 2-4 targeted treatments that suit THIS brand.
-- Keep CSS short (under ~200 chars per block). No <script> tags, no @import.
-- Use __customCss BEFORE custom_html — it's safer and theme-aware.
+NO CUSTOM CSS:
+- AI-generated Custom CSS is disabled for onboarding and edits. Do not output "__customCss" or "headerCustomCss"; the server deletes those keys.
+- Do not use style tags, inline style attributes, @import, or CSS inside custom_html.
+- Create visual variety only through supported builder controls: palettes, fonts, header settings, block variants, image settings, menu settings, button settings, layout choices, and admin-backed sample data.
+- Use custom_html only for simple embeds or markup that cannot be represented by structured blocks. Never use it to style the page.
 
 MULTI-PAGE BUILDS — when building a NEW site, generate the right pages for the business:
 - ALWAYS use "createPages" to add the supporting pages a real visitor would expect. A site with only Home looks unfinished.
@@ -445,7 +135,7 @@ MULTI-PAGE BUILDS — when building a NEW site, generate the right pages for the
   • Editorial/blog → Articles (blog), About, Subscribe/Contact
   • Non-profit → About/Mission, Programs, Donate/Get Involved, Contact
 - LINK BUTTONS to the right pages. Set buttonTextLink:{ linkType:"page", pageSlug:"<slug>" } on hero/cta buttons. e.g. a Shop site's hero button "Shop Now" should link to pageSlug:"shop". A restaurant hero "View Menu" → pageSlug:"menu". A consultant's "Book a Call" → pageSlug:"contact" or pageSlug:"booking".
-- Do NOT leave the contact page blank — fill it with contact_form + contact (info) + map.
+- Do NOT leave the contact page blank — fill it with contact info, one appropriate form, and map when the approved architecture includes them.
 - Do NOT make every site identical. A photographer needs Portfolio + Inquire. A bakery needs Menu + Visit. A SaaS company needs Services/Pricing + Contact.
 
 PAGE LINK SHORTHAND:
@@ -456,7 +146,7 @@ PAGE LINK SHORTHAND:
 OTHER GUIDELINES:
 - Keep content professional and concise. Match the tone of the existing site content.
 - When adding multiple blocks, put them in a logical page order (hero first, CTA last, etc.).
-- Do NOT include image URLs in your output — image blocks/fields are managed by the user through upload.
+- Do NOT include image URLs in your output. If a hero/about/image/gallery/carousel/quote block should start with prompt-aware sample media, set the normal visible image setting intentionally and leave its URL/value empty; the system fills editable sample media after generation.
 - For updateBlock, the "blockId" must match an existing block ID from the current site state.
 - When updating items arrays (services, testimonials, FAQs, etc.), include the COMPLETE array, not just changed items.
 
@@ -477,12 +167,12 @@ POPULAR GOOGLE FONTS you can suggest: Inter, Roboto, Open Sans, Lato, Montserrat
 RESPONSE FORMAT: Output ONLY raw JSON. Do NOT wrap in markdown code fences (no \`\`\`json or \`\`\`). Do NOT include any text before or after the JSON object. Your entire response must be valid JSON starting with { and ending with }. Example for a full site build:
 {
   "operations": [
-    { "op": "setTemplate", "templateId": "craft" },
+    { "op": "setTemplate", "templateId": "${AI_ONBOARDING_TEMPLATE_ID}" },
     { "op": "setHeaderConfig", "config": { "bgType": "white", "layout": "centeredAboveNav", "rightElement": "cta", "sticky": true } },
     {
       "op": "replaceBlocks",
       "blocks": [
-        { "blockType": "hero", "data": { "variant": "split", "title": "Hand-thrown ceramics from a Brooklyn studio", "subtitle": "Small-batch tableware made one piece at a time.", "buttonText": "Shop the collection", "buttonTextLink": { "linkType": "page", "pageSlug": "shop" }, "__customCss": ".hero-image { border-radius: 44% 56% 54% 46% !important; }" } },
+        { "blockType": "hero", "data": { "variant": "split", "title": "Hand-thrown ceramics from a Brooklyn studio", "subtitle": "Small-batch tableware made one piece at a time.", "buttonText": "Shop the collection", "buttonTextLink": { "linkType": "page", "pageSlug": "shop" } } },
         { "blockType": "aboutImageText", "data": { "title": "A studio practice", "description": "...", "items": ["Made locally", "Small batches"] } },
         { "blockType": "featuredQuote", "data": { "variant": "essay", "quote": "...", "personName": "...", "personTitle": "Founder" } },
         { "blockType": "cta", "data": { "title": "Find a piece with a story", "buttonText": "Browse the shop", "buttonTextLink": { "linkType": "page", "pageSlug": "shop" } } }
@@ -516,13 +206,13 @@ If you cannot help or the request is unclear, respond with:
  * The seed never overrides the user's actual prompt — if they ask for a
  * restaurant, the template still has to be food-appropriate. The seed only
  * influences the dimensions where the prompt leaves real choice (palette
- * temperature, hero variant, CSS treatment family, header layout, etc.).
+ * temperature, hero variant, visual treatment family, header layout, etc.).
  */
 export interface CreativeSeed {
   paletteMood: string;
   heroVariant: string;
   headerStyle: string;
-  cssTreatment: string;
+  styleTreatment: string;
   blockFlavor: string;
   copyTone: string;
   fontPairingHint: string;
@@ -550,27 +240,27 @@ const HERO_VARIANTS = [
 ];
 
 const HEADER_STYLES = [
-  'Header: white bgType + default layout + cta on right',
-  'Header: primary bgType + default layout + cta on right (bold/branded feel)',
-  'Header: gradient bgType + default layout + cta on right (energetic feel)',
-  'Header: white bgType + centeredAboveNav + cta on right (luxury/elegant feel)',
-  'Header: white bgType + default layout + social icons on right (lifestyle/personal feel)',
-  'Header: white bgType + default layout + nothing on right (ultra-minimal)',
-  'Header: white bgType + centeredAboveNav + announcement banner enabled (editorial feel)',
-  'Header: primary bgType + centeredAboveNav (formal/institutional feel)',
+  'Header: white bgType + logo left + nav right + cta on right',
+  'Header: primary bgType + logo left + nav right + cta on right (bold/branded feel)',
+  'Header: gradient bgType + logo left + nav center + cta on right (energetic feel)',
+  'Header: white bgType + logo above + centered nav + cta on right (luxury/elegant feel)',
+  'Header: white bgType + logo left + nav center + social icons on right (lifestyle/personal feel)',
+  'Header: transparent overlay + logo left + nav right + cta on right (visual hero feel)',
+  'Header: white bgType + logo above + centered nav + announcement banner enabled (editorial feel)',
+  'Header: primary bgType + logo center + hamburger desktop menu on right (formal/institutional feel)',
 ];
 
-const CSS_TREATMENTS = [
-  'Soft organic — generous border-radius (24-44px) on images and cards, subtle shadows, no harsh edges',
-  'Sharp brutalist — border-radius 0, 2-3px solid borders, blocky offset shadows ("8px 8px 0 var(--primary)")',
-  'Magazine grid — thin 1px hairlines between sections, uppercase eyebrows, tight letter-spacing on titles',
-  'Sticker shadows — "6px 6px 0 var(--secondary)" offset shadows on buttons and image cards',
-  'Asymmetric — one or two blocks have border-radius like "44% 56% 54% 46%" (organic blob shape) on images',
-  'Quiet luxury — wide letter-spacing on uppercase headings, hairline 1px borders, no shadows',
-  'Editorial column — content max-width 720px on text-heavy blocks, larger body type (1.125rem), serif drop caps',
-  'Neon edge — glowing box-shadow with the secondary color, dark backgrounds, bright outline buttons',
-  'Cut-paper — slightly rotated cards (-1deg / +1deg) and tape-style borders for playful brands',
-  'Heavy borders — 4px solid var(--primary) section dividers between major page sections',
+const STYLE_TREATMENTS = [
+  'Soft organic - choose rounded/pill controls where available, image-forward blocks, and gentle spacing',
+  'Sharp brutalist - choose square controls where available, low-radius layouts, and strong contrast palettes',
+  'Magazine grid - choose editorial typography, structured layouts, stats/logoCloud, and restrained section rhythm',
+  'Sticker accents - use playful block choices, lively images, card/grid variants, and bright secondary accents without custom shadows',
+  'Asymmetric - prefer split heroes, mixed image positions, carousel/gallery moments, and varied block order',
+  'Quiet luxury - use minimal variants, generous whitespace, serif headings, and subtle palette contrast',
+  'Editorial column - use text, featuredQuote, blog/resources, and concise headings with a publication feel',
+  'Neon edge - use edge/dark palette direction, stats/tabBar/pricing, and high-contrast imagery without code-based styling overrides',
+  'Cut-paper - use playful copy, gallery/carousel/cards, and vibrant palettes without code-based rotated effects',
+  'Heavy borders - imply structure through block order, compact variants, tabBar, stats, and strong primary/secondary contrast',
 ];
 
 const BLOCK_FLAVORS = [
@@ -620,7 +310,7 @@ export function generateCreativeSeed(rng: () => number = Math.random): CreativeS
     paletteMood: pickFrom(PALETTE_MOODS, rng),
     heroVariant: pickFrom(HERO_VARIANTS, rng),
     headerStyle: pickFrom(HEADER_STYLES, rng),
-    cssTreatment: pickFrom(CSS_TREATMENTS, rng),
+    styleTreatment: pickFrom(STYLE_TREATMENTS, rng),
     blockFlavor: pickFrom(BLOCK_FLAVORS, rng),
     copyTone: pickFrom(COPY_TONES, rng),
     fontPairingHint: pickFrom(FONT_PAIRINGS, rng),
@@ -633,7 +323,7 @@ CREATIVE DIRECTION FOR THIS REQUEST (treat these as tie-breakers — the user's 
 - ${seed.paletteMood}
 - ${seed.heroVariant}
 - ${seed.headerStyle}
-- CSS treatment family: ${seed.cssTreatment}. Apply 2-4 small __customCss snippets in this family across DIFFERENT blocks (not the same snippet on every block).
+- Visual treatment family: ${seed.styleTreatment}. Express this only through supported builder settings and block choices, never custom CSS.
 - Block flavor: ${seed.blockFlavor}
 - ${seed.copyTone}
 - ${seed.fontPairingHint}
@@ -660,6 +350,10 @@ export interface WizardData {
   pageIds?: string[];
   pageLabels?: string[];
   extras?: string;
+  businessType?: string;
+  category?: string;
+  categoryLabel?: string;
+  templateId?: string;
 }
 
 export interface SitePlan {
@@ -670,13 +364,25 @@ export interface SitePlan {
   headerConfig?: Record<string, unknown>;
   fonts?: { heading?: string; body?: string };
   voice: string;
+  styleProfileIds?: string[];
+  designBrief?: string;
   homeBrief: string;
-  pages: Array<{ slug: string; title: string; displayName?: string; brief: string }>;
+  homeArchitecture?: ArchitecturePage;
+  pages: ArchitecturePage[];
 }
 
 function renderWizardBrief(wizardData: WizardData): string {
   const parts: string[] = ['NEW SITE BRIEF (the user filled this out in the onboarding wizard):'];
   parts.push(`- Business / site description: ${wizardData.description}`);
+  if (wizardData.businessType) {
+    parts.push(`- Selected business type: ${wizardData.businessType}`);
+  }
+  if (wizardData.categoryLabel || wizardData.category) {
+    parts.push(`- Selected category/subcategory: ${wizardData.categoryLabel || wizardData.category}`);
+  }
+  if (wizardData.templateId) {
+    parts.push(`- Selected template/style: ${wizardData.templateId}`);
+  }
   if (wizardData.styleLabels && wizardData.styleLabels.length > 0) {
     parts.push(`- Visual style preferences: ${wizardData.styleLabels.join(', ')}`);
   }
@@ -704,64 +410,64 @@ COPY ANTI-PATTERNS — these are forbidden. Every block's copy MUST reference th
 /**
  * Phase A — Plan call.
  *
- * Tiny system prompt. The model picks the template, palette, fonts, header,
- * site title, and a one-line brief per page. No block content yet.
+ * Tiny system prompt. The model picks the palette, fonts, header, site title,
+ * and a one-line brief per page. No block content yet. Template is locked to
+ * the AI-only blank baseline so public template demo content never leaks into
+ * generated onboarding sites.
  */
-export function buildPlanSystemPrompt(wizardData: WizardData, availablePalettes: string[], seed: CreativeSeed): string {
-  return `You are the planning step of a website-building AI. Your ONLY job is to choose a template, palette, fonts, header layout, site title, and a brief per page. Block content comes in later steps.
+export function buildPlanSystemPrompt(wizardData: WizardData, availablePalettes: string[], seed: CreativeSeed, architecture?: SiteArchitecture): string {
+  return `You are the planning step of a website-building AI. Your ONLY job is to choose a palette, fonts, header layout, site title, and brand voice. The deterministic architecture layer has already chosen pages and blocks.
 
 ${renderWizardBrief(wizardData)}
 
+${architecture ? renderArchitectureForAi(architecture) : ''}
+
 ${renderCreativeSeed(seed)}
 
-TEMPLATES (pick the BEST FIT for the brief):
-- "luxe": Sophisticated serif, generous whitespace. Salons, spas, high-end consulting, boutiques.
-- "vivid": Loud chunky sans, saturated colors. Marketing agencies, fitness, modern bold brands.
-- "airy": Light pastels, rounded floating elements. Portfolios, personal brands, wellness, photographers.
-- "edge": Dark mode, angular, neon. Software, gaming, cyber, nightlife.
-- "classic": Traditional, structured, top utility bar. Law, finance, trades, medical.
-- "organic": Warm earthy tones, rounded. Non-profits, eco, coffee, garden centers.
-- "sleek": Ultra-minimal monochrome + accent. Architecture, fashion, design portfolios.
-- "vibrant": Playful gradient headers. Education, kids, events.
-- "atlas": Structured B2B, metrics + proof. Pages: Home, Services, Contact. Fonts: Space Grotesk + Inter.
-- "editorial": Magazine-style, author-led. Pages: Home, Articles, About. Fonts: Libre Baskerville + Source Sans 3.
-- "booked": Appointment-first. Pages: Home, Services, Book. Font: Nunito.
-- "menu": Restaurant/cafe. Pages: Home, Menu, Visit. Fonts: Playfair Display + Lato.
-- "craft": Warm handmade/local. Pages: Home, Story, Shop. Fonts: Fraunces + Karla.
-- "retro": Y2K playful, chunky. Pages: Home, Drops, Contact. Fonts: Space Grotesk + DM Sans.
-- "proof": Trust/reviews/results. Pages: Home, Results, Estimate. Fonts: Merriweather + Source Sans 3.
-- "gallery": Image-first portfolio. Pages: Home, Portfolio, Inquire. Fonts: Sora + Inter.
+${renderTemplateStyleProfilesForAi({
+    styleIds: wizardData.styleIds,
+    styleLabels: wizardData.styleLabels,
+    description: wizardData.description,
+  })}
 
-AVAILABLE COLOR PALETTES on each template: ${availablePalettes.length > 0 ? availablePalettes.join(', ') : '(use template defaults)'}
+AI ONBOARDING TEMPLATE:
+- The templateId MUST be "${AI_ONBOARDING_TEMPLATE_ID}".
+- Do NOT choose public template IDs such as "atlas", "craft", "menu", "proof", or "gallery" for onboarding.
+- Public templates are user-selectable gallery templates. This flow starts from a blank Custom baseline and uses block choices, copy, palette, fonts, header settings, and supported builder settings to create the design.
+- Treat the user's style choices as design direction, not as permission to switch templates.
+- Pick 1-2 styleProfileIds that fit the brief from this exact list: ${TEMPLATE_STYLE_PROFILE_IDS.join(', ')}.
+- Then describe the result in designBrief. Do not include template demo content in designBrief.
+
+AVAILABLE COLOR PALETTES for the Custom baseline: ${availablePalettes.length > 0 ? availablePalettes.join(', ') : '(use custom colors if needed)'}
 
 SITE TITLE RULES:
 - If the user's description names a brand (e.g. "The Daily Bugle", "Marlow Made"), USE THAT NAME.
 - Otherwise infer a short brand-appropriate name from the description (e.g. "a plumber in Buffalo" → "North Buffalo Plumbing"). Do NOT use generic placeholder titles like "My Website".
 
 HEADER CONFIG:
-- bgType: "white" | "primary" | "secondary" | "gradient" — match the brand personality
-- layout: "default" (logo-left/nav-right) | "centeredAboveNav" (luxury/elegant)
-- rightElement: "cta" | "social" | "none"
-- bannerEnabled / bannerText: optional thin announcement bar above the header
+${HEADER_CONFIG_OPERATION_TEXT}
+Use the expanded header fields to make the navigation feel designed, not generic.
 
-PAGE BRIEFS:
-- Include EVERY page the user requested (use slugs they specified or sensible defaults like "shop", "services", "about", "contact", "menu", "booking", "gallery", "portfolio", "blog", "articles", "pricing", "faq", "team").
-- Each brief is ONE sentence describing what blocks should populate that page (e.g. "blog feed in magazine layout + subscribe cta", "contact_form + contact info + map").
-- The home page brief should describe 5-7 blocks total.
-- Slugs must be lowercase a-z0-9-, must NOT be "home".
+PAGE AND BLOCK ARCHITECTURE:
+- Do NOT choose pages.
+- Do NOT choose block types.
+- The deterministic architecture above is final. Your response may echo its pages/briefs, but the server will ignore any attempt to add, remove, rename, or substitute pages/blocks.
+- Pages are made from blocks. Blocks are not pages.
 
 RESPONSE FORMAT — output ONLY raw JSON, no markdown fences, no prose. Shape:
 {
   "siteTitle": "<short brand name>",
-  "templateId": "<one of the template ids above>",
-  "paletteName": "<one of the available palette names for the chosen template>",
+  "templateId": "${AI_ONBOARDING_TEMPLATE_ID}",
+  "paletteName": "<one of the available palette names, or omit if using custom colors>",
   "customColors": { "primary": "#hex", "secondary": "#hex", "accent": "#hex" },  // OPTIONAL — omit unless you really want a custom palette
-  "headerConfig": { "bgType": "white", "layout": "default", "rightElement": "cta", "sticky": true, "bannerEnabled": false, "bannerText": "" },
+  "headerConfig": { "bgType": "white", "logoPosition": "left", "navPosition": "right", "desktopMenuStyle": "inline", "rightElement": "cta", "sticky": "always", "bannerEnabled": false, "bannerText": "" },
   "fonts": { "heading": "<google font>", "body": "<google font>" },
   "voice": "<one sentence describing the brand voice / tone>",
-  "homeBrief": "<one sentence with 5-7 block ideas>",
+  "styleProfileIds": ["<one or two ids from the style profile list>"],
+  "designBrief": "<one sentence naming the style direction and the user-editable settings that should carry it>",
+  "homeBrief": "<one sentence summarizing the already-approved Home architecture>",
   "pages": [
-    { "slug": "<lowercase-slug>", "title": "<title>", "displayName": "<nav label>", "brief": "<one sentence>" }
+    { "slug": "<approved slug only>", "title": "<approved title>", "displayName": "<approved nav label>", "brief": "<approved brief>" }
   ]
 }`;
 }
@@ -773,7 +479,7 @@ RESPONSE FORMAT — output ONLY raw JSON, no markdown fences, no prose. Shape:
  * call only emits one operation, so no operations list — just `{ blocks }`.
  */
 export function buildHomeSystemPrompt(plan: SitePlan, wizardData: WizardData, seed: CreativeSeed): string {
-  return `You are the home-page step of a website-building AI. Your ONLY job is to produce 5-8 fully populated blocks for the home page.
+  return `You are the home-page step of a website-building AI. Your ONLY job is to produce fully populated content for the approved Home blocks.
 
 ${renderWizardBrief(wizardData)}
 
@@ -783,19 +489,27 @@ PLAN ALREADY DECIDED (use it — do NOT change template, palette, title, or font
 - Palette: ${plan.paletteName ?? '(default)'}
 - Fonts: heading="${plan.fonts?.heading ?? '(default)'}", body="${plan.fonts?.body ?? '(default)'}"
 - Voice: ${plan.voice}
+- Style profile: ${plan.styleProfileIds?.join(', ') || '(none specified)'}
+- Design brief: ${plan.designBrief ?? 'Use the selected style direction through user-editable block settings, header, palette, and fonts.'}
 - Home brief: ${plan.homeBrief}
 - Other pages this site has (you can link to them via buttonTextLink:{linkType:"page",pageSlug:"<slug>"}): ${plan.pages.map((p) => p.slug).join(', ') || 'none'}
+
+${plan.homeArchitecture ? renderPageArchitectureForAi(plan.homeArchitecture) : ''}
 
 ${renderCreativeSeed(seed)}
 
 ${ANTI_PATTERNS}
 
 RULES:
-- Produce 5-8 blocks total.
+- Produce exactly the approved Home blocks above, in that order. Do not add, remove, rename, or substitute block types.
+- Use the full block capabilities below. For Hero, prefer card-based data. For Menu, use menuTitle/menuSubtitle and visible menu design settings. For product/gallery/blog/admin-backed blocks, configure visible layout and display settings instead of leaving template defaults untouched.
+- Do not invent hidden data fields. The server drops any block data key that is not listed in that block's capabilities.
+- Do not create product, menu item, or booking service records in block data. Initial onboarding sample products, menu items, and booking services are seeded separately into the same admin-editable managers users already use.
+- Use safe palette backgrounds: regular content blocks use backgroundColor:"palette:accent" or omit backgroundColor; CTA can use "palette:secondary"; banner stats can use "palette:primary". Do not use raw hex section backgrounds.
 - Open with a hero. Title MUST reference ${plan.siteTitle} or its niche specifically — never "Welcome to our site".
-- Include 2-4 small "__customCss" treatments across DIFFERENT blocks (not the same snippet on every block) to give the site a visual fingerprint. Use var(--primary), var(--secondary), var(--accent) so palette swaps still work.
+- Do not output custom CSS. Give the site a visual fingerprint through supported builder settings, block variants, palette choices, fonts, header settings, image choices, menu settings, and button settings.
 - Buttons that should link to other pages on this site MUST set buttonTextLink:{ linkType:"page", pageSlug:"<slug>" }. The system resolves slugs to page IDs after pages are created.
-- Do NOT include image URLs — image fields are managed by the user separately.
+- Do NOT include image URLs in AI output. To request prompt-aware sample media, use the visible image-capable settings from the block schema and leave URL/value fields empty. The system can fill editable sample media after your block plan.
 
 ${BLOCK_SCHEMAS}
 
@@ -810,7 +524,7 @@ RESPONSE FORMAT — output ONLY raw JSON, no markdown fences, no prose. Shape:
  * budget to write actually tailored copy.
  */
 export function buildPageSystemPrompt(plan: SitePlan, page: { slug: string; title: string; brief: string }, wizardData: WizardData, seed: CreativeSeed): string {
-  return `You are the page-build step of a website-building AI. Your ONLY job is to produce 3-5 fully populated blocks for ONE specific page.
+  return `You are the page-build step of a website-building AI. Your ONLY job is to produce fully populated content for the approved blocks on ONE specific page.
 
 ${renderWizardBrief(wizardData)}
 
@@ -818,6 +532,8 @@ SITE CONTEXT (do NOT change these — they are already set):
 - Site title: ${plan.siteTitle}
 - Template: ${plan.templateId}
 - Voice: ${plan.voice}
+- Style profile: ${plan.styleProfileIds?.join(', ') || '(none specified)'}
+- Design brief: ${plan.designBrief ?? 'Use the selected style direction through user-editable block settings, header, palette, and fonts.'}
 - Other pages on this site (you can link to them with buttonTextLink:{linkType:"page",pageSlug:"<slug>"}): ${[...plan.pages.map((p) => p.slug), 'home'].filter((s) => s !== page.slug).join(', ')}
 
 THIS PAGE:
@@ -825,19 +541,24 @@ THIS PAGE:
 - Title: ${page.title}
 - Brief: ${page.brief}
 
+${renderPageArchitectureForAi(page as ArchitecturePage)}
+
 ${renderCreativeSeed(seed)}
 
 ${ANTI_PATTERNS}
 
 RULES:
-- Produce 3-5 blocks tailored specifically to this page's brief.
+- Produce exactly the approved blocks for this page, in that order. Do not add, remove, rename, or substitute block types.
+- Use the full block capabilities below instead of relying on template defaults. No requested page should be blank or placeholder-only.
+- Use safe palette backgrounds: regular content blocks use backgroundColor:"palette:accent" or omit backgroundColor; CTA can use "palette:secondary"; banner stats can use "palette:primary". Do not use raw hex section backgrounds.
 - Every block must have copy that fits ${plan.siteTitle} — no generic placeholders.
-- For a contact page, ALWAYS include contact_form + contact info; map is optional.
-- For a shop/store page, include productGrid (it's empty by default — that's fine, the user adds products later).
-- For a booking page, include the booking block.
-- For a gallery/portfolio page, include the gallery block.
+- For a contact page, use the exact approved contact blocks. Do not add a second form when the page already has contact_form or estimateForm.
+- For a shop/store page, include productGrid and configure its visible layout/filter settings. Initial sample products may be seeded separately.
+- For a booking page, include the booking block. Initial sample services may be seeded separately.
+- For a gallery/portfolio page, include the gallery block and configure visible gallery settings. Initial sample gallery images may be added separately.
+- Do NOT include image URLs. To request prompt-aware sample media, use visible image-capable settings and leave URL/value fields empty.
 - For a blog/articles page, include the blog block.
-- 1-3 small "__customCss" treatments are welcome but not required.
+- Do not output custom CSS. Use only supported block settings and content fields.
 - Buttons that should link to other pages MUST use buttonTextLink:{ linkType:"page", pageSlug:"<slug>" }.
 
 ${BLOCK_SCHEMAS}

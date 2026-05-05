@@ -148,6 +148,7 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
                             contentKey="ctaText"
                             label={data.ctaText}
                             linkData={data.ctaTextLink}
+                            iconData={data.ctaTextIcon}
                             defaultLabel="See All Services →"
                             isEditMode={isEditMode}
                             onSave={(key, value) => updateContent(key, value)}

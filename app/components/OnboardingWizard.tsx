@@ -9,6 +9,7 @@ import { Sparkles, Send } from 'lucide-react';
 import SiteLimitModal from './SiteLimitModal';
 import AIOnboardingWizard, { type WizardMetadata } from './AIOnboardingWizard';
 import { TEMPLATE_PREVIEW_STYLES } from '@/lib/template-preview-assets';
+import { AI_ONBOARDING_TEMPLATE_ID } from '@/lib/templates/ai-template';
 
 type BusinessType = 'services' | 'products' | 'portfolio' | 'nonprofit' | 'other' | null;
 type Category = string | null;
@@ -218,7 +219,7 @@ export default function OnboardingWizard() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          selectedTemplateId: 'atlas_general',
+          selectedTemplateId: AI_ONBOARDING_TEMPLATE_ID,
           businessType: 'services',
           category: 'general',
           userId: user.id,
@@ -358,13 +359,14 @@ export default function OnboardingWizard() {
     setAiLoading(true);
     setAiError(null);
     try {
-      // Create a site with the airy template (lightweight default for AI-generated sites)
+      // Create a site with the AI-only blank baseline so public template demo
+      // content never competes with the generated site.
       const res = await fetch('/api/sites', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          selectedTemplateId: 'atlas_general',
+          selectedTemplateId: AI_ONBOARDING_TEMPLATE_ID,
           businessType: 'services',
           category: 'general',
           userId: user.id,
