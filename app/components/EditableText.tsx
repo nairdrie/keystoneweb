@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Edit2, Check, X, Settings } from 'lucide-react';
-import TextSettingsModal from './TextSettingsModal';
+import TextSettingsModal, { textShadowToCss, type TextShadowSettings } from './TextSettingsModal';
 
 interface EditableTextProps {
   contentKey: string;
@@ -48,12 +48,14 @@ export default function EditableText({
   }
 
   // Combine baseline style with text-specific user settings
+  const textShadowCss = textShadowToCss(parsedStyles.textShadow as TextShadowSettings | undefined);
   const mergedStyle = {
     ...style,
     ...(parsedStyles.fontFamily ? { fontFamily: `"${parsedStyles.fontFamily}", sans-serif` } : {}),
     ...(parsedStyles.fontSize ? { fontSize: parsedStyles.fontSize } : {}),
     ...(parsedStyles.color ? { color: parsedStyles.color } : {}),
-    ...(parsedStyles.fontWeight ? { fontWeight: parsedStyles.fontWeight } : {})
+    ...(parsedStyles.fontWeight ? { fontWeight: parsedStyles.fontWeight } : {}),
+    ...(textShadowCss ? { textShadow: textShadowCss } : {})
   };
 
   // If the user picked a font override via styleData, render a <link> for it.
