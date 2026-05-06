@@ -342,17 +342,17 @@ export default function VendorEditor({
                         className="w-full px-3 py-1.5 text-xs border border-emerald-200 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
                     />
                     <input
-                        type={showSecrets ? 'text' : 'password'}
-                        placeholder={vendor.clover_private_token ? 'Private API Token (leave blank to keep current)' : 'Private API Token'}
-                        value={draft.clover_private_token}
-                        onChange={e => setDraft({ ...draft, clover_private_token: e.target.value })}
+                        type="text"
+                        placeholder="Public Key (ECOM)"
+                        value={draft.clover_public_key}
+                        onChange={e => setDraft({ ...draft, clover_public_key: e.target.value })}
                         className="w-full px-3 py-1.5 text-xs border border-emerald-200 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
                     />
                     <input
                         type={showSecrets ? 'text' : 'password'}
-                        placeholder={vendor.clover_webhook_secret ? 'Webhook Secret (leave blank to keep current)' : 'Webhook Secret'}
-                        value={draft.clover_webhook_secret}
-                        onChange={e => setDraft({ ...draft, clover_webhook_secret: e.target.value })}
+                        placeholder={vendor.clover_private_token ? 'Private Key (ECOM) — leave blank to keep current' : 'Private Key (ECOM)'}
+                        value={draft.clover_private_token}
+                        onChange={e => setDraft({ ...draft, clover_private_token: e.target.value })}
                         className="w-full px-3 py-1.5 text-xs border border-emerald-200 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
                     />
                     <label className="flex items-center gap-2 text-xs text-slate-600">

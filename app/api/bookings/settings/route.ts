@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     // booking flow can initialize the PayPal Smart Buttons with merchant-id.
     const { data: site } = await supabase
         .from('sites')
-        .select('paypal_merchant_id, paypal_onboarding_status, stripe_account_id, converge_merchant_id, converge_user_id, converge_pin, converge_demo_mode, clover_merchant_id, clover_private_token, clover_sandbox_mode')
+        .select('paypal_merchant_id, paypal_onboarding_status, stripe_account_id, converge_merchant_id, converge_user_id, converge_pin, converge_demo_mode, clover_merchant_id, clover_public_key, clover_private_token, clover_sandbox_mode')
         .eq('id', siteId)
         .single();
 
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
         stripeConnected: !!site?.stripe_account_id,
         convergeConnected: !!(site?.converge_merchant_id && site?.converge_user_id && site?.converge_pin),
         convergeDemoMode: !!site?.converge_demo_mode,
-        cloverConnected: !!(site?.clover_merchant_id && site?.clover_private_token),
+        cloverConnected: !!(site?.clover_merchant_id && site?.clover_public_key && site?.clover_private_token),
         cloverSandboxMode: !!site?.clover_sandbox_mode,
     });
 }

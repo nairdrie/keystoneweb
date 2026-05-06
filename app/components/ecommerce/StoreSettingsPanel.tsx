@@ -731,11 +731,11 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                                 <input type="text" placeholder="Merchant ID" value={cloverCreds.merchant_id}
                                     onChange={e => setCloverCreds({ ...cloverCreds, merchant_id: e.target.value })}
                                     className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                                <input type="password" placeholder="Private API Token" value={cloverCreds.private_token}
-                                    onChange={e => setCloverCreds({ ...cloverCreds, private_token: e.target.value })}
+                                <input type="text" placeholder="Public Key (ECOM)" value={cloverCreds.public_key}
+                                    onChange={e => setCloverCreds({ ...cloverCreds, public_key: e.target.value })}
                                     className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                                <input type="password" placeholder="Webhook Secret (optional)" value={cloverCreds.webhook_secret}
-                                    onChange={e => setCloverCreds({ ...cloverCreds, webhook_secret: e.target.value })}
+                                <input type="password" placeholder="Private Key (ECOM)" value={cloverCreds.private_token}
+                                    onChange={e => setCloverCreds({ ...cloverCreds, private_token: e.target.value })}
                                     className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
                                 <label className="flex items-center gap-2 text-sm text-slate-600">
                                     <input type="checkbox" checked={cloverCreds.sandbox_mode}
@@ -752,7 +752,7 @@ export default function StoreSettingsPanel({ siteId }: StoreSettingsPanelProps) 
                                                 headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({ siteId, processor: 'clover', ...cloverCreds }),
                                             });
-                                            if (res.ok) setCloverConnected(!!(cloverCreds.merchant_id && cloverCreds.private_token && cloverCreds.private_token !== '••••••••'));
+                                            if (res.ok) setCloverConnected(!!(cloverCreds.merchant_id && cloverCreds.public_key && cloverCreds.private_token && cloverCreds.private_token !== '••••••••'));
                                         } catch {}
                                         setSavingProcessor(null);
                                     }}
