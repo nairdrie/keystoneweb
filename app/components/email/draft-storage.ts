@@ -12,6 +12,14 @@ export interface EmailDraft {
   body_text: string | null;
   created_at: string;
   updated_at: string;
+  // Populated by GET /api/email/drafts for reply drafts (thread_id != null).
+  // Lets the Drafts sidebar render the customer/subject without an extra
+  // round-trip per draft.
+  thread_info?: {
+    sender_name: string | null;
+    sender_email: string | null;
+    subject: string | null;
+  } | null;
 }
 
 // Split-panel resize preference — the only thing kept in localStorage
