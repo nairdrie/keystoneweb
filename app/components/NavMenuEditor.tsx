@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { Plus, X, Pencil, ChevronDown, GripVertical } from 'lucide-react';
 import { useEditorContext, NavItem } from '@/lib/editor-context';
 import { useLangPrefix } from '@/lib/hooks/useLangPrefix';
@@ -48,6 +48,7 @@ export default function NavMenuEditor({ className = '', itemClassName = '', subm
     const pages = context?.pages || [];
     const blocks = context?.blocks || [];
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     // Language prefix for published multilingual sites
@@ -63,6 +64,14 @@ export default function NavMenuEditor({ className = '', itemClassName = '', subm
         useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
     );
 
+    const buildItemQuery = (item: NavItem): string => {
+        if (!item.categoryFilter) return '';
+        const params = new URLSearchParams();
+        params.set('category', item.categoryFilter);
+        if (item.subcategoryFilter) params.set('subcategory', item.subcategoryFilter);
+        return `?${params.toString()}`;
+    };
+
     const resolveHref = (item: NavItem): string => {
         if (item.linkType === 'page') {
             if (isEditor) {
@@ -74,7 +83,8 @@ export default function NavMenuEditor({ className = '', itemClassName = '', subm
             const targetPage = pages.find(p => p.id === item.pageId);
             const slug = targetPage ? targetPage.slug : '';
             const basePath = slug === 'home' ? '/' : `/${slug}`;
-            return langPrefix ? `${langPrefix}${basePath === '/' ? '' : basePath}` : basePath;
+            const path = langPrefix ? `${langPrefix}${basePath === '/' ? '' : basePath}` : basePath;
+            return `${path}${buildItemQuery(item)}`;
         } else if (item.linkType === 'section') {
             if (item.pageId) {
                 if (isEditor) {
@@ -99,7 +109,12 @@ export default function NavMenuEditor({ className = '', itemClassName = '', subm
         const basePath = slug === 'home' ? '/' : `/${slug}`;
         const itemPath = langPrefix ? `${langPrefix}${basePath === '/' ? '' : basePath}` : basePath;
         const normalizedPathname = pathname === '' ? '/' : pathname;
-        return normalizedPathname === itemPath;
+        if (normalizedPathname !== itemPath) return false;
+        const currentCategory = searchParams?.get('category') || '';
+        const currentSubcategory = searchParams?.get('subcategory') || '';
+        if ((item.categoryFilter || '') !== currentCategory) return false;
+        if ((item.subcategoryFilter || '') !== currentSubcategory) return false;
+        return true;
     };
 
     const handleSaveItem = (updated: NavItem) => {
