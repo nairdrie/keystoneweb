@@ -1,8 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Send, AlertCircle, Loader2, ChevronDown } from 'lucide-react';
 import EmailRichEditor from './EmailRichEditor';
+import {
+  type ComposeDraft,
+  saveComposeDraft,
+  deleteComposeDraft,
+} from './draft-storage';
 
 interface InboxAddress {
   id: string;
@@ -15,21 +20,36 @@ interface Props {
   siteId: string;
   addresses: InboxAddress[];
   defaultAddressId: string | null;
+  initialDraft?: ComposeDraft;
   onClose: () => void;
   onSent: () => void;
+  onDraftChanged?: () => void;
 }
 
-export default function ComposeModal({ siteId, addresses, defaultAddressId, onClose, onSent }: Props) {
-  const [addressId, setAddressId] = useState<string | null>(defaultAddressId ?? addresses[0]?.id ?? null);
-  const [to, setTo] = useState('');
-  const [cc, setCc] = useState('');
-  const [bcc, setBcc] = useState('');
-  const [subject, setSubject] = useState('');
-  const [bodyHtml, setBodyHtml] = useState('');
-  const [bodyText, setBodyText] = useState('');
-  const [showCcBcc, setShowCcBcc] = useState(false);
+export default function ComposeModal({
+  siteId,
+  addresses,
+  defaultAddressId,
+  initialDraft,
+  onClose,
+  onSent,
+  onDraftChanged,
+}: Props) {
+  const [addressId, setAddressId] = useState<string | null>(
+    initialDraft?.addressId ?? defaultAddressId ?? addresses[0]?.id ?? null
+  );
+  const [to, setTo] = useState(initialDraft?.to ?? '');
+  const [cc, setCc] = useState(initialDraft?.cc ?? '');
+  const [bcc, setBcc] = useState(initialDraft?.bcc ?? '');
+  const [subject, setSubject] = useState(initialDraft?.subject ?? '');
+  const [bodyHtml, setBodyHtml] = useState(initialDraft?.bodyHtml ?? '');
+  const [bodyText, setBodyText] = useState(initialDraft?.bodyText ?? '');
+  const [showCcBcc, setShowCcBcc] = useState(!!(initialDraft?.cc || initialDraft?.bcc));
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const draftIdRef = useRef<string>(initialDraft?.id ?? crypto.randomUUID());
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) { if (e.key === 'Escape' && !sending) onClose(); }
@@ -37,7 +57,41 @@ export default function ComposeModal({ siteId, addresses, defaultAddressId, onCl
     return () => window.removeEventListener('keydown', onEsc);
   }, [onClose, sending]);
 
+  // Auto-save draft to localStorage with 1.5s debounce
+  useEffect(() => {
+    const hasContent = to || subject || bodyText;
+    if (!hasContent) return;
+
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => {
+      saveComposeDraft(siteId, {
+        id: draftIdRef.current,
+        addressId,
+        to,
+        cc,
+        bcc,
+        subject,
+        bodyHtml,
+        bodyText,
+        savedAt: new Date().toISOString(),
+      });
+      onDraftChanged?.();
+    }, 1500);
+
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [to, cc, bcc, subject, bodyHtml, bodyText, addressId, siteId]);
+
   const activeAddress = addresses.find(a => a.id === addressId);
+
+  function handleDiscard() {
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    deleteComposeDraft(siteId, draftIdRef.current);
+    onDraftChanged?.();
+    onClose();
+  }
 
   async function handleSend() {
     setError(null);
@@ -58,6 +112,9 @@ export default function ComposeModal({ siteId, addresses, defaultAddressId, onCl
         setError(d.error ?? 'Failed to send');
         return;
       }
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      deleteComposeDraft(siteId, draftIdRef.current);
+      onDraftChanged?.();
       onSent();
     } finally {
       setSending(false);
@@ -166,7 +223,11 @@ export default function ComposeModal({ siteId, addresses, defaultAddressId, onCl
             {activeAddress ? `Sending from ${activeAddress.address}` : ''}
           </p>
           <div className="flex items-center gap-2">
-            <button onClick={onClose} disabled={sending} className="text-xs font-semibold text-slate-500 hover:text-slate-900 px-3 py-1.5 rounded-lg disabled:opacity-50">
+            <button
+              onClick={handleDiscard}
+              disabled={sending}
+              className="text-xs font-semibold text-slate-500 hover:text-red-600 px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
+            >
               Discard
             </button>
             <button
