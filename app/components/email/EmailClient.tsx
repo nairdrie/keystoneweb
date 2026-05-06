@@ -242,42 +242,38 @@ export default function EmailClient() {
     let cancelled = false;
     setThreadLoading(true);
 
-    const alreadyPrefilled = aiPrefilledRef.current.has(activeThreadId);
-
     Promise.all([
       fetch(`/api/email/threads/${activeThreadId}?siteId=${siteId}`, { credentials: 'include' })
         .then(r => r.ok ? r.json() : null),
-      alreadyPrefilled
-        ? Promise.resolve(null)
-        : fetch(`/api/email/drafts?siteId=${siteId}&threadId=${activeThreadId}`, { credentials: 'include' })
-            .then(r => r.ok ? r.json() : null),
+      fetch(`/api/email/drafts?siteId=${siteId}&threadId=${activeThreadId}`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : null),
     ]).then(([threadData, draftData]) => {
       if (cancelled) return;
       if (threadData?.messages) setActiveMessages(threadData.messages);
 
-      if (!alreadyPrefilled) {
-        aiPrefilledRef.current.add(activeThreadId);
-        const savedDraft: EmailDraft | null = draftData?.draft ?? null;
+      const savedDraft: EmailDraft | null = draftData?.draft ?? null;
 
-        if (savedDraft && (savedDraft.body_html || savedDraft.body_text)) {
-          setReplyHtml(savedDraft.body_html ?? '');
-          setReplyText(savedDraft.body_text ?? '');
-          const ccStr = savedDraft.cc_emails?.join(', ') ?? '';
-          const bccStr = savedDraft.bcc_emails?.join(', ') ?? '';
-          setCcDraft(ccStr);
-          setBccDraft(bccStr);
-          if (ccStr || bccStr) setShowCcBcc(true);
-        } else if (threadData?.messages) {
-          const lastInbound = [...threadData.messages].reverse()
-            .find((m: ThreadMessage) => m.direction === 'inbound');
-          if (lastInbound?.ai_draft_reply) {
-            setReplyText(lastInbound.ai_draft_reply);
-            setReplyHtml(
-              `<p>${lastInbound.ai_draft_reply
-                .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`
-            );
-          }
+      if (savedDraft && (savedDraft.body_html || savedDraft.body_text)) {
+        setReplyHtml(savedDraft.body_html ?? '');
+        setReplyText(savedDraft.body_text ?? '');
+        const ccStr = savedDraft.cc_emails?.join(', ') ?? '';
+        const bccStr = savedDraft.bcc_emails?.join(', ') ?? '';
+        setCcDraft(ccStr);
+        setBccDraft(bccStr);
+        if (ccStr || bccStr) setShowCcBcc(true);
+      } else if (!aiPrefilledRef.current.has(activeThreadId) && threadData?.messages) {
+        // No saved draft yet — seed the composer with the AI suggestion once
+        // per session so we don't keep re-prefilling after the user clears it.
+        aiPrefilledRef.current.add(activeThreadId);
+        const lastInbound = [...threadData.messages].reverse()
+          .find((m: ThreadMessage) => m.direction === 'inbound');
+        if (lastInbound?.ai_draft_reply) {
+          setReplyText(lastInbound.ai_draft_reply);
+          setReplyHtml(
+            `<p>${lastInbound.ai_draft_reply
+              .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`
+          );
         }
       }
     }).finally(() => { if (!cancelled) setThreadLoading(false); });
@@ -367,12 +363,42 @@ export default function EmailClient() {
     setBccDraft('');
   }
 
+  // Persist the current composer state immediately, bypassing the 1.5s
+  // debounce. Called when the user navigates away so a half-typed reply
+  // isn't lost when the auto-save effect's cleanup cancels the pending
+  // timer.
+  function flushPendingDraft() {
+    if (replyDraftTimerRef.current) {
+      clearTimeout(replyDraftTimerRef.current);
+      replyDraftTimerRef.current = null;
+    }
+    if (!activeThreadId || !siteId) return;
+    if (!replyHtml && !replyText && !ccDraft && !bccDraft) return;
+    fetch('/api/email/drafts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      keepalive: true,
+      body: JSON.stringify({
+        siteId,
+        threadId: activeThreadId,
+        addressId,
+        bodyHtml: replyHtml,
+        bodyText: replyText,
+        ccEmails: ccDraft.split(/[,;]/).map(s => s.trim()).filter(Boolean),
+        bccEmails: bccDraft.split(/[,;]/).map(s => s.trim()).filter(Boolean),
+      }),
+    }).catch(() => {});
+  }
+
   function openThread(threadId: string) {
+    flushPendingDraft();
     clearReplyFields();
     setActiveThreadId(threadId);
   }
 
   function closeThread() {
+    flushPendingDraft();
     clearReplyFields();
     setActiveThreadId(null);
   }

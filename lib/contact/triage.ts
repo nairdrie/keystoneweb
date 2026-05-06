@@ -86,24 +86,26 @@ export function isSpamInboundEmail(
 export function isObviousSpam(message: string, name: string): boolean {
   const lower = message.toLowerCase();
   const stripped = lower.replace(/\s/g, '');
-
-  // Gibberish entropy check. Normal English text scores ~3.5–4.5 bits;
-  // keyboard mash and "aaaaaa" repetition score well below 2.5.
-  const entropy = charEntropy(stripped);
-
-  // Very short messages with low entropy are gibberish ("asdf", "aaaa").
-  // Don't flag short *real* messages like "Help me, please!" — they pass
-  // the entropy gate.
-  if (message.trim().length < 15 && entropy < 3.0) return true;
-
-  // Longer gibberish: low entropy in a message of any length.
-  if (message.length > 10 && entropy < 2.5) return true;
-
-  // Catch repetitive/random-keyboard tokens that the entropy check might miss
-  // because they're short. e.g. "fjfjfjfj" (12 chars, 2 unique). Bound the
-  // check to short strings so a real 280-char English message — which still
-  // only uses ~30 distinct chars — doesn't false-positive.
+  const letters = stripped.replace(/[^a-z]/g, '');
   const uniqueChars = new Set(stripped).size;
+
+  // Pattern-based gibberish detection. Avoids the old length+entropy rule,
+  // which false-positived short legitimate replies like "Thanks!" or
+  // "Got it." (short text inherently has low character entropy).
+  //   - single character repeated: "aaaa"
+  //   - only 1–2 unique characters across 6+ chars: "fjfjfj", "ababab"
+  //   - 5+ consecutive letters with no vowel: "qwrtxk" (keyboard mash)
+  if (stripped.length >= 4 && uniqueChars === 1) return true;
+  if (stripped.length >= 6 && uniqueChars <= 2) return true;
+  if (letters.length >= 5 && !/[aeiouy]/.test(letters)) return true;
+
+  // Long gibberish: low entropy in a substantial body. Threshold raised on
+  // length so short English doesn't trip it.
+  const entropy = charEntropy(stripped);
+  if (stripped.length >= 30 && entropy < 2.5) return true;
+
+  // Repetitive low-diversity tokens in the mid-length range ("fjfjfjfjfj…").
+  // Bounded so a real ~280-char English message isn't flagged.
   if (stripped.length > 10 && stripped.length < 60 && uniqueChars / stripped.length < 0.2) return true;
 
   // Spam keyword check (whole-word match for short keywords to reduce false positives)
