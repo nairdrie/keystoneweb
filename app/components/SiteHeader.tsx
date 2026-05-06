@@ -1,10 +1,11 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { Menu, X, Settings, Facebook, Instagram, Twitter, Linkedin, Youtube, Phone, User } from 'lucide-react';
+import { useRef, useState, useCallback } from 'react';
+import { Menu, X, Settings, Facebook, Instagram, Twitter, Linkedin, Youtube, Phone, User, Paintbrush, LayoutDashboard, LogOut } from 'lucide-react';
 import { useHeaderHeight } from '@/lib/hooks/useHeaderHeight';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth/context';
 import { useEditorContext } from '@/lib/editor-context';
 import EditableText from '@/app/components/EditableText';
 import EditableButton from '@/app/components/EditableButton';
@@ -80,6 +81,14 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     // Member auth state — needed early for CTA replacement
     const memberCtx = useMember();
     const member = memberCtx?.member ?? null;
+
+    // Admin/owner auth state for mobile menu profile section
+    const { user, signOut } = useAuth();
+    const router = useRouter();
+    const [avatarErrored, setAvatarErrored] = useState(false);
+    const handleAvatarError = useCallback(() => setAvatarErrored(true), []);
+    const userDisplayName = user ? ((user.user_metadata?.full_name || user.user_metadata?.name || user.email) as string) : '';
+    const userAvatarUrl = user ? (user.user_metadata?.avatar_url as string | undefined) : undefined;
 
     // ── Resolve config (user override > template default > system default) ──
     const legacyLayout: HeaderLayout = siteContent.headerLayout || defaults.layout || 'default';
@@ -613,13 +622,75 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
             className={`${useDesktopHamburger ? '' : 'md:hidden'} border-t py-4 space-y-1 ${defaults.mobileBorderClass || 'border-slate-100'}`}
             style={mobileBorderStyle}
         >
+            {user && (
+                <>
+                    {/* Admin user profile section */}
+                    <div className="px-3 pb-3">
+                        <div className="flex items-center gap-3 px-3 py-2.5 mb-2">
+                            <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-slate-200 flex items-center justify-center">
+                                {userAvatarUrl && !avatarErrored ? (
+                                    <img
+                                        src={userAvatarUrl}
+                                        alt={userDisplayName}
+                                        className="w-full h-full object-cover"
+                                        referrerPolicy="no-referrer"
+                                        onError={handleAvatarError}
+                                    />
+                                ) : (
+                                    <User className="w-5 h-5 text-slate-500" />
+                                )}
+                            </div>
+                            <div className="min-w-0">
+                                <div className={`text-sm font-bold truncate ${textIsLight ? 'text-white' : 'text-slate-900'}`}>{userDisplayName}</div>
+                                {userDisplayName !== user.email && (
+                                    <div className={`text-xs truncate ${textIsLight ? 'text-white/60' : 'text-slate-500'}`}>{user.email}</div>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex gap-2 mb-1">
+                            <Link
+                                href="/design"
+                                onClick={() => setMobileMenuOpen(false)}
+                                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-xs text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 rounded-lg transition-colors font-medium"
+                            >
+                                <Paintbrush className="w-3.5 h-3.5" />
+                                Design
+                            </Link>
+                            <Link
+                                href="/admin"
+                                onClick={() => setMobileMenuOpen(false)}
+                                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-xs text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 rounded-lg transition-colors font-medium"
+                            >
+                                <LayoutDashboard className="w-3.5 h-3.5" />
+                                Admin
+                            </Link>
+                        </div>
+                        <Link
+                            href="/settings"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors font-medium"
+                        >
+                            <Settings className="w-4 h-4" />
+                            Settings
+                        </Link>
+                        <button
+                            onClick={async () => { setMobileMenuOpen(false); await signOut(); router.push('/'); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors font-medium text-left"
+                        >
+                            <LogOut className="w-4 h-4" />
+                            Log out
+                        </button>
+                    </div>
+                    <div className={`border-t mx-3 mb-3 ${defaults.mobileBorderClass || 'border-slate-100'}`} style={mobileBorderStyle} />
+                </>
+            )}
             <div className="ks-nav-items">
                 <NavMenu
                     className="flex flex-col"
                     itemClassName={resolvedMobileNavItemClass}
                 />
             </div>
-            {rightSide === 'cta' && (
+            {rightSide === 'cta' && !user && (
                 <div className="mt-3 md:hidden">
                     {member ? (
                         <div className="flex items-center gap-3 px-3 py-2">
