@@ -997,12 +997,22 @@ export async function sendContactFormNotification(data: ContactEmailData, ownerE
         ? buildOwnerReplyAddress(data.submissionId)
         : undefined;
 
+    // Gmail threads messages by (sender, recipient, normalized subject). If we
+    // use the same subject for every notification they all collapse into one
+    // thread in the owner's inbox. Including the customer's name (and site)
+    // gives each conversation its own thread, while replies on the same
+    // submission keep the same subject and continue to thread correctly.
+    const customerLabel = data.customerName?.trim() || data.customerEmail?.trim() || 'someone';
+    const ownerSubject = data.sourceType === 'estimate_form'
+        ? `New Estimate Request from ${customerLabel} — ${data.siteName}`
+        : `New Message from ${customerLabel} — ${data.siteName}`;
+
     try {
         await resend.emails.send({
             from: 'Keystone Web Design <contact@keystoneweb.ca>',
             to: ownerEmail,
             replyTo: replyToAddress,
-            subject: data.sourceType === 'estimate_form' ? `New Estimate Request — ${data.siteName}` : `New Message — ${data.siteName}`,
+            subject: ownerSubject,
             html: `
                 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px 0;">
                     <!-- Keystone branding -->
