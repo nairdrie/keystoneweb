@@ -7,8 +7,10 @@ import {
     Package, Plus, Trash2, Loader2, ShoppingCart, X,
     ImageIcon, Upload, Download, Send, Search,
     ChevronLeft, ChevronRight, Tag, Pencil, Lock, Crown, Star,
+    FolderTree,
 } from 'lucide-react';
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
+import ProductCategoriesManager from './ProductCategoriesManager';
 import ProductDescriptionEditor from '../ProductDescriptionEditor';
 import EditableButton, { type ButtonIconData, type ButtonLinkData } from '@/app/components/EditableButton';
 import EditableText from '@/app/components/EditableText';
@@ -89,6 +91,7 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
     const [publishing, setPublishing] = useState(false);
     const [showDraftModal, setShowDraftModal] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
+    const [showCategoryManager, setShowCategoryManager] = useState(false);
     const [membershipEditProduct, setMembershipEditProduct] = useState<Product | null>(null);
     const modalBackdropDown = useRef(false);
 
@@ -336,6 +339,14 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                                     ))}
                                 </select>
                             )}
+                            <button
+                                onClick={() => setShowCategoryManager(true)}
+                                className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg transition-colors"
+                                title="Add, rename, or delete categories"
+                            >
+                                <FolderTree className="w-3.5 h-3.5" />
+                                Manage Categories
+                            </button>
                             <select
                                 value={filterStatus}
                                 onChange={e => handleFilterStatus(e.target.value)}
@@ -495,6 +506,13 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                         }}
                     />
                 )}
+
+                <ProductCategoriesManager
+                    siteId={siteId}
+                    isOpen={showCategoryManager}
+                    onClose={() => setShowCategoryManager(false)}
+                    onChanged={() => fetchProducts(currentPage, searchQuery, filterCategory, filterStatus)}
+                />
             </div>
         </section>
     );

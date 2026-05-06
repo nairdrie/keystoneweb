@@ -81,7 +81,20 @@ export async function GET(request: NextRequest) {
         .not('category', 'is', null)
         .order('category');
 
-    const categories = [...new Set((catData || []).map(r => r.category).filter(Boolean))];
+    // Persisted categories include empty ones the admin added but never
+    // attached a product to yet — merge those so pickers show them.
+    const { data: persistedCats } = await supabase
+        .from('product_categories')
+        .select('name, parent_name')
+        .eq('site_id', siteId);
+
+    const categorySet = new Set<string>();
+    for (const r of catData || []) if (r.category) categorySet.add(r.category);
+    for (const r of persistedCats || []) {
+        if (r.parent_name) categorySet.add(r.parent_name);
+        else if (r.name) categorySet.add(r.name);
+    }
+    const categories = Array.from(categorySet).sort();
 
     // Resolve per-product pricing/access for the current member (if any).
     const member = await getCurrentMemberFromRequest(request, siteId);
@@ -103,6 +116,16 @@ export async function GET(request: NextRequest) {
         if (!categoryTree[row.category]) categoryTree[row.category] = [];
         if (row.subcategory && !categoryTree[row.category].includes(row.subcategory)) {
             categoryTree[row.category].push(row.subcategory);
+        }
+    }
+    for (const r of persistedCats || []) {
+        if (r.parent_name) {
+            if (!categoryTree[r.parent_name]) categoryTree[r.parent_name] = [];
+            if (r.name && !categoryTree[r.parent_name].includes(r.name)) {
+                categoryTree[r.parent_name].push(r.name);
+            }
+        } else if (r.name && !categoryTree[r.name]) {
+            categoryTree[r.name] = [];
         }
     }
     for (const k of Object.keys(categoryTree)) categoryTree[k].sort();
