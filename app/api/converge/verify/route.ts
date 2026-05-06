@@ -107,10 +107,18 @@ export async function POST(request: NextRequest) {
 async function sendConvergeOrderEmails(supabase: any, order: any, vendor: any | null) {
     const { data: siteInfo } = await supabase
         .from('sites')
-        .select('site_slug, title')
+        .select('site_slug, title, design_data')
         .eq('id', order.site_id)
         .single();
     const siteName = siteInfo?.title || siteInfo?.site_slug || undefined;
+    const logoUrl: string | undefined = siteInfo?.design_data?.headerLogo || siteInfo?.design_data?.siteLogo || undefined;
+
+    const { data: cvgCustomRows } = await supabase
+        .from('email_customizations')
+        .select('email_key, overrides')
+        .eq('site_id', order.site_id)
+        .eq('email_key', 'order_confirmed');
+    const cvgOverrides = cvgCustomRows?.[0]?.overrides;
 
     const { data: ecomSettings } = await supabase
         .from('ecommerce_settings')
@@ -204,6 +212,8 @@ async function sendConvergeOrderEmails(supabase: any, order: any, vendor: any | 
         shippingAddress: order.shipping_address,
         paymentMethod: 'converge',
         siteName,
+        logoUrl,
+        overrides: cvgOverrides,
     }).catch(e => console.error(e));
 
     if (ecomSettings?.notification_email) {

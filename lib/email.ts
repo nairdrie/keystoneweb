@@ -2,6 +2,36 @@ import { buildMemberEmailHtml, type EmailBranding } from '@/lib/membership/email
 import { resend } from '@/lib/email/resend';
 import { buildOwnerReplyAddress } from '@/lib/email/threading';
 
+interface EmailOverrides {
+    subject?: string;
+    heading?: string;
+    subheading?: string;
+    footerText?: string;
+}
+
+function buildEmailLogoHeader(opts: {
+    logoUrl?: string;
+    fallbackEmoji: string;
+    fallbackBg: string;
+    heading: string;
+    subheading?: string;
+}): string {
+    const iconHtml = opts.logoUrl
+        ? `<img src="${opts.logoUrl}" alt="" style="max-height:64px;max-width:200px;object-fit:contain;display:block;margin:0 auto;" />`
+        : `<div style="width:48px;height:48px;background:${opts.fallbackBg};border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">${opts.fallbackEmoji}</div>`;
+    return `
+        <div style="text-align:center;padding:24px 0;">
+            ${iconHtml}
+            <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">${opts.heading}</h1>
+            ${opts.subheading ? `<p style="margin:0;color:#6b7280;font-size:14px;">${opts.subheading}</p>` : ''}
+        </div>`;
+}
+
+function buildEmailFooter(siteName?: string, overrideText?: string): string {
+    const text = overrideText || `Powered by Keystone Web Design`;
+    return `<p style="margin-top:8px;font-size:12px;color:#9ca3af;text-align:center;">${text}</p>`;
+}
+
 interface BookingEmailData {
     serviceName: string;
     selectedOptionName?: string;
@@ -21,6 +51,8 @@ interface BookingEmailData {
     cancelUrl?: string;
     dashboardUrl?: string;
     siteName?: string;
+    logoUrl?: string;
+    overrides?: EmailOverrides;
 }
 
 /**
@@ -80,18 +112,18 @@ export async function sendCustomerConfirmation(data: BookingEmailData) {
             ? `Appointment Request Received\n\nYour appointment time for ${data.serviceName} on ${dateFormatted} at ${data.startTime} is being held.\n\nTo confirm it, please send an Interac e-Transfer of ${priceStr} to ${data.etransferEmail ?? 'your service provider'} with reference ${refId} in the message field.\n\nOnce received, we'll send a confirmation email.${data.cancelUrl ? `\n\nNeed to cancel? ${data.cancelUrl}` : ''}`
             : `Booking Confirmed\n\n${data.serviceName}\n${dateFormatted} at ${data.startTime}\n${data.duration} min — ${priceStr}${data.cancelUrl ? `\n\nNeed to cancel? ${data.cancelUrl}` : ''}`;
 
+        const bookingSubject = data.overrides?.subject || subject;
+        const bookingHeading = data.overrides?.heading || headerTitle;
+        const bookingSubheading = data.overrides?.subheading || headerSubtitle;
+
         await resend.emails.send({
             from: `${data.siteName || 'Keystone Web Design'} <bookings@keystoneweb.ca>`,
             to: data.customerEmail,
-            subject,
+            subject: bookingSubject,
             text: plainText,
             html: `
                 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto;">
-                    <div style="text-align: center; padding: 24px 0;">
-                        <div style="width: 48px; height: 48px; background: ${headerBg}; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 24px;">${headerIcon}</div>
-                        <h1 style="margin: 12px 0 4px; font-size: 22px; color: #111827;">${headerTitle}</h1>
-                        <p style="margin: 0; color: #6b7280; font-size: 14px;">${headerSubtitle}</p>
-                    </div>
+                    ${buildEmailLogoHeader({ logoUrl: data.logoUrl, fallbackEmoji: headerIcon, fallbackBg: headerBg, heading: bookingHeading, subheading: bookingSubheading })}
 
                     <div style="background: #f9fafb; border-radius: 8px; padding: 16px;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
@@ -112,9 +144,7 @@ export async function sendCustomerConfirmation(data: BookingEmailData) {
                         Need to cancel? <a href="${data.cancelUrl}" style="color: #6b7280; text-decoration: underline;">Cancel this booking</a>
                     </p>` : ''}
 
-                    <p style="margin-top: 8px; font-size: 12px; color: #9ca3af; text-align: center;">
-                        Powered by Keystone Web Design
-                    </p>
+                    ${buildEmailFooter(data.siteName, data.overrides?.footerText)}
                 </div>
             `,
         });
@@ -242,16 +272,16 @@ export async function sendCustomerPaymentConfirmed(data: BookingEmailData) {
         const priceStr = data.priceCents > 0 ? `$${(data.priceCents / 100).toFixed(2)} ${data.currency}` : 'Free';
         const refId = data.bookingId.slice(0, 8).toUpperCase();
 
+        const bpcHeading = data.overrides?.heading || 'Payment Received — Booking Confirmed';
+        const bpcSubject = data.overrides?.subject || `Booking Confirmed — ${data.serviceName}`;
+
         await resend.emails.send({
             from: `${data.siteName || 'Keystone Web Design'} <bookings@keystoneweb.ca>`,
             to: data.customerEmail,
-            subject: `Booking Confirmed — ${data.serviceName}`,
+            subject: bpcSubject,
             html: `
                 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto;">
-                    <div style="text-align: center; padding: 24px 0;">
-                        <div style="width: 48px; height: 48px; background: #dcfce7; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 24px;">✅</div>
-                        <h1 style="margin: 12px 0 4px; font-size: 22px; color: #111827;">Payment Received — Booking Confirmed</h1>
-                    </div>
+                    ${buildEmailLogoHeader({ logoUrl: data.logoUrl, fallbackEmoji: '✅', fallbackBg: '#dcfce7', heading: bpcHeading, subheading: data.overrides?.subheading })}
 
                     <div style="background: #f9fafb; border-radius: 8px; padding: 16px;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
@@ -271,9 +301,7 @@ export async function sendCustomerPaymentConfirmed(data: BookingEmailData) {
                         </p>
                     </div>
 
-                    <p style="margin-top: 24px; font-size: 12px; color: #9ca3af; text-align: center;">
-                        Powered by Keystone Web Design
-                    </p>
+                    ${buildEmailFooter(data.siteName, data.overrides?.footerText)}
                 </div>
             `,
         });
@@ -305,6 +333,8 @@ interface OrderEmailData {
     paymentMethod: string;
     etransferEmail?: string;
     siteName?: string;
+    logoUrl?: string;
+    overrides?: EmailOverrides;
     notes?: string;
     trackingNumber?: string;
     trackingCarrier?: string;
@@ -353,18 +383,17 @@ export async function sendOrderConfirmation(data: OrderEmailData) {
             : `Thank you for your order, ${data.customerName}!`;
         const headingBg = isEtransfer ? '#fef3c7' : '#dcfce7';
         const headingEmoji = isEtransfer ? '🛍️' : '🛍️';
+        const finalSubject = data.overrides?.subject || emailSubject;
+        const finalHeading = data.overrides?.heading || emailHeading;
+        const finalSubheading = data.overrides?.subheading || emailSubheading;
 
         await resend.emails.send({
             from: `${data.siteName || 'Keystone Web Design'} <orders@keystoneweb.ca>`,
             to: data.customerEmail,
-            subject: emailSubject,
+            subject: finalSubject,
             html: `
                 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
-                    <div style="text-align:center;padding:24px 0;">
-                        <div style="width:48px;height:48px;background:${headingBg};border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">${headingEmoji}</div>
-                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">${emailHeading}</h1>
-                        <p style="margin:0;color:#6b7280;font-size:14px;">${emailSubheading}</p>
-                    </div>
+                    ${buildEmailLogoHeader({ logoUrl: data.logoUrl, fallbackEmoji: headingEmoji, fallbackBg: headingBg, heading: finalHeading, subheading: finalSubheading })}
                     <div style="background:#f9fafb;border-radius:8px;padding:16px;">
                         <table style="width:100%;border-collapse:collapse;">${itemsHtml}
                             <tr><td colspan="2" style="padding:8px 0 4px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:14px;">Subtotal</td><td style="padding:8px 0 4px;border-top:1px solid #e5e7eb;text-align:right;font-weight:600;color:#111827;font-size:14px;">${subtotalStr}</td></tr>
@@ -375,7 +404,7 @@ export async function sendOrderConfirmation(data: OrderEmailData) {
                     </div>
                     ${paymentSection}
                     <p style="margin-top:16px;font-size:12px;color:#9ca3af;text-align:center;">Ref: ${refId}</p>
-                    <p style="margin-top:8px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
+                    ${buildEmailFooter(data.siteName, data.overrides?.footerText)}
                 </div>`,
         });
         return { success: true };
@@ -468,17 +497,16 @@ export async function sendOrderPaymentConfirmed(data: OrderEmailData) {
             </tr>`;
         }).join('');
 
+        const opcHeading = data.overrides?.heading || 'Payment Received — Order Confirmed';
+        const opcSubject = data.overrides?.subject || `Payment Received — Order Confirmed — ${refId}`;
+
         await resend.emails.send({
             from: `${data.siteName || 'Keystone Web Design'} <orders@keystoneweb.ca>`,
             to: data.customerEmail,
-            subject: `Payment Received — Order Confirmed — ${refId}`,
+            subject: opcSubject,
             html: `
                 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
-                    <div style="text-align:center;padding:24px 0;">
-                        <div style="width:48px;height:48px;background:#dcfce7;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">✅</div>
-                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">Payment Received — Order Confirmed</h1>
-                        <p style="margin:0;color:#6b7280;font-size:14px;">${refId}</p>
-                    </div>
+                    ${buildEmailLogoHeader({ logoUrl: data.logoUrl, fallbackEmoji: '✅', fallbackBg: '#dcfce7', heading: opcHeading, subheading: data.overrides?.subheading || refId })}
                     <div style="background:#f9fafb;border-radius:8px;padding:16px;">
                         <table style="width:100%;border-collapse:collapse;">${itemsHtml}
                             ${data.shippingCents ? `<tr><td colspan="2" style="padding:4px 0;border-top:1px solid #e5e7eb;color:#6b7280;font-size:14px;">Shipping${data.shippingMethod ? ` (${data.shippingMethod})` : ''}</td><td style="padding:4px 0;border-top:1px solid #e5e7eb;text-align:right;color:#111827;font-size:14px;">$${(data.shippingCents / 100).toFixed(2)}</td></tr>` : ''}
@@ -492,7 +520,7 @@ export async function sendOrderPaymentConfirmed(data: OrderEmailData) {
                         </p>
                     </div>
                     <p style="margin-top:16px;font-size:12px;color:#9ca3af;text-align:center;">Ref: ${refId}</p>
-                    <p style="margin-top:8px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
+                    ${buildEmailFooter(data.siteName, data.overrides?.footerText)}
                 </div>`,
         });
         return { success: true };
@@ -537,17 +565,17 @@ export async function sendOrderShipped(data: OrderEmailData) {
             </div>
         ` : '';
 
+        const shippedHeading = data.overrides?.heading || 'Your order has shipped';
+        const shippedSubheading = data.overrides?.subheading || `Thanks ${data.customerName} — it's on its way!`;
+        const shippedSubject = data.overrides?.subject || `Your order has shipped — ${refId}`;
+
         await resend.emails.send({
             from: `${data.siteName || 'Keystone Web Design'} <orders@keystoneweb.ca>`,
             to: data.customerEmail,
-            subject: `Your order has shipped — ${refId}`,
+            subject: shippedSubject,
             html: `
                 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
-                    <div style="text-align:center;padding:24px 0;">
-                        <div style="width:48px;height:48px;background:#ede9fe;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">🚚</div>
-                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">Your order has shipped</h1>
-                        <p style="margin:0;color:#6b7280;font-size:14px;">Thanks ${data.customerName} — it's on its way!</p>
-                    </div>
+                    ${buildEmailLogoHeader({ logoUrl: data.logoUrl, fallbackEmoji: '🚚', fallbackBg: '#ede9fe', heading: shippedHeading, subheading: shippedSubheading })}
                     ${trackingBlock}
                     ${data.shippingAddress ? `
                     <div style="background:#f9fafb;border-radius:8px;padding:14px;margin-top:16px;">
@@ -555,7 +583,7 @@ export async function sendOrderShipped(data: OrderEmailData) {
                         <p style="margin:0;font-size:14px;color:#111827;">${[data.shippingAddress.line1, data.shippingAddress.city, data.shippingAddress.region || data.shippingAddress.province, data.shippingAddress.postal, data.shippingAddress.country].filter(Boolean).join(', ')}</p>
                     </div>` : ''}
                     <p style="margin-top:16px;font-size:12px;color:#9ca3af;text-align:center;">Ref: ${refId}</p>
-                    <p style="margin-top:8px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
+                    ${buildEmailFooter(data.siteName, data.overrides?.footerText)}
                 </div>`,
         });
         return { success: true };
@@ -595,6 +623,8 @@ export async function sendMixedOrderConfirmation(data: {
     paymentMethod: string;
     etransferEmail?: string;
     siteName?: string;
+    logoUrl?: string;
+    overrides?: EmailOverrides;
 }) {
     try {
         const refId = `ORDER-${data.orderId.slice(0, 8).toUpperCase()}`;
@@ -629,17 +659,17 @@ export async function sendMixedOrderConfirmation(data: {
                 </div>`;
         }
 
+        const mixedHeading = data.overrides?.heading || 'Order Received';
+        const mixedSubheading = data.overrides?.subheading || `Thank you for your order, ${data.customerName}!`;
+        const mixedSubject = data.overrides?.subject || `Order Received — ${refId}`;
+
         await resend.emails.send({
             from: `${data.siteName || 'Keystone Web Design'} <orders@keystoneweb.ca>`,
             to: data.customerEmail,
-            subject: `Order Received — ${refId}`,
+            subject: mixedSubject,
             html: `
                 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
-                    <div style="text-align:center;padding:24px 0;">
-                        <div style="width:48px;height:48px;background:#dbeafe;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">🛍️</div>
-                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">Order Received</h1>
-                        <p style="margin:0;color:#6b7280;font-size:14px;">Thank you for your order, ${data.customerName}!</p>
-                    </div>
+                    ${buildEmailLogoHeader({ logoUrl: data.logoUrl, fallbackEmoji: '🛍️', fallbackBg: '#dbeafe', heading: mixedHeading, subheading: mixedSubheading })}
                     <div style="background:#f9fafb;border-radius:8px;padding:16px;">
                         <table style="width:100%;border-collapse:collapse;">${itemsHtml}
                             <tr><td colspan="3" style="padding:8px 0 4px;border-top:1px solid #e5e7eb;text-align:right;font-weight:700;color:#111827;font-size:16px;">${total}</td></tr>
@@ -647,7 +677,7 @@ export async function sendMixedOrderConfirmation(data: {
                     </div>
                     ${externalNote}
                     <p style="margin-top:16px;font-size:12px;color:#9ca3af;text-align:center;">Ref: ${refId}</p>
-                    <p style="margin-top:8px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
+                    ${buildEmailFooter(data.siteName, data.overrides?.footerText)}
                 </div>`,
         });
         return { success: true };
@@ -851,6 +881,8 @@ export async function sendVendorOrderCustomerUpdate(data: {
     status: string;
     paymentStatus: string;
     siteName?: string;
+    logoUrl?: string;
+    overrides?: EmailOverrides;
 }) {
     try {
         const refId = `ORDER-${data.orderId.slice(0, 8).toUpperCase()}`;
@@ -864,17 +896,16 @@ export async function sendVendorOrderCustomerUpdate(data: {
                     ? 'Your order has been completed.'
                     : `Your order status has been updated to: ${data.status}`;
 
+        const vendorUpdateSubject = data.overrides?.subject || `Order Update — ${refId}`;
+        const vendorUpdateHeading = data.overrides?.heading || 'Order Update';
+
         await resend.emails.send({
             from: `${data.siteName || 'Keystone Web Design'} <orders@keystoneweb.ca>`,
             to: data.customerEmail,
-            subject: `Order Update — ${refId}`,
+            subject: vendorUpdateSubject,
             html: `
                 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
-                    <div style="text-align:center;padding:24px 0;">
-                        <div style="width:48px;height:48px;background:#dcfce7;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">✅</div>
-                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">Order Update</h1>
-                        <p style="margin:0;color:#6b7280;font-size:14px;">${refId}</p>
-                    </div>
+                    ${buildEmailLogoHeader({ logoUrl: data.logoUrl, fallbackEmoji: '✅', fallbackBg: '#dcfce7', heading: vendorUpdateHeading, subheading: data.overrides?.subheading || refId })}
                     <div style="background:#dcfce7;border-radius:8px;padding:14px;margin-bottom:16px;">
                         <p style="margin:0;color:#166534;font-size:14px;text-align:center;">${statusMessage}</p>
                     </div>
@@ -883,7 +914,7 @@ export async function sendVendorOrderCustomerUpdate(data: {
                         <p style="margin:4px 0;font-size:13px;color:#6b7280;">Fulfilled by: ${data.vendorName}</p>
                     </div>
                     <p style="margin-top:16px;font-size:12px;color:#9ca3af;text-align:center;">Ref: ${refId}</p>
-                    <p style="margin-top:8px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
+                    ${buildEmailFooter(data.siteName, data.overrides?.footerText)}
                 </div>`,
         });
         return { success: true };
@@ -1495,6 +1526,8 @@ interface BookingCancellationData {
     cancellationReason?: string;
     cancelledBy: 'customer' | 'merchant';
     siteName?: string;
+    logoUrl?: string;
+    overrides?: EmailOverrides;
 }
 
 /**
@@ -1513,17 +1546,17 @@ export async function sendBookingCancellationToCustomer(data: BookingCancellatio
                </div>`
             : '';
 
+        const bcSubject = data.overrides?.subject || `Booking Cancelled — ${data.serviceName}`;
+        const bcHeading = data.overrides?.heading || 'Booking Cancelled';
+        const bcSubheading = data.overrides?.subheading || `${initiator} your appointment for ${data.serviceName}.`;
+
         await resend.emails.send({
             from: `${data.siteName || 'Keystone Web Design'} <bookings@keystoneweb.ca>`,
             to: data.customerEmail,
-            subject: `Booking Cancelled — ${data.serviceName}`,
+            subject: bcSubject,
             html: `
                 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
-                    <div style="text-align:center;padding:24px 0;">
-                        <div style="width:48px;height:48px;background:#fee2e2;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">❌</div>
-                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">Booking Cancelled</h1>
-                        <p style="margin:0;color:#6b7280;font-size:14px;">${initiator} your appointment for ${data.serviceName}.</p>
-                    </div>
+                    ${buildEmailLogoHeader({ logoUrl: data.logoUrl, fallbackEmoji: '❌', fallbackBg: '#fee2e2', heading: bcHeading, subheading: bcSubheading })}
                     <div style="background:#f9fafb;border-radius:8px;padding:16px;">
                         <table style="width:100%;border-collapse:collapse;font-size:14px;">
                             <tr><td style="padding:6px 0;color:#6b7280;">Service</td><td style="padding:6px 0;text-align:right;font-weight:600;color:#111827;">${data.serviceName}</td></tr>
@@ -1533,7 +1566,7 @@ export async function sendBookingCancellationToCustomer(data: BookingCancellatio
                         </table>
                     </div>
                     ${reasonSection}
-                    <p style="margin-top:24px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
+                    ${buildEmailFooter(data.siteName, data.overrides?.footerText)}
                 </div>
             `,
         });
@@ -1603,6 +1636,8 @@ interface OrderCancellationData {
     customerEmail: string;
     cancellationReason?: string;
     siteName?: string;
+    logoUrl?: string;
+    overrides?: EmailOverrides;
 }
 
 /**
@@ -1632,17 +1667,17 @@ export async function sendOrderCancellationToCustomer(data: OrderCancellationDat
                </div>`
             : '';
 
+        const ocSubject = data.overrides?.subject || `Order Cancelled — ${refId}`;
+        const ocHeading = data.overrides?.heading || 'Order Cancelled';
+        const ocSubheading = data.overrides?.subheading || `Your order ${refId} has been cancelled.`;
+
         await resend.emails.send({
             from: `${data.siteName || 'Keystone Web Design'} <orders@keystoneweb.ca>`,
             to: data.customerEmail,
-            subject: `Order Cancelled — ${refId}`,
+            subject: ocSubject,
             html: `
                 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:500px;margin:0 auto;">
-                    <div style="text-align:center;padding:24px 0;">
-                        <div style="width:48px;height:48px;background:#fee2e2;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:24px;">❌</div>
-                        <h1 style="margin:12px 0 4px;font-size:22px;color:#111827;">Order Cancelled</h1>
-                        <p style="margin:0;color:#6b7280;font-size:14px;">Your order ${refId} has been cancelled.</p>
-                    </div>
+                    ${buildEmailLogoHeader({ logoUrl: data.logoUrl, fallbackEmoji: '❌', fallbackBg: '#fee2e2', heading: ocHeading, subheading: ocSubheading })}
                     <div style="background:#f9fafb;border-radius:8px;padding:16px;">
                         <table style="width:100%;border-collapse:collapse;">${itemsHtml}
                             <tr><td colspan="2" style="padding:8px 0 4px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:14px;">Total</td><td style="padding:8px 0 4px;border-top:1px solid #e5e7eb;text-align:right;font-weight:700;color:#111827;font-size:16px;">${total}</td></tr>
@@ -1651,7 +1686,7 @@ export async function sendOrderCancellationToCustomer(data: OrderCancellationDat
                     ${reasonSection}
                     ${refundSection}
                     <p style="margin-top:16px;font-size:12px;color:#9ca3af;text-align:center;">Ref: ${refId}</p>
-                    <p style="margin-top:8px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
+                    ${buildEmailFooter(data.siteName, data.overrides?.footerText)}
                 </div>`,
         });
         return { success: true };

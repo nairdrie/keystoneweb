@@ -110,15 +110,18 @@ export async function PUT(request: NextRequest) {
         return `${displayHour}:${mm.toString().padStart(2, '0')} ${period}`;
     };
 
-    // Fetch site name for customer-facing emails
+    // Fetch site name + logo for customer-facing emails
     let siteName: string | undefined;
-    if (existingBooking?.site_id) {
+    let manageSiteLogoUrl: string | undefined;
+    const manageSiteId = existingBooking?.site_id;
+    if (manageSiteId) {
         const { data: siteInfo } = await supabase
             .from('sites')
-            .select('site_slug')
-            .eq('id', existingBooking.site_id)
+            .select('site_slug, design_data')
+            .eq('id', manageSiteId)
             .single();
         siteName = siteInfo?.site_slug || undefined;
+        manageSiteLogoUrl = (siteInfo?.design_data as any)?.headerLogo || (siteInfo?.design_data as any)?.siteLogo || undefined;
     }
 
     // Send customer confirmation email when an e-transfer booking is confirmed
@@ -136,6 +139,13 @@ export async function PUT(request: NextRequest) {
                 .eq('site_id', existingBooking.site_id)
                 .single();
 
+            const { data: bpcCustomRows } = await supabase
+                .from('email_customizations')
+                .select('email_key, overrides')
+                .eq('site_id', existingBooking.site_id)
+                .eq('email_key', 'booking_payment_confirmed');
+            const bpcOverrides = bpcCustomRows?.[0]?.overrides;
+
             sendCustomerPaymentConfirmed({
                 serviceName: service.name,
                 selectedOptionName: existingBooking.selected_option_name || undefined,
@@ -152,6 +162,8 @@ export async function PUT(request: NextRequest) {
                 paymentMethod: existingBooking.payment_method,
                 confirmationMessage: settings?.confirmation_message,
                 siteName,
+                logoUrl: manageSiteLogoUrl,
+                overrides: bpcOverrides,
             }).catch(err => console.error('Customer payment confirmed email failed:', err));
         }
     }
@@ -168,6 +180,13 @@ export async function PUT(request: NextRequest) {
             .eq('site_id', existingBooking.site_id)
             .single();
 
+        const { data: mCancelCustomRows } = await supabase
+            .from('email_customizations')
+            .select('email_key, overrides')
+            .eq('site_id', existingBooking.site_id)
+            .eq('email_key', 'booking_cancelled');
+        const mCancelOverrides = mCancelCustomRows?.[0]?.overrides;
+
         const emailData = {
             serviceName: service?.name ?? 'Appointment',
             date: existingBooking.booking_date,
@@ -178,6 +197,8 @@ export async function PUT(request: NextRequest) {
             cancellationReason: cancellationReason || undefined,
             cancelledBy: 'merchant' as const,
             siteName,
+            logoUrl: manageSiteLogoUrl,
+            overrides: mCancelOverrides,
         };
 
         if (existingBooking.customer_email) {

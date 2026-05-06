@@ -293,13 +293,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });
           }
 
-          // Fetch site name for customer emails
+          // Fetch site name + logo for customer emails
           const { data: webhookSiteInfo } = await supabase
             .from('sites')
-            .select('title, site_slug')
+            .select('title, site_slug, design_data')
             .eq('id', siteId)
             .single();
           const webhookSiteName = webhookSiteInfo?.title || webhookSiteInfo?.site_slug || undefined;
+          const webhookLogoUrl: string | undefined = (webhookSiteInfo?.design_data as any)?.headerLogo || (webhookSiteInfo?.design_data as any)?.siteLogo || undefined;
 
           // Fetch ecommerce settings for notification email (fallback to booking_settings)
           const { data: ecomSettings } = await supabase
@@ -316,6 +317,13 @@ export async function POST(request: NextRequest) {
 
           const webhookPaymentConfig = ecomSettings || bookingSettings;
 
+          const { data: webhookCustomRows } = await supabase
+            .from('email_customizations')
+            .select('email_key, overrides')
+            .eq('site_id', siteId)
+            .eq('email_key', 'order_confirmed');
+          const webhookOverrides = webhookCustomRows?.[0]?.overrides;
+
           // Send emails
           const emailData = {
             orderId: order.id,
@@ -328,6 +336,8 @@ export async function POST(request: NextRequest) {
             shippingAddress: order.shipping_address,
             paymentMethod: 'stripe',
             siteName: webhookSiteName,
+            logoUrl: webhookLogoUrl,
+            overrides: webhookOverrides,
           };
 
           sendOrderConfirmation(emailData).catch(err => console.error('Stripe webhook customer email failed:', err));

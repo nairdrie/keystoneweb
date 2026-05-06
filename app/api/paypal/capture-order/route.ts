@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     const { data: order, error } = await supabase
       .from('orders')
       .select(
-        '*, sites!inner(paypal_merchant_id, id, title, site_slug, user_id)'
+        '*, sites!inner(paypal_merchant_id, id, title, site_slug, user_id, design_data)'
       )
       .eq('id', orderId)
       .single();
@@ -102,12 +102,20 @@ export async function POST(request: NextRequest) {
 
     // Confirmation emails (fire-and-forget, matches Stripe webhook behaviour)
     const siteName = order.sites?.title || order.sites?.site_slug || undefined;
+    const logoUrl: string | undefined = (order.sites?.design_data as any)?.headerLogo || (order.sites?.design_data as any)?.siteLogo || undefined;
 
     const { data: ecomSettings } = await supabase
       .from('ecommerce_settings')
       .select('notification_email')
       .eq('site_id', order.site_id)
       .single();
+
+    const { data: ppCustomRows } = await supabase
+      .from('email_customizations')
+      .select('email_key, overrides')
+      .eq('site_id', order.site_id)
+      .eq('email_key', 'order_confirmed');
+    const ppOverrides = ppCustomRows?.[0]?.overrides;
 
     const emailData = {
       orderId: order.id,
@@ -120,6 +128,8 @@ export async function POST(request: NextRequest) {
       shippingAddress: order.shipping_address,
       paymentMethod: 'paypal',
       siteName,
+      logoUrl,
+      overrides: ppOverrides,
     };
 
     sendOrderConfirmation(emailData as any).catch((err) =>

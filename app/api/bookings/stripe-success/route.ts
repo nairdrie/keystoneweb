@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     // Get site's connected Stripe account to verify the session
     const { data: site } = await createAdminClient()
         .from('sites')
-        .select('stripe_account_id, site_slug, published_domain, title')
+        .select('stripe_account_id, site_slug, published_domain, title, design_data')
         .eq('id', siteId)
         .single();
 
@@ -144,6 +144,14 @@ export async function GET(request: NextRequest) {
     };
 
     const siteName = site.site_slug || undefined;
+    const logoUrl: string | undefined = (site?.design_data as any)?.headerLogo || (site?.design_data as any)?.siteLogo || undefined;
+
+    const { data: stripeBookingCustomRows } = await createAdminClient()
+        .from('email_customizations')
+        .select('email_key, overrides')
+        .eq('site_id', siteId)
+        .eq('email_key', 'booking_confirmed');
+    const stripeBookingOverrides = stripeBookingCustomRows?.[0]?.overrides;
 
     const emailData = {
         serviceName: service.name,
@@ -162,6 +170,8 @@ export async function GET(request: NextRequest) {
         etransferEmail: undefined,
         confirmationMessage: settings?.confirmation_message,
         siteName,
+        logoUrl,
+        overrides: stripeBookingOverrides,
     };
 
     sendCustomerConfirmation(emailData).catch(err => console.error('Customer email failed:', err));
