@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
 import { useEditorContext, NavItem } from '@/lib/editor-context';
 import { useLangPrefix } from '@/lib/hooks/useLangPrefix';
@@ -45,6 +45,7 @@ function NavMenuView({ className = '', itemClassName = '', submenuClassName = ''
     const pages = context?.pages || [];
     const blocks = context?.blocks || [];
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const langPrefix = useLangPrefix();
     const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
     const [expandedMobile, setExpandedMobile] = useState<Set<string>>(new Set());
@@ -53,6 +54,14 @@ function NavMenuView({ className = '', itemClassName = '', submenuClassName = ''
 
     const isMobileLayout = className.includes('flex-col');
     const resolvedSubmenuClassName = submenuClassName || 'bg-white border border-gray-200 shadow-xl';
+
+    const buildItemQuery = (item: NavItem): string => {
+        if (!item.categoryFilter) return '';
+        const params = new URLSearchParams();
+        params.set('category', item.categoryFilter);
+        if (item.subcategoryFilter) params.set('subcategory', item.subcategoryFilter);
+        return `?${params.toString()}`;
+    };
 
     const resolveHref = (item: NavItem): string => {
         if (item.linkType === 'page') {
@@ -65,7 +74,8 @@ function NavMenuView({ className = '', itemClassName = '', submenuClassName = ''
             const target = pages.find(p => p.id === item.pageId);
             const slug = target?.slug || '';
             const base = slug === 'home' ? '/' : `/${slug}`;
-            return langPrefix ? `${langPrefix}${base === '/' ? '' : base}` : base;
+            const path = langPrefix ? `${langPrefix}${base === '/' ? '' : base}` : base;
+            return `${path}${buildItemQuery(item)}`;
         }
         if (item.linkType === 'section') {
             if (item.pageId) {
@@ -90,7 +100,12 @@ function NavMenuView({ className = '', itemClassName = '', submenuClassName = ''
         const slug = target?.slug || '';
         const base = slug === 'home' ? '/' : `/${slug}`;
         const itemPath = langPrefix ? `${langPrefix}${base === '/' ? '' : base}` : base;
-        return ((pathname || '') === '' ? '/' : pathname) === itemPath;
+        if ((((pathname || '') === '' ? '/' : pathname)) !== itemPath) return false;
+        const currentCategory = searchParams?.get('category') || '';
+        const currentSubcategory = searchParams?.get('subcategory') || '';
+        if ((item.categoryFilter || '') !== currentCategory) return false;
+        if ((item.subcategoryFilter || '') !== currentSubcategory) return false;
+        return true;
     };
 
     const toggleMobile = (id: string) => {

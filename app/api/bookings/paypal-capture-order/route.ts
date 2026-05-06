@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     const { data: site } = await admin
       .from('sites')
-      .select('paypal_merchant_id, site_slug, published_domain, title, user_id')
+      .select('paypal_merchant_id, site_slug, published_domain, title, user_id, design_data')
       .eq('id', siteId)
       .single();
 
@@ -197,6 +197,14 @@ export async function POST(request: NextRequest) {
       return `${displayHour}:${mm.toString().padStart(2, '0')} ${period}`;
     };
 
+    const ppBookingLogoUrl: string | undefined = (site?.design_data as any)?.headerLogo || (site?.design_data as any)?.siteLogo || undefined;
+    const { data: ppBookingCustomRows } = await admin
+      .from('email_customizations')
+      .select('email_key, overrides')
+      .eq('site_id', siteId)
+      .eq('email_key', 'booking_confirmed');
+    const ppBookingOverrides = ppBookingCustomRows?.[0]?.overrides;
+
     const emailData = {
       serviceName: service.name,
       selectedOptionName: selectedOptionName || undefined,
@@ -214,6 +222,8 @@ export async function POST(request: NextRequest) {
       etransferEmail: undefined,
       confirmationMessage: settings?.confirmation_message,
       siteName: site.title || site.site_slug || undefined,
+      logoUrl: ppBookingLogoUrl,
+      overrides: ppBookingOverrides,
     };
 
     sendCustomerConfirmation(emailData as any).catch((err) =>

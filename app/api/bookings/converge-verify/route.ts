@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
         const admin = createAdminClient();
         const { data: site } = await admin
             .from('sites')
-            .select('converge_merchant_id, converge_user_id, converge_pin, converge_demo_mode, site_slug, title, user_id')
+            .select('converge_merchant_id, converge_user_id, converge_pin, converge_demo_mode, site_slug, title, user_id, design_data')
             .eq('id', siteId)
             .single();
 
@@ -123,6 +123,14 @@ export async function POST(request: NextRequest) {
             return `${displayHour}:${mm.toString().padStart(2, '0')} ${period}`;
         };
 
+        const cvgBookingLogoUrl: string | undefined = (site?.design_data as any)?.headerLogo || (site?.design_data as any)?.siteLogo || undefined;
+        const { data: cvgBookingCustomRows } = await admin
+            .from('email_customizations')
+            .select('email_key, overrides')
+            .eq('site_id', siteId)
+            .eq('email_key', 'booking_confirmed');
+        const cvgBookingOverrides = cvgBookingCustomRows?.[0]?.overrides;
+
         const emailData = {
             serviceName: service.name,
             selectedOptionName: selectedOptionName || undefined,
@@ -134,6 +142,8 @@ export async function POST(request: NextRequest) {
             paymentMethod: 'converge' as const,
             confirmationMessage: settings?.confirmation_message,
             siteName: site.title || site.site_slug || undefined,
+            logoUrl: cvgBookingLogoUrl,
+            overrides: cvgBookingOverrides,
         };
 
         sendCustomerConfirmation(emailData as any).catch(e => console.error('Customer email failed:', e));

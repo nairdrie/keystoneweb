@@ -7,15 +7,17 @@ import ShippingPanel from '@/app/components/ecommerce/ShippingPanel';
 import OrdersPanel from '@/app/components/ecommerce/OrdersPanel';
 import LowStockPanel from '@/app/components/ecommerce/LowStockPanel';
 import SalesAnalyticsPanel from '@/app/components/ecommerce/SalesAnalyticsPanel';
+import AutomatedEmailsPanel from '@/app/components/ecommerce/AutomatedEmailsPanel';
 import { ProductManager } from '@/app/components/blocks/ProductGridBlock';
-import { ShoppingBag, Package, ClipboardList, CreditCard, Truck, BarChart3 } from 'lucide-react';
+import { ShoppingBag, Package, ClipboardList, CreditCard, Truck, BarChart3, Mail } from 'lucide-react';
 
-type TabId = 'analytics' | 'products' | 'orders' | 'payments' | 'shipping';
+type TabId = 'analytics' | 'products' | 'orders' | 'payments' | 'shipping' | 'emails';
 
 export default function AdminEcommercePage() {
   const { siteId, palette, siteBlockTypes } = useAdminContext();
   const [activeTab, setActiveTab] = useState<TabId>('products');
   const [shippingRequired, setShippingRequired] = useState(true);
+  const [siteLogoUrl, setSiteLogoUrl] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (!siteId) return;
@@ -25,6 +27,18 @@ export default function AdminEcommercePage() {
         if (data.settings?.shipping_required !== undefined) {
           setShippingRequired(data.settings.shipping_required);
         }
+      })
+      .catch(() => {});
+  }, [siteId]);
+
+  useEffect(() => {
+    if (!siteId) return;
+    fetch(`/api/sites?id=${siteId}`)
+      .then(r => r.json())
+      .then(data => {
+        const designData = data?.designData || {};
+        const logo = designData.headerLogo || designData.siteLogo;
+        if (logo) setSiteLogoUrl(logo);
       })
       .catch(() => {});
   }, [siteId]);
@@ -71,6 +85,7 @@ export default function AdminEcommercePage() {
     { id: 'orders', label: 'Orders', icon: ClipboardList },
     { id: 'payments', label: 'Payments', icon: CreditCard },
     { id: 'shipping', label: 'Shipping', icon: Truck },
+    { id: 'emails', label: 'Emails', icon: Mail },
   ];
 
   return (
@@ -121,6 +136,9 @@ export default function AdminEcommercePage() {
             shippingRequired={shippingRequired}
             onShippingRequiredChange={handleShippingRequiredChange}
           />
+        )}
+        {activeTab === 'emails' && (
+          <AutomatedEmailsPanel siteId={siteId} logoUrl={siteLogoUrl} />
         )}
       </div>
     </div>

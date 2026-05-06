@@ -1833,8 +1833,11 @@ export default function FloatingToolbar({
                     <Paintbrush className="w-3 h-3" />
                     Design
                   </span>
-                  <button
-                    onClick={() => {
+                  <a
+                    href={`/admin/analytics${currentSiteId ? `?siteId=${currentSiteId}` : ''}`}
+                    onClick={(e) => {
+                      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
+                      e.preventDefault();
                       const dest = `/admin/analytics${currentSiteId ? `?siteId=${currentSiteId}` : ''}`;
                       if (changes.length > 0) {
                         setAlertConfig({
@@ -1854,7 +1857,7 @@ export default function FloatingToolbar({
                   >
                     <LayoutDashboard className="w-3 h-3" />
                     Admin
-                  </button>
+                  </a>
                 </div>
               </div>
 
@@ -1947,8 +1950,11 @@ export default function FloatingToolbar({
                       <Paintbrush className="w-3 h-3" />
                       Design
                     </span>
-                    <button
-                      onClick={() => {
+                    <a
+                      href={`/admin/analytics${currentSiteId ? `?siteId=${currentSiteId}` : ''}`}
+                      onClick={(e) => {
+                        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
+                        e.preventDefault();
                         const dest = `/admin/analytics${currentSiteId ? `?siteId=${currentSiteId}` : ''}`;
                         if (changes.length > 0) {
                           setAlertConfig({
@@ -1968,7 +1974,7 @@ export default function FloatingToolbar({
                     >
                       <LayoutDashboard className="w-3 h-3" />
                       Admin
-                    </button>
+                    </a>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

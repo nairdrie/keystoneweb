@@ -8,14 +8,16 @@ import {
     ImageIcon, Upload, Download, Send, Search,
     ChevronLeft, ChevronRight, Tag, Pencil, Lock, Crown, Star,
     Square, CheckSquare, Minus, SlidersHorizontal,
+    FolderTree,
 } from 'lucide-react';
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
+import ProductCategoriesManager from './ProductCategoriesManager';
 import ProductDescriptionEditor from '../ProductDescriptionEditor';
 import EditableButton, { type ButtonIconData, type ButtonLinkData } from '@/app/components/EditableButton';
 import EditableText from '@/app/components/EditableText';
 import { stripHtml } from '@/lib/ecommerce/description';
 import { resolvePaletteColor } from '@/lib/palette-colors';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -91,6 +93,7 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
     const [publishing, setPublishing] = useState(false);
     const [showDraftModal, setShowDraftModal] = useState(false);
     const [showImportModal, setShowImportModal] = useState(false);
+    const [showCategoryManager, setShowCategoryManager] = useState(false);
     const [membershipEditProduct, setMembershipEditProduct] = useState<Product | null>(null);
     const modalBackdropDown = useRef(false);
 
@@ -389,6 +392,14 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                                     ))}
                                 </select>
                             )}
+                            <button
+                                onClick={() => setShowCategoryManager(true)}
+                                className="flex items-center gap-1 px-2 py-1.5 text-xs font-bold border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg transition-colors"
+                                title="Add, rename, or delete categories"
+                            >
+                                <FolderTree className="w-3.5 h-3.5" />
+                                Manage Categories
+                            </button>
                             <select
                                 value={filterStatus}
                                 onChange={e => handleFilterStatus(e.target.value)}
@@ -579,6 +590,13 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                         }}
                     />
                 )}
+
+                <ProductCategoriesManager
+                    siteId={siteId}
+                    isOpen={showCategoryManager}
+                    onClose={() => setShowCategoryManager(false)}
+                    onChanged={() => fetchProducts(currentPage, searchQuery, filterCategory, filterStatus)}
+                />
             </div>
         </section>
     );
@@ -1751,10 +1769,24 @@ function ProductGrid({
     const cart = useCart();
     const router = useRouter();
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const blockCategory: string = data?.categoryFilter || '';
     const blockSubcategory: string = data?.subcategoryFilter || '';
+
+    // Allow nav-menu links (and other deep links) to scope this block via
+    // ?category=…&subcategory=… query params. Block-level filters always win.
+    const queryCategory = searchParams?.get('category') || '';
+    const querySubcategory = searchParams?.get('subcategory') || '';
+
+    // Seed the sidebar selection from the URL on first render and whenever the
+    // query params change (e.g. user navigates between menu links on the same page).
+    useEffect(() => {
+        if (blockCategory) return; // block is locked, query params don't apply
+        setActiveCategory(queryCategory);
+        setActiveSubcategory(queryCategory ? querySubcategory : '');
+    }, [queryCategory, querySubcategory, blockCategory]);
     const featuredOnly: boolean = !!data?.featuredOnly;
     const showSeeMore: boolean = !!data?.showSeeMore;
     // Prefer EditableButton-style fields; fall back to legacy seeMoreLabel/seeMoreHref.
