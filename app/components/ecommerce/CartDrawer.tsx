@@ -8,6 +8,7 @@ import AddressAutocomplete from './AddressAutocomplete';
 import PayPalButton from './PayPalButton';
 import { COUNTRIES, REGIONS, getCountryName } from '@/lib/shipping-data';
 import ConvergeLightbox from './ConvergeLightbox';
+import CloverIframe from '../checkout/CloverIframe';
 
 interface PaymentMethods {
     etransfer?: boolean;
@@ -89,6 +90,13 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
     const [convergeDemoMode, setConvergeDemoMode] = useState(false);
     const [stepError, setStepError] = useState<string | null>(null);
     const [redirectingTo, setRedirectingTo] = useState<string | null>(null);
+    const [cloverChargeData, setCloverChargeData] = useState<{
+        orderId: string;
+        publicKey: string;
+        merchantId: string;
+        sandboxMode: boolean;
+        amountCents: number;
+    } | null>(null);
 
     const shippingRequired = ecomSettings?.shipping_required !== false;
 
@@ -503,20 +511,27 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
 
         if (step.processor === 'clover') {
             updateStepStatus(idx, 'processing');
-            setRedirectingTo('Clover');
-            const res = await fetch('/api/clover/session', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId: step.orderId }),
-            });
-            const data = await res.json();
-            if (data.href) {
-                window.location.href = data.href;
-            } else {
-                setRedirectingTo(null);
+            try {
+                const res = await fetch(`/api/clover/config?orderId=${step.orderId}`);
+                const data = await res.json();
+                if (!res.ok || !data.publicKey) {
+                    setSubmitting(false);
+                    updateStepStatus(idx, 'failed');
+                    setStepError(data.error || 'Failed to initialize Clover payment');
+                    return;
+                }
+                setCloverChargeData({
+                    orderId: step.orderId,
+                    publicKey: data.publicKey,
+                    merchantId: data.merchantId,
+                    sandboxMode: data.sandboxMode,
+                    amountCents: data.amountCents,
+                });
+                setSubmitting(false);
+            } catch (err: any) {
                 setSubmitting(false);
                 updateStepStatus(idx, 'failed');
-                setStepError(data.error || 'Failed to start Clover checkout');
+                setStepError(err.message || 'Clover error');
             }
             return;
         }
@@ -564,6 +579,19 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
             updateStepStatus(idx, 'failed');
             setStepError(err.message || 'Verification error');
         }
+    };
+
+    const handleCloverSuccess = () => {
+        const idx = currentStepIdx;
+        setCloverChargeData(null);
+        updateStepStatus(idx, 'completed');
+        setTimeout(() => advanceToNextStep(idx + 1), 300);
+    };
+
+    const handleCloverError = (message: string) => {
+        setCloverChargeData(null);
+        updateStepStatus(currentStepIdx, 'failed');
+        setStepError(message);
     };
 
     const handleRetryStep = () => {
@@ -659,6 +687,8 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
             setShippingError(null);
             setPendingOrderId(null);
             setPaypalError(null);
+            setCloverChargeData(null);
+            setStepError(null);
         }, 300);
     };
 
@@ -1135,6 +1165,24 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                                 <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
                                             )}
                                         </div>
+                                    ) : paymentSteps[currentStepIdx].processor === 'clover' && cloverChargeData ? (
+                                        <div>
+                                            <p className="text-sm text-slate-600 mb-3 text-center">
+                                                Paying <strong>{paymentSteps[currentStepIdx].vendorName}</strong>
+                                            </p>
+                                            <CloverIframe
+                                                {...cloverChargeData}
+                                                currency={cart.items[0]?.currency || 'USD'}
+                                                onSuccess={handleCloverSuccess}
+                                                onError={handleCloverError}
+                                                palette={palette}
+                                            />
+                                        </div>
+                                    ) : paymentSteps[currentStepIdx].processor === 'clover' ? (
+                                        <div className="flex items-center justify-center gap-2 text-slate-400 text-sm py-2">
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Loading payment form…
+                                        </div>
                                     ) : (
                                         <p className="text-sm text-slate-600 text-center">
                                             Redirecting to secure payment for <strong>{paymentSteps[currentStepIdx].vendorName}</strong>…
@@ -1277,7 +1325,24 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
 
                 {step === 'payment' && (
                     <div className="border-t border-slate-200 px-5 py-4 space-y-2">
-                        {selectedPayment === 'paypal' && paypalMerchantId ? (
+                        {selectedPayment === 'clover' && cloverChargeData ? (
+                            <CloverIframe
+                                {...cloverChargeData}
+                                currency={currency}
+                                onSuccess={() => {
+                                    setCloverChargeData(null);
+                                    cart.clearCart();
+                                    setStep('confirmation');
+                                    setSubmitting(false);
+                                }}
+                                onError={(msg) => {
+                                    setCloverChargeData(null);
+                                    setStepError(msg);
+                                    setSubmitting(false);
+                                }}
+                                palette={palette}
+                            />
+                        ) : selectedPayment === 'paypal' && paypalMerchantId ? (
                             <div>
                                 {canPlaceOrder && !(shippingRequired && (!!shippingError || noZonesConfigured)) ? (
                                     <PayPalButton
@@ -1319,9 +1384,17 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                 }
                             </button>
                         )}
-                        <button onClick={() => setStep(shippingRequired ? 'address' : 'cart')} className="w-full py-2 text-sm text-slate-500 hover:text-slate-700">
-                            &#8592; Back
-                        </button>
+                        {stepError && (
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                                <p className="text-sm text-red-700">{stepError}</p>
+                            </div>
+                        )}
+                        {!cloverChargeData && (
+                            <button onClick={() => setStep(shippingRequired ? 'address' : 'cart')} className="w-full py-2 text-sm text-slate-500 hover:text-slate-700">
+                                &#8592; Back
+                            </button>
+                        )}
                     </div>
                 )}
             </div>

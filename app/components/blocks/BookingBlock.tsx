@@ -11,6 +11,7 @@ import {
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
 import PayPalButton from '@/app/components/ecommerce/PayPalButton';
 import ConvergeLightbox from '@/app/components/ecommerce/ConvergeLightbox';
+import CloverIframe from '@/app/components/checkout/CloverIframe';
 import {
     DndContext, closestCenter, MouseSensor, TouchSensor, useSensor, useSensors,
     type DragEndEvent,
@@ -1391,6 +1392,13 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
     const [convergeDemoMode, setConvergeDemoMode] = useState(false);
     const [convergeToken, setConvergeToken] = useState<string | null>(null);
     const [cloverConnected, setCloverConnected] = useState(false);
+    const [cloverIframeData, setCloverIframeData] = useState<{
+        bookingId: string;
+        publicKey: string;
+        merchantId: string;
+        sandboxMode: boolean;
+        amountCents: number;
+    } | null>(null);
 
     // Customer form
     const [form, setForm] = useState({ name: '', email: '', phone: '', notes: '' });
@@ -1626,7 +1634,7 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
         if (!form.name.trim() || !validateEmail(form.email)) return;
         setSubmitting(true);
         try {
-            const res = await fetch('/api/bookings/clover-session', {
+            const res = await fetch('/api/bookings/clover-init', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1640,15 +1648,20 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                     customerEmail: form.email,
                     customerPhone: form.phone || undefined,
                     notes: form.notes || undefined,
-                    returnUrl: window.location.href,
                 }),
             });
             const data = await res.json();
-            if (data.href) {
-                window.location.href = data.href;
-                return;
+            if (data.bookingId) {
+                setCloverIframeData({
+                    bookingId: data.bookingId,
+                    publicKey: data.publicKey,
+                    merchantId: data.merchantId,
+                    sandboxMode: data.sandboxMode,
+                    amountCents: data.amountCents,
+                });
+            } else {
+                setPaypalError(data.error || 'Failed to initialize Clover payment');
             }
-            setPaypalError(data.error || 'Failed to start Clover checkout');
         } catch {
             setPaypalError('Failed to initiate Clover payment');
         }
@@ -2083,7 +2096,38 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                             );
                         })()}
 
-                        {chosenPaymentMethod === 'paypal' && paypalMerchantId ? (
+                        {chosenPaymentMethod === 'clover' && cloverIframeData ? (
+                            <div className="mt-6">
+                                <p className="text-sm text-slate-500 mb-3 text-center">Complete your payment below</p>
+                                <CloverIframe
+                                    {...cloverIframeData}
+                                    currency={selectedService?.currency || 'USD'}
+                                    onSuccess={() => {
+                                        setCloverIframeData(null);
+                                        setConfirmation({
+                                            booking: {
+                                                booking_date: selectedDate,
+                                                start_time: selectedSlot?.startTime,
+                                            },
+                                            service: selectedService,
+                                            confirmationMessage: settings?.confirmation_message || 'Your booking is confirmed.',
+                                        });
+                                        setStep('confirmation');
+                                    }}
+                                    onError={(msg) => {
+                                        setCloverIframeData(null);
+                                        setPaypalError(msg);
+                                    }}
+                                    palette={palette}
+                                />
+                                <button
+                                    onClick={() => setCloverIframeData(null)}
+                                    className="w-full mt-2 py-2 text-xs text-slate-400 hover:text-slate-600"
+                                >
+                                    ← Back
+                                </button>
+                            </div>
+                        ) : chosenPaymentMethod === 'paypal' && paypalMerchantId ? (
                             <div className="mt-6">
                                 {form.name.trim() && validateEmail(form.email) ? (
                                     <PayPalButton
@@ -2118,7 +2162,7 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                             </button>
                         )}
 
-                        {paypalError && chosenPaymentMethod !== 'paypal' && (
+                        {paypalError && chosenPaymentMethod !== 'paypal' && !cloverIframeData && (
                             <p className="text-xs text-red-600 mt-2 text-center">{paypalError}</p>
                         )}
 
