@@ -303,10 +303,11 @@ export async function POST(request: NextRequest) {
     // ── Send emails ──────────────────────────────────────────────────────────
     const { data: siteInfo } = await supabase
         .from('sites')
-        .select('site_slug')
+        .select('site_slug, design_data')
         .eq('id', siteId)
         .single();
     const siteName = siteInfo?.site_slug || undefined;
+    const logoUrl: string | undefined = (siteInfo?.design_data as any)?.headerLogo || (siteInfo?.design_data as any)?.siteLogo || undefined;
 
     const { data: ecomSettings } = await supabase
         .from('ecommerce_settings')
@@ -321,6 +322,15 @@ export async function POST(request: NextRequest) {
         .single() : { data: null };
 
     const paymentConfig = ecomSettings || bookingSettings;
+
+    const { data: emailCustomizationsRows } = await supabase
+        .from('email_customizations')
+        .select('email_key, overrides')
+        .eq('site_id', siteId);
+    const emailCustomizations: Record<string, any> = {};
+    for (const row of emailCustomizationsRows || []) {
+        emailCustomizations[row.email_key] = row.overrides;
+    }
 
     // Build per-item payment status for customer email
     // A "paymentConfirmed" item is one paid in-checkout (Stripe / Converge / Clover / self with Stripe/none).
@@ -360,6 +370,8 @@ export async function POST(request: NextRequest) {
         paymentMethod,
         etransferEmail: paymentConfig?.etransfer_email,
         siteName,
+        logoUrl,
+        overrides: emailCustomizations['mixed_order_confirmed'],
     }).catch(err => console.error('Mixed order customer email failed:', err));
 
     // Notify each external vendor (email-only flow — they collect payment themselves)
@@ -566,13 +578,14 @@ async function createSingleOrder(supabase: any, params: {
         }
     }
 
-    // Get site name for customer emails
+    // Get site name + logo for customer emails
     const { data: siteInfo } = await supabase
         .from('sites')
-        .select('site_slug')
+        .select('site_slug, design_data')
         .eq('id', siteId)
         .single();
     const siteName = siteInfo?.site_slug || undefined;
+    const logoUrl: string | undefined = (siteInfo?.design_data as any)?.headerLogo || (siteInfo?.design_data as any)?.siteLogo || undefined;
 
     // Get e-commerce settings for e-transfer email + notification email
     const { data: ecomSettings } = await supabase
@@ -588,6 +601,15 @@ async function createSingleOrder(supabase: any, params: {
         .single() : { data: null };
 
     const paymentConfig = ecomSettings || bookingSettings;
+
+    const { data: emailCustomizationsRows } = await supabase
+        .from('email_customizations')
+        .select('email_key, overrides')
+        .eq('site_id', siteId);
+    const emailCustomizations: Record<string, any> = {};
+    for (const row of emailCustomizationsRows || []) {
+        emailCustomizations[row.email_key] = row.overrides;
+    }
 
     // Build response
     const response: any = {
@@ -626,6 +648,8 @@ async function createSingleOrder(supabase: any, params: {
         paymentMethod,
         etransferEmail: paymentConfig?.etransfer_email,
         siteName,
+        logoUrl,
+        overrides: emailCustomizations['order_confirmed'],
         notes: notes || undefined,
         taxCents: taxCents || undefined,
         taxLabel: orderTaxLabel || undefined,
@@ -785,12 +809,20 @@ export async function PUT(request: NextRequest) {
     if (isBeingMarkedPaid) {
         const { data: paidSiteInfo } = await supabase
             .from('sites')
-            .select('title, site_slug')
+            .select('title, site_slug, design_data')
             .eq('id', existingOrder.site_id)
             .single();
         const paidSiteName = paidSiteInfo?.title || paidSiteInfo?.site_slug || undefined;
+        const paidLogoUrl: string | undefined = (paidSiteInfo?.design_data as any)?.headerLogo || (paidSiteInfo?.design_data as any)?.siteLogo || undefined;
 
-        const emailData = {
+        const { data: paidCustomRows } = await supabase
+            .from('email_customizations')
+            .select('email_key, overrides')
+            .eq('site_id', existingOrder.site_id)
+            .eq('email_key', 'order_payment_confirmed');
+        const paidOverrides = paidCustomRows?.[0]?.overrides;
+
+        sendOrderPaymentConfirmed({
             orderId: existingOrder.id,
             items: existingOrder.items,
             subtotalCents: existingOrder.subtotal_cents,
@@ -803,22 +835,29 @@ export async function PUT(request: NextRequest) {
             customerEmail: existingOrder.customer_email,
             paymentMethod: existingOrder.payment_method,
             siteName: paidSiteName,
-        };
-
-        sendOrderPaymentConfirmed(emailData)
-            .catch(err => console.error('Order payment confirmed email failed:', err));
+            logoUrl: paidLogoUrl,
+            overrides: paidOverrides,
+        }).catch(err => console.error('Order payment confirmed email failed:', err));
     }
 
     // Send shipped email (with tracking info) when status transitions to 'shipped'
     if (isBeingMarkedShipped) {
         const { data: shippedSiteInfo } = await supabase
             .from('sites')
-            .select('title, site_slug')
+            .select('title, site_slug, design_data')
             .eq('id', existingOrder.site_id)
             .single();
         const shippedSiteName = shippedSiteInfo?.title || shippedSiteInfo?.site_slug || undefined;
+        const shippedLogoUrl: string | undefined = (shippedSiteInfo?.design_data as any)?.headerLogo || (shippedSiteInfo?.design_data as any)?.siteLogo || undefined;
 
-        const emailData = {
+        const { data: shippedCustomRows } = await supabase
+            .from('email_customizations')
+            .select('email_key, overrides')
+            .eq('site_id', existingOrder.site_id)
+            .eq('email_key', 'order_shipped');
+        const shippedOverrides = shippedCustomRows?.[0]?.overrides;
+
+        sendOrderShipped({
             orderId: existingOrder.id,
             items: existingOrder.items,
             subtotalCents: existingOrder.subtotal_cents,
@@ -829,13 +868,12 @@ export async function PUT(request: NextRequest) {
             customerEmail: existingOrder.customer_email,
             paymentMethod: existingOrder.payment_method,
             siteName: shippedSiteName,
+            logoUrl: shippedLogoUrl,
+            overrides: shippedOverrides,
             shippingAddress: existingOrder.shipping_address || undefined,
             trackingNumber: data.tracking_number || undefined,
             trackingCarrier: data.tracking_carrier || undefined,
-        };
-
-        sendOrderShipped(emailData)
-            .catch(err => console.error('Order shipped email failed:', err));
+        }).catch(err => console.error('Order shipped email failed:', err));
     }
 
     // Restore inventory for cancelled orders
@@ -861,10 +899,11 @@ export async function PUT(request: NextRequest) {
     if (isBeingCancelled) {
         const { data: cancelSiteInfo } = await supabase
             .from('sites')
-            .select('title, site_slug')
+            .select('title, site_slug, design_data')
             .eq('id', existingOrder.site_id)
             .single();
         const cancelSiteName = cancelSiteInfo?.title || cancelSiteInfo?.site_slug || undefined;
+        const cancelLogoUrl: string | undefined = (cancelSiteInfo?.design_data as any)?.headerLogo || (cancelSiteInfo?.design_data as any)?.siteLogo || undefined;
 
         const { data: ecomSettings } = await supabase
             .from('ecommerce_settings')
@@ -878,6 +917,13 @@ export async function PUT(request: NextRequest) {
             .single() : { data: null };
         const notificationEmail = (ecomSettings || bookingSettings)?.notification_email;
 
+        const { data: cancelCustomRows } = await supabase
+            .from('email_customizations')
+            .select('email_key, overrides')
+            .eq('site_id', existingOrder.site_id)
+            .eq('email_key', 'order_cancelled');
+        const cancelOverrides = cancelCustomRows?.[0]?.overrides;
+
         const emailData = {
             orderId: existingOrder.id,
             items: existingOrder.items,
@@ -888,6 +934,8 @@ export async function PUT(request: NextRequest) {
             cancellationReason: cancellationReason || undefined,
             refunded,
             siteName: cancelSiteName,
+            logoUrl: cancelLogoUrl,
+            overrides: cancelOverrides,
         };
 
         sendOrderCancellationToCustomer(emailData)

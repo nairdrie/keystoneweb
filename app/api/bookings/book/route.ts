@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
     // Resolve site domain for cancel URL and dashboard link
     const { data: siteInfo } = await createAdminClient()
         .from('sites')
-        .select('custom_domain, published_domain, site_slug')
+        .select('custom_domain, published_domain, site_slug, design_data')
         .eq('id', siteId)
         .single();
 
@@ -184,6 +184,14 @@ export async function POST(request: NextRequest) {
         : undefined;
 
     const siteName = siteInfo?.site_slug || undefined;
+    const logoUrl: string | undefined = (siteInfo?.design_data as any)?.headerLogo || (siteInfo?.design_data as any)?.siteLogo || undefined;
+
+    const { data: bookingCustomRows } = await createAdminClient()
+        .from('email_customizations')
+        .select('email_key, overrides')
+        .eq('site_id', siteId)
+        .eq('email_key', 'booking_confirmed');
+    const bookingOverrides = bookingCustomRows?.[0]?.overrides;
 
     const emailData = {
         serviceName: service.name,
@@ -204,6 +212,8 @@ export async function POST(request: NextRequest) {
         cancelUrl,
         dashboardUrl,
         siteName,
+        logoUrl,
+        overrides: bookingOverrides,
     };
 
     // Fire-and-forget: don't block the response

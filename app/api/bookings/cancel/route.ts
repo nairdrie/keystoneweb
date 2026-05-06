@@ -132,6 +132,20 @@ export async function POST(request: NextRequest) {
         return `${displayHour}:${mm.toString().padStart(2, '0')} ${period}`;
     };
 
+    const { data: cancelSiteInfo } = await createAdminClient()
+        .from('sites')
+        .select('site_slug, design_data')
+        .eq('id', booking.site_id)
+        .single();
+    const cancelLogoUrl: string | undefined = (cancelSiteInfo?.design_data as any)?.headerLogo || (cancelSiteInfo?.design_data as any)?.siteLogo || undefined;
+
+    const { data: cancelCustomRows } = await createAdminClient()
+        .from('email_customizations')
+        .select('email_key, overrides')
+        .eq('site_id', booking.site_id)
+        .eq('email_key', 'booking_cancelled');
+    const cancelOverrides = cancelCustomRows?.[0]?.overrides;
+
     const emailData = {
         serviceName: service?.name ?? 'Appointment',
         date: booking.booking_date,
@@ -140,6 +154,9 @@ export async function POST(request: NextRequest) {
         customerEmail: booking.customer_email,
         bookingId: booking.id,
         cancelledBy: 'customer' as const,
+        siteName: cancelSiteInfo?.site_slug || undefined,
+        logoUrl: cancelLogoUrl,
+        overrides: cancelOverrides,
     };
 
     sendBookingCancellationToCustomer(emailData)
