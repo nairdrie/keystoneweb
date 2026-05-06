@@ -40,6 +40,7 @@ export default function CloverIframe({
     const [initialized, setInitialized] = useState(false);
     const [charging, setCharging] = useState(false);
     const [cardError, setCardError] = useState<string | null>(null);
+    const [googlePayAvailable, setGooglePayAvailable] = useState(false);
     const cloverRef = useRef<any>(null);
     const initAttempted = useRef(false);
 
@@ -89,14 +90,13 @@ export default function CloverIframe({
             cardCvv.mount('#clover-card-cvv');
             cardPostalCode.mount('#clover-card-postal');
 
-            // Listen for inline validation errors from any card field
             [cardNumber, cardDate, cardCvv, cardPostalCode].forEach(el => {
                 el.addEventListener('change', (ev: any) => {
                     setCardError(ev?.error?.message || null);
                 });
             });
 
-            // Google Pay button
+            // Google Pay button — only visible if Clover actually injects an iframe
             const paymentRequestButton = elements.create('PAYMENT_REQUEST_BUTTON', {
                 paymentReqData: {
                     total: { label: 'Order Total', amount: amountCents },
@@ -104,6 +104,20 @@ export default function CloverIframe({
                 },
             });
             paymentRequestButton.mount('#clover-payment-request');
+
+            // Watch for Clover injecting an iframe into the container.
+            // If nothing appears within ~2 s, Google Pay is unavailable in this browser.
+            const gpContainer = document.getElementById('clover-payment-request');
+            if (gpContainer) {
+                const observer = new MutationObserver(() => {
+                    if (gpContainer.querySelector('iframe')) {
+                        setGooglePayAvailable(true);
+                        observer.disconnect();
+                    }
+                });
+                observer.observe(gpContainer, { childList: true, subtree: true });
+                setTimeout(() => observer.disconnect(), 2500);
+            }
 
             paymentRequestButton.addEventListener('paymentMethod', async (tokenData: any) => {
                 if (!tokenData?.token) return;
@@ -167,7 +181,7 @@ export default function CloverIframe({
 
     return (
         <div className="space-y-3">
-            {/* Loading skeleton shown until SDK initializes */}
+            {/* Loading skeleton */}
             {!initialized && (
                 <div className="flex items-center justify-center py-6 gap-2 text-slate-400 text-sm">
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -176,23 +190,29 @@ export default function CloverIframe({
             )}
 
             <div className={initialized ? 'block' : 'invisible h-0 overflow-hidden'}>
-                {/* Google Pay button */}
-                <div id="clover-payment-request" className="min-h-[44px]" />
+                {/* Google Pay button — hidden until Clover confirms it's available */}
+                <div
+                    id="clover-payment-request"
+                    className={googlePayAvailable ? 'mb-3' : 'h-0 overflow-hidden'}
+                />
 
-                {/* Divider */}
-                <div className="flex items-center gap-3 my-3">
-                    <div className="flex-1 h-px bg-slate-200" />
-                    <span className="text-xs text-slate-400">or pay with card</span>
-                    <div className="flex-1 h-px bg-slate-200" />
-                </div>
+                {/* Divider — only shown when Google Pay rendered */}
+                {googlePayAvailable && (
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="flex-1 h-px bg-slate-200" />
+                        <span className="text-xs text-slate-400">or pay with card</span>
+                        <div className="flex-1 h-px bg-slate-200" />
+                    </div>
+                )}
 
                 {/* Card form */}
-                <form onSubmit={handleCardSubmit} className="space-y-3">
+                <form onSubmit={handleCardSubmit} className="space-y-2.5">
                     <div>
                         <label className="text-xs font-medium text-slate-600 block mb-1">Card Number</label>
+                        {/* No padding — Clover's iframe fills the container itself */}
                         <div
                             id="clover-card-number"
-                            className="border border-slate-300 rounded-lg px-3 py-2.5 min-h-[42px] bg-white"
+                            className="border border-slate-300 rounded-lg h-10 bg-white overflow-hidden"
                         />
                     </div>
 
@@ -201,23 +221,23 @@ export default function CloverIframe({
                             <label className="text-xs font-medium text-slate-600 block mb-1">Expiry</label>
                             <div
                                 id="clover-card-date"
-                                className="border border-slate-300 rounded-lg px-3 py-2.5 min-h-[42px] bg-white"
+                                className="border border-slate-300 rounded-lg h-10 bg-white overflow-hidden"
                             />
                         </div>
                         <div className="flex-1">
                             <label className="text-xs font-medium text-slate-600 block mb-1">CVV</label>
                             <div
                                 id="clover-card-cvv"
-                                className="border border-slate-300 rounded-lg px-3 py-2.5 min-h-[42px] bg-white"
+                                className="border border-slate-300 rounded-lg h-10 bg-white overflow-hidden"
                             />
                         </div>
                     </div>
 
-                    <div className="w-40">
+                    <div className="w-36">
                         <label className="text-xs font-medium text-slate-600 block mb-1">Postal / ZIP</label>
                         <div
                             id="clover-card-postal"
-                            className="border border-slate-300 rounded-lg px-3 py-2.5 min-h-[42px] bg-white"
+                            className="border border-slate-300 rounded-lg h-10 bg-white overflow-hidden"
                         />
                     </div>
 
