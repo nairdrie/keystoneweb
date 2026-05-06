@@ -6,6 +6,8 @@ import { useEditorContext } from '@/lib/editor-context';
 import { CalendarDays, ExternalLink, ArrowDownUp, Eye, EyeOff } from 'lucide-react';
 import EditableText from '../EditableText';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import UnsplashAttributionCaption from '../UnsplashAttributionCaption';
+import type { UnsplashAttribution } from '@/lib/unsplash/types';
 
 interface Event {
     id: string;
@@ -14,6 +16,7 @@ interface Event {
     event_date: string;
     date_display: string;
     image_url: string | null;
+    image_attribution: UnsplashAttribution | null;
     event_url: string | null;
 }
 
@@ -197,12 +200,13 @@ function EventCard({ event, pPrimary, pAccent }: { event: Event; pPrimary: strin
     const inner = (
         <div className="group flex flex-col rounded-2xl overflow-hidden border border-slate-200 bg-white hover:shadow-lg transition-shadow h-full">
             {event.image_url ? (
-                <div className="aspect-[16/9] overflow-hidden bg-slate-100 flex-shrink-0">
+                <div className="relative aspect-[16/9] overflow-hidden bg-slate-100 flex-shrink-0">
                     <img
                         src={event.image_url}
                         alt={event.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
+                    <UnsplashAttributionCaption attribution={event.image_attribution} imageUrl={event.image_url} />
                 </div>
             ) : (
                 <div className="aspect-[16/9] flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: pAccent }}>

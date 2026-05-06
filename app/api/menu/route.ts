@@ -321,7 +321,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true });
   }
 
-  const { siteId, menu_section, menu_section_order, name, description, price, category, category_order, image_url, is_available, is_featured, icon_tags } = body;
+  const { siteId, menu_section, menu_section_order, name, description, price, category, category_order, image_url, image_attribution, is_available, is_featured, icon_tags } = body;
   if (!siteId || !name) return NextResponse.json({ error: 'Missing siteId or name' }, { status: 400 });
 
   const { data: site } = await supabase.from('sites').select('user_id').eq('id', siteId).single();
@@ -392,6 +392,7 @@ export async function POST(request: NextRequest) {
       category: categoryName,
       category_order: categoryOrder,
       image_url: image_url || null,
+      image_attribution: image_attribution ?? null,
       is_available: is_available !== false,
       is_featured: is_featured === true,
       icon_tags: sanitizeMenuIconTags(icon_tags),
@@ -412,13 +413,13 @@ export async function PUT(request: NextRequest) {
   if (authErr || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
-  const { id, siteId, menu_section, menu_section_order, name, description, price, category, category_order, image_url, is_available, is_featured, icon_tags, sort_order } = body;
+  const { id, siteId, menu_section, menu_section_order, name, description, price, category, category_order, image_url, image_attribution, is_available, is_featured, icon_tags, sort_order } = body;
   if (!id || !siteId) return NextResponse.json({ error: 'Missing id or siteId' }, { status: 400 });
 
   const { data: site } = await supabase.from('sites').select('user_id').eq('id', siteId).single();
   if (!site || site.user_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  const updates: Record<string, string | number | boolean | null | string[]> = {};
+  const updates: Record<string, unknown> = {};
   if (menu_section !== undefined) {
     const sectionName = menu_section || 'Main Menu';
     updates.menu_section = sectionName;
@@ -482,6 +483,7 @@ export async function PUT(request: NextRequest) {
   }
   if (category_order !== undefined) updates.category_order = category_order;
   if (image_url !== undefined) updates.image_url = image_url || null;
+  if (image_attribution !== undefined) updates.image_attribution = image_attribution ?? null;
   if (is_available !== undefined) updates.is_available = is_available;
   if (is_featured !== undefined) updates.is_featured = is_featured;
   if (icon_tags !== undefined) updates.icon_tags = sanitizeMenuIconTags(icon_tags);

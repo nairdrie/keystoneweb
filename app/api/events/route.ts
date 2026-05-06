@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const body = await request.json();
-  const { siteId, title, description, event_date, date_display, image_url, event_url } = body;
+  const { siteId, title, description, event_date, date_display, image_url, image_attribution, event_url } = body;
 
   if (!siteId || !title || !event_date || !date_display) {
     return NextResponse.json({ error: 'Missing required fields: siteId, title, event_date, date_display' }, { status: 400 });
@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
       event_date,
       date_display,
       image_url: image_url || null,
+      image_attribution: image_attribution ?? null,
       event_url: event_url || null,
     })
     .select()
@@ -119,7 +120,7 @@ export async function PATCH(request: NextRequest) {
   const auth = await getAuthAndSite(supabase, siteId);
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const allowed = ['title', 'description', 'event_date', 'date_display', 'image_url', 'event_url', 'sort_order'];
+  const allowed = ['title', 'description', 'event_date', 'date_display', 'image_url', 'image_attribution', 'event_url', 'sort_order'];
   const updates: Record<string, any> = { updated_at: new Date().toISOString() };
   for (const key of allowed) {
     if (key in fields) updates[key] = fields[key];

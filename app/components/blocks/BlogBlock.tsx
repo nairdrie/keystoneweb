@@ -8,6 +8,8 @@ import {
     Newspaper, Loader2, ArrowLeft,
     Calendar, User,
 } from 'lucide-react';
+import UnsplashAttributionCaption from '@/app/components/UnsplashAttributionCaption';
+import type { UnsplashAttribution } from '@/lib/unsplash/types';
 
 // Editor (BlogEditorPanel + post manager + tiptap rich-text) lazy-loads only
 // when the user is editing. The public bundle therefore avoids @tiptap/* and
@@ -21,6 +23,7 @@ interface BlogPost {
     excerpt: string | null;
     content: string | null;
     cover_image: string | null;
+    cover_image_attribution: UnsplashAttribution | null;
     author: string | null;
     tags: string[];
     is_published: boolean;
@@ -166,9 +169,12 @@ function GridLayout({ posts, onOpen, pSecondary, opts }: { posts: BlogPost[]; on
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {posts.map(post => (
                 <a key={post.id} href={`/blog/${post.slug}`} onClick={(e) => { e.preventDefault(); onOpen(post); }} className="group cursor-pointer rounded-2xl border border-slate-100 overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1 bg-white block">
-                    <div className="aspect-[16/9] bg-slate-50 overflow-hidden">
+                    <div className="relative aspect-[16/9] bg-slate-50 overflow-hidden">
                         {post.cover_image ? (
-                            <img src={post.cover_image} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                            <>
+                                <img src={post.cover_image} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                                <UnsplashAttributionCaption attribution={post.cover_image_attribution} imageUrl={post.cover_image} />
+                            </>
                         ) : (
                             <div className="w-full h-full flex items-center justify-center"><Newspaper className="w-10 h-10 text-slate-200" /></div>
                         )}
@@ -197,8 +203,9 @@ function ListLayout({ posts, onOpen, pSecondary, opts }: { posts: BlogPost[]; on
             {posts.map(post => (
                 <a key={post.id} href={`/blog/${post.slug}`} onClick={(e) => { e.preventDefault(); onOpen(post); }} className="group cursor-pointer flex gap-5 rounded-2xl border border-slate-100 overflow-hidden hover:shadow-lg transition-all bg-white p-4 block">
                     {post.cover_image && (
-                        <div className="w-36 h-28 flex-shrink-0 rounded-xl overflow-hidden bg-slate-50">
+                        <div className="relative w-36 h-28 flex-shrink-0 rounded-xl overflow-hidden bg-slate-50">
                             <img src={post.cover_image} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                            <UnsplashAttributionCaption attribution={post.cover_image_attribution} imageUrl={post.cover_image} />
                         </div>
                     )}
                     <div className="flex-1 min-w-0 py-1">
@@ -229,9 +236,12 @@ function MagazineLayout({ posts, onOpen, pSecondary, opts }: { posts: BlogPost[]
         <div className="space-y-6">
             {featured && (
                 <a href={`/blog/${featured.slug}`} onClick={(e) => { e.preventDefault(); onOpen(featured); }} className="group cursor-pointer grid md:grid-cols-2 gap-0 rounded-2xl overflow-hidden border border-slate-100 hover:shadow-xl transition-all bg-white block">
-                    <div className="aspect-[4/3] md:aspect-auto bg-slate-50 overflow-hidden">
+                    <div className="relative aspect-[4/3] md:aspect-auto bg-slate-50 overflow-hidden">
                         {featured.cover_image ? (
-                            <img src={featured.cover_image} alt={featured.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                            <>
+                                <img src={featured.cover_image} alt={featured.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                                <UnsplashAttributionCaption attribution={featured.cover_image_attribution} imageUrl={featured.cover_image} />
+                            </>
                         ) : (
                             <div className="w-full h-full flex items-center justify-center min-h-[240px]"><Newspaper className="w-14 h-14 text-slate-200" /></div>
                         )}
@@ -255,9 +265,12 @@ function MagazineLayout({ posts, onOpen, pSecondary, opts }: { posts: BlogPost[]
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                     {rest.map(post => (
                         <a key={post.id} href={`/blog/${post.slug}`} onClick={(e) => { e.preventDefault(); onOpen(post); }} className="group cursor-pointer rounded-2xl border border-slate-100 overflow-hidden hover:shadow-lg transition-all bg-white block">
-                            <div className="aspect-[16/9] bg-slate-50 overflow-hidden">
+                            <div className="relative aspect-[16/9] bg-slate-50 overflow-hidden">
                                 {post.cover_image ? (
-                                    <img src={post.cover_image} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                                    <>
+                                        <img src={post.cover_image} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                                        <UnsplashAttributionCaption attribution={post.cover_image_attribution} imageUrl={post.cover_image} />
+                                    </>
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center"><Newspaper className="w-8 h-8 text-slate-200" /></div>
                                 )}
@@ -289,8 +302,9 @@ function PostDetail({ post, onBack, pPrimary, pSecondary }: { post: BlogPost; on
                     <ArrowLeft className="w-4 h-4" /> Back to all posts
                 </button>
                 {post.cover_image && (
-                    <div className="w-full aspect-[21/9] rounded-2xl overflow-hidden mb-10">
+                    <div className="relative w-full aspect-[21/9] rounded-2xl overflow-hidden mb-10">
                         <img src={post.cover_image} alt={post.title} className="w-full h-full object-cover" loading="eager" fetchPriority="high" />
+                        <UnsplashAttributionCaption attribution={post.cover_image_attribution} imageUrl={post.cover_image} />
                     </div>
                 )}
                 {post.tags.length > 0 && (

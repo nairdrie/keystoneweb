@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Image as ImageIcon, Pencil } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import ImageEditorModal, { ImageSettings, UnsplashAttribution } from './ImageEditorModal';
+import UnsplashAttributionCaption from './UnsplashAttributionCaption';
 
 interface EditableImageProps {
   contentKey: string;
@@ -103,6 +104,9 @@ export default function EditableImage({
           fetchPriority={priority ? 'high' : 'auto'}
           decoding={priority ? 'sync' : 'async'}
         />
+        {allowUnsplash && showAttribution && (
+          <UnsplashAttributionCaption attribution={attribution} imageUrl={previewUrl} />
+        )}
       </div>
     );
   }
@@ -130,30 +134,8 @@ export default function EditableImage({
               </span>
             )}
           </div>
-          {/* Unsplash attribution */}
-          {allowUnsplash && showAttribution && attribution && (
-            <div className="absolute bottom-1 right-1 z-30 max-w-[calc(100%-0.5rem)] rounded bg-black/70 px-2 py-1 text-right text-[10px] leading-tight text-white opacity-0 shadow transition-opacity group-hover:opacity-100">
-              Photo by{' '}
-              <a
-                href={attribution.photographerUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {attribution.photographerName}
-              </a>
-              {' on '}
-              <a
-                href={attribution.unsplashUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-                onClick={(e) => e.stopPropagation()}
-              >
-                Unsplash
-              </a>
-            </div>
+          {allowUnsplash && showAttribution && (
+            <UnsplashAttributionCaption attribution={attribution} imageUrl={previewUrl} />
           )}
         </div>
       ) : fallback ? (

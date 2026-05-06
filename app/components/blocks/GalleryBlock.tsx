@@ -7,6 +7,7 @@ import EditableButton from '../EditableButton';
 import { useEditorContext } from '@/lib/editor-context';
 import { X, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import UnsplashAttributionCaption from '../UnsplashAttributionCaption';
 
 interface GalleryBlockProps {
     id: string;
@@ -362,11 +363,17 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                         className="flex-1 flex items-center justify-center w-full min-h-0"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <img
-                            src={images[lightboxIndex]}
-                            alt={`Gallery image ${lightboxIndex + 1}`}
-                            className="max-w-full max-h-full object-contain rounded-lg"
-                        />
+                        <div className="relative max-w-full max-h-full">
+                            <img
+                                src={images[lightboxIndex]}
+                                alt={`Gallery image ${lightboxIndex + 1}`}
+                                className="max-w-full max-h-full object-contain rounded-lg"
+                            />
+                            <UnsplashAttributionCaption
+                                attribution={data[`gallery_image_${lightboxIndex}__attribution`]}
+                                imageUrl={images[lightboxIndex]}
+                            />
+                        </div>
                     </div>
 
                     {showLightboxThumbs && images.length > 1 && (

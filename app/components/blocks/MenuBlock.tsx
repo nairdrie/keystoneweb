@@ -7,6 +7,8 @@ import { useEditorContext } from '@/lib/editor-context';
 import EditableText from '../EditableText';
 import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import UnsplashAttributionCaption from '../UnsplashAttributionCaption';
+import type { UnsplashAttribution } from '@/lib/unsplash/types';
 import {
   Plus, Trash2, Pencil, Check, X, Upload, Loader2,
   UtensilsCrossed, ExternalLink, Image as ImageIcon,
@@ -28,6 +30,7 @@ interface MenuItem {
   category: string;
   category_order: number | null;
   image_url: string | null;
+  image_attribution?: UnsplashAttribution | null;
   is_available: boolean;
   is_featured: boolean;
   icon_tags?: string[] | null;
@@ -909,7 +912,10 @@ function ListItem({ item, palette, iconOptions, showPrices, showDescriptions, sh
     <Reveal>
       <MenuItemFrame item={item} onSelect={onSelect} className="flex w-full gap-4 rounded-lg border-b py-4 last:border-b-0" style={{ borderColor: `${pPrimary}08` }}>
         {showImages && item.image_url && (
-          <img src={item.image_url} alt={item.name} className="w-16 h-16 object-cover rounded-lg shrink-0" />
+          <div className="relative w-16 h-16 shrink-0">
+            <img src={item.image_url} alt={item.name} className="w-full h-full object-cover rounded-lg" />
+            <UnsplashAttributionCaption attribution={item.image_attribution} imageUrl={item.image_url} />
+          </div>
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline justify-between gap-3">
@@ -939,8 +945,9 @@ function GridItem({ item, palette, iconOptions, showPrices, showDescriptions, sh
     <Reveal>
       <MenuItemFrame item={item} onSelect={onSelect} className="block w-full overflow-hidden rounded-xl border" style={{ backgroundColor: pAccent, borderColor: `${pPrimary}10` }}>
         {showImages && item.image_url && (
-          <div className="aspect-video w-full overflow-hidden">
+          <div className="relative aspect-video w-full overflow-hidden">
             <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+            <UnsplashAttributionCaption attribution={item.image_attribution} imageUrl={item.image_url} />
           </div>
         )}
         <div className="p-4">
@@ -970,7 +977,10 @@ function CardItem({ item, palette, iconOptions, showPrices, showDescriptions, sh
     <Reveal>
       <MenuItemFrame item={item} onSelect={onSelect} className="flex w-full gap-4 rounded-xl border bg-white p-4" style={{ borderColor: `${pPrimary}10` }}>
         {showImages && item.image_url ? (
-          <img src={item.image_url} alt={item.name} className="w-24 h-24 object-cover rounded-lg shrink-0" />
+          <div className="relative w-24 h-24 shrink-0">
+            <img src={item.image_url} alt={item.name} className="w-full h-full object-cover rounded-lg" />
+            <UnsplashAttributionCaption attribution={item.image_attribution} imageUrl={item.image_url} />
+          </div>
         ) : showImages ? (
           <div className="w-24 h-24 rounded-lg shrink-0 flex items-center justify-center" style={{ backgroundColor: `${pSecondary}10` }}>
             <UtensilsCrossed className="w-8 h-8 opacity-20" style={{ color: pSecondary }} />
@@ -1106,13 +1116,16 @@ function MenuItemDetailViewer({
         </button>
 
         {hasPhotoArea && (
-          <div className={`flex min-h-0 items-center justify-center bg-slate-950 ${hasCaption ? 'h-[min(62vh,680px)]' : 'h-[min(88vh,860px)]'}`}>
+          <div className={`relative flex min-h-0 items-center justify-center bg-slate-950 ${hasCaption ? 'h-[min(62vh,680px)]' : 'h-[min(88vh,860px)]'}`}>
             {item.image_url ? (
-              <img
-                src={item.image_url}
-                alt={item.name}
-                className={imageFitClass[imageFit]}
-              />
+              <>
+                <img
+                  src={item.image_url}
+                  alt={item.name}
+                  className={imageFitClass[imageFit]}
+                />
+                <UnsplashAttributionCaption attribution={item.image_attribution} imageUrl={item.image_url} />
+              </>
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-slate-900">
                 <div className="flex h-24 w-24 items-center justify-center rounded-full bg-white/10">

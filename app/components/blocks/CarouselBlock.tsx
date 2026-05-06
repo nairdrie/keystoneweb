@@ -14,7 +14,9 @@ import {
 } from 'lucide-react';
 import EditableText from '../EditableText';
 import EditableImage from '../EditableImage';
+import UnsplashAttributionCaption from '../UnsplashAttributionCaption';
 import type { ImageSettings } from '../ImageEditorModal';
+import type { UnsplashAttribution } from '@/lib/unsplash/types';
 import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 
@@ -102,6 +104,7 @@ const DEFAULT_ITEMS = [
 interface SlideItem {
   mediaType: 'image' | 'icon';
   image?: string;
+  attribution?: UnsplashAttribution | null;
   icon?: string;
   title: string;
   text: string;
@@ -297,7 +300,10 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
       <div className="bg-white rounded-2xl p-7 border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full">
         <div className="mb-5 flex-shrink-0">
           {item.mediaType === 'image' && item.image ? (
-            <img src={item.image} alt={item.title} className="w-full h-44 object-cover rounded-xl" />
+            <div className="relative">
+              <img src={item.image} alt={item.title} className="w-full h-44 object-cover rounded-xl" />
+              <UnsplashAttributionCaption attribution={item.attribution} imageUrl={item.image} />
+            </div>
           ) : item.mediaType === 'image' ? (
             <div className="w-full h-44 rounded-xl bg-slate-100 flex items-center justify-center">
               <Camera className="w-10 h-10 text-slate-300" />
@@ -355,7 +361,12 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                         <EditableImage
                           contentKey={`carousel_${idx}_image`} imageUrl={item.image}
                           initialSettings={getImageSettings(`carousel_${idx}_image__settings`)}
-                          isEditMode={isEditMode} onSave={(_, v) => updateItem(idx, 'image', v)}
+                          initialAttribution={item.attribution ?? undefined}
+                          isEditMode={isEditMode}
+                          onSave={(k, v) => {
+                            if (k === `carousel_${idx}_image`) updateItem(idx, 'image', v);
+                            else if (k === `carousel_${idx}_image__attribution`) updateItem(idx, 'attribution', v);
+                          }}
                           className="w-full h-44 object-cover rounded-xl"
                         />
                       ) : (
@@ -448,8 +459,12 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                         <EditableImage
                           contentKey={`carousel_${idx}_image`} imageUrl={item.image}
                           initialSettings={getImageSettings(`carousel_${idx}_image__settings`)}
+                          initialAttribution={item.attribution ?? undefined}
                           isEditMode={isEditMode && idx === current}
-                          onSave={(_, v) => updateItem(idx, 'image', v)}
+                          onSave={(k, v) => {
+                            if (k === `carousel_${idx}_image`) updateItem(idx, 'image', v);
+                            else if (k === `carousel_${idx}_image__attribution`) updateItem(idx, 'attribution', v);
+                          }}
                           className="w-full h-80 object-cover"
                         />
                       ) : (
@@ -545,11 +560,19 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                         <EditableImage
                           contentKey={`carousel_${idx}_image`} imageUrl={item.image}
                           initialSettings={getImageSettings(`carousel_${idx}_image__settings`)}
-                          isEditMode={isEditMode} onSave={(_, v) => updateItem(idx, 'image', v)}
+                          initialAttribution={item.attribution ?? undefined}
+                          isEditMode={isEditMode}
+                          onSave={(k, v) => {
+                            if (k === `carousel_${idx}_image`) updateItem(idx, 'image', v);
+                            else if (k === `carousel_${idx}_image__attribution`) updateItem(idx, 'attribution', v);
+                          }}
                           className="w-48 h-48 object-cover rounded-2xl mx-auto"
                         />
                       ) : item.image ? (
-                        <img src={item.image} alt={item.title} className="w-48 h-48 object-cover rounded-2xl mx-auto" />
+                        <div className="relative w-48 h-48 mx-auto">
+                          <img src={item.image} alt={item.title} className="w-full h-full object-cover rounded-2xl" />
+                          <UnsplashAttributionCaption attribution={item.attribution} imageUrl={item.image} />
+                        </div>
                       ) : null
                     ) : (
                       renderIconDisplay(item, idx, 'lg')

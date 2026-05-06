@@ -3,6 +3,9 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Upload, Search, Image as ImageIcon, Loader2, Settings, Camera, FileImage, Check } from 'lucide-react';
+import type { UnsplashAttribution } from '@/lib/unsplash/types';
+
+export type { UnsplashAttribution };
 
 interface UnsplashPhoto {
     id: string;
@@ -23,12 +26,6 @@ export interface ImageSettings {
     objectFit?: 'cover' | 'contain' | 'fill';
     borderRadius?: number;
     altText?: string;
-}
-
-export interface UnsplashAttribution {
-    photographerName: string;
-    photographerUrl: string;
-    unsplashUrl: string;
 }
 
 interface ImageEditorModalProps {
@@ -203,36 +200,24 @@ export default function ImageEditorModal({
         }
     };
 
-    // Handle Unsplash selection
+    // Handle Unsplash selection. Per Unsplash API Technical Guideline #1, we
+    // hotlink the photo directly from images.unsplash.com rather than
+    // re-uploading to our own storage. Attribution from the API response is
+    // preserved alongside the URL so the renderer can credit the photographer
+    // (API Terms §9). The download-location ping satisfies the "treat
+    // selection as a download" requirement (API Terms §6) regardless of
+    // hotlinking.
     const handleUnsplashSelect = async (photo: UnsplashPhoto) => {
         try {
-            setIsUploading(true);
             setError(null);
 
-            // 1. Trigger download tracking (best-effort)
             fetch('/api/unsplash/download', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ downloadEndpoint: photo.downloadEndpoint }),
             }).catch(() => { }); // Best effort
 
-            // 2. Re-upload to Supabase via URL
-            const formData = new FormData();
-            formData.append('imageUrl', photo.urls.regular);
-            formData.append('siteId', siteId);
-
-            const res = await fetch('/api/sites/upload-image', {
-                method: 'POST',
-                body: formData,
-                credentials: 'include',
-            });
-
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.error || 'Failed to upload image');
-            }
-
-            const { imageUrl } = await res.json();
+            const imageUrl = photo.urls.regular;
 
             const attribution: UnsplashAttribution = {
                 photographerName: photo.photographer.name,
@@ -246,8 +231,6 @@ export default function ImageEditorModal({
             onClose();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to use image');
-        } finally {
-            setIsUploading(false);
         }
     };
 

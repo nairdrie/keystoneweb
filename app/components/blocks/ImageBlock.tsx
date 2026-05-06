@@ -19,6 +19,7 @@ export default function ImageBlock({ block, palette }: { block: BlockData, palet
                 <EditableImage
                     contentKey="image"
                     initialSettings={block.data.image__settings}
+                    initialAttribution={block.data.image__attribution}
                     imageUrl={imageUrl}
                     isEditMode={isEditMode}
                     onSave={(key, val) => updateData(key, val)}

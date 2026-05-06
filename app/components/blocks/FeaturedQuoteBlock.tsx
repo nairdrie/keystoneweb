@@ -165,6 +165,7 @@ function EssayVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
                             <EditableImage
                                 contentKey="personImage"
                                 initialSettings={data.personImage__settings}
+                                initialAttribution={data.personImage__attribution}
                                 imageUrl={data.personImage}
                                 isEditMode={isEditMode}
                                 onSave={(key, value) => updateContent(key, value)}
@@ -276,6 +277,7 @@ function CenteredVariant({ data, isEditMode, updateContent, uploadImage, pPrimar
                             <EditableImage
                                 contentKey="personImage"
                                 initialSettings={data.personImage__settings}
+                                initialAttribution={data.personImage__attribution}
                                 imageUrl={data.personImage}
                                 isEditMode={isEditMode}
                                 onSave={(key, value) => updateContent(key, value)}
@@ -324,6 +326,7 @@ function SplitVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
             <EditableImage
                 contentKey="personImage"
                 initialSettings={data.personImage__settings}
+                initialAttribution={data.personImage__attribution}
                 imageUrl={data.personImage}
                 isEditMode={isEditMode}
                 onSave={(key, value) => updateContent(key, value)}
@@ -479,11 +482,14 @@ function MultiGridVariant({ data, isEditMode, updateContent, uploadImage, pPrima
                                     <EditableImage
                                         contentKey={`people[${index}].image`}
                                         initialSettings={data[`people[${index}].image__settings`]}
+                                        initialAttribution={person.attribution}
                                         imageUrl={person.image}
                                         isEditMode={isEditMode}
                                         onSave={(key, value) => {
                                             if (key === `people[${index}].image`) {
                                                 handleUpdatePerson(index, 'image', value);
+                                            } else if (key === `people[${index}].image__attribution`) {
+                                                handleUpdatePerson(index, 'attribution', value);
                                             }
                                         }}
                                         onUpload={uploadImage}
@@ -572,6 +578,7 @@ function MinimalVariant({ data, isEditMode, updateContent, uploadImage, pPrimary
                                 <EditableImage
                                     contentKey="personImage"
                                     initialSettings={data.personImage__settings}
+                                    initialAttribution={data.personImage__attribution}
                                     imageUrl={data.personImage}
                                     isEditMode={isEditMode}
                                     onSave={(key, value) => updateContent(key, value)}

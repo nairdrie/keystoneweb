@@ -87,9 +87,13 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                 <EditableImage
                                     contentKey={`member_${index}_image`}
                                     initialSettings={data[`member_${index}_image__settings`]}
+                                    initialAttribution={member.attribution}
                                     imageUrl={member.image}
                                     isEditMode={isEditMode}
-                                    onSave={(key, value) => { if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value); }}
+                                    onSave={(key, value) => {
+                                        if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value);
+                                        else if (key === `member_${index}_image__attribution`) handleUpdateMember(index, 'attribution', value);
+                                    }}
                                     onUpload={context?.uploadImage}
                                     className="w-16 h-16 rounded-full object-cover bg-gray-200 flex-shrink-0"
                                     placeholder="Photo"
@@ -190,9 +194,13 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                     <EditableImage
                                         contentKey={`member_${index}_image`}
                                         initialSettings={data[`member_${index}_image__settings`]}
+                                        initialAttribution={member.attribution}
                                         imageUrl={member.image}
                                         isEditMode={isEditMode}
-                                        onSave={(key, value) => { if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value); }}
+                                        onSave={(key, value) => {
+                                            if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value);
+                                            else if (key === `member_${index}_image__attribution`) handleUpdateMember(index, 'attribution', value);
+                                        }}
                                         onUpload={context?.uploadImage}
                                         className="w-full h-full object-cover bg-gray-200"
                                         placeholder="Team member photo"
@@ -293,9 +301,13 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                             <EditableImage
                                 contentKey={`member_${index}_image`}
                                 initialSettings={data[`member_${index}_image__settings`]}
+                                initialAttribution={member.attribution}
                                 imageUrl={member.image}
                                 isEditMode={isEditMode}
-                                onSave={(key, value) => { if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value); }}
+                                onSave={(key, value) => {
+                                    if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value);
+                                    else if (key === `member_${index}_image__attribution`) handleUpdateMember(index, 'attribution', value);
+                                }}
                                 onUpload={context?.uploadImage}
                                 className="w-32 h-32 rounded-full object-cover bg-gray-200 mx-auto mb-4 ring-4 ring-white shadow-lg group-hover:scale-105 transition-transform"
                                 placeholder="Photo"

@@ -5,6 +5,7 @@ import { BlockData, useEditorContext } from '@/lib/editor-context';
 import EditableText from '@/app/components/EditableText';
 import EditableImage from '@/app/components/EditableImage';
 import EditableButton, { type ButtonIconData, type ButtonLinkData } from '@/app/components/EditableButton';
+import UnsplashAttributionCaption from '@/app/components/UnsplashAttributionCaption';
 import type { ImageSettings, UnsplashAttribution } from '@/app/components/ImageEditorModal';
 import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
@@ -530,6 +531,10 @@ function HeroCardContent({
 
 function BackgroundLayer({ bg, palette }: { bg: HeroBackground; palette: Record<string, string> }) {
     const overlay = bg.overlay || { color: '#000000', opacity: 0 };
+    const bgImageUrl = bg.type === 'image' ? bg.image?.url : undefined;
+    const bgImageAttribution = bg.type === 'image'
+        ? (bg.image?.attribution as UnsplashAttribution | undefined)
+        : undefined;
 
     let mediaLayer: React.ReactNode = null;
     const baseStyle: React.CSSProperties = {};
@@ -572,6 +577,13 @@ function BackgroundLayer({ bg, palette }: { bg: HeroBackground; palette: Record<
                 <div
                     className="hero-overlay absolute inset-0 z-0"
                     style={{ backgroundColor: overlay.color, opacity: overlay.opacity }}
+                />
+            )}
+            {bg.type === 'image' && (
+                <UnsplashAttributionCaption
+                    attribution={bgImageAttribution}
+                    imageUrl={bgImageUrl}
+                    className="z-30"
                 />
             )}
         </div>

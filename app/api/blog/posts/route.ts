@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { siteId, title, excerpt, content, cover_image, author, tags, is_published, is_featured } = body;
+    const { siteId, title, excerpt, content, cover_image, cover_image_attribution, author, tags, is_published, is_featured } = body;
 
     if (!siteId || !title) {
         return NextResponse.json({ error: 'Missing siteId or title' }, { status: 400 });
@@ -151,6 +151,7 @@ export async function POST(request: NextRequest) {
             excerpt: excerpt || null,
             content: content || null,
             cover_image: cover_image || null,
+            cover_image_attribution: cover_image_attribution ?? null,
             author: author || null,
             tags: tags || [],
             is_published: is_published ?? false,
@@ -194,7 +195,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-    const allowedFields = ['title', 'excerpt', 'content', 'cover_image', 'author', 'tags', 'is_published', 'is_featured', 'sort_order'];
+    const allowedFields = ['title', 'excerpt', 'content', 'cover_image', 'cover_image_attribution', 'author', 'tags', 'is_published', 'is_featured', 'sort_order'];
 
     for (const key of allowedFields) {
         if (fields[key] !== undefined) updates[key] = fields[key];

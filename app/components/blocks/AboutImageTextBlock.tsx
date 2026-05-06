@@ -61,6 +61,7 @@ function ImageContent({ data, isEditMode, updateContent, uploadImage }: any) {
             <EditableImage
                 contentKey="image"
                 initialSettings={data.image__settings}
+                initialAttribution={data.image__attribution}
                 imageUrl={data.image}
                 isEditMode={isEditMode}
                 onSave={(key, value) => updateContent(key, value)}

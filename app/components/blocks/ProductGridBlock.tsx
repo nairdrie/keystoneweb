@@ -14,6 +14,8 @@ import EditableButton, { type ButtonIconData, type ButtonLinkData } from '@/app/
 import EditableText from '@/app/components/EditableText';
 import { stripHtml } from '@/lib/ecommerce/description';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import UnsplashAttributionCaption from '@/app/components/UnsplashAttributionCaption';
+import type { UnsplashAttribution } from '@/lib/unsplash/types';
 import { useRouter, usePathname } from 'next/navigation';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
@@ -27,6 +29,7 @@ interface Product {
     compare_at_cents: number | null;
     currency: string;
     images: string[];
+    images_attribution?: Array<UnsplashAttribution | null> | null;
     variants: Array<{ name: string; options: string[] }>;
     options?: Array<{ name: string; values: Array<{ label: string; priceModifierCents: number }>; defaultIndex: number }>;
     inventory_count: number;
@@ -1667,7 +1670,10 @@ function ProductGrid({
             >
                 <div className="aspect-square bg-slate-50 relative overflow-hidden">
                     {product.images?.[0] ? (
-                        <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        <>
+                            <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                            <UnsplashAttributionCaption attribution={product.images_attribution?.[0] ?? null} imageUrl={product.images[0]} />
+                        </>
                     ) : (
                         <div className="w-full h-full flex items-center justify-center">
                             <Package className="w-12 h-12 text-slate-200" />
@@ -1743,7 +1749,10 @@ function ProductGrid({
             >
                 <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-lg bg-slate-50 relative overflow-hidden flex-shrink-0">
                     {product.images?.[0] ? (
-                        <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        <>
+                            <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                            <UnsplashAttributionCaption attribution={product.images_attribution?.[0] ?? null} imageUrl={product.images[0]} />
+                        </>
                     ) : (
                         <div className="w-full h-full flex items-center justify-center">
                             <Package className="w-8 h-8 text-slate-200" />
