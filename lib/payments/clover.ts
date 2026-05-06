@@ -130,3 +130,58 @@ export function verifyWebhookSignature(rawBody: string, signatureHeader: string 
 export function hasValidCloverCredentials(vendor: any): boolean {
     return !!(vendor?.clover_merchant_id && vendor?.clover_private_token);
 }
+
+export interface CloverChargeParams {
+    amountCents: number;
+    currency: string;  // e.g. 'USD', 'CAD'
+    token: string;     // clv_ token from Clover.js
+    description?: string;
+}
+
+export interface CloverChargeResult {
+    chargeId: string;
+    status: string;
+    amountCents: number;
+}
+
+/**
+ * Create a charge via the Clover Ecommerce API using a tokenized card source.
+ * The token is produced client-side by Clover.js (createToken / paymentMethod event).
+ */
+export async function createCharge(
+    creds: CloverCredentials,
+    params: CloverChargeParams
+): Promise<CloverChargeResult> {
+    const url = `${apiBase(!!creds.sandboxMode)}/v1/charges`;
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-Clover-Merchant-Id': creds.merchantId,
+            'Authorization': `Bearer ${creds.privateToken}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            amount: params.amountCents,
+            currency: params.currency.toLowerCase(),
+            source: params.token,
+            ...(params.description ? { description: params.description } : {}),
+        }),
+    });
+
+    if (!res.ok) {
+        const text = await res.text();
+        let message = `Clover charge error (${res.status})`;
+        try {
+            const json = JSON.parse(text);
+            message = json?.message || json?.error?.message || message;
+        } catch { /* use default */ }
+        throw new Error(message);
+    }
+
+    const data = await res.json();
+    return {
+        chargeId: data.id,
+        status: data.status,
+        amountCents: data.amount,
+    };
+}
