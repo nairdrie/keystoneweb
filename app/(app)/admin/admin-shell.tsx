@@ -363,13 +363,18 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
             {/* Design / Admin switcher */}
             <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-full">
-              <button
-                onClick={() => router.push(`/design${siteId ? `?siteId=${siteId}` : ''}`)}
+              <a
+                href={`/design${siteId ? `?siteId=${siteId}` : ''}`}
+                onClick={(e) => {
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
+                  e.preventDefault();
+                  router.push(`/design${siteId ? `?siteId=${siteId}` : ''}`);
+                }}
                 className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold text-slate-500 hover:text-slate-800 hover:bg-white/70 transition-colors"
               >
                 <Paintbrush className="w-3 h-3" />
                 Design
-              </button>
+              </a>
               <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white shadow-sm text-slate-800 select-none">
                 <LayoutDashboard className="w-3 h-3" />
                 Admin
