@@ -14,7 +14,7 @@ import EditableButton, { type ButtonIconData, type ButtonLinkData } from '@/app/
 import EditableText from '@/app/components/EditableText';
 import { stripHtml } from '@/lib/ecommerce/description';
 import { resolvePaletteColor } from '@/lib/palette-colors';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -1442,10 +1442,24 @@ function ProductGrid({
     const cart = useCart();
     const router = useRouter();
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     const blockCategory: string = data?.categoryFilter || '';
     const blockSubcategory: string = data?.subcategoryFilter || '';
+
+    // Allow nav-menu links (and other deep links) to scope this block via
+    // ?category=…&subcategory=… query params. Block-level filters always win.
+    const queryCategory = searchParams?.get('category') || '';
+    const querySubcategory = searchParams?.get('subcategory') || '';
+
+    // Seed the sidebar selection from the URL on first render and whenever the
+    // query params change (e.g. user navigates between menu links on the same page).
+    useEffect(() => {
+        if (blockCategory) return; // block is locked, query params don't apply
+        setActiveCategory(queryCategory);
+        setActiveSubcategory(queryCategory ? querySubcategory : '');
+    }, [queryCategory, querySubcategory, blockCategory]);
     const featuredOnly: boolean = !!data?.featuredOnly;
     const showSeeMore: boolean = !!data?.showSeeMore;
     // Prefer EditableButton-style fields; fall back to legacy seeMoreLabel/seeMoreHref.
