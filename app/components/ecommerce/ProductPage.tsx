@@ -491,7 +491,7 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
                                 <a
                                     key={rp.id}
                                     href={`/product/${rp.id}`}
-                                    className="group rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-all hover:border-slate-300"
+                                    className="group block rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-all hover:border-slate-300"
                                 >
                                     <div className="aspect-square bg-slate-50 overflow-hidden">
                                         {rp.images?.[0] ? (

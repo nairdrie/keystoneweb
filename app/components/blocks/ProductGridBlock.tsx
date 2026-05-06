@@ -1668,7 +1668,7 @@ function ProductGrid({
                 onClick={(e) => handleProductNav(e, product)}
                 target={external && !isEditor ? '_blank' : undefined}
                 rel={external && !isEditor ? 'noopener' : undefined}
-                className="group rounded-xl border border-slate-200 overflow-hidden hover:shadow-xl transition-all hover:border-slate-300 bg-white"
+                className="group block rounded-xl border border-slate-200 overflow-hidden hover:shadow-xl transition-all hover:border-slate-300 bg-white"
             >
                 <div className="aspect-square bg-slate-50 relative overflow-hidden">
                     {product.images?.[0] ? (
