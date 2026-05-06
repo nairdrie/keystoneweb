@@ -53,6 +53,7 @@ export default function NavItemEditModal({
 
     // All product categories for the site, used to populate the filter dropdown.
     const [categoryTree, setCategoryTree] = useState<Record<string, string[]>>({});
+    const [categoryTreeLoaded, setCategoryTreeLoaded] = useState(false);
 
     // Track whether sectionPageId changed due to user interaction (not initial mount)
     const isInitialMount = useRef(true);
@@ -123,7 +124,8 @@ export default function NavItemEditModal({
         fetch(`/api/products?siteId=${siteId}&limit=1`)
             .then(r => r.json())
             .then(d => setCategoryTree(d.categoryTree || {}))
-            .catch(() => setCategoryTree({}));
+            .catch(() => setCategoryTree({}))
+            .finally(() => setCategoryTreeLoaded(true));
     }, [siteId]);
 
     const hasProductBlock = (bs: BlockData[]) => bs.some(b => b.type === PRODUCT_BLOCK_TYPE);
@@ -134,16 +136,16 @@ export default function NavItemEditModal({
         linkType === 'section' && !!blockId && targetBlocks.find(b => b.id === blockId)?.type === PRODUCT_BLOCK_TYPE;
     const showCategoryFilter = showCategoryFilterForPage || showCategoryFilterForSection;
 
-    // Reset filter selection when the link target changes away from a products page.
-    useEffect(() => {
-        if (!showCategoryFilter) {
-            setCategoryFilter('');
-            setSubcategoryFilter('');
-        }
-    }, [showCategoryFilter]);
+    // Note: we deliberately do NOT auto-clear categoryFilter/subcategoryFilter when
+    // showCategoryFilter is false. Doing so races with the async block/category fetches
+    // and wipes the saved filter on initial mount before we know whether the target
+    // page has a products block. handleSave filters by showCategoryFilter instead.
 
     // Clear subcategory when category changes to one that doesn't include it.
+    // Wait for the category tree to load — otherwise the empty initial tree
+    // would clear a saved subcategory before we know what's valid.
     useEffect(() => {
+        if (!categoryTreeLoaded) return;
         if (!categoryFilter) {
             setSubcategoryFilter('');
             return;
@@ -152,7 +154,7 @@ export default function NavItemEditModal({
         if (subcategoryFilter && !subs.includes(subcategoryFilter)) {
             setSubcategoryFilter('');
         }
-    }, [categoryFilter, categoryTree, subcategoryFilter]);
+    }, [categoryFilter, categoryTree, subcategoryFilter, categoryTreeLoaded]);
 
     const buildQueryString = (): string => {
         if (!showCategoryFilter || !categoryFilter) return '';
