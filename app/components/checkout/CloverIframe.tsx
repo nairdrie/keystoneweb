@@ -47,19 +47,23 @@ export default function CloverIframe({
     const pSecondary = palette.secondary || '#2563eb';
     const amountLabel = `$${(amountCents / 100).toFixed(2)}`;
 
-    // Load the Clover.js SDK once
+    // Load the Clover.js SDK once — sandbox and production use different CDN origins
     useEffect(() => {
+        const sdkUrl = sandboxMode
+            ? 'https://checkout.sandbox.dev.clover.com/sdk.js'
+            : 'https://checkout.clover.com/sdk.js';
+
         if ((window as any).Clover) {
             setSdkReady(true);
             return;
         }
-        const existing = document.querySelector('script[src*="checkout.clover.com/sdk"]');
+        const existing = document.querySelector(`script[src="${sdkUrl}"]`);
         if (existing) {
             existing.addEventListener('load', () => setSdkReady(true));
             return;
         }
         const script = document.createElement('script');
-        script.src = 'https://checkout.clover.com/sdk.js';
+        script.src = sdkUrl;
         script.async = true;
         script.onload = () => setSdkReady(true);
         script.onerror = () => onError('Failed to load payment form. Please refresh and try again.');
