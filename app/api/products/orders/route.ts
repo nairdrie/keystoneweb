@@ -607,7 +607,9 @@ async function createSingleOrder(supabase: any, params: {
         };
     }
 
-    if (paymentMethod === 'stripe') {
+    // Stripe, Converge, and Clover all confirm payment asynchronously — emails
+    // are sent by their respective charge/verify endpoints, not here.
+    if (paymentMethod === 'stripe' || paymentMethod === 'converge' || paymentMethod === 'clover') {
         return NextResponse.json(response);
     }
 
