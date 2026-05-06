@@ -15,6 +15,10 @@ export interface NavItem {
   href: string;
   pageId?: string;
   blockId?: string;
+  /** When the linked page contains a Products block, optionally scope it to a category via ?category= */
+  categoryFilter?: string;
+  /** Optional subcategory companion to categoryFilter (?subcategory=) */
+  subcategoryFilter?: string;
   /** Optional sub-items for dropdown menus */
   children?: NavItem[];
   /**

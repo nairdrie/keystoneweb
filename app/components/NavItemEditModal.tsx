@@ -17,6 +17,8 @@ interface NavItemEditModalProps {
     onClose: () => void;
 }
 
+const PRODUCT_BLOCK_TYPE = 'productGrid';
+
 export default function NavItemEditModal({
     item,
     pages,
@@ -38,10 +40,19 @@ export default function NavItemEditModal({
     const [customHref, setCustomHref] = useState(
         item.linkType === 'custom' ? item.href : ''
     );
+    const [categoryFilter, setCategoryFilter] = useState(item.categoryFilter || '');
+    const [subcategoryFilter, setSubcategoryFilter] = useState(item.subcategoryFilter || '');
 
     // Blocks for the selected section page (fetched when different page is chosen)
     const [targetBlocks, setTargetBlocks] = useState<BlockData[]>(blocks);
     const [isFetchingBlocks, setIsFetchingBlocks] = useState(false);
+
+    // Blocks for the page selected in the "page" link type (used to detect product blocks)
+    const [pageBlocks, setPageBlocks] = useState<BlockData[]>([]);
+    const [isFetchingPageBlocks, setIsFetchingPageBlocks] = useState(false);
+
+    // All product categories for the site, used to populate the filter dropdown.
+    const [categoryTree, setCategoryTree] = useState<Record<string, string[]>>({});
 
     // Track whether sectionPageId changed due to user interaction (not initial mount)
     const isInitialMount = useRef(true);
@@ -88,11 +99,75 @@ export default function NavItemEditModal({
         }
     }, [blocks, sectionPageId, linkType]);
 
+    // For "page" linkType: fetch the selected page's blocks so we can detect a Products block.
+    useEffect(() => {
+        if (linkType !== 'page' || !pageId || !siteId) {
+            setPageBlocks([]);
+            return;
+        }
+        setIsFetchingPageBlocks(true);
+        fetch(`/api/pages?siteId=${siteId}`)
+            .then(r => r.json())
+            .then(data => {
+                const page = (data.pages || []).find((p: any) => p.id === pageId);
+                const blocks: BlockData[] = page?.design_data?.blocks || page?.design_data?.__blocks || [];
+                setPageBlocks(blocks);
+            })
+            .catch(() => setPageBlocks([]))
+            .finally(() => setIsFetchingPageBlocks(false));
+    }, [pageId, linkType, siteId]);
+
+    // Fetch the site's category tree once so we can render a category filter dropdown.
+    useEffect(() => {
+        if (!siteId) return;
+        fetch(`/api/products?siteId=${siteId}&limit=1`)
+            .then(r => r.json())
+            .then(d => setCategoryTree(d.categoryTree || {}))
+            .catch(() => setCategoryTree({}));
+    }, [siteId]);
+
+    const hasProductBlock = (bs: BlockData[]) => bs.some(b => b.type === PRODUCT_BLOCK_TYPE);
+
+    // Whether to show the category filter UI for the current selection.
+    const showCategoryFilterForPage = linkType === 'page' && !!pageId && hasProductBlock(pageBlocks);
+    const showCategoryFilterForSection =
+        linkType === 'section' && !!blockId && targetBlocks.find(b => b.id === blockId)?.type === PRODUCT_BLOCK_TYPE;
+    const showCategoryFilter = showCategoryFilterForPage || showCategoryFilterForSection;
+
+    // Reset filter selection when the link target changes away from a products page.
+    useEffect(() => {
+        if (!showCategoryFilter) {
+            setCategoryFilter('');
+            setSubcategoryFilter('');
+        }
+    }, [showCategoryFilter]);
+
+    // Clear subcategory when category changes to one that doesn't include it.
+    useEffect(() => {
+        if (!categoryFilter) {
+            setSubcategoryFilter('');
+            return;
+        }
+        const subs = categoryTree[categoryFilter] || [];
+        if (subcategoryFilter && !subs.includes(subcategoryFilter)) {
+            setSubcategoryFilter('');
+        }
+    }, [categoryFilter, categoryTree, subcategoryFilter]);
+
+    const buildQueryString = (): string => {
+        if (!showCategoryFilter || !categoryFilter) return '';
+        const params = new URLSearchParams();
+        params.set('category', categoryFilter);
+        if (subcategoryFilter) params.set('subcategory', subcategoryFilter);
+        return `?${params.toString()}`;
+    };
+
     // Resolve href based on linkType — uses targetBlocks so the slug is always correct
     const resolveHref = (): string => {
+        const query = buildQueryString();
         if (linkType === 'page') {
             const page = pages.find(p => p.id === pageId);
-            return page ? `/${page.slug}` : '#';
+            return page ? `/${page.slug}${query}` : '#';
         }
         if (linkType === 'section') {
             if (!blockId) return '#';
@@ -104,15 +179,17 @@ export default function NavItemEditModal({
                 const page = pages.find(p => p.id === sectionPageId);
                 if (page) {
                     const slug = page.slug === 'home' ? '' : `/${page.slug}`;
-                    return `${slug}${hash}`;
+                    return `${slug}${query}${hash}`;
                 }
             }
-            return hash;
+            return `${query}${hash}`;
         }
         return customHref || '#';
     };
 
     const handleSave = () => {
+        const trimmedCategory = showCategoryFilter ? categoryFilter.trim() : '';
+        const trimmedSubcategory = showCategoryFilter ? subcategoryFilter.trim() : '';
         onSave({
             ...item,
             label,
@@ -120,6 +197,8 @@ export default function NavItemEditModal({
             href: resolveHref(),
             pageId: linkType === 'page' ? pageId : linkType === 'section' ? sectionPageId || undefined : undefined,
             blockId: linkType === 'section' ? blockId : undefined,
+            categoryFilter: trimmedCategory || undefined,
+            subcategoryFilter: trimmedCategory && trimmedSubcategory ? trimmedSubcategory : undefined,
         });
     };
 
@@ -154,6 +233,53 @@ export default function NavItemEditModal({
                     );
                 })}
             </select>
+        );
+    };
+
+    const renderCategoryFilter = () => {
+        if (!showCategoryFilter) return null;
+        const categories = Object.keys(categoryTree).sort();
+        const subs = categoryFilter ? (categoryTree[categoryFilter] || []) : [];
+        return (
+            <div className="mt-4 pt-4 border-t border-slate-200">
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Filter by Category</label>
+                <p className="text-xs text-slate-500 mb-2">
+                    Optional — when set, the linked products list opens scoped to this category.
+                </p>
+                {isFetchingPageBlocks && linkType === 'page' ? (
+                    <div className="flex items-center gap-2 py-2 text-sm text-slate-500">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Checking page…
+                    </div>
+                ) : categories.length === 0 ? (
+                    <p className="text-sm text-slate-500 italic">No product categories defined yet.</p>
+                ) : (
+                    <>
+                        <select
+                            value={categoryFilter}
+                            onChange={(e) => setCategoryFilter(e.target.value)}
+                            className="w-full px-3 py-2 text-sm text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">All categories</option>
+                            {categories.map((c) => (
+                                <option key={c} value={c}>{c}</option>
+                            ))}
+                        </select>
+                        {categoryFilter && subs.length > 0 && (
+                            <select
+                                value={subcategoryFilter}
+                                onChange={(e) => setSubcategoryFilter(e.target.value)}
+                                className="mt-2 w-full px-3 py-2 text-sm text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="">All subcategories</option>
+                                {subs.map((s) => (
+                                    <option key={s} value={s}>{s}</option>
+                                ))}
+                            </select>
+                        )}
+                    </>
+                )}
+            </div>
         );
     };
 
@@ -227,6 +353,7 @@ export default function NavItemEditModal({
                                     </option>
                                 ))}
                             </select>
+                            {renderCategoryFilter()}
                         </>
                     )}
 
@@ -250,6 +377,7 @@ export default function NavItemEditModal({
                             <p className="mt-2 text-xs text-slate-400">
                                 Link routes to <code className="bg-slate-100 px-1 rounded">/page#section</code> from any page.
                             </p>
+                            {renderCategoryFilter()}
                         </>
                     )}
 
