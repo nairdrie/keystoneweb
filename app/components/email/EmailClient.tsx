@@ -703,39 +703,59 @@ export default function EmailClient() {
               </div>
             ) : (
               <ul className="flex-1 overflow-y-auto divide-y divide-slate-100">
-                {composeDrafts.map(draft => (
-                  <li key={draft.id} className="relative flex items-stretch group">
-                    <button
-                      onClick={() => { setInitialDraftData(draft); setShowCompose(true); }}
-                      className="flex-1 text-left pl-4 pr-2 py-3 hover:bg-slate-50 transition-colors min-w-0"
-                    >
-                      <div className="flex items-baseline gap-2 mb-1">
-                        <span className="text-sm font-medium text-slate-600 truncate">
-                          {draft.to_emails?.join(', ') || <span className="italic text-slate-400">No recipient</span>}
-                        </span>
-                        <span className="shrink-0 text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded-full font-bold uppercase tracking-wide">
-                          Draft
-                        </span>
-                        <time className="ml-auto shrink-0 text-[11px] text-slate-400">
-                          {new Date(draft.updated_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
-                        </time>
-                      </div>
-                      <p className="text-xs text-slate-500 truncate mb-0.5">
-                        {draft.subject || '(no subject)'}
-                      </p>
-                      <p className="text-xs text-slate-400 truncate">
-                        {draft.body_text || '(no body)'}
-                      </p>
-                    </button>
-                    <button
-                      onClick={() => handleDiscardComposeDraft(draft.id)}
-                      className="px-3 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
-                      title="Discard draft"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </li>
-                ))}
+                {composeDrafts.map(draft => {
+                  const isReply = !!draft.thread_id;
+                  const recipient = isReply
+                    ? (draft.thread_info?.sender_name || draft.thread_info?.sender_email || 'Customer')
+                    : (draft.to_emails?.join(', ') || '');
+                  const subjectLine = isReply
+                    ? (draft.thread_info?.subject || '(no subject)')
+                    : (draft.subject || '(no subject)');
+                  const onOpen = () => {
+                    if (isReply && draft.thread_id) {
+                      setFolder('inbox');
+                      openThread(draft.thread_id);
+                    } else {
+                      setInitialDraftData(draft);
+                      setShowCompose(true);
+                    }
+                  };
+                  return (
+                    <li key={draft.id} className="relative flex items-stretch group">
+                      <button
+                        onClick={onOpen}
+                        className="flex-1 text-left pl-4 pr-2 py-3 hover:bg-slate-50 transition-colors min-w-0"
+                      >
+                        <div className="flex items-baseline gap-2 mb-1">
+                          <span className="text-sm font-medium text-slate-600 truncate">
+                            {recipient || <span className="italic text-slate-400">No recipient</span>}
+                          </span>
+                          <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide ${
+                            isReply ? 'bg-violet-50 text-violet-700' : 'bg-amber-50 text-amber-700'
+                          }`}>
+                            {isReply ? 'Reply' : 'Draft'}
+                          </span>
+                          <time className="ml-auto shrink-0 text-[11px] text-slate-400">
+                            {new Date(draft.updated_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
+                          </time>
+                        </div>
+                        <p className="text-xs text-slate-500 truncate mb-0.5">
+                          {subjectLine}
+                        </p>
+                        <p className="text-xs text-slate-400 truncate">
+                          {draft.body_text || '(no body)'}
+                        </p>
+                      </button>
+                      <button
+                        onClick={() => handleDiscardComposeDraft(draft.id)}
+                        className="px-3 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+                        title="Discard draft"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )
           ) : loading && threads.length === 0 ? (

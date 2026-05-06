@@ -12,7 +12,8 @@ async function verifyOwner(supabase: Awaited<ReturnType<typeof createClient>>, s
 
 /**
  * GET /api/email/drafts?siteId=...
- *   → returns { drafts: EmailDraft[] }  (compose drafts, thread_id IS NULL)
+ *   → returns { drafts: EmailDraft[] }  (compose + reply drafts; reply drafts
+ *      are enriched with thread_info { sender_name, sender_email, subject })
  *
  * GET /api/email/drafts?siteId=...&threadId=...
  *   → returns { draft: EmailDraft | null }  (single reply draft)
@@ -40,13 +41,49 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ draft: data ?? null });
   }
 
-  const { data } = await db
+  // List both compose drafts (thread_id IS NULL) and reply drafts. Reply
+  // drafts get enriched with sender/subject from contact_submissions so the
+  // Drafts sidebar can show "<customer name> · <subject>" instead of the
+  // empty to_emails / subject fields that reply drafts don't populate.
+  const { data: drafts } = await db
     .from('email_drafts')
     .select('*')
     .eq('site_id', siteId)
-    .is('thread_id', null)
     .order('updated_at', { ascending: false });
-  return NextResponse.json({ drafts: data ?? [] });
+
+  const replyThreadIds = Array.from(
+    new Set((drafts ?? []).map(d => d.thread_id).filter((id): id is string => !!id))
+  );
+
+  const threadInfo: Record<string, { sender_name: string | null; sender_email: string | null; subject: string | null }> = {};
+  if (replyThreadIds.length > 0) {
+    const { data: submissions } = await db
+      .from('contact_submissions')
+      .select('thread_id, sender_name, sender_email, subject, direction, created_at')
+      .eq('site_id', siteId)
+      .in('thread_id', replyThreadIds)
+      .order('created_at', { ascending: true });
+    for (const s of submissions ?? []) {
+      if (!s.thread_id) continue;
+      // Prefer the first inbound message's metadata (the customer's side of
+      // the conversation); fall back to whatever we see first.
+      const existing = threadInfo[s.thread_id];
+      if (!existing || (s.direction === 'inbound' && existing.sender_email == null)) {
+        threadInfo[s.thread_id] = {
+          sender_name: s.sender_name ?? null,
+          sender_email: s.sender_email ?? null,
+          subject: s.subject ?? null,
+        };
+      }
+    }
+  }
+
+  const enriched = (drafts ?? []).map(d => ({
+    ...d,
+    thread_info: d.thread_id ? (threadInfo[d.thread_id] ?? null) : null,
+  }));
+
+  return NextResponse.json({ drafts: enriched });
 }
 
 /**
