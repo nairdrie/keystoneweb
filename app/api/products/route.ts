@@ -323,7 +323,11 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ success: true });
     }
 
-    if (!id) {
+    // Bulk edit — ids[] takes priority over single id
+    const ids: string[] | undefined = Array.isArray(fields.ids) && fields.ids.length > 0 ? fields.ids : undefined;
+    delete fields.ids;
+
+    if (!id && !ids) {
         return NextResponse.json({ error: 'Missing product id' }, { status: 400 });
     }
 
@@ -347,13 +351,14 @@ export async function PUT(request: NextRequest) {
         updates.options = parseProductOptions(fields.options);
     }
 
-    // Regenerate slug if name changed
-    if (fields.name) {
+    // Regenerate slug if name changed (single-product only)
+    if (!ids && fields.name) {
         updates.slug = fields.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     }
 
     // Validate and apply membership pricing / gating updates, if provided.
-    if (fields.tier_prices !== undefined || fields.allowed_package_ids !== undefined) {
+    // Not supported in bulk mode — bulk path skips this block.
+    if (!ids && (fields.tier_prices !== undefined || fields.allowed_package_ids !== undefined)) {
         const { data: existing, error: existingError } = await supabase
             .from('products')
             .select('site_id, price_cents')
@@ -378,6 +383,34 @@ export async function PUT(request: NextRequest) {
         }
         if (membershipValidation.tierPrices !== undefined) updates.tier_prices = membershipValidation.tierPrices;
         if (membershipValidation.allowedPackageIds !== undefined) updates.allowed_package_ids = membershipValidation.allowedPackageIds;
+    }
+
+    // Bulk update path
+    if (ids) {
+        const { data: firstProduct, error: firstError } = await supabase
+            .from('products')
+            .select('site_id')
+            .eq('id', ids[0])
+            .single();
+        if (firstError || !firstProduct) {
+            return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+        }
+        const { data: siteOwner } = await supabase
+            .from('sites')
+            .select('user_id')
+            .eq('id', firstProduct.site_id)
+            .single();
+        if (!siteOwner || siteOwner.user_id !== user.id) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+        const { error: bulkError } = await supabase
+            .from('products')
+            .update(updates)
+            .in('id', ids);
+        if (bulkError) {
+            return NextResponse.json({ error: bulkError.message }, { status: 500 });
+        }
+        return NextResponse.json({ success: true, updated: ids.length });
     }
 
     const { data, error } = await supabase

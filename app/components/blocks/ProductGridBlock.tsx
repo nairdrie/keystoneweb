@@ -7,6 +7,7 @@ import {
     Package, Plus, Trash2, Loader2, ShoppingCart, X,
     ImageIcon, Upload, Download, Send, Search,
     ChevronLeft, ChevronRight, Tag, Pencil, Lock, Crown, Star,
+    Square, CheckSquare, Minus, SlidersHorizontal,
 } from 'lucide-react';
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
 import ProductDescriptionEditor from '../ProductDescriptionEditor';
@@ -45,6 +46,7 @@ interface Product {
     can_purchase?: boolean;
     gate_reason?: 'guest' | 'wrong-tier' | null;
     external_url?: string | null;
+    vendor_id?: string | null;
 }
 
 interface ProductGridBlockProps {
@@ -91,6 +93,24 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
     const [showImportModal, setShowImportModal] = useState(false);
     const [membershipEditProduct, setMembershipEditProduct] = useState<Product | null>(null);
     const modalBackdropDown = useRef(false);
+
+    // Vendor list (fetched once for bulk edit)
+    const [vendors, setVendors] = useState<Array<{ id: string; name: string; payment_mode: string; is_default: boolean }>>([]);
+    // Multi-select state
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [showBulkEdit, setShowBulkEdit] = useState(false);
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await fetch(`/api/vendors?siteId=${siteId}`);
+                const data = await res.json();
+                setVendors(data.vendors || []);
+            } catch { /* vendors not critical */ }
+        })();
+    }, [siteId]);
+
+    const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
 
     const isFormOpen = !!editingProduct || showAdd;
     const closeForm = useCallback(() => {
@@ -149,6 +169,7 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
     }, [fetchProducts]);
 
     const handleSearch = (value: string) => {
+        clearSelection();
         setSearchQuery(value);
         if (searchTimeout.current) clearTimeout(searchTimeout.current);
         searchTimeout.current = setTimeout(() => {
@@ -158,18 +179,21 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
     };
 
     const handleFilterCategory = (cat: string) => {
+        clearSelection();
         setFilterCategory(cat);
         setCurrentPage(1);
         fetchProducts(1, searchQuery, cat, filterStatus);
     };
 
     const handleFilterStatus = (s: string) => {
+        clearSelection();
         setFilterStatus(s);
         setCurrentPage(1);
         fetchProducts(1, searchQuery, filterCategory, s);
     };
 
     const handlePageChange = (page: number) => {
+        clearSelection();
         setCurrentPage(page);
         fetchProducts(page, searchQuery, filterCategory, filterStatus);
     };
@@ -264,6 +288,15 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                                 <p className="text-sm text-slate-500 mt-1">{totalProducts} product{totalProducts !== 1 ? 's' : ''}</p>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
+                                {selectedIds.size > 0 && (
+                                    <button
+                                        onClick={() => setShowBulkEdit(true)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-colors"
+                                    >
+                                        <SlidersHorizontal className="w-3.5 h-3.5" />
+                                        Bulk Edit ({selectedIds.size})
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => setShowImportModal(true)}
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg transition-colors"
@@ -314,6 +347,26 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
 
                         {/* Search & Filters */}
                         <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (selectedIds.size === products.length && products.length > 0) {
+                                        clearSelection();
+                                    } else {
+                                        setSelectedIds(new Set(products.map(p => p.id)));
+                                    }
+                                }}
+                                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 transition-colors shrink-0 px-1"
+                                title={selectedIds.size === products.length ? 'Deselect all' : 'Select all on this page'}
+                            >
+                                {selectedIds.size === 0
+                                    ? <Square className="w-4 h-4" />
+                                    : selectedIds.size === products.length
+                                        ? <CheckSquare className="w-4 h-4 text-blue-600" />
+                                        : <Minus className="w-4 h-4 text-blue-500" />
+                                }
+                                <span>{selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all'}</span>
+                            </button>
                             <div className="relative flex-1 min-w-[180px]">
                                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                                 <input
@@ -360,7 +413,25 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                         )}
 
                         {products.map(product => (
-                            <div key={product.id} className={`flex items-center gap-3 p-3 rounded-lg border ${product.status === 'draft' ? 'border-amber-200 bg-amber-50/40' : product.is_active ? 'border-slate-200' : 'border-slate-100 bg-slate-50 opacity-60'}`}>
+                            <div key={product.id} className={`flex items-center gap-3 p-3 rounded-lg border ${selectedIds.has(product.id) ? 'border-blue-400 bg-blue-50/40' : product.status === 'draft' ? 'border-amber-200 bg-amber-50/40' : product.is_active ? 'border-slate-200' : 'border-slate-100 bg-slate-50 opacity-60'}`}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSelectedIds(prev => {
+                                            const next = new Set(prev);
+                                            if (next.has(product.id)) next.delete(product.id);
+                                            else next.add(product.id);
+                                            return next;
+                                        });
+                                    }}
+                                    className="text-slate-400 hover:text-blue-600 transition-colors shrink-0"
+                                    title={selectedIds.has(product.id) ? 'Deselect' : 'Select'}
+                                >
+                                    {selectedIds.has(product.id)
+                                        ? <CheckSquare className="w-4 h-4 text-blue-600" />
+                                        : <Square className="w-4 h-4" />
+                                    }
+                                </button>
                                 {product.images?.[0] ? (
                                     <img src={product.images[0]} alt={product.name} className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
                                 ) : (
@@ -495,8 +566,246 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                         }}
                     />
                 )}
+
+                {showBulkEdit && selectedIds.size > 0 && (
+                    <BulkEditModal
+                        selectedProducts={products.filter(p => selectedIds.has(p.id))}
+                        vendors={vendors}
+                        onClose={() => setShowBulkEdit(false)}
+                        onSaved={() => {
+                            setShowBulkEdit(false);
+                            clearSelection();
+                            fetchProducts(currentPage, searchQuery, filterCategory, filterStatus);
+                        }}
+                    />
+                )}
             </div>
         </section>
+    );
+}
+
+// ─── Bulk Edit Modal ────────────────────────────────────────────────────────────
+
+function BulkEditModal({
+    selectedProducts,
+    vendors,
+    onClose,
+    onSaved,
+}: {
+    selectedProducts: Product[];
+    vendors: Array<{ id: string; name: string; payment_mode: string; is_default: boolean }>;
+    onClose: () => void;
+    onSaved: () => void;
+}) {
+    const count = selectedProducts.length;
+
+    const [dirtyFields, setDirtyFields] = useState<Set<string>>(new Set());
+    const markDirty = (field: string) =>
+        setDirtyFields(prev => { const n = new Set(prev); n.add(field); return n; });
+
+    function allSame<T>(getter: (p: Product) => T): { same: boolean; value: T } {
+        const first = getter(selectedProducts[0]);
+        const same = selectedProducts.every(p => getter(p) === first);
+        return { same, value: first };
+    }
+
+    const statusInfo = allSame(p => p.status);
+    const isActiveInfo = allSame(p => p.is_active);
+    const isFeaturedInfo = allSame(p => p.is_featured);
+    const vendorInfo = allSame(p => p.vendor_id ?? '');
+    const categoryInfo = allSame(p => p.category ?? '');
+    const tagsInfo = allSame(p => (p.tags ?? []).join(', '));
+    const brandInfo = allSame(p => p.brand ?? '');
+
+    const [status, setStatus] = useState(statusInfo.same ? statusInfo.value : '');
+    const [isActive, setIsActive] = useState(isActiveInfo.same ? isActiveInfo.value : true);
+    const [isFeatured, setIsFeatured] = useState(isFeaturedInfo.same ? isFeaturedInfo.value : false);
+    const [vendorId, setVendorId] = useState(vendorInfo.same ? vendorInfo.value : '');
+    const [category, setCategory] = useState(categoryInfo.same ? categoryInfo.value : '');
+    const [tags, setTags] = useState(tagsInfo.same ? tagsInfo.value : '');
+    const [brand, setBrand] = useState(brandInfo.same ? brandInfo.value : '');
+
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const fieldLabels: Record<string, string> = {
+        status: 'Status', is_active: 'Active', is_featured: 'Featured',
+        vendor_id: 'Vendor', category: 'Category', tags: 'Tags', brand: 'Brand',
+    };
+
+    const handleSave = async () => {
+        if (dirtyFields.size === 0) { onClose(); return; }
+        setSaving(true);
+        setError(null);
+
+        const payload: Record<string, any> = { ids: selectedProducts.map(p => p.id) };
+        if (dirtyFields.has('status')) payload.status = status;
+        if (dirtyFields.has('is_active')) payload.is_active = isActive;
+        if (dirtyFields.has('is_featured')) payload.is_featured = isFeatured;
+        if (dirtyFields.has('vendor_id')) payload.vendor_id = vendorId || null;
+        if (dirtyFields.has('category')) payload.category = category.trim() || null;
+        if (dirtyFields.has('tags')) payload.tags = tags.split(',').map(t => t.trim()).filter(Boolean);
+        if (dirtyFields.has('brand')) payload.brand = brand.trim() || null;
+
+        const res = await fetch('/api/products', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) { setError(data.error || 'Failed to save'); setSaving(false); return; }
+        onSaved();
+    };
+
+    const renderToggle = (
+        value: boolean,
+        info: { same: boolean },
+        field: string,
+        setValue: (v: boolean) => void,
+        activeColor: string,
+    ) => {
+        const isMixed = !info.same && !dirtyFields.has(field);
+        return (
+            <button
+                type="button"
+                onClick={() => {
+                    const next = info.same || dirtyFields.has(field) ? !value : true;
+                    setValue(next);
+                    markDirty(field);
+                }}
+                title={isMixed ? 'Mixed values — click to set' : ''}
+            >
+                {isMixed
+                    ? <Minus className="w-5 h-5 text-slate-400" />
+                    : (
+                        <span className={`inline-flex h-5 w-9 items-center rounded-full transition-colors ${value ? activeColor : 'bg-slate-200'}`}>
+                            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${value ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
+                        </span>
+                    )
+                }
+            </button>
+        );
+    };
+
+    return (
+        <div className="fixed inset-0 z-[10001] bg-black/50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+                <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <SlidersHorizontal className="w-5 h-5 text-blue-600" />
+                        <h3 className="font-bold text-slate-900">Bulk Edit</h3>
+                        <span className="text-sm text-slate-500">— {count} product{count !== 1 ? 's' : ''}</span>
+                    </div>
+                    <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded">
+                        <X className="w-4 h-4 text-slate-500" />
+                    </button>
+                </div>
+
+                <p className="px-5 pt-3 text-[11px] text-slate-500">
+                    Only fields you change will be applied. Mixed values are shown as <Minus className="w-3 h-3 inline" /> or "(varies)".
+                </p>
+
+                <div className="px-5 py-4 space-y-4">
+                    <div>
+                        <label className="text-xs font-semibold text-slate-700 mb-1 block">Status</label>
+                        <select
+                            value={dirtyFields.has('status') ? status : (statusInfo.same ? status : '')}
+                            onChange={e => { setStatus(e.target.value); markDirty('status'); }}
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            {!statusInfo.same && !dirtyFields.has('status') && <option value="">(varies)</option>}
+                            <option value="draft">Draft</option>
+                            <option value="published">Published</option>
+                        </select>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold text-slate-700">Active (visible in store)</label>
+                        {renderToggle(isActive, isActiveInfo, 'is_active', setIsActive, 'bg-blue-600')}
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                            <Star className="w-3.5 h-3.5 text-amber-400" /> Featured
+                        </label>
+                        {renderToggle(isFeatured, isFeaturedInfo, 'is_featured', setIsFeatured, 'bg-amber-400')}
+                    </div>
+
+                    {vendors.length > 0 && (
+                        <div>
+                            <label className="text-xs font-semibold text-slate-700 mb-1 block">Fulfilled by</label>
+                            <select
+                                value={dirtyFields.has('vendor_id') ? (vendorId ?? '') : (vendorInfo.same ? vendorId : '')}
+                                onChange={e => { setVendorId(e.target.value); markDirty('vendor_id'); }}
+                                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                {!vendorInfo.same && !dirtyFields.has('vendor_id') && <option value="">(varies)</option>}
+                                <option value="">Your Store (self-fulfilled)</option>
+                                {vendors.map(v => (
+                                    <option key={v.id} value={v.id}>{v.name}{v.is_default ? ' ★' : ''} — {v.payment_mode}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="text-xs font-semibold text-slate-700 mb-1 block">Category</label>
+                        <input
+                            type="text"
+                            value={dirtyFields.has('category') ? category : (categoryInfo.same ? category : '')}
+                            placeholder={!categoryInfo.same && !dirtyFields.has('category') ? '(varies)' : 'e.g. Apparel'}
+                            onChange={e => { setCategory(e.target.value); markDirty('category'); }}
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="text-xs font-semibold text-slate-700 mb-1 block">Tags</label>
+                        <input
+                            type="text"
+                            value={dirtyFields.has('tags') ? tags : (tagsInfo.same ? tags : '')}
+                            placeholder={!tagsInfo.same && !dirtyFields.has('tags') ? '(varies)' : 'comma-separated'}
+                            onChange={e => { setTags(e.target.value); markDirty('tags'); }}
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="text-xs font-semibold text-slate-700 mb-1 block">Brand</label>
+                        <input
+                            type="text"
+                            value={dirtyFields.has('brand') ? brand : (brandInfo.same ? brand : '')}
+                            placeholder={!brandInfo.same && !dirtyFields.has('brand') ? '(varies)' : 'e.g. Nike'}
+                            onChange={e => { setBrand(e.target.value); markDirty('brand'); }}
+                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+
+                    {error && <p className="text-xs text-red-600">{error}</p>}
+                </div>
+
+                <div className="px-5 py-4 border-t border-slate-100 space-y-3">
+                    {dirtyFields.size > 0 && (
+                        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                            Saving will update <strong>{[...dirtyFields].map(f => fieldLabels[f] || f).join(', ')}</strong> for {count} product{count !== 1 ? 's' : ''}.
+                        </p>
+                    )}
+                    <div className="flex items-center justify-end gap-2">
+                        <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            disabled={saving || dirtyFields.size === 0}
+                            className="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-40 flex items-center gap-2"
+                        >
+                            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                            Save Changes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -577,7 +886,7 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
     const [tierError, setTierError] = useState<string | null>(null);
     const fileRef = useRef<HTMLInputElement>(null);
     const packages = useMembershipPackages(siteId);
-    const [vendorId, setVendorId] = useState<string>('');
+    const [vendorId, setVendorId] = useState<string>(product?.vendor_id ?? '');
     const [vendors, setVendors] = useState<Array<{ id: string; name: string; payment_mode: string; is_default: boolean }>>([]);
 
     // Load vendors for this site
