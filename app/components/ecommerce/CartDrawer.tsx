@@ -172,6 +172,17 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
         }
     }, [siteId, form.country, form.region, cart?.subtotalCents, shippingRequired]);
 
+    // Auto-initialize Clover when the customer reaches the payment step
+    useEffect(() => {
+        if (!cart?.isCartOpen || step !== 'payment' || selectedPayment !== 'clover') return;
+        if (cloverChargeData || submitting) return;
+        const addressFilled = form.line1.trim() && form.city.trim() && form.region.trim() && form.postal.trim() && form.country;
+        const contactFilled = form.name.trim() && form.email.trim();
+        const ready = contactFilled && (!shippingRequired || (addressFilled && shippingResult && !shippingError));
+        if (!ready) return;
+        handleCheckout();
+    }, [step, selectedPayment]); // eslint-disable-line react-hooks/exhaustive-deps
+
     if (!cart || !cart.isCartOpen) return null;
 
     const pSecondary = palette.secondary || '#dc2626';
@@ -746,7 +757,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                     arr.indexOf(step) > i ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'
                                 }`}>{i + 1}</span>
                                 <span className={`${s === step ? 'text-slate-900 font-semibold' : 'text-slate-400'}`}>
-                                    {s === 'cart' ? 'Cart' : s === 'address' ? 'Address' : 'Pay'}
+                                    {s === 'cart' ? 'Cart' : s === 'address' ? 'Address & Shipping' : 'Payment Information'}
                                 </span>
                                 {i < arr.length - 1 && <span className="text-slate-300 mx-0.5">—</span>}
                             </span>
@@ -1066,6 +1077,35 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                     </div>
                                 </div>
                             )}
+
+                            {/* Clover payment form — auto-rendered when Clover is selected */}
+                            {selectedPayment === 'clover' && (
+                                <div>
+                                    {cloverChargeData ? (
+                                        <CloverIframe
+                                            {...cloverChargeData}
+                                            currency={currency}
+                                            onSuccess={() => {
+                                                setCloverChargeData(null);
+                                                cart.clearCart();
+                                                setStep('confirmation');
+                                                setSubmitting(false);
+                                            }}
+                                            onError={(msg) => {
+                                                setCloverChargeData(null);
+                                                setStepError(msg);
+                                                setSubmitting(false);
+                                            }}
+                                            palette={palette}
+                                        />
+                                    ) : submitting ? (
+                                        <div className="flex items-center justify-center gap-2 text-slate-400 text-sm py-6">
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Preparing payment form…
+                                        </div>
+                                    ) : null}
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -1325,24 +1365,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
 
                 {step === 'payment' && (
                     <div className="border-t border-slate-200 px-5 py-4 space-y-2">
-                        {selectedPayment === 'clover' && cloverChargeData ? (
-                            <CloverIframe
-                                {...cloverChargeData}
-                                currency={currency}
-                                onSuccess={() => {
-                                    setCloverChargeData(null);
-                                    cart.clearCart();
-                                    setStep('confirmation');
-                                    setSubmitting(false);
-                                }}
-                                onError={(msg) => {
-                                    setCloverChargeData(null);
-                                    setStepError(msg);
-                                    setSubmitting(false);
-                                }}
-                                palette={palette}
-                            />
-                        ) : selectedPayment === 'paypal' && paypalMerchantId ? (
+                        {selectedPayment === 'paypal' && paypalMerchantId ? (
                             <div>
                                 {canPlaceOrder && !(shippingRequired && (!!shippingError || noZonesConfigured)) ? (
                                     <PayPalButton
@@ -1364,26 +1387,26 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                     </p>
                                 )}
                             </div>
-                        ) : (
+                        ) : selectedPayment !== 'clover' ? (
                             <button
                                 onClick={handleCheckout}
                                 disabled={submitting || !canPlaceOrder || (shippingRequired && (!!shippingError || noZonesConfigured))}
                                 className="w-full py-3 text-white font-bold rounded-xl flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-40"
-                                style={{ backgroundColor: (selectedPayment === 'stripe' || selectedPayment === 'converge' || selectedPayment === 'clover') ? '#635BFF' : pSecondary }}
+                                style={{ backgroundColor: (selectedPayment === 'stripe' || selectedPayment === 'converge') ? '#635BFF' : pSecondary }}
                             >
                                 {submitting ? (
                                     <Loader2 className="w-5 h-5 animate-spin" />
-                                ) : (selectedPayment === 'stripe' || selectedPayment === 'converge' || selectedPayment === 'clover') ? (
+                                ) : (selectedPayment === 'stripe' || selectedPayment === 'converge') ? (
                                     <CreditCard className="w-5 h-5" />
                                 ) : (
                                     <Check className="w-5 h-5" />
                                 )}
-                                {selectedPayment === 'stripe' || selectedPayment === 'converge' || selectedPayment === 'clover'
+                                {selectedPayment === 'stripe' || selectedPayment === 'converge'
                                     ? `Pay ${totalStr} with Card`
                                     : `Place Order — ${totalStr} (e-Transfer)`
                                 }
                             </button>
-                        )}
+                        ) : null}
                         {stepError && (
                             <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
                                 <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
