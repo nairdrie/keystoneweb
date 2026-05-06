@@ -5,7 +5,8 @@ import { CreditCard, Loader2, AlertCircle } from 'lucide-react';
 
 interface CloverIframeProps {
     publicKey: string;
-    merchantId: string;
+    /** Optional — needed for AVS/address elements but not for card/CVV/expiry capture */
+    merchantId?: string;
     sandboxMode: boolean;
     amountCents: number;
     currency?: string;
@@ -71,7 +72,7 @@ export default function CloverIframe({
 
         try {
             const clover = new (window as any).Clover(publicKey, {
-                merchantId,
+                ...(merchantId ? { merchantId } : {}),
                 locale: 'en-US',
                 sandbox: sandboxMode,
             });

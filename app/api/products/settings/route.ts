@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     // Also fetch stripe_account_id and paypal fields from sites table
     const { data: site } = await supabase
         .from('sites')
-        .select('stripe_account_id, paypal_merchant_id, paypal_onboarding_status, paypal_advanced_card_enabled, converge_merchant_id, converge_user_id, converge_pin, converge_demo_mode, clover_merchant_id, clover_private_token, clover_sandbox_mode')
+        .select('stripe_account_id, paypal_merchant_id, paypal_onboarding_status, paypal_advanced_card_enabled, converge_merchant_id, converge_user_id, converge_pin, converge_demo_mode, clover_merchant_id, clover_public_key, clover_private_token, clover_sandbox_mode')
         .eq('id', siteId)
         .single();
 
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
         paypalAdvancedCardEnabled: !!site?.paypal_advanced_card_enabled,
         convergeConnected: !!(site?.converge_merchant_id && site?.converge_user_id && site?.converge_pin),
         convergeDemoMode: !!site?.converge_demo_mode,
-        cloverConnected: !!(site?.clover_merchant_id && site?.clover_private_token),
+        cloverConnected: !!(site?.clover_merchant_id && site?.clover_public_key && site?.clover_private_token),
         cloverSandboxMode: !!site?.clover_sandbox_mode,
     });
 }
