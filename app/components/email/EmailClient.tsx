@@ -14,12 +14,7 @@ import ComposeModal from './ComposeModal';
 import EmailSettingsModal from './EmailSettingsModal';
 import EmailRichEditor from './EmailRichEditor';
 import {
-  type ComposeDraft,
-  getComposeDrafts,
-  deleteComposeDraft,
-  getReplyDraft,
-  saveReplyDraft,
-  clearReplyDraft,
+  type EmailDraft,
   getSplitWidth,
   setSplitWidth,
   DEFAULT_SPLIT_WIDTH,
@@ -115,7 +110,7 @@ export default function EmailClient() {
   const [activeMessages, setActiveMessages] = useState<ThreadMessage[] | null>(null);
   const [threadLoading, setThreadLoading] = useState(false);
   const [showCompose, setShowCompose] = useState(false);
-  const [initialDraftData, setInitialDraftData] = useState<ComposeDraft | undefined>(undefined);
+  const [initialDraftData, setInitialDraftData] = useState<EmailDraft | undefined>(undefined);
   const [showSettings, setShowSettings] = useState(false);
   const [showFolderDrawer, setShowFolderDrawer] = useState(false);
   const [aiDraftsEnabled, setAiDraftsEnabled] = useState(true);
@@ -126,9 +121,11 @@ export default function EmailClient() {
   const [showCcBcc, setShowCcBcc] = useState(false);
   const [ccDraft, setCcDraft] = useState('');
   const [bccDraft, setBccDraft] = useState('');
-  const [composeDrafts, setComposeDrafts] = useState<ComposeDraft[]>([]);
+  const [composeDrafts, setComposeDrafts] = useState<EmailDraft[]>([]);
+  const [draftsLoading, setDraftsLoading] = useState(false);
   const [splitWidth, setSplitWidthState] = useState(DEFAULT_SPLIT_WIDTH);
   const initialRef = useRef({ messageId: initialMessageId, applied: false });
+  // Tracks which threads have already been prefilled (AI draft or saved reply draft)
   const aiPrefilledRef = useRef<Set<string>>(new Set());
   const replyDraftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -153,19 +150,31 @@ export default function EmailClient() {
     fetch(`/api/contact/settings?siteId=${siteId}`, { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d) setAiDraftsEnabled(d.ai_replies_enabled !== false); });
-    setComposeDrafts(getComposeDrafts(siteId));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [siteId]);
 
-  // Refresh compose draft list when folder is 'drafts' or compose modal closes
+  const fetchComposeDrafts = useCallback(async () => {
+    if (!siteId) return;
+    setDraftsLoading(true);
+    try {
+      const res = await fetch(`/api/email/drafts?siteId=${siteId}`, { credentials: 'include' });
+      if (!res.ok) return;
+      const d = await res.json();
+      setComposeDrafts(d.drafts ?? []);
+    } finally {
+      setDraftsLoading(false);
+    }
+  }, [siteId]);
+
+  // Refresh compose drafts when the folder is 'drafts' or compose modal closes
   useEffect(() => {
     if (!siteId) return;
     if (folder === 'drafts' || !showCompose) {
-      setComposeDrafts(getComposeDrafts(siteId));
+      fetchComposeDrafts();
     }
-  }, [folder, showCompose, siteId]);
+  }, [folder, showCompose, fetchComposeDrafts, siteId]);
 
-  // ── Sync URL on folder/address/thread changes (preserves siteId)
+  // ── Sync URL on folder/address/thread changes
   useEffect(() => {
     if (!siteId) return;
     const params = new URLSearchParams();
@@ -179,9 +188,8 @@ export default function EmailClient() {
 
   const fetchThreads = useCallback(async () => {
     if (!siteId) return;
-    // Drafts folder is client-side only
     if (folder === 'drafts') {
-      setComposeDrafts(getComposeDrafts(siteId));
+      fetchComposeDrafts();
       return;
     }
     setLoading(true);
@@ -198,7 +206,7 @@ export default function EmailClient() {
     } finally {
       setLoading(false);
     }
-  }, [siteId, folder, addressId]);
+  }, [siteId, folder, addressId, fetchComposeDrafts]);
 
   useEffect(() => { fetchThreads(); }, [fetchThreads]);
 
@@ -217,21 +225,15 @@ export default function EmailClient() {
     initialRef.current.applied = true;
 
     const hit = threads.find(t => t.threadId === target);
-    if (hit) {
-      setActiveThreadId(hit.threadId);
-      return;
-    }
+    if (hit) { setActiveThreadId(hit.threadId); return; }
 
     fetch(`/api/contact/${target}?siteId=${siteId}`, { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        const resolved = d?.submission?.thread_id ?? target;
-        setActiveThreadId(resolved);
-      })
+      .then(d => setActiveThreadId(d?.submission?.thread_id ?? target))
       .catch(() => setActiveThreadId(target));
   }, [threads, siteId]);
 
-  // Load active thread messages
+  // Load active thread messages + fetch saved reply draft in parallel
   useEffect(() => {
     if (!activeThreadId || !siteId) {
       setActiveMessages(null);
@@ -239,57 +241,78 @@ export default function EmailClient() {
     }
     let cancelled = false;
     setThreadLoading(true);
-    fetch(`/api/email/threads/${activeThreadId}?siteId=${siteId}`, { credentials: 'include' })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (cancelled || !d?.messages) return;
-        setActiveMessages(d.messages);
 
-        if (!aiPrefilledRef.current.has(activeThreadId)) {
-          aiPrefilledRef.current.add(activeThreadId);
+    const alreadyPrefilled = aiPrefilledRef.current.has(activeThreadId);
 
-          // Prefer user's saved reply draft over AI-generated draft
-          const savedReply = getReplyDraft(siteId, activeThreadId);
-          if (savedReply && (savedReply.bodyHtml || savedReply.bodyText)) {
-            setReplyHtml(savedReply.bodyHtml);
-            setReplyText(savedReply.bodyText);
-            setCcDraft(savedReply.ccDraft);
-            setBccDraft(savedReply.bccDraft);
-            if (savedReply.ccDraft || savedReply.bccDraft) setShowCcBcc(true);
-          } else {
-            const lastInbound = [...d.messages].reverse().find((m: ThreadMessage) => m.direction === 'inbound');
-            if (lastInbound?.ai_draft_reply) {
-              setReplyText(lastInbound.ai_draft_reply);
-              setReplyHtml(`<p>${lastInbound.ai_draft_reply.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`);
-            }
+    Promise.all([
+      fetch(`/api/email/threads/${activeThreadId}?siteId=${siteId}`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : null),
+      alreadyPrefilled
+        ? Promise.resolve(null)
+        : fetch(`/api/email/drafts?siteId=${siteId}&threadId=${activeThreadId}`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : null),
+    ]).then(([threadData, draftData]) => {
+      if (cancelled) return;
+      if (threadData?.messages) setActiveMessages(threadData.messages);
+
+      if (!alreadyPrefilled) {
+        aiPrefilledRef.current.add(activeThreadId);
+        const savedDraft: EmailDraft | null = draftData?.draft ?? null;
+
+        if (savedDraft && (savedDraft.body_html || savedDraft.body_text)) {
+          setReplyHtml(savedDraft.body_html ?? '');
+          setReplyText(savedDraft.body_text ?? '');
+          const ccStr = savedDraft.cc_emails?.join(', ') ?? '';
+          const bccStr = savedDraft.bcc_emails?.join(', ') ?? '';
+          setCcDraft(ccStr);
+          setBccDraft(bccStr);
+          if (ccStr || bccStr) setShowCcBcc(true);
+        } else if (threadData?.messages) {
+          const lastInbound = [...threadData.messages].reverse()
+            .find((m: ThreadMessage) => m.direction === 'inbound');
+          if (lastInbound?.ai_draft_reply) {
+            setReplyText(lastInbound.ai_draft_reply);
+            setReplyHtml(
+              `<p>${lastInbound.ai_draft_reply
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`
+            );
           }
         }
-      })
-      .finally(() => { if (!cancelled) setThreadLoading(false); });
+      }
+    }).finally(() => { if (!cancelled) setThreadLoading(false); });
+
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeThreadId, siteId]);
 
-  // Auto-save reply draft to localStorage with 1.5s debounce
+  // Auto-save reply draft to DB with 1.5s debounce
   useEffect(() => {
     if (!activeThreadId || !siteId) return;
     if (!replyHtml && !replyText && !ccDraft && !bccDraft) return;
 
     if (replyDraftTimerRef.current) clearTimeout(replyDraftTimerRef.current);
     replyDraftTimerRef.current = setTimeout(() => {
-      saveReplyDraft(siteId, activeThreadId, {
-        bodyHtml: replyHtml,
-        bodyText: replyText,
-        ccDraft,
-        bccDraft,
-        savedAt: new Date().toISOString(),
-      });
+      fetch('/api/email/drafts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          siteId,
+          threadId: activeThreadId,
+          addressId,
+          bodyHtml: replyHtml,
+          bodyText: replyText,
+          ccEmails: ccDraft.split(/[,;]/).map(s => s.trim()).filter(Boolean),
+          bccEmails: bccDraft.split(/[,;]/).map(s => s.trim()).filter(Boolean),
+        }),
+      }).catch(() => {});
     }, 1500);
 
     return () => {
       if (replyDraftTimerRef.current) clearTimeout(replyDraftTimerRef.current);
     };
-  }, [replyHtml, replyText, ccDraft, bccDraft, activeThreadId, siteId]);
+  }, [replyHtml, replyText, ccDraft, bccDraft, activeThreadId, addressId, siteId]);
 
   // Mark-as-read dwell timer
   useEffect(() => {
@@ -299,17 +322,14 @@ export default function EmailClient() {
 
     const timer = window.setTimeout(() => {
       fetch(`/api/email/threads/${activeThreadId}?siteId=${siteId}`, {
-        method: 'POST',
-        credentials: 'include',
-      })
-        .then(() => {
-          setActiveMessages(prev =>
-            prev?.map(m => (m.direction === 'inbound' ? { ...m, is_read: true } : m)) ?? null
-          );
-          refreshInboxUnread();
-          fetchThreads();
-        })
-        .catch(() => {});
+        method: 'POST', credentials: 'include',
+      }).then(() => {
+        setActiveMessages(prev =>
+          prev?.map(m => (m.direction === 'inbound' ? { ...m, is_read: true } : m)) ?? null
+        );
+        refreshInboxUnread();
+        fetchThreads();
+      }).catch(() => {});
     }, 4000);
 
     return () => window.clearTimeout(timer);
@@ -323,14 +343,12 @@ export default function EmailClient() {
     const startWidth = splitWidth;
 
     function onMouseMove(ev: MouseEvent) {
-      const delta = ev.clientX - startX;
-      const next = Math.min(MAX_SPLIT_WIDTH, Math.max(MIN_SPLIT_WIDTH, startWidth + delta));
+      const next = Math.min(MAX_SPLIT_WIDTH, Math.max(MIN_SPLIT_WIDTH, startWidth + ev.clientX - startX));
       setSplitWidthState(next);
     }
 
     function onMouseUp(ev: MouseEvent) {
-      const delta = ev.clientX - startX;
-      const final = Math.min(MAX_SPLIT_WIDTH, Math.max(MIN_SPLIT_WIDTH, startWidth + delta));
+      const final = Math.min(MAX_SPLIT_WIDTH, Math.max(MIN_SPLIT_WIDTH, startWidth + ev.clientX - startX));
       setSplitWidth(final);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
@@ -386,13 +404,14 @@ export default function EmailClient() {
         }),
       });
       const d = await res.json();
-      if (!res.ok) {
-        setSendError(d.error ?? 'Failed to send');
-        return;
-      }
-      // Clear draft and reload
-      clearReplyDraft(siteId, activeThreadId);
+      if (!res.ok) { setSendError(d.error ?? 'Failed to send'); return; }
+
+      // Delete the reply draft from DB, clear the form
+      fetch(`/api/email/drafts?siteId=${siteId}&threadId=${activeThreadId}`, {
+        method: 'DELETE', credentials: 'include',
+      }).catch(() => {});
       clearReplyFields();
+
       await Promise.all([
         fetch(`/api/email/threads/${activeThreadId}?siteId=${siteId}`, { credentials: 'include' })
           .then(r => r.ok ? r.json() : null)
@@ -407,18 +426,14 @@ export default function EmailClient() {
 
   async function handleMarkSpam(threadId: string) {
     if (!siteId) return;
-    const targetMessages = activeMessages?.filter(m => m.thread_id === threadId && m.direction === 'inbound') ?? [];
-    await Promise.all(targetMessages.map(m =>
+    const targets = activeMessages?.filter(m => m.thread_id === threadId && m.direction === 'inbound') ?? [];
+    await Promise.all(targets.map(m =>
       fetch(`/api/contact/${m.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
         body: JSON.stringify({ status: 'spam' }),
       })
     ));
-    closeThread();
-    fetchThreads();
-    refreshInboxUnread();
+    closeThread(); fetchThreads(); refreshInboxUnread();
   }
 
   async function handleMarkUnread(threadId: string) {
@@ -427,44 +442,32 @@ export default function EmailClient() {
     const target = inbound[inbound.length - 1];
     if (!target) return;
     await fetch(`/api/contact/${target.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
       body: JSON.stringify({ is_read: false }),
     });
-    closeThread();
-    fetchThreads();
-    refreshInboxUnread();
+    closeThread(); fetchThreads(); refreshInboxUnread();
   }
 
   async function handleNotSpam(threadId: string) {
     if (!siteId) return;
-    const targetMessages = activeMessages?.filter(m => m.thread_id === threadId && m.direction === 'inbound') ?? [];
-    await Promise.all(targetMessages.map(m => {
+    const targets = activeMessages?.filter(m => m.thread_id === threadId && m.direction === 'inbound') ?? [];
+    await Promise.all(targets.map(m => {
       const nextStatus = m.ai_draft_reply ? 'needs_review' : 'new';
       return fetch(`/api/contact/${m.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
         body: JSON.stringify({ status: nextStatus, is_read: false }),
       });
     }));
-    closeThread();
-    setFolder('inbox');
-    fetchThreads();
-    refreshInboxUnread();
+    closeThread(); setFolder('inbox'); fetchThreads(); refreshInboxUnread();
   }
 
   async function handleDeleteThread(threadId: string) {
     if (!siteId) return;
     if (!window.confirm('Delete this conversation? This cannot be undone.')) return;
     await fetch(`/api/email/threads/${threadId}?siteId=${siteId}`, {
-      method: 'DELETE',
-      credentials: 'include',
+      method: 'DELETE', credentials: 'include',
     });
-    closeThread();
-    fetchThreads();
-    refreshInboxUnread();
+    closeThread(); fetchThreads(); refreshInboxUnread();
   }
 
   async function toggleAiDrafts() {
@@ -472,18 +475,18 @@ export default function EmailClient() {
     const next = !aiDraftsEnabled;
     setAiDraftsEnabled(next);
     await fetch('/api/contact/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
       body: JSON.stringify({ siteId, ai_replies_enabled: next }),
     });
   }
 
-  function handleDiscardComposeDraft(draftId: string) {
+  async function handleDiscardComposeDraft(draftId: string) {
     if (!siteId) return;
     if (!window.confirm('Discard this draft? It will be permanently deleted.')) return;
-    deleteComposeDraft(siteId, draftId);
-    setComposeDrafts(getComposeDrafts(siteId));
+    await fetch(`/api/email/drafts/${draftId}?siteId=${siteId}`, {
+      method: 'DELETE', credentials: 'include',
+    });
+    fetchComposeDrafts();
   }
 
   if (!siteId) return null;
@@ -496,7 +499,7 @@ export default function EmailClient() {
   const threadOpen = !!activeThreadId && folder !== 'drafts';
   const hasReplyDraft = !!(replyHtml || replyText);
 
-  function renderFolderList(mobile = false) {
+  function renderFolderItems(mobile = false) {
     return FOLDERS.map(f => {
       const Icon = f.icon;
       const count = f.id === 'drafts'
@@ -513,9 +516,7 @@ export default function EmailClient() {
           key={f.id}
           onClick={() => switchFolder(f.id)}
           className={`${mobile ? 'w-full' : ''} flex items-center gap-2 px-3 ${mobile ? 'py-2.5' : 'py-2'} rounded-lg text-sm font-bold transition-colors ${
-            isActive
-              ? 'bg-red-50 text-red-700'
-              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+            isActive ? 'bg-red-50 text-red-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
           }`}
         >
           <Icon className="w-4 h-4" />
@@ -540,7 +541,6 @@ export default function EmailClient() {
           onClick={() => setShowFolderDrawer(true)}
           className="md:hidden p-2 -ml-1 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors shrink-0"
           aria-label="Open folders"
-          title="Folders"
         >
           <Menu className="w-4 h-4" />
         </button>
@@ -554,7 +554,7 @@ export default function EmailClient() {
         </button>
 
         <div className="flex-1 overflow-x-auto flex items-center gap-1">
-          {addresses.length > 0 && addresses.map(a => {
+          {addresses.map(a => {
             const stats = perAddress[a.id] ?? { unread: 0, total: 0 };
             const isActive = addressId === a.id;
             return (
@@ -585,7 +585,6 @@ export default function EmailClient() {
         <button
           onClick={() => fetchThreads()}
           className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors shrink-0"
-          aria-label="Refresh"
           title="Refresh"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -605,18 +604,17 @@ export default function EmailClient() {
         <button
           onClick={() => setShowSettings(true)}
           className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors shrink-0"
-          aria-label="Email settings"
           title="Email settings"
         >
           <Settings className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Three-pane layout: folders | thread list | thread detail */}
+      {/* Three-pane layout */}
       <div className="flex-1 min-h-0 flex overflow-hidden">
         {/* Folder sidebar — desktop */}
         <aside className="hidden md:flex w-48 flex-none flex-col bg-white border-r border-slate-200 py-2 px-2">
-          {renderFolderList()}
+          {renderFolderItems()}
         </aside>
 
         {/* Mobile folder drawer */}
@@ -626,10 +624,7 @@ export default function EmailClient() {
           }`}
           aria-hidden={!showFolderDrawer}
         >
-          <div
-            className="absolute inset-0 bg-slate-900/40"
-            onClick={() => setShowFolderDrawer(false)}
-          />
+          <div className="absolute inset-0 bg-slate-900/40" onClick={() => setShowFolderDrawer(false)} />
           <aside
             role="dialog"
             aria-label="Folders"
@@ -639,23 +634,17 @@ export default function EmailClient() {
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
               <span className="text-sm font-bold text-slate-900">Folders</span>
-              <button
-                onClick={() => setShowFolderDrawer(false)}
-                className="p-1.5 -mr-1 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-                aria-label="Close folders"
-              >
+              <button onClick={() => setShowFolderDrawer(false)} className="p-1.5 -mr-1 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg">
                 <X className="w-4 h-4" />
               </button>
             </div>
             <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
-              {renderFolderList(true)}
+              {renderFolderItems(true)}
               <div className="pt-2 mt-2 border-t border-slate-100">
                 <button
                   onClick={toggleAiDrafts}
                   className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold transition-colors ${
-                    aiDraftsEnabled
-                      ? 'bg-violet-50 text-violet-700 hover:bg-violet-100'
-                      : 'text-slate-400 hover:bg-slate-100'
+                    aiDraftsEnabled ? 'bg-violet-50 text-violet-700 hover:bg-violet-100' : 'text-slate-400 hover:bg-slate-100'
                   }`}
                 >
                   <Sparkles className="w-4 h-4" />
@@ -667,9 +656,8 @@ export default function EmailClient() {
           </aside>
         </div>
 
-        {/* Thread list pane
-            - Full width when no thread selected or in Drafts folder
-            - Fixed splitWidth when a thread is open */}
+        {/* Thread / draft list pane
+            Full-width when no thread is open; fixed splitWidth when one is. */}
         <section
           className={`min-w-0 flex-col bg-white border-r border-slate-200 ${
             threadOpen ? 'hidden md:flex flex-none' : 'flex flex-1'
@@ -677,12 +665,15 @@ export default function EmailClient() {
           style={threadOpen ? { width: splitWidth } : undefined}
         >
           {folder === 'drafts' ? (
-            /* Compose drafts list */
-            composeDrafts.length === 0 ? (
+            draftsLoading ? (
+              <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
+                <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading…
+              </div>
+            ) : composeDrafts.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-12">
                 <PenLine className="w-10 h-10 text-slate-300 mb-3" />
                 <p className="text-sm text-slate-500 font-medium">No saved drafts.</p>
-                <p className="text-xs text-slate-400 mt-1">Start composing an email — it will auto-save here.</p>
+                <p className="text-xs text-slate-400 mt-1">Start composing — it auto-saves here.</p>
               </div>
             ) : (
               <ul className="flex-1 overflow-y-auto divide-y divide-slate-100">
@@ -694,20 +685,20 @@ export default function EmailClient() {
                     >
                       <div className="flex items-baseline gap-2 mb-1">
                         <span className="text-sm font-medium text-slate-600 truncate">
-                          {draft.to || <span className="italic text-slate-400">No recipient</span>}
+                          {draft.to_emails?.join(', ') || <span className="italic text-slate-400">No recipient</span>}
                         </span>
                         <span className="shrink-0 text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded-full font-bold uppercase tracking-wide">
                           Draft
                         </span>
                         <time className="ml-auto shrink-0 text-[11px] text-slate-400">
-                          {new Date(draft.savedAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
+                          {new Date(draft.updated_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
                         </time>
                       </div>
                       <p className="text-xs text-slate-500 truncate mb-0.5">
                         {draft.subject || '(no subject)'}
                       </p>
                       <p className="text-xs text-slate-400 truncate">
-                        {draft.bodyText || '(no body)'}
+                        {draft.body_text || '(no body)'}
                       </p>
                     </button>
                     <button
@@ -744,70 +735,38 @@ export default function EmailClient() {
                 const isSpam = t.hasSpam;
                 return (
                   <li key={t.threadId} className="relative">
-                    <span
-                      aria-hidden
-                      className={`absolute inset-y-0 left-0 w-1 ${
-                        isActive ? 'bg-red-500' : isUnread ? 'bg-red-500' : 'bg-transparent'
-                      }`}
-                    />
+                    <span aria-hidden className={`absolute inset-y-0 left-0 w-1 ${isActive ? 'bg-red-500' : isUnread ? 'bg-red-500' : 'bg-transparent'}`} />
                     <button
                       onClick={() => openThread(t.threadId)}
-                      className={`relative w-full text-left pl-5 pr-4 py-3 transition-colors ${
-                        isActive ? 'bg-red-50' : 'bg-white hover:bg-slate-50'
-                      } ${isSpam ? 'opacity-70' : ''}`}
+                      className={`relative w-full text-left pl-5 pr-4 py-3 transition-colors ${isActive ? 'bg-red-50' : 'bg-white hover:bg-slate-50'} ${isSpam ? 'opacity-70' : ''}`}
                     >
                       <div className="flex items-baseline gap-2 mb-1">
                         {isUnread && !isActive && (
                           <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0 -ml-2.5 mr-0.5" />
                         )}
-                        <span
-                          className={`text-sm truncate ${
-                            isUnread ? 'font-extrabold text-slate-900' : 'font-medium text-slate-500'
-                          }`}
-                        >
+                        <span className={`text-sm truncate ${isUnread ? 'font-extrabold text-slate-900' : 'font-medium text-slate-500'}`}>
                           {t.participantName || t.participantEmails[0] || 'Unknown'}
                         </span>
-                        {t.messageCount > 1 && (
-                          <span className="text-[11px] text-slate-400">({t.messageCount})</span>
-                        )}
+                        {t.messageCount > 1 && <span className="text-[11px] text-slate-400">({t.messageCount})</span>}
                         {isUnread ? (
-                          <span className="text-[10px] px-1.5 py-0.5 bg-red-50 text-red-700 rounded-full font-bold uppercase tracking-wide">
-                            New
-                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 bg-red-50 text-red-700 rounded-full font-bold uppercase tracking-wide">New</span>
                         ) : t.hasNeedsReview ? (
-                          <span className="text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded-full font-bold uppercase tracking-wide">
-                            Draft
-                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded-full font-bold uppercase tracking-wide">Draft</span>
                         ) : isReplied ? (
                           <span className="text-[10px] inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full font-semibold">
-                            <CornerUpLeft className="w-2.5 h-2.5" />
-                            Replied
+                            <CornerUpLeft className="w-2.5 h-2.5" />Replied
                           </span>
                         ) : isSpam ? (
-                          <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-full font-bold uppercase tracking-wide">
-                            Spam
-                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-full font-bold uppercase tracking-wide">Spam</span>
                         ) : null}
-                        <time
-                          className={`ml-auto shrink-0 text-[11px] ${
-                            isUnread ? 'text-slate-700 font-semibold' : 'text-slate-400'
-                          }`}
-                        >
+                        <time className={`ml-auto shrink-0 text-[11px] ${isUnread ? 'text-slate-700 font-semibold' : 'text-slate-400'}`}>
                           {new Date(t.lastMessageAt).toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })}
                         </time>
                       </div>
-                      <p
-                        className={`text-xs truncate mb-0.5 ${
-                          isUnread ? 'font-bold text-slate-900' : 'text-slate-500'
-                        }`}
-                      >
+                      <p className={`text-xs truncate mb-0.5 ${isUnread ? 'font-bold text-slate-900' : 'text-slate-500'}`}>
                         {t.subject || '(no subject)'}
                       </p>
-                      <p
-                        className={`text-xs truncate ${
-                          isUnread ? 'text-slate-700' : 'text-slate-400'
-                        }`}
-                      >
+                      <p className={`text-xs truncate ${isUnread ? 'text-slate-700' : 'text-slate-400'}`}>
                         {t.snippet || ''}
                       </p>
                     </button>
@@ -818,7 +777,7 @@ export default function EmailClient() {
           )}
         </section>
 
-        {/* Draggable resize handle — desktop only, visible when a thread is open */}
+        {/* Draggable resize handle — desktop only, when a thread is open */}
         {threadOpen && (
           <div
             className="hidden md:flex flex-none w-1 cursor-col-resize items-stretch bg-slate-200 hover:bg-red-400 active:bg-red-500 transition-colors select-none"
@@ -827,8 +786,8 @@ export default function EmailClient() {
           />
         )}
 
-        {/* Thread detail pane — shown when a thread is open */}
-        {threadOpen ? (
+        {/* Thread detail pane — rendered only when a non-draft thread is open */}
+        {threadOpen && (
           <section className="flex-1 min-w-0 flex flex-col bg-slate-50">
             {threadLoading ? (
               <div className="flex-1 flex items-center justify-center">
@@ -842,11 +801,7 @@ export default function EmailClient() {
               <div className="flex-1 min-h-0 flex flex-col">
                 {/* Thread header */}
                 <header className="flex-none px-4 sm:px-6 py-3 bg-white border-b border-slate-200 flex items-center gap-3">
-                  <button
-                    onClick={closeThread}
-                    className="md:hidden p-1.5 -ml-1 text-slate-500 hover:text-slate-900 rounded-lg"
-                    aria-label="Back"
-                  >
+                  <button onClick={closeThread} className="md:hidden p-1.5 -ml-1 text-slate-500 hover:text-slate-900 rounded-lg" aria-label="Back">
                     <ArrowLeft className="w-4 h-4" />
                   </button>
                   <div className="min-w-0 flex-1">
@@ -861,53 +816,37 @@ export default function EmailClient() {
                     <button
                       onClick={() => handleNotSpam(activeThreadId)}
                       className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors"
-                      title="Not spam — move back to Inbox"
                     >
-                      <InboxIcon className="w-3.5 h-3.5" />
-                      Not spam
+                      <InboxIcon className="w-3.5 h-3.5" /> Not spam
                     </button>
                   ) : (
                     <>
                       {lastInbound && (
-                        <button
-                          onClick={() => handleMarkUnread(activeThreadId)}
-                          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-                          title="Mark as unread"
-                        >
+                        <button onClick={() => handleMarkUnread(activeThreadId)} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors" title="Mark as unread">
                           <MailMinus className="w-4 h-4" />
                         </button>
                       )}
                       {canReply && (
-                        <button
-                          onClick={() => handleMarkSpam(activeThreadId)}
-                          className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                          title="Mark as spam"
-                        >
+                        <button onClick={() => handleMarkSpam(activeThreadId)} className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Mark as spam">
                           <ShieldAlert className="w-4 h-4" />
                         </button>
                       )}
                     </>
                   )}
-                  <button
-                    onClick={() => handleDeleteThread(activeThreadId)}
-                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Delete thread"
-                  >
+                  <button onClick={() => handleDeleteThread(activeThreadId)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete thread">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </header>
 
-                {/* Conversation messages */}
+                {/* Messages */}
                 <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3">
                   {activeMessages.map((m) => (
                     <article
                       key={m.id}
                       className={`rounded-xl border p-4 ${
-                        m.direction === 'outbound'
-                          ? 'bg-white border-emerald-100'
-                          : m.status === 'spam'
-                            ? 'bg-slate-50 border-slate-200'
-                            : 'bg-white border-slate-200'
+                        m.direction === 'outbound' ? 'bg-white border-emerald-100'
+                          : m.status === 'spam' ? 'bg-slate-50 border-slate-200'
+                          : 'bg-white border-slate-200'
                       }`}
                     >
                       <header className="flex items-start gap-3 mb-2">
@@ -922,14 +861,10 @@ export default function EmailClient() {
                               {m.direction === 'outbound' ? `You (${m.from_name ?? 'You'})` : m.sender_name}
                             </span>
                             <span className="text-xs text-slate-500">
-                              {m.direction === 'outbound'
-                                ? `→ ${m.to_emails.join(', ')}`
-                                : m.sender_email}
+                              {m.direction === 'outbound' ? `→ ${m.to_emails.join(', ')}` : m.sender_email}
                             </span>
                             <time className="ml-auto text-[11px] text-slate-400 shrink-0">
-                              {new Date(m.created_at).toLocaleString('en-CA', {
-                                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-                              })}
+                              {new Date(m.created_at).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                             </time>
                           </div>
                           {m.cc_emails?.length > 0 && (
@@ -938,12 +873,7 @@ export default function EmailClient() {
                         </div>
                       </header>
 
-                      <EmailBody
-                        html={m.body_html ?? undefined}
-                        text={m.message}
-                        className="email-body--light text-slate-800"
-                        emptyLabel="(no content)"
-                      />
+                      <EmailBody html={m.body_html ?? undefined} text={m.message} className="email-body--light text-slate-800" emptyLabel="(no content)" />
 
                       {m.direction === 'inbound' && m.ai_summary && (
                         <div className="mt-3 pt-3 border-t border-slate-100 flex items-start gap-2">
@@ -972,7 +902,7 @@ export default function EmailClient() {
                         Reply from <span className="font-mono">{activeAddress?.address ?? 'your inbox'}</span>
                       </span>
                       {hasReplyDraft && (
-                        <span className="text-[10px] text-slate-400 font-medium">· Draft auto-saved</span>
+                        <span className="text-[10px] text-slate-400 font-medium">· Draft saved</span>
                       )}
                       {lastInbound?.ai_draft_reply && (
                         <button
@@ -982,8 +912,7 @@ export default function EmailClient() {
                           }}
                           className="ml-auto flex items-center gap-1 text-[11px] text-violet-600 hover:text-violet-800 font-semibold"
                         >
-                          <Sparkles className="w-3 h-3" />
-                          Use AI draft
+                          <Sparkles className="w-3 h-3" /> Use AI draft
                         </button>
                       )}
                       <button
@@ -996,20 +925,8 @@ export default function EmailClient() {
 
                     {showCcBcc && (
                       <div className="space-y-2 mb-2">
-                        <input
-                          type="text"
-                          placeholder="cc: separate by comma"
-                          value={ccDraft}
-                          onChange={e => setCcDraft(e.target.value)}
-                          className="w-full text-xs px-3 py-1.5 border border-slate-200 rounded-lg bg-slate-50"
-                        />
-                        <input
-                          type="text"
-                          placeholder="bcc: separate by comma"
-                          value={bccDraft}
-                          onChange={e => setBccDraft(e.target.value)}
-                          className="w-full text-xs px-3 py-1.5 border border-slate-200 rounded-lg bg-slate-50"
-                        />
+                        <input type="text" placeholder="cc: separate by comma" value={ccDraft} onChange={e => setCcDraft(e.target.value)} className="w-full text-xs px-3 py-1.5 border border-slate-200 rounded-lg bg-slate-50" />
+                        <input type="text" placeholder="bcc: separate by comma" value={bccDraft} onChange={e => setBccDraft(e.target.value)} className="w-full text-xs px-3 py-1.5 border border-slate-200 rounded-lg bg-slate-50" />
                       </div>
                     )}
 
@@ -1042,7 +959,7 @@ export default function EmailClient() {
               </div>
             )}
           </section>
-        ) : null}
+        )}
       </div>
 
       {showCompose && siteId && (
@@ -1052,14 +969,8 @@ export default function EmailClient() {
           defaultAddressId={addressId}
           initialDraft={initialDraftData}
           onClose={() => setShowCompose(false)}
-          onSent={() => {
-            setShowCompose(false);
-            setFolder('sent');
-            fetchThreads();
-          }}
-          onDraftChanged={() => {
-            if (siteId) setComposeDrafts(getComposeDrafts(siteId));
-          }}
+          onSent={() => { setShowCompose(false); setFolder('sent'); fetchThreads(); }}
+          onDraftChanged={fetchComposeDrafts}
         />
       )}
 

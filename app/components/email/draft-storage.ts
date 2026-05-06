@@ -1,71 +1,20 @@
-export interface ComposeDraft {
+// Shared types for email drafts (stored in DB via /api/email/drafts)
+export interface EmailDraft {
   id: string;
-  addressId: string | null;
-  to: string;
-  cc: string;
-  bcc: string;
-  subject: string;
-  bodyHtml: string;
-  bodyText: string;
-  savedAt: string;
+  site_id: string;
+  thread_id: string | null;  // null = compose draft
+  address_id: string | null;
+  to_emails: string[];
+  cc_emails: string[];
+  bcc_emails: string[];
+  subject: string | null;
+  body_html: string | null;
+  body_text: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface ReplyDraft {
-  bodyHtml: string;
-  bodyText: string;
-  ccDraft: string;
-  bccDraft: string;
-  savedAt: string;
-}
-
-function composeDraftKey(siteId: string) {
-  return `email-compose-drafts-${siteId}`;
-}
-
-function replyDraftKey(siteId: string, threadId: string) {
-  return `email-reply-draft-${siteId}-${threadId}`;
-}
-
-export function getComposeDrafts(siteId: string): ComposeDraft[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    return JSON.parse(localStorage.getItem(composeDraftKey(siteId)) ?? '[]');
-  } catch { return []; }
-}
-
-export function saveComposeDraft(siteId: string, draft: ComposeDraft): void {
-  if (typeof window === 'undefined') return;
-  const drafts = getComposeDrafts(siteId);
-  const idx = drafts.findIndex(d => d.id === draft.id);
-  if (idx >= 0) drafts[idx] = draft;
-  else drafts.unshift(draft);
-  localStorage.setItem(composeDraftKey(siteId), JSON.stringify(drafts));
-}
-
-export function deleteComposeDraft(siteId: string, draftId: string): void {
-  if (typeof window === 'undefined') return;
-  const drafts = getComposeDrafts(siteId).filter(d => d.id !== draftId);
-  localStorage.setItem(composeDraftKey(siteId), JSON.stringify(drafts));
-}
-
-export function getReplyDraft(siteId: string, threadId: string): ReplyDraft | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const val = localStorage.getItem(replyDraftKey(siteId, threadId));
-    return val ? JSON.parse(val) : null;
-  } catch { return null; }
-}
-
-export function saveReplyDraft(siteId: string, threadId: string, draft: ReplyDraft): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(replyDraftKey(siteId, threadId), JSON.stringify(draft));
-}
-
-export function clearReplyDraft(siteId: string, threadId: string): void {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem(replyDraftKey(siteId, threadId));
-}
-
+// Split-panel resize preference — the only thing kept in localStorage
 const SPLIT_WIDTH_KEY = 'email-split-width';
 export const DEFAULT_SPLIT_WIDTH = 360;
 export const MIN_SPLIT_WIDTH = 220;

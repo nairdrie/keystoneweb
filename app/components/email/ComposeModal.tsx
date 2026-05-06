@@ -3,11 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Send, AlertCircle, Loader2, ChevronDown } from 'lucide-react';
 import EmailRichEditor from './EmailRichEditor';
-import {
-  type ComposeDraft,
-  saveComposeDraft,
-  deleteComposeDraft,
-} from './draft-storage';
+import type { EmailDraft } from './draft-storage';
 
 interface InboxAddress {
   id: string;
@@ -20,7 +16,7 @@ interface Props {
   siteId: string;
   addresses: InboxAddress[];
   defaultAddressId: string | null;
-  initialDraft?: ComposeDraft;
+  initialDraft?: EmailDraft;
   onClose: () => void;
   onSent: () => void;
   onDraftChanged?: () => void;
@@ -36,20 +32,24 @@ export default function ComposeModal({
   onDraftChanged,
 }: Props) {
   const [addressId, setAddressId] = useState<string | null>(
-    initialDraft?.addressId ?? defaultAddressId ?? addresses[0]?.id ?? null
+    initialDraft?.address_id ?? defaultAddressId ?? addresses[0]?.id ?? null
   );
-  const [to, setTo] = useState(initialDraft?.to ?? '');
-  const [cc, setCc] = useState(initialDraft?.cc ?? '');
-  const [bcc, setBcc] = useState(initialDraft?.bcc ?? '');
+  const [to, setTo] = useState(initialDraft?.to_emails?.join(', ') ?? '');
+  const [cc, setCc] = useState(initialDraft?.cc_emails?.join(', ') ?? '');
+  const [bcc, setBcc] = useState(initialDraft?.bcc_emails?.join(', ') ?? '');
   const [subject, setSubject] = useState(initialDraft?.subject ?? '');
-  const [bodyHtml, setBodyHtml] = useState(initialDraft?.bodyHtml ?? '');
-  const [bodyText, setBodyText] = useState(initialDraft?.bodyText ?? '');
-  const [showCcBcc, setShowCcBcc] = useState(!!(initialDraft?.cc || initialDraft?.bcc));
+  const [bodyHtml, setBodyHtml] = useState(initialDraft?.body_html ?? '');
+  const [bodyText, setBodyText] = useState(initialDraft?.body_text ?? '');
+  const [showCcBcc, setShowCcBcc] = useState(
+    !!(initialDraft?.cc_emails?.length || initialDraft?.bcc_emails?.length)
+  );
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const draftIdRef = useRef<string>(initialDraft?.id ?? crypto.randomUUID());
+  // draftIdRef: null until the first API save succeeds, then the DB id
+  const draftIdRef = useRef<string | null>(initialDraft?.id ?? null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveInFlightRef = useRef(false);
 
   useEffect(() => {
     function onEsc(e: KeyboardEvent) { if (e.key === 'Escape' && !sending) onClose(); }
@@ -57,25 +57,50 @@ export default function ComposeModal({
     return () => window.removeEventListener('keydown', onEsc);
   }, [onClose, sending]);
 
-  // Auto-save draft to localStorage with 1.5s debounce
+  // Auto-save draft to DB with 1.5s debounce
   useEffect(() => {
     const hasContent = to || subject || bodyText;
     if (!hasContent) return;
 
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    autoSaveTimerRef.current = setTimeout(() => {
-      saveComposeDraft(siteId, {
-        id: draftIdRef.current,
-        addressId,
-        to,
-        cc,
-        bcc,
-        subject,
-        bodyHtml,
-        bodyText,
-        savedAt: new Date().toISOString(),
-      });
-      onDraftChanged?.();
+    autoSaveTimerRef.current = setTimeout(async () => {
+      if (saveInFlightRef.current) return;
+      saveInFlightRef.current = true;
+      try {
+        const payload = {
+          siteId,
+          addressId,
+          toEmails: to.split(/[,;]/).map(s => s.trim()).filter(Boolean),
+          ccEmails: cc.split(/[,;]/).map(s => s.trim()).filter(Boolean),
+          bccEmails: bcc.split(/[,;]/).map(s => s.trim()).filter(Boolean),
+          subject,
+          bodyHtml,
+          bodyText,
+        };
+
+        if (draftIdRef.current) {
+          await fetch(`/api/email/drafts/${draftIdRef.current}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload),
+          });
+        } else {
+          const res = await fetch('/api/email/drafts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload),
+          });
+          if (res.ok) {
+            const d = await res.json();
+            draftIdRef.current = d.draft?.id ?? null;
+          }
+        }
+        onDraftChanged?.();
+      } finally {
+        saveInFlightRef.current = false;
+      }
     }, 1500);
 
     return () => {
@@ -84,12 +109,19 @@ export default function ComposeModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [to, cc, bcc, subject, bodyHtml, bodyText, addressId, siteId]);
 
-  const activeAddress = addresses.find(a => a.id === addressId);
-
-  function handleDiscard() {
+  async function deleteDraft() {
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-    deleteComposeDraft(siteId, draftIdRef.current);
+    if (!draftIdRef.current) return;
+    await fetch(`/api/email/drafts/${draftIdRef.current}?siteId=${siteId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    draftIdRef.current = null;
     onDraftChanged?.();
+  }
+
+  async function handleDiscard() {
+    await deleteDraft();
     onClose();
   }
 
@@ -112,19 +144,18 @@ export default function ComposeModal({
         setError(d.error ?? 'Failed to send');
         return;
       }
-      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
-      deleteComposeDraft(siteId, draftIdRef.current);
-      onDraftChanged?.();
+      await deleteDraft();
       onSent();
     } finally {
       setSending(false);
     }
   }
 
+  const activeAddress = addresses.find(a => a.id === addressId);
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/50 p-0 sm:p-4">
       <div className="bg-white w-full sm:max-w-2xl sm:rounded-xl shadow-2xl flex flex-col max-h-[100dvh] sm:max-h-[90vh]">
-        {/* Header */}
         <header className="flex-none flex items-center justify-between px-4 py-3 border-b border-slate-200">
           <h2 className="text-sm font-bold text-slate-900">New message</h2>
           <button onClick={onClose} disabled={sending} className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg disabled:opacity-50">
@@ -217,7 +248,6 @@ export default function ComposeModal({
           )}
         </div>
 
-        {/* Footer */}
         <footer className="flex-none flex items-center justify-between px-4 py-3 border-t border-slate-200">
           <p className="text-[11px] text-slate-400 font-mono">
             {activeAddress ? `Sending from ${activeAddress.address}` : ''}
