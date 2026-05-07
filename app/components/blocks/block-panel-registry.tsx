@@ -50,6 +50,7 @@ const HeroSettingsPanel = dynamic(() => import('./hero/HeroSettingsPanel'), { ss
 const ProductSettingsPanel = dynamic(() => import('./product/ProductSettingsPanel'), { ssr: false });
 const GenericBlockSettingsPanel = dynamic(() => import('./generic/GenericBlockSettingsPanel'), { ssr: false });
 const ContactSettingsPanel = dynamic(() => import('./contact/ContactSettingsPanel'), { ssr: false });
+const RepeatableItemsSettingsPanel = dynamic(() => import('./RepeatableItemsSettingsPanel'), { ssr: false });
 
 const GENERIC_BLOCK_TITLES: Record<string, string> = {
     text: 'Rich Text Paragraph Settings',
@@ -119,6 +120,22 @@ export const BLOCK_PANEL_REGISTRY: Record<string, PanelEntry> = {
     hero: {
         title: 'Hero Section Settings',
         component: HeroSettingsPanel,
+    },
+    servicesGrid: {
+        title: 'Services Grid Settings',
+        component: RepeatableItemsSettingsPanel,
+    },
+    stats: {
+        title: 'Stats / Numbers Settings',
+        component: RepeatableItemsSettingsPanel,
+    },
+    testimonials: {
+        title: 'Testimonials Settings',
+        component: RepeatableItemsSettingsPanel,
+    },
+    faq: {
+        title: 'FAQ Accordion Settings',
+        component: RepeatableItemsSettingsPanel,
     },
     productGrid: {
         title: 'Product Catalog Settings',

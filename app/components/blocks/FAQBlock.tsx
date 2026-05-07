@@ -2,46 +2,74 @@
 
 import React, { useState } from 'react';
 import EditableText from '../EditableText';
-import { ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+
+interface FAQItem {
+    question: string;
+    answer: string;
+}
+
+interface FAQBlockData {
+    title?: string;
+    subtitle?: string;
+    backgroundColor?: string;
+    items?: FAQItem[];
+}
 
 interface FAQBlockProps {
     id: string;
-    data: any;
+    data: FAQBlockData;
     isEditMode: boolean;
     palette: Record<string, string>;
-    updateContent: (key: string, value: any) => void;
+    updateContent: (key: string, value: unknown) => void;
 }
 
-export default function FAQBlock({ id, data, isEditMode, palette, updateContent }: FAQBlockProps) {
+const DEFAULT_FAQ_ITEMS: FAQItem[] = [
+    { question: 'How quickly can you respond to an emergency?', answer: 'We offer 24/7 emergency services and can typically be at your location within 60 minutes of your call.' },
+    { question: 'Do you provide free estimates?', answer: 'Yes! We provide free, no-obligation estimates for all our services. Contact us to schedule yours.' },
+    { question: 'Are you licensed and insured?', answer: 'Absolutely. We are fully licensed, bonded, and insured for your complete peace of mind.' },
+    { question: 'What areas do you serve?', answer: 'We serve the greater metro area and surrounding communities within a 30-mile radius.' },
+];
+
+export default function FAQBlock({ data, isEditMode, palette, updateContent }: FAQBlockProps) {
     const pPrimary = palette.primary || '#1f2937';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
     const [openIndex, setOpenIndex] = useState<number | null>(0);
+    const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
-    const items = data.items || [
-        { question: 'How quickly can you respond to an emergency?', answer: 'We offer 24/7 emergency services and can typically be at your location within 60 minutes of your call.' },
-        { question: 'Do you provide free estimates?', answer: 'Yes! We provide free, no-obligation estimates for all our services. Contact us to schedule yours.' },
-        { question: 'Are you licensed and insured?', answer: 'Absolutely. We are fully licensed, bonded, and insured for your complete peace of mind.' },
-        { question: 'What areas do you serve?', answer: 'We serve the greater metro area and surrounding communities within a 30-mile radius.' },
-    ];
+    const items = Array.isArray(data.items) ? data.items : DEFAULT_FAQ_ITEMS;
 
-    const handleUpdateItem = (index: number, field: string, value: string) => {
-        const newItems = items.map((item: any, i: number) =>
+    const handleUpdateItem = (index: number, field: keyof FAQItem, value: string) => {
+        const newItems = items.map((item, i) =>
             i === index ? { ...item, [field]: value } : item
         );
         updateContent('items', newItems);
     };
 
     const handleAddItem = () => {
-        const newItems = [...items, { question: 'New Question', answer: 'Answer goes here.' }];
+        const nextQuestionNumber = getNextQuestionNumber(items);
+        const newItems = [...items, { question: `New Question ${nextQuestionNumber}`, answer: 'Answer goes here.' }];
         updateContent('items', newItems);
         setOpenIndex(newItems.length - 1);
     };
 
     const handleRemoveItem = (index: number) => {
-        const newItems = items.filter((_: any, i: number) => i !== index);
+        const newItems = items.filter((_, i) => i !== index);
         updateContent('items', newItems);
         setOpenIndex(null);
+    };
+
+    const handleReorderItem = (fromIndex: number, toIndex: number) => {
+        if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return;
+        if (fromIndex >= items.length || toIndex >= items.length) return;
+
+        const newItems = [...items];
+        const [movedItem] = newItems.splice(fromIndex, 1);
+        newItems.splice(toIndex, 0, movedItem);
+        updateContent('items', newItems);
+        setOpenIndex((current) => remapIndexAfterMove(current, fromIndex, toIndex));
     };
 
     return (
@@ -69,17 +97,33 @@ export default function FAQBlock({ id, data, isEditMode, palette, updateContent 
                 />
 
                 <div className="space-y-3">
-                    {items.map((item: any, index: number) => {
+                    {items.map((item, index) => {
                         const isOpen = openIndex === index;
+                        const isDragging = draggedIndex === index;
+                        const isDragTarget = dragOverIndex === index && draggedIndex !== index;
                         return (
                             <div
                                 key={index}
-                                className="border border-gray-200 rounded-xl overflow-hidden bg-white"
+                                className={`faq-item relative border rounded-xl bg-white transition-[border-color,box-shadow,opacity,transform] ${
+                                    isDragTarget ? 'border-blue-300 shadow-md ring-2 ring-blue-100' : 'border-gray-200'
+                                } ${isDragging ? 'scale-[0.99] opacity-60' : ''} ${isEditMode ? 'overflow-visible' : 'overflow-hidden'}`}
+                                onDragOver={(event) => {
+                                    if (!isEditMode) return;
+                                    event.preventDefault();
+                                    setDragOverIndex(index);
+                                }}
+                                onDrop={(event) => {
+                                    if (!isEditMode) return;
+                                    event.preventDefault();
+                                    if (draggedIndex !== null) handleReorderItem(draggedIndex, index);
+                                    setDraggedIndex(null);
+                                    setDragOverIndex(null);
+                                }}
                             >
-                                <div className="flex items-stretch">
+                                <div className="relative z-10 flex items-stretch overflow-visible">
                                     <button
                                         onClick={() => setOpenIndex(isOpen ? null : index)}
-                                        className="flex-1 flex items-center justify-between p-5 text-left hover:bg-gray-50 transition-colors"
+                                        className="flex-1 flex items-center justify-between overflow-visible p-5 text-left hover:bg-gray-50 transition-colors"
                                     >
                                         <EditableText
                                             as="span"
@@ -96,19 +140,41 @@ export default function FAQBlock({ id, data, isEditMode, palette, updateContent 
                                         />
                                     </button>
                                     {isEditMode && (
-                                        <button
-                                            onClick={() => handleRemoveItem(index)}
-                                            className="px-3 text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors border-l border-gray-200"
-                                            title="Remove FAQ"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        <div className="flex border-l border-gray-200">
+                                            <button
+                                                type="button"
+                                                draggable
+                                                onDragStart={(event) => {
+                                                    event.dataTransfer.effectAllowed = 'move';
+                                                    event.dataTransfer.setData('text/plain', String(index));
+                                                    setDraggedIndex(index);
+                                                    setDragOverIndex(null);
+                                                }}
+                                                onDragEnd={() => {
+                                                    setDraggedIndex(null);
+                                                    setDragOverIndex(null);
+                                                }}
+                                                className="px-3 text-slate-300 transition-colors hover:bg-slate-50 hover:text-slate-600 active:cursor-grabbing"
+                                                title="Drag to reorder FAQ"
+                                                aria-label="Drag to reorder FAQ"
+                                            >
+                                                <GripVertical className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveItem(index)}
+                                                className="border-l border-gray-200 px-3 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                                                title="Remove FAQ"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
                                 <div
-                                    className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-96' : 'max-h-0'}`}
+                                    className={`transition-all duration-200 ${isOpen ? `max-h-96 ${isEditMode ? 'overflow-visible' : 'overflow-hidden'}` : 'max-h-0 overflow-hidden'}`}
                                 >
-                                    <div className="px-5 pb-5 pt-0">
+                                    <div className="relative z-20 px-5 pb-5 pt-0">
                                         <EditableText
                                             as="p"
                                             contentKey={`faq_${index}_answer`}
@@ -137,4 +203,22 @@ export default function FAQBlock({ id, data, isEditMode, palette, updateContent 
             </div>
         </section>
     );
+}
+
+function getNextQuestionNumber(items: Array<{ question?: string }>): number {
+    const existingNumbers = items
+        .map((item) => String(item.question || '').match(/^(?:New\s+)?Question\s+(\d+)$/i)?.[1])
+        .filter(Boolean)
+        .map((value) => parseInt(value as string, 10))
+        .filter(Number.isFinite);
+
+    return existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : items.length + 1;
+}
+
+function remapIndexAfterMove(currentIndex: number | null, fromIndex: number, toIndex: number): number | null {
+    if (currentIndex === null) return null;
+    if (currentIndex === fromIndex) return toIndex;
+    if (fromIndex < toIndex && currentIndex > fromIndex && currentIndex <= toIndex) return currentIndex - 1;
+    if (fromIndex > toIndex && currentIndex >= toIndex && currentIndex < fromIndex) return currentIndex + 1;
+    return currentIndex;
 }

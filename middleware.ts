@@ -349,7 +349,5 @@ export const config = {
     // headers that clear the cookies, which races with (and can overwrite) the
     // new session cookies the callback just set.
     '/((?!_next/static|_next/image|assets|favicon.ico|auth/callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)).*)',
-    // Explicitly include /favicon.ico so we can route it per-host (ops vs. app).
-    '/favicon.ico',
   ],
 };

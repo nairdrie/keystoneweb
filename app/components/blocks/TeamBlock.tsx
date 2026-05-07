@@ -6,35 +6,56 @@ import EditableText from '../EditableText';
 import EditableImage from '../EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import type { ImageSettings } from '../ImageEditorModal';
+
+interface TeamMember {
+    name: string;
+    role: string;
+    image: string;
+    bio: string;
+}
+
+interface TeamBlockData extends Record<string, unknown> {
+    title?: string;
+    subtitle?: string;
+    backgroundColor?: string;
+    variant?: string;
+    showBio?: boolean;
+    columns?: number | string;
+    members?: TeamMember[];
+}
 
 interface TeamBlockProps {
     id: string;
-    data: any;
+    data: TeamBlockData;
     isEditMode: boolean;
     palette: Record<string, string>;
-    updateContent: (key: string, value: any) => void;
+    updateContent: (key: string, value: unknown) => void;
 }
 
-export default function TeamBlock({ id, data, isEditMode, palette, updateContent }: TeamBlockProps) {
+const DEFAULT_TEAM_MEMBERS: TeamMember[] = [
+    { name: 'Alex Johnson', role: 'Founder & CEO', image: '', bio: 'Leading our vision with 15+ years of industry experience.' },
+    { name: 'Sarah Chen', role: 'Lead Designer', image: '', bio: 'Creating beautiful experiences that delight customers.' },
+    { name: 'Mike Rodriguez', role: 'Head of Operations', image: '', bio: 'Ensuring everything runs smoothly, every single day.' },
+];
+
+export default function TeamBlock({ data, isEditMode, palette, updateContent }: TeamBlockProps) {
     const context = useEditorContext();
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
     const cardBgColor = resolvePaletteColor(data.backgroundColor, palette, palette.accent || '#f8fafc');
 
-    const variant = data.variant || 'grid'; // 'grid' | 'cards' | 'minimal'
+    const variant = typeof data.variant === 'string' ? data.variant : 'grid'; // 'grid' | 'cards' | 'minimal'
     const showBio = data.showBio !== false; // Default to true if not specified
 
-    const members = data.members || [
-        { name: 'Alex Johnson', role: 'Founder & CEO', image: '', bio: 'Leading our vision with 15+ years of industry experience.' },
-        { name: 'Sarah Chen', role: 'Lead Designer', image: '', bio: 'Creating beautiful experiences that delight customers.' },
-        { name: 'Mike Rodriguez', role: 'Head of Operations', image: '', bio: 'Ensuring everything runs smoothly, every single day.' },
-    ];
+    const members = Array.isArray(data.members) ? data.members : DEFAULT_TEAM_MEMBERS;
 
-    const columns = data.columns || 0; // 0 = auto
+    const parsedColumns = Number(data.columns || 0);
+    const columns = Number.isFinite(parsedColumns) ? parsedColumns : 0; // 0 = auto
 
-    const handleUpdateMember = (index: number, field: string, value: string) => {
-        const newMembers = members.map((member: any, i: number) =>
+    const handleUpdateMember = (index: number, field: keyof TeamMember, value: string) => {
+        const newMembers = members.map((member, i) =>
             i === index ? { ...member, [field]: value } : member
         );
         updateContent('members', newMembers);
@@ -45,7 +66,7 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
     };
 
     const handleRemoveMember = (index: number) => {
-        updateContent('members', members.filter((_: any, i: number) => i !== index));
+        updateContent('members', members.filter((_, i) => i !== index));
     };
 
     const getGridCols = (fallback2: string, fallback3: string, fallback4: string) => {
@@ -73,7 +94,7 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                         style={{ color: pPrimary }}
                     />
                     <div className="space-y-8">
-                        {members.map((member: any, index: number) => (
+                        {members.map((member, index) => (
                             <div key={index} className="flex items-center gap-6 group relative">
                                 {isEditMode && (
                                     <button
@@ -84,21 +105,24 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                         <Trash2 className="w-3 h-3" />
                                     </button>
                                 )}
-                                <EditableImage
-                                    contentKey={`member_${index}_image`}
-                                    initialSettings={data[`member_${index}_image__settings`]}
-                                    imageUrl={member.image}
-                                    isEditMode={isEditMode}
-                                    onSave={(key, value) => { if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value); }}
-                                    onUpload={context?.uploadImage}
-                                    className="w-16 h-16 rounded-full object-cover bg-gray-200 flex-shrink-0"
-                                    placeholder="Photo"
-                                    fallback={
-                                        <div className="w-16 h-16 rounded-full bg-gray-200 flex-shrink-0 flex items-center justify-center">
-                                            <User className="w-8 h-8 text-gray-400" />
-                                        </div>
-                                    }
-                                />
+                                <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-full">
+                                    <EditableImage
+                                        contentKey={`member_${index}_image`}
+                                        initialSettings={getImageSettings(data, `member_${index}_image__settings`)}
+                                        imageUrl={member.image}
+                                        isEditMode={isEditMode}
+                                        onSave={(key, value) => { if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value); }}
+                                        onUpload={context?.uploadImage}
+                                        className="h-full w-full object-cover bg-gray-200"
+                                        placeholder="Photo"
+                                        editOverlayStyle="icon"
+                                        fallback={
+                                            <div className="flex h-16 w-16 items-center justify-center bg-gray-200">
+                                                <User className="w-8 h-8 text-gray-400" />
+                                            </div>
+                                        }
+                                    />
+                                </div>
                                 <div className="flex-1">
                                     <EditableText
                                         as="h3"
@@ -175,7 +199,7 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                         style={{ color: pPrimary, opacity: 0.6 }}
                     />
                     <div className={`grid gap-8 ${getGridCols('md:grid-cols-2 max-w-4xl mx-auto', 'md:grid-cols-3', 'md:grid-cols-2 lg:grid-cols-4')}`}>
-                        {members.map((member: any, index: number) => (
+                        {members.map((member, index) => (
                             <div key={index} className="relative bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-lg transition-shadow">
                                 {isEditMode && (
                                     <button
@@ -189,7 +213,7 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                 <div className="h-64 w-full flex-shrink-0">
                                     <EditableImage
                                         contentKey={`member_${index}_image`}
-                                        initialSettings={data[`member_${index}_image__settings`]}
+                                        initialSettings={getImageSettings(data, `member_${index}_image__settings`)}
                                         imageUrl={member.image}
                                         isEditMode={isEditMode}
                                         onSave={(key, value) => { if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value); }}
@@ -197,7 +221,7 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                         className="w-full h-full object-cover bg-gray-200"
                                         placeholder="Team member photo"
                                         fallback={
-                                            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                            <div className="flex h-64 w-full items-center justify-center bg-gray-200">
                                                 <User className="w-16 h-16 text-gray-400" />
                                             </div>
                                         }
@@ -279,7 +303,7 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                     style={{ color: pPrimary, opacity: 0.6 }}
                 />
                 <div className={`grid gap-12 ${getGridCols('md:grid-cols-2 max-w-3xl mx-auto', 'md:grid-cols-3', 'grid-cols-2 md:grid-cols-4')}`}>
-                    {members.map((member: any, index: number) => (
+                    {members.map((member, index) => (
                         <div key={index} className="text-center group relative">
                             {isEditMode && (
                                 <button
@@ -290,21 +314,23 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                     <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                             )}
-                            <EditableImage
-                                contentKey={`member_${index}_image`}
-                                initialSettings={data[`member_${index}_image__settings`]}
-                                imageUrl={member.image}
-                                isEditMode={isEditMode}
-                                onSave={(key, value) => { if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value); }}
-                                onUpload={context?.uploadImage}
-                                className="w-32 h-32 rounded-full object-cover bg-gray-200 mx-auto mb-4 ring-4 ring-white shadow-lg group-hover:scale-105 transition-transform"
-                                placeholder="Photo"
-                                fallback={
-                                    <div className="w-32 h-32 rounded-full bg-gray-200 mx-auto mb-4 ring-4 ring-white shadow-lg group-hover:scale-105 transition-transform flex items-center justify-center">
-                                        <User className="w-12 h-12 text-gray-400" />
-                                    </div>
-                                }
-                            />
+                            <div className="mx-auto mb-4 h-32 w-32 overflow-hidden rounded-full bg-gray-200 ring-4 ring-white shadow-lg transition-transform group-hover:scale-105">
+                                <EditableImage
+                                    contentKey={`member_${index}_image`}
+                                    initialSettings={getImageSettings(data, `member_${index}_image__settings`)}
+                                    imageUrl={member.image}
+                                    isEditMode={isEditMode}
+                                    onSave={(key, value) => { if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value); }}
+                                    onUpload={context?.uploadImage}
+                                    className="h-full w-full object-cover bg-gray-200"
+                                    placeholder="Photo"
+                                    fallback={
+                                        <div className="flex h-32 w-32 items-center justify-center bg-gray-200">
+                                            <User className="w-12 h-12 text-gray-400" />
+                                        </div>
+                                    }
+                                />
+                            </div>
                             <EditableText
                                 as="h3"
                                 contentKey={`member_${index}_name`}
@@ -333,7 +359,7 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
                                     defaultValue="A brief bio..."
                                     isEditMode={isEditMode}
                                     onSave={(_key, value) => handleUpdateMember(index, 'bio', value)}
-                                    className="text-xs mt-2 opacity-60 line-clamp-3"
+                                    className={`text-xs mt-2 opacity-60 ${isEditMode ? 'relative z-20 overflow-visible' : 'line-clamp-3'}`}
                                     style={{ color: pPrimary }}
                                 />
                             )}
@@ -354,4 +380,9 @@ export default function TeamBlock({ id, data, isEditMode, palette, updateContent
             </div>
         </section>
     );
+}
+
+function getImageSettings(data: TeamBlockData, key: string): ImageSettings | undefined {
+    const value = data[key];
+    return typeof value === 'object' && value !== null ? value as ImageSettings : undefined;
 }

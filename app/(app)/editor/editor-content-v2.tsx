@@ -101,6 +101,12 @@ export interface EditorContentProps {
   children?: React.ReactNode;
 }
 
+type CustomPaletteColorType = 'primary' | 'secondary' | 'accent';
+type CustomColorChangeOptions = { commit?: boolean };
+type PendingCustomColorChange = {
+  from: string;
+};
+
 export default function EditorContent({ publicSiteData, isPublicView = false, isPreviewView = false, precomputedPalette, children }: EditorContentProps = {}) {
   // If in pure public viewer mode, render the pre-fetched template directly without hooks
   // This allows full SSR and instant load times, bypassing all Editor UI and loading screens
@@ -536,8 +542,15 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   // Sync refs for stable access in callbacks
   const siteContentRef = useRef(siteContent);
   const editableContentRef = useRef(editableContent);
+  const selectedPaletteKeyRef = useRef(selectedPaletteKey);
+  const customColorChangesRef = useRef<Record<CustomPaletteColorType, PendingCustomColorChange | null>>({
+    primary: null,
+    secondary: null,
+    accent: null,
+  });
   useEffect(() => { siteContentRef.current = siteContent; }, [siteContent]);
   useEffect(() => { editableContentRef.current = editableContent; }, [editableContent]);
+  useEffect(() => { selectedPaletteKeyRef.current = selectedPaletteKey; }, [selectedPaletteKey]);
 
   const handleUpdateContent = useCallback((key: string, value: string) => {
     const oldValue = editableContentRef.current[key] || '';
@@ -795,9 +808,33 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     setSiteTitle(newTitle);
   };
 
+  const applyCustomColorPreview = (colorType: CustomPaletteColorType, value: string) => {
+    const key = `__customPalette_${colorType}`;
+    siteContentRef.current = { ...siteContentRef.current, [key]: value };
+    setSiteContent((prev) => ({ ...prev, [key]: value }));
+    setPaletteData((prev) => ({ ...prev, [colorType]: value }));
+  };
+
+  const commitCustomColorChange = (colorType: CustomPaletteColorType) => {
+    const pending = customColorChangesRef.current[colorType];
+    if (!pending) return;
+
+    const key = `__customPalette_${colorType}`;
+    const finalValue = String(siteContentRef.current[key] || '');
+    if (pending.from !== finalValue) {
+      addChange(`siteContent:${key}`, `Header: ${key}`, pending.from, finalValue);
+    }
+    customColorChangesRef.current[colorType] = null;
+  };
+
+  const flushPendingCustomColorChanges = () => {
+    (['primary', 'secondary', 'accent'] as const).forEach(commitCustomColorChange);
+  };
+
   const handleSaveDesign = async () => {
     const currentSite = siteRef.current;
     if (!currentSite?.id || isPublicView) return;
+    flushPendingCustomColorChanges();
 
     try {
       setSaving(true);
@@ -805,11 +842,11 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
       // Site-level design data (header, palette, nav items — shared across all pages)
       const siteDesignData = {
         ...siteContentRef.current,
-        __selectedPalette: selectedPaletteKey,
-        ...(selectedPaletteKey === 'custom' ? {
-          __customPalette_primary: paletteData.primary,
-          __customPalette_secondary: paletteData.secondary,
-          __customPalette_accent: paletteData.accent,
+        __selectedPalette: selectedPaletteKeyRef.current,
+        ...(selectedPaletteKeyRef.current === 'custom' ? {
+          __customPalette_primary: siteContentRef.current.__customPalette_primary || paletteData.primary,
+          __customPalette_secondary: siteContentRef.current.__customPalette_secondary || paletteData.secondary,
+          __customPalette_accent: siteContentRef.current.__customPalette_accent || paletteData.accent,
         } : {}),
       };
 
@@ -858,16 +895,17 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   };
 
   const handlePaletteChange = (paletteKey: string) => {
-    if (paletteKey !== selectedPaletteKey) {
-      addChange('palette', 'Color Palette', selectedPaletteKey, paletteKey);
+    if (paletteKey !== selectedPaletteKeyRef.current) {
+      addChange('palette', 'Color Palette', selectedPaletteKeyRef.current, paletteKey);
     }
+    selectedPaletteKeyRef.current = paletteKey;
     setSelectedPaletteKey(paletteKey);
 
     if (paletteKey === 'custom') {
       setPaletteData({
-        primary: siteContent.__customPalette_primary || '#0f172a',
-        secondary: siteContent.__customPalette_secondary || '#64748b',
-        accent: siteContent.__customPalette_accent || '#cbd5e1',
+        primary: siteContentRef.current.__customPalette_primary || '#0f172a',
+        secondary: siteContentRef.current.__customPalette_secondary || '#64748b',
+        accent: siteContentRef.current.__customPalette_accent || '#cbd5e1',
       });
     } else {
       const palette = availablePalettes[paletteKey];
@@ -877,14 +915,30 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     }
   };
 
-  const handleCustomColorChange = (colorType: 'primary' | 'secondary' | 'accent', value: string) => {
-    // Record as content change to support undo/redo
-    handleUpdateSiteContent(`__customPalette_${colorType}`, value);
-    
-    if (selectedPaletteKey !== 'custom') {
+  const handleCustomColorChange = (
+    colorType: CustomPaletteColorType,
+    value: string,
+    options: CustomColorChangeOptions = {},
+  ) => {
+    const key = `__customPalette_${colorType}`;
+    if (!customColorChangesRef.current[colorType]) {
+      customColorChangesRef.current[colorType] = {
+        from: String(siteContentRef.current[key] || ''),
+      };
+    }
+
+    applyCustomColorPreview(colorType, value);
+
+    if (selectedPaletteKeyRef.current !== 'custom') {
       handlePaletteChange('custom');
     }
-    setPaletteData(prev => ({ ...prev, [colorType]: value }));
+
+    const pending = customColorChangesRef.current[colorType];
+    if (!pending) return;
+
+    if (options.commit) {
+      commitCustomColorChange(colorType);
+    }
   };
 
   // AI Builder callbacks (stable references via useCallback)

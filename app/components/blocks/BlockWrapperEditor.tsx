@@ -12,13 +12,14 @@ import { staggerContainer } from '@/lib/motion';
 
 const WALKTHROUGH_RESET_EVENT = 'ks:walkthrough-reset-ui';
 const BLOCK_SETTINGS_OPEN_EVENT = 'ks:block-settings-open';
+const REPEATABLE_ITEMS_DRAFT_UPDATE_EVENT = 'ks:repeatable-items-draft-update';
 
 interface BlockWrapperEditorProps {
     id: string;
     type: string;
     children: ReactNode;
-    data?: any;
-    onUpdateBlockData?: (key: string, value: any) => void;
+    data?: Record<string, unknown>;
+    onUpdateBlockData?: (key: string, value: unknown) => void;
     customCss?: string;
     onUpdateCustomCss?: (css: string) => void;
     palette?: Record<string, string>;
@@ -105,9 +106,6 @@ export default function BlockWrapperEditor({
     const previewScopedCss = usesPanel && draftData
         ? scopeCustomCss(id, draftCustomCss)
         : scopedCss;
-    const previewChildren = usesPanel && previewData
-        ? cloneChildrenWithData(children, previewData)
-        : children;
     const controlsVisibleClass = isSelected
         ? 'opacity-100'
         : 'opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100';
@@ -122,6 +120,31 @@ export default function BlockWrapperEditor({
     const secondaryActions = panelEntry?.secondaryActions ?? [];
     const showSettingsButton = panelEntry?.hideSettingsButton !== true;
     const blockLabel = getReadableBlockLabel(type);
+    const handlePreviewContentUpdate = useCallback((key: string, value: unknown) => {
+        if (settingsOpen && usesPanel && key === 'items' && isRepeatableItemsPanelType(type)) {
+            setDraftData((current) => ({
+                ...((current || data || {}) as Record<string, unknown>),
+                [key]: value,
+            }));
+            window.dispatchEvent(new CustomEvent(REPEATABLE_ITEMS_DRAFT_UPDATE_EVENT, {
+                detail: { blockId: id, key, value, source: 'preview' },
+            }));
+            return;
+        }
+
+        onUpdateBlockData?.(key, value);
+    }, [data, id, onUpdateBlockData, settingsOpen, type, usesPanel]);
+
+    const previewChildren = usesPanel && previewData
+        ? cloneChildrenWithData(children, previewData, handlePreviewContentUpdate)
+        : children;
+
+    useEffect(() => {
+        if (!settingsOpen || !usesPanel || !isRepeatableItemsPanelType(type)) return;
+        window.dispatchEvent(new CustomEvent(REPEATABLE_ITEMS_DRAFT_UPDATE_EVENT, {
+            detail: { blockId: id, key: 'items', value: data?.items, source: 'persisted' },
+        }));
+    }, [data?.items, id, settingsOpen, type, usesPanel]);
 
     return (
         <motion.div
@@ -129,7 +152,7 @@ export default function BlockWrapperEditor({
             key={`${id}-edit`}
             id={slug}
             data-tour="builder-section"
-            variants={staggerContainer as any}
+            variants={staggerContainer}
             initial="show"
             animate="show"
             style={paletteVars}
@@ -240,8 +263,18 @@ function getReadableBlockLabel(type: string): string {
     return cleanLabel || type;
 }
 
-function cloneChildrenWithData(children: ReactNode, data: Record<string, unknown>): ReactNode {
-    if (!isValidElement<{ data?: Record<string, unknown>; block?: { data?: Record<string, unknown> } }>(children)) {
+type EditableBlockChildProps = {
+    data?: Record<string, unknown>;
+    block?: { data?: Record<string, unknown> };
+    updateContent?: (key: string, value: unknown) => void;
+};
+
+function cloneChildrenWithData(
+    children: ReactNode,
+    data: Record<string, unknown>,
+    updateContent: (key: string, value: unknown) => void,
+): ReactNode {
+    if (!isValidElement<EditableBlockChildProps>(children)) {
         return children;
     }
 
@@ -249,7 +282,11 @@ function cloneChildrenWithData(children: ReactNode, data: Record<string, unknown
         ? { ...children.props.block, data }
         : undefined;
 
-    return cloneElement(children, block ? { data, block } : { data });
+    return cloneElement(children, block ? { data, block, updateContent } : { data, updateContent });
+}
+
+function isRepeatableItemsPanelType(type: string): boolean {
+    return type === 'servicesGrid' || type === 'stats' || type === 'testimonials' || type === 'faq';
 }
 
 function scopeCustomCss(id: string, customCss?: string): string {
