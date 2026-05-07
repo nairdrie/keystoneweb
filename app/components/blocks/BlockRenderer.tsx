@@ -6,6 +6,7 @@ import BlockWrapper from './BlockWrapper';
 import { Plus, Crown } from 'lucide-react';
 import MembershipGateBlock from './MembershipGateBlock';
 import { BLOCK_COMPONENTS as BASE_BLOCK_COMPONENTS, AVAILABLE_BLOCKS as BASE_AVAILABLE_BLOCKS } from './block-registry';
+import { getBlockDisplayLabel, getBlockIcon } from './block-icons';
 
 const WALKTHROUGH_RESET_EVENT = 'ks:walkthrough-reset-ui';
 
@@ -52,7 +53,7 @@ export default function BlockRenderer({ palette, headerOffset }: { palette: Reco
         if (!isEditMode) return null;
 
         const filteredBlocks = AVAILABLE_BLOCKS.filter(b =>
-            b.label.toLowerCase().includes(searchQuery.toLowerCase())
+            getBlockDisplayLabel(b.label).toLowerCase().includes(searchQuery.toLowerCase())
         );
 
         return (
@@ -98,7 +99,7 @@ export default function BlockRenderer({ palette, headerOffset }: { palette: Reco
                                 filteredBlocks.map(b => (
                                     <button
                                         key={b.type}
-                                        className="w-full text-left px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-md transition-colors flex items-center justify-between"
+                                        className="w-full text-left px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-md transition-colors flex items-center justify-between gap-3"
                                         onClick={() => {
                                             if (b.proOnly && !isProUser) {
                                                 window.location.href = '/pricing';
@@ -109,7 +110,10 @@ export default function BlockRenderer({ palette, headerOffset }: { palette: Reco
                                             setSearchQuery('');
                                         }}
                                     >
-                                        <span>{b.label}</span>
+                                        <span className="flex min-w-0 items-center gap-2">
+                                            {React.createElement(getBlockIcon(b.type), { className: 'h-4 w-4 shrink-0 text-slate-500' })}
+                                            <span className="min-w-0">{getBlockDisplayLabel(b.label)}</span>
+                                        </span>
                                         {b.proOnly && !isProUser && (
                                             <span className="flex items-center gap-1 text-[10px] font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-white px-1.5 py-0.5 rounded-full">
                                                 <Crown className="w-3 h-3" />

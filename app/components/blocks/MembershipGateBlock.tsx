@@ -8,6 +8,7 @@ import {
   Package, LogIn, ExternalLink, ChevronDown, ChevronUp, ShieldCheck,
 } from 'lucide-react';
 import { BLOCK_COMPONENTS, AVAILABLE_BLOCKS } from './block-registry';
+import { getBlockDisplayLabel, getBlockIcon } from './block-icons';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -478,7 +479,7 @@ function InlineAddButton({
   }, [open]);
 
   const filtered = AVAILABLE_BLOCKS.filter(b =>
-    b.label.toLowerCase().includes(search.toLowerCase())
+    getBlockDisplayLabel(b.label).toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -520,7 +521,7 @@ function InlineAddButton({
             {filtered.length > 0 ? filtered.map(b => (
               <button
                 key={b.type}
-                className="w-full text-left px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-md transition-colors flex items-center justify-between"
+                className="w-full text-left px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-md transition-colors flex items-center justify-between gap-3"
                 onClick={() => {
                   if (b.proOnly && !isProUser) { window.location.href = '/pricing'; return; }
                   onAdd(b.type);
@@ -528,7 +529,10 @@ function InlineAddButton({
                   setSearch('');
                 }}
               >
-                <span>{b.label}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  {React.createElement(getBlockIcon(b.type), { className: 'h-4 w-4 shrink-0 text-slate-500' })}
+                  <span className="min-w-0">{getBlockDisplayLabel(b.label)}</span>
+                </span>
                 {b.proOnly && !isProUser && (
                   <span className="flex items-center gap-1 text-[10px] font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-white px-1.5 py-0.5 rounded-full">
                     <Crown style={{ width: 10, height: 10 }} />

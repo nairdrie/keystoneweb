@@ -6,10 +6,12 @@ import { useEditorContext } from '@/lib/editor-context';
 import { ArrowUp, ArrowDown, Trash2, Settings } from 'lucide-react';
 import BlockSettingsModal from './BlockSettingsModal';
 import { getPanelEntry, hasInspectorPanel } from './block-panel-registry';
+import { AVAILABLE_BLOCKS } from './block-registry';
 import { motion } from 'framer-motion';
 import { staggerContainer } from '@/lib/motion';
 
 const WALKTHROUGH_RESET_EVENT = 'ks:walkthrough-reset-ui';
+const BLOCK_SETTINGS_OPEN_EVENT = 'ks:block-settings-open';
 
 interface BlockWrapperEditorProps {
     id: string;
@@ -50,10 +52,12 @@ export default function BlockWrapperEditor({
     const usesPanel = hasInspectorPanel(type);
     const panelEntry = getPanelEntry(type);
 
-    const closeSettings = useCallback(() => {
+    const closeSettings = useCallback((options?: { restoreFocus?: boolean }) => {
         setSettingsOpen(false);
         setDraftData(null);
-        window.setTimeout(() => settingsButtonRef.current?.focus(), 0);
+        if (options?.restoreFocus !== false) {
+            window.setTimeout(() => settingsButtonRef.current?.focus(), 0);
+        }
     }, []);
 
     useEffect(() => {
@@ -62,6 +66,19 @@ export default function BlockWrapperEditor({
         window.addEventListener(WALKTHROUGH_RESET_EVENT, handleWalkthroughReset);
         return () => window.removeEventListener(WALKTHROUGH_RESET_EVENT, handleWalkthroughReset);
     }, [closeSettings]);
+
+    useEffect(() => {
+        const handleBlockSettingsOpen = (event: Event) => {
+            const detail = (event as CustomEvent<{ blockId?: string }>).detail;
+            if (detail?.blockId === id) return;
+            setSettingsOpen(false);
+            setDraftData(null);
+            setIsSelected(false);
+        };
+
+        window.addEventListener(BLOCK_SETTINGS_OPEN_EVENT, handleBlockSettingsOpen);
+        return () => window.removeEventListener(BLOCK_SETTINGS_OPEN_EVENT, handleBlockSettingsOpen);
+    }, [id]);
 
     useEffect(() => {
         const handleDocumentPointerDown = (event: PointerEvent) => {
@@ -75,6 +92,7 @@ export default function BlockWrapperEditor({
     }, []);
 
     const openSettings = () => {
+        window.dispatchEvent(new CustomEvent(BLOCK_SETTINGS_OPEN_EVENT, { detail: { blockId: id } }));
         setIsSelected(true);
         if (usesPanel) {
             setDraftData((data || {}) as Record<string, unknown>);
@@ -93,10 +111,17 @@ export default function BlockWrapperEditor({
     const controlsVisibleClass = isSelected
         ? 'opacity-100'
         : 'opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100';
+    const wrapperBorderClass = settingsOpen
+        ? 'border-blue-300/80 ring-1 ring-blue-100'
+        : isSelected
+            ? 'border-slate-300'
+            : 'border-transparent hover:border-slate-300 [@media(hover:none)]:border-slate-300/60';
 
     const primaryButton = panelEntry?.primaryButton;
     const PrimaryIcon = primaryButton?.icon ?? Settings;
     const secondaryActions = panelEntry?.secondaryActions ?? [];
+    const showSettingsButton = panelEntry?.hideSettingsButton !== true;
+    const blockLabel = getReadableBlockLabel(type);
 
     return (
         <motion.div
@@ -109,29 +134,34 @@ export default function BlockWrapperEditor({
             animate="show"
             style={paletteVars}
             onClick={() => setIsSelected(true)}
-            className={`relative group w-full border-2 hover:border-slate-300 [@media(hover:none)]:border-slate-300/60 transition-colors ks-block ks-block-${type} ${isSelected ? 'border-blue-400' : 'border-transparent'}`}
+            className={`relative group w-full border-2 transition-[border-color,box-shadow] ks-block ks-block-${type} ${wrapperBorderClass}`}
         >
+            <div className="absolute left-2 top-2 z-[100] pointer-events-none rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-600 opacity-0 shadow-md transition-opacity group-hover:opacity-100">
+                {blockLabel}
+            </div>
             {/* Editor controls are intentionally outside data-block-id so block __customCss cannot affect them */}
             <div className={`absolute top-2 right-2 ${controlsVisibleClass} transition-opacity bg-white shadow-md border border-slate-200 rounded-md flex overflow-hidden z-[100]`}>
-                {primaryButton ? (
-                    <button
-                        ref={settingsButtonRef}
-                        onClick={openSettings}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-100 transition-colors"
-                        title={primaryButton.label}
-                    >
-                        <PrimaryIcon className="w-4 h-4" />
-                        {primaryButton.label}
-                    </button>
-                ) : (
-                    <button
-                        ref={settingsButtonRef}
-                        onClick={openSettings}
-                        className="p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-100 transition-colors"
-                        title="Block Settings"
-                    >
-                        <Settings className="w-4 h-4" />
-                    </button>
+                {showSettingsButton && (
+                    primaryButton ? (
+                        <button
+                            ref={settingsButtonRef}
+                            onClick={openSettings}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-100 transition-colors"
+                            title={primaryButton.label}
+                        >
+                            <PrimaryIcon className="w-4 h-4" />
+                            {primaryButton.label}
+                        </button>
+                    ) : (
+                        <button
+                            ref={settingsButtonRef}
+                            onClick={openSettings}
+                            className="p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-900 border-r border-slate-100 transition-colors"
+                            title="Settings"
+                        >
+                            <Settings className="w-4 h-4" />
+                        </button>
+                    )
                 )}
                 {secondaryActions.map((action) => {
                     const Icon = action.icon;
@@ -200,10 +230,26 @@ export default function BlockWrapperEditor({
     );
 }
 
+function getReadableBlockLabel(type: string): string {
+    const label = AVAILABLE_BLOCKS.find(block => block.type === type)?.label || type;
+    const cleanLabel = label
+        .replace(/[^\x20-\x7E]/g, '')
+        .replace(/^[^A-Za-z0-9]+/, '')
+        .trim();
+
+    return cleanLabel || type;
+}
+
 function cloneChildrenWithData(children: ReactNode, data: Record<string, unknown>): ReactNode {
-    return isValidElement<{ data?: Record<string, unknown> }>(children)
-        ? cloneElement(children, { data })
-        : children;
+    if (!isValidElement<{ data?: Record<string, unknown>; block?: { data?: Record<string, unknown> } }>(children)) {
+        return children;
+    }
+
+    const block = children.props.block
+        ? { ...children.props.block, data }
+        : undefined;
+
+    return cloneElement(children, block ? { data, block } : { data });
 }
 
 function scopeCustomCss(id: string, customCss?: string): string {

@@ -313,7 +313,7 @@ export default function ButtonSettingsModal({
                         onClick={handleSave}
                         className="px-6 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-md hover:shadow-lg transition-all"
                     >
-                        Save Settings
+                        Save Changes
                     </button>
                 </div>
             </div>

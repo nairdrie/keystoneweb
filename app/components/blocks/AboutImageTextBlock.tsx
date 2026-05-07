@@ -4,6 +4,7 @@ import EditableImage from '../EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
 import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import { Plus, X } from 'lucide-react';
 
 interface AboutImageTextBlockProps {
     id: string;
@@ -26,6 +27,15 @@ export default function AboutImageTextBlock({ id, data, isEditMode, palette, upd
         "Decades of Experience"
     ];
 
+    const handleAddItem = () => {
+        updateContent('items', [...items, `New Benefit ${getNextBenefitNumber(items)}`]);
+    };
+
+    const handleRemoveItem = (index: number) => {
+        if (items.length <= 1) return;
+        updateContent('items', items.filter((_: string, i: number) => i !== index));
+    };
+
     const handleUpdateItem = (index: number, value: string) => {
         const newItems = items.map((item: string, i: number) =>
             i === index ? value : item
@@ -38,18 +48,28 @@ export default function AboutImageTextBlock({ id, data, isEditMode, palette, upd
             <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-2 gap-16 items-center">
                 {data.imagePosition === 'right' ? (
                     <>
-                        <TextContent data={data} items={items} isEditMode={isEditMode} updateContent={updateContent} handleUpdateItem={handleUpdateItem} pPrimary={pPrimary} pSecondary={pSecondary} />
+                        <TextContent data={data} items={items} isEditMode={isEditMode} updateContent={updateContent} handleAddItem={handleAddItem} handleRemoveItem={handleRemoveItem} handleUpdateItem={handleUpdateItem} pPrimary={pPrimary} pSecondary={pSecondary} />
                         <ImageContent data={data} isEditMode={isEditMode} updateContent={updateContent} uploadImage={context?.uploadImage} />
                     </>
                 ) : (
                     <>
                         <ImageContent data={data} isEditMode={isEditMode} updateContent={updateContent} uploadImage={context?.uploadImage} />
-                        <TextContent data={data} items={items} isEditMode={isEditMode} updateContent={updateContent} handleUpdateItem={handleUpdateItem} pPrimary={pPrimary} pSecondary={pSecondary} />
+                        <TextContent data={data} items={items} isEditMode={isEditMode} updateContent={updateContent} handleAddItem={handleAddItem} handleRemoveItem={handleRemoveItem} handleUpdateItem={handleUpdateItem} pPrimary={pPrimary} pSecondary={pSecondary} />
                     </>
                 )}
             </div>
         </section>
     );
+}
+
+function getNextBenefitNumber(items: string[]): number {
+    const existingNumbers = items
+        .map((item) => item.match(/^New Benefit (\d+)$/)?.[1])
+        .filter((value): value is string => Boolean(value))
+        .map((value) => Number(value))
+        .filter(Number.isFinite);
+
+    return existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : items.length + 1;
 }
 
 function ImageContent({ data, isEditMode, updateContent, uploadImage }: any) {
@@ -65,14 +85,15 @@ function ImageContent({ data, isEditMode, updateContent, uploadImage }: any) {
                 isEditMode={isEditMode}
                 onSave={(key, value) => updateContent(key, value)}
                 onUpload={uploadImage}
-                className={`w-full ${aspectClass} rounded-lg shadow-xl object-cover bg-gray-300`}
+                className={`w-full ${aspectClass} rounded-lg shadow-xl object-cover`}
+                emptyBackgroundClassName="bg-transparent"
                 placeholder="Click to upload about image"
             />
         </Reveal>
     );
 }
 
-function TextContent({ data, items, isEditMode, updateContent, handleUpdateItem, pPrimary, pSecondary }: any) {
+function TextContent({ data, items, isEditMode, updateContent, handleAddItem, handleRemoveItem, handleUpdateItem, pPrimary, pSecondary }: any) {
     return (
         <div>
             <Reveal>
@@ -104,7 +125,16 @@ function TextContent({ data, items, isEditMode, updateContent, handleUpdateItem,
             <ul className="space-y-4 text-lg">
                 {items.map((item: string, index: number) => (
                     <Reveal key={index}>
-                        <li className="flex items-center gap-3">
+                        <li className="relative group flex items-center gap-3 rounded-lg py-1 pr-9">
+                            {isEditMode && items.length > 1 && (
+                                <button
+                                    onClick={() => handleRemoveItem(index)}
+                                    className="absolute right-0 top-1/2 -translate-y-1/2 p-1 bg-red-100 hover:bg-red-200 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="Remove item"
+                                >
+                                    <X className="w-3.5 h-3.5 text-red-600" />
+                                </button>
+                            )}
                             <span className="font-bold flex-shrink-0" style={{ color: pSecondary }}>✓</span>
                             <div className="flex-1 w-full">
                                 <EditableText
@@ -121,6 +151,17 @@ function TextContent({ data, items, isEditMode, updateContent, handleUpdateItem,
                     </Reveal>
                 ))}
             </ul>
+            {isEditMode && (
+                <div className="flex justify-start mt-5">
+                    <button
+                        onClick={handleAddItem}
+                        className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-dashed border-blue-300"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Add Item
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

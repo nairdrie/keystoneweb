@@ -83,8 +83,8 @@ export default function BuilderBlocksDocsPage() {
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-sm font-semibold text-slate-950">Open settings</p>
               <p className="mt-1 text-sm leading-6 text-slate-600">
-                Settings control layout, display options, colors, and other visible
-                appearance choices when they are available for that block.
+                Settings open in the side panel for the selected block. Opening another
+                block closes the previous panel, and changes can be applied or discarded.
               </p>
             </div>
           </div>
@@ -319,6 +319,8 @@ export default function BuilderBlocksDocsPage() {
             <p className="mt-3 text-sm leading-7 text-slate-600">
               Where the builder provides image or link fields, use descriptive image
               text and clear link labels so visitors understand the content and actions.
+              Blocks with unfinished links may show edit-mode warnings so builders can
+              find missing destinations before publishing.
             </p>
           </section>
         </section>

@@ -12,6 +12,7 @@ interface EditableImageProps {
   onSave: (key: string, value: any) => void;
   onUpload?: (file: File, contentKey: string) => Promise<string>;
   className?: string;
+  emptyBackgroundClassName?: string;
   placeholder?: string;
   fallback?: React.ReactNode;
   editOverlayStyle?: 'pill' | 'icon';
@@ -30,6 +31,7 @@ export default function EditableImage({
   onSave,
   onUpload,
   className = '',
+  emptyBackgroundClassName = 'bg-slate-100',
   placeholder = 'Click to add image',
   fallback,
   editOverlayStyle = 'pill',
@@ -84,10 +86,8 @@ export default function EditableImage({
       if (fallback) return <>{fallback}</>;
 
       return (
-        <div className={`bg-slate-100 rounded ${className}`}>
-          <div className="flex items-center justify-center h-48 text-slate-400">
-            <ImageIcon className="w-8 h-8" />
-          </div>
+        <div className={`flex min-h-48 items-center justify-center ${emptyBackgroundClassName} text-slate-400 rounded ${className}`}>
+          <ImageIcon className="w-8 h-8" />
         </div>
       );
     }
@@ -178,7 +178,7 @@ export default function EditableImage({
       ) : (
         <div
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setModalOpen(true); }}
-          className="border-2 border-dashed border-slate-300 hover:border-slate-400 rounded-lg p-8 text-center cursor-pointer transition-colors group"
+          className={`flex min-h-48 flex-col items-center justify-center ${emptyBackgroundClassName} border-2 border-dashed border-slate-300 hover:border-slate-400 rounded-lg p-8 text-center cursor-pointer transition-colors group ${className}`}
         >
           <ImageIcon className="w-8 h-8 mx-auto text-slate-400 group-hover:text-slate-600 mb-2" />
           <p className="text-sm font-medium text-slate-700">{placeholder}</p>

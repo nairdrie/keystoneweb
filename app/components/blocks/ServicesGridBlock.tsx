@@ -18,6 +18,7 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
     const pSecondary = palette.secondary || '#dc2626';
     const pAccent = palette.accent || '#f3f4f6';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
+    const showCta = data.ctaEnabled !== false;
 
     const items = data.items || [
         { title: "Service 1", description: "First service description." },
@@ -142,7 +143,7 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
                 )}
 
                 {/* Optional CTA Link */}
-                {(data.ctaText || isEditMode) && (
+                {showCta && (data.ctaText || isEditMode) && (
                     <Reveal className="flex justify-center mt-12">
                         <EditableButton
                             contentKey="ctaText"

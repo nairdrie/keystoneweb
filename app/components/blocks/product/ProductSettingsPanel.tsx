@@ -180,7 +180,7 @@ export default function ProductSettingsPanel({
     return (
         <BlockSettingsPanel
             isOpen
-            title="Product Settings"
+            title="Product Catalog Settings"
             subtitle="Filter, lay out, and style the product block."
             blockId={blockId}
             blockType="productGrid"

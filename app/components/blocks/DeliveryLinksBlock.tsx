@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useEditorContext } from '@/lib/editor-context';
 import EditableText from '../EditableText';
 import Reveal from '@/app/components/Reveal';
-import { Plus, Trash2, ExternalLink } from 'lucide-react';
+import { AlertTriangle, Plus, Trash2, ExternalLink } from 'lucide-react';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import UELogo from '@/assets/UE_logo.png';
 import DDLogo from '@/assets/DD_logo.png';
@@ -82,12 +82,22 @@ function buildDefaultLinks(): DeliveryLink[] {
 
 // ─── Delivery Card (view) ─────────────────────────────────────────────────────
 
-function DeliveryCard({ link, palette }: { link: DeliveryLink; palette: Record<string, string> }) {
+function DeliveryCard({
+  link,
+  palette,
+  showMissingUrlWarning = false,
+}: {
+  link: DeliveryLink;
+  palette: Record<string, string>;
+  showMissingUrlWarning?: boolean;
+}) {
   const cfg = PLATFORM_CONFIG[link.platform];
   const bg = link.platform === 'custom' ? (palette.secondary || cfg.bg) : cfg.bg;
   const label = link.label || cfg.name;
   const hasLogo = !!cfg.logoImage;
   const isCustom = link.platform === 'custom';
+  const hasUrl = link.url.trim().length > 0;
+  const shouldWarn = showMissingUrlWarning && !hasUrl;
   const getHByPlatform = (platform: PlatformId) => {
     switch (platform) {
       case 'doordash':
@@ -101,37 +111,53 @@ function DeliveryCard({ link, palette }: { link: DeliveryLink; palette: Record<s
 
 
   return (
-    <a
-      href={link.url || '#'}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group flex items-center rounded-2xl px-4 py-3 shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden"
-      style={{ backgroundColor: bg, color: cfg.textColor }}
-      aria-label={`Order on ${label}`}
-    >
-      {/* Left-aligned content */}
-      <div className="flex flex-col items-start flex-1 min-w-0">
-        {isCustom ? (
-          <p className="text-sm font-bold leading-tight">{label}</p>
-        ) : (
-          <>
-            <p className="text-[10px] font-medium opacity-80 uppercase tracking-widest mb-1">Order on</p>
-            {hasLogo ? (
-              <Image
-                src={cfg.logoImage}
-                alt={cfg.name}
-                className={`${getHByPlatform(link.platform)} w-auto object-contain`}
-              />
-            ) : (
-              <p className="text-sm font-bold leading-tight">{label}</p>
-            )}
-          </>
-        )}
-      </div>
+    <div className="relative group/card">
+      <a
+        href={hasUrl ? link.url : '#'}
+        target={hasUrl ? '_blank' : undefined}
+        rel={hasUrl ? 'noopener noreferrer' : undefined}
+        onClick={(e) => {
+          if (!hasUrl) e.preventDefault();
+        }}
+        className={`flex items-center rounded-2xl px-4 py-3 shadow-md transition-shadow duration-300 overflow-hidden ${
+          hasUrl ? 'hover:shadow-xl' : 'cursor-not-allowed'
+        }`}
+        style={{ backgroundColor: bg, color: cfg.textColor }}
+        aria-label={hasUrl ? `Order on ${label}` : `${label} link not set up yet`}
+      >
+        {/* Left-aligned content */}
+        <div className="flex flex-col items-start flex-1 min-w-0">
+          {isCustom ? (
+            <p className="text-sm font-bold leading-tight">{label}</p>
+          ) : (
+            <>
+              <p className="text-[10px] font-medium opacity-80 uppercase tracking-widest mb-1">Order on</p>
+              {hasLogo ? (
+                <Image
+                  src={cfg.logoImage}
+                  alt={cfg.name}
+                  className={`${getHByPlatform(link.platform)} w-auto object-contain`}
+                />
+              ) : (
+                <p className="text-sm font-bold leading-tight">{label}</p>
+              )}
+            </>
+          )}
+        </div>
 
-      {/* External link icon on the right */}
-      <ExternalLink className="w-4 h-12 flex-shrink-0 opacity-60 ml-2" />
-    </a>
+        {/* External link icon on the right */}
+        {hasUrl ? (
+          <ExternalLink className="w-4 h-12 flex-shrink-0 opacity-60 ml-2" />
+        ) : (
+          <AlertTriangle className="w-4 h-12 flex-shrink-0 opacity-70 ml-2" />
+        )}
+      </a>
+      {shouldWarn && (
+        <div className="pointer-events-none absolute left-3 right-3 -top-3 z-10 translate-y-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 opacity-0 shadow-lg transition-all group-hover/card:translate-y-0 group-hover/card:opacity-100">
+          No link set up yet. Add a URL above before publishing this card.
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -152,6 +178,7 @@ export default function DeliveryLinksBlock({ id, data, isEditMode, palette, upda
     Object.fromEntries(links.map((l) => [l.id, l.label]))
   );
 
+  const previewLinks = links.filter((l) => l.enabled);
   const activeLinks = links.filter((l) => l.enabled && l.url.trim());
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -328,13 +355,13 @@ export default function DeliveryLinksBlock({ id, data, isEditMode, palette, upda
             </button>
           </div>
 
-          {/* Live preview (active links only) */}
-          {activeLinks.length > 0 && (
+          {/* Live preview (enabled links, with edit-mode warning for missing URLs) */}
+          {previewLinks.length > 0 && (
             <div className="mt-8 pt-6 border-t border-slate-200/60">
               <p className="text-xs font-medium text-slate-500 uppercase tracking-widest mb-4 text-center">Preview</p>
               <div className="grid grid-cols-2 gap-3">
-                {activeLinks.map((link) => (
-                  <DeliveryCard key={link.id} link={link} palette={palette} />
+                {previewLinks.map((link) => (
+                  <DeliveryCard key={link.id} link={link} palette={palette} showMissingUrlWarning />
                 ))}
               </div>
             </div>

@@ -452,7 +452,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         if (member) return memberRightEl;
         if (rightSide === 'social') {
             if (socialLinks.length === 0 && isEditMode) {
-                return <span className="text-xs opacity-40 italic">Add links in Header Settings</span>;
+                return <span className="text-xs opacity-40 italic">Add links in Settings</span>;
             }
             if (socialLinks.length === 0) return null;
             return (
@@ -507,7 +507,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         <button
             onClick={(e) => { e.stopPropagation(); setSettingsOpen(true); }}
             className="absolute top-2 right-3 z-[200] opacity-0 group-hover:opacity-100 transition-all p-1.5 bg-white/90 backdrop-blur-sm rounded-md shadow border border-slate-200 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 text-slate-500"
-            title="Header Settings"
+            title="Settings"
         >
             <Settings className="w-3.5 h-3.5" />
         </button>

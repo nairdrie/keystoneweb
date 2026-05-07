@@ -4,8 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Code, Lock, Crown, LayoutTemplate, Palette } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
-import { AVAILABLE_BLOCKS } from './block-registry';
 import { getPanelEntry } from './block-panel-registry';
+import { AVAILABLE_BLOCKS } from './block-registry';
 
 interface BlockSettingsModalProps {
     isOpen: boolean;
@@ -141,6 +141,7 @@ export default function BlockSettingsModal({
         return (
             <PanelComponent
                 blockId={blockId}
+                blockType={blockType}
                 blockData={blockData}
                 palette={palette}
                 isProUser={isProUser}
@@ -207,10 +208,7 @@ export default function BlockSettingsModal({
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
                     <h2 className="text-lg font-bold text-slate-900">
-                        {(() => {
-                            const blockLabel = AVAILABLE_BLOCKS.find(b => b.type === blockType)?.label;
-                            return blockLabel ? `${blockLabel} Settings` : 'Block Settings';
-                        })()}
+                        {getBlockSettingsTitle(blockType)}
                     </h2>
                     <button
                         onClick={onClose}
@@ -383,7 +381,7 @@ export default function BlockSettingsModal({
                                             onClick={handleSave}
                                             className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-lg transition-colors"
                                         >
-                                            Save Settings
+                                            Save Changes
                                         </button>
                                     </div>
                                 </div>
@@ -429,7 +427,7 @@ export default function BlockSettingsModal({
                                             onClick={handleSave}
                                             className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-lg transition-colors"
                                         >
-                                            Save Settings
+                                            Save Changes
                                         </button>
                                     </div>
                                 </div>
@@ -609,4 +607,14 @@ export default function BlockSettingsModal({
     );
 
     return createPortal(modal, document.body);
+}
+
+function getBlockSettingsTitle(blockType: string): string {
+    const label = AVAILABLE_BLOCKS.find(block => block.type === blockType)?.label || blockType;
+    const cleanLabel = label
+        .replace(/[^\x20-\x7E]/g, '')
+        .replace(/^[^A-Za-z0-9]+/, '')
+        .trim();
+
+    return `${cleanLabel || blockType} Settings`;
 }

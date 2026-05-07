@@ -68,13 +68,8 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
 
     if (isEditMode) {
         return (
-            <section className="relative group py-16 px-4 text-slate-900" style={{ backgroundColor: '#ffffff' }}>
+            <section className="relative py-16 px-4 text-slate-900" style={{ backgroundColor: '#ffffff' }}>
                 <div className="max-w-3xl mx-auto space-y-8">
-                    <div className="absolute top-4 right-4 bg-white/90 backdrop-blur p-2 rounded-lg shadow border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-2">
-                        <Settings className="w-4 h-4 text-slate-500" />
-                        <span className="text-xs font-medium text-slate-500">Contact Form Settings</span>
-                    </div>
-
                     <div className="text-center space-y-4">
                         <input
                             type="text"

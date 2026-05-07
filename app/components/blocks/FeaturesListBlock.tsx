@@ -1,5 +1,6 @@
 import React from 'react';
 import EditableText from '../EditableText';
+import { Plus, X } from 'lucide-react';
 import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 
@@ -22,6 +23,15 @@ export default function FeaturesListBlock({ id, data, isEditMode, palette, updat
         "Upfront Honest Pricing",
         "24/7 Emergency Support"
     ];
+
+    const handleAddItem = () => {
+        updateContent('items', [...items, `New Feature ${items.length + 1}`]);
+    };
+
+    const handleRemoveItem = (index: number) => {
+        if (items.length <= 1) return;
+        updateContent('items', items.filter((_: string, i: number) => i !== index));
+    };
 
     const handleUpdateItem = (index: number, value: string) => {
         const newItems = items.map((item: string, i: number) =>
@@ -49,7 +59,16 @@ export default function FeaturesListBlock({ id, data, isEditMode, palette, updat
                 <ul className="space-y-6 text-lg max-w-2xl mx-auto">
                     {items.map((item: string, index: number) => (
                         <Reveal key={index}>
-                            <li className="flex items-center gap-4 bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-100">
+                            <li className="relative group flex items-center gap-4 bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-100">
+                                {isEditMode && items.length > 1 && (
+                                    <button
+                                        onClick={() => handleRemoveItem(index)}
+                                        className="absolute top-2 right-2 p-1 bg-red-100 hover:bg-red-200 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="Remove feature"
+                                    >
+                                        <X className="w-3.5 h-3.5 text-red-600" />
+                                    </button>
+                                )}
                                 <span className="font-bold shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm ring-1 ring-gray-100" style={{ color: pSecondary }}>✓</span>
                                 <div className="flex-1 w-full">
                                     <EditableText
@@ -66,6 +85,18 @@ export default function FeaturesListBlock({ id, data, isEditMode, palette, updat
                         </Reveal>
                     ))}
                 </ul>
+
+                {isEditMode && (
+                    <div className="flex justify-center mt-6">
+                        <button
+                            onClick={handleAddItem}
+                            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-dashed border-blue-300"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Add Feature
+                        </button>
+                    </div>
+                )}
             </div>
         </section>
     );

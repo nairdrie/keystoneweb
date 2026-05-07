@@ -240,16 +240,8 @@ export default function EstimateFormBlock({ id, data, isEditMode, palette, updat
 
     if (isEditMode) {
         return (
-            <section className="relative group py-16 px-4 text-slate-900" style={{ backgroundColor: '#ffffff' }}>
+            <section className="relative py-16 px-4 text-slate-900" style={{ backgroundColor: '#ffffff' }}>
                 <div className="max-w-3xl mx-auto space-y-8">
-                    {/* Badge */}
-                    <div className="absolute top-4 right-4 bg-white/90 backdrop-blur p-2 rounded-lg shadow border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity z-10 flex gap-2">
-                        <Calculator className="w-4 h-4 text-slate-500" />
-                        <span className="text-xs font-medium text-slate-500">
-                            {variant === 'calculator' ? 'Estimate Calculator' : 'Inquiry Form'}
-                        </span>
-                    </div>
-
                     {/* Title / Description */}
                     <div className="text-center space-y-4">
                         <input
@@ -322,6 +314,28 @@ export default function EstimateFormBlock({ id, data, isEditMode, palette, updat
                     <div className="border border-blue-100 bg-blue-50 p-4 rounded-xl space-y-4">
                         <div className="flex items-center gap-2 text-sm font-medium text-blue-800">
                             <Settings className="w-4 h-4" /> Form Configuration
+                        </div>
+
+                        <div>
+                            <label className="text-xs font-semibold text-slate-600 block mb-1">Form Type</label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {([
+                                    ['simple', 'Inquiry Form'],
+                                    ['calculator', 'Calculator'],
+                                ] as const).map(([value, label]) => (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        onClick={() => updateContent('variant', value)}
+                                        className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${variant === value
+                                            ? 'border-blue-300 bg-blue-100 text-blue-800'
+                                            : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50'
+                                            }`}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
                         {/* Submit / Success text */}

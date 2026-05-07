@@ -245,7 +245,7 @@ export default function HeroSettingsPanel({
         <>
             <BlockSettingsPanel
                 isOpen
-                title="Hero Settings"
+                title="Hero Section Settings"
                 subtitle="Build the hero with cards, layout, and a custom background."
                 blockId={blockId}
                 blockType="hero"

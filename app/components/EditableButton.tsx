@@ -245,7 +245,7 @@ export default function EditableButton({
                                 setIsSettingsOpen(true);
                             }}
                             className="inline-flex items-center justify-center w-7 h-7 bg-slate-800 hover:bg-slate-900 text-white rounded-full shadow-md"
-                            title="Button Settings"
+                            title="Settings"
                         >
                             <Settings className="w-3.5 h-3.5" />
                         </button>

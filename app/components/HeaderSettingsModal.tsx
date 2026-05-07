@@ -656,7 +656,7 @@ export default function HeaderSettingsModal({
                         Cancel
                     </button>
                     <button onClick={handleSave} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-lg transition-colors">
-                        Save Settings
+                        Save Changes
                     </button>
                 </div>
             </div>

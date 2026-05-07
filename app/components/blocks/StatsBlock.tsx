@@ -2,6 +2,7 @@
 
 import React from 'react';
 import EditableText from '../EditableText';
+import { Plus, X } from 'lucide-react';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 
 interface StatsBlockProps {
@@ -26,6 +27,18 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
     ];
 
     const variant = data.variant || 'banner'; // 'banner' | 'cards'
+
+    const handleAddItem = () => {
+        updateContent('items', [
+            ...items,
+            { value: `${items.length + 1}00+`, label: `Metric ${items.length + 1}` },
+        ]);
+    };
+
+    const handleRemoveItem = (index: number) => {
+        if (items.length <= 1) return;
+        updateContent('items', items.filter((_: any, i: number) => i !== index));
+    };
 
     const handleUpdateItem = (index: number, field: string, value: string) => {
         const newItems = items.map((item: any, i: number) =>
@@ -52,7 +65,16 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                     )}
                     <div className={`grid gap-6 ${items.length <= 3 ? 'md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
                         {items.map((item: any, index: number) => (
-                            <div key={index} className="text-center p-8 md:p-6 xl:p-8 rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow">
+                            <div key={index} className="relative group text-center p-8 md:p-6 xl:p-8 rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow">
+                                {isEditMode && items.length > 1 && (
+                                    <button
+                                        onClick={() => handleRemoveItem(index)}
+                                        className="absolute top-2 right-2 p-1 bg-red-100 hover:bg-red-200 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="Remove stat"
+                                    >
+                                        <X className="w-3.5 h-3.5 text-red-600" />
+                                    </button>
+                                )}
                                 <EditableText
                                     as="div"
                                     contentKey={`stat_${index}_value`}
@@ -76,6 +98,17 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                             </div>
                         ))}
                     </div>
+                    {isEditMode && (
+                        <div className="flex justify-center mt-6">
+                            <button
+                                onClick={handleAddItem}
+                                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-dashed border-blue-300"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Add Stat
+                            </button>
+                        </div>
+                    )}
                 </div>
             </section>
         );
@@ -87,7 +120,16 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
             <div className="max-w-7xl mx-auto px-4">
                 <div className={`grid gap-8 ${items.length <= 3 ? 'md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
                     {items.map((item: any, index: number) => (
-                        <div key={index} className="text-center">
+                        <div key={index} className="relative group text-center rounded-lg px-2 py-3">
+                            {isEditMode && items.length > 1 && (
+                                <button
+                                    onClick={() => handleRemoveItem(index)}
+                                    className="absolute top-0 right-0 p-1 bg-red-100 hover:bg-red-200 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="Remove stat"
+                                >
+                                    <X className="w-3.5 h-3.5 text-red-600" />
+                                </button>
+                            )}
                             <EditableText
                                 as="div"
                                 contentKey={`stat_${index}_value`}
@@ -109,6 +151,17 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                         </div>
                     ))}
                 </div>
+                {isEditMode && (
+                    <div className="flex justify-center mt-6">
+                        <button
+                            onClick={handleAddItem}
+                            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-600 bg-white/95 hover:bg-blue-50 rounded-lg transition-colors border border-dashed border-blue-300"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Add Stat
+                        </button>
+                    </div>
+                )}
             </div>
         </section>
     );

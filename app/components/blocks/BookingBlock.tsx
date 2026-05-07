@@ -1357,7 +1357,7 @@ function SettingsEditor({ siteId, settings, setSettings }: {
             <button onClick={handleSave} disabled={saving}
                 className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg disabled:opacity-50 transition-colors flex items-center justify-center gap-2">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                Save Settings
+                Save Changes
             </button>
         </div>
     );

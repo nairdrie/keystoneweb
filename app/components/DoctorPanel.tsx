@@ -608,11 +608,13 @@ function checkContactBlock(data: DiagnosticData): DiagnosticResult[] {
             const bd = block.data || {};
 
             // Check if contact info is filled in
+            const contactItems = Array.isArray(bd.contactItems) ? bd.contactItems : [];
+            const hasCardValue = contactItems.some((item: any) => typeof item?.value === 'string' && item.value.trim());
             const hasPhone = bd.phone || bd.item_0_value;
             const hasEmail = bd.email || bd.item_1_value;
             const hasAddress = bd.address || bd.item_2_value;
 
-            if (!hasPhone && !hasEmail && !hasAddress) {
+            if (!hasCardValue && !hasPhone && !hasEmail && !hasAddress) {
                 results.push({
                     id: `contact-block-empty-${block.id}`,
                     category: 'Contact Info',

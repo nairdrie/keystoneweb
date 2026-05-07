@@ -1955,7 +1955,7 @@ function ProductGrid({
                 <p className="mt-1 text-xs text-slate-400">
                     {featuredOnly && 'Featured-only is on. '}
                     {lockedToCategory && `Scoped to "${blockCategory}${blockSubcategory ? ' › ' + blockSubcategory : ''}". `}
-                    Adjust filters in the Product Settings panel.
+                    Adjust filters in the Settings panel.
                 </p>
             </section>
         );
