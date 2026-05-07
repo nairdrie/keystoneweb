@@ -23,6 +23,14 @@ function apiBase(sandboxMode: boolean) {
         : 'https://api.clover.com';
 }
 
+// The Clover Ecommerce (SCL) API is a separate service from the general API.
+// Tokens produced by Clover.js must be charged against the SCL endpoint, not api.clover.com.
+function sclBase(sandboxMode: boolean) {
+    return sandboxMode
+        ? 'https://scl-sandbox.dev.clover.com'
+        : 'https://scl.clover.com';
+}
+
 export interface CloverLineItem {
     name: string;
     price: number;        // cents
@@ -152,7 +160,16 @@ export async function createCharge(
     creds: CloverCredentials,
     params: CloverChargeParams
 ): Promise<CloverChargeResult> {
-    const url = `${apiBase(!!creds.sandboxMode)}/v1/charges`;
+    const url = `${sclBase(!!creds.sandboxMode)}/v1/charges`;
+    const requestBody = {
+        amount: params.amountCents,
+        currency: params.currency.toLowerCase(),
+        source: params.token,
+        ...(params.description ? { description: params.description } : {}),
+    };
+
+    console.log('[Clover charge] POST', url, { merchantId: creds.merchantId, sandboxMode: !!creds.sandboxMode, amountCents: params.amountCents });
+
     const res = await fetch(url, {
         method: 'POST',
         headers: {
@@ -160,16 +177,12 @@ export async function createCharge(
             'Authorization': `Bearer ${creds.privateToken}`,
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-            amount: params.amountCents,
-            currency: params.currency.toLowerCase(),
-            source: params.token,
-            ...(params.description ? { description: params.description } : {}),
-        }),
+        body: JSON.stringify(requestBody),
     });
 
     if (!res.ok) {
         const text = await res.text();
+        console.error('[Clover charge] failed', res.status, text);
         let message = `Clover charge error (${res.status})`;
         try {
             const json = JSON.parse(text);
