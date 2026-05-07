@@ -196,9 +196,11 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                     </div>
                 )}
                 {!isEditMode && imageUrl && opts?.lightbox && (
-                    <div
-                        className="absolute inset-0 bg-black/0 group-hover:bg-black/20 rounded-xl transition-colors cursor-pointer"
+                    <button
+                        type="button"
+                        className="absolute inset-0 appearance-none border-0 bg-black/0 p-0 group-hover:bg-black/20 rounded-xl transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-900"
                         onClick={() => setLightboxIndex(index)}
+                        aria-label={`Open gallery image ${index + 1}`}
                     />
                 )}
             </div>
@@ -281,17 +283,19 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                                             // Map back to original index for the lightbox click target.
                                             const originalIdx = images.indexOf(url);
                                             return (
-                                                <div
+                                                <button
+                                                    type="button"
                                                     key={`${rIdx}-${i}`}
-                                                    className="relative group w-56 h-56 sm:w-64 sm:h-64 shrink-0 cursor-pointer"
+                                                    className="relative group w-56 h-56 sm:w-64 sm:h-64 shrink-0 cursor-pointer appearance-none border-0 bg-transparent p-0 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-900"
                                                     onClick={() => setLightboxIndex(originalIdx >= 0 ? originalIdx : 0)}
+                                                    aria-label={`Open gallery image ${(originalIdx >= 0 ? originalIdx : 0) + 1}`}
                                                 >
                                                     <img
                                                         src={url}
                                                         alt=""
                                                         className="w-full h-full object-cover rounded-xl bg-gray-100 hover:opacity-90 transition-opacity"
                                                     />
-                                                </div>
+                                                </button>
                                             );
                                         })}
                                     </div>

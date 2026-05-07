@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useEditorContext } from '@/lib/editor-context';
 import { useLangPrefix, prefixInternalLinks } from '@/lib/hooks/useLangPrefix';
+import { sanitizeRichHtml } from '@/lib/html-sanitize';
 import {
     Newspaper, Loader2, ArrowLeft,
     Calendar, User,
@@ -314,7 +315,7 @@ function PostDetail({ post, onBack, pPrimary, pSecondary }: { post: BlogPost; on
                     </span>
                 </div>
                 {post.content ? (
-                    <div className="prose prose-slate lg:prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: prefixInternalLinks(post.content, langPrefix) }} />
+                    <div className="prose prose-slate lg:prose-lg max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(prefixInternalLinks(post.content, langPrefix)) }} />
                 ) : (
                     <p className="text-slate-400 italic">This post has no content yet.</p>
                 )}

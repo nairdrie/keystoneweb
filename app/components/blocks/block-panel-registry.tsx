@@ -57,6 +57,8 @@ const GENERIC_BLOCK_TITLES: Record<string, string> = {
     image: 'Image Section Settings',
     map: 'Google Map Settings',
     custom_html: 'Custom HTML / Embed Settings',
+    customHtml: 'Custom HTML / Embed Settings',
+    customHTML: 'Custom HTML / Embed Settings',
     servicesGrid: 'Services Grid Settings',
     featuresList: 'Features / Why Us Settings',
     aboutImageText: 'About (Image + Text) Settings',
@@ -68,6 +70,7 @@ const GENERIC_BLOCK_TITLES: Record<string, string> = {
     faq: 'FAQ Accordion Settings',
     booking: 'Booking / Appointments Settings',
     contact_form: 'Contact Form Settings',
+    contactForm: 'Contact Form Settings',
     logoCloud: 'Logo Cloud / Partners Settings',
     pricing: 'Pricing Table Settings',
     team: 'Team Members Settings',
@@ -220,6 +223,11 @@ export const BLOCK_PANEL_REGISTRY: Record<string, PanelEntry> = {
                 getHref: (ctx) => ctx?.siteId ? `/admin/inbox?siteId=${ctx.siteId}` : null,
             },
         ],
+    },
+    membershipGate: {
+        title: 'Membership Gate Settings',
+        component: GenericBlockSettingsPanel,
+        hideSettingsButton: true,
     },
 };
 

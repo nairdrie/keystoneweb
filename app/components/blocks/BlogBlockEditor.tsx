@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useEditorContext } from '@/lib/editor-context';
 import { useLangPrefix, prefixInternalLinks } from '@/lib/hooks/useLangPrefix';
+import { sanitizeRichHtml } from '@/lib/html-sanitize';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -1124,7 +1125,7 @@ function PostDetail({ post, onBack, pPrimary, pSecondary }: {
                 {post.content ? (
                     <div
                         className="prose prose-slate lg:prose-lg max-w-none"
-                        dangerouslySetInnerHTML={{ __html: prefixInternalLinks(post.content, langPrefix) }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(prefixInternalLinks(post.content, langPrefix)) }}
                     />
                 ) : (
                     <p className="text-slate-400 italic">This post has no content yet.</p>

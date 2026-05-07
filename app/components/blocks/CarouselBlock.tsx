@@ -162,6 +162,14 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
   const updateItem = (idx: number, field: string, value: unknown) =>
     updateContent('items', items.map((item, i) => i === idx ? { ...item, [field]: value } : item));
 
+  const handleCarouselImageSave = (idx: number, key: string, value: unknown) => {
+    if (key === `carousel_${idx}_image`) {
+      updateItem(idx, 'image', value);
+      return;
+    }
+    updateContent(key, value);
+  };
+
   const addItem = () => {
     updateContent('items', [...items, { mediaType: 'icon' as const, icon: 'Star', title: 'New Slide', text: 'Add your content here.' }]);
     setCurrent(items.length);
@@ -355,7 +363,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                         <EditableImage
                           contentKey={`carousel_${idx}_image`} imageUrl={item.image}
                           initialSettings={getImageSettings(`carousel_${idx}_image__settings`)}
-                          isEditMode={isEditMode} onSave={(_, v) => updateItem(idx, 'image', v)}
+                          isEditMode={isEditMode} onSave={(key, value) => handleCarouselImageSave(idx, key, value)}
                           className="w-full h-44 object-cover rounded-xl"
                         />
                       ) : (
@@ -449,7 +457,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                           contentKey={`carousel_${idx}_image`} imageUrl={item.image}
                           initialSettings={getImageSettings(`carousel_${idx}_image__settings`)}
                           isEditMode={isEditMode && idx === current}
-                          onSave={(_, v) => updateItem(idx, 'image', v)}
+                          onSave={(key, value) => handleCarouselImageSave(idx, key, value)}
                           className="w-full h-80 object-cover"
                         />
                       ) : (
@@ -545,7 +553,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                         <EditableImage
                           contentKey={`carousel_${idx}_image`} imageUrl={item.image}
                           initialSettings={getImageSettings(`carousel_${idx}_image__settings`)}
-                          isEditMode={isEditMode} onSave={(_, v) => updateItem(idx, 'image', v)}
+                          isEditMode={isEditMode} onSave={(key, value) => handleCarouselImageSave(idx, key, value)}
                           className="w-48 h-48 object-cover rounded-2xl mx-auto"
                         />
                       ) : item.image ? (

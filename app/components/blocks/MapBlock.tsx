@@ -49,6 +49,7 @@ export default function MapBlock({ block, palette }: { block: BlockData, palette
                         </div>
                     )}
                     <iframe
+                        title={title || 'Map'}
                         src={mapUrl}
                         width="100%"
                         height="100%"
@@ -56,20 +57,8 @@ export default function MapBlock({ block, palette }: { block: BlockData, palette
                         allowFullScreen={false}
                         loading="lazy"
                         referrerPolicy="no-referrer-when-downgrade"
-                        className="w-full h-full pointer-events-none"
+                        className={`w-full h-full ${isEditMode ? 'pointer-events-none' : ''}`}
                     />
-                    {!isEditMode && (
-                        <iframe
-                            src={mapUrl}
-                            width="100%"
-                            height="100%"
-                            style={{ border: 0, position: 'absolute', top: 0, left: 0 }}
-                            allowFullScreen={false}
-                            loading="lazy"
-                            referrerPolicy="no-referrer-when-downgrade"
-                            className="w-full h-full"
-                        />
-                    )}
                 </div>
             </div>
         </section>
