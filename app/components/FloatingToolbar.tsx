@@ -28,6 +28,12 @@ interface Palette {
   accent: string;
 }
 
+type PaletteColorType = 'primary' | 'secondary' | 'accent';
+
+type CustomColorChangeOptions = {
+  commit?: boolean;
+};
+
 interface Site {
   id: string;
   siteSlug?: string;
@@ -51,7 +57,7 @@ interface FloatingToolbarProps {
   templatePalettes?: Palette[];
   selectedPalette?: Palette;
   onSelectPalette?: (palette: Palette) => void;
-  onCustomColorChange?: (type: 'primary' | 'secondary' | 'accent', value: string) => void;
+  onCustomColorChange?: (type: PaletteColorType, value: string, options?: CustomColorChangeOptions) => void;
   logoUrl?: string;
   onLogoChange?: (url: string) => void;
   uploadImage?: (file: File, contentKey: string) => Promise<string>;
@@ -1326,15 +1332,15 @@ export default function FloatingToolbar({
                   <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-lg flex justify-between items-center gap-2">
                     <div className="flex flex-col items-center gap-1">
                       <span className="text-[10px] font-bold text-slate-500 uppercase">Primary</span>
-                      <input type="color" value={selectedPalette.primary} onChange={(e) => onCustomColorChange?.('primary', e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent" />
+                      <CustomPaletteColorInput type="primary" value={selectedPalette.primary} onCustomColorChange={onCustomColorChange} />
                     </div>
                     <div className="flex flex-col items-center gap-1">
                       <span className="text-[10px] font-bold text-slate-500 uppercase">Secondary</span>
-                      <input type="color" value={selectedPalette.secondary} onChange={(e) => onCustomColorChange?.('secondary', e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent" />
+                      <CustomPaletteColorInput type="secondary" value={selectedPalette.secondary} onCustomColorChange={onCustomColorChange} />
                     </div>
                     <div className="flex flex-col items-center gap-1">
                       <span className="text-[10px] font-bold text-slate-500 uppercase">Accent</span>
-                      <input type="color" value={selectedPalette.accent} onChange={(e) => onCustomColorChange?.('accent', e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent" />
+                      <CustomPaletteColorInput type="accent" value={selectedPalette.accent} onCustomColorChange={onCustomColorChange} />
                     </div>
                   </div>
                 )}
@@ -2264,5 +2270,40 @@ export default function FloatingToolbar({
         nextButtonLabel={walkthroughStep === 0 ? 'Start Tour' : undefined}
       />
     </>
+  );
+}
+
+function CustomPaletteColorInput({
+  type,
+  value,
+  onCustomColorChange,
+}: {
+  type: PaletteColorType;
+  value: string;
+  onCustomColorChange?: FloatingToolbarProps['onCustomColorChange'];
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+
+    const handleNativeChange = () => {
+      onCustomColorChange?.(type, input.value, { commit: true });
+    };
+
+    input.addEventListener('change', handleNativeChange);
+    return () => input.removeEventListener('change', handleNativeChange);
+  }, [onCustomColorChange, type]);
+
+  return (
+    <input
+      ref={inputRef}
+      type="color"
+      value={value}
+      onInput={(e) => onCustomColorChange?.(type, e.currentTarget.value)}
+      onBlur={(e) => onCustomColorChange?.(type, e.currentTarget.value, { commit: true })}
+      className="w-8 h-8 rounded cursor-pointer border-0 p-0 bg-transparent"
+    />
   );
 }

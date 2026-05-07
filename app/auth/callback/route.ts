@@ -29,6 +29,8 @@ export async function GET(request: Request) {
   // and getSession() on the next page would always return null.
   const cookieStore = await cookies();
   const pendingCookies: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
+  const cookieDomain =
+    process.env.NODE_ENV === 'production' ? '.keystoneweb.ca' : undefined;
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -77,7 +79,7 @@ export async function GET(request: Request) {
   // Apply the session cookies directly to the redirect response so the browser
   // receives them and getSession() works on the destination page.
   pendingCookies.forEach(({ name, value, options }) => {
-    response.cookies.set(name, value, { ...(options as any), domain: COOKIE_DOMAIN });
+    response.cookies.set(name, value, { ...(options as any), domain: cookieDomain });
   });
 
   return response;

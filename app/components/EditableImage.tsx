@@ -9,6 +9,8 @@ interface EditableImageProps {
   contentKey: string;
   imageUrl?: string;
   isEditMode: boolean;
+  // EditableImage saves both URL strings and companion image metadata settings.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onSave: (key: string, value: any) => void;
   onUpload?: (file: File, contentKey: string) => Promise<string>;
   className?: string;
@@ -111,14 +113,14 @@ export default function EditableImage({
   return (
     <>
       {previewUrl ? (
-        <div className="relative w-full h-full group cursor-pointer" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setModalOpen(true); }}>
+        <div className="group/editable-image relative w-full h-full cursor-pointer" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setModalOpen(true); }}>
           <img
             src={previewUrl}
             alt={imageSettings.altText || contentKey}
             className={`rounded ${className}`}
             style={imgStyle}
           />
-          <div className="absolute inset-0 z-20 rounded bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <div className="absolute inset-0 z-20 rounded bg-black/0 opacity-0 transition-all group-hover/editable-image:bg-black/30 group-hover/editable-image:opacity-100 flex items-center justify-center">
             {editOverlayStyle === 'icon' ? (
               <span className="p-2 bg-white text-red-600 rounded-full shadow-lg">
                 <Pencil className="w-4 h-4" />
@@ -132,7 +134,7 @@ export default function EditableImage({
           </div>
           {/* Unsplash attribution */}
           {allowUnsplash && showAttribution && attribution && (
-            <div className="absolute bottom-1 right-1 z-30 max-w-[calc(100%-0.5rem)] rounded bg-black/70 px-2 py-1 text-right text-[10px] leading-tight text-white opacity-0 shadow transition-opacity group-hover:opacity-100">
+            <div className="absolute bottom-1 right-1 z-30 max-w-[calc(100%-0.5rem)] rounded bg-black/70 px-2 py-1 text-right text-[10px] leading-tight text-white opacity-0 shadow transition-opacity group-hover/editable-image:opacity-100">
               Photo by{' '}
               <a
                 href={attribution.photographerUrl}
@@ -159,10 +161,10 @@ export default function EditableImage({
       ) : fallback ? (
         <div
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setModalOpen(true); }}
-          className="cursor-pointer group relative block"
+          className="group/editable-image cursor-pointer relative block"
         >
           {fallback}
-          <div className="absolute inset-0 rounded bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <div className="absolute inset-0 rounded bg-black/0 opacity-0 transition-all group-hover/editable-image:bg-black/30 group-hover/editable-image:opacity-100 flex items-center justify-center">
             {editOverlayStyle === 'icon' ? (
               <span className="p-1.5 bg-white text-red-600 rounded-full shadow-lg">
                 <Pencil className="w-3.5 h-3.5" />
@@ -178,9 +180,9 @@ export default function EditableImage({
       ) : (
         <div
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setModalOpen(true); }}
-          className={`flex min-h-48 flex-col items-center justify-center ${emptyBackgroundClassName} border-2 border-dashed border-slate-300 hover:border-slate-400 rounded-lg p-8 text-center cursor-pointer transition-colors group ${className}`}
+          className={`group/editable-image flex min-h-48 flex-col items-center justify-center ${emptyBackgroundClassName} border-2 border-dashed border-slate-300 hover:border-slate-400 rounded-lg p-8 text-center cursor-pointer transition-colors ${className}`}
         >
-          <ImageIcon className="w-8 h-8 mx-auto text-slate-400 group-hover:text-slate-600 mb-2" />
+          <ImageIcon className="w-8 h-8 mx-auto text-slate-400 group-hover/editable-image:text-slate-600 mb-2" />
           <p className="text-sm font-medium text-slate-700">{placeholder}</p>
           <p className="text-xs text-slate-500 mt-1">{allowUnsplash ? 'Upload or search Unsplash' : 'Upload an image'}</p>
         </div>

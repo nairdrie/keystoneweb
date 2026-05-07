@@ -284,6 +284,19 @@ function summarizeArrayChange(oldArr: any[], newArr: any[], fieldLabel: string):
   return { from: `${oldArr.length} ${fieldLabel}`, to: `${newArr.length} ${fieldLabel} (modified)` };
 }
 
+function isStructuralCountChange(from: string, to: string): boolean {
+  const countLabelPattern = /^(\d+) (.+)$/;
+  const fromMatch = from.match(countLabelPattern);
+  const toMatch = to.match(countLabelPattern);
+
+  return Boolean(
+    fromMatch &&
+    toMatch &&
+    fromMatch[1] !== toMatch[1] &&
+    fromMatch[2] === toMatch[2]
+  );
+}
+
 // Format a simple value for display
 function formatValue(val: any, fieldKey: string): string {
   if (val === undefined || val === null || val === '') return '(empty)';
@@ -475,8 +488,8 @@ export function useChangeTracking() {
       let finalLabel = label;
       let finalFrom = from;
       let finalTo = to;
-      let rawFrom = from;
-      let rawTo = to;
+      const rawFrom = from;
+      const rawTo = to;
       let mergeKey = field;
 
       // === BLOCKS ===
@@ -528,9 +541,14 @@ export function useChangeTracking() {
         finalTo = formatDisplayValue(to);
       }
 
+      const timestamp = Date.now();
+      if (isStructuralCountChange(finalFrom, finalTo)) {
+        mergeKey = `${mergeKey}:count:${finalFrom}->${finalTo}:${timestamp}:${prev.history.length}`;
+      }
+
       // Create new change
       const newChange: Change = {
-        id: `${field}-${Date.now()}`,
+        id: `${field}-${timestamp}`,
         field,
         mergeKey,
         label: finalLabel,
@@ -538,7 +556,7 @@ export function useChangeTracking() {
         to: finalTo,
         rawFrom,
         rawTo,
-        timestamp: Date.now(),
+        timestamp,
       };
 
       // Check if we're modifying an existing field change

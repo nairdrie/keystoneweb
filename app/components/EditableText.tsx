@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Edit2, Check, X, Settings } from 'lucide-react';
 import TextSettingsModal, { textShadowToCss, type TextShadowSettings } from './TextSettingsModal';
 
@@ -13,7 +13,7 @@ interface EditableTextProps {
   defaultValue?: string;
   as?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'span' | 'div';
   style?: React.CSSProperties;
-  styleData?: string | Record<string, any>;
+  styleData?: string | Record<string, unknown>;
 }
 
 export default function EditableText({
@@ -33,28 +33,34 @@ export default function EditableText({
   const [isHovered, setIsHovered] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [controlsOnLeft, setControlsOnLeft] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLElement>(null);
   const isEditingRef = useRef(false);
   const displayTextRef = useRef(displayText);
   const blurSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Parse dynamic styles if present
-  let parsedStyles: Record<string, any> = {};
+  let parsedStyles: Record<string, unknown> = {};
   if (styleData) {
     try {
-      parsedStyles = typeof styleData === 'string' ? JSON.parse(styleData) : styleData;
+      const nextStyles = typeof styleData === 'string' ? JSON.parse(styleData) : styleData;
+      parsedStyles = isRecord(nextStyles) ? nextStyles : {};
     } catch (e) { console.error('Failed to parse styleData for', contentKey, e); }
   }
 
   // Combine baseline style with text-specific user settings
-  const textShadowCss = textShadowToCss(parsedStyles.textShadow as TextShadowSettings | undefined);
+  const fontFamily = typeof parsedStyles.fontFamily === 'string' ? parsedStyles.fontFamily : '';
+  const fontSize = getCssScalar(parsedStyles.fontSize);
+  const color = typeof parsedStyles.color === 'string' ? parsedStyles.color : '';
+  const fontWeight = getCssScalar(parsedStyles.fontWeight);
+  const textShadowSettings = isRecord(parsedStyles.textShadow) ? parsedStyles.textShadow as unknown as TextShadowSettings : undefined;
+  const textShadowCss = textShadowToCss(textShadowSettings);
   const mergedStyle = {
     ...style,
-    ...(parsedStyles.fontFamily ? { fontFamily: `"${parsedStyles.fontFamily}", sans-serif` } : {}),
-    ...(parsedStyles.fontSize ? { fontSize: parsedStyles.fontSize } : {}),
-    ...(parsedStyles.color ? { color: parsedStyles.color } : {}),
-    ...(parsedStyles.fontWeight ? { fontWeight: parsedStyles.fontWeight } : {}),
+    ...(fontFamily ? { fontFamily: `"${fontFamily}", sans-serif` } : {}),
+    ...(fontSize ? { fontSize } : {}),
+    ...(color ? { color } : {}),
+    ...(fontWeight ? { fontWeight } : {}),
     ...(textShadowCss ? { textShadow: textShadowCss } : {})
   };
 
@@ -62,8 +68,8 @@ export default function EditableText({
   // React 19 hoists and dedupes <link> elements into <head> automatically, so
   // this loads server-side (discoverable by the preload scanner) instead of
   // appending to document.head post-hydration like before.
-  const overrideFontHref = parsedStyles.fontFamily
-    ? `https://fonts.googleapis.com/css2?family=${(parsedStyles.fontFamily as string).replace(/ /g, '+')}:wght@400;500;600;700;800;900&display=swap`
+  const overrideFontHref = fontFamily
+    ? `https://fonts.googleapis.com/css2?family=${fontFamily.replace(/ /g, '+')}:wght@400;500;600;700;800;900&display=swap`
     : null;
 
   // Keep refs in sync
@@ -74,6 +80,8 @@ export default function EditableText({
   useEffect(() => {
     if (!isEditing) {
       const newDisplay = content !== undefined && content !== '' ? content : defaultValue;
+      // Keep local draft text aligned with undo/redo and external block updates.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTempValue(newDisplay);
     }
   }, [content, defaultValue, isEditing]);
@@ -84,6 +92,13 @@ export default function EditableText({
       inputRef.current.select();
     }
   }, [isEditing]);
+
+  useLayoutEffect(() => {
+    if (!isEditing || !inputRef.current) return;
+    const textarea = inputRef.current;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [isEditing, tempValue]);
 
   // Detect if we should show controls on the left based on screen position
   // Runs on mount and whenever edit mode changes so it also works on mobile (no hover events)
@@ -142,6 +157,10 @@ export default function EditableText({
     setIsEditing(true);
   };
 
+  const setContainerRef = (node: HTMLElement | null) => {
+    containerRef.current = node;
+  };
+
   // Helper to parse {{text}} into highlighted spans and \n into <br/>
   const renderFormattedText = (text: string) => {
     // Split by literal \n string or actual newline character
@@ -186,13 +205,14 @@ export default function EditableText({
     return (
       <>
         {overrideFontHref && <link rel="stylesheet" href={overrideFontHref} />}
-      <Component className={`${className} relative`} style={mergedStyle}>
+      <Component className={`${className} relative block min-w-0 max-w-full`} style={mergedStyle}>
         <textarea
-          ref={inputRef as any}
+          ref={inputRef}
           value={tempValue}
           onChange={(e) => setTempValue(e.target.value)}
-          className="bg-blue-50/80 border-b-2 border-blue-500 text-slate-900 outline-none w-full resize-none overflow-hidden block"
-          rows={tempValue.split('\n').length || 1}
+          className="block w-full min-w-0 resize-none overflow-hidden whitespace-pre-wrap break-words bg-blue-50/80 border-b-2 border-blue-500 text-slate-900 outline-none"
+          rows={1}
+          wrap="soft"
           style={{
             fontFamily: 'inherit',
             fontSize: 'inherit',
@@ -201,6 +221,8 @@ export default function EditableText({
             padding: 0,
             margin: 0,
             lineHeight: 'inherit',
+            whiteSpace: 'pre-wrap',
+            overflowWrap: 'break-word',
           }}
           onKeyDown={(e) => {
             // Enter saves, Shift+Enter adds newline
@@ -244,7 +266,7 @@ export default function EditableText({
     <>
       {overrideFontHref && <link rel="stylesheet" href={overrideFontHref} />}
     <Component
-      ref={containerRef as any}
+      ref={setContainerRef}
       className={`${className} cursor-text pointer-events-auto transition-colors`}
       style={mergedStyle}
       onClick={(e) => {
@@ -308,4 +330,12 @@ export default function EditableText({
     </Component>
     </>
   );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function getCssScalar(value: unknown): string | number | undefined {
+  return typeof value === 'string' || typeof value === 'number' ? value : undefined;
 }
