@@ -1,10 +1,84 @@
 import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendOrderConfirmation, sendOrderNotification, sendOrderPaymentConfirmed, sendOrderCancellationToCustomer, sendOrderCancellationToOwner, sendOrderShipped, sendMixedOrderConfirmation, sendVendorOrderNotification, sendOwnerVendorOrderNotification } from '@/lib/email';
 import { findMatchingZone, type ShippingZone } from '@/lib/shipping-data';
 import { getCurrentMemberFromRequest } from '@/lib/membership/current-member';
 import { resolveProductAccess, parseProductOptions, resolveOptionPriceModifierCents } from '@/lib/ecommerce/resolve-price';
 import Stripe from 'stripe';
+
+/**
+ * Look up or create a member row for this customer when they tick "Save my
+ * info" at checkout. Guest rows have password_hash = NULL and status =
+ * 'guest' until the customer claims the account via OTP / password reset.
+ *
+ * Never demotes an existing active/pending member back to guest, and only
+ * flips marketing_opt_in false → true (never silently revokes consent).
+ *
+ * Returns the member id, or null on any failure (we never want a member
+ * upsert hiccup to block an order from being created).
+ */
+async function upsertGuestMember(
+    siteId: string,
+    email: string,
+    name: string,
+    phone: string | undefined,
+    shippingAddress: any,
+    marketingOptIn: boolean,
+): Promise<string | null> {
+    try {
+        const admin = createAdminClient();
+        const emailLower = email.trim().toLowerCase();
+
+        const { data: existing } = await admin
+            .from('members')
+            .select('id, status, marketing_opt_in, custom_fields')
+            .eq('site_id', siteId)
+            .eq('email', emailLower)
+            .maybeSingle();
+
+        const cf: Record<string, any> = {
+            ...(existing?.custom_fields || {}),
+            phone: phone || (existing?.custom_fields as any)?.phone || null,
+            line1: shippingAddress?.line1 || (existing?.custom_fields as any)?.line1 || null,
+            city: shippingAddress?.city || (existing?.custom_fields as any)?.city || null,
+            region: shippingAddress?.region || (existing?.custom_fields as any)?.region || null,
+            postal: shippingAddress?.postal || (existing?.custom_fields as any)?.postal || null,
+            country: shippingAddress?.country || (existing?.custom_fields as any)?.country || null,
+        };
+
+        if (existing) {
+            const updates: Record<string, any> = {
+                name: name || undefined,
+                custom_fields: cf,
+                updated_at: new Date().toISOString(),
+            };
+            // Only opt-in: never revoke marketing consent automatically.
+            if (marketingOptIn && !existing.marketing_opt_in) updates.marketing_opt_in = true;
+            await admin.from('members').update(updates).eq('id', existing.id);
+            return existing.id;
+        }
+
+        const { data: created } = await admin
+            .from('members')
+            .insert({
+                site_id: siteId,
+                email: emailLower,
+                name: name || null,
+                password_hash: null,
+                status: 'guest',
+                email_verified: false,
+                custom_fields: cf,
+                marketing_opt_in: !!marketingOptIn,
+            })
+            .select('id')
+            .single();
+        return created?.id || null;
+    } catch (err) {
+        console.error('Guest member upsert failed:', err);
+        return null;
+    }
+}
 
 /**
  * POST /api/products/orders — Create order (public checkout)
@@ -20,6 +94,7 @@ export async function POST(request: NextRequest) {
         siteId, items, customerName, customerEmail, customerPhone,
         shippingAddress, shippingCents: clientShippingCents, shippingMethod: clientShippingMethod,
         notes, paymentMethod = 'none', stripeSessionId,
+        saveProfile, marketingOptIn,
     } = body;
 
     if (!siteId || !items || !items.length || !customerName || !customerEmail) {
@@ -84,6 +159,22 @@ export async function POST(request: NextRequest) {
     }
 
     const subtotalCents = resolvedItems.reduce((sum, item) => sum + item.price_cents * item.qty, 0);
+
+    // If the shopper is signed in, the order is attributed to them. Otherwise,
+    // an opt-in "Save my info" upserts a guest member row; we use that id to
+    // attribute the order so the shop owner sees the customer in the Users tab.
+    // Done after item validation so a doomed cart never creates a user row.
+    let attributedMemberId: string | null = member?.memberId || null;
+    if (!attributedMemberId && saveProfile && customerEmail) {
+        attributedMemberId = await upsertGuestMember(
+            siteId,
+            customerEmail,
+            customerName || '',
+            customerPhone,
+            shippingAddress,
+            !!marketingOptIn,
+        );
+    }
 
     // Server-side shipping validation: re-calculate shipping from zones to prevent tampering
     let validatedShippingCents = 0;
@@ -155,7 +246,7 @@ export async function POST(request: NextRequest) {
         return await createSingleOrder(supabase, {
             siteId, items: resolvedItems, customerName, customerEmail, customerPhone,
             shippingAddress, validatedShippingCents, validatedShippingMethod,
-            notes, paymentMethod, shippingRequired,
+            notes, paymentMethod, shippingRequired, memberId: attributedMemberId,
         });
     }
 
@@ -190,6 +281,7 @@ export async function POST(request: NextRequest) {
             payment_method: 'none',
             payment_status: 'unpaid',
             notes: notes || null,
+            member_id: attributedMemberId,
         })
         .select()
         .single();
@@ -265,6 +357,7 @@ export async function POST(request: NextRequest) {
                 notes: notes || null,
                 parent_order_id: parentOrder.id,
                 vendor_id: isSelf ? null : vendorKey,
+                member_id: attributedMemberId,
             })
             .select()
             .single();
@@ -504,12 +597,12 @@ async function createSingleOrder(supabase: any, params: {
     siteId: string; items: any[]; customerName: string; customerEmail: string;
     customerPhone?: string; shippingAddress?: any; validatedShippingCents: number;
     validatedShippingMethod: string | null; notes?: string; paymentMethod: string;
-    shippingRequired: boolean;
+    shippingRequired: boolean; memberId?: string | null;
 }) {
     const {
         siteId, items, customerName, customerEmail, customerPhone,
         shippingAddress, validatedShippingCents, validatedShippingMethod,
-        notes, paymentMethod,
+        notes, paymentMethod, memberId,
     } = params;
 
     const subtotalCents = items.reduce((sum: number, item: any) => sum + (item.price_cents * item.qty), 0);
@@ -551,6 +644,7 @@ async function createSingleOrder(supabase: any, params: {
             payment_method: paymentMethod,
             payment_status: paymentStatus,
             notes: notes || null,
+            member_id: memberId || null,
         })
         .select()
         .single();
