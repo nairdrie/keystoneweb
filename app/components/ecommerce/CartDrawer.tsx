@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Plus, Minus, ShoppingBag, Trash2, Loader2, Check, ArrowRight, User, Mail, Phone, CreditCard, DollarSign, Truck, AlertCircle, Package, Building2 } from 'lucide-react';
+import { X, Plus, Minus, ShoppingBag, Trash2, Loader2, Check, ArrowRight, User, Mail, Phone, CreditCard, DollarSign, Truck, AlertCircle, Package, Building2, LogIn } from 'lucide-react';
 import { useCart } from './CartProvider';
+import { useMember } from '@/app/components/membership/MemberProvider';
 import AddressAutocomplete from './AddressAutocomplete';
 import PayPalButton from './PayPalButton';
 import { COUNTRIES, REGIONS, getCountryName } from '@/lib/shipping-data';
@@ -55,6 +56,8 @@ interface CartDrawerProps {
 
 export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
     const cart = useCart();
+    const memberCtx = useMember();
+    const member = memberCtx?.member ?? null;
     const [step, setStep] = useState<Step>('cart');
     const [submitting, setSubmitting] = useState(false);
     const [confirmation, setConfirmation] = useState<any>(null);
@@ -63,6 +66,19 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
         line1: '', city: '', region: '', postal: '', country: 'CA',
         notes: '',
     });
+    const [profileHydrated, setProfileHydrated] = useState(false);
+    const [saveProfile, setSaveProfile] = useState(true);
+    const [marketingOptIn, setMarketingOptIn] = useState(false);
+
+    // Inline passwordless sign-in panel (OTP). Toggled from the "Sign in" entry
+    // above the contact fields; verifying calls /api/membership/me via the
+    // member context refresh so the form prefills from the server profile.
+    type SignInState = 'closed' | 'email' | 'code';
+    const [signInState, setSignInState] = useState<SignInState>('closed');
+    const [signInEmail, setSignInEmail] = useState('');
+    const [signInCode, setSignInCode] = useState('');
+    const [signInBusy, setSignInBusy] = useState(false);
+    const [signInError, setSignInError] = useState<string | null>(null);
     const [selectedPayment, setSelectedPayment] = useState<'etransfer' | 'stripe' | 'paypal' | 'converge' | 'clover'>('etransfer');
     const [ecomSettings, setEcomSettings] = useState<EcommerceSettings | null>(null);
     const [stripeConnected, setStripeConnected] = useState(false);
@@ -134,6 +150,104 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
             }
         })();
     }, [cart?.isCartOpen, siteId, settingsLoaded]);
+
+    // Hydrate the contact + shipping form from a saved profile so returning
+    // shoppers don't retype on every visit. Signed-in members win over the
+    // anonymous localStorage cache (cross-device); otherwise we fall back to
+    // the per-browser cache. `notes` is intentionally never persisted so it
+    // can't carry over from a previous order.
+    useEffect(() => {
+        if (profileHydrated) return;
+        if (memberCtx?.isLoading) return; // wait for member fetch to settle
+        try {
+            if (member) {
+                const cf = (member.customFields || {}) as Record<string, any>;
+                setForm(f => ({
+                    ...f,
+                    name: f.name || member.name || '',
+                    email: f.email || member.email || '',
+                    phone: f.phone || cf.phone || '',
+                    line1: f.line1 || cf.line1 || '',
+                    city: f.city || cf.city || '',
+                    region: f.region || cf.region || '',
+                    postal: f.postal || cf.postal || '',
+                    country: cf.country || f.country,
+                }));
+                setMarketingOptIn(!!member.marketingOptIn);
+            } else {
+                const stored = localStorage.getItem(`checkout_profile_${siteId}`);
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    setForm(f => ({ ...f, ...parsed, notes: f.notes }));
+                }
+            }
+        } catch { }
+        setProfileHydrated(true);
+    }, [siteId, profileHydrated, member, memberCtx?.isLoading]);
+
+    const handleSignInRequest = async () => {
+        const targetEmail = (signInEmail || form.email).trim();
+        if (!targetEmail) {
+            setSignInError('Enter your email first.');
+            return;
+        }
+        setSignInBusy(true);
+        setSignInError(null);
+        try {
+            await fetch('/api/membership/otp/request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ siteId, email: targetEmail }),
+            });
+            setSignInEmail(targetEmail);
+            setSignInState('code');
+        } catch (err: any) {
+            setSignInError(err?.message || 'Could not send code');
+        } finally {
+            setSignInBusy(false);
+        }
+    };
+
+    const handleSignInVerify = async () => {
+        if (!signInCode.trim() || !signInEmail.trim()) return;
+        setSignInBusy(true);
+        setSignInError(null);
+        try {
+            const res = await fetch('/api/membership/otp/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ siteId, email: signInEmail, code: signInCode }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                setSignInError(data?.error || 'Invalid code');
+                return;
+            }
+            // Re-fetch member; the prefill effect rehydrates the form once
+            // memberCtx.member updates. Reset the panel.
+            await memberCtx?.refresh();
+            setProfileHydrated(false);
+            setSignInState('closed');
+            setSignInCode('');
+        } catch (err: any) {
+            setSignInError(err?.message || 'Verification failed');
+        } finally {
+            setSignInBusy(false);
+        }
+    };
+
+    // Persist contact + shipping to localStorage as the user types so the
+    // next visit is pre-filled. Debounced to avoid thrashing storage.
+    useEffect(() => {
+        if (!profileHydrated) return;
+        const t = setTimeout(() => {
+            try {
+                const { notes: _omit, ...rest } = form;
+                localStorage.setItem(`checkout_profile_${siteId}`, JSON.stringify(rest));
+            } catch { }
+        }, 500);
+        return () => clearTimeout(t);
+    }, [form, profileHydrated, siteId]);
 
     // Calculate shipping when address is complete or when moving to payment step
     const calculateShipping = useCallback(async () => {
@@ -272,6 +386,8 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                 shippingMethod: shippingRequired ? (shippingResult?.shippingLabel || '') : undefined,
                 paymentMethod,
                 notes: form.notes.trim() || undefined,
+                saveProfile: !member ? saveProfile : undefined,
+                marketingOptIn: !member ? marketingOptIn : undefined,
             }),
         });
 
@@ -317,6 +433,8 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                     shippingMethod: shippingRequired ? (shippingResult?.shippingLabel || '') : undefined,
                     paymentMethod: selectedPayment,
                     notes: form.notes.trim() || undefined,
+                    saveProfile: !member ? saveProfile : undefined,
+                    marketingOptIn: !member ? marketingOptIn : undefined,
                 }),
             });
 
@@ -647,6 +765,8 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                     shippingMethod: shippingRequired ? (shippingResult?.shippingLabel || '') : undefined,
                     paymentMethod: 'paypal',
                     notes: form.notes.trim() || undefined,
+                    saveProfile: !member ? saveProfile : undefined,
+                    marketingOptIn: !member ? marketingOptIn : undefined,
                 }),
             });
             const orderData = await orderRes.json();
@@ -816,6 +936,127 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                     {/* ── Address step ── */}
                     {step === 'address' && (
                         <div className="p-5 space-y-4">
+                            {/* Returning customer: passwordless sign-in by email code.
+                                Falls back to the password sign-in page (with returnTo
+                                so the cart auto-reopens) for customers who prefer that. */}
+                            {!member && (
+                                <div className="bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
+                                    {signInState === 'closed' ? (
+                                        <div className="flex items-center justify-between gap-3 px-3 py-2">
+                                            <span className="text-xs text-slate-600 flex items-center gap-1.5">
+                                                <LogIn className="w-3.5 h-3.5 text-slate-400" />
+                                                Already have an account?
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setSignInEmail(form.email || '');
+                                                    setSignInError(null);
+                                                    setSignInState('email');
+                                                }}
+                                                className="text-xs font-bold text-blue-600 hover:underline"
+                                            >
+                                                Sign in
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="px-3 py-3 space-y-2">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <p className="text-xs font-semibold text-slate-700">
+                                                    {signInState === 'email'
+                                                        ? 'Sign in with an email code'
+                                                        : `Code sent to ${signInEmail}`}
+                                                </p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSignInState('closed');
+                                                        setSignInError(null);
+                                                        setSignInCode('');
+                                                    }}
+                                                    className="p-0.5 text-slate-400 hover:text-slate-700"
+                                                    aria-label="Cancel sign-in"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+
+                                            {signInState === 'email' ? (
+                                                <>
+                                                    <input
+                                                        type="email"
+                                                        value={signInEmail}
+                                                        onChange={e => setSignInEmail(e.target.value)}
+                                                        placeholder="you@example.com"
+                                                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleSignInRequest}
+                                                        disabled={signInBusy || !signInEmail.trim()}
+                                                        className="w-full py-2 bg-blue-600 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-50"
+                                                    >
+                                                        {signInBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                                                        Email me a code
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <input
+                                                        type="text"
+                                                        inputMode="numeric"
+                                                        autoComplete="one-time-code"
+                                                        maxLength={6}
+                                                        value={signInCode}
+                                                        onChange={e => setSignInCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                                        placeholder="123456"
+                                                        className="w-full px-3 py-2 text-center text-lg font-mono tracking-[0.5em] border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleSignInVerify}
+                                                        disabled={signInBusy || signInCode.length !== 6}
+                                                        className="w-full py-2 bg-blue-600 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-50"
+                                                    >
+                                                        {signInBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                                                        Verify code
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSignInState('email');
+                                                            setSignInCode('');
+                                                            setSignInError(null);
+                                                        }}
+                                                        className="w-full py-1 text-[11px] text-slate-500 hover:text-slate-700"
+                                                    >
+                                                        Use a different email
+                                                    </button>
+                                                </>
+                                            )}
+
+                                            {signInError && (
+                                                <p className="text-[11px] text-red-600 flex items-center gap-1">
+                                                    <AlertCircle className="w-3 h-3" /> {signInError}
+                                                </p>
+                                            )}
+
+                                            <a
+                                                href={(() => {
+                                                    if (typeof window === 'undefined') return '/signin';
+                                                    const here = new URL(window.location.href);
+                                                    here.searchParams.set('openCart', '1');
+                                                    return `/signin?returnTo=${encodeURIComponent(here.pathname + here.search)}`;
+                                                })()}
+                                                className="block text-center text-[11px] text-slate-500 hover:text-slate-700"
+                                            >
+                                                Use password instead
+                                            </a>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Contact info */}
                             <div>
                                 <label className="text-sm font-medium text-slate-700 block mb-1">Full Name *</label>
@@ -934,6 +1175,37 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                         </div>
                                     </div>
                                 </>
+                            )}
+
+                            {/* Save profile + marketing consent (Shopify-style:
+                                save-info pre-checked, marketing opt-in unchecked).
+                                Hidden for already-signed-in members — their profile
+                                is already saved server-side. */}
+                            {!member && (
+                                <div className="space-y-2 border border-slate-200 rounded-lg p-3 bg-slate-50/50">
+                                    <label className="flex items-start gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={saveProfile}
+                                            onChange={e => setSaveProfile(e.target.checked)}
+                                            className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                        />
+                                        <span className="text-sm text-slate-700">
+                                            Save my info for a faster checkout next time
+                                        </span>
+                                    </label>
+                                    <label className="flex items-start gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={marketingOptIn}
+                                            onChange={e => setMarketingOptIn(e.target.checked)}
+                                            className="mt-0.5 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                        />
+                                        <span className="text-sm text-slate-700">
+                                            Email me about new products and promotions
+                                        </span>
+                                    </label>
+                                </div>
                             )}
 
                             {/* Order notes */}

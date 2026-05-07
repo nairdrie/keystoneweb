@@ -2076,6 +2076,42 @@ export async function sendMemberRenewalEmail(
 /**
  * Send cancellation notification email to a member whose subscription was cancelled.
  */
+/**
+ * Send a 6-digit one-time sign-in code for passwordless checkout sign-in.
+ * The code itself is rendered prominently in the body so customers can read
+ * it from the email preview without opening.
+ */
+export async function sendMemberOtpEmail(
+    data: MemberEmailData & { code: string },
+) {
+    try {
+        const subject = `Your sign-in code: ${data.code}`;
+        const greeting = data.memberName ? `Hi ${data.memberName},` : 'Hi there,';
+        const bodyLines = [
+            greeting,
+            `Use this code to finish signing in${data.siteName ? ` to ${data.siteName}` : ''}:`,
+            `<div style="font-size:32px;font-weight:700;letter-spacing:8px;text-align:center;margin:24px 0;padding:16px;background:#f8fafc;border-radius:8px;color:#0f172a;">${data.code}</div>`,
+            'This code expires in 10 minutes.',
+        ];
+
+        await resend.emails.send({
+            from: `${data.siteName || 'Keystoneweb'} <noreply@keystoneweb.ca>`,
+            to: data.memberEmail,
+            subject,
+            html: buildMemberEmailHtml({
+                heading: 'Your sign-in code',
+                bodyLines,
+                note: "If you didn't request this, you can safely ignore this email.",
+                branding: data.branding,
+            }),
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send member OTP email:', error);
+        return { success: false, error };
+    }
+}
+
 export async function sendMemberCancellationEmail(
     data: MemberEmailData & {
         packageName: string;

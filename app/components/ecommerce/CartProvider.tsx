@@ -95,8 +95,8 @@ export function CartProvider({ children, siteId }: { children: ReactNode; siteId
     // a sentinel in localStorage when payment is confirmed paid.
     useEffect(() => {
         try {
-            const params = new URLSearchParams(window.location.search);
-            if (params.has('order_success')) {
+            const url = new URL(window.location.href);
+            if (url.searchParams.has('order_success')) {
                 localStorage.removeItem(storageKey);
                 setItems([]);
             }
@@ -105,6 +105,13 @@ export function CartProvider({ children, siteId }: { children: ReactNode; siteId
                 localStorage.removeItem(storageKey);
                 localStorage.removeItem(sentinelKey);
                 setItems([]);
+            }
+            // Reopen the cart drawer when the user returns from sign-in or any
+            // flow that wants to drop them back into checkout.
+            if (url.searchParams.get('openCart') === '1') {
+                setCartOpen(true);
+                url.searchParams.delete('openCart');
+                window.history.replaceState(null, '', url.toString());
             }
         } catch { }
     }, [storageKey, siteId]);

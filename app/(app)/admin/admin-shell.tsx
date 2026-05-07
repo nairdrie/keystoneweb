@@ -28,7 +28,7 @@ interface TabDef {
   icon: React.ComponentType<{ className?: string }>;
   path: string;
   core?: boolean;
-  requiresBlock?: string;
+  requiresAnyBlock?: string[];
   comingSoon?: boolean;
 }
 
@@ -38,16 +38,18 @@ const ALL_TABS: TabDef[] = [
   { id: 'seo',       label: 'SEO',       icon: Globe,     path: '/admin/seo',       core: true },
   { id: 'domains',   label: 'Domains',   icon: Link2,     path: '/admin/domains',   core: true },
   { id: 'inbox',     label: 'Email',     icon: Mail,      path: '/admin/inbox',     core: true },
-  // Optional — shown when site has the matching block, or when "show all" is on
-  { id: 'booking',   label: 'Booking',   icon: Calendar,  path: '/admin/booking',   requiresBlock: 'booking' },
-  { id: 'ecommerce', label: 'Ecommerce', icon: ShoppingBag, path: '/admin/ecommerce', requiresBlock: 'productGrid' },
+  // Optional — shown when site has any matching block, or when "show all" is on
+  { id: 'booking',   label: 'Booking',   icon: Calendar,  path: '/admin/booking',   requiresAnyBlock: ['booking'] },
+  { id: 'ecommerce', label: 'Ecommerce', icon: ShoppingBag, path: '/admin/ecommerce', requiresAnyBlock: ['productGrid'] },
   { id: 'media',    label: 'Media',     icon: FileImage, path: '/admin/media', core: true },
   // Coming soon — only appear when "show all" is on
-  { id: 'events', label: 'Events', icon: CalendarDays, path: '/admin/events', requiresBlock: 'events' },
-  { id: 'blog',   label: 'Blog',   icon: BookOpen,    path: '/admin/blog',   requiresBlock: 'blog' },
-  { id: 'menu',   label: 'Menu',   icon: UtensilsCrossed, path: '/admin/menu', requiresBlock: 'menu' },
-  { id: 'membership', label: 'Members', icon: Users, path: '/admin/membership', requiresBlock: 'membershipGate' },
-  { id: 'chat-support', label: 'Chat Support', icon: MessageSquare, path: '/admin/chat-support', requiresBlock: 'chatSupport' },
+  { id: 'events', label: 'Events', icon: CalendarDays, path: '/admin/events', requiresAnyBlock: ['events'] },
+  { id: 'blog',   label: 'Blog',   icon: BookOpen,    path: '/admin/blog',   requiresAnyBlock: ['blog'] },
+  { id: 'menu',   label: 'Menu',   icon: UtensilsCrossed, path: '/admin/menu', requiresAnyBlock: ['menu'] },
+  // Users tab covers both membership subscribers and ecommerce customers
+  // captured at checkout — surfaced whenever either block exists.
+  { id: 'membership', label: 'Users', icon: Users, path: '/admin/membership', requiresAnyBlock: ['membershipGate', 'productGrid'] },
+  { id: 'chat-support', label: 'Chat Support', icon: MessageSquare, path: '/admin/chat-support', requiresAnyBlock: ['chatSupport'] },
 ];
 
 const SHOW_ALL_KEY = 'ks_admin_show_all_features';
@@ -338,7 +340,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const visibleTabs = ALL_TABS.filter(tab => {
     if (tab.core) return true;
     if (showAllFeatures) return true;
-    if (tab.requiresBlock) return siteBlockTypes.has(tab.requiresBlock);
+    if (tab.requiresAnyBlock) return tab.requiresAnyBlock.some(b => siteBlockTypes.has(b));
     return false; // coming-soon tabs without a block: only visible with showAllFeatures
   });
 

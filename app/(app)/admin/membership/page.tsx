@@ -17,16 +17,16 @@ export default function AdminMembershipPage() {
 
   if (!siteId) return null;
 
-  if (!siteBlockTypes.has('membershipGate')) {
+  if (!siteBlockTypes.has('membershipGate') && !siteBlockTypes.has('productGrid')) {
     return (
       <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
         <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
           <Users className="w-7 h-7 text-slate-300" />
         </div>
-        <h2 className="text-base font-bold text-slate-900 mb-1">No Membership Gate block on this site</h2>
+        <h2 className="text-base font-bold text-slate-900 mb-1">No Membership or Products block on this site</h2>
         <p className="text-sm text-slate-500 max-w-xs mb-5">
-          Add a <strong>Membership Gate</strong> block to your site to start accepting memberships
-          and managing your members.
+          Add a <strong>Membership Gate</strong> or <strong>Products</strong> block to start collecting users —
+          either as paid members or as customers captured at checkout.
         </p>
         <a
           href={`/design?siteId=${siteId}`}
@@ -39,7 +39,7 @@ export default function AdminMembershipPage() {
   }
 
   const tabs: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { id: 'members', label: 'Members', icon: Users },
+    { id: 'members', label: 'Users', icon: Users },
     { id: 'packages', label: 'Packages', icon: Package },
     { id: 'form', label: 'Signup Form', icon: Edit2 },
     { id: 'campaigns', label: 'Emails', icon: Mail },
@@ -185,7 +185,7 @@ function MembersTab({ siteId }: { siteId: string }) {
   };
 
   const handleDeleteMember = async (memberId: string) => {
-    if (!confirm('Are you sure you want to delete this member?')) return;
+    if (!confirm('Are you sure you want to delete this user?')) return;
     await fetch('/api/membership/members', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -304,6 +304,7 @@ function MembersTab({ siteId }: { siteId: string }) {
 
   const statusColors: Record<string, string> = {
     active: 'bg-green-100 text-green-700',
+    guest: 'bg-blue-100 text-blue-700',
     pending: 'bg-yellow-100 text-yellow-700',
     suspended: 'bg-red-100 text-red-700',
     cancelled: 'bg-slate-100 text-slate-500',
@@ -332,7 +333,7 @@ function MembersTab({ siteId }: { siteId: string }) {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search members..."
+            placeholder="Search users..."
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
             className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm"
@@ -345,6 +346,7 @@ function MembersTab({ siteId }: { siteId: string }) {
         >
           <option value="all">All Status</option>
           <option value="active">Active</option>
+          <option value="guest">Guest</option>
           <option value="pending">Pending</option>
           <option value="suspended">Suspended</option>
           <option value="cancelled">Cancelled</option>
@@ -366,7 +368,7 @@ function MembersTab({ siteId }: { siteId: string }) {
       </div>
 
       {/* Count */}
-      <p className="text-xs text-slate-400">{total} member{total !== 1 ? 's' : ''} total</p>
+      <p className="text-xs text-slate-400">{total} user{total !== 1 ? 's' : ''} total</p>
 
       {/* Table */}
       {loading ? (
@@ -375,7 +377,7 @@ function MembersTab({ siteId }: { siteId: string }) {
         </div>
       ) : members.length === 0 ? (
         <div className="text-center py-12 text-sm text-slate-400">
-          No members yet. Members will appear here when they sign up on your site.
+          No users yet. Users will appear here when they sign up or check out on your site.
         </div>
       ) : (
         <div className="border border-slate-200 rounded-xl overflow-hidden">
@@ -387,7 +389,7 @@ function MembersTab({ siteId }: { siteId: string }) {
                     className="text-left px-4 py-2.5 font-medium whitespace-nowrap cursor-pointer select-none hover:text-slate-700 sticky left-0 bg-slate-50 z-10 shadow-[1px_0_0_0_#e2e8f0]"
                     onClick={() => handleSort('name')}
                   >
-                    Member<SortIndicator col="name" />
+                    User<SortIndicator col="name" />
                   </th>
                   <SortTh col="status" label="Status" />
                   <SortTh col="package" label="Package" />
@@ -509,20 +511,20 @@ function MembersTab({ siteId }: { siteId: string }) {
         </div>
       )}
 
-      {/* Import Members Modal */}
+      {/* Import Users Modal */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setShowImportModal(false)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="p-6 space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900">Import Members</h2>
+                <h2 className="text-lg font-bold text-slate-900">Import Users</h2>
                 <button onClick={() => setShowImportModal(false)} className="text-slate-400 hover:text-slate-600">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               <p className="text-sm text-slate-500">
-                Upload a CSV file with member data. Required column: <code className="bg-slate-100 px-1 rounded">email</code>.
+                Upload a CSV file with user data. Required column: <code className="bg-slate-100 px-1 rounded">email</code>.
                 Optional columns: <code className="bg-slate-100 px-1 rounded">name</code>, <code className="bg-slate-100 px-1 rounded">password_hash</code>,{' '}
                 <code className="bg-slate-100 px-1 rounded">stripe_customer_id</code>, <code className="bg-slate-100 px-1 rounded">stripe_subscription_id</code>,{' '}
                 <code className="bg-slate-100 px-1 rounded">country</code>, <code className="bg-slate-100 px-1 rounded">province</code>.
@@ -585,7 +587,7 @@ function MembersTab({ siteId }: { siteId: string }) {
                     importResult.error
                   ) : (
                     <>
-                      Imported {importResult.imported} member{importResult.imported !== 1 ? 's' : ''}.
+                      Imported {importResult.imported} user{importResult.imported !== 1 ? 's' : ''}.
                       {importResult.skipped > 0 && ` Skipped ${importResult.skipped} duplicate${importResult.skipped !== 1 ? 's' : ''}.`}
                       {importResult.errors?.length > 0 && (
                         <details className="mt-1">
@@ -609,7 +611,7 @@ function MembersTab({ siteId }: { siteId: string }) {
                   className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50"
                 >
                   {importLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  Import Members
+                  Import Users
                 </button>
                 <button
                   onClick={() => setShowImportModal(false)}
