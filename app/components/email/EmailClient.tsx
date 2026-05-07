@@ -7,6 +7,7 @@ import {
   Sparkles, Bot, User, Loader2, Plus, Settings,
   ShieldAlert, RefreshCw, ArrowLeft, ChevronDown,
   CornerUpLeft, MailMinus, Menu, X, PenLine,
+  Maximize2, Minimize2,
 } from 'lucide-react';
 import { useAdminContext } from '@/app/(app)/admin/admin-context';
 import EmailBody from './EmailBody';
@@ -93,7 +94,7 @@ const FOLDERS: { id: Folder; label: string; icon: React.ComponentType<{ classNam
 export default function EmailClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { siteId, site, isProUser, refreshInboxUnread } = useAdminContext();
+  const { siteId, site, isProUser, refreshInboxUnread, focusMode, setFocusMode } = useAdminContext();
 
   const initialFolder = (searchParams.get('folder') as Folder) || 'inbox';
   const initialAddressId = searchParams.get('addressId');
@@ -124,6 +125,7 @@ export default function EmailClient() {
   const [composeDrafts, setComposeDrafts] = useState<EmailDraft[]>([]);
   const [draftsLoading, setDraftsLoading] = useState(false);
   const [splitWidth, setSplitWidthState] = useState(DEFAULT_SPLIT_WIDTH);
+  const [draftExpanded, setDraftExpanded] = useState(false);
   const initialRef = useRef({ messageId: initialMessageId, applied: false });
   // Tracks which threads have already been prefilled (AI draft or saved reply draft)
   const aiPrefilledRef = useRef<Set<string>>(new Set());
@@ -628,6 +630,18 @@ export default function EmailClient() {
           AI drafts {aiDraftsEnabled ? 'on' : 'off'}
         </button>
         <button
+          onClick={() => setFocusMode(!focusMode)}
+          className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all shrink-0 ${
+            focusMode
+              ? 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800'
+              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+          }`}
+          title={focusMode ? 'Exit focus mode — show site header & tabs' : 'Focus mode — hide site header & tabs to maximize email'}
+        >
+          {focusMode ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          {focusMode ? 'Exit focus' : 'Focus'}
+        </button>
+        <button
           onClick={() => setShowSettings(true)}
           className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors shrink-0"
           title="Email settings"
@@ -676,6 +690,16 @@ export default function EmailClient() {
                   <Sparkles className="w-4 h-4" />
                   <span className="flex-1 text-left">AI drafts</span>
                   <span className="text-[11px] font-semibold">{aiDraftsEnabled ? 'On' : 'Off'}</span>
+                </button>
+                <button
+                  onClick={() => { setFocusMode(!focusMode); setShowFolderDrawer(false); }}
+                  className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold transition-colors ${
+                    focusMode ? 'bg-slate-900 text-white hover:bg-slate-800' : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {focusMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                  <span className="flex-1 text-left">Focus mode</span>
+                  <span className="text-[11px] font-semibold">{focusMode ? 'On' : 'Off'}</span>
                 </button>
               </div>
             </nav>
@@ -941,8 +965,14 @@ export default function EmailClient() {
 
                 {/* Reply box */}
                 {canReply && (
-                  <div className="flex-none border-t border-slate-200 bg-white p-4 sm:p-5">
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <div
+                    className={
+                      draftExpanded
+                        ? 'fixed inset-0 z-50 flex flex-col bg-white p-4 sm:p-6'
+                        : 'flex-none border-t border-slate-200 bg-white p-4 sm:p-5 flex flex-col max-h-[55vh] min-h-0'
+                    }
+                  >
+                    <div className="flex-none flex items-center gap-2 mb-2 flex-wrap">
                       <Send className="w-3.5 h-3.5 text-slate-400" />
                       <span className="text-xs font-bold text-slate-700">
                         Reply from <span className="font-mono">{activeAddress?.address ?? 'your inbox'}</span>
@@ -950,47 +980,68 @@ export default function EmailClient() {
                       {hasReplyDraft && (
                         <span className="text-[10px] text-slate-400 font-medium">· Draft saved</span>
                       )}
-                      {lastInbound?.ai_draft_reply && (
+                      <div className="ml-auto flex items-center gap-3">
+                        {lastInbound?.ai_draft_reply && (
+                          <button
+                            onClick={() => {
+                              setReplyText(lastInbound.ai_draft_reply!);
+                              setReplyHtml(`<p>${lastInbound.ai_draft_reply!.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`);
+                            }}
+                            className="flex items-center gap-1 text-[11px] text-violet-600 hover:text-violet-800 font-semibold"
+                          >
+                            <Sparkles className="w-3 h-3" /> Use AI draft
+                          </button>
+                        )}
                         <button
-                          onClick={() => {
-                            setReplyText(lastInbound.ai_draft_reply!);
-                            setReplyHtml(`<p>${lastInbound.ai_draft_reply!.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`);
-                          }}
-                          className="ml-auto flex items-center gap-1 text-[11px] text-violet-600 hover:text-violet-800 font-semibold"
+                          onClick={() => setShowCcBcc(v => !v)}
+                          className="text-[11px] text-slate-400 hover:text-slate-700 font-semibold"
                         >
-                          <Sparkles className="w-3 h-3" /> Use AI draft
+                          <ChevronDown className={`w-3 h-3 inline -mt-0.5 transition-transform ${showCcBcc ? 'rotate-180' : ''}`} /> Cc/Bcc
                         </button>
-                      )}
-                      <button
-                        onClick={() => setShowCcBcc(v => !v)}
-                        className="text-[11px] text-slate-400 hover:text-slate-700 font-semibold ml-auto"
-                      >
-                        <ChevronDown className={`w-3 h-3 inline -mt-0.5 transition-transform ${showCcBcc ? 'rotate-180' : ''}`} /> Cc/Bcc
-                      </button>
+                        <button
+                          onClick={() => setDraftExpanded(v => !v)}
+                          className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-900 font-semibold"
+                          title={draftExpanded ? 'Collapse draft' : 'Expand draft'}
+                        >
+                          {draftExpanded ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
+                          {draftExpanded ? 'Collapse' : 'Expand'}
+                        </button>
+                      </div>
                     </div>
 
                     {showCcBcc && (
-                      <div className="space-y-2 mb-2">
+                      <div className="flex-none space-y-2 mb-2">
                         <input type="text" placeholder="cc: separate by comma" value={ccDraft} onChange={e => setCcDraft(e.target.value)} className="w-full text-xs px-3 py-1.5 border border-slate-200 rounded-lg bg-slate-50" />
                         <input type="text" placeholder="bcc: separate by comma" value={bccDraft} onChange={e => setBccDraft(e.target.value)} className="w-full text-xs px-3 py-1.5 border border-slate-200 rounded-lg bg-slate-50" />
                       </div>
                     )}
 
-                    <EmailRichEditor
-                      siteId={siteId}
-                      value={replyHtml}
-                      onChange={(html, text) => { setReplyHtml(html); setReplyText(text); }}
-                      placeholder={`Reply to ${lastInbound?.sender_name ?? 'sender'}…`}
-                      minHeight={140}
-                    />
+                    <div className="flex-1 min-h-0 flex">
+                      <EmailRichEditor
+                        siteId={siteId}
+                        value={replyHtml}
+                        onChange={(html, text) => { setReplyHtml(html); setReplyText(text); }}
+                        placeholder={`Reply to ${lastInbound?.sender_name ?? 'sender'}…`}
+                        minHeight={draftExpanded ? 240 : 120}
+                      />
+                    </div>
 
                     {sendError && (
-                      <div className="mt-2 flex items-center gap-1.5 text-xs text-red-600">
+                      <div className="flex-none mt-2 flex items-center gap-1.5 text-xs text-red-600">
                         <AlertCircle className="w-3.5 h-3.5" /> {sendError}
                       </div>
                     )}
 
-                    <div className="mt-3 flex justify-end">
+                    <div className="flex-none mt-3 flex justify-end gap-2">
+                      {draftExpanded && (
+                        <button
+                          onClick={() => setDraftExpanded(false)}
+                          className="flex items-center gap-2 px-4 py-2 bg-white text-slate-700 text-xs font-bold rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors"
+                        >
+                          <Minimize2 className="w-3.5 h-3.5" />
+                          Collapse
+                        </button>
+                      )}
                       <button
                         onClick={handleSendReply}
                         disabled={sending || (!replyHtml.trim() && !replyText.trim())}

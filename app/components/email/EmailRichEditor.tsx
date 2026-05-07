@@ -19,6 +19,8 @@ interface Props {
   onChange: (html: string, plainText: string) => void;
   placeholder?: string;
   minHeight?: number;
+  /** When set, the editor body scrolls internally past this height. */
+  maxHeight?: number | string;
 }
 
 function ToolbarBtn({
@@ -63,6 +65,7 @@ export default function EmailRichEditor({
   onChange,
   placeholder = 'Write your message…',
   minHeight = 220,
+  maxHeight,
 }: Props) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -168,8 +171,8 @@ export default function EmailRichEditor({
   }
 
   return (
-    <div className="w-full text-sm border border-slate-300 rounded-lg bg-white focus-within:ring-2 focus-within:ring-blue-500 overflow-hidden">
-      <div className="border-b border-slate-200 bg-slate-50">
+    <div className="w-full text-sm border border-slate-300 rounded-lg bg-white focus-within:ring-2 focus-within:ring-blue-500 overflow-hidden flex flex-col min-h-0">
+      <div className="flex-none border-b border-slate-200 bg-slate-50">
         <div className="flex flex-wrap items-center gap-0.5 p-1.5">
           <ToolbarBtn onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} title="Undo">
             <Undo size={14} />
@@ -247,7 +250,12 @@ export default function EmailRichEditor({
         )}
       </div>
 
-      <EditorContent editor={editor} />
+      <div
+        className="flex-1 min-h-0 overflow-y-auto"
+        style={maxHeight !== undefined ? { maxHeight } : undefined}
+      >
+        <EditorContent editor={editor} />
+      </div>
     </div>
   );
 }
