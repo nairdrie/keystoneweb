@@ -61,6 +61,8 @@ export interface AdminContextValue {
   siteBreakdown: SiteUsageBreakdown[];
   siteBlockTypes: Set<string>;
   refreshInboxUnread: () => void;
+  focusMode: boolean;
+  setFocusMode: (v: boolean) => void;
 }
 
 export const AdminContext = createContext<AdminContextValue>({
@@ -75,6 +77,8 @@ export const AdminContext = createContext<AdminContextValue>({
   siteBreakdown: [],
   siteBlockTypes: new Set(),
   refreshInboxUnread: () => {},
+  focusMode: false,
+  setFocusMode: () => {},
 });
 
 export function useAdminContext() {
