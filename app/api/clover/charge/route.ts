@@ -156,10 +156,10 @@ export async function POST(request: NextRequest) {
 async function sendCloverOrderEmails(supabase: any, order: any, vendor: any | null) {
     const { data: siteInfo } = await supabase
         .from('sites')
-        .select('site_slug, title, design_data')
+        .select('site_slug, design_data')
         .eq('id', order.site_id)
         .single();
-    const siteName = siteInfo?.title || siteInfo?.site_slug || undefined;
+    const siteName = siteInfo?.site_slug || undefined;
     const logoUrl: string | undefined = siteInfo?.design_data?.headerLogo || siteInfo?.design_data?.siteLogo || undefined;
 
     const { data: cloverCustomRows } = await supabase
@@ -284,10 +284,11 @@ async function sendCloverOrderEmails(supabase: any, order: any, vendor: any | nu
 async function sendCloverBookingEmails(supabase: any, booking: any) {
     const { data: siteInfo } = await supabase
         .from('sites')
-        .select('site_slug, title')
+        .select('site_slug, design_data')
         .eq('id', booking.site_id)
         .single();
-    const siteName = siteInfo?.title || siteInfo?.site_slug || undefined;
+    const siteName = siteInfo?.site_slug || undefined;
+    const logoUrl: string | undefined = siteInfo?.design_data?.headerLogo || siteInfo?.design_data?.siteLogo || undefined;
 
     const { data: settings } = await supabase
         .from('booking_settings')
@@ -326,6 +327,7 @@ async function sendCloverBookingEmails(supabase: any, booking: any) {
         paymentMethod: 'clover' as const,
         confirmationMessage: settings?.confirmation_message,
         siteName,
+        logoUrl,
     };
 
     sendCustomerConfirmation(emailData as any).catch(e => console.error(e));
