@@ -179,7 +179,7 @@ export default function HeroBlock({
             if (previewHost?.classList.contains('ks-preview-tablet')) return 'tablet';
             if (previewHost?.classList.contains('ks-preview-desktop')) return 'desktop';
             const w = ownerWin.innerWidth;
-            return w >= 1024 ? 'desktop' : w >= 640 ? 'tablet' : 'mobile';
+            return w >= 1536 ? 'desktop' : w >= 640 ? 'tablet' : 'mobile';
         };
 
         const update = () => {
@@ -374,14 +374,17 @@ ${scope} { min-height: ${minH(cfg)}; ${lockHeight(cfg)} }
 }`;
 
     // Mobile-first cascade: define mobile, override at >=640px (tablet), then
-    // >=1024px (desktop). Then class-scoped overrides for the editor preview
-    // (specificity .ks-preview-* + ${sel} beats unmediated rules and rules
-    // inside @media queries since classes add specificity but media queries
-    // do not).
+    // >=1536px (desktop). The desktop threshold is intentionally above
+    // Tailwind's default 1024 because Retina laptops at default scaling
+    // report ~1470–1512 CSS px — without this they'd hit desktop rules
+    // despite being physically small. Then class-scoped overrides for the
+    // editor preview (specificity .ks-preview-* + ${sel} beats unmediated
+    // rules and rules inside @media queries since classes add specificity
+    // but media queries do not).
     return `
 ${block(h.mobile)}
 @media (min-width: 640px) { ${block(h.tablet)} }
-@media (min-width: 1024px) { ${block(h.desktop)} }
+@media (min-width: 1536px) { ${block(h.desktop)} }
 ${block(h.mobile, `.ks-preview-mobile ${sel}`)}
 ${block(h.tablet, `.ks-preview-tablet ${sel}`)}
 ${block(h.desktop, `.ks-preview-desktop ${sel}`)}
