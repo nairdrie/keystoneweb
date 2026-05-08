@@ -5,19 +5,23 @@ import { useEditorContext, BlockData } from '@/lib/editor-context';
 import BlockWrapper from './BlockWrapper';
 import { Plus, Crown } from 'lucide-react';
 import MembershipGateBlock from './MembershipGateBlock';
+import SideBySideBlock from './SideBySideBlock';
 import { BLOCK_COMPONENTS as BASE_BLOCK_COMPONENTS, AVAILABLE_BLOCKS as BASE_AVAILABLE_BLOCKS } from './block-registry';
 import { getBlockDisplayLabel, getBlockIcon } from './block-icons';
 
 const WALKTHROUGH_RESET_EVENT = 'ks:walkthrough-reset-ui';
 
-// Add membershipGate here (not in block-registry.ts to avoid circular imports)
+// Add container blocks here (not in block-registry.ts to avoid circular imports —
+// these blocks themselves import from block-registry to render arbitrary children).
 const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     ...BASE_BLOCK_COMPONENTS,
     membershipGate: MembershipGateBlock,
+    sideBySide: SideBySideBlock,
 };
 
 const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: boolean }> = [
     ...BASE_AVAILABLE_BLOCKS,
+    { type: 'sideBySide', label: 'Side by Side (2 Columns)' },
     { type: 'membershipGate', label: '🔒 Membership Gate', proOnly: true },
 ];
 

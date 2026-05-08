@@ -51,6 +51,7 @@ const ProductSettingsPanel = dynamic(() => import('./product/ProductSettingsPane
 const GenericBlockSettingsPanel = dynamic(() => import('./generic/GenericBlockSettingsPanel'), { ssr: false });
 const ContactSettingsPanel = dynamic(() => import('./contact/ContactSettingsPanel'), { ssr: false });
 const RepeatableItemsSettingsPanel = dynamic(() => import('./RepeatableItemsSettingsPanel'), { ssr: false });
+const SideBySideSettingsPanel = dynamic(() => import('./sideBySide/SideBySideSettingsPanel'), { ssr: false });
 
 const GENERIC_BLOCK_TITLES: Record<string, string> = {
     text: 'Rich Text Paragraph Settings',
@@ -228,6 +229,10 @@ export const BLOCK_PANEL_REGISTRY: Record<string, PanelEntry> = {
         title: 'Membership Gate Settings',
         component: GenericBlockSettingsPanel,
         primaryButton: { label: 'Settings', icon: Settings },
+    },
+    sideBySide: {
+        title: 'Side by Side Settings',
+        component: SideBySideSettingsPanel,
     },
 };
 
