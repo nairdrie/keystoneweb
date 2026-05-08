@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlignCenter, AlignLeft, AlignRight, Crown, Image as ImageIcon, MoveLeft, MoveRight,
     Plus, Trash2, Copy, ChevronUp, ChevronDown, Video, Palette as PaletteIcon, Sparkles,
@@ -15,7 +15,13 @@ import {
     getColorInputValue,
     useInspectorSectionState,
 } from '../panel-shared';
+import { LayoutTab } from '../layout/LayoutTab';
 import type { BlockPanelProps } from '../block-panel-registry';
+import {
+    areSectionSettingsEqual,
+    normalizeSectionSettings,
+    type SectionSettings,
+} from '@/lib/builder/layout-settings';
 import {
     Align,
     BgType,
@@ -36,7 +42,8 @@ import { HERO_BG_ANIMATION_LIST, type HeroBgAnimationId } from './HeroBgAnimatio
 import ImageEditorModal, { type ImageSettings, type UnsplashAttribution } from '@/app/components/ImageEditorModal';
 import PexelsVideoPickerModal from '@/app/components/PexelsVideoPickerModal';
 
-const SECTION_IDS = ['cards', 'transition', 'content-layout', 'background', 'height', 'advanced'];
+const SECTION_IDS = ['cards', 'universal-layout', 'transition', 'content-layout', 'background', 'height', 'advanced'];
+const HERO_DRAFT_UPDATE_EVENT = 'ks:hero-draft-update';
 
 const ALIGN_OPTIONS: { id: Align; label: string; Icon: typeof AlignLeft }[] = [
     { id: 'left', label: 'Left', Icon: AlignLeft },
@@ -68,13 +75,19 @@ export default function HeroSettingsPanel({
 }: BlockPanelProps) {
     const context = useEditorContext();
     const persistedData = useMemo(() => migrateLegacyHeroData(blockData), [blockData]);
+    const persistedSectionSettings = useMemo(
+        () => normalizeSectionSettings(blockData?.sectionSettings),
+        [blockData?.sectionSettings],
+    );
 
     const [cards, setCards] = useState<HeroCard[]>(persistedData.cards);
     const [transition, setTransition] = useState<HeroTransition>(persistedData.transition);
     const [height, setHeight] = useState<HeroHeight>(persistedData.height);
+    const [sectionSettings, setSectionSettings] = useState<SectionSettings>(persistedSectionSettings);
     const [activeHeightBp, setActiveHeightBp] = useState<HeroBreakpoint>('desktop');
     const [activeIndex, setActiveIndex] = useState<number>(0);
     const [localCss, setLocalCss] = useState<string>(customCss);
+    const cardsRef = useRef<HeroCard[]>(persistedData.cards);
 
     const [imageEditorOpen, setImageEditorOpen] = useState<null | 'foreground' | 'background'>(null);
     const [pexelsOpen, setPexelsOpen] = useState(false);
@@ -82,6 +95,17 @@ export default function HeroSettingsPanel({
     const sectionState = useInspectorSectionState(SECTION_IDS, true);
 
     const activeCard = cards[Math.max(0, Math.min(activeIndex, cards.length - 1))] ?? cards[0];
+
+    useEffect(() => {
+        cardsRef.current = cards;
+    }, [cards]);
+
+    const updateCards = (updater: (current: HeroCard[]) => HeroCard[]) => {
+        const next = updater(cardsRef.current);
+        cardsRef.current = next;
+        setCards(next);
+        return next;
+    };
 
     // Forward draft to canvas for live preview
     useEffect(() => {
@@ -91,12 +115,13 @@ export default function HeroSettingsPanel({
             cards,
             transition,
             height,
+            sectionSettings,
             __activeCardIndex: activeIndex,
             __pauseRotation: true,
             __customCss: localCss,
         };
         onDraftBlockDataChange(draft);
-    }, [cards, transition, height, activeIndex, localCss, blockData, onDraftBlockDataChange]);
+    }, [cards, transition, height, sectionSettings, activeIndex, localCss, blockData, onDraftBlockDataChange]);
 
     // Canvas dots can also switch the active card; sync our state when they do.
     useEffect(() => {
@@ -109,8 +134,19 @@ export default function HeroSettingsPanel({
         return () => window.removeEventListener('ks:hero-set-active-card', handler);
     }, [blockId]);
 
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const detail = (e as CustomEvent<{ blockId?: string; key?: string; value?: unknown }>).detail;
+            if (!detail || detail.blockId !== blockId || detail.key !== 'cards' || !Array.isArray(detail.value)) return;
+            cardsRef.current = detail.value as HeroCard[];
+            setCards(detail.value as HeroCard[]);
+        };
+        window.addEventListener(HERO_DRAFT_UPDATE_EVENT, handler);
+        return () => window.removeEventListener(HERO_DRAFT_UPDATE_EVENT, handler);
+    }, [blockId]);
+
     const updateActiveCard = (mutator: (card: HeroCard) => HeroCard) => {
-        setCards((prev) => prev.map((c, i) => (i === activeIndex ? mutator(c) : c)));
+        updateCards((prev) => prev.map((c, i) => (i === activeIndex ? mutator(c) : c)));
     };
 
     const updateContent = <K extends keyof HeroCard['content']>(
@@ -134,7 +170,7 @@ export default function HeroSettingsPanel({
     };
 
     const addCard = () => {
-        setCards((prev) => {
+        updateCards((prev) => {
             const next = [...prev, makeDefaultCard(makeCardId())];
             setActiveIndex(next.length - 1);
             return next;
@@ -142,7 +178,7 @@ export default function HeroSettingsPanel({
     };
 
     const duplicateCard = (idx: number) => {
-        setCards((prev) => {
+        updateCards((prev) => {
             const copy: HeroCard = JSON.parse(JSON.stringify(prev[idx]));
             copy.id = makeCardId();
             const next = [...prev.slice(0, idx + 1), copy, ...prev.slice(idx + 1)];
@@ -152,7 +188,7 @@ export default function HeroSettingsPanel({
     };
 
     const deleteCard = (idx: number) => {
-        setCards((prev) => {
+        updateCards((prev) => {
             if (prev.length <= 1) return prev;
             const next = prev.filter((_, i) => i !== idx);
             setActiveIndex(Math.min(activeIndex, next.length - 1));
@@ -161,7 +197,7 @@ export default function HeroSettingsPanel({
     };
 
     const moveCard = (idx: number, dir: -1 | 1) => {
-        setCards((prev) => {
+        updateCards((prev) => {
             const target = idx + dir;
             if (target < 0 || target >= prev.length) return prev;
             const next = [...prev];
@@ -177,15 +213,19 @@ export default function HeroSettingsPanel({
             cards: persistedData.cards,
             transition: persistedData.transition,
             height: persistedData.height,
-        }) || localCss !== customCss
-    ), [cards, transition, height, persistedData, localCss, customCss]);
+        }) || !areSectionSettingsEqual(sectionSettings, persistedSectionSettings) || localCss !== customCss
+    ), [cards, transition, height, persistedData, sectionSettings, persistedSectionSettings, localCss, customCss]);
 
     const handleSave = () => {
+        const cardsToSave = cardsRef.current;
         const updates: Record<string, unknown> = {
-            cards,
+            cards: cardsToSave,
             transition,
             height,
         };
+        if (!areSectionSettingsEqual(sectionSettings, persistedSectionSettings)) {
+            updates.sectionSettings = normalizeSectionSettings(sectionSettings);
+        }
         if (localCss !== customCss) {
             updates['__customCss'] = localCss;
         }
@@ -211,11 +251,14 @@ export default function HeroSettingsPanel({
     };
 
     const handleReset = () => {
+        cardsRef.current = persistedData.cards;
         setCards(persistedData.cards);
         setTransition(persistedData.transition);
         setHeight(persistedData.height);
+        setSectionSettings(persistedSectionSettings);
         setActiveIndex(0);
         setLocalCss(customCss);
+        sectionState.reset();
     };
 
     const siteCategory = context?.siteCategory;
@@ -312,6 +355,20 @@ export default function HeroSettingsPanel({
                             Add Card
                         </button>
                     </div>
+                </InspectorSection>
+
+                <InspectorSection
+                    id="universal-layout"
+                    title="Layout"
+                    isCollapsed={sectionState.isCollapsed('universal-layout')}
+                    onToggle={() => sectionState.toggle('universal-layout')}
+                >
+                    <LayoutTab
+                        blockId={blockId}
+                        blockType="hero"
+                        value={sectionSettings}
+                        onChange={setSectionSettings}
+                    />
                 </InspectorSection>
 
                 {/* TRANSITION */}

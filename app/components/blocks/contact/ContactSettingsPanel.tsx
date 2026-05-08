@@ -11,7 +11,13 @@ import {
     getColorInputValue,
     useInspectorSectionState,
 } from '../panel-shared';
+import { LayoutTab } from '../layout/LayoutTab';
 import type { BlockPanelProps } from '../block-panel-registry';
+import {
+    areSectionSettingsEqual,
+    normalizeSectionSettings,
+    type SectionSettings,
+} from '@/lib/builder/layout-settings';
 import {
     CONTACT_ICON_OPTIONS,
     ContactItem,
@@ -39,10 +45,12 @@ type ContactDraft = {
     backgroundColor: string;
     contactIconColor: string;
     socialIconColor: string;
+    sectionSettings: SectionSettings;
     __customCss: string;
 };
 
-const SECTION_IDS = ['cards', 'social', 'display', 'style', 'advanced'];
+const SECTION_IDS = ['cards', 'social', 'universal-layout', 'display', 'style', 'advanced'];
+const CONTACT_DRAFT_UPDATE_EVENT = 'ks:contact-draft-update';
 
 export default function ContactSettingsPanel({
     blockId,
@@ -73,6 +81,22 @@ export default function ContactSettingsPanel({
             ...draft,
         });
     }, [blockData, draft, onDraftBlockDataChange]);
+
+    useEffect(() => {
+        const handleCanvasDraftUpdate = (event: Event) => {
+            const detail = (event as CustomEvent<{ blockId?: string; key?: string; value?: unknown }>).detail;
+            if (!detail || detail.blockId !== blockId) return;
+            if (detail.key === 'contactItems' && Array.isArray(detail.value)) {
+                updateDraft({ contactItems: detail.value as ContactItem[] });
+            }
+            if (detail.key === 'socialLinks' && Array.isArray(detail.value)) {
+                updateDraft({ socialLinks: detail.value as SocialLinkItem[] });
+            }
+        };
+
+        window.addEventListener(CONTACT_DRAFT_UPDATE_EVENT, handleCanvasDraftUpdate);
+        return () => window.removeEventListener(CONTACT_DRAFT_UPDATE_EVENT, handleCanvasDraftUpdate);
+    }, [blockId]);
 
     const hasUnsavedChanges = useMemo(
         () => JSON.stringify(draft) !== JSON.stringify(initialDraft),
@@ -119,6 +143,9 @@ export default function ContactSettingsPanel({
             socialIconColor: draft.socialIconColor,
             __customCss: draft.__customCss,
         };
+        if (!areSectionSettingsEqual(draft.sectionSettings, initialDraft.sectionSettings)) {
+            updates.sectionSettings = normalizeSectionSettings(draft.sectionSettings);
+        }
         context?.updateBlockDataBatch?.(blockId, updates);
         onClose();
     };
@@ -237,6 +264,20 @@ export default function ContactSettingsPanel({
                         Add Social Icon
                     </button>
                 </div>
+            </InspectorSection>
+
+            <InspectorSection
+                id="universal-layout"
+                title="Layout"
+                isCollapsed={sectionState.isCollapsed('universal-layout')}
+                onToggle={() => sectionState.toggle('universal-layout')}
+            >
+                <LayoutTab
+                    blockId={blockId}
+                    blockType={blockType}
+                    value={draft.sectionSettings}
+                    onChange={(sectionSettings) => updateDraft({ sectionSettings })}
+                />
             </InspectorSection>
 
             <InspectorSection
@@ -780,6 +821,7 @@ function buildInitialDraft(blockData: Record<string, any>, customCss: string): C
         backgroundColor: typeof blockData.backgroundColor === 'string' ? blockData.backgroundColor : '',
         contactIconColor: typeof blockData.contactIconColor === 'string' ? blockData.contactIconColor : '',
         socialIconColor: typeof blockData.socialIconColor === 'string' ? blockData.socialIconColor : '',
+        sectionSettings: normalizeSectionSettings(blockData.sectionSettings),
         __customCss: customCss,
     };
 }

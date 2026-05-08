@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { useEditorContext } from '@/lib/editor-context';
 import { getBlockSlug } from '@/lib/block-utils';
 import { staggerContainer } from '@/lib/motion';
+import { buildLayoutCss } from '@/lib/builder/layout-settings';
 
 interface BlockWrapperProps {
     id: string;
@@ -29,6 +30,8 @@ export default function BlockWrapper(props: BlockWrapperProps) {
     const slug = index !== -1 ? getBlockSlug(blocks[index], index, blocks) : id;
 
     const scopedCss = scopeCustomCss(id, customCss);
+    const layoutCss = buildLayoutCss(id, type, props.data?.sectionSettings, props.data);
+    const combinedCss = [scopedCss, layoutCss].filter(Boolean).join('\n');
 
     const paletteVars = palette
         ? ({
@@ -51,7 +54,7 @@ export default function BlockWrapper(props: BlockWrapperProps) {
                 style={paletteVars}
                 className={`w-full ks-block ks-block-${type}`}
             >
-                {scopedCss && <style dangerouslySetInnerHTML={{ __html: scopedCss }} />}
+                {combinedCss && <style dangerouslySetInnerHTML={{ __html: combinedCss }} />}
                 {children}
             </motion.div>
         );

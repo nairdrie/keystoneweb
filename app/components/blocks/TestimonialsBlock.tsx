@@ -2,9 +2,10 @@
 
 import React from 'react';
 import EditableText from '../EditableText';
-import { ChevronLeft, ChevronRight, Plus, Star, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Star } from 'lucide-react';
 import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import InlineCardControls, { reorderItems } from './InlineCardControls';
 
 interface TestimonialsBlockProps {
     id: string;
@@ -40,6 +41,8 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
     const [showAllTestimonials, setShowAllTestimonials] = React.useState(false);
     const [testimonialScrollIndex, setTestimonialScrollIndex] = React.useState(0);
     const [isLoopResetting, setIsLoopResetting] = React.useState(false);
+    const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
+    const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
     const isScrollLayout = variant === 'scroll';
     const autoScrollTestimonials = data.autoScroll === true;
     const infiniteScrollTestimonials = data.infiniteScroll === true;
@@ -148,6 +151,11 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
         updateContent('items', newItems);
     };
 
+    const handleReorderItem = (fromIndex: number, toIndex: number) => {
+        updateContent('items', reorderItems(items, fromIndex, toIndex));
+        setTestimonialScrollIndex((current) => Math.min(current, Math.max(0, items.length - carouselPerPage)));
+    };
+
     const renderStars = (rating: number) => (
         <div className="flex gap-0.5 mb-3">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -208,20 +216,44 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
         const quote = item.quote || 'Great service and outstanding results!';
         const name = item.name || `Client ${index + 1}`;
         const role = item.role || 'Satisfied Customer';
+        const isDragging = draggedIndex === index;
+        const isDragTarget = dragOverIndex === index && draggedIndex !== index && !isClone;
 
         return (
         <Reveal
             key={index}
-            className={`bg-white rounded-2xl p-8 shadow-sm border border-gray-100 hover:shadow-lg transition-shadow relative group ${extraClassName}`}
+            className={`bg-white rounded-2xl p-8 shadow-sm border hover:shadow-lg transition-[border-color,box-shadow,opacity,transform] relative group/card ${
+                isDragTarget ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-100'
+            } ${isDragging && !isClone ? 'scale-[0.99] opacity-60' : ''} ${extraClassName}`}
+            onDragOver={(event) => {
+                if (!isEditMode || isClone || draggedIndex === null) return;
+                event.preventDefault();
+                setDragOverIndex(index);
+            }}
+            onDrop={(event) => {
+                if (!isEditMode || isClone || draggedIndex === null) return;
+                event.preventDefault();
+                handleReorderItem(draggedIndex, index);
+                setDraggedIndex(null);
+                setDragOverIndex(null);
+            }}
         >
-            {isEditMode && items.length > 1 && !isClone && (
-                <button
-                    onClick={() => handleRemoveItem(index)}
-                    className="absolute top-2 right-2 p-1 bg-red-100 hover:bg-red-200 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Remove testimonial"
-                >
-                    <X className="w-3.5 h-3.5 text-red-600" />
-                </button>
+            {isEditMode && !isClone && (
+                <InlineCardControls
+                    canRemove={items.length > 1}
+                    dragData={`testimonial-${index}`}
+                    dragTitle="Drag to reorder testimonial"
+                    removeTitle="Delete testimonial"
+                    onDragStart={() => {
+                        setDraggedIndex(index);
+                        setDragOverIndex(null);
+                    }}
+                    onDragEnd={() => {
+                        setDraggedIndex(null);
+                        setDragOverIndex(null);
+                    }}
+                    onRemove={() => handleRemoveItem(index)}
+                />
             )}
             <div className="text-4xl leading-none mb-3 opacity-20" style={{ color: pSecondary }}>"</div>
             {renderStars(item.rating || 5)}

@@ -213,7 +213,7 @@ export const BLOCK_PANEL_REGISTRY: Record<string, PanelEntry> = {
     estimateForm: {
         title: 'Estimate / Quote Form Settings',
         component: GenericBlockSettingsPanel,
-        hideSettingsButton: true,
+        primaryButton: { label: 'Settings', icon: Settings },
         secondaryActions: [
             {
                 id: 'manage-inbox',
@@ -227,7 +227,7 @@ export const BLOCK_PANEL_REGISTRY: Record<string, PanelEntry> = {
     membershipGate: {
         title: 'Membership Gate Settings',
         component: GenericBlockSettingsPanel,
-        hideSettingsButton: true,
+        primaryButton: { label: 'Settings', icon: Settings },
     },
 };
 

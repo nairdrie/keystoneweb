@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, cloneElement, isValidElement, useCallback, useEffect, useRef, useState } from 'react';
+import { ReactNode, cloneElement, isValidElement, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { useEditorContext } from '@/lib/editor-context';
 import { ArrowUp, ArrowDown, Trash2, Settings } from 'lucide-react';
@@ -9,10 +9,18 @@ import { getPanelEntry, hasInspectorPanel } from './block-panel-registry';
 import { AVAILABLE_BLOCKS } from './block-registry';
 import { motion } from 'framer-motion';
 import { staggerContainer } from '@/lib/motion';
+import {
+    buildLayoutCss,
+    type LayoutContainerWidth,
+    type LayoutHorizontalAlign,
+} from '@/lib/builder/layout-settings';
 
 const WALKTHROUGH_RESET_EVENT = 'ks:walkthrough-reset-ui';
 const BLOCK_SETTINGS_OPEN_EVENT = 'ks:block-settings-open';
 const REPEATABLE_ITEMS_DRAFT_UPDATE_EVENT = 'ks:repeatable-items-draft-update';
+const HERO_DRAFT_UPDATE_EVENT = 'ks:hero-draft-update';
+const CONTACT_DRAFT_UPDATE_EVENT = 'ks:contact-draft-update';
+const LAYOUT_GUIDE_PREVIEW_EVENT = 'ks:layout-guide-preview';
 
 interface BlockWrapperEditorProps {
     id: string;
@@ -27,6 +35,13 @@ interface BlockWrapperEditorProps {
     scopedCss: string;
     paletteVars?: React.CSSProperties;
 }
+
+type LayoutGuidePreviewDetail = {
+    blockId?: string;
+    containerWidth?: LayoutContainerWidth;
+    horizontalAlign?: LayoutHorizontalAlign;
+    active?: boolean;
+};
 
 export default function BlockWrapperEditor({
     id,
@@ -47,6 +62,7 @@ export default function BlockWrapperEditor({
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [isSelected, setIsSelected] = useState(false);
     const [draftData, setDraftData] = useState<Record<string, unknown> | null>(null);
+    const [containerWidthGuideStyle, setContainerWidthGuideStyle] = useState<CSSProperties | null>(null);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const settingsButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -56,6 +72,7 @@ export default function BlockWrapperEditor({
     const closeSettings = useCallback((options?: { restoreFocus?: boolean }) => {
         setSettingsOpen(false);
         setDraftData(null);
+        setContainerWidthGuideStyle(null);
         if (options?.restoreFocus !== false) {
             window.setTimeout(() => settingsButtonRef.current?.focus(), 0);
         }
@@ -74,6 +91,7 @@ export default function BlockWrapperEditor({
             if (detail?.blockId === id) return;
             setSettingsOpen(false);
             setDraftData(null);
+            setContainerWidthGuideStyle(null);
             setIsSelected(false);
         };
 
@@ -92,6 +110,26 @@ export default function BlockWrapperEditor({
         return () => document.removeEventListener('pointerdown', handleDocumentPointerDown);
     }, []);
 
+    useEffect(() => {
+        const handleLayoutGuidePreview = (event: Event) => {
+            const detail = (event as CustomEvent<LayoutGuidePreviewDetail>).detail;
+            if (detail?.blockId !== id) return;
+
+            if (!detail.active || !detail.containerWidth || detail.containerWidth === 'default') {
+                setContainerWidthGuideStyle(null);
+                return;
+            }
+
+            setContainerWidthGuideStyle(getGuidePositionStyle(
+                detail.containerWidth,
+                detail.horizontalAlign || 'center',
+            ));
+        };
+
+        window.addEventListener(LAYOUT_GUIDE_PREVIEW_EVENT, handleLayoutGuidePreview);
+        return () => window.removeEventListener(LAYOUT_GUIDE_PREVIEW_EVENT, handleLayoutGuidePreview);
+    }, [id]);
+
     const openSettings = () => {
         window.dispatchEvent(new CustomEvent(BLOCK_SETTINGS_OPEN_EVENT, { detail: { blockId: id } }));
         setIsSelected(true);
@@ -103,9 +141,11 @@ export default function BlockWrapperEditor({
 
     const previewData = usesPanel && draftData ? draftData : data;
     const draftCustomCss = typeof draftData?.__customCss === 'string' ? draftData.__customCss : '';
-    const previewScopedCss = usesPanel && draftData
+    const previewCustomCss = usesPanel && draftData
         ? scopeCustomCss(id, draftCustomCss)
         : scopedCss;
+    const previewLayoutCss = buildLayoutCss(id, type, previewData?.sectionSettings, previewData);
+    const previewScopedCss = [previewCustomCss, previewLayoutCss].filter(Boolean).join('\n');
     const controlsVisibleClass = isSelected
         ? 'opacity-100'
         : 'opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100';
@@ -121,6 +161,28 @@ export default function BlockWrapperEditor({
     const showSettingsButton = panelEntry?.hideSettingsButton !== true;
     const blockLabel = getReadableBlockLabel(type);
     const handlePreviewContentUpdate = useCallback((key: string, value: unknown) => {
+        if (settingsOpen && usesPanel && type === 'contact' && isContactDraftKey(key)) {
+            setDraftData((current) => ({
+                ...((current || data || {}) as Record<string, unknown>),
+                [key]: value,
+            }));
+            window.dispatchEvent(new CustomEvent(CONTACT_DRAFT_UPDATE_EVENT, {
+                detail: { blockId: id, key, value, source: 'preview' },
+            }));
+            return;
+        }
+
+        if (settingsOpen && usesPanel && type === 'hero' && key === 'cards') {
+            setDraftData((current) => ({
+                ...((current || data || {}) as Record<string, unknown>),
+                [key]: value,
+            }));
+            window.dispatchEvent(new CustomEvent(HERO_DRAFT_UPDATE_EVENT, {
+                detail: { blockId: id, key, value, source: 'preview' },
+            }));
+            return;
+        }
+
         if (settingsOpen && usesPanel && key === 'items' && isRepeatableItemsPanelType(type)) {
             setDraftData((current) => ({
                 ...((current || data || {}) as Record<string, unknown>),
@@ -235,6 +297,14 @@ export default function BlockWrapperEditor({
                 {previewScopedCss && <style dangerouslySetInnerHTML={{ __html: previewScopedCss }} />}
                 {previewChildren}
             </div>
+            {containerWidthGuideStyle && (
+                <div className="pointer-events-none absolute inset-0 z-[90]" aria-hidden="true">
+                    <div
+                        className="ks-container-width-guide absolute inset-y-0 border-x-2 border-dashed border-slate-800/45 bg-slate-950/[0.015] shadow-[inset_1px_0_0_rgba(255,255,255,0.7),inset_-1px_0_0_rgba(255,255,255,0.7)]"
+                        style={containerWidthGuideStyle}
+                    />
+                </div>
+            )}
 
             <BlockSettingsModal
                 isOpen={settingsOpen}
@@ -251,6 +321,19 @@ export default function BlockWrapperEditor({
             />
         </motion.div>
     );
+}
+
+function getGuidePositionStyle(width: LayoutContainerWidth, align: LayoutHorizontalAlign): CSSProperties {
+    const guideWidth = width === 'narrow'
+        ? 'min(100%, 56rem)'
+        : width === 'wide'
+            ? 'min(100%, 90rem)'
+            : '100%';
+    const base: CSSProperties = { width: guideWidth };
+
+    if (align === 'right') return { ...base, right: 0 };
+    if (align === 'center') return { ...base, left: '50%', transform: 'translateX(-50%)' };
+    return { ...base, left: 0 };
 }
 
 function getReadableBlockLabel(type: string): string {
@@ -289,6 +372,10 @@ function cloneChildrenWithData(
 
 function isRepeatableItemsPanelType(type: string): boolean {
     return type === 'servicesGrid' || type === 'stats' || type === 'testimonials' || type === 'faq';
+}
+
+function isContactDraftKey(key: string): boolean {
+    return key === 'contactItems' || key === 'socialLinks';
 }
 
 function scopeCustomCss(id: string, customCss?: string): string {

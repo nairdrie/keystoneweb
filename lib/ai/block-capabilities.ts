@@ -108,6 +108,7 @@ const SAFE_LIGHT_SECTION_BACKGROUND = 'palette:accent';
 const SAFE_PRIMARY_COLOR = '#111827';
 const SAFE_ACCENT_COLOR = '#f8fafc';
 const AI_DISALLOWED_CUSTOM_CSS_KEYS = new Set(['__customCss', 'headerCustomCss']);
+const UNIVERSAL_ALLOWED_TOP_LEVEL_KEYS = ['sectionSettings'] as const;
 
 export function sanitizeAiBlockData(blockType: string, rawData: unknown): Record<string, unknown> {
   const data = filterAiBlockDataToAllowedSettings(blockType, clonePlainObject(rawData));
@@ -288,6 +289,7 @@ function getAllowedBlockDataKeys(blockType: string): Set<string> | null {
           if (key) keys.add(key);
         }
         const extraKeys = EXTRA_ALLOWED_TOP_LEVEL_KEYS[block.type] ?? [];
+        for (const key of UNIVERSAL_ALLOWED_TOP_LEVEL_KEYS) keys.add(key);
         for (const key of extraKeys) keys.add(key);
         return [block.type, keys];
       }),

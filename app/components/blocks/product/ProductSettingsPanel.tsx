@@ -11,9 +11,15 @@ import {
     getColorInputValue,
     useInspectorSectionState,
 } from '../panel-shared';
+import { LayoutTab, ResponsiveColumnsControl } from '../layout/LayoutTab';
 import type { BlockPanelProps } from '../block-panel-registry';
+import {
+    areSectionSettingsEqual,
+    normalizeSectionSettings,
+    type SectionSettings,
+} from '@/lib/builder/layout-settings';
 
-const SECTION_IDS = ['content', 'layout', 'style', 'advanced'];
+const SECTION_IDS = ['content', 'universal-layout', 'block-layout', 'style', 'advanced'];
 
 const VARIANTS = [
     { id: 'grid', label: 'Grid', Icon: LayoutGrid, description: 'Multi-column responsive grid.' },
@@ -34,6 +40,10 @@ export default function ProductSettingsPanel({
     onDraftBlockDataChange,
 }: BlockPanelProps) {
     const context = useEditorContext();
+    const persistedSectionSettings = useMemo(
+        () => normalizeSectionSettings(blockData?.sectionSettings),
+        [blockData?.sectionSettings],
+    );
 
     const [variant, setVariant] = useState<VariantId>((blockData?.variant as VariantId) || 'grid');
     const [categoryFilter, setCategoryFilter] = useState<string>(blockData?.categoryFilter || '');
@@ -51,6 +61,7 @@ export default function ProductSettingsPanel({
         typeof blockData?.autoScrollIntervalSec === 'number' ? blockData.autoScrollIntervalSec : 5,
     );
     const [autoScrollPauseOnHover, setAutoScrollPauseOnHover] = useState<boolean>(blockData?.autoScrollPauseOnHover !== false);
+    const [sectionSettings, setSectionSettings] = useState<SectionSettings>(persistedSectionSettings);
     const [localCss, setLocalCss] = useState<string>(customCss);
 
     const [categoryTree, setCategoryTree] = useState<Record<string, string[]>>({});
@@ -90,6 +101,7 @@ export default function ProductSettingsPanel({
             autoScroll,
             autoScrollIntervalSec,
             autoScrollPauseOnHover,
+            sectionSettings,
             __customCss: localCss,
         });
     }, [
@@ -104,6 +116,7 @@ export default function ProductSettingsPanel({
         autoScroll,
         autoScrollIntervalSec,
         autoScrollPauseOnHover,
+        sectionSettings,
         localCss,
         onDraftBlockDataChange,
     ]);
@@ -125,6 +138,7 @@ export default function ProductSettingsPanel({
         autoScroll !== (blockData?.autoScroll !== false) ||
         autoScrollIntervalSec !== (typeof blockData?.autoScrollIntervalSec === 'number' ? blockData.autoScrollIntervalSec : 5) ||
         autoScrollPauseOnHover !== (blockData?.autoScrollPauseOnHover !== false) ||
+        !areSectionSettingsEqual(sectionSettings, persistedSectionSettings) ||
         localCss !== customCss
     ), [
         blockData,
@@ -139,9 +153,20 @@ export default function ProductSettingsPanel({
         autoScroll,
         autoScrollIntervalSec,
         autoScrollPauseOnHover,
+        sectionSettings,
+        persistedSectionSettings,
         localCss,
         customCss,
     ]);
+
+    const updateSectionLayout = (patch: Partial<SectionSettings['layout']>) => {
+        setSectionSettings((current) => ({
+            layout: {
+                ...normalizeSectionSettings(current).layout,
+                ...patch,
+            },
+        }));
+    };
 
     const handleSave = () => {
         const updates: Record<string, unknown> = {
@@ -156,6 +181,7 @@ export default function ProductSettingsPanel({
             autoScrollIntervalSec,
             autoScrollPauseOnHover,
         };
+        if (!areSectionSettingsEqual(sectionSettings, persistedSectionSettings)) updates.sectionSettings = normalizeSectionSettings(sectionSettings);
         if (localCss !== customCss) updates['__customCss'] = localCss;
         if (context?.updateBlockDataBatch) {
             context.updateBlockDataBatch(blockId, updates);
@@ -174,7 +200,9 @@ export default function ProductSettingsPanel({
         setAutoScroll(blockData?.autoScroll !== false);
         setAutoScrollIntervalSec(typeof blockData?.autoScrollIntervalSec === 'number' ? blockData.autoScrollIntervalSec : 5);
         setAutoScrollPauseOnHover(blockData?.autoScrollPauseOnHover !== false);
+        setSectionSettings(persistedSectionSettings);
         setLocalCss(customCss);
+        sectionState.reset();
     };
 
     return (
@@ -260,12 +288,26 @@ export default function ProductSettingsPanel({
                 </div>
             </InspectorSection>
 
+            <InspectorSection
+                id="universal-layout"
+                title="Layout"
+                isCollapsed={sectionState.isCollapsed('universal-layout')}
+                onToggle={() => sectionState.toggle('universal-layout')}
+            >
+                <LayoutTab
+                    blockId={blockId}
+                    blockType="productGrid"
+                    value={sectionSettings}
+                    onChange={setSectionSettings}
+                />
+            </InspectorSection>
+
             {/* LAYOUT */}
             <InspectorSection
-                id="layout"
-                title="Layout"
-                isCollapsed={sectionState.isCollapsed('layout')}
-                onToggle={() => sectionState.toggle('layout')}
+                id="block-layout"
+                title="Block Layout"
+                isCollapsed={sectionState.isCollapsed('block-layout')}
+                onToggle={() => sectionState.toggle('block-layout')}
             >
                 <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-2">
@@ -291,6 +333,11 @@ export default function ProductSettingsPanel({
                             );
                         })}
                     </div>
+
+                    <ResponsiveColumnsControl
+                        value={sectionSettings.layout.columns}
+                        onChange={(columns) => updateSectionLayout({ columns })}
+                    />
 
                     {variant === 'row' && (
                         <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">

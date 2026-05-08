@@ -17,6 +17,7 @@ import EditableImage from '../EditableImage';
 import type { ImageSettings } from '../ImageEditorModal';
 import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import InlineCardControls, { reorderItems } from './InlineCardControls';
 
 // ── Icon registry ─────────────────────────────────────────────────────────────
 
@@ -141,6 +142,8 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
 
   const [current, setCurrent] = useState(0);
   const [iconPickerIdx, setIconPickerIdx] = useState<number | null>(null);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   // Reset on block change, clamp on items shrink
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -181,6 +184,44 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
     updateContent('items', next);
     setCurrent(c => Math.min(c, next.length - 1));
   };
+
+  const reorderItem = (fromIndex: number, toIndex: number) => {
+    updateContent('items', reorderItems(items, fromIndex, toIndex));
+    setCurrent(c => Math.min(c, items.length - 1));
+  };
+
+  const getItemDragHandlers = (idx: number) => ({
+    onDragOver: (event: React.DragEvent) => {
+      if (!isEditMode || draggedIndex === null) return;
+      event.preventDefault();
+      setDragOverIndex(idx);
+    },
+    onDrop: (event: React.DragEvent) => {
+      if (!isEditMode || draggedIndex === null) return;
+      event.preventDefault();
+      reorderItem(draggedIndex, idx);
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+    },
+  });
+
+  const renderCardControls = (idx: number) => isEditMode ? (
+    <InlineCardControls
+      canRemove={items.length > 1}
+      dragData={`carousel-card-${idx}`}
+      dragTitle="Drag to reorder carousel card"
+      removeTitle="Delete carousel card"
+      onDragStart={() => {
+        setDraggedIndex(idx);
+        setDragOverIndex(null);
+      }}
+      onDragEnd={() => {
+        setDraggedIndex(null);
+        setDragOverIndex(null);
+      }}
+      onRemove={() => removeItem(idx)}
+    />
+  ) : null;
 
   // ── Carousel math ────────────────────────────────────────────────────────────
   // Track width  = items.length * (100% / perPage) of container
@@ -347,16 +388,18 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
           {isEditMode ? (
             <>
               <div className="grid md:grid-cols-3 gap-6">
-                {items.map((item, idx) => (
-                  <div key={idx} className="bg-white rounded-2xl p-7 border border-slate-100 shadow-sm relative group flex flex-col">
-                    {items.length > 1 && (
-                      <button
-                        onClick={() => removeItem(idx)}
-                        className="absolute top-3 right-3 p-1.5 bg-red-50 hover:bg-red-100 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                      >
-                        <X className="w-3.5 h-3.5 text-red-500" />
-                      </button>
-                    )}
+                {items.map((item, idx) => {
+                  const isDragging = draggedIndex === idx;
+                  const isDragTarget = dragOverIndex === idx && draggedIndex !== idx;
+                  return (
+                  <div
+                    key={idx}
+                    className={`bg-white rounded-2xl p-7 border shadow-sm relative group/card flex flex-col transition-[border-color,box-shadow,opacity,transform] ${
+                      isDragTarget ? 'border-blue-300 ring-2 ring-blue-100' : 'border-slate-100'
+                    } ${isDragging ? 'scale-[0.99] opacity-60' : ''}`}
+                    {...getItemDragHandlers(idx)}
+                  >
+                    {renderCardControls(idx)}
                     {renderMediaTypeToggle(idx)}
                     <div className="mb-5">
                       {item.mediaType === 'image' ? (
@@ -379,7 +422,8 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                       onSave={(_, v) => updateItem(idx, 'text', v)}
                       className="text-sm leading-relaxed flex-1" style={{ color: pPrimary, opacity: 0.7 }} />
                   </div>
-                ))}
+                  );
+                })}
               </div>
               <div className="flex justify-center mt-6">
                 <button

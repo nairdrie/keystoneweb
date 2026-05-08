@@ -39,11 +39,13 @@ export default function HeroBlock({
     block,
     data: dataProp,
     palette,
+    updateContent,
 }: {
     block: BlockData;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data?: Record<string, any>;
     palette: Record<string, string>;
+    updateContent?: (key: string, value: unknown) => void;
 }) {
     const context = useEditorContext();
     const isEditMode = context?.isEditMode || false;
@@ -57,6 +59,7 @@ export default function HeroBlock({
     const data: HeroData = useMemo(() => migrateLegacyHeroData(rawData), [rawData]);
 
     const cards = data.cards;
+    const cardsRef = useRef<HeroCard[]>(cards);
     const cardCount = cards.length;
     const transition = data.transition;
     const heightCfg = data.height;
@@ -78,6 +81,10 @@ export default function HeroBlock({
     // Mirror the settings-panel selection so closing the panel doesn't reset
     // the canvas to card 0 — the editor stays parked on whatever card they
     // were last working on.
+    useEffect(() => {
+        cardsRef.current = cards;
+    }, [cards]);
+
     useEffect(() => {
         if (editorActiveIndex !== null) setEditIndex(editorActiveIndex);
     }, [editorActiveIndex]);
@@ -104,7 +111,7 @@ export default function HeroBlock({
     const updateData = (cardIndex: number) => (key: string, value: unknown) => {
         // Inline-edit a content field of a specific card. Persists by writing
         // the whole `cards` array back through editor context.
-        const next = cards.map((c, i) => {
+        const next = cardsRef.current.map((c, i) => {
             if (i !== cardIndex) return c;
             const nc: HeroCard = JSON.parse(JSON.stringify(c));
             // Keys we know how to project back into the new schema
@@ -119,7 +126,11 @@ export default function HeroBlock({
             } else if (key === 'buttonTextIcon') {
                 nc.content.cta.icon = value;
             } else if (key === 'image') {
-                nc.content.image.url = String(value ?? '');
+                const nextUrl = String(value ?? '');
+                nc.content.image.url = nextUrl;
+                if (nextUrl) {
+                    nc.content.image.enabled = true;
+                }
             } else if (key === 'image__settings') {
                 nc.content.image.settings = value;
             } else if (key === 'image__attribution') {
@@ -127,13 +138,16 @@ export default function HeroBlock({
             }
             return nc;
         });
-        context?.updateBlockData?.(block.id, 'cards', next);
+        cardsRef.current = next;
+        if (updateContent) updateContent('cards', next);
+        else context?.updateBlockData?.(block.id, 'cards', next);
 
         // Style metadata (font/color) is still keyed off the old `__styles`
         // properties — pass through unchanged so existing element-level
         // settings keep working.
         if (key.endsWith('__styles')) {
-            context?.updateBlockData?.(block.id, key, value);
+            if (updateContent) updateContent(key, value);
+            else context?.updateBlockData?.(block.id, key, value);
         }
     };
 
@@ -467,10 +481,10 @@ function HeroCardContent({
     const textColor = isMediaBg ? '#ffffff' : pPrimary;
 
     return (
-        <div className="hero-container relative z-10 mx-auto flex h-full w-full max-w-7xl items-center px-4 py-20 md:py-24">
+        <div className="hero-container ks-layout-content relative z-10 mx-auto flex h-full w-full max-w-7xl items-center px-4 py-20 md:py-24">
             <div className={`grid w-full gap-10 items-center ${showForeground && showText ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
                 {showText && (
-                    <div className={`hero-content ${imageOnRight || !showForeground ? 'order-1' : 'order-2 md:order-1'}`}>
+                    <div className={`hero-content ${imageOnRight || !showForeground ? 'order-1' : 'order-2'}`}>
                         {card.content.title.enabled && (
                             <Reveal>
                                 <EditableText
@@ -521,7 +535,7 @@ function HeroCardContent({
                     </div>
                 )}
                 {showForeground && (
-                    <Reveal className={imageOnRight ? 'order-2' : 'order-1 md:order-1'}>
+                    <Reveal className={imageOnRight ? 'order-2' : 'order-1'}>
                         <EditableImage
                             contentKey="image"
                             initialSettings={card.content.image.settings as ImageSettings | undefined}

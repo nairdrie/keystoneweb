@@ -2,8 +2,9 @@
 
 import React from 'react';
 import EditableText from '../EditableText';
-import { Plus, X } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import InlineCardControls, { reorderItems } from './InlineCardControls';
 
 interface StatsBlockProps {
     id: string;
@@ -18,6 +19,8 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
     const pSecondary = palette.secondary || '#dc2626';
     const pAccent = palette.accent || '#f3f4f6';
     const configuredBackgroundColor = resolvePaletteColor(data.backgroundColor, palette, '');
+    const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
+    const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
 
     const items = data.items || [
         { value: '500+', label: 'Happy Clients' },
@@ -47,6 +50,43 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
         updateContent('items', newItems);
     };
 
+    const handleReorderItem = (fromIndex: number, toIndex: number) => {
+        updateContent('items', reorderItems(items, fromIndex, toIndex));
+    };
+
+    const renderStatControls = (index: number, title = 'stat') => isEditMode ? (
+        <InlineCardControls
+            canRemove={items.length > 1}
+            dragData={`${title}-${index}`}
+            dragTitle={`Drag to reorder ${title}`}
+            removeTitle={`Delete ${title}`}
+            onDragStart={() => {
+                setDraggedIndex(index);
+                setDragOverIndex(null);
+            }}
+            onDragEnd={() => {
+                setDraggedIndex(null);
+                setDragOverIndex(null);
+            }}
+            onRemove={() => handleRemoveItem(index)}
+        />
+    ) : null;
+
+    const getDragHandlers = (index: number) => ({
+        onDragOver: (event: React.DragEvent) => {
+            if (!isEditMode || draggedIndex === null) return;
+            event.preventDefault();
+            setDragOverIndex(index);
+        },
+        onDrop: (event: React.DragEvent) => {
+            if (!isEditMode || draggedIndex === null) return;
+            event.preventDefault();
+            handleReorderItem(draggedIndex, index);
+            setDraggedIndex(null);
+            setDragOverIndex(null);
+        },
+    });
+
     if (variant === 'cards') {
         return (
             <section className="py-20 md:py-12 xl:py-20" style={{ backgroundColor: configuredBackgroundColor || '#ffffff' }}>
@@ -64,17 +104,18 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                         />
                     )}
                     <div className={`grid gap-6 ${items.length <= 3 ? 'md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
-                        {items.map((item: any, index: number) => (
-                            <div key={index} className="relative group text-center p-8 md:p-6 xl:p-8 rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow">
-                                {isEditMode && items.length > 1 && (
-                                    <button
-                                        onClick={() => handleRemoveItem(index)}
-                                        className="absolute top-2 right-2 p-1 bg-red-100 hover:bg-red-200 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                        title="Remove stat"
-                                    >
-                                        <X className="w-3.5 h-3.5 text-red-600" />
-                                    </button>
-                                )}
+                        {items.map((item: any, index: number) => {
+                            const isDragging = draggedIndex === index;
+                            const isDragTarget = dragOverIndex === index && draggedIndex !== index;
+                            return (
+                            <div
+                                key={index}
+                                className={`relative group/card text-center p-8 md:p-6 xl:p-8 rounded-2xl border bg-white shadow-sm hover:shadow-md transition-[border-color,box-shadow,opacity,transform] ${
+                                    isDragTarget ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-100'
+                                } ${isDragging ? 'scale-[0.99] opacity-60' : ''}`}
+                                {...getDragHandlers(index)}
+                            >
+                                {renderStatControls(index)}
                                 <EditableText
                                     as="div"
                                     contentKey={`stat_${index}_value`}
@@ -96,7 +137,8 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                                     style={{ color: pPrimary, opacity: 0.7 }}
                                 />
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                     {isEditMode && (
                         <div className="flex justify-center mt-6">
@@ -119,17 +161,18 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
         <section className="py-16 md:py-10 xl:py-16" style={{ backgroundColor: configuredBackgroundColor || pPrimary }}>
             <div className="max-w-7xl mx-auto px-4">
                 <div className={`grid gap-8 ${items.length <= 3 ? 'md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
-                    {items.map((item: any, index: number) => (
-                        <div key={index} className="relative group text-center rounded-lg px-2 py-3">
-                            {isEditMode && items.length > 1 && (
-                                <button
-                                    onClick={() => handleRemoveItem(index)}
-                                    className="absolute top-0 right-0 p-1 bg-red-100 hover:bg-red-200 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                    title="Remove stat"
-                                >
-                                    <X className="w-3.5 h-3.5 text-red-600" />
-                                </button>
-                            )}
+                    {items.map((item: any, index: number) => {
+                        const isDragging = draggedIndex === index;
+                        const isDragTarget = dragOverIndex === index && draggedIndex !== index;
+                        return (
+                        <div
+                            key={index}
+                            className={`relative group/card text-center rounded-lg px-2 py-3 transition-[box-shadow,opacity,transform] ${
+                                isDragTarget ? 'ring-2 ring-blue-100' : ''
+                            } ${isDragging ? 'scale-[0.99] opacity-60' : ''}`}
+                            {...getDragHandlers(index)}
+                        >
+                            {renderStatControls(index)}
                             <EditableText
                                 as="div"
                                 contentKey={`stat_${index}_value`}
@@ -149,7 +192,8 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                                 className="text-white/70 font-medium text-sm uppercase tracking-wider"
                             />
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
                 {isEditMode && (
                     <div className="flex justify-center mt-6">

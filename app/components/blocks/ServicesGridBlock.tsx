@@ -1,9 +1,12 @@
+'use client';
+
 import React from 'react';
 import EditableText from '../EditableText';
 import EditableButton from '../EditableButton';
-import { Plus, X } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import InlineCardControls, { reorderItems } from './InlineCardControls';
 
 interface ServicesGridBlockProps {
     id: string;
@@ -19,6 +22,8 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
     const pAccent = palette.accent || '#f3f4f6';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
     const showCta = data.ctaEnabled !== false;
+    const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
+    const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
 
     const items = data.items || [
         { title: "Service 1", description: "First service description." },
@@ -42,6 +47,10 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
             i === index ? { ...item, [field]: value } : item
         );
         updateContent('items', newItems);
+    };
+
+    const handleReorderItem = (fromIndex: number, toIndex: number) => {
+        updateContent('items', reorderItems(items, fromIndex, toIndex));
     };
 
     return (
@@ -85,19 +94,44 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
                         items.length === 4 ? 'grid-cols-1 md:grid-cols-2 max-w-5xl mx-auto' :
                             'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
                     }`}>
-                    {items.map((item: any, index: number) => (
+                    {items.map((item: any, index: number) => {
+                        const isDragging = draggedIndex === index;
+                        const isDragTarget = dragOverIndex === index && draggedIndex !== index;
+                        return (
                         <Reveal
                             key={index}
-                            className="bg-gray-50 p-8 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative group"
+                            className={`bg-gray-50 p-8 rounded-lg shadow-sm border hover:shadow-md transition-[border-color,box-shadow,opacity,transform] relative group/card ${
+                                isDragTarget ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-100'
+                            } ${isDragging ? 'scale-[0.99] opacity-60' : ''}`}
+                            onDragOver={(event) => {
+                                if (!isEditMode || draggedIndex === null) return;
+                                event.preventDefault();
+                                setDragOverIndex(index);
+                            }}
+                            onDrop={(event) => {
+                                if (!isEditMode || draggedIndex === null) return;
+                                event.preventDefault();
+                                handleReorderItem(draggedIndex, index);
+                                setDraggedIndex(null);
+                                setDragOverIndex(null);
+                            }}
                         >
-                            {isEditMode && items.length > 1 && (
-                                <button
-                                    onClick={() => handleRemoveItem(index)}
-                                    className="absolute top-2 right-2 p-1 bg-red-100 hover:bg-red-200 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                    title="Remove service"
-                                >
-                                    <X className="w-3.5 h-3.5 text-red-600" />
-                                </button>
+                            {isEditMode && (
+                                <InlineCardControls
+                                    canRemove={items.length > 1}
+                                    dragData={`service-${index}`}
+                                    dragTitle="Drag to reorder service"
+                                    removeTitle="Delete service"
+                                    onDragStart={() => {
+                                        setDraggedIndex(index);
+                                        setDragOverIndex(null);
+                                    }}
+                                    onDragEnd={() => {
+                                        setDraggedIndex(null);
+                                        setDragOverIndex(null);
+                                    }}
+                                    onRemove={() => handleRemoveItem(index)}
+                                />
                             )}
 
                             {/* Number Badge */}
@@ -126,7 +160,8 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
                                 style={{ color: pPrimary, opacity: 0.7 }}
                             />
                         </Reveal>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 {/* Add Service Button (edit mode only) */}

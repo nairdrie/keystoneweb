@@ -1,8 +1,11 @@
+'use client';
+
 import React from 'react';
 import EditableText from '../EditableText';
-import { Plus, X } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import InlineCardControls, { reorderItems } from './InlineCardControls';
 
 interface FeaturesListBlockProps {
     id: string;
@@ -16,6 +19,8 @@ export default function FeaturesListBlock({ id, data, isEditMode, palette, updat
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
+    const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
+    const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
 
     const items = data.items || [
         "Licensed & Insured Experts",
@@ -40,6 +45,10 @@ export default function FeaturesListBlock({ id, data, isEditMode, palette, updat
         updateContent('items', newItems);
     };
 
+    const handleReorderItem = (fromIndex: number, toIndex: number) => {
+        updateContent('items', reorderItems(items, fromIndex, toIndex));
+    };
+
     return (
         <section className="py-24" style={{ backgroundColor: bgColor }}>
             <div className="max-w-4xl mx-auto px-4">
@@ -57,19 +66,46 @@ export default function FeaturesListBlock({ id, data, isEditMode, palette, updat
                 </Reveal>
 
                 <ul className="space-y-6 text-lg max-w-2xl mx-auto">
-                    {items.map((item: string, index: number) => (
-                        <Reveal key={index}>
-                            <li className="relative group flex items-center gap-4 bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-100">
-                                {isEditMode && items.length > 1 && (
-                                    <button
-                                        onClick={() => handleRemoveItem(index)}
-                                        className="absolute top-2 right-2 p-1 bg-red-100 hover:bg-red-200 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                        title="Remove feature"
-                                    >
-                                        <X className="w-3.5 h-3.5 text-red-600" />
-                                    </button>
+                    {items.map((item: string, index: number) => {
+                        const isDragging = draggedIndex === index;
+                        const isDragTarget = dragOverIndex === index && draggedIndex !== index;
+                        return (
+                        <Reveal
+                            key={index}
+                            onDragOver={(event) => {
+                                if (!isEditMode || draggedIndex === null) return;
+                                event.preventDefault();
+                                setDragOverIndex(index);
+                            }}
+                            onDrop={(event) => {
+                                if (!isEditMode || draggedIndex === null) return;
+                                event.preventDefault();
+                                handleReorderItem(draggedIndex, index);
+                                setDraggedIndex(null);
+                                setDragOverIndex(null);
+                            }}
+                        >
+                            <li className={`relative group/card flex items-center gap-4 bg-gray-50 p-4 rounded-lg shadow-sm border transition-[border-color,box-shadow,opacity,transform] ${
+                                isDragTarget ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-100'
+                            } ${isDragging ? 'scale-[0.99] opacity-60' : ''}`}>
+                                {isEditMode && (
+                                    <InlineCardControls
+                                        canRemove={items.length > 1}
+                                        dragData={`feature-${index}`}
+                                        dragTitle="Drag to reorder feature"
+                                        removeTitle="Delete feature"
+                                        onDragStart={() => {
+                                            setDraggedIndex(index);
+                                            setDragOverIndex(null);
+                                        }}
+                                        onDragEnd={() => {
+                                            setDraggedIndex(null);
+                                            setDragOverIndex(null);
+                                        }}
+                                        onRemove={() => handleRemoveItem(index)}
+                                    />
                                 )}
-                                <span className="font-bold shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm ring-1 ring-gray-100" style={{ color: pSecondary }}>✓</span>
+                                <span className="font-bold shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm ring-1 ring-gray-100" style={{ color: pSecondary }}>&#10003;</span>
                                 <div className="flex-1 w-full">
                                     <EditableText
                                         as="span"
@@ -83,7 +119,8 @@ export default function FeaturesListBlock({ id, data, isEditMode, palette, updat
                                 </div>
                             </li>
                         </Reveal>
-                    ))}
+                        );
+                    })}
                 </ul>
 
                 {isEditMode && (

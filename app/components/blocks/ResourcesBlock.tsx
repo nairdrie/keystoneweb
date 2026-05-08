@@ -4,12 +4,13 @@ import React, { useState, useRef } from 'react';
 import { useEditorContext } from '@/lib/editor-context';
 import EditableText from '../EditableText';
 import {
-    Plus, Trash2, FileText, Image as ImageIcon, ExternalLink,
+    Plus, FileText, Image as ImageIcon, ExternalLink,
     AlignLeft, Upload, X, Download, ChevronDown, ChevronUp, Link2
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import { normalizeExternalHref } from '@/lib/url';
+import InlineCardControls, { reorderItems } from './InlineCardControls';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -173,18 +174,40 @@ function FileUploadButton({ item, siteId, onUploadComplete }: {
 
 // ─── Edit panel for a single item ─────────────────────────────────────────────
 
-function ItemEditPanel({ item, siteId, onUpdate, onUpdateFields, onRemove }: {
+function ItemEditPanel({ item, siteId, canRemove, isDragging, isDragTarget, onUpdate, onUpdateFields, onRemove, onDragStart, onDragOver, onDrop, onDragEnd }: {
     item: ResourceItem;
     siteId: string | undefined;
+    canRemove: boolean;
+    isDragging: boolean;
+    isDragTarget: boolean;
     onUpdate: (field: string, value: any) => void;
     onUpdateFields: (fields: Partial<ResourceItem>) => void;
     onRemove: () => void;
+    onDragStart: () => void;
+    onDragOver: React.DragEventHandler<HTMLDivElement>;
+    onDrop: React.DragEventHandler<HTMLDivElement>;
+    onDragEnd: () => void;
 }) {
     const inputCls = 'w-full text-sm border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white';
     return (
-        <div className="flex flex-col gap-2 p-3 border border-slate-200 rounded-xl bg-white shadow-sm">
+        <div
+            className={`group/card relative flex flex-col gap-2 p-3 border rounded-xl bg-white shadow-sm transition-[border-color,box-shadow,opacity,transform] ${
+                isDragTarget ? 'border-blue-300 ring-2 ring-blue-100' : 'border-slate-200'
+            } ${isDragging ? 'scale-[0.99] opacity-60' : ''}`}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
+        >
+            <InlineCardControls
+                canRemove={canRemove}
+                dragData={item.id}
+                dragTitle="Drag to reorder resource"
+                removeTitle="Delete resource"
+                onDragStart={onDragStart}
+                onDragEnd={onDragEnd}
+                onRemove={onRemove}
+            />
             {/* Type selector + remove */}
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2 pr-20">
                 <div className="flex gap-1">
                     {(['file', 'text', 'link'] as ResourceType[]).map(t => (
                         <button
@@ -196,9 +219,6 @@ function ItemEditPanel({ item, siteId, onUpdate, onUpdateFields, onRemove }: {
                         </button>
                     ))}
                 </div>
-                <button onClick={onRemove} className="text-slate-300 hover:text-red-500 transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                </button>
             </div>
 
             {/* Title */}
@@ -455,6 +475,8 @@ export default function ResourcesBlock({ id, data, isEditMode, palette, updateCo
     const siteId = context?.siteId;
     const primary = palette.primary || '#1f2937';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#f8fafc');
+    const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
     const items: ResourceItem[] = data.items || [
         { id: uuidv4(), type: 'file', title: 'Getting Started Guide', description: 'Download our comprehensive onboarding PDF.' },
@@ -481,6 +503,10 @@ export default function ResourcesBlock({ id, data, isEditMode, palette, updateCo
 
     const removeItem = (index: number) => {
         updateContent('items', items.filter((_, i) => i !== index));
+    };
+
+    const reorderItem = (fromIndex: number, toIndex: number) => {
+        updateContent('items', reorderItems(items, fromIndex, toIndex));
     };
 
     return (
@@ -534,9 +560,32 @@ export default function ResourcesBlock({ id, data, isEditMode, palette, updateCo
                                 key={item.id}
                                 item={item}
                                 siteId={siteId}
+                                canRemove={items.length > 1}
+                                isDragging={draggedIndex === index}
+                                isDragTarget={dragOverIndex === index && draggedIndex !== index}
                                 onUpdate={(field, value) => updateItem(index, field, value)}
                                 onUpdateFields={(fields) => updateItemFields(index, fields)}
                                 onRemove={() => removeItem(index)}
+                                onDragStart={() => {
+                                    setDraggedIndex(index);
+                                    setDragOverIndex(null);
+                                }}
+                                onDragOver={(event) => {
+                                    if (draggedIndex === null) return;
+                                    event.preventDefault();
+                                    setDragOverIndex(index);
+                                }}
+                                onDrop={(event) => {
+                                    if (draggedIndex === null) return;
+                                    event.preventDefault();
+                                    reorderItem(draggedIndex, index);
+                                    setDraggedIndex(null);
+                                    setDragOverIndex(null);
+                                }}
+                                onDragEnd={() => {
+                                    setDraggedIndex(null);
+                                    setDragOverIndex(null);
+                                }}
                             />
                         ))}
                         <button

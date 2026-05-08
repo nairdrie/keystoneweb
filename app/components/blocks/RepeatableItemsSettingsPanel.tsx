@@ -10,7 +10,14 @@ import {
     getColorInputValue,
     useInspectorSectionState,
 } from './panel-shared';
+import { LayoutTab, ResponsiveColumnsControl } from './layout/LayoutTab';
 import type { BlockPanelProps } from './block-panel-registry';
+import {
+    areSectionSettingsEqual,
+    getLayoutCapabilities,
+    normalizeSectionSettings,
+    type SectionSettings,
+} from '@/lib/builder/layout-settings';
 
 const REPEATABLE_ITEMS_DRAFT_UPDATE_EVENT = 'ks:repeatable-items-draft-update';
 
@@ -233,6 +240,11 @@ export default function RepeatableItemsSettingsPanel({
     const managedType: ManagedBlockType = isManagedBlockType(blockType) ? blockType : 'servicesGrid';
     const config = CONFIGS[managedType];
     const hasTestimonialDisplayControls = managedType === 'testimonials';
+    const layoutCapabilities = useMemo(
+        () => getLayoutCapabilities(config.blockType),
+        [config.blockType],
+    );
+    const hasColumnLayoutControl = layoutCapabilities.supportsColumns;
 
     const persistedItems = useMemo(
         () => normalizeItems(blockData?.items, config.defaultItems),
@@ -242,6 +254,10 @@ export default function RepeatableItemsSettingsPanel({
         ? String(blockData?.variant || config.defaultVariant || config.variants[0].id)
         : '';
     const persistedBackgroundColor = typeof blockData?.backgroundColor === 'string' ? blockData.backgroundColor : '';
+    const persistedSectionSettings = useMemo(
+        () => normalizeSectionSettings(blockData?.sectionSettings),
+        [blockData?.sectionSettings],
+    );
     const persistedDisplaySettings = useMemo<TestimonialDisplaySettings>(() => ({
         showMoreEnabled: blockData?.showMoreEnabled === true,
         visibleCount: clampNumber(blockData?.visibleCount, 3, 1, 12),
@@ -259,10 +275,10 @@ export default function RepeatableItemsSettingsPanel({
     ]);
 
     const sectionIds = useMemo(
-        () => config.variants
-            ? ['items', 'layout', ...(hasTestimonialDisplayControls ? ['display'] : []), 'style', 'advanced']
-            : ['items', 'style', 'advanced'],
-        [config.variants, hasTestimonialDisplayControls],
+        () => config.variants || hasColumnLayoutControl
+            ? ['items', 'universal-layout', 'block-layout', ...(hasTestimonialDisplayControls ? ['display'] : []), 'style', 'advanced']
+            : ['items', 'universal-layout', 'style', 'advanced'],
+        [config.variants, hasColumnLayoutControl, hasTestimonialDisplayControls],
     );
     const sectionState = useInspectorSectionState(sectionIds, true);
 
@@ -270,6 +286,7 @@ export default function RepeatableItemsSettingsPanel({
     const [variant, setVariant] = useState<string>(persistedVariant);
     const [displaySettings, setDisplaySettings] = useState<TestimonialDisplaySettings>(persistedDisplaySettings);
     const [backgroundColor, setBackgroundColor] = useState<string>(persistedBackgroundColor);
+    const [sectionSettings, setSectionSettings] = useState<SectionSettings>(persistedSectionSettings);
     const [localCss, setLocalCss] = useState<string>(customCss);
     const [expandedRows, setExpandedRows] = useState<Set<number>>(() => new Set());
     const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -321,15 +338,17 @@ export default function RepeatableItemsSettingsPanel({
             ...(config.variants ? { variant } : {}),
             ...(hasTestimonialDisplayControls ? displaySettings : {}),
             backgroundColor,
+            sectionSettings,
             __customCss: localCss,
         });
-    }, [blockData, items, variant, displaySettings, backgroundColor, localCss, config.variants, hasTestimonialDisplayControls, onDraftBlockDataChange]);
+    }, [blockData, items, variant, displaySettings, backgroundColor, sectionSettings, localCss, config.variants, hasTestimonialDisplayControls, onDraftBlockDataChange]);
 
     const hasUnsavedChanges = useMemo(() => (
         JSON.stringify(items) !== JSON.stringify(persistedItems) ||
         (config.variants ? variant !== persistedVariant : false) ||
         (hasTestimonialDisplayControls ? JSON.stringify(displaySettings) !== JSON.stringify(persistedDisplaySettings) : false) ||
         backgroundColor !== persistedBackgroundColor ||
+        !areSectionSettingsEqual(sectionSettings, persistedSectionSettings) ||
         localCss !== customCss
     ), [
         items,
@@ -342,11 +361,22 @@ export default function RepeatableItemsSettingsPanel({
         persistedDisplaySettings,
         backgroundColor,
         persistedBackgroundColor,
+        sectionSettings,
+        persistedSectionSettings,
         localCss,
         customCss,
     ]);
 
     const bgInputValue = getColorInputValue(backgroundColor, palette, config.backgroundFallback);
+
+    const updateSectionLayout = (patch: Partial<SectionSettings['layout']>) => {
+        setSectionSettings((current) => ({
+            layout: {
+                ...normalizeSectionSettings(current).layout,
+                ...patch,
+            },
+        }));
+    };
 
     const handleSave = () => {
         if (!hasUnsavedChanges) {
@@ -373,6 +403,7 @@ export default function RepeatableItemsSettingsPanel({
         }
 
         if (backgroundColor !== persistedBackgroundColor) updates.backgroundColor = backgroundColor;
+        if (!areSectionSettingsEqual(sectionSettings, persistedSectionSettings)) updates.sectionSettings = normalizeSectionSettings(sectionSettings);
         if (config.variants && variant !== persistedVariant) updates.variant = variant;
         if (hasTestimonialDisplayControls) {
             for (const key of Object.keys(displaySettings) as Array<keyof TestimonialDisplaySettings>) {
@@ -393,6 +424,7 @@ export default function RepeatableItemsSettingsPanel({
         setVariant(persistedVariant);
         setDisplaySettings(persistedDisplaySettings);
         setBackgroundColor(persistedBackgroundColor);
+        setSectionSettings(persistedSectionSettings);
         setLocalCss(customCss);
         setExpandedRows(new Set());
         sectionState.reset();
@@ -507,38 +539,64 @@ export default function RepeatableItemsSettingsPanel({
                 </div>
             </InspectorSection>
 
-            {config.variants && (
+            <InspectorSection
+                id="universal-layout"
+                title="Layout"
+                isCollapsed={sectionState.isCollapsed('universal-layout')}
+                onToggle={() => sectionState.toggle('universal-layout')}
+            >
+                <LayoutTab
+                    blockId={blockId}
+                    blockType={config.blockType}
+                    value={sectionSettings}
+                    onChange={setSectionSettings}
+                />
+            </InspectorSection>
+
+            {(config.variants || hasColumnLayoutControl) && (
                 <InspectorSection
-                    id="layout"
-                    title="Layout"
-                    isCollapsed={sectionState.isCollapsed('layout')}
-                    onToggle={() => sectionState.toggle('layout')}
+                    id="block-layout"
+                    title="Block Layout"
+                    isCollapsed={sectionState.isCollapsed('block-layout')}
+                    onToggle={() => sectionState.toggle('block-layout')}
                 >
-                    <div className="grid grid-cols-2 gap-2">
-                        {config.variants.map((option) => {
-                            const active = variant === option.id;
-                            return (
-                                <button
-                                    key={option.id}
-                                    type="button"
-                                    onClick={() => setVariant(option.id)}
-                                    aria-pressed={active}
-                                    className={`rounded-xl border px-3 py-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                        active
-                                            ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
-                                            : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                                    }`}
-                                >
-                                    <span className="block text-sm font-bold">{option.label}</span>
-                                    <span className="mt-1 block text-[11px] leading-snug text-slate-500">{option.description}</span>
-                                </button>
-                            );
-                        })}
+                    <div className="space-y-5">
+                        {config.variants && (
+                            <div className="grid grid-cols-2 gap-2">
+                                {config.variants.map((option) => {
+                                    const active = variant === option.id;
+                                    return (
+                                        <button
+                                            key={option.id}
+                                            type="button"
+                                            onClick={() => setVariant(option.id)}
+                                            aria-pressed={active}
+                                            className={`rounded-xl border px-3 py-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                                active
+                                                    ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
+                                                    : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            <span className="block text-sm font-bold">{option.label}</span>
+                                            <span className="mt-1 block text-[11px] leading-snug text-slate-500">{option.description}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {hasColumnLayoutControl && (
+                            <ResponsiveColumnsControl
+                                value={sectionSettings.layout.columns}
+                                onChange={(columns) => updateSectionLayout({ columns })}
+                                maxColumns={items.length}
+                            />
+                        )}
                     </div>
                 </InspectorSection>
             )}
 
-            {hasTestimonialDisplayControls && (
+            {hasTestimonialDisplayControls && isTestimonialDisplaySectionVisible(variant) && (
                 <InspectorSection
                     id="display"
                     title="Display"
@@ -547,6 +605,7 @@ export default function RepeatableItemsSettingsPanel({
                 >
                     <TestimonialDisplayControls
                         value={displaySettings}
+                        variant={variant}
                         onChange={(updates) => setDisplaySettings((current) => ({ ...current, ...updates }))}
                     />
                 </InspectorSection>
@@ -780,85 +839,111 @@ function FieldEditor({
 
 function TestimonialDisplayControls({
     value,
+    variant,
     onChange,
 }: {
     value: TestimonialDisplaySettings;
+    variant: string;
     onChange: (updates: Partial<TestimonialDisplaySettings>) => void;
 }) {
+    const isCardLayout = variant === 'cards';
+    const isScrollLayout = variant === 'scroll';
+
     return (
         <div className="space-y-4">
-            <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
-                <span>
-                    <span className="block text-sm font-bold text-slate-800">Limit visible cards</span>
-                    <span className="block text-xs text-slate-500">Adds a show-more flow on card layouts.</span>
-                </span>
-                <input
-                    type="checkbox"
-                    checked={value.showMoreEnabled}
-                    onChange={(event) => onChange({ showMoreEnabled: event.target.checked })}
-                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                />
-            </label>
+            {isCardLayout && (
+                <>
+                    <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
+                        <span>
+                            <span className="block text-sm font-bold text-slate-800">Limit visible cards</span>
+                            <span className="block text-xs text-slate-500">Adds a show-more flow on card layouts.</span>
+                        </span>
+                        <input
+                            type="checkbox"
+                            checked={value.showMoreEnabled}
+                            onChange={(event) => onChange({ showMoreEnabled: event.target.checked })}
+                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        />
+                    </label>
 
-            <label className="block">
-                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">Visible card count</span>
-                <input
-                    type="number"
-                    min={1}
-                    max={12}
-                    value={value.visibleCount}
-                    onChange={(event) => onChange({ visibleCount: clampNumber(event.target.value, 3, 1, 12) })}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                />
-            </label>
+                    {value.showMoreEnabled && (
+                        <label className="block">
+                            <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">Visible card count</span>
+                            <input
+                                type="number"
+                                min={1}
+                                max={12}
+                                value={value.visibleCount}
+                                onChange={(event) => onChange({ visibleCount: clampNumber(event.target.value, 3, 1, 12) })}
+                                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </label>
+                    )}
+                </>
+            )}
 
-            <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
-                <span>
-                    <span className="block text-sm font-bold text-slate-800">Autoplay scroll layout</span>
-                    <span className="block text-xs text-slate-500">Moves horizontal testimonial rows automatically.</span>
-                </span>
-                <input
-                    type="checkbox"
-                    checked={value.autoScroll}
-                    onChange={(event) => onChange({ autoScroll: event.target.checked })}
-                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                />
-            </label>
+            {isScrollLayout && (
+                <>
+                    <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
+                        <span>
+                            <span className="block text-sm font-bold text-slate-800">Autoplay scroll layout</span>
+                            <span className="block text-xs text-slate-500">Moves horizontal testimonial rows automatically.</span>
+                        </span>
+                        <input
+                            type="checkbox"
+                            checked={value.autoScroll}
+                            onChange={(event) => onChange({ autoScroll: event.target.checked })}
+                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        />
+                    </label>
 
-            <label className="block">
-                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">Autoplay interval seconds</span>
-                <input
-                    type="number"
-                    min={2}
-                    max={15}
-                    value={value.interval}
-                    onChange={(event) => onChange({ interval: clampNumber(event.target.value, 5, 2, 15) })}
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                />
-            </label>
+                    {value.autoScroll && (
+                        <>
+                            <label className="block">
+                                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">Autoplay interval seconds</span>
+                                <input
+                                    type="number"
+                                    min={2}
+                                    max={15}
+                                    value={value.interval}
+                                    onChange={(event) => onChange({ interval: clampNumber(event.target.value, 5, 2, 15) })}
+                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </label>
 
-            <div className="grid grid-cols-1 gap-2">
-                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
-                    <span className="text-sm font-bold text-slate-800">Infinite marquee</span>
-                    <input
-                        type="checkbox"
-                        checked={value.infiniteScroll}
-                        onChange={(event) => onChange({ infiniteScroll: event.target.checked })}
-                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                    />
-                </label>
-                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
-                    <span className="text-sm font-bold text-slate-800">Loop carousel controls</span>
-                    <input
-                        type="checkbox"
-                        checked={value.loopScroll}
-                        onChange={(event) => onChange({ loopScroll: event.target.checked })}
-                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                    />
-                </label>
-            </div>
+                            <div className="grid grid-cols-1 gap-2">
+                                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
+                                    <span className="text-sm font-bold text-slate-800">Infinite marquee</span>
+                                    <input
+                                        type="checkbox"
+                                        checked={value.infiniteScroll}
+                                        onChange={(event) => onChange({ infiniteScroll: event.target.checked })}
+                                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                    />
+                                </label>
+
+                                {!value.infiniteScroll && (
+                                    <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
+                                        <span className="text-sm font-bold text-slate-800">Loop carousel controls</span>
+                                        <input
+                                            type="checkbox"
+                                            checked={value.loopScroll}
+                                            onChange={(event) => onChange({ loopScroll: event.target.checked })}
+                                            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                    </label>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </>
+            )}
         </div>
     );
+}
+
+function isTestimonialDisplaySectionVisible(variant: string): boolean {
+    return variant === 'cards' || variant === 'scroll';
 }
 
 function normalizeItems(value: unknown, defaults: ManagedItem[]): ManagedItem[] {

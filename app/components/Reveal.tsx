@@ -8,9 +8,11 @@ interface RevealProps {
   children: React.ReactNode;
   className?: string;
   delay?: number;
+  onDragOver?: React.DragEventHandler<HTMLDivElement>;
+  onDrop?: React.DragEventHandler<HTMLDivElement>;
 }
 
-export default function Reveal({ children, className = '', delay }: RevealProps) {
+export default function Reveal({ children, className = '', delay, onDragOver, onDrop }: RevealProps) {
   const context = useEditorContext();
   const isEditMode = context?.isEditMode || false;
 
@@ -28,6 +30,8 @@ export default function Reveal({ children, className = '', delay }: RevealProps)
       className={className}
       transition={delay ? { delay } : undefined}
       {...animationProps}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
     >
       {children}
     </motion.div>

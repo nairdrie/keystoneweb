@@ -4,6 +4,7 @@ import React from 'react';
 import EditableText from '../EditableText';
 import EditableButton from '../EditableButton';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import InlineCardControls, { reorderItems } from './InlineCardControls';
 
 interface PricingBlockProps {
     id: string;
@@ -18,6 +19,8 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
     const pSecondary = palette.secondary || '#dc2626';
     const pAccent = palette.accent || '#f3f4f6';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '');
+    const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
+    const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
 
     const variant = data.variant || 'cards'; // 'cards' | 'comparison' | 'simple'
 
@@ -65,6 +68,54 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
         updateContent('tiers', newTiers);
     };
 
+    const handleRemoveTier = (index: number) => {
+        if (tiers.length <= 1) return;
+        updateContent('tiers', tiers.filter((_: any, i: number) => i !== index));
+    };
+
+    const handleReorderTier = (fromIndex: number, toIndex: number) => {
+        updateContent('tiers', reorderItems(tiers, fromIndex, toIndex));
+    };
+
+    const getTierDragHandlers = (index: number) => ({
+        onDragOver: (event: React.DragEvent) => {
+            if (!isEditMode || draggedIndex === null) return;
+            event.preventDefault();
+            setDragOverIndex(index);
+        },
+        onDrop: (event: React.DragEvent) => {
+            if (!isEditMode || draggedIndex === null) return;
+            event.preventDefault();
+            handleReorderTier(draggedIndex, index);
+            setDraggedIndex(null);
+            setDragOverIndex(null);
+        },
+    });
+
+    const renderTierControls = (index: number) => isEditMode ? (
+        <InlineCardControls
+            canRemove={tiers.length > 1}
+            dragData={`pricing-tier-${index}`}
+            dragTitle="Drag to reorder pricing card"
+            removeTitle="Delete pricing card"
+            onDragStart={() => {
+                setDraggedIndex(index);
+                setDragOverIndex(null);
+            }}
+            onDragEnd={() => {
+                setDraggedIndex(null);
+                setDragOverIndex(null);
+            }}
+            onRemove={() => handleRemoveTier(index)}
+        />
+    ) : null;
+
+    const getTierStateClass = (index: number) => {
+        const isDragging = draggedIndex === index;
+        const isDragTarget = dragOverIndex === index && draggedIndex !== index;
+        return `${isDragTarget ? 'border-blue-300 ring-2 ring-blue-100' : ''} ${isDragging ? 'scale-[0.99] opacity-60' : ''}`;
+    };
+
     if (variant === 'simple') {
         return (
             <section className="py-24" style={{ backgroundColor: bgColor || '#ffffff' }}>
@@ -93,9 +144,11 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                         {tiers.map((tier: any, index: number) => (
                             <div
                                 key={index}
-                                className={`flex items-center justify-between p-6 rounded-xl border ${tier.highlighted ? 'border-2 shadow-md' : 'border-gray-200'}`}
+                                className={`group/card relative flex items-center justify-between p-6 rounded-xl border transition-[border-color,box-shadow,opacity,transform] ${tier.highlighted ? 'border-2 shadow-md' : 'border-gray-200'} ${getTierStateClass(index)}`}
                                 style={tier.highlighted ? { borderColor: pSecondary } : {}}
+                                {...getTierDragHandlers(index)}
                             >
+                                {renderTierControls(index)}
                                 <div>
                                     <EditableText
                                         as="h3"
@@ -181,9 +234,11 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                     {tiers.map((tier: any, index: number) => (
                         <div
                             key={index}
-                            className={`relative flex flex-col bg-white rounded-2xl p-8 shadow-sm border-2 transition-shadow hover:shadow-lg ${tier.highlighted ? 'ring-2 scale-105 shadow-lg' : ''}`}
+                            className={`group/card relative flex flex-col bg-white rounded-2xl p-8 shadow-sm border-2 transition-[border-color,box-shadow,opacity,transform] hover:shadow-lg ${tier.highlighted ? 'ring-2 scale-105 shadow-lg' : ''} ${getTierStateClass(index)}`}
                             style={tier.highlighted ? { borderColor: pSecondary, '--tw-ring-color': pSecondary } as React.CSSProperties : { borderColor: '#e5e7eb' }}
+                            {...getTierDragHandlers(index)}
                         >
+                            {renderTierControls(index)}
                             {tier.highlighted && (
                                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-white text-xs font-bold uppercase tracking-wider" style={{ backgroundColor: pSecondary }}>
                                     Most Popular

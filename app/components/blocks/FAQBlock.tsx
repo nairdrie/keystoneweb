@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import EditableText from '../EditableText';
-import { ChevronDown, GripVertical, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import InlineCardControls from './InlineCardControls';
 
 interface FAQItem {
     question: string;
@@ -104,7 +105,7 @@ export default function FAQBlock({ data, isEditMode, palette, updateContent }: F
                         return (
                             <div
                                 key={index}
-                                className={`faq-item relative border rounded-xl bg-white transition-[border-color,box-shadow,opacity,transform] ${
+                                className={`faq-item group/card relative border rounded-xl bg-white transition-[border-color,box-shadow,opacity,transform] ${
                                     isDragTarget ? 'border-blue-300 shadow-md ring-2 ring-blue-100' : 'border-gray-200'
                                 } ${isDragging ? 'scale-[0.99] opacity-60' : ''} ${isEditMode ? 'overflow-visible' : 'overflow-hidden'}`}
                                 onDragOver={(event) => {
@@ -120,10 +121,27 @@ export default function FAQBlock({ data, isEditMode, palette, updateContent }: F
                                     setDragOverIndex(null);
                                 }}
                             >
+                                {isEditMode && (
+                                    <InlineCardControls
+                                        canRemove={items.length > 1}
+                                        dragData={`faq-${index}`}
+                                        dragTitle="Drag to reorder FAQ"
+                                        removeTitle="Delete FAQ"
+                                        onDragStart={() => {
+                                            setDraggedIndex(index);
+                                            setDragOverIndex(null);
+                                        }}
+                                        onDragEnd={() => {
+                                            setDraggedIndex(null);
+                                            setDragOverIndex(null);
+                                        }}
+                                        onRemove={() => handleRemoveItem(index)}
+                                    />
+                                )}
                                 <div className="relative z-10 flex items-stretch overflow-visible">
                                     <button
                                         onClick={() => setOpenIndex(isOpen ? null : index)}
-                                        className="flex-1 flex items-center justify-between overflow-visible p-5 text-left hover:bg-gray-50 transition-colors"
+                                        className={`flex-1 flex items-center justify-between overflow-visible p-5 text-left hover:bg-gray-50 transition-colors ${isEditMode ? 'pr-20' : ''}`}
                                     >
                                         <EditableText
                                             as="span"
@@ -139,37 +157,6 @@ export default function FAQBlock({ data, isEditMode, palette, updateContent }: F
                                             className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
                                         />
                                     </button>
-                                    {isEditMode && (
-                                        <div className="flex border-l border-gray-200">
-                                            <button
-                                                type="button"
-                                                draggable
-                                                onDragStart={(event) => {
-                                                    event.dataTransfer.effectAllowed = 'move';
-                                                    event.dataTransfer.setData('text/plain', String(index));
-                                                    setDraggedIndex(index);
-                                                    setDragOverIndex(null);
-                                                }}
-                                                onDragEnd={() => {
-                                                    setDraggedIndex(null);
-                                                    setDragOverIndex(null);
-                                                }}
-                                                className="px-3 text-slate-300 transition-colors hover:bg-slate-50 hover:text-slate-600 active:cursor-grabbing"
-                                                title="Drag to reorder FAQ"
-                                                aria-label="Drag to reorder FAQ"
-                                            >
-                                                <GripVertical className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleRemoveItem(index)}
-                                                className="border-l border-gray-200 px-3 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
-                                                title="Remove FAQ"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    )}
                                 </div>
                                 <div
                                     className={`transition-all duration-200 ${isOpen ? `max-h-96 ${isEditMode ? 'overflow-visible' : 'overflow-hidden'}` : 'max-h-0 overflow-hidden'}`}

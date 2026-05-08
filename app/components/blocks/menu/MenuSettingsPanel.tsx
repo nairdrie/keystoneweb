@@ -11,7 +11,13 @@ import {
     getColorInputValue,
     useInspectorSectionState,
 } from '../panel-shared';
+import { LayoutTab, ResponsiveColumnsControl } from '../layout/LayoutTab';
 import type { BlockPanelProps } from '../block-panel-registry';
+import {
+    areSectionSettingsEqual,
+    normalizeSectionSettings,
+    type SectionSettings,
+} from '@/lib/builder/layout-settings';
 
 const MENU_VARIANTS = [
     { id: 'list', label: 'Classic List' },
@@ -22,7 +28,8 @@ const MENU_VARIANTS = [
 
 const SECTION_IDS = [
     'content-source',
-    'layout',
+    'universal-layout',
+    'block-layout',
     'preview',
     'display',
     'menu-icons',
@@ -180,6 +187,10 @@ export default function MenuSettingsPanel({
     onDraftBlockDataChange,
 }: BlockPanelProps) {
     const context = useEditorContext();
+    const persistedSectionSettings = useMemo(
+        () => normalizeSectionSettings(blockData?.sectionSettings),
+        [blockData?.sectionSettings],
+    );
 
     // Local CSS draft (mirrors prior behavior — committed via batch)
     const [localCss, setLocalCss] = useState(customCss);
@@ -209,6 +220,7 @@ export default function MenuSettingsPanel({
     const [menuItemDetailImageFit, setMenuItemDetailImageFit] = useState<string>(blockData?.itemDetailImageFit || 'contain');
     const [menuItemDetailCaptionBg, setMenuItemDetailCaptionBg] = useState<string>(blockData?.itemDetailCaptionBg || '#0f172a');
     const [menuItemDetailTextColor, setMenuItemDetailTextColor] = useState<string>(blockData?.itemDetailTextColor || '#ffffff');
+    const [sectionSettings, setSectionSettings] = useState<SectionSettings>(persistedSectionSettings);
     const [menuPreviewSection, setMenuPreviewSection] = useState<string>('');
     const [menuSections, setMenuSections] = useState<string[]>([]);
     const [menuIconOptions, setMenuIconOptions] = useState<MenuIconOptionSource[]>(DEFAULT_MENU_ICON_OPTIONS);
@@ -284,6 +296,7 @@ export default function MenuSettingsPanel({
             itemDetailImageFit: menuItemDetailImageFit,
             itemDetailCaptionBg: menuItemDetailCaptionBg,
             itemDetailTextColor: menuItemDetailTextColor,
+            sectionSettings,
             __customCss: localCss,
             __previewMenuSection: menuPreviewSection || undefined,
         });
@@ -314,6 +327,7 @@ export default function MenuSettingsPanel({
         menuItemDetailImageFit,
         menuItemDetailCaptionBg,
         menuItemDetailTextColor,
+        sectionSettings,
         localCss,
         menuPreviewSection,
         onDraftBlockDataChange,
@@ -392,6 +406,7 @@ export default function MenuSettingsPanel({
         menuItemDetailImageFit !== (blockData?.itemDetailImageFit || 'contain') ||
         menuItemDetailCaptionBg !== (blockData?.itemDetailCaptionBg || '#0f172a') ||
         menuItemDetailTextColor !== (blockData?.itemDetailTextColor || '#ffffff') ||
+        !areSectionSettingsEqual(sectionSettings, persistedSectionSettings) ||
         localCss !== customCss
     ), [
         blockData,
@@ -420,9 +435,20 @@ export default function MenuSettingsPanel({
         menuItemDetailImageFit,
         menuItemDetailCaptionBg,
         menuItemDetailTextColor,
+        sectionSettings,
+        persistedSectionSettings,
         localCss,
         customCss,
     ]);
+
+    const updateSectionLayout = (patch: Partial<SectionSettings['layout']>) => {
+        setSectionSettings((current) => ({
+            layout: {
+                ...normalizeSectionSettings(current).layout,
+                ...patch,
+            },
+        }));
+    };
 
     const handleSave = () => {
         const updates: Record<string, unknown> = {
@@ -452,6 +478,9 @@ export default function MenuSettingsPanel({
             itemDetailCaptionBg: menuItemDetailCaptionBg,
             itemDetailTextColor: menuItemDetailTextColor,
         };
+        if (!areSectionSettingsEqual(sectionSettings, persistedSectionSettings)) {
+            updates.sectionSettings = normalizeSectionSettings(sectionSettings);
+        }
         if (localCss !== customCss) {
             updates['__customCss'] = localCss;
         }
@@ -487,7 +516,9 @@ export default function MenuSettingsPanel({
         setMenuItemDetailImageFit('contain');
         setMenuItemDetailCaptionBg('#0f172a');
         setMenuItemDetailTextColor('#ffffff');
+        setSectionSettings(persistedSectionSettings);
         setLocalCss('');
+        sectionState.reset();
     };
 
     return (
@@ -537,31 +568,52 @@ export default function MenuSettingsPanel({
             </InspectorSection>
 
             <InspectorSection
-                id="layout"
+                id="universal-layout"
                 title="Layout"
-                isCollapsed={sectionState.isCollapsed('layout')}
-                onToggle={() => sectionState.toggle('layout')}
+                isCollapsed={sectionState.isCollapsed('universal-layout')}
+                onToggle={() => sectionState.toggle('universal-layout')}
             >
-                <div className="grid grid-cols-2 gap-3">
-                    {MENU_VARIANTS.map((variantOption) => {
-                        const isSelected = menuVariant === variantOption.id;
-                        return (
-                            <button
-                                key={variantOption.id}
-                                type="button"
-                                onClick={() => setMenuVariantDraft(variantOption.id)}
-                                aria-pressed={isSelected}
-                                className={`rounded-xl border p-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                    isSelected
-                                        ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600'
-                                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                                }`}
-                            >
-                                <MenuLayoutThumbnail variant={variantOption.id} active={isSelected} />
-                                <span className="mt-3 block text-sm font-bold text-slate-900">{variantOption.label}</span>
-                            </button>
-                        );
-                    })}
+                <LayoutTab
+                    blockId={blockId}
+                    blockType="menu"
+                    value={sectionSettings}
+                    onChange={setSectionSettings}
+                />
+            </InspectorSection>
+
+            <InspectorSection
+                id="block-layout"
+                title="Block Layout"
+                isCollapsed={sectionState.isCollapsed('block-layout')}
+                onToggle={() => sectionState.toggle('block-layout')}
+            >
+                <div className="space-y-5">
+                    <div className="grid grid-cols-2 gap-3">
+                        {MENU_VARIANTS.map((variantOption) => {
+                            const isSelected = menuVariant === variantOption.id;
+                            return (
+                                <button
+                                    key={variantOption.id}
+                                    type="button"
+                                    onClick={() => setMenuVariantDraft(variantOption.id)}
+                                    aria-pressed={isSelected}
+                                    className={`rounded-xl border p-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                        isSelected
+                                            ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600'
+                                            : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <MenuLayoutThumbnail variant={variantOption.id} active={isSelected} />
+                                    <span className="mt-3 block text-sm font-bold text-slate-900">{variantOption.label}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <ResponsiveColumnsControl
+                        value={sectionSettings.layout.columns}
+                        onChange={(columns) => updateSectionLayout({ columns })}
+                    />
                 </div>
             </InspectorSection>
 

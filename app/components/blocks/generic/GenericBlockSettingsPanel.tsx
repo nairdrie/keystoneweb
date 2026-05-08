@@ -12,7 +12,15 @@ import {
     getColorInputValue,
     useInspectorSectionState,
 } from '../panel-shared';
+import { LayoutTab, ResponsiveColumnsControl } from '../layout/LayoutTab';
 import type { BlockPanelProps } from '../block-panel-registry';
+import {
+    areSectionSettingsEqual,
+    getLayoutCapabilities,
+    getLayoutColumnLimit,
+    normalizeSectionSettings,
+    type SectionSettings,
+} from '@/lib/builder/layout-settings';
 
 type SettingValue = string | number | boolean;
 type DraftSettings = Record<string, SettingValue>;
@@ -495,21 +503,36 @@ export default function GenericBlockSettingsPanel({
     const context = useEditorContext();
     const layoutFields = useMemo(() => LAYOUT_FIELDS[blockType] || EMPTY_LAYOUT_FIELDS, [blockType]);
     const displayControls = useMemo(() => DISPLAY_CONTROLS[blockType] || EMPTY_DISPLAY_CONTROLS, [blockType]);
+    const visibleDisplayControls = useMemo(
+        () => displayControls.filter((control) => control.key !== 'columns'),
+        [displayControls],
+    );
     const colorFields = useMemo(() => getColorFields(blockType), [blockType]);
+    const layoutCapabilities = useMemo(() => getLayoutCapabilities(blockType), [blockType]);
+    const hasColumnLayoutControl = layoutCapabilities.supportsColumns;
+    const maxColumnCount = useMemo(
+        () => getLayoutColumnLimit(blockType, blockData),
+        [blockType, blockData],
+    );
     const initialDraft = useMemo(
         () => buildInitialDraft(blockType, blockData || {}, customCss, layoutFields, displayControls, colorFields),
         [blockType, blockData, customCss, layoutFields, displayControls, colorFields],
     );
+    const persistedSectionSettings = useMemo(
+        () => normalizeSectionSettings(blockData?.sectionSettings),
+        [blockData?.sectionSettings],
+    );
     const [draft, setDraft] = useState<DraftSettings>(initialDraft);
+    const [sectionSettings, setSectionSettings] = useState<SectionSettings>(persistedSectionSettings);
 
     const sectionIds = useMemo(() => {
-        const ids: string[] = [];
-        if (layoutFields.length > 0) ids.push('layout');
-        if (displayControls.length > 0) ids.push('display');
+        const ids: string[] = ['universal-layout'];
+        if (layoutFields.length > 0 || hasColumnLayoutControl) ids.push('block-layout');
+        if (visibleDisplayControls.length > 0) ids.push('display');
         if (colorFields.length > 0) ids.push('style');
         ids.push('advanced');
         return ids;
-    }, [layoutFields.length, displayControls.length, colorFields.length]);
+    }, [layoutFields.length, hasColumnLayoutControl, visibleDisplayControls.length, colorFields.length]);
 
     const sectionState = useInspectorSectionState(sectionIds, true);
 
@@ -518,22 +541,35 @@ export default function GenericBlockSettingsPanel({
         onDraftBlockDataChange({
             ...(blockData || {}),
             ...draft,
+            sectionSettings,
         });
-    }, [blockData, draft, onDraftBlockDataChange]);
+    }, [blockData, draft, sectionSettings, onDraftBlockDataChange]);
 
     const hasUnsavedChanges = useMemo(
-        () => !areRecordsEqual(draft, initialDraft),
-        [draft, initialDraft],
+        () => !areRecordsEqual(draft, initialDraft) || !areSectionSettingsEqual(sectionSettings, persistedSectionSettings),
+        [draft, initialDraft, sectionSettings, persistedSectionSettings],
     );
 
     const updateDraft = (key: string, value: SettingValue) => {
         setDraft((current) => ({ ...current, [key]: value }));
     };
 
+    const updateSectionLayout = (patch: Partial<SectionSettings['layout']>) => {
+        setSectionSettings((current) => ({
+            layout: {
+                ...normalizeSectionSettings(current).layout,
+                ...patch,
+            },
+        }));
+    };
+
     const handleSave = () => {
         const updates: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(draft)) {
             if (!areValuesEqual(value, initialDraft[key])) updates[key] = value;
+        }
+        if (!areSectionSettingsEqual(sectionSettings, persistedSectionSettings)) {
+            updates.sectionSettings = normalizeSectionSettings(sectionSettings);
         }
         if (Object.keys(updates).length > 0 && context?.updateBlockDataBatch) {
             context.updateBlockDataBatch(blockId, updates);
@@ -543,6 +579,7 @@ export default function GenericBlockSettingsPanel({
 
     const handleReset = () => {
         setDraft(initialDraft);
+        setSectionSettings(persistedSectionSettings);
         sectionState.reset();
     };
 
@@ -564,12 +601,26 @@ export default function GenericBlockSettingsPanel({
             onToggleAllCollapsed={() => sectionState.setAll(!sectionState.allCollapsed)}
             tourId="generic-block-settings-panel"
         >
-            {layoutFields.length > 0 && (
+            <InspectorSection
+                id="universal-layout"
+                title="Layout"
+                isCollapsed={sectionState.isCollapsed('universal-layout')}
+                onToggle={() => sectionState.toggle('universal-layout')}
+            >
+                <LayoutTab
+                    blockId={blockId}
+                    blockType={blockType}
+                    value={sectionSettings}
+                    onChange={setSectionSettings}
+                />
+            </InspectorSection>
+
+            {(layoutFields.length > 0 || hasColumnLayoutControl) && (
                 <InspectorSection
-                    id="layout"
-                    title="Layout"
-                    isCollapsed={sectionState.isCollapsed('layout')}
-                    onToggle={() => sectionState.toggle('layout')}
+                    id="block-layout"
+                    title="Block Layout"
+                    isCollapsed={sectionState.isCollapsed('block-layout')}
+                    onToggle={() => sectionState.toggle('block-layout')}
                 >
                     <div className="space-y-5">
                         {layoutFields.map((field) => (
@@ -580,11 +631,19 @@ export default function GenericBlockSettingsPanel({
                                 onChange={(value) => updateDraft(field.key, value)}
                             />
                         ))}
+
+                        {hasColumnLayoutControl && (
+                            <ResponsiveColumnsControl
+                                value={sectionSettings.layout.columns}
+                                onChange={(columns) => updateSectionLayout({ columns })}
+                                maxColumns={maxColumnCount}
+                            />
+                        )}
                     </div>
                 </InspectorSection>
             )}
 
-            {displayControls.length > 0 && (
+            {visibleDisplayControls.length > 0 && (
                 <InspectorSection
                     id="display"
                     title="Display"
@@ -592,7 +651,7 @@ export default function GenericBlockSettingsPanel({
                     onToggle={() => sectionState.toggle('display')}
                 >
                     <div className="space-y-4">
-                        {displayControls
+                        {visibleDisplayControls
                             .filter((control) => shouldShowControl(control, draft))
                             .map((control) => (
                                 <DisplayControlRow

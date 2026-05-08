@@ -1,12 +1,13 @@
 'use client';
 
 import React from 'react';
-import { Plus, Trash2, User } from 'lucide-react';
+import { Plus, User } from 'lucide-react';
 import EditableText from '../EditableText';
 import EditableImage from '../EditableImage';
 import { useEditorContext } from '@/lib/editor-context';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import type { ImageSettings } from '../ImageEditorModal';
+import InlineCardControls, { reorderItems } from './InlineCardControls';
 
 interface TeamMember {
     name: string;
@@ -48,6 +49,8 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
 
     const variant = typeof data.variant === 'string' ? data.variant : 'grid'; // 'grid' | 'cards' | 'minimal'
     const showBio = data.showBio !== false; // Default to true if not specified
+    const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
+    const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
 
     const members = Array.isArray(data.members) ? data.members : DEFAULT_TEAM_MEMBERS;
 
@@ -67,6 +70,49 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
 
     const handleRemoveMember = (index: number) => {
         updateContent('members', members.filter((_, i) => i !== index));
+    };
+
+    const handleReorderMember = (fromIndex: number, toIndex: number) => {
+        updateContent('members', reorderItems(members, fromIndex, toIndex));
+    };
+
+    const getMemberDragHandlers = (index: number) => ({
+        onDragOver: (event: React.DragEvent) => {
+            if (!isEditMode || draggedIndex === null) return;
+            event.preventDefault();
+            setDragOverIndex(index);
+        },
+        onDrop: (event: React.DragEvent) => {
+            if (!isEditMode || draggedIndex === null) return;
+            event.preventDefault();
+            handleReorderMember(draggedIndex, index);
+            setDraggedIndex(null);
+            setDragOverIndex(null);
+        },
+    });
+
+    const renderMemberControls = (index: number) => isEditMode ? (
+        <InlineCardControls
+            canRemove={members.length > 1}
+            dragData={`member-${index}`}
+            dragTitle="Drag to reorder team member"
+            removeTitle="Delete team member"
+            onDragStart={() => {
+                setDraggedIndex(index);
+                setDragOverIndex(null);
+            }}
+            onDragEnd={() => {
+                setDraggedIndex(null);
+                setDragOverIndex(null);
+            }}
+            onRemove={() => handleRemoveMember(index)}
+        />
+    ) : null;
+
+    const getMemberCardStateClass = (index: number) => {
+        const isDragging = draggedIndex === index;
+        const isDragTarget = dragOverIndex === index && draggedIndex !== index;
+        return `${isDragTarget ? 'ring-2 ring-blue-100 border-blue-300' : ''} ${isDragging ? 'scale-[0.99] opacity-60' : ''}`;
     };
 
     const getGridCols = (fallback2: string, fallback3: string, fallback4: string) => {
@@ -95,16 +141,12 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                     />
                     <div className="space-y-8">
                         {members.map((member, index) => (
-                            <div key={index} className="flex items-center gap-6 group relative">
-                                {isEditMode && (
-                                    <button
-                                        onClick={() => handleRemoveMember(index)}
-                                        className="absolute -top-2 -right-2 z-10 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-sm transition-colors"
-                                        title="Remove member"
-                                    >
-                                        <Trash2 className="w-3 h-3" />
-                                    </button>
-                                )}
+                            <div
+                                key={index}
+                                className={`flex items-center gap-6 group/card relative rounded-xl border border-transparent p-2 transition-[border-color,box-shadow,opacity,transform] ${getMemberCardStateClass(index)}`}
+                                {...getMemberDragHandlers(index)}
+                            >
+                                {renderMemberControls(index)}
                                 <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-full">
                                     <EditableImage
                                         contentKey={`member_${index}_image`}
@@ -200,16 +242,12 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                     />
                     <div className={`grid gap-8 ${getGridCols('md:grid-cols-2 max-w-4xl mx-auto', 'md:grid-cols-3', 'md:grid-cols-2 lg:grid-cols-4')}`}>
                         {members.map((member, index) => (
-                            <div key={index} className="relative bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-lg transition-shadow">
-                                {isEditMode && (
-                                    <button
-                                        onClick={() => handleRemoveMember(index)}
-                                        className="absolute top-2 right-2 z-10 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-sm transition-colors"
-                                        title="Remove member"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                )}
+                            <div
+                                key={index}
+                                className={`relative group/card bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-lg transition-[border-color,box-shadow,opacity,transform] ${getMemberCardStateClass(index)}`}
+                                {...getMemberDragHandlers(index)}
+                            >
+                                {renderMemberControls(index)}
                                 <div className="h-64 w-full flex-shrink-0">
                                     <EditableImage
                                         contentKey={`member_${index}_image`}
@@ -304,17 +342,13 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                 />
                 <div className={`grid gap-12 ${getGridCols('md:grid-cols-2 max-w-3xl mx-auto', 'md:grid-cols-3', 'grid-cols-2 md:grid-cols-4')}`}>
                     {members.map((member, index) => (
-                        <div key={index} className="text-center group relative">
-                            {isEditMode && (
-                                <button
-                                    onClick={() => handleRemoveMember(index)}
-                                    className="absolute -top-2 right-0 z-10 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-sm transition-colors"
-                                    title="Remove member"
-                                >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                            )}
-                            <div className="mx-auto mb-4 h-32 w-32 overflow-hidden rounded-full bg-gray-200 ring-4 ring-white shadow-lg transition-transform group-hover:scale-105">
+                        <div
+                            key={index}
+                            className={`text-center group/card relative rounded-2xl border border-transparent p-2 transition-[border-color,box-shadow,opacity,transform] ${getMemberCardStateClass(index)}`}
+                            {...getMemberDragHandlers(index)}
+                        >
+                            {renderMemberControls(index)}
+                            <div className="mx-auto mb-4 h-32 w-32 overflow-hidden rounded-full bg-gray-200 ring-4 ring-white shadow-lg transition-transform group-hover/card:scale-105">
                                 <EditableImage
                                     contentKey={`member_${index}_image`}
                                     initialSettings={getImageSettings(data, `member_${index}_image__settings`)}

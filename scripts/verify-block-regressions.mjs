@@ -71,6 +71,12 @@ requireSnippets('app/components/blocks/RepeatableItemsSettingsPanel.tsx', [
   'autoScroll',
   'infiniteScroll',
   'loopScroll',
+  'isTestimonialDisplaySectionVisible',
+  "const isCardLayout = variant === 'cards';",
+  "const isScrollLayout = variant === 'scroll';",
+  '{value.showMoreEnabled && (',
+  '{value.autoScroll && (',
+  '{!value.infiniteScroll && (',
 ], failures);
 
 const mapSource = read('app/components/blocks/MapBlock.tsx');
@@ -111,7 +117,74 @@ requireSnippets('app/components/blocks/block-registry.ts', [
 
 requireSnippets('app/components/blocks/block-panel-registry.tsx', [
   'membershipGate: {',
-  'hideSettingsButton: true',
+  "primaryButton: { label: 'Settings', icon: Settings }",
+], failures);
+
+requireSnippets('app/components/blocks/hero/HeroSettingsPanel.tsx', [
+  "const HERO_DRAFT_UPDATE_EVENT = 'ks:hero-draft-update';",
+  'const cardsRef = useRef<HeroCard[]>(persistedData.cards);',
+  'cardsRef.current = next;',
+  'window.addEventListener(HERO_DRAFT_UPDATE_EVENT, handler);',
+  'const cardsToSave = cardsRef.current;',
+  'cards: cardsToSave,',
+  'cardsRef.current = persistedData.cards;',
+], failures);
+
+requireSnippets('app/components/blocks/HeroBlock.tsx', [
+  'updateContent?: (key: string, value: unknown) => void;',
+  'const cardsRef = useRef<HeroCard[]>(cards);',
+  'const next = cardsRef.current.map((c, i) => {',
+  "if (updateContent) updateContent('cards', next);",
+  "const nextUrl = String(value ?? '');",
+  'nc.content.image.enabled = true;',
+  "hero-content ${imageOnRight || !showForeground ? 'order-1' : 'order-2'}",
+  "className={imageOnRight ? 'order-2' : 'order-1'}",
+], failures);
+
+requireSnippets('app/components/blocks/BlockWrapperEditor.tsx', [
+  "const HERO_DRAFT_UPDATE_EVENT = 'ks:hero-draft-update';",
+  "settingsOpen && usesPanel && type === 'hero' && key === 'cards'",
+  'window.dispatchEvent(new CustomEvent(HERO_DRAFT_UPDATE_EVENT',
+  "const CONTACT_DRAFT_UPDATE_EVENT = 'ks:contact-draft-update';",
+  "settingsOpen && usesPanel && type === 'contact' && isContactDraftKey(key)",
+  'window.dispatchEvent(new CustomEvent(CONTACT_DRAFT_UPDATE_EVENT',
+  "return key === 'contactItems' || key === 'socialLinks';",
+], failures);
+
+requireSnippets('app/components/blocks/contact/ContactSettingsPanel.tsx', [
+  "const CONTACT_DRAFT_UPDATE_EVENT = 'ks:contact-draft-update';",
+  'window.addEventListener(CONTACT_DRAFT_UPDATE_EVENT, handleCanvasDraftUpdate);',
+  "detail.key === 'contactItems'",
+  "detail.key === 'socialLinks'",
+], failures);
+
+requireSnippets('app/components/blocks/InlineCardControls.tsx', [
+  'GripVertical',
+  'Trash2',
+  'group-hover/card:opacity-100',
+  'export function reorderItems',
+], failures);
+
+for (const file of [
+  'app/components/blocks/ServicesGridBlock.tsx',
+  'app/components/blocks/StatsBlock.tsx',
+  'app/components/blocks/FeaturesListBlock.tsx',
+  'app/components/blocks/TestimonialsBlock.tsx',
+  'app/components/blocks/TeamBlock.tsx',
+  'app/components/blocks/PricingBlock.tsx',
+  'app/components/blocks/CarouselBlock.tsx',
+  'app/components/blocks/ResourcesBlock.tsx',
+]) {
+  requireSnippets(file, [
+    'InlineCardControls',
+    'reorderItems',
+  ], failures);
+}
+
+requireSnippets('app/components/blocks/FAQBlock.tsx', [
+  'InlineCardControls',
+  "dragTitle=\"Drag to reorder FAQ\"",
+  "removeTitle=\"Delete FAQ\"",
 ], failures);
 
 if (failures.length > 0) {
