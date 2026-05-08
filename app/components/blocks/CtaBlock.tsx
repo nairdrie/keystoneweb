@@ -18,11 +18,12 @@ export default function CtaBlock({ id, data, isEditMode, palette, updateContent 
 
     // Allow overriding background color, default to secondary for high impact
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, pSecondary);
+    const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
 
     // Auto-detect text color based on background if we were doing true contrast checking,
     // but for now we'll assume dark background means white text, light background means primary text
     const isDarkBg = bgColor === pSecondary || bgColor === pPrimary;
-    const textColor = isDarkBg ? '#ffffff' : pPrimary;
+    const textColor = fgOverride || (isDarkBg ? '#ffffff' : pPrimary);
     const buttonBgColor = isDarkBg ? '#ffffff' : pSecondary;
     const buttonTextColor = isDarkBg ? pSecondary : '#ffffff';
 

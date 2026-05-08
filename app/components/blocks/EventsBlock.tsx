@@ -40,6 +40,8 @@ export default function EventsBlock({ id, data, isEditMode, palette, updateConte
     const pPrimary = palette.primary || '#1f2937';
     const pAccent = palette.accent || '#f8fafc';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
+    const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
+    const textColor = fgOverride || pPrimary;
 
     const sortOrder: SortOrder = data.sortOrder || 'desc';
     const showPast: boolean = data.showPast ?? false;
@@ -68,7 +70,7 @@ export default function EventsBlock({ id, data, isEditMode, palette, updateConte
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
                         className="text-3xl font-bold text-center mb-2"
-                        style={{ color: pPrimary }}
+                        style={{ color: textColor }}
                     />
                     <EditableText
                         as="p"
@@ -78,7 +80,7 @@ export default function EventsBlock({ id, data, isEditMode, palette, updateConte
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
                         className="text-base text-center mb-10 max-w-xl mx-auto opacity-60"
-                        style={{ color: pPrimary }}
+                        style={{ color: textColor }}
                     />
 
                     <div className="flex flex-col items-center justify-center gap-5 py-10 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
@@ -158,12 +160,12 @@ export default function EventsBlock({ id, data, isEditMode, palette, updateConte
                 {(data.title || data.subtitle) && (
                     <div className="text-center mb-12">
                         {data.title && (
-                            <h2 className="text-3xl sm:text-4xl font-bold mb-3" style={{ color: pPrimary }}>
+                            <h2 className="text-3xl sm:text-4xl font-bold mb-3" style={{ color: textColor }}>
                                 {data.title}
                             </h2>
                         )}
                         {data.subtitle && (
-                            <p className="text-base opacity-60 max-w-xl mx-auto" style={{ color: pPrimary }}>
+                            <p className="text-base opacity-60 max-w-xl mx-auto" style={{ color: textColor }}>
                                 {data.subtitle}
                             </p>
                         )}

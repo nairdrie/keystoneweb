@@ -36,6 +36,7 @@ const DEFAULT_FAQ_ITEMS: FAQItem[] = [
 export default function FAQBlock({ data, isEditMode, palette, updateContent }: FAQBlockProps) {
     const pPrimary = palette.primary || '#1f2937';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
+    const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
     const [openIndex, setOpenIndex] = useState<number | null>(0);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -84,7 +85,7 @@ export default function FAQBlock({ data, isEditMode, palette, updateContent }: F
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
                     className="text-4xl font-bold text-center mb-4"
-                    style={{ color: pPrimary }}
+                    style={{ color: fgOverride || pPrimary }}
                 />
                 <EditableText
                     as="p"
@@ -94,7 +95,7 @@ export default function FAQBlock({ data, isEditMode, palette, updateContent }: F
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
                     className="text-lg text-center mb-12"
-                    style={{ color: pPrimary, opacity: 0.6 }}
+                    style={{ color: fgOverride || pPrimary, opacity: 0.6 }}
                 />
 
                 <div className="space-y-3">

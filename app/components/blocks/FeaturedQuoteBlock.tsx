@@ -28,7 +28,8 @@ export default function FeaturedQuoteBlock({ id, data, isEditMode, palette, upda
 
     const variant = data.variant || 'centered';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, pAccent);
-    const textColor = readableTextColorForBackground(bgColor, pPrimary);
+    const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
+    const textColor = fgOverride || readableTextColorForBackground(bgColor, pPrimary);
     const accentColor = readableAccentColorForBackground(bgColor, pSecondary, textColor);
 
     if (variant === 'multiGrid') {

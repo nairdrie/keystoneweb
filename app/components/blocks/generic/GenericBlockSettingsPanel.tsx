@@ -897,6 +897,13 @@ function getColorFields(blockType: string): ColorField[] {
             fallback: '#ffffff',
             placeholder: 'Default',
         });
+        fields.push({
+            key: 'foregroundColor',
+            label: 'Section text color',
+            defaultValue: '',
+            fallback: '#0f172a',
+            placeholder: 'Default',
+        });
     }
 
     if (blockType === 'tabBar') {
