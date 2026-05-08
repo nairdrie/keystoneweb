@@ -15,6 +15,7 @@ interface FAQBlockData {
     title?: string;
     subtitle?: string;
     backgroundColor?: string;
+    foregroundColor?: string;
     items?: FAQItem[];
 }
 

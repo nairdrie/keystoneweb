@@ -116,6 +116,7 @@ interface CarouselData {
   autoPlay?: boolean;
   interval?: number;
   backgroundColor?: string;
+  foregroundColor?: string;
   [key: string]: unknown;
 }
 

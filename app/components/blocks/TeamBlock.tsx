@@ -20,6 +20,7 @@ interface TeamBlockData extends Record<string, unknown> {
     title?: string;
     subtitle?: string;
     backgroundColor?: string;
+    foregroundColor?: string;
     variant?: string;
     showBio?: boolean;
     columns?: number | string;
