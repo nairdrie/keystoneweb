@@ -121,7 +121,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
     // "Order Placed!" inline view is kept as a fallback for the rare case we've lost
     // track of the order id mid-flow.
     const redirectToOrderConfirmation = (orderId: string | undefined | null) => {
-        cart.clearCart();
+        cart?.clearCart();
         if (orderId) {
             window.location.assign(`/order-confirmation?orderId=${encodeURIComponent(orderId)}`);
             return;
