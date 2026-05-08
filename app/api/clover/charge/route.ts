@@ -9,6 +9,7 @@ import {
     sendCustomerConfirmation,
     sendOwnerNotification,
 } from '@/lib/email';
+import { buildSiteOrigin } from '@/lib/email/order-tracking-url';
 
 /**
  * POST /api/clover/charge
@@ -156,11 +157,15 @@ export async function POST(request: NextRequest) {
 async function sendCloverOrderEmails(supabase: any, order: any, vendor: any | null) {
     const { data: siteInfo } = await supabase
         .from('sites')
-        .select('site_slug, design_data')
+        .select('site_slug, design_data, published_domain, custom_domain')
         .eq('id', order.site_id)
         .single();
     const siteName = siteInfo?.site_slug || undefined;
     const logoUrl: string | undefined = siteInfo?.design_data?.headerLogo || siteInfo?.design_data?.siteLogo || undefined;
+    const siteOrigin = buildSiteOrigin({
+        customDomain: siteInfo?.custom_domain,
+        publishedDomain: siteInfo?.published_domain,
+    });
 
     const { data: cloverCustomRows } = await supabase
         .from('email_customizations')
@@ -258,6 +263,7 @@ async function sendCloverOrderEmails(supabase: any, order: any, vendor: any | nu
         shippingAddress: order.shipping_address,
         paymentMethod: 'clover',
         siteName,
+        siteOrigin,
         logoUrl,
         overrides: cloverOverrides,
     }).catch(e => console.error(e));
