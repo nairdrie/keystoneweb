@@ -125,7 +125,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                                     isEditMode={isEditMode}
                                     onSave={(_key, value) => handleUpdateItem(index, 'value', value)}
                                     className="text-4xl xl:text-5xl font-black mb-2"
-                                    style={{ color: pSecondary }}
+                                    style={{ color: fgOverride || pSecondary }}
                                 />
                                 <EditableText
                                     as="p"
@@ -135,7 +135,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                                     isEditMode={isEditMode}
                                     onSave={(_key, value) => handleUpdateItem(index, 'label', value)}
                                     className="font-medium text-sm uppercase tracking-wider"
-                                    style={{ color: pPrimary, opacity: 0.7 }}
+                                    style={{ color: fgOverride || pPrimary, opacity: 0.7 }}
                                 />
                             </div>
                             );
@@ -181,7 +181,8 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                                 defaultValue="100+"
                                 isEditMode={isEditMode}
                                 onSave={(_key, value) => handleUpdateItem(index, 'value', value)}
-                                className="text-4xl xl:text-5xl font-black mb-1 text-white"
+                                className="text-4xl xl:text-5xl font-black mb-1"
+                                style={{ color: fgOverride || '#ffffff' }}
                             />
                             <EditableText
                                 as="p"
@@ -190,7 +191,8 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                                 defaultValue="Metric"
                                 isEditMode={isEditMode}
                                 onSave={(_key, value) => handleUpdateItem(index, 'label', value)}
-                                className="text-white/70 font-medium text-sm uppercase tracking-wider"
+                                className="font-medium text-sm uppercase tracking-wider"
+                                style={{ color: fgOverride || '#ffffff', opacity: fgOverride ? 1 : 0.7 }}
                             />
                         </div>
                         );
