@@ -82,11 +82,90 @@ requireSnippets('app/components/blocks/RepeatableItemsSettingsPanel.tsx', [
 const mapSource = read('app/components/blocks/MapBlock.tsx');
 const mapIframeCount = (mapSource.match(/<iframe/g) || []).length;
 if (mapIframeCount !== 1) {
-  failures.push(`app/components/blocks/MapBlock.tsx should render one iframe, found ${mapIframeCount}`);
+  failures.push(`app/components/blocks/MapBlock.tsx should render one Google fallback iframe, found ${mapIframeCount}`);
 }
-if (!mapSource.includes('title={title ||')) {
-  failures.push('app/components/blocks/MapBlock.tsx missing iframe title');
+if (!mapSource.includes("aria-label={settings.title || markerLabel || 'Map'}")) {
+  failures.push('app/components/blocks/MapBlock.tsx missing map aria label');
 }
+for (const snippet of [
+  'normalizeMapSettings',
+  "settings.mapProvider === 'maptiler'",
+  'buildGoogleMapEmbedUrl',
+  'buildGoogleAllLocationsEmbedUrl',
+  "import('maplibre-gl')",
+  'buildMapTilerStyleUrl',
+  'buildMapTilerGeocodingUrl',
+  'getMapTilerKey',
+  'buildDirectionsUrl',
+  'syncMapMarkers',
+  'Number.isFinite(location.latitude)',
+  'showMarkerLabelPill',
+  'settings.showMapDirections',
+  'settings.showCardDirections',
+  "isMapTilerProvider && settings.showAllPinsToggle",
+  'new maplibregl.Map',
+  'map.fitBounds',
+  'map.flyTo',
+  'map.isStyleLoaded()',
+  'applyDarkGreyMapStyle',
+  'buildDirectionsUrl(location.address, location.coordinates)',
+  'settings.mapHeight',
+  'LocationSummaryOverlay',
+  'settings.showLocationCards',
+  'settings.showAllPinsToggle',
+  'buildAllLocationsDirectionsUrl',
+  'All pins',
+  'Selected pin',
+  'settings.requireMapConsent && !mapLoaded',
+  'MapTiler key needed',
+  'MapLibre',
+]) {
+  if (!mapSource.includes(snippet)) failures.push(`app/components/blocks/MapBlock.tsx missing: ${snippet}`);
+}
+
+requireSnippets('app/components/blocks/map/map-config.ts', [
+  "DEFAULT_MAP_PROVIDER: MapProvider = 'google'",
+  "DEFAULT_MAP_STYLE: MapStyle = 'plain'",
+  'LEGACY_STYLE_MAP',
+  'buildGoogleMapEmbedUrl',
+  'buildGoogleAllLocationsEmbedUrl',
+  'buildMapTilerStyleUrl',
+  'buildMapTilerGeocodingUrl',
+  'NEXT_PUBLIC_MAPTILER_KEY',
+  'google.com/maps/dir',
+  'showMapDirections: readOptionalBoolean',
+  'showCardDirections: readOptionalBoolean',
+  "mapTilerId: 'bright-v2'",
+  "mapTilerId: 'dataviz'",
+  "mapTilerId: 'dataviz-dark'",
+], failures);
+
+requireSnippets('app/components/blocks/map/MapSettingsPanel.tsx', [
+  'Map Provider',
+  'MapProviderControl',
+  'Google Maps',
+  'MapTiler Styles',
+  "draft.mapProvider === 'maptiler' && draft.locations.length > 1",
+  'Map height',
+  'Zoom',
+  'Map style',
+  'option.preview',
+  'PlaceSearchField',
+  '/api/seo/places?query=',
+  'latitude: place.latitude',
+  'Use',
+  'Add Location',
+  'Show directions button on map',
+  'Show directions on location cards',
+  'showDirections: draft.showMapDirections || draft.showCardDirections',
+  'Show location cards',
+  'showLocationCards: locations.length > 1 ? true : draft.showLocationCards',
+  'Show all pins toggle',
+  'Start with all pins',
+  'Require consent before loading map',
+  'MapTiler',
+  'MAP_DRAFT_UPDATE_EVENT',
+], failures);
 
 requireSnippets('app/components/blocks/GalleryBlock.tsx', [
   'aria-label={`Open gallery image',
