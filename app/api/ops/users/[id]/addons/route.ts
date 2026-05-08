@@ -1,23 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { createClient } from '@/lib/db/supabase-server';
 import { ADDON_PRICES, type AddonType } from '@/lib/addons';
 import { sendAddonApprovalEmail } from '@/lib/email';
+import { getOpsAccessContext } from '@/lib/ops/access';
 
 const VALID_ADDON_TYPES: AddonType[] = ['extra_sites', 'extra_domains', 'extra_storage', 'extra_ai', 'white_label', 'extra_inbox_email'];
 
 async function getAdminEmail(): Promise<string | null> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-
-  if (!adminEmails.includes(user.email?.toLowerCase() ?? '')) return null;
-  return user.email!;
+  const access = await getOpsAccessContext();
+  if (!access?.isAdmin) return null;
+  return access.userEmail;
 }
 
 /**

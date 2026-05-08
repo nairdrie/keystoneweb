@@ -2,6 +2,7 @@ import { buildMemberEmailHtml, type EmailBranding } from '@/lib/membership/email
 import { resend } from '@/lib/email/resend';
 import { buildOwnerReplyAddress } from '@/lib/email/threading';
 import { buildOrderTrackingUrl } from '@/lib/email/order-tracking-url';
+import { getOpsAdminEmailList } from '@/lib/ops/access';
 
 interface EmailOverrides {
     subject?: string;
@@ -2298,9 +2299,13 @@ export async function sendModerationAlert(data: {
     contentRef: string | null;
     cybertipReportId: string | null;
 }) {
-    const opsEmail = process.env.OPS_ALERT_EMAIL || process.env.OPS_ADMIN_EMAILS?.split(',')[0];
+    let opsEmail = process.env.OPS_ALERT_EMAIL;
     if (!opsEmail) {
-        console.warn('[moderation] OPS_ALERT_EMAIL not configured — skipping moderation alert email');
+        const adminEmails = await getOpsAdminEmailList();
+        opsEmail = adminEmails[0];
+    }
+    if (!opsEmail) {
+        console.warn('[moderation] OPS_ALERT_EMAIL not configured and no admins found — skipping moderation alert email');
         return { success: false };
     }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { requireOpsAccess, getOpsAdminEmails } from '@/lib/ops/access';
+import { requireOpsAccess } from '@/lib/ops/access';
 import {
   LEAD_UPDATABLE_FIELDS,
   isLeadSource,
@@ -271,22 +271,13 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
 
 // Returns the same admin+agent merged list used by /api/ops/launch/[id].
 async function fetchAssigneeOptions(db: ReturnType<typeof createAdminClient>) {
-  const adminEmails = getOpsAdminEmails();
-  const [agentsResult, flaggedAdminsResult, envAdminsResult] = await Promise.all([
+  const [agentsResult, adminsResult] = await Promise.all([
     db.from('users').select('id, email, business_name, is_agent, is_admin').eq('is_agent', true),
     db.from('users').select('id, email, business_name, is_agent, is_admin').eq('is_admin', true),
-    adminEmails.length > 0
-      ? db.from('users').select('id, email, business_name, is_agent, is_admin').in('email', adminEmails)
-      : Promise.resolve({ data: [] as Array<{ id: string; email: string; business_name: string | null; is_agent: boolean; is_admin: boolean }> }),
   ]);
 
   const peopleById = new Map<string, { id: string; email: string; business_name: string | null; is_admin: boolean }>();
-  const all = [
-    ...(agentsResult.data ?? []),
-    ...(flaggedAdminsResult.data ?? []),
-    ...(envAdminsResult.data ?? []),
-  ];
-  for (const row of all) {
+  for (const row of [...(agentsResult.data ?? []), ...(adminsResult.data ?? [])]) {
     if (!row?.id || !row.email) continue;
     const email = String(row.email).toLowerCase();
     const existing = peopleById.get(row.id);
@@ -294,7 +285,7 @@ async function fetchAssigneeOptions(db: ReturnType<typeof createAdminClient>) {
       id: row.id,
       email,
       business_name: row.business_name ?? existing?.business_name ?? null,
-      is_admin: Boolean(row.is_admin || existing?.is_admin || adminEmails.includes(email)),
+      is_admin: Boolean(row.is_admin || existing?.is_admin),
     });
   }
   return [...peopleById.values()].sort((a, b) =>

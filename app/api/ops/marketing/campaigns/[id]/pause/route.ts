@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { createClient } from '@/lib/db/supabase-server';
+import { getOpsAccessContext } from '@/lib/ops/access';
 import { pauseCampaign as pauseGoogleCampaign } from '@/lib/marketing/google-ads';
 import { pauseCampaign as pauseMetaCampaign } from '@/lib/marketing/meta-ads';
 
 async function assertAdmin(): Promise<{ userId: string; email: string } | null> {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
-    const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
-      .split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
-    if (!adminEmails.includes(user.email?.toLowerCase() ?? '')) return null;
-    return { userId: user.id, email: user.email ?? '' };
-  } catch { return null; }
+  const access = await getOpsAccessContext();
+  if (!access?.isAdmin) return null;
+  return { userId: access.userId, email: access.userEmail ?? '' };
 }
 
 export async function POST(

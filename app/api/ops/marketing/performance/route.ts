@@ -1,24 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { createClient } from '@/lib/db/supabase-server';
 
-async function assertAdmin(): Promise<boolean> {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
-    const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
-      .split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
-    return adminEmails.includes(user.email?.toLowerCase() ?? '');
-  } catch { return false; }
-}
 
+
+import { assertOpsAdmin } from '@/lib/ops/access';
 /**
  * GET /api/ops/marketing/performance
  * Aggregated performance across all platform campaigns.
  */
 export async function GET() {
-  if (!await assertAdmin()) {
+  if (!await assertOpsAdmin()) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

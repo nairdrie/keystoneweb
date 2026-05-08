@@ -1,26 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { createClient } from '@/lib/db/supabase-server';
-
-async function assertAdmin(): Promise<boolean> {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
-    const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
-      .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-    return adminEmails.includes(user.email?.toLowerCase() ?? '');
-  } catch {
-    return false;
-  }
-}
+import { assertOpsAdmin } from '@/lib/ops/access';
 
 /**
  * GET /api/ops/support/[id]
  * Returns a single support request including body_html.
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await assertAdmin()) {
+  if (!await assertOpsAdmin()) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -55,7 +42,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
  * Body: { status?, priority?, notes? }
  */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await assertAdmin()) {
+  if (!await assertOpsAdmin()) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -88,7 +75,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
  * Permanently delete a support request.
  */
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await assertAdmin()) {
+  if (!await assertOpsAdmin()) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

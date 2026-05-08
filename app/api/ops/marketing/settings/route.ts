@@ -1,22 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { createClient } from '@/lib/db/supabase-server';
 import { isGoogleAdsConfigured } from '@/lib/marketing/google-ads';
 import { isMetaAdsConfigured } from '@/lib/marketing/meta-ads';
 
-async function assertAdmin(): Promise<boolean> {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
-    const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
-      .split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
-    return adminEmails.includes(user.email?.toLowerCase() ?? '');
-  } catch { return false; }
-}
 
+
+import { assertOpsAdmin } from '@/lib/ops/access';
 export async function GET() {
-  if (!await assertAdmin()) {
+  if (!await assertOpsAdmin()) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -42,7 +33,7 @@ export async function GET() {
 }
 
 export async function PUT(request: NextRequest) {
-  if (!await assertAdmin()) {
+  if (!await assertOpsAdmin()) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
