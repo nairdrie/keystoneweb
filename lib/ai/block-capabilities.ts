@@ -424,8 +424,8 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
     purpose: 'Important metrics or quick credibility markers.',
     fields: [
       { name: 'title', type: 'string' },
-      { name: 'variant', type: 'string', options: ['banner', 'cards'] },
-      { name: 'items', type: 'Array<{ value:string, label:string }>' },
+      { name: 'variant', type: 'string', options: ['banner', 'cards', 'progress'] },
+      { name: 'items', type: 'Array<{ value:string, label:string }>', notes: 'For variant "progress", value should include a percentage (e.g. "95%") that drives bar width; label is the skill or metric name.' },
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: '__customCss', type: 'string' },
     ],

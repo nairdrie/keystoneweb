@@ -123,6 +123,7 @@ const CONFIGS: Record<ManagedBlockType, ManagedBlockConfig> = {
         variants: [
             { id: 'banner', label: 'Horizontal Banner', description: 'Full-width colored band.' },
             { id: 'cards', label: 'Statistic Cards', description: 'Individual cards on a light section.' },
+            { id: 'progress', label: 'Progress Bars', description: 'Skill bars with percentage values on a card.' },
         ],
         defaultVariant: 'banner',
         backgroundFallback: '#ffffff',
