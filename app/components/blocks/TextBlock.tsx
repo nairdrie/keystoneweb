@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import { BlockData, useEditorContext } from '@/lib/editor-context';
 import { useLangPrefix, prefixInternalLinks } from '@/lib/hooks/useLangPrefix';
+import { sanitizeRichHtml } from '@/lib/html-sanitize';
 
 const defaultHtml = `<h2>Rich Text Block</h2><p>Click to edit this rich text content. You can use <strong>bold</strong>, <em>italics</em>, and more.</p>`;
 
@@ -14,7 +15,7 @@ export default function TextBlock({ block, palette }: { block: BlockData; palett
     const langPrefix = useLangPrefix();
 
     const rawHtml = block.data.html !== undefined ? block.data.html : defaultHtml;
-    const html = isEditMode ? rawHtml : prefixInternalLinks(rawHtml, langPrefix);
+    const html = isEditMode ? rawHtml : sanitizeRichHtml(prefixInternalLinks(rawHtml, langPrefix));
 
     if (!isEditMode) {
         return (

@@ -17,6 +17,14 @@ const REPEATABLE_ITEMS_DRAFT_UPDATE_EVENT = 'ks:repeatable-items-draft-update';
 type ManagedBlockType = 'servicesGrid' | 'stats' | 'testimonials' | 'faq';
 type ItemValue = string | number;
 type ManagedItem = Record<string, ItemValue>;
+type TestimonialDisplaySettings = {
+    showMoreEnabled: boolean;
+    visibleCount: number;
+    autoScroll: boolean;
+    interval: number;
+    infiniteScroll: boolean;
+    loopScroll: boolean;
+};
 
 type FieldConfig = {
     key: string;
@@ -161,6 +169,7 @@ const CONFIGS: Record<ManagedBlockType, ManagedBlockConfig> = {
         rowMeta: (item, index) => `${item.role || 'Customer'} - Card ${index + 1}`,
         variants: [
             { id: 'cards', label: 'Multiple Cards', description: 'Several testimonial cards in a grid.' },
+            { id: 'scroll', label: 'Horizontal Scroll', description: 'Scrollable row with optional autoplay.' },
             { id: 'single', label: 'Single Focus', description: 'Feature the first testimonial.' },
         ],
         defaultVariant: 'cards',
@@ -223,6 +232,7 @@ export default function RepeatableItemsSettingsPanel({
     const context = useEditorContext();
     const managedType: ManagedBlockType = isManagedBlockType(blockType) ? blockType : 'servicesGrid';
     const config = CONFIGS[managedType];
+    const hasTestimonialDisplayControls = managedType === 'testimonials';
 
     const persistedItems = useMemo(
         () => normalizeItems(blockData?.items, config.defaultItems),
@@ -232,15 +242,33 @@ export default function RepeatableItemsSettingsPanel({
         ? String(blockData?.variant || config.defaultVariant || config.variants[0].id)
         : '';
     const persistedBackgroundColor = typeof blockData?.backgroundColor === 'string' ? blockData.backgroundColor : '';
+    const persistedDisplaySettings = useMemo<TestimonialDisplaySettings>(() => ({
+        showMoreEnabled: blockData?.showMoreEnabled === true,
+        visibleCount: clampNumber(blockData?.visibleCount, 3, 1, 12),
+        autoScroll: blockData?.autoScroll === true,
+        interval: clampNumber(blockData?.interval, 5, 2, 15),
+        infiniteScroll: blockData?.infiniteScroll === true,
+        loopScroll: blockData?.loopScroll === true,
+    }), [
+        blockData?.showMoreEnabled,
+        blockData?.visibleCount,
+        blockData?.autoScroll,
+        blockData?.interval,
+        blockData?.infiniteScroll,
+        blockData?.loopScroll,
+    ]);
 
     const sectionIds = useMemo(
-        () => config.variants ? ['items', 'layout', 'style', 'advanced'] : ['items', 'style', 'advanced'],
-        [config.variants],
+        () => config.variants
+            ? ['items', 'layout', ...(hasTestimonialDisplayControls ? ['display'] : []), 'style', 'advanced']
+            : ['items', 'style', 'advanced'],
+        [config.variants, hasTestimonialDisplayControls],
     );
     const sectionState = useInspectorSectionState(sectionIds, true);
 
     const [items, setItems] = useState<ManagedItem[]>(persistedItems);
     const [variant, setVariant] = useState<string>(persistedVariant);
+    const [displaySettings, setDisplaySettings] = useState<TestimonialDisplaySettings>(persistedDisplaySettings);
     const [backgroundColor, setBackgroundColor] = useState<string>(persistedBackgroundColor);
     const [localCss, setLocalCss] = useState<string>(customCss);
     const [expandedRows, setExpandedRows] = useState<Set<number>>(() => new Set());
@@ -291,14 +319,16 @@ export default function RepeatableItemsSettingsPanel({
             ...(blockData || {}),
             items,
             ...(config.variants ? { variant } : {}),
+            ...(hasTestimonialDisplayControls ? displaySettings : {}),
             backgroundColor,
             __customCss: localCss,
         });
-    }, [blockData, items, variant, backgroundColor, localCss, config.variants, onDraftBlockDataChange]);
+    }, [blockData, items, variant, displaySettings, backgroundColor, localCss, config.variants, hasTestimonialDisplayControls, onDraftBlockDataChange]);
 
     const hasUnsavedChanges = useMemo(() => (
         JSON.stringify(items) !== JSON.stringify(persistedItems) ||
         (config.variants ? variant !== persistedVariant : false) ||
+        (hasTestimonialDisplayControls ? JSON.stringify(displaySettings) !== JSON.stringify(persistedDisplaySettings) : false) ||
         backgroundColor !== persistedBackgroundColor ||
         localCss !== customCss
     ), [
@@ -307,6 +337,9 @@ export default function RepeatableItemsSettingsPanel({
         config.variants,
         variant,
         persistedVariant,
+        hasTestimonialDisplayControls,
+        displaySettings,
+        persistedDisplaySettings,
         backgroundColor,
         persistedBackgroundColor,
         localCss,
@@ -341,6 +374,11 @@ export default function RepeatableItemsSettingsPanel({
 
         if (backgroundColor !== persistedBackgroundColor) updates.backgroundColor = backgroundColor;
         if (config.variants && variant !== persistedVariant) updates.variant = variant;
+        if (hasTestimonialDisplayControls) {
+            for (const key of Object.keys(displaySettings) as Array<keyof TestimonialDisplaySettings>) {
+                if (displaySettings[key] !== persistedDisplaySettings[key]) updates[key] = displaySettings[key];
+            }
+        }
         if (localCss !== customCss) updates.__customCss = localCss;
         if (Object.keys(updates).length > 0 && context?.updateBlockDataBatch) {
             context.updateBlockDataBatch(blockId, updates);
@@ -353,6 +391,7 @@ export default function RepeatableItemsSettingsPanel({
         structuralItemSnapshotsRef.current = [];
         setItems(persistedItems);
         setVariant(persistedVariant);
+        setDisplaySettings(persistedDisplaySettings);
         setBackgroundColor(persistedBackgroundColor);
         setLocalCss(customCss);
         setExpandedRows(new Set());
@@ -496,6 +535,20 @@ export default function RepeatableItemsSettingsPanel({
                             );
                         })}
                     </div>
+                </InspectorSection>
+            )}
+
+            {hasTestimonialDisplayControls && (
+                <InspectorSection
+                    id="display"
+                    title="Display"
+                    isCollapsed={sectionState.isCollapsed('display')}
+                    onToggle={() => sectionState.toggle('display')}
+                >
+                    <TestimonialDisplayControls
+                        value={displaySettings}
+                        onChange={(updates) => setDisplaySettings((current) => ({ ...current, ...updates }))}
+                    />
                 </InspectorSection>
             )}
 
@@ -725,11 +778,100 @@ function FieldEditor({
     );
 }
 
+function TestimonialDisplayControls({
+    value,
+    onChange,
+}: {
+    value: TestimonialDisplaySettings;
+    onChange: (updates: Partial<TestimonialDisplaySettings>) => void;
+}) {
+    return (
+        <div className="space-y-4">
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
+                <span>
+                    <span className="block text-sm font-bold text-slate-800">Limit visible cards</span>
+                    <span className="block text-xs text-slate-500">Adds a show-more flow on card layouts.</span>
+                </span>
+                <input
+                    type="checkbox"
+                    checked={value.showMoreEnabled}
+                    onChange={(event) => onChange({ showMoreEnabled: event.target.checked })}
+                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+            </label>
+
+            <label className="block">
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">Visible card count</span>
+                <input
+                    type="number"
+                    min={1}
+                    max={12}
+                    value={value.visibleCount}
+                    onChange={(event) => onChange({ visibleCount: clampNumber(event.target.value, 3, 1, 12) })}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+            </label>
+
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
+                <span>
+                    <span className="block text-sm font-bold text-slate-800">Autoplay scroll layout</span>
+                    <span className="block text-xs text-slate-500">Moves horizontal testimonial rows automatically.</span>
+                </span>
+                <input
+                    type="checkbox"
+                    checked={value.autoScroll}
+                    onChange={(event) => onChange({ autoScroll: event.target.checked })}
+                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+            </label>
+
+            <label className="block">
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">Autoplay interval seconds</span>
+                <input
+                    type="number"
+                    min={2}
+                    max={15}
+                    value={value.interval}
+                    onChange={(event) => onChange({ interval: clampNumber(event.target.value, 5, 2, 15) })}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+            </label>
+
+            <div className="grid grid-cols-1 gap-2">
+                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
+                    <span className="text-sm font-bold text-slate-800">Infinite marquee</span>
+                    <input
+                        type="checkbox"
+                        checked={value.infiniteScroll}
+                        onChange={(event) => onChange({ infiniteScroll: event.target.checked })}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                </label>
+                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2">
+                    <span className="text-sm font-bold text-slate-800">Loop carousel controls</span>
+                    <input
+                        type="checkbox"
+                        checked={value.loopScroll}
+                        onChange={(event) => onChange({ loopScroll: event.target.checked })}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                </label>
+            </div>
+        </div>
+    );
+}
+
 function normalizeItems(value: unknown, defaults: ManagedItem[]): ManagedItem[] {
     if (Array.isArray(value) && value.length > 0) {
         return value.map((item) => ({ ...(item as ManagedItem) }));
     }
     return defaults.map((item) => ({ ...item }));
+}
+
+function clampNumber(value: unknown, fallback: number, min: number, max: number): number {
+    const parsed = typeof value === 'number' ? value : parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(max, Math.max(min, parsed));
 }
 
 function cloneItems(items: ManagedItem[]): ManagedItem[] {

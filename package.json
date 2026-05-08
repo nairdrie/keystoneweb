@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "template:previews": "node scripts/generate-template-previews.mjs",
-    "test:ai-builder": "node scripts/verify-ai-builder-capabilities.mjs"
+    "test:ai-builder": "node scripts/verify-ai-builder-capabilities.mjs",
+    "test:blocks": "node scripts/verify-block-regressions.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

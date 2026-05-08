@@ -187,6 +187,8 @@ export default function EstimateFormBlock({ id, data, isEditMode, palette, updat
         setError(null);
 
         try {
+            const submissionName = contactInfo.name.trim() || 'Estimate request';
+            const submissionEmail = contactInfo.email.trim() || 'estimate-request@kswd.ca';
             const metadata: any = {
                 fields: fields.map(f => ({
                     label: f.label,
@@ -194,6 +196,16 @@ export default function EstimateFormBlock({ id, data, isEditMode, palette, updat
                     type: f.type,
                     unit: f.unit || undefined,
                 })),
+                contact: {
+                    name: contactInfo.name.trim() || undefined,
+                    email: contactInfo.email.trim() || undefined,
+                    phone: contactInfo.phone.trim() || undefined,
+                    address: contactInfo.address.trim() || undefined,
+                    preferredDate: contactInfo.preferredDate || undefined,
+                    message: contactInfo.message.trim() || undefined,
+                    usedFallbackName: !contactInfo.name.trim(),
+                    usedFallbackEmail: !contactInfo.email.trim(),
+                },
             };
 
             if (estimate) {
@@ -209,8 +221,8 @@ export default function EstimateFormBlock({ id, data, isEditMode, palette, updat
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     siteId,
-                    name: contactInfo.name,
-                    email: contactInfo.email,
+                    name: submissionName,
+                    email: submissionEmail,
                     phone: contactInfo.phone || undefined,
                     message: contactInfo.message || '',
                     _hp: contactInfo._hp,

@@ -108,7 +108,7 @@ function TextContent({ data, items, isEditMode, updateContent, handleAddItem, ha
                     style={{ color: pPrimary }}
                 />
             </Reveal>
-            {data.description && (
+            {(data.description || isEditMode) && (
                 <Reveal>
                     <EditableText
                         as="p"

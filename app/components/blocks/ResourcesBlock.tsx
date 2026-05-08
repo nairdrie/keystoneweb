@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import { normalizeExternalHref } from '@/lib/url';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -296,7 +297,8 @@ function GridCard({ item, palette }: { item: ResourceItem; palette: Record<strin
     const badge = typeBadgeColors(item.type, item.fileType);
     const [textOpen, setTextOpen] = useState(false);
 
-    const actionHref = item.type === 'file' ? item.fileUrl : item.type === 'link' ? item.url : undefined;
+    const rawActionHref = item.type === 'file' ? item.fileUrl : item.type === 'link' ? item.url : undefined;
+    const actionHref = rawActionHref ? normalizeExternalHref(rawActionHref) : undefined;
     const actionLabel = item.type === 'file' ? 'Download' : item.type === 'link' ? 'Visit' : null;
 
     return (
@@ -380,7 +382,8 @@ function ListRow({ item, palette, isLast }: { item: ResourceItem; palette: Recor
     const badge = typeBadgeColors(item.type, item.fileType);
     const [textOpen, setTextOpen] = useState(false);
 
-    const actionHref = item.type === 'file' ? item.fileUrl : item.type === 'link' ? item.url : undefined;
+    const rawActionHref = item.type === 'file' ? item.fileUrl : item.type === 'link' ? item.url : undefined;
+    const actionHref = rawActionHref ? normalizeExternalHref(rawActionHref) : undefined;
 
     return (
         <div className={`py-5 flex items-start gap-4 ${!isLast ? 'border-b border-slate-100' : ''}`}>

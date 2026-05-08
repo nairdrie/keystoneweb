@@ -31,7 +31,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
     const handleAddItem = () => {
         updateContent('items', [
             ...items,
-            { value: `${items.length + 1}00+`, label: `Metric ${items.length + 1}` },
+            { value: '100+', label: `New Stat ${getNextStatNumber(items)}` },
         ]);
     };
 
@@ -51,7 +51,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
         return (
             <section className="py-20 md:py-12 xl:py-20" style={{ backgroundColor: configuredBackgroundColor || '#ffffff' }}>
                 <div className="max-w-7xl mx-auto px-4">
-                    {data.title && (
+                    {(data.title || isEditMode) && (
                         <EditableText
                             as="h2"
                             contentKey="title"
@@ -165,4 +165,14 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
             </div>
         </section>
     );
+}
+
+function getNextStatNumber(items: Array<{ label?: string }>): number {
+    const existingNumbers = items
+        .map((item) => item.label?.match(/^New Stat (\d+)$/)?.[1])
+        .filter((value): value is string => Boolean(value))
+        .map((value) => Number(value))
+        .filter(Number.isFinite);
+
+    return existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : items.length + 1;
 }

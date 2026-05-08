@@ -20,7 +20,9 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '');
 
     const variant = data.variant || 'inline'; // 'inline' | 'grid' | 'marquee'
-    const logos: string[] = data.logos || [];
+    const logos: string[] = Array.isArray(data.logos)
+        ? data.logos.map((logo: unknown) => typeof logo === 'string' ? logo : '')
+        : [];
     const slots = isEditMode ? Math.max(logos.length + 1, 6) : logos.length;
 
     const handleUpdateLogo = (index: number, value: string) => {
@@ -28,6 +30,14 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
         while (newLogos.length <= index) newLogos.push('');
         newLogos[index] = value;
         updateContent('logos', newLogos);
+    };
+
+    const handleLogoSave = (index: number, key: string, value: unknown) => {
+        if (key === `logo_${index}`) {
+            handleUpdateLogo(index, typeof value === 'string' ? value : '');
+            return;
+        }
+        updateContent(key, value);
     };
 
     if (variant === 'grid') {
@@ -55,7 +65,7 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
                                         initialSettings={data[`logo_${index}__settings`]}
                                         imageUrl={logoUrl}
                                         isEditMode={isEditMode}
-                                        onSave={(_key, value) => handleUpdateLogo(index, value)}
+                                        onSave={(key, value) => handleLogoSave(index, key, value)}
                                         onUpload={context?.uploadImage}
                                         className="h-12 w-auto max-w-[160px] object-contain grayscale hover:grayscale-0 transition-all opacity-60 hover:opacity-100"
                                         placeholder="+ Logo"
@@ -96,7 +106,7 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
                                     initialSettings={data[`logo_${index}__settings`]}
                                     imageUrl={logoUrl}
                                     isEditMode={isEditMode}
-                                    onSave={(_key, value) => handleUpdateLogo(index, value)}
+                                    onSave={(key, value) => handleLogoSave(index, key, value)}
                                     onUpload={context?.uploadImage}
                                     className="h-10 w-auto max-w-[140px] object-contain grayscale opacity-50"
                                     placeholder="+ Logo"
@@ -141,7 +151,7 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
                                 initialSettings={data[`logo_${index}__settings`]}
                                 imageUrl={logoUrl}
                                 isEditMode={isEditMode}
-                                onSave={(_key, value) => handleUpdateLogo(index, value)}
+                                onSave={(key, value) => handleLogoSave(index, key, value)}
                                 onUpload={context?.uploadImage}
                                 className="h-10 w-auto max-w-[140px] object-contain grayscale hover:grayscale-0 transition-all opacity-50 hover:opacity-100"
                                 placeholder="+ Logo"

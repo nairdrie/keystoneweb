@@ -48,12 +48,24 @@ export async function POST(request: NextRequest) {
         let composedMessage = message;
         if (source_type === 'estimate_form' && metadata?.fields && Array.isArray(metadata.fields)) {
             const fieldLines = metadata.fields
-                .map((f: { label: string; value: any; unit?: string }) =>
+                .map((f: { label: string; value: unknown; unit?: string }) =>
                     `${f.label}: ${f.value ?? '—'}${f.unit ? ` ${f.unit}` : ''}`)
                 .join('\n');
             composedMessage = `Estimate form submission:\n${fieldLines}`;
-            if (message && message.trim()) {
-                composedMessage += `\n\nAdditional notes:\n${message}`;
+            const contact = metadata.contact && typeof metadata.contact === 'object' ? metadata.contact : {};
+            const contactLines = [
+                contact.address ? `Address: ${contact.address}` : null,
+                contact.preferredDate ? `Preferred date: ${contact.preferredDate}` : null,
+                contact.phone ? `Phone: ${contact.phone}` : null,
+            ].filter(Boolean);
+            if (contactLines.length > 0) {
+                composedMessage += `\n\nContact details:\n${contactLines.join('\n')}`;
+            }
+            const notes = typeof message === 'string' && message.trim()
+                ? message.trim()
+                : typeof contact.message === 'string' ? contact.message.trim() : '';
+            if (notes) {
+                composedMessage += `\n\nAdditional notes:\n${notes}`;
             }
         }
 

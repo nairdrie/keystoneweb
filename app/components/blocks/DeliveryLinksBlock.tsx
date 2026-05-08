@@ -7,6 +7,7 @@ import EditableText from '../EditableText';
 import Reveal from '@/app/components/Reveal';
 import { AlertTriangle, Plus, Trash2, ExternalLink } from 'lucide-react';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import { normalizeExternalHref } from '@/lib/url';
 import UELogo from '@/assets/UE_logo.png';
 import DDLogo from '@/assets/DD_logo.png';
 import SKLogo from '@/assets/SK_logo.png';
@@ -96,7 +97,8 @@ function DeliveryCard({
   const label = link.label || cfg.name;
   const hasLogo = !!cfg.logoImage;
   const isCustom = link.platform === 'custom';
-  const hasUrl = link.url.trim().length > 0;
+  const href = normalizeExternalHref(link.url);
+  const hasUrl = href.length > 0;
   const shouldWarn = showMissingUrlWarning && !hasUrl;
   const getHByPlatform = (platform: PlatformId) => {
     switch (platform) {
@@ -113,7 +115,7 @@ function DeliveryCard({
   return (
     <div className="relative group/card">
       <a
-        href={hasUrl ? link.url : '#'}
+        href={hasUrl ? href : '#'}
         target={hasUrl ? '_blank' : undefined}
         rel={hasUrl ? 'noopener noreferrer' : undefined}
         onClick={(e) => {

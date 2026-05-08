@@ -254,6 +254,8 @@ export default function BlockWrapperEditor({
 }
 
 function getReadableBlockLabel(type: string): string {
+    if (type === 'membershipGate') return 'Membership Gate';
+
     const label = AVAILABLE_BLOCKS.find(block => block.type === type)?.label || type;
     const cleanLabel = label
         .replace(/[^\x20-\x7E]/g, '')

@@ -79,7 +79,7 @@ export default function CustomHTMLBlock({ block, palette }: { block: BlockData, 
             {isEditing ? (
                 <div className="w-full bg-slate-900 rounded-lg shadow-inner flex flex-col overflow-hidden my-4 border border-slate-700">
                     <div className="bg-slate-800 text-slate-300 px-4 py-3 text-xs font-mono uppercase tracking-wider flex justify-between items-center border-b border-slate-700">
-                        <span>Edit Custom HTML (DOMPurify Sanitized)</span>
+                        <span>Edit Custom HTML (Sanitized)</span>
                         <button onClick={handleSave} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 font-bold rounded shadow-sm transition-colors">Save</button>
                     </div>
                     <textarea
