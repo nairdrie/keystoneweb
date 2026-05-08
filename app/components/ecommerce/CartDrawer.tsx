@@ -116,6 +116,20 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
 
     const shippingRequired = ecomSettings?.shipping_required !== false;
 
+    // After a successful checkout we hand the customer off to a public order-tracking
+    // page so they can check status, see shipping updates, etc. The cart drawer's old
+    // "Order Placed!" inline view is kept as a fallback for the rare case we've lost
+    // track of the order id mid-flow.
+    const redirectToOrderConfirmation = (orderId: string | undefined | null) => {
+        cart?.clearCart();
+        if (orderId) {
+            window.location.assign(`/order-confirmation?orderId=${encodeURIComponent(orderId)}`);
+            return;
+        }
+        setStep('confirmation');
+        setSubmitting(false);
+    };
+
     // Fetch ecommerce settings when drawer opens
     useEffect(() => {
         if (!cart?.isCartOpen || settingsLoaded) return;
@@ -541,10 +555,8 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
             }
 
             if (steps.length === 0) {
-                // No payment steps (e-transfer or none) — show confirmation directly
-                cart.clearCart();
-                setStep('confirmation');
-                setSubmitting(false);
+                // No payment steps (e-transfer or none) — hand off to the tracking page
+                redirectToOrderConfirmation(orderData.order?.id);
                 return;
             }
 
@@ -569,8 +581,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                 setCurrentStepIdx(firstPending);
                 await executePaymentStep(steps[firstPending]);
             } else {
-                cart.clearCart();
-                setStep('confirmation');
+                redirectToOrderConfirmation(orderData.order?.id);
             }
         } catch (err) {
             console.error('Checkout error:', err);
@@ -591,12 +602,14 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
             updateStepStatus(idx, 'processing');
             setRedirectingTo('Stripe');
             const currentUrl = window.location.href;
+            const origin = window.location.origin;
+            const trackingOrderId = confirmation?.order?.id || step.orderId;
             const stripeRes = await fetch('/api/stripe/checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     orderId: step.orderId,
-                    successUrl: `${currentUrl}${currentUrl.includes('?') ? '&' : '?'}order_success=${confirmation?.order?.id || step.orderId}&step=${idx + 1}`,
+                    successUrl: `${origin}/order-confirmation?orderId=${encodeURIComponent(trackingOrderId)}`,
                     cancelUrl: currentUrl,
                 }),
             });
@@ -674,8 +687,9 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
     const advanceToNextStep = (fromIdx: number) => {
         const next = paymentSteps.slice(fromIdx).findIndex(s => s.status === 'pending');
         if (next < 0) {
-            cart.clearCart();
-            setStep('confirmation');
+            // All vendor payment steps complete — send the customer to the tracking page
+            // for the parent order so they see one unified confirmation.
+            redirectToOrderConfirmation(confirmation?.order?.id || paymentSteps[0]?.orderId);
             return;
         }
         const nextIdx = fromIdx + next;
@@ -801,12 +815,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
             setPaypalError(data?.error || 'PayPal capture failed');
             return;
         }
-        setConfirmation({
-            order: data.order || { id: pendingOrderId },
-            confirmationMessage: 'Your payment has been processed.',
-        });
-        setStep('confirmation');
-        cart.clearCart();
+        redirectToOrderConfirmation(data.order?.id || pendingOrderId);
     };
 
     const handleClose = () => {
@@ -1358,10 +1367,9 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                             {...cloverChargeData}
                                             currency={currency}
                                             onSuccess={() => {
+                                                const finishedOrderId = cloverChargeData?.orderId;
                                                 setCloverChargeData(null);
-                                                cart.clearCart();
-                                                setStep('confirmation');
-                                                setSubmitting(false);
+                                                redirectToOrderConfirmation(finishedOrderId);
                                             }}
                                             onError={(msg) => {
                                                 setCloverChargeData(null);

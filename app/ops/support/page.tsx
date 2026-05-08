@@ -1,8 +1,8 @@
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { createClient } from '@/lib/db/supabase-server';
 import Link from 'next/link';
 import { plainTextPreview } from '@/lib/email/preview';
 import { nameFromEmail } from '@/lib/email/signature';
+import { getOpsAccessContext } from '@/lib/ops/access';
 import EmailComposeButton from '../email/EmailComposeButton';
 
 const ALL_FROM_EMAILS = [
@@ -39,24 +39,10 @@ export default async function OpsSupportPage({
   const offset = (page - 1) * limit;
 
   // Determine if the current user is an admin or an agent with a scoped email
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
-    .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-
-  const isAdmin = adminEmails.includes(user?.email?.toLowerCase() ?? '');
-  let agentContactEmail: string | null = null;
-
-  if (user) {
-    const db = createAdminClient();
-    const { data: profile } = await db
-      .from('users')
-      .select('agent_contact_email')
-      .eq('id', user.id)
-      .single();
-    agentContactEmail = profile?.agent_contact_email ?? null;
-  }
+  const access = await getOpsAccessContext();
+  const userEmail = access?.userEmail ?? null;
+  const isAdmin = access?.isAdmin ?? false;
+  const agentContactEmail = access?.agentContactEmail ?? null;
 
   // Compose modal: which "From" addresses can this user send from?
   const availableFromEmails = isAdmin
@@ -64,7 +50,7 @@ export default async function OpsSupportPage({
     : agentContactEmail
       ? [agentContactEmail]
       : [];
-  const senderName = nameFromEmail(user?.email ?? '');
+  const senderName = nameFromEmail(userEmail ?? '');
 
   const db = createAdminClient();
 

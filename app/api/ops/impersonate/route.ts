@@ -1,28 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/db/supabase-server';
 import { COOKIE_DOMAIN } from '@/lib/env/domain';
+import { assertOpsAdmin } from '@/lib/ops/access';
 
 const COOKIE_NAME = 'ksw_impersonate';
-
-async function isAdmin() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return false;
-  
-  const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-    
-  return adminEmails.includes(user.email?.toLowerCase() ?? '');
-}
 
 /**
  * POST /api/ops/impersonate
  * Body: { userId: string }
  */
 export async function POST(request: NextRequest) {
-  if (!await isAdmin()) {
+  if (!await assertOpsAdmin()) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 

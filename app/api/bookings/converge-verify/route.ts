@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
         const admin = createAdminClient();
         const { data: site } = await admin
             .from('sites')
-            .select('converge_merchant_id, converge_user_id, converge_pin, converge_demo_mode, site_slug, title, user_id, design_data')
+            .select('converge_merchant_id, converge_user_id, converge_pin, converge_demo_mode, site_slug, user_id, design_data')
             .eq('id', siteId)
             .single();
 
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
             bookingId: booking.id,
             paymentMethod: 'converge' as const,
             confirmationMessage: settings?.confirmation_message,
-            siteName: site.title || site.site_slug || undefined,
+            siteName: site.site_slug || undefined,
             logoUrl: cvgBookingLogoUrl,
             overrides: cvgBookingOverrides,
         };

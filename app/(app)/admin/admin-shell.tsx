@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
-import { ChevronDown, Plus, Paintbrush, LayoutDashboard, ExternalLink, Pencil, Check, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, HelpCircle, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, Eye, EyeOff, BookOpen, UtensilsCrossed, FileImage, Users } from 'lucide-react';
+import { ChevronDown, Plus, Paintbrush, LayoutDashboard, ExternalLink, Pencil, Check, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, HelpCircle, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, Eye, EyeOff, BookOpen, UtensilsCrossed, FileImage, Users, Minimize2 } from 'lucide-react';
 import KeystoneLogo from '@/app/components/KeystoneLogo';
 import ProfileDropdown from '@/app/components/ProfileDropdown';
 import AlertModal from '@/app/components/ui/AlertModal';
@@ -75,6 +75,21 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [inboxUnread, setInboxUnread] = useState(0);
   const [goingLive, setGoingLive] = useState(false);
+  const [focusMode, setFocusModeState] = useState(false);
+
+  const FOCUS_MODE_KEY = 'ks_admin_focus_mode';
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setFocusModeState(localStorage.getItem(FOCUS_MODE_KEY) === '1');
+  }, []);
+
+  function setFocusMode(v: boolean) {
+    setFocusModeState(v);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(FOCUS_MODE_KEY, v ? '1' : '0');
+    }
+  }
 
   const handleGoLive = async () => {
     if (!siteId || goingLive) return;
@@ -353,11 +368,29 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const displayDomain = site.customDomain || (site.publishedDomain ? `${site.publishedDomain}.kswd.ca` : null);
 
   return (
-    <AdminContext.Provider value={{ siteId, site, siteTitle, setSiteTitle, isProUser, palette, usage, usagePlan, siteBreakdown, siteBlockTypes, refreshInboxUnread }}>
+    <AdminContext.Provider value={{ siteId, site, siteTitle, setSiteTitle, isProUser, palette, usage, usagePlan, siteBreakdown, siteBlockTypes, refreshInboxUnread, focusMode, setFocusMode }}>
       <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-50">
 
+        {/* Focus mode: slim exit bar replaces all the header rows */}
+        {focusMode && (
+          <div className="flex-none flex items-center justify-between gap-2 px-3 h-8 bg-slate-900 text-white text-[11px] font-bold border-b border-slate-800 shrink-0">
+            <span className="flex items-center gap-1.5 truncate">
+              <Minimize2 className="w-3 h-3" />
+              Focus mode — header hidden to maximize email view
+            </span>
+            <button
+              onClick={() => setFocusMode(false)}
+              className="flex items-center gap-1 px-2 py-1 bg-white/10 hover:bg-white/20 rounded transition-colors shrink-0"
+              title="Exit focus mode"
+            >
+              <X className="w-3 h-3" />
+              Exit focus mode
+            </button>
+          </div>
+        )}
+
         {/* ── Top Bar ── */}
-        <div className="flex-none flex items-center justify-between px-3 h-12 bg-white border-b border-slate-200 z-10 shrink-0">
+        <div className={`${focusMode ? 'hidden' : 'flex'} flex-none items-center justify-between px-3 h-12 bg-white border-b border-slate-200 z-10 shrink-0`}>
           <div className="flex items-center gap-2">
             <div onClick={() => router.push('/')} className="cursor-pointer shrink-0">
               <KeystoneLogo href={undefined} size="md" showText={false} />
@@ -396,7 +429,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         </div>
 
         {/* ── Hero / Site Header ── */}
-        <div className="flex-none bg-white border-b border-slate-200 px-4 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-4">
+        <div className={`${focusMode ? 'hidden' : 'block'} flex-none bg-white border-b border-slate-200 px-4 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-4`}>
           {/* Site name row */}
           <div className="flex items-start justify-between gap-2 sm:gap-4">
             <div className="min-w-0">
@@ -556,7 +589,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         </div>
 
         {/* ── Tabs (desktop) / Hamburger (mobile) ── */}
-        <div className="flex-none bg-white border-b border-slate-200">
+        <div className={`${focusMode ? 'hidden' : 'block'} flex-none bg-white border-b border-slate-200`}>
           {/* Mobile: current tab + hamburger */}
           <div className="sm:hidden flex items-center justify-between px-4 py-2">
             {(() => {

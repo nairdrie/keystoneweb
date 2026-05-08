@@ -1,26 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { createClient } from '@/lib/db/supabase-server';
-
-async function isAdmin() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return false;
-  
-  const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-    
-  return adminEmails.includes(user.email?.toLowerCase() ?? '');
-}
+import { assertOpsAdmin } from '@/lib/ops/access';
 
 /**
  * PATCH /api/ops/users/[id]
  * Update user status (is_banned) or plan
  */
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!await isAdmin()) {
+  if (!await assertOpsAdmin()) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 

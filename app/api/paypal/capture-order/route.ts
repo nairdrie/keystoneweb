@@ -7,6 +7,7 @@ import {
   recordPaypalTransaction,
 } from '@/lib/paypal';
 import { sendOrderConfirmation, sendOrderNotification } from '@/lib/email';
+import { buildSiteOrigin } from '@/lib/email/order-tracking-url';
 
 /**
  * POST /api/paypal/capture-order
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
     const { data: order, error } = await supabase
       .from('orders')
       .select(
-        '*, sites!inner(paypal_merchant_id, id, title, site_slug, user_id, design_data)'
+        '*, sites!inner(paypal_merchant_id, id, site_slug, user_id, design_data, published_domain, custom_domain)'
       )
       .eq('id', orderId)
       .single();
@@ -101,8 +102,12 @@ export async function POST(request: NextRequest) {
       .single();
 
     // Confirmation emails (fire-and-forget, matches Stripe webhook behaviour)
-    const siteName = order.sites?.title || order.sites?.site_slug || undefined;
+    const siteName = order.sites?.site_slug || undefined;
     const logoUrl: string | undefined = (order.sites?.design_data as any)?.headerLogo || (order.sites?.design_data as any)?.siteLogo || undefined;
+    const siteOrigin = buildSiteOrigin({
+      customDomain: order.sites?.custom_domain,
+      publishedDomain: order.sites?.published_domain,
+    });
 
     const { data: ecomSettings } = await supabase
       .from('ecommerce_settings')
@@ -128,6 +133,7 @@ export async function POST(request: NextRequest) {
       shippingAddress: order.shipping_address,
       paymentMethod: 'paypal',
       siteName,
+      siteOrigin,
       logoUrl,
       overrides: ppOverrides,
     };

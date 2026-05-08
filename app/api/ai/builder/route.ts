@@ -64,9 +64,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Ops admin check — admins bypass rate limits and prompt length restrictions
-    const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
-      .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-    const isOpsAdmin = adminEmails.includes(user.email?.toLowerCase() ?? '');
+    const { data: opsProfile } = await supabase
+      .from('users')
+      .select('is_admin')
+      .eq('id', user.id)
+      .single();
+    const isOpsAdmin = opsProfile?.is_admin ?? false;
 
     // Subscription check
     const { data: subscription } = await supabase

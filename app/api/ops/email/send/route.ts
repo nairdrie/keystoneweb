@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { resend } from '@/lib/email/resend';
 import { buildSignatureHtml, buildSignatureText, nameFromEmail } from '@/lib/email/signature';
+import { getOpsAccessContext } from '@/lib/ops/access';
 
 // Allowed @keystoneweb.ca sender addresses
 const ALLOWED_FROM_EMAILS = [
@@ -15,35 +15,21 @@ const ALLOWED_FROM_EMAILS = [
 ];
 
 async function getOpsUser() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Unauthenticated');
+  const access = await getOpsAccessContext();
+  if (!access) throw new Error('Unauthenticated');
+  if (!access.isAdmin && !access.isAgent) throw new Error('Forbidden');
 
-  const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
-    .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-
-  const isAdmin = adminEmails.includes(user.email?.toLowerCase() ?? '');
-
-  // Fetch contact email for all users (admins and agents)
-  const db = createAdminClient();
-  const { data: profile } = await db
-    .from('users')
-    .select('is_agent, agent_contact_email')
-    .eq('id', user.id)
-    .single();
-
-  if (isAdmin) {
-    return { user, isAdmin: true, agentContactEmail: profile?.agent_contact_email ?? null };
-  }
-
-  if (!profile?.is_agent) throw new Error('Forbidden');
-
-  return { user, isAdmin: false, agentContactEmail: profile.agent_contact_email };
+  return {
+    userId: access.userId,
+    userEmail: access.userEmail,
+    isAdmin: access.isAdmin,
+    agentContactEmail: access.agentContactEmail,
+  };
 }
 
 export async function POST(request: Request) {
   try {
-    const { user, isAdmin, agentContactEmail } = await getOpsUser();
+    const { userId, userEmail, isAdmin, agentContactEmail } = await getOpsUser();
 
     const { to, subject, body, from_email, reply_to } = await request.json();
 
@@ -75,7 +61,7 @@ export async function POST(request: Request) {
     }
 
     const senderLabel = isAdmin ? 'Keystone Operations' : 'Keystone';
-    const senderName = nameFromEmail(user.email ?? fromEmail);
+    const senderName = nameFromEmail(userEmail ?? fromEmail);
 
     const { data, error } = await resend.emails.send({
       from: `${senderLabel} <${fromEmail}>`,
@@ -105,7 +91,7 @@ export async function POST(request: Request) {
       const { data: sentRow } = await db
         .from('ops_sent_emails')
         .insert({
-          sent_by_user_id: user.id,
+          sent_by_user_id: userId,
           from_email: fromEmail,
           to_email: toEmail,
           subject,
@@ -125,7 +111,7 @@ export async function POST(request: Request) {
           kind: 'email_sent',
           occurred_at: new Date().toISOString(),
           notes: subject ?? null,
-          created_by_user_id: user.id,
+          created_by_user_id: userId,
           ops_sent_email_id: sentRow.id,
         }));
         await db.from('lead_contact_events').insert(events);
@@ -135,7 +121,7 @@ export async function POST(request: Request) {
       console.error('[ops/email/send] Failed to log sent email:', logErr);
     }
 
-    console.log(`[ops/email/send] Sent by ${user.email} from ${fromEmail} to ${to}: ${data?.id}`);
+    console.log(`[ops/email/send] Sent by ${userEmail} from ${fromEmail} to ${to}: ${data?.id}`);
 
     return NextResponse.json({ success: true, email_id: data?.id });
   } catch (err: any) {

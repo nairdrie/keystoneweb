@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { getOpsAccessContext, getOpsAdminEmails } from '@/lib/ops/access';
+import { getOpsAccessContext } from '@/lib/ops/access';
 
 const ALLOWED_STATUSES = [
   'new',
@@ -63,18 +63,14 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     site = s ?? null;
   }
 
-  // Assignee options: admins (via is_admin flag or env list) + agents
-  const adminEmails = getOpsAdminEmails();
-  const [agentsResult, flaggedAdminsResult, envAdminsResult] = await Promise.all([
+  // Assignee options: admins (via is_admin flag) + agents
+  const [agentsResult, adminsResult] = await Promise.all([
     db.from('users').select('id, email, business_name, is_agent, is_admin').eq('is_agent', true),
     db.from('users').select('id, email, business_name, is_agent, is_admin').eq('is_admin', true),
-    adminEmails.length > 0
-      ? db.from('users').select('id, email, business_name, is_agent, is_admin').in('email', adminEmails)
-      : Promise.resolve({ data: [], error: null }),
   ]);
 
   const peopleById = new Map<string, { id: string; email: string; business_name: string | null; is_admin: boolean }>();
-  for (const row of [...(agentsResult.data ?? []), ...(flaggedAdminsResult.data ?? []), ...(envAdminsResult.data ?? [])]) {
+  for (const row of [...(agentsResult.data ?? []), ...(adminsResult.data ?? [])]) {
     if (!row?.id || !row.email) continue;
     const email = String(row.email).toLowerCase();
     const existing = peopleById.get(row.id);
@@ -82,7 +78,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       id: row.id,
       email,
       business_name: row.business_name ?? existing?.business_name ?? null,
-      is_admin: Boolean(row.is_admin || existing?.is_admin || adminEmails.includes(email)),
+      is_admin: Boolean(row.is_admin || existing?.is_admin),
     });
   }
   const assignee_options = [...peopleById.values()]

@@ -1,25 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/db/supabase-server';
 import { generateCampaign } from '@/lib/marketing/generate';
 import type { MarketingChannel, CampaignType, CampaignGenerationContext } from '@/lib/marketing/types';
 
-async function assertAdmin(): Promise<boolean> {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
-    const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
-      .split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
-    return adminEmails.includes(user.email?.toLowerCase() ?? '');
-  } catch { return false; }
-}
 
+
+import { assertOpsAdmin } from '@/lib/ops/access';
 /**
  * POST /api/ops/marketing/campaigns/generate
  * AI-generate campaign content. Does NOT save — returns content for review.
  */
 export async function POST(request: NextRequest) {
-  if (!await assertAdmin()) {
+  if (!await assertOpsAdmin()) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

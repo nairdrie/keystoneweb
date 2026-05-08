@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { sendOrderConfirmation, sendOrderNotification, sendSubscriptionPurchaseEmail, sendSubscriptionCancelledEmail } from '@/lib/email';
+import { buildSiteOrigin } from '@/lib/email/order-tracking-url';
 import { completeDomainPurchase } from '@/app/api/domains/purchase/route';
 import { initiateVercelTransfer } from '@/app/api/domains/transfer/route';
 import { getPlanByName } from '@/lib/plans';
@@ -296,11 +297,15 @@ export async function POST(request: NextRequest) {
           // Fetch site name + logo for customer emails
           const { data: webhookSiteInfo } = await supabase
             .from('sites')
-            .select('title, site_slug, design_data')
+            .select('site_slug, design_data, published_domain, custom_domain')
             .eq('id', siteId)
             .single();
-          const webhookSiteName = webhookSiteInfo?.title || webhookSiteInfo?.site_slug || undefined;
+          const webhookSiteName = webhookSiteInfo?.site_slug || undefined;
           const webhookLogoUrl: string | undefined = (webhookSiteInfo?.design_data as any)?.headerLogo || (webhookSiteInfo?.design_data as any)?.siteLogo || undefined;
+          const webhookSiteOrigin = buildSiteOrigin({
+            customDomain: webhookSiteInfo?.custom_domain,
+            publishedDomain: webhookSiteInfo?.published_domain,
+          });
 
           // Fetch ecommerce settings for notification email (fallback to booking_settings)
           const { data: ecomSettings } = await supabase
@@ -336,6 +341,7 @@ export async function POST(request: NextRequest) {
             shippingAddress: order.shipping_address,
             paymentMethod: 'stripe',
             siteName: webhookSiteName,
+            siteOrigin: webhookSiteOrigin,
             logoUrl: webhookLogoUrl,
             overrides: webhookOverrides,
           };

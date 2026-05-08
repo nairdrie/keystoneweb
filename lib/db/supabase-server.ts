@@ -46,13 +46,14 @@ export async function createClient() {
     const { data: { user: actualUser } } = await supabase.auth.getUser();
 
     if (actualUser) {
-      const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
-        .split(',')
-        .map((e) => e.trim().toLowerCase())
-        .filter(Boolean);
+      const adminClient = createAdminClient();
+      const { data: actualProfile } = await adminClient
+        .from('users')
+        .select('is_admin')
+        .eq('id', actualUser.id)
+        .single();
 
-      if (adminEmails.includes(actualUser.email?.toLowerCase() ?? '')) {
-        const adminClient = createAdminClient();
+      if (actualProfile?.is_admin) {
         const { data: { user: targetUser }, error } = await adminClient.auth.admin.getUserById(impersonatedUserId);
 
         if (targetUser && !error) {
