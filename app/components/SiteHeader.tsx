@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import { Menu, X, Settings, Facebook, Instagram, Twitter, Linkedin, Youtube, Phone, User } from 'lucide-react';
 import { useHeaderHeight } from '@/lib/hooks/useHeaderHeight';
 import Link from 'next/link';
@@ -490,7 +490,26 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
             ? `/preview?siteId=${context.previewSiteId}&pageId=${homePageId}`
             : '/';
 
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false); // animation state
+    const [menuMounted, setMenuMounted] = useState(false);        // DOM presence
+    const menuCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const MENU_ANIM_MS = 220;
+
+    const openMobileMenu = useCallback(() => {
+        if (menuCloseTimer.current) clearTimeout(menuCloseTimer.current);
+        setMenuMounted(true);
+        requestAnimationFrame(() => requestAnimationFrame(() => setMobileMenuOpen(true)));
+    }, []);
+
+    const closeMobileMenu = useCallback(() => {
+        setMobileMenuOpen(false);
+        menuCloseTimer.current = setTimeout(() => setMenuMounted(false), MENU_ANIM_MS);
+    }, []);
+
+    const toggleMobileMenu = useCallback(() => {
+        if (mobileMenuOpen) closeMobileMenu(); else openMobileMenu();
+    }, [mobileMenuOpen, openMobileMenu, closeMobileMenu]);
+
     const [settingsOpen, setSettingsOpen] = useState(false);
 
     // ── Settings cog (edit mode hover) ─────────────────────────────────────
@@ -597,10 +616,13 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
     const desktopHamburgerBtn = (
         <button
             className={`p-2 ${mobileIconColor}`}
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            onClick={toggleMobileMenu}
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
         >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            <span className="relative w-5 h-5 flex items-center justify-center">
+                <Menu className={`absolute w-5 h-5 transition-all duration-[220ms] ${mobileMenuOpen ? 'opacity-0 rotate-90 scale-50' : 'opacity-100 rotate-0 scale-100'}`} />
+                <X className={`absolute w-5 h-5 transition-all duration-[220ms] ${mobileMenuOpen ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-50'}`} />
+            </span>
         </button>
     );
 
@@ -608,9 +630,13 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
 
     const mobileBorderStyle = defaults.mobileBorderStyleFn ? defaults.mobileBorderStyleFn(palette) : {};
     // Drawer (mobile + desktop-hamburger). Always rendered on small screens; on desktop only when hamburger mode.
-    const drawerMenu = mobileMenuOpen ? (
+    const drawerMenu = menuMounted ? (
         <div
-            className={`${useDesktopHamburger ? '' : 'md:hidden'} border-t py-4 space-y-1 ${defaults.mobileBorderClass || 'border-slate-100'}`}
+            className={`${useDesktopHamburger ? '' : 'md:hidden'} overflow-hidden transition-[max-height,opacity] duration-[220ms] ease-out`}
+            style={{ maxHeight: mobileMenuOpen ? '800px' : '0', opacity: mobileMenuOpen ? 1 : 0 }}
+        >
+        <div
+            className={`border-t py-4 space-y-1 ${defaults.mobileBorderClass || 'border-slate-100'}`}
             style={mobileBorderStyle}
         >
             <div className="ks-nav-items">
@@ -651,6 +677,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
                 </div>
             )}
         </div>
+        </div>
     ) : null;
 
     const mobileSocialIcons = rightSide === 'social' && socialLinks.length > 0 ? (
@@ -680,8 +707,11 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
                     {member && <HeaderMemberIcon color={cartIconColor} />}
                 </>
             )}
-            <button className={`p-2 ${mobileIconColor}`} onClick={() => setMobileMenuOpen(!mobileMenuOpen)} aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}>
-                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            <button className={`p-2 ${mobileIconColor}`} onClick={toggleMobileMenu} aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}>
+                <span className="relative w-5 h-5 flex items-center justify-center">
+                    <Menu className={`absolute w-5 h-5 transition-all duration-[220ms] ${mobileMenuOpen ? 'opacity-0 rotate-90 scale-50' : 'opacity-100 rotate-0 scale-100'}`} />
+                    <X className={`absolute w-5 h-5 transition-all duration-[220ms] ${mobileMenuOpen ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-50'}`} />
+                </span>
             </button>
             {position === 'right' && mobileSocialIcons}
         </div>
