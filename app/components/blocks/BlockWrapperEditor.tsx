@@ -194,6 +194,15 @@ export default function BlockWrapperEditor({
             return;
         }
 
+        // The canvas renders from draftData while the panel is open, so any
+        // fall-through update (e.g. *__styles from the typography modal) must
+        // also be mirrored into draftData or it'll save but not appear.
+        if (settingsOpen && usesPanel) {
+            setDraftData((current) => ({
+                ...((current || data || {}) as Record<string, unknown>),
+                [key]: value,
+            }));
+        }
         onUpdateBlockData?.(key, value);
     }, [data, id, onUpdateBlockData, settingsOpen, type, usesPanel]);
 

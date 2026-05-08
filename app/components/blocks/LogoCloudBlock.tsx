@@ -18,6 +18,7 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
     const context = useEditorContext();
     const pPrimary = palette.primary || '#1f2937';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '');
+    const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
 
     const variant = data.variant || 'inline'; // 'inline' | 'grid' | 'marquee'
     const logos: string[] = Array.isArray(data.logos)
@@ -52,7 +53,7 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
                         className="text-center text-sm font-semibold uppercase tracking-widest mb-12"
-                        style={{ color: pPrimary, opacity: 0.4 }}
+                        style={{ color: fgOverride || pPrimary, opacity: 0.4 }}
                     />
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
                         {Array.from({ length: slots }).map((_, index) => {
@@ -92,7 +93,7 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
                         className="text-center text-sm font-semibold uppercase tracking-widest mb-8"
-                        style={{ color: pPrimary, opacity: 0.4 }}
+                        style={{ color: fgOverride || pPrimary, opacity: 0.4 }}
                     />
                 </div>
                 <div className={isEditMode ? "flex flex-wrap justify-center gap-12 px-4" : "flex items-center gap-16 animate-marquee"}>
@@ -138,7 +139,7 @@ export default function LogoCloudBlock({ id, data, isEditMode, palette, updateCo
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
                     className="text-center text-sm font-semibold uppercase tracking-widest mb-10"
-                    style={{ color: pPrimary, opacity: 0.4 }}
+                    style={{ color: fgOverride || pPrimary, opacity: 0.4 }}
                 />
                 <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6">
                     {Array.from({ length: slots }).map((_, index) => {

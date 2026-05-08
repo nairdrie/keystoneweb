@@ -20,6 +20,7 @@ interface TeamBlockData extends Record<string, unknown> {
     title?: string;
     subtitle?: string;
     backgroundColor?: string;
+    foregroundColor?: string;
     variant?: string;
     showBio?: boolean;
     columns?: number | string;
@@ -46,6 +47,7 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
     const pSecondary = palette.secondary || '#dc2626';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
     const cardBgColor = resolvePaletteColor(data.backgroundColor, palette, palette.accent || '#f8fafc');
+    const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
 
     const variant = typeof data.variant === 'string' ? data.variant : 'grid'; // 'grid' | 'cards' | 'minimal'
     const showBio = data.showBio !== false; // Default to true if not specified
@@ -137,7 +139,7 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
                         className="text-4xl font-bold text-center mb-16"
-                        style={{ color: pPrimary }}
+                        style={{ color: fgOverride || pPrimary }}
                     />
                     <div className="space-y-8">
                         {members.map((member, index) => (
@@ -174,7 +176,7 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                                         isEditMode={isEditMode}
                                         onSave={(_key, value) => handleUpdateMember(index, 'name', value)}
                                         className="text-lg font-bold"
-                                        style={{ color: pPrimary }}
+                                        style={{ color: fgOverride || pPrimary }}
                                     />
                                     <EditableText
                                         as="p"
@@ -195,7 +197,7 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                                             isEditMode={isEditMode}
                                             onSave={(_key, value) => handleUpdateMember(index, 'bio', value)}
                                             className="text-sm mt-2 max-w-2xl"
-                                            style={{ color: pPrimary, opacity: 0.6 }}
+                                            style={{ color: fgOverride || pPrimary, opacity: 0.6 }}
                                         />
                                     )}
                                 </div>
@@ -228,7 +230,7 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
                         className="text-4xl font-bold text-center mb-4"
-                        style={{ color: pPrimary }}
+                        style={{ color: fgOverride || pPrimary }}
                     />
                     <EditableText
                         as="p"
@@ -238,7 +240,7 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
                         className="text-lg text-center mb-16 max-w-2xl mx-auto"
-                        style={{ color: pPrimary, opacity: 0.6 }}
+                        style={{ color: fgOverride || pPrimary, opacity: 0.6 }}
                     />
                     <div className={`grid gap-8 ${getGridCols('md:grid-cols-2 max-w-4xl mx-auto', 'md:grid-cols-3', 'md:grid-cols-2 lg:grid-cols-4')}`}>
                         {members.map((member, index) => (
@@ -328,7 +330,7 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
                     className="text-4xl font-bold text-center mb-4"
-                    style={{ color: pPrimary }}
+                    style={{ color: fgOverride || pPrimary }}
                 />
                 <EditableText
                     as="p"
@@ -338,7 +340,7 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
                     className="text-lg text-center mb-16 max-w-2xl mx-auto"
-                    style={{ color: pPrimary, opacity: 0.6 }}
+                    style={{ color: fgOverride || pPrimary, opacity: 0.6 }}
                 />
                 <div className={`grid gap-12 ${getGridCols('md:grid-cols-2 max-w-3xl mx-auto', 'md:grid-cols-3', 'grid-cols-2 md:grid-cols-4')}`}>
                     {members.map((member, index) => (
@@ -373,7 +375,7 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                                 isEditMode={isEditMode}
                                 onSave={(_key, value) => handleUpdateMember(index, 'name', value)}
                                 className="text-lg font-bold mb-1"
-                                style={{ color: pPrimary }}
+                                style={{ color: fgOverride || pPrimary }}
                             />
                             <EditableText
                                 as="p"
@@ -394,7 +396,7 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                                     isEditMode={isEditMode}
                                     onSave={(_key, value) => handleUpdateMember(index, 'bio', value)}
                                     className={`text-xs mt-2 opacity-60 ${isEditMode ? 'relative z-20 overflow-visible' : 'line-clamp-3'}`}
-                                    style={{ color: pPrimary }}
+                                    style={{ color: fgOverride || pPrimary }}
                                 />
                             )}
                         </div>

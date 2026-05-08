@@ -116,6 +116,7 @@ interface CarouselData {
   autoPlay?: boolean;
   interval?: number;
   backgroundColor?: string;
+  foregroundColor?: string;
   [key: string]: unknown;
 }
 
@@ -134,6 +135,8 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
   const pSecondary = palette.secondary || '#dc2626';
   const pAccent    = palette.accent    || '#f3f4f6';
   const bgColor = resolvePaletteColor(data.backgroundColor, palette, '');
+  const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
+  const textColor = fgOverride || pPrimary;
 
   const variant    = data.variant  || 'cards';
   const items: SlideItem[] = Array.isArray(data.items) && data.items.length ? data.items : DEFAULT_ITEMS;
@@ -355,8 +358,8 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
             renderIconDisplay(item, idx, 'md')
           )}
         </div>
-        <h3 className="text-xl font-bold mb-2" style={{ color: pPrimary }}>{item.title}</h3>
-        <p className="text-sm leading-relaxed flex-1" style={{ color: pPrimary, opacity: 0.7 }}>{item.text}</p>
+        <h3 className="text-xl font-bold mb-2" style={{ color: textColor }}>{item.title}</h3>
+        <p className="text-sm leading-relaxed flex-1" style={{ color: textColor, opacity: 0.7 }}>{item.text}</p>
       </div>
     );
 
@@ -371,14 +374,14 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                 <EditableText as="h2" contentKey="title" content={data.title}
                   defaultValue="Why Choose Us" isEditMode={isEditMode}
                   onSave={(k, v) => updateContent(k, v)}
-                  className="text-4xl font-bold mb-4" style={{ color: pPrimary }} />
+                  className="text-4xl font-bold mb-4" style={{ color: textColor }} />
               </Reveal>
               {(data.subtitle || isEditMode) && (
                 <Reveal>
                   <EditableText as="p" contentKey="subtitle" content={data.subtitle}
                     defaultValue="Everything you need to succeed" isEditMode={isEditMode}
                     onSave={(k, v) => updateContent(k, v)}
-                    className="text-lg" style={{ color: pPrimary, opacity: 0.6 }} />
+                    className="text-lg" style={{ color: textColor, opacity: 0.6 }} />
                 </Reveal>
               )}
             </div>
@@ -416,11 +419,11 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                     <EditableText as="h3" contentKey={`carousel_${idx}_title`} content={item.title}
                       defaultValue={`Feature ${idx + 1}`} isEditMode={isEditMode}
                       onSave={(_, v) => updateItem(idx, 'title', v)}
-                      className="text-xl font-bold mb-2" style={{ color: pPrimary }} />
+                      className="text-xl font-bold mb-2" style={{ color: textColor }} />
                     <EditableText as="p" contentKey={`carousel_${idx}_text`} content={item.text}
                       defaultValue="Add your description here." isEditMode={isEditMode}
                       onSave={(_, v) => updateItem(idx, 'text', v)}
-                      className="text-sm leading-relaxed flex-1" style={{ color: pPrimary, opacity: 0.7 }} />
+                      className="text-sm leading-relaxed flex-1" style={{ color: textColor, opacity: 0.7 }} />
                   </div>
                   );
                 })}
@@ -481,7 +484,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
               <EditableText as="h2" contentKey="title" content={data.title}
                 defaultValue="Our Story" isEditMode={isEditMode}
                 onSave={(k, v) => updateContent(k, v)}
-                className="text-4xl font-bold text-center mb-10" style={{ color: pPrimary }} />
+                className="text-4xl font-bold text-center mb-10" style={{ color: textColor }} />
             </Reveal>
           )}
 
@@ -518,11 +521,11 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                       <EditableText as="h3" contentKey={`carousel_${idx}_title`} content={item.title}
                         defaultValue="Slide Title" isEditMode={isEditMode && idx === current}
                         onSave={(_, v) => updateItem(idx, 'title', v)}
-                        className="text-3xl font-bold mb-4" style={{ color: pPrimary }} />
+                        className="text-3xl font-bold mb-4" style={{ color: textColor }} />
                       <EditableText as="p" contentKey={`carousel_${idx}_text`} content={item.text}
                         defaultValue="Add your description here." isEditMode={isEditMode && idx === current}
                         onSave={(_, v) => updateItem(idx, 'text', v)}
-                        className="text-lg leading-relaxed" style={{ color: pPrimary, opacity: 0.7 }} />
+                        className="text-lg leading-relaxed" style={{ color: textColor, opacity: 0.7 }} />
 
                       {/* Navigation */}
                       <div className="flex items-center gap-3 mt-8 flex-wrap">
@@ -572,14 +575,14 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
               <EditableText as="h2" contentKey="title" content={data.title}
                 defaultValue="Features" isEditMode={isEditMode}
                 onSave={(k, v) => updateContent(k, v)}
-                className="text-4xl font-bold mb-3" style={{ color: pPrimary }} />
+                className="text-4xl font-bold mb-3" style={{ color: textColor }} />
             </Reveal>
             {(data.subtitle || isEditMode) && (
               <Reveal>
                 <EditableText as="p" contentKey="subtitle" content={data.subtitle}
                   defaultValue="Discover what makes us different" isEditMode={isEditMode}
                   onSave={(k, v) => updateContent(k, v)}
-                  className="text-lg" style={{ color: pPrimary, opacity: 0.6 }} />
+                  className="text-lg" style={{ color: textColor, opacity: 0.6 }} />
               </Reveal>
             )}
           </div>
@@ -610,11 +613,11 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                   <EditableText as="h3" contentKey={`carousel_${idx}_title`} content={item.title}
                     defaultValue={`Feature ${idx + 1}`} isEditMode={isEditMode && idx === current}
                     onSave={(_, v) => updateItem(idx, 'title', v)}
-                    className="text-2xl font-bold mb-2" style={{ color: pPrimary }} />
+                    className="text-2xl font-bold mb-2" style={{ color: textColor }} />
                   <EditableText as="p" contentKey={`carousel_${idx}_text`} content={item.text}
                     defaultValue="Describe this feature here." isEditMode={isEditMode && idx === current}
                     onSave={(_, v) => updateItem(idx, 'text', v)}
-                    className="text-base leading-relaxed max-w-sm mx-auto" style={{ color: pPrimary, opacity: 0.7 }} />
+                    className="text-base leading-relaxed max-w-sm mx-auto" style={{ color: textColor, opacity: 0.7 }} />
                   {isEditMode && idx === current && renderEditControls(idx)}
                 </div>
               </div>

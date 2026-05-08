@@ -35,6 +35,7 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
     const pSecondary = palette.secondary || '#dc2626';
     const pAccent = palette.accent || '#f3f4f6';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '');
+    const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
 
     const variant = data.variant || 'cards'; // 'cards' | 'scroll' | 'single'
     const items: TestimonialItem[] = Array.isArray(data.items) && data.items.length ? data.items : DEFAULT_TESTIMONIALS;
@@ -320,7 +321,7 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                             isEditMode={isEditMode}
                             onSave={(key, value) => updateContent(key, value)}
                             className="text-4xl font-bold mb-12"
-                            style={{ color: pPrimary }}
+                            style={{ color: fgOverride || pPrimary }}
                         />
                     </Reveal>
                     <div className="relative">
@@ -336,7 +337,7 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                                 isEditMode={isEditMode}
                                 onSave={(_key, value) => handleUpdateItem(0, 'quote', value)}
                                 className="text-xl md:text-2xl italic mb-8 leading-relaxed"
-                                style={{ color: pPrimary, opacity: 0.7 }}
+                                style={{ color: fgOverride || pPrimary, opacity: 0.7 }}
                             />
                         </Reveal>
                         <Reveal>
@@ -353,7 +354,7 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                                 isEditMode={isEditMode}
                                 onSave={(_key, value) => handleUpdateItem(0, 'name', value)}
                                 className="font-bold text-lg"
-                                style={{ color: pPrimary }}
+                                style={{ color: fgOverride || pPrimary }}
                             />
                         </Reveal>
                         <Reveal>
@@ -365,7 +366,7 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                                 isEditMode={isEditMode}
                                 onSave={(_key, value) => handleUpdateItem(0, 'role', value)}
                                 className="text-sm"
-                                style={{ color: pPrimary, opacity: 0.6 }}
+                                style={{ color: fgOverride || pPrimary, opacity: 0.6 }}
                             />
                         </Reveal>
                     </div>
@@ -386,7 +387,7 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
                         className="text-4xl font-bold text-center mb-4"
-                        style={{ color: pPrimary }}
+                        style={{ color: fgOverride || pPrimary }}
                     />
                 </Reveal>
                 <Reveal className="max-w-2xl mx-auto mb-16">
@@ -398,7 +399,7 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
                         className="text-lg text-center"
-                        style={{ color: pPrimary, opacity: 0.6 }}
+                        style={{ color: fgOverride || pPrimary, opacity: 0.6 }}
                     />
                 </Reveal>
 

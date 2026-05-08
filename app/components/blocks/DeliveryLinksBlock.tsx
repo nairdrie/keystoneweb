@@ -170,6 +170,7 @@ export default function DeliveryLinksBlock({ id, data, isEditMode, palette, upda
     ? (data.links as DeliveryLink[]).filter((l) => (l.platform as string) !== 'grubhub')
     : buildDefaultLinks();
   const bgColor = resolvePaletteColor(data.backgroundColor, palette, '');
+  const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
   const pPrimary = palette.primary || '#1f2937';
 
   // Edit-mode panel state
@@ -248,7 +249,7 @@ export default function DeliveryLinksBlock({ id, data, isEditMode, palette, upda
               isEditMode={isEditMode}
               onSave={(key, value) => updateContent(key, value)}
               className="text-3xl font-bold mb-2"
-              style={{ color: pPrimary }}
+              style={{ color: fgOverride || pPrimary }}
             />
             <EditableText
               as="p"
@@ -258,7 +259,7 @@ export default function DeliveryLinksBlock({ id, data, isEditMode, palette, upda
               isEditMode={isEditMode}
               onSave={(key, value) => updateContent(key, value)}
               className="text-base opacity-70"
-              style={{ color: pPrimary }}
+              style={{ color: fgOverride || pPrimary }}
             />
           </div>
 
@@ -383,11 +384,11 @@ export default function DeliveryLinksBlock({ id, data, isEditMode, palette, upda
         <Reveal>
           <h2
             className="text-3xl md:text-4xl font-bold mb-3"
-            style={{ color: pPrimary }}
+            style={{ color: fgOverride || pPrimary }}
           >
             {data.title || 'Order Online'}
           </h2>
-          <p className="text-base md:text-lg opacity-70 mb-10" style={{ color: pPrimary }}>
+          <p className="text-base md:text-lg opacity-70 mb-10" style={{ color: fgOverride || pPrimary }}>
             {data.subtitle || 'Fresh food delivered straight to your door'}
           </p>
         </Reveal>

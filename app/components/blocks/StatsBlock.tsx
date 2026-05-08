@@ -19,6 +19,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
     const pSecondary = palette.secondary || '#dc2626';
     const pAccent = palette.accent || '#f3f4f6';
     const configuredBackgroundColor = resolvePaletteColor(data.backgroundColor, palette, '');
+    const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
     const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
 
@@ -190,7 +191,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                             isEditMode={isEditMode}
                             onSave={(key, value) => updateContent(key, value)}
                             className="text-4xl font-bold text-center mb-16 md:mb-10 xl:mb-16"
-                            style={{ color: pPrimary }}
+                            style={{ color: fgOverride || pPrimary }}
                         />
                     )}
                     <div className={`grid gap-6 ${items.length <= 3 ? 'md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>

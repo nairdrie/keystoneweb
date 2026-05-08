@@ -33,6 +33,7 @@ export default function ContactBlock({ data, isEditMode, palette, updateContent 
     const pSecondary = palette.secondary || '#dc2626';
     const pAccent = palette.accent || '#f3f4f6';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, pAccent);
+    const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
     const contactIconColor = resolvePaletteColor(data.contactIconColor, palette, pSecondary);
     const socialIconColor = resolvePaletteColor(data.socialIconColor, palette, pSecondary);
 
@@ -107,7 +108,7 @@ export default function ContactBlock({ data, isEditMode, palette, updateContent 
                                 isEditMode={isEditMode}
                                 onSave={(key, value) => updateContent(key, value)}
                                 className={`text-4xl font-bold ${showSubtitle ? 'mb-4' : ''}`}
-                                style={{ color: pPrimary }}
+                                style={{ color: fgOverride || pPrimary }}
                             />
                         )}
                         {showSubtitle && (
@@ -119,7 +120,7 @@ export default function ContactBlock({ data, isEditMode, palette, updateContent 
                                 isEditMode={isEditMode}
                                 onSave={(key, value) => updateContent(key, value)}
                                 className="mx-auto max-w-2xl text-lg"
-                                style={{ color: pPrimary, opacity: 0.7 }}
+                                style={{ color: fgOverride || pPrimary, opacity: 0.7 }}
                             />
                         )}
                     </div>
@@ -196,7 +197,7 @@ export default function ContactBlock({ data, isEditMode, palette, updateContent 
                                 isEditMode={isEditMode}
                                 onSave={(key, value) => updateContent(key, value)}
                                 className="text-sm font-semibold uppercase tracking-wider"
-                                style={{ color: pPrimary, opacity: 0.55 }}
+                                style={{ color: fgOverride || pPrimary, opacity: 0.55 }}
                             />
                         )}
 

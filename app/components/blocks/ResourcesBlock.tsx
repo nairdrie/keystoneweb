@@ -475,6 +475,7 @@ export default function ResourcesBlock({ id, data, isEditMode, palette, updateCo
     const siteId = context?.siteId;
     const primary = palette.primary || '#1f2937';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#f8fafc');
+    const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
@@ -523,7 +524,7 @@ export default function ResourcesBlock({ id, data, isEditMode, palette, updateCo
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
                         className="text-4xl font-bold mb-3"
-                        style={{ color: primary }}
+                        style={{ color: fgOverride || primary }}
                     />
                     <EditableText
                         as="p"
@@ -533,7 +534,7 @@ export default function ResourcesBlock({ id, data, isEditMode, palette, updateCo
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
                         className="text-lg max-w-xl mx-auto"
-                        style={{ color: primary, opacity: 0.6 }}
+                        style={{ color: fgOverride || primary, opacity: 0.6 }}
                     />
                 </div>
 

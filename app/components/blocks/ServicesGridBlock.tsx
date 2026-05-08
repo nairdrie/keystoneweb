@@ -21,6 +21,7 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
     const pSecondary = palette.secondary || '#dc2626';
     const pAccent = palette.accent || '#f3f4f6';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
+    const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
     const showCta = data.ctaEnabled !== false;
     const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
@@ -66,7 +67,7 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
                             isEditMode={isEditMode}
                             onSave={(key, value) => updateContent(key, value)}
                             className="text-4xl font-bold mb-4"
-                            style={{ color: pPrimary }}
+                            style={{ color: fgOverride || pPrimary }}
                         />
                     </Reveal>
                     {(data.subtitle || isEditMode) && (
@@ -79,7 +80,7 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
                                 isEditMode={isEditMode}
                                 onSave={(key, value) => updateContent(key, value)}
                                 className="text-xl mb-6"
-                                style={{ color: pPrimary, opacity: 0.7 }}
+                                style={{ color: fgOverride || pPrimary, opacity: 0.7 }}
                             />
                         </Reveal>
                     )}

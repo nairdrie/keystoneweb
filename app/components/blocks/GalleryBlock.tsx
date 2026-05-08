@@ -21,6 +21,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
     const pPrimary = palette.primary || '#1f2937';
     const pAccent = palette.accent || '#3b82f6';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
+    const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
 
     // Pack images: drop any falsy entries so removed slots don't leave gaps.
     const rawImages: string[] = Array.isArray(data.images) ? data.images : [];
@@ -236,7 +237,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
                     className="text-4xl font-bold text-center mb-4"
-                    style={{ color: pPrimary }}
+                    style={{ color: fgOverride || pPrimary }}
                 />
                 <EditableText
                     as="p"
@@ -246,7 +247,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
                     className="text-lg text-center mb-12 max-w-2xl mx-auto"
-                    style={{ color: pPrimary, opacity: 0.6 }}
+                    style={{ color: fgOverride || pPrimary, opacity: 0.6 }}
                 />
 
                 {autoScrollPreview ? (

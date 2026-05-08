@@ -19,6 +19,7 @@ export default function FeaturesListBlock({ id, data, isEditMode, palette, updat
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
+    const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
     const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
 
@@ -61,7 +62,7 @@ export default function FeaturesListBlock({ id, data, isEditMode, palette, updat
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
                         className="text-4xl font-bold mb-10 text-center"
-                        style={{ color: pPrimary }}
+                        style={{ color: fgOverride || pPrimary }}
                     />
                 </Reveal>
 

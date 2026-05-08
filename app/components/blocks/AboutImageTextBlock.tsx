@@ -19,6 +19,7 @@ export default function AboutImageTextBlock({ id, data, isEditMode, palette, upd
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, palette.accent || '#f3f4f6');
+    const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
 
     const items = data.items || [
         "Licensed & Insured Experts",
@@ -48,13 +49,13 @@ export default function AboutImageTextBlock({ id, data, isEditMode, palette, upd
             <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-2 gap-16 items-center">
                 {data.imagePosition === 'right' ? (
                     <>
-                        <TextContent data={data} items={items} isEditMode={isEditMode} updateContent={updateContent} handleAddItem={handleAddItem} handleRemoveItem={handleRemoveItem} handleUpdateItem={handleUpdateItem} pPrimary={pPrimary} pSecondary={pSecondary} />
+                        <TextContent data={data} items={items} isEditMode={isEditMode} updateContent={updateContent} handleAddItem={handleAddItem} handleRemoveItem={handleRemoveItem} handleUpdateItem={handleUpdateItem} pPrimary={pPrimary} pSecondary={pSecondary} fgOverride={fgOverride} />
                         <ImageContent data={data} isEditMode={isEditMode} updateContent={updateContent} uploadImage={context?.uploadImage} />
                     </>
                 ) : (
                     <>
                         <ImageContent data={data} isEditMode={isEditMode} updateContent={updateContent} uploadImage={context?.uploadImage} />
-                        <TextContent data={data} items={items} isEditMode={isEditMode} updateContent={updateContent} handleAddItem={handleAddItem} handleRemoveItem={handleRemoveItem} handleUpdateItem={handleUpdateItem} pPrimary={pPrimary} pSecondary={pSecondary} />
+                        <TextContent data={data} items={items} isEditMode={isEditMode} updateContent={updateContent} handleAddItem={handleAddItem} handleRemoveItem={handleRemoveItem} handleUpdateItem={handleUpdateItem} pPrimary={pPrimary} pSecondary={pSecondary} fgOverride={fgOverride} />
                     </>
                 )}
             </div>
@@ -93,7 +94,7 @@ function ImageContent({ data, isEditMode, updateContent, uploadImage }: any) {
     );
 }
 
-function TextContent({ data, items, isEditMode, updateContent, handleAddItem, handleRemoveItem, handleUpdateItem, pPrimary, pSecondary }: any) {
+function TextContent({ data, items, isEditMode, updateContent, handleAddItem, handleRemoveItem, handleUpdateItem, pPrimary, pSecondary, fgOverride }: any) {
     return (
         <div>
             <Reveal>
@@ -105,7 +106,7 @@ function TextContent({ data, items, isEditMode, updateContent, handleAddItem, ha
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
                     className="text-4xl font-bold mb-6"
-                    style={{ color: pPrimary }}
+                    style={{ color: fgOverride || pPrimary }}
                 />
             </Reveal>
             {(data.description || isEditMode) && (
@@ -118,7 +119,7 @@ function TextContent({ data, items, isEditMode, updateContent, handleAddItem, ha
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
                         className="text-lg mb-8 leading-relaxed"
-                        style={{ color: pPrimary, opacity: 0.7 }}
+                        style={{ color: fgOverride || pPrimary, opacity: 0.7 }}
                     />
                 </Reveal>
             )}
@@ -144,7 +145,7 @@ function TextContent({ data, items, isEditMode, updateContent, handleAddItem, ha
                                     defaultValue={item}
                                     isEditMode={isEditMode}
                                     onSave={(_key, value) => handleUpdateItem(index, value)}
-                                    style={{ color: pPrimary }}
+                                    style={{ color: fgOverride || pPrimary }}
                                 />
                             </div>
                         </li>

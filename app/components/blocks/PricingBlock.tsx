@@ -19,6 +19,7 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
     const pSecondary = palette.secondary || '#dc2626';
     const pAccent = palette.accent || '#f3f4f6';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '');
+    const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
     const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
 
@@ -128,7 +129,7 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
                         className="text-4xl font-bold text-center mb-4"
-                        style={{ color: pPrimary }}
+                        style={{ color: fgOverride || pPrimary }}
                     />
                     <EditableText
                         as="p"
@@ -138,7 +139,7 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
                         className="text-lg text-center mb-16"
-                        style={{ color: pPrimary, opacity: 0.6 }}
+                        style={{ color: fgOverride || pPrimary, opacity: 0.6 }}
                     />
                     <div className="space-y-4">
                         {tiers.map((tier: any, index: number) => (
@@ -158,7 +159,7 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                                         isEditMode={isEditMode}
                                         onSave={(_key, value) => handleUpdateTier(index, 'name', value)}
                                         className="text-lg font-bold"
-                                        style={{ color: pPrimary }}
+                                        style={{ color: fgOverride || pPrimary }}
                                     />
                                     <EditableText
                                         as="p"
@@ -168,7 +169,7 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                                         isEditMode={isEditMode}
                                         onSave={(_key, value) => handleUpdateTier(index, 'description', value)}
                                         className="text-sm"
-                                        style={{ color: pPrimary, opacity: 0.6 }}
+                                        style={{ color: fgOverride || pPrimary, opacity: 0.6 }}
                                     />
                                 </div>
                                 <div className="flex items-center gap-6">
@@ -181,9 +182,9 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                                             isEditMode={isEditMode}
                                             onSave={(_key, value) => handleUpdateTier(index, 'price', value)}
                                             className="text-3xl font-black"
-                                            style={{ color: pPrimary }}
+                                            style={{ color: fgOverride || pPrimary }}
                                         />
-                                        <span className="text-sm" style={{ color: pPrimary, opacity: 0.4 }}>{tier.period || '/month'}</span>
+                                        <span className="text-sm" style={{ color: fgOverride || pPrimary, opacity: 0.4 }}>{tier.period || '/month'}</span>
                                     </div>
                                     <EditableButton
                                         contentKey={`tier_${index}_buttonText`}
@@ -217,7 +218,7 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
                     className="text-4xl font-bold text-center mb-4"
-                    style={{ color: pPrimary }}
+                    style={{ color: fgOverride || pPrimary }}
                 />
                 <EditableText
                     as="p"
@@ -227,7 +228,7 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
                     className="text-lg text-center mb-16 max-w-2xl mx-auto"
-                    style={{ color: pPrimary, opacity: 0.6 }}
+                    style={{ color: fgOverride || pPrimary, opacity: 0.6 }}
                 />
 
                 <div className={`grid gap-8 items-stretch ${tiers.length === 2 ? 'md:grid-cols-2 max-w-4xl mx-auto' : 'md:grid-cols-3'}`}>
