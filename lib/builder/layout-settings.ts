@@ -142,6 +142,7 @@ export const BLOCK_LAYOUT_CAPABILITIES: Record<string, LayoutCapabilities> = {
   tabBar: makeCapabilities(),
   userProfile: makeCapabilities(),
   membershipGate: makeCapabilities(),
+  sideBySide: makeCapabilities(),
 };
 
 function makeCapabilities(overrides: Partial<LayoutCapabilities> = {}): LayoutCapabilities {

@@ -11,6 +11,12 @@ import {
     getColorInputValue,
     useInspectorSectionState,
 } from '../panel-shared';
+import { LayoutTab } from '../layout/LayoutTab';
+import {
+    areSectionSettingsEqual,
+    normalizeSectionSettings,
+    type SectionSettings,
+} from '@/lib/builder/layout-settings';
 import type { BlockPanelProps } from '../block-panel-registry';
 
 type ColumnRatio = '50-50' | '60-40' | '40-60' | '33-67' | '67-33';
@@ -90,7 +96,13 @@ export default function SideBySideSettingsPanel({
     const initialDraft = useMemo(() => readDraft(blockData, customCss), [blockData, customCss]);
     const [draft, setDraft] = useState<DraftSettings>(initialDraft);
 
-    const sectionIds = ['layout', 'spacing', 'responsive', 'style', 'advanced'];
+    const persistedSectionSettings = useMemo(
+        () => normalizeSectionSettings(blockData?.sectionSettings),
+        [blockData?.sectionSettings],
+    );
+    const [sectionSettings, setSectionSettings] = useState<SectionSettings>(persistedSectionSettings);
+
+    const sectionIds = ['universal-layout', 'layout', 'spacing', 'responsive', 'style', 'advanced'];
     const sectionState = useInspectorSectionState(sectionIds, true);
 
     useEffect(() => {
@@ -98,10 +110,13 @@ export default function SideBySideSettingsPanel({
         onDraftBlockDataChange({
             ...(blockData || {}),
             ...draft,
+            sectionSettings,
         });
-    }, [blockData, draft, onDraftBlockDataChange]);
+    }, [blockData, draft, sectionSettings, onDraftBlockDataChange]);
 
-    const hasUnsavedChanges = !shallowEqual(draft, initialDraft);
+    const hasUnsavedChanges =
+        !shallowEqual(draft, initialDraft) ||
+        !areSectionSettingsEqual(sectionSettings, persistedSectionSettings);
 
     const update = <K extends keyof DraftSettings>(key: K, value: DraftSettings[K]) => {
         setDraft((current) => ({ ...current, [key]: value }));
@@ -116,6 +131,9 @@ export default function SideBySideSettingsPanel({
         if (draft.reverseOnMobile !== initialDraft.reverseOnMobile) updates.reverseOnMobile = draft.reverseOnMobile;
         if (draft.backgroundColor !== initialDraft.backgroundColor) updates.backgroundColor = draft.backgroundColor;
         if (draft.__customCss !== initialDraft.__customCss) updates.__customCss = draft.__customCss;
+        if (!areSectionSettingsEqual(sectionSettings, persistedSectionSettings)) {
+            updates.sectionSettings = normalizeSectionSettings(sectionSettings);
+        }
         if (Object.keys(updates).length > 0 && context?.updateBlockDataBatch) {
             context.updateBlockDataBatch(blockId, updates);
         }
@@ -124,6 +142,7 @@ export default function SideBySideSettingsPanel({
 
     const handleReset = () => {
         setDraft(initialDraft);
+        setSectionSettings(persistedSectionSettings);
         sectionState.reset();
     };
 
@@ -145,8 +164,22 @@ export default function SideBySideSettingsPanel({
             tourId="side-by-side-settings-panel"
         >
             <InspectorSection
-                id="layout"
+                id="universal-layout"
                 title="Layout"
+                isCollapsed={sectionState.isCollapsed('universal-layout')}
+                onToggle={() => sectionState.toggle('universal-layout')}
+            >
+                <LayoutTab
+                    blockId={blockId}
+                    blockType={blockType}
+                    value={sectionSettings}
+                    onChange={setSectionSettings}
+                />
+            </InspectorSection>
+
+            <InspectorSection
+                id="layout"
+                title="Columns"
                 isCollapsed={sectionState.isCollapsed('layout')}
                 onToggle={() => sectionState.toggle('layout')}
             >
