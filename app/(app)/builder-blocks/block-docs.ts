@@ -238,12 +238,12 @@ export const blockDocs: BlockDoc[] = [
     features: [
       'Add an optional heading.',
       'Add and remove repeated number-and-label items.',
-      'Choose between banner and card-style layouts.',
+      'Choose between banner, card, and progress-bar layouts.',
     ],
     settings: [
       { label: 'Title', description: 'Sets the optional heading for the statistics.' },
-      { label: 'Stat items', description: 'Controls each number and label shown.', notes: 'Stat cards can be added or removed directly while editing.' },
-      { label: 'Layout', description: 'Changes the presentation style.', notes: 'Available layouts include Horizontal Banner and Statistic Cards.' },
+      { label: 'Stat items', description: 'Controls each number and label shown.', notes: 'Stat cards can be added or removed directly while editing. In Progress Bars layout, the value should be a percentage that drives the bar width.' },
+      { label: 'Layout', description: 'Changes the presentation style.', notes: 'Available layouts include Horizontal Banner, Statistic Cards, and Progress Bars.' },
       { label: 'Section background color', description: 'Sets the background color for the statistics section.' },
     ],
     tips: [

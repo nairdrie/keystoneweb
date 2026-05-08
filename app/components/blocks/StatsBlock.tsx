@@ -29,7 +29,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
         { value: '100%', label: 'Satisfaction Rate' },
     ];
 
-    const variant = data.variant || 'banner'; // 'banner' | 'cards'
+    const variant = data.variant || 'banner'; // 'banner' | 'cards' | 'progress'
 
     const handleAddItem = () => {
         updateContent('items', [
@@ -86,6 +86,96 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
             setDragOverIndex(null);
         },
     });
+
+    if (variant === 'progress') {
+        return (
+            <section className="py-16 md:py-12 xl:py-16" style={{ backgroundColor: configuredBackgroundColor || '#ffffff' }}>
+                <div className="max-w-3xl mx-auto px-4">
+                    <div
+                        className="rounded-2xl border border-gray-100 bg-white shadow-sm p-8 md:p-10"
+                    >
+                        {(data.title || isEditMode) && (
+                            <EditableText
+                                as="h2"
+                                contentKey="title"
+                                content={data.title}
+                                defaultValue="Technical Skills"
+                                isEditMode={isEditMode}
+                                onSave={(key, value) => updateContent(key, value)}
+                                className="text-xl font-bold mb-8"
+                                style={{ color: pPrimary }}
+                            />
+                        )}
+                        <div className="space-y-6">
+                            {items.map((item: any, index: number) => {
+                                const isDragging = draggedIndex === index;
+                                const isDragTarget = dragOverIndex === index && draggedIndex !== index;
+                                const percent = parsePercent(item.value);
+                                return (
+                                    <div
+                                        key={index}
+                                        className={`relative group/card transition-[opacity,transform] ${
+                                            isDragTarget ? 'ring-2 ring-blue-100 rounded-md' : ''
+                                        } ${isDragging ? 'scale-[0.99] opacity-60' : ''}`}
+                                        {...getDragHandlers(index)}
+                                    >
+                                        {renderStatControls(index, 'skill')}
+                                        <div className="flex items-center justify-between mb-2 gap-3">
+                                            <EditableText
+                                                as="span"
+                                                contentKey={`stat_${index}_label`}
+                                                content={item.label}
+                                                defaultValue="Skill"
+                                                isEditMode={isEditMode}
+                                                onSave={(_key, value) => handleUpdateItem(index, 'label', value)}
+                                                className="text-base font-semibold"
+                                                style={{ color: pPrimary }}
+                                            />
+                                            <EditableText
+                                                as="span"
+                                                contentKey={`stat_${index}_value`}
+                                                content={item.value}
+                                                defaultValue="90%"
+                                                isEditMode={isEditMode}
+                                                onSave={(_key, value) => handleUpdateItem(index, 'value', value)}
+                                                className="text-sm font-medium tabular-nums"
+                                                style={{ color: pPrimary, opacity: 0.6 }}
+                                            />
+                                        </div>
+                                        <div
+                                            className="h-1.5 rounded-full overflow-hidden"
+                                            style={{ backgroundColor: '#f1f5f9' }}
+                                            role="progressbar"
+                                            aria-valuenow={percent}
+                                            aria-valuemin={0}
+                                            aria-valuemax={100}
+                                            aria-label={typeof item.label === 'string' ? item.label : undefined}
+                                        >
+                                            <div
+                                                className="h-full rounded-full transition-[width] duration-500"
+                                                style={{ width: `${percent}%`, backgroundColor: pSecondary }}
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {isEditMode && (
+                            <div className="flex justify-center mt-8">
+                                <button
+                                    onClick={handleAddItem}
+                                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-dashed border-blue-300"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Add Skill
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </section>
+        );
+    }
 
     if (variant === 'cards') {
         return (
@@ -209,6 +299,14 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
             </div>
         </section>
     );
+}
+
+function parsePercent(value: unknown): number {
+    const match = String(value ?? '').match(/-?\d+(?:\.\d+)?/);
+    if (!match) return 0;
+    const parsed = parseFloat(match[0]);
+    if (!Number.isFinite(parsed)) return 0;
+    return Math.max(0, Math.min(100, parsed));
 }
 
 function getNextStatNumber(items: Array<{ label?: string }>): number {
