@@ -255,6 +255,7 @@ export default function RepeatableItemsSettingsPanel({
         ? String(blockData?.variant || config.defaultVariant || config.variants[0].id)
         : '';
     const persistedBackgroundColor = typeof blockData?.backgroundColor === 'string' ? blockData.backgroundColor : '';
+    const persistedForegroundColor = typeof blockData?.foregroundColor === 'string' ? blockData.foregroundColor : '';
     const persistedSectionSettings = useMemo(
         () => normalizeSectionSettings(blockData?.sectionSettings),
         [blockData?.sectionSettings],
@@ -287,6 +288,7 @@ export default function RepeatableItemsSettingsPanel({
     const [variant, setVariant] = useState<string>(persistedVariant);
     const [displaySettings, setDisplaySettings] = useState<TestimonialDisplaySettings>(persistedDisplaySettings);
     const [backgroundColor, setBackgroundColor] = useState<string>(persistedBackgroundColor);
+    const [foregroundColor, setForegroundColor] = useState<string>(persistedForegroundColor);
     const [sectionSettings, setSectionSettings] = useState<SectionSettings>(persistedSectionSettings);
     const [localCss, setLocalCss] = useState<string>(customCss);
     const [expandedRows, setExpandedRows] = useState<Set<number>>(() => new Set());
@@ -339,16 +341,18 @@ export default function RepeatableItemsSettingsPanel({
             ...(config.variants ? { variant } : {}),
             ...(hasTestimonialDisplayControls ? displaySettings : {}),
             backgroundColor,
+            foregroundColor,
             sectionSettings,
             __customCss: localCss,
         });
-    }, [blockData, items, variant, displaySettings, backgroundColor, sectionSettings, localCss, config.variants, hasTestimonialDisplayControls, onDraftBlockDataChange]);
+    }, [blockData, items, variant, displaySettings, backgroundColor, foregroundColor, sectionSettings, localCss, config.variants, hasTestimonialDisplayControls, onDraftBlockDataChange]);
 
     const hasUnsavedChanges = useMemo(() => (
         JSON.stringify(items) !== JSON.stringify(persistedItems) ||
         (config.variants ? variant !== persistedVariant : false) ||
         (hasTestimonialDisplayControls ? JSON.stringify(displaySettings) !== JSON.stringify(persistedDisplaySettings) : false) ||
         backgroundColor !== persistedBackgroundColor ||
+        foregroundColor !== persistedForegroundColor ||
         !areSectionSettingsEqual(sectionSettings, persistedSectionSettings) ||
         localCss !== customCss
     ), [
@@ -362,6 +366,8 @@ export default function RepeatableItemsSettingsPanel({
         persistedDisplaySettings,
         backgroundColor,
         persistedBackgroundColor,
+        foregroundColor,
+        persistedForegroundColor,
         sectionSettings,
         persistedSectionSettings,
         localCss,
@@ -369,6 +375,7 @@ export default function RepeatableItemsSettingsPanel({
     ]);
 
     const bgInputValue = getColorInputValue(backgroundColor, palette, config.backgroundFallback);
+    const fgInputValue = getColorInputValue(foregroundColor, palette, '#0f172a');
 
     const updateSectionLayout = (patch: Partial<SectionSettings['layout']>) => {
         setSectionSettings((current) => ({
@@ -404,6 +411,7 @@ export default function RepeatableItemsSettingsPanel({
         }
 
         if (backgroundColor !== persistedBackgroundColor) updates.backgroundColor = backgroundColor;
+        if (foregroundColor !== persistedForegroundColor) updates.foregroundColor = foregroundColor;
         if (!areSectionSettingsEqual(sectionSettings, persistedSectionSettings)) updates.sectionSettings = normalizeSectionSettings(sectionSettings);
         if (config.variants && variant !== persistedVariant) updates.variant = variant;
         if (hasTestimonialDisplayControls) {
@@ -425,6 +433,7 @@ export default function RepeatableItemsSettingsPanel({
         setVariant(persistedVariant);
         setDisplaySettings(persistedDisplaySettings);
         setBackgroundColor(persistedBackgroundColor);
+        setForegroundColor(persistedForegroundColor);
         setSectionSettings(persistedSectionSettings);
         setLocalCss(customCss);
         setExpandedRows(new Set());
@@ -649,6 +658,43 @@ export default function RepeatableItemsSettingsPanel({
                     <button
                         type="button"
                         onClick={() => setBackgroundColor('')}
+                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        Reset
+                    </button>
+                </div>
+
+                <label
+                    className="mt-5 block text-xs font-bold uppercase tracking-wide text-slate-500"
+                    htmlFor={`${blockId}-${config.blockType}-fg`}
+                >
+                    Section text color
+                </label>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <input
+                        id={`${blockId}-${config.blockType}-fg`}
+                        type="color"
+                        value={fgInputValue}
+                        onChange={(event) => setForegroundColor(event.target.value)}
+                        className="h-10 w-10 cursor-pointer rounded border border-slate-200 bg-white"
+                    />
+                    <PaletteTokenButtons
+                        selected={foregroundColor}
+                        palette={palette}
+                        onSelect={(token) => setForegroundColor(token)}
+                    />
+                </div>
+                <div className="mt-3 flex gap-2">
+                    <input
+                        type="text"
+                        value={foregroundColor}
+                        onChange={(event) => setForegroundColor(event.target.value)}
+                        placeholder="Default"
+                        className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setForegroundColor('')}
                         className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                         Reset
