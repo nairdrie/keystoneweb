@@ -5,6 +5,7 @@ import {
     CalendarDays,
     ClipboardList,
     Code,
+    Columns2,
     Contact,
     FileText,
     Grid3X3,
@@ -70,6 +71,7 @@ export const BLOCK_ICON_MAP: Record<string, LucideIcon> = {
     tabBar: LayoutTemplate,
     userProfile: User,
     membershipGate: Lock,
+    sideBySide: Columns2,
 };
 
 export function getBlockIcon(type: string): LucideIcon {
