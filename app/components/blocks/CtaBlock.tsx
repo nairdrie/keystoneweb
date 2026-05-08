@@ -66,6 +66,7 @@ export default function CtaBlock({ id, data, isEditMode, palette, updateContent 
                         onSave={(key, value) => updateContent(key, value)}
                         className="px-10 py-5 font-bold rounded-full shadow-lg hover:scale-105 transition-transform text-lg inline-block"
                         style={{ backgroundColor: buttonBgColor, color: buttonTextColor }}
+                        palette={palette}
                     />
                 </Reveal>
             </div>

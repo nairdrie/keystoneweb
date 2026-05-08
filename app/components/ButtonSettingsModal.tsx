@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Settings, Search, LucideIcon } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { PaletteTokenButtons, getColorInputValue } from './blocks/panel-shared';
 
 // A subset of useful icons to keep the picker manageable
 const ICON_NAMES = [
@@ -31,6 +32,7 @@ interface ButtonSettings {
     shape?: ButtonShape;
     fill?: ButtonFill;
     iconOnly?: boolean;
+    bgColor?: string;
 }
 
 interface ButtonSettingsModalProps {
@@ -41,6 +43,7 @@ interface ButtonSettingsModalProps {
     title?: string;
     defaultShape?: ButtonShape;
     defaultFill?: ButtonFill;
+    palette?: Record<string, string>;
 }
 
 export default function ButtonSettingsModal({
@@ -51,7 +54,9 @@ export default function ButtonSettingsModal({
     title = "Button Settings",
     defaultShape = 'rounded',
     defaultFill = 'filled',
+    palette,
 }: ButtonSettingsModalProps) {
+    const effectivePalette = palette || {};
     const mouseDownOnBackdrop = useRef(false);
     const [settings, setSettings] = useState<ButtonSettings>(initialSettings || {});
     const [activeTab, setActiveTab] = useState<'style' | 'icon' | 'layout'>('style');
@@ -181,6 +186,39 @@ export default function ButtonSettingsModal({
                                             </button>
                                         );
                                     })}
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Background</label>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <input
+                                        type="color"
+                                        value={getColorInputValue(settings.bgColor || '', effectivePalette, '#1f2937')}
+                                        onChange={(e) => setSettings({ ...settings, bgColor: e.target.value })}
+                                        className="h-10 w-10 cursor-pointer rounded border border-slate-200 bg-white"
+                                    />
+                                    <PaletteTokenButtons
+                                        selected={settings.bgColor || ''}
+                                        palette={effectivePalette}
+                                        onSelect={(token) => setSettings({ ...settings, bgColor: token })}
+                                    />
+                                </div>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={settings.bgColor || ''}
+                                        onChange={(e) => setSettings({ ...settings, bgColor: e.target.value })}
+                                        placeholder="Default"
+                                        className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setSettings({ ...settings, bgColor: '' })}
+                                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+                                    >
+                                        Reset
+                                    </button>
                                 </div>
                             </div>
                         </div>

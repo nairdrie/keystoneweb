@@ -196,6 +196,7 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                                         onSave={(_key, value) => handleUpdateTier(index, _key.endsWith('Link') ? 'buttonTextLink' : (_key.endsWith('Icon') ? 'buttonTextIcon' : 'buttonText'), value)}
                                         className="px-6 py-2.5 rounded-lg text-sm font-bold text-white transition-opacity hover:opacity-90 inline-flex items-center justify-center"
                                         style={{ backgroundColor: tier.highlighted ? pSecondary : pPrimary }}
+                                        palette={palette}
                                     />
                                 </div>
                             </div>
@@ -311,6 +312,7 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                                     color: tier.highlighted ? '#ffffff' : pPrimary,
                                     border: tier.highlighted ? 'none' : `2px solid ${pPrimary}`,
                                 }}
+                                palette={palette}
                             />
                         </div>
                     ))}

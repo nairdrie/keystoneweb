@@ -325,6 +325,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                             onSave={(key, value) => updateContent(key, value)}
                             className="px-6 py-3 rounded-lg font-semibold text-white transition-opacity hover:opacity-90"
                             style={{ backgroundColor: pAccent }}
+                            palette={palette}
                         />
                     </div>
                 )}
