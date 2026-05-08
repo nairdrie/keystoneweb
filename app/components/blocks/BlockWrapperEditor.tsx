@@ -20,6 +20,7 @@ const BLOCK_SETTINGS_OPEN_EVENT = 'ks:block-settings-open';
 const REPEATABLE_ITEMS_DRAFT_UPDATE_EVENT = 'ks:repeatable-items-draft-update';
 const HERO_DRAFT_UPDATE_EVENT = 'ks:hero-draft-update';
 const CONTACT_DRAFT_UPDATE_EVENT = 'ks:contact-draft-update';
+const MAP_DRAFT_UPDATE_EVENT = 'ks:map-draft-update';
 const LAYOUT_GUIDE_PREVIEW_EVENT = 'ks:layout-guide-preview';
 
 interface BlockWrapperEditorProps {
@@ -167,6 +168,17 @@ export default function BlockWrapperEditor({
                 [key]: value,
             }));
             window.dispatchEvent(new CustomEvent(CONTACT_DRAFT_UPDATE_EVENT, {
+                detail: { blockId: id, key, value, source: 'preview' },
+            }));
+            return;
+        }
+
+        if (settingsOpen && usesPanel && type === 'map' && isMapDraftKey(key)) {
+            setDraftData((current) => ({
+                ...((current || data || {}) as Record<string, unknown>),
+                [key]: value,
+            }));
+            window.dispatchEvent(new CustomEvent(MAP_DRAFT_UPDATE_EVENT, {
                 detail: { blockId: id, key, value, source: 'preview' },
             }));
             return;
@@ -385,6 +397,26 @@ function isRepeatableItemsPanelType(type: string): boolean {
 
 function isContactDraftKey(key: string): boolean {
     return key === 'contactItems' || key === 'socialLinks';
+}
+
+function isMapDraftKey(key: string): boolean {
+    return [
+        'title',
+        'address',
+        'locations',
+        'mapProvider',
+        'mapHeight',
+        'mapZoom',
+        'mapStyle',
+        'markerLabel',
+        'showDirections',
+        'showMapDirections',
+        'showCardDirections',
+        'showLocationCards',
+        'showAllPinsToggle',
+        'startWithAllPins',
+        'requireMapConsent',
+    ].includes(key);
 }
 
 function scopeCustomCss(id: string, customCss?: string): string {

@@ -50,13 +50,14 @@ const HeroSettingsPanel = dynamic(() => import('./hero/HeroSettingsPanel'), { ss
 const ProductSettingsPanel = dynamic(() => import('./product/ProductSettingsPanel'), { ssr: false });
 const GenericBlockSettingsPanel = dynamic(() => import('./generic/GenericBlockSettingsPanel'), { ssr: false });
 const ContactSettingsPanel = dynamic(() => import('./contact/ContactSettingsPanel'), { ssr: false });
+const MapSettingsPanel = dynamic(() => import('./map/MapSettingsPanel'), { ssr: false });
 const RepeatableItemsSettingsPanel = dynamic(() => import('./RepeatableItemsSettingsPanel'), { ssr: false });
 const SideBySideSettingsPanel = dynamic(() => import('./sideBySide/SideBySideSettingsPanel'), { ssr: false });
 
 const GENERIC_BLOCK_TITLES: Record<string, string> = {
     text: 'Rich Text Paragraph Settings',
     image: 'Image Section Settings',
-    map: 'Google Map Settings',
+    map: 'Map Settings',
     custom_html: 'Custom HTML / Embed Settings',
     customHtml: 'Custom HTML / Embed Settings',
     customHTML: 'Custom HTML / Embed Settings',
@@ -106,6 +107,10 @@ export const BLOCK_PANEL_REGISTRY: Record<string, PanelEntry> = {
     contact: {
         title: 'Contact Info Settings',
         component: ContactSettingsPanel,
+    },
+    map: {
+        title: 'Map Settings',
+        component: MapSettingsPanel,
     },
     menu: {
         title: 'Menu Settings',

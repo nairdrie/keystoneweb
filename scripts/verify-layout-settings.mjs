@@ -158,6 +158,7 @@ for (const file of [
   'app/components/blocks/product/ProductSettingsPanel.tsx',
   'app/components/blocks/hero/HeroSettingsPanel.tsx',
   'app/components/blocks/contact/ContactSettingsPanel.tsx',
+  'app/components/blocks/map/MapSettingsPanel.tsx',
   'app/components/blocks/menu/MenuSettingsPanel.tsx',
 ]) {
   requireSnippets(file, [
