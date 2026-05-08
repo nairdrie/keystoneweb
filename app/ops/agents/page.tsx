@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
+import { getOpsAccessContext } from '@/lib/ops/access';
 import AgentActions from './AgentActions';
 
 type AgentRow = {
@@ -23,13 +23,8 @@ type AgentInviteRow = {
 
 export default async function OpsAgentsPage() {
   // Admin-only page
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
-    .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-
-  if (!user || !adminEmails.includes(user.email?.toLowerCase() ?? '')) {
+  const access = await getOpsAccessContext();
+  if (!access?.isAdmin) {
     redirect('/');
   }
 

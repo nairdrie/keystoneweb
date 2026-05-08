@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { getOpsAdminEmails, requireOpsAccess } from '@/lib/ops/access';
+import { requireOpsAccess } from '@/lib/ops/access';
 import { getMonthlyEquivalent, type AccountingMetrics, type Frequency } from '@/lib/ops/accounting';
 
 /**
@@ -24,16 +24,12 @@ export async function GET() {
 
   // ── Admin/agent user IDs to exclude from customer-facing counts ─────────
 
-  const adminEmails = getOpsAdminEmails();
-  const [agentRows, flaggedAdminRows, envAdminRows] = await Promise.all([
+  const [agentRows, adminRows] = await Promise.all([
     db.from('users').select('id').eq('is_agent', true),
     db.from('users').select('id').eq('is_admin', true),
-    adminEmails.length > 0
-      ? db.from('users').select('id').in('email', adminEmails)
-      : Promise.resolve({ data: [] as Array<{ id: string }> }),
   ]);
   const excludedUserIds = new Set<string>();
-  for (const row of [...(agentRows.data ?? []), ...(flaggedAdminRows.data ?? []), ...(envAdminRows.data ?? [])]) {
+  for (const row of [...(agentRows.data ?? []), ...(adminRows.data ?? [])]) {
     if (row?.id) excludedUserIds.add(row.id);
   }
 

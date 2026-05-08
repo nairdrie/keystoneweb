@@ -1,25 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { createClient } from '@/lib/db/supabase-server';
 import { getMonthlySpendSummary } from '@/lib/marketing/spend';
 
-async function assertAdmin(): Promise<boolean> {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return false;
-    const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
-      .split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
-    return adminEmails.includes(user.email?.toLowerCase() ?? '');
-  } catch { return false; }
-}
 
+
+import { assertOpsAdmin } from '@/lib/ops/access';
 /**
  * GET /api/ops/marketing/spend
  * Get spend summary for a month (defaults to current month).
  */
 export async function GET(request: NextRequest) {
-  if (!await assertAdmin()) {
+  if (!await assertOpsAdmin()) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

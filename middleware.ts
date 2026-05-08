@@ -40,8 +40,8 @@ export async function middleware(request: NextRequest) {
 
   // ============================================================
   // STEP 1a: Ops dashboard — ops.{BASE_DOMAIN}
-  // Only admin emails (OPS_ADMIN_EMAILS env var) are allowed in.
-  // Everyone else is hard-redirected to the app root.
+  // Only users with is_admin=true (or is_agent=true) in the users table are
+  // allowed in. Everyone else is hard-redirected to the app root.
   // ============================================================
   if (parsed.kind === 'ops') {
     // API routes pass through without redirect so the ops pages can call them
@@ -49,14 +49,10 @@ export async function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
-    const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
-      .split(',')
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean);
-
     // We need to validate the session to check the email
     let userEmail: string | null = null;
     let userId: string | null = null;
+    let isAdmin = false;
     let isAgent = false;
     const opsCheckResponse = NextResponse.next();
 
@@ -81,20 +77,18 @@ export async function middleware(request: NextRequest) {
       userEmail = user?.email?.toLowerCase() ?? null;
       userId = user?.id ?? null;
 
-      // If not a hardcoded admin, check if they have the agent flag in the DB
-      if (userEmail && !adminEmails.includes(userEmail) && userId) {
+      if (userId) {
         const { data: profile } = await supabase
           .from('users')
-          .select('is_agent')
+          .select('is_admin, is_agent')
           .eq('id', userId)
           .single();
+        isAdmin = profile?.is_admin ?? false;
         isAgent = profile?.is_agent ?? false;
       }
     } catch {
       // Auth error → treat as not authenticated
     }
-
-    const isAdmin = userEmail ? adminEmails.includes(userEmail) : false;
 
     if (!userEmail || (!isAdmin && !isAgent)) {
       console.log(`[Middleware] Ops access denied for: ${userEmail ?? 'unauthenticated'}`);
@@ -298,10 +292,10 @@ export async function middleware(request: NextRequest) {
       response.headers.set('x-user-id', user.id);
       response.headers.set('x-user-email', user.email || '');
 
-      // Check if user is banned
+      // Check if user is banned (and capture is_admin for the impersonation check below)
       const { data: profile } = await supabase
         .from('users')
-        .select('is_banned')
+        .select('is_banned, is_admin')
         .eq('id', user.id)
         .single();
 
@@ -314,12 +308,8 @@ export async function middleware(request: NextRequest) {
       // STEP 3: Impersonation check
       // ============================================================
       const impersonateId = request.cookies.get('ksw_impersonate')?.value;
-      const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
-        .split(',')
-        .map((e) => e.trim().toLowerCase())
-        .filter(Boolean);
 
-      if (impersonateId && adminEmails.includes(user.email?.toLowerCase() ?? '')) {
+      if (impersonateId && profile?.is_admin) {
         console.log(`[Middleware] Admin ${user.email} is impersonating: ${impersonateId}`);
         // Must forward as a request header (not response header) so that
         // headers() in server components / route handlers can read it.

@@ -9,6 +9,7 @@ import { stripQuotedText, stripQuotedHtml } from '@/lib/email/quoted-text';
 import { sendComposedEmail } from '@/lib/email';
 import { sanitizeEmailHtml } from '@/lib/email/sanitize';
 import { buildSendFrom, listSiteInboxAddresses, resolvePrimaryAddress } from '@/lib/email/inbox-addresses';
+import { getOpsAdminEmailList } from '@/lib/ops/access';
 
 /**
  * POST /api/webhooks/resend-inbound
@@ -690,10 +691,7 @@ export async function POST(request: NextRequest) {
 
   // Notify ops admins only if not an ops sender
   if (!isOpsSender) {
-    const adminEmails = (process.env.OPS_ADMIN_EMAILS ?? '')
-      .split(',')
-      .map(e => e.trim())
-      .filter(Boolean);
+    const adminEmails = await getOpsAdminEmailList();
 
     const bodyPreview = opsBodyText ? opsBodyText.slice(0, 300) : null;
     await sendSupportRequestNotification({ fromName, fromEmail, subject, bodyPreview }, adminEmails);

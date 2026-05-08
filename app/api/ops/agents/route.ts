@@ -4,11 +4,10 @@ import { createAdminClient } from '@/lib/db/supabase-admin';
 import { randomBytes } from 'crypto';
 import { APP_URL } from '@/lib/env/domain';
 import { resend } from '@/lib/email/resend';
+import { assertOpsAdmin } from '@/lib/ops/access';
 
-function assertAdmin(userEmail: string | undefined) {
-  const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
-    .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-  if (!userEmail || !adminEmails.includes(userEmail.toLowerCase())) {
+async function requireAdmin() {
+  if (!(await assertOpsAdmin())) {
     throw new Error('Forbidden');
   }
 }
@@ -16,9 +15,7 @@ function assertAdmin(userEmail: string | undefined) {
 // GET /api/ops/agents — list all agents
 export async function GET() {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    assertAdmin(user?.email);
+    await requireAdmin();
 
     const db = createAdminClient();
 
@@ -52,9 +49,9 @@ export async function GET() {
 // POST /api/ops/agents — create an agent invite
 export async function POST(request: Request) {
   try {
+    await requireAdmin();
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    assertAdmin(user?.email);
 
     const { personal_email, contact_email } = await request.json();
 

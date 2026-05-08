@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
+import { assertOpsAdmin } from '@/lib/ops/access';
 
-function assertAdmin(userEmail: string | undefined) {
-  const adminEmails = (process.env.OPS_ADMIN_EMAILS || '')
-    .split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-  if (!userEmail || !adminEmails.includes(userEmail.toLowerCase())) {
+async function requireAdmin() {
+  if (!(await assertOpsAdmin())) {
     throw new Error('Forbidden');
   }
 }
@@ -16,10 +14,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireAdmin();
     const { id } = await params;
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    assertAdmin(user?.email);
 
     const db = createAdminClient();
 
@@ -79,10 +75,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireAdmin();
     const { id } = await params;
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    assertAdmin(user?.email);
 
     const body = await request.json();
     const allowed = ['agent_contact_email', 'is_agent', 'business_name'];

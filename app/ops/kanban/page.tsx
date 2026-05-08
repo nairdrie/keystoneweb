@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { getOpsAccessContext, getOpsAdminEmails } from '@/lib/ops/access';
+import { getOpsAccessContext } from '@/lib/ops/access';
 import { OPS_TICKET_STATUSES, type OpsAssigneeOption, type OpsTicket, type OpsTicketStatus } from '@/lib/ops/kanban';
 import { APP_URL } from '@/lib/env/domain';
 import KanbanBoardClient from './KanbanBoardClient';
@@ -15,7 +15,6 @@ export default async function OpsKanbanPage() {
   }
 
   const db = createAdminClient();
-  const adminEmails = getOpsAdminEmails();
 
   // Initial load uses priority order to match the default client sort mode.
   // The priority_rank computed column is defined in migration 037_ops_priority_rank.sql.
@@ -37,7 +36,7 @@ export default async function OpsKanbanPage() {
       .eq('status', status.value)
   );
 
-  const [ticketBatchResults, ticketCountResults, agentsResult, flaggedAdminsResult, envAdminsResult] = await Promise.all([
+  const [ticketBatchResults, ticketCountResults, agentsResult, adminsResult] = await Promise.all([
     Promise.all(ticketBatchQueries),
     Promise.all(ticketCountQueries),
     db
@@ -50,13 +49,6 @@ export default async function OpsKanbanPage() {
       .select('id, email, business_name, is_agent, is_admin')
       .eq('is_admin', true)
       .order('email', { ascending: true }),
-    adminEmails.length > 0
-      ? db
-          .from('users')
-          .select('id, email, business_name, is_agent, is_admin')
-          .in('email', adminEmails)
-          .order('email', { ascending: true })
-      : Promise.resolve({ data: [], error: null }),
   ]);
 
   for (const [index, result] of ticketBatchResults.entries()) {
@@ -72,11 +64,8 @@ export default async function OpsKanbanPage() {
   if (agentsResult.error) {
     console.error('[ops/kanban page agents]', agentsResult.error);
   }
-  if (flaggedAdminsResult.error) {
-    console.error('[ops/kanban page admins]', flaggedAdminsResult.error);
-  }
-  if (envAdminsResult.error) {
-    console.error('[ops/kanban page env admins]', envAdminsResult.error);
+  if (adminsResult.error) {
+    console.error('[ops/kanban page admins]', adminsResult.error);
   }
 
   const peopleById = new Map<string, {
@@ -89,8 +78,7 @@ export default async function OpsKanbanPage() {
 
   for (const row of [
     ...(agentsResult.data ?? []),
-    ...(flaggedAdminsResult.data ?? []),
-    ...(envAdminsResult.data ?? []),
+    ...(adminsResult.data ?? []),
   ]) {
     if (!row?.id || !row.email) continue;
     const email = row.email.toLowerCase();
@@ -101,7 +89,7 @@ export default async function OpsKanbanPage() {
       email,
       business_name: row.business_name ?? existing?.business_name ?? null,
       is_agent: Boolean(row.is_agent || existing?.is_agent),
-      is_admin: Boolean(row.is_admin || existing?.is_admin || adminEmails.includes(email)),
+      is_admin: Boolean(row.is_admin || existing?.is_admin),
     });
   }
 
