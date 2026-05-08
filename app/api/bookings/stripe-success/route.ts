@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     // Get site's connected Stripe account to verify the session
     const { data: site } = await createAdminClient()
         .from('sites')
-        .select('stripe_account_id, site_slug, published_domain, title, design_data')
+        .select('stripe_account_id, site_slug, published_domain, design_data')
         .eq('id', siteId)
         .single();
 

@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     const { data: site } = await admin
       .from('sites')
-      .select('paypal_merchant_id, site_slug, published_domain, title, user_id, design_data')
+      .select('paypal_merchant_id, site_slug, published_domain, user_id, design_data')
       .eq('id', siteId)
       .single();
 
@@ -221,7 +221,7 @@ export async function POST(request: NextRequest) {
       paymentMethod: 'paypal' as const,
       etransferEmail: undefined,
       confirmationMessage: settings?.confirmation_message,
-      siteName: site.title || site.site_slug || undefined,
+      siteName: site.site_slug || undefined,
       logoUrl: ppBookingLogoUrl,
       overrides: ppBookingOverrides,
     };

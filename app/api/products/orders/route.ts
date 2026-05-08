@@ -2,6 +2,7 @@ import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendOrderConfirmation, sendOrderNotification, sendOrderPaymentConfirmed, sendOrderCancellationToCustomer, sendOrderCancellationToOwner, sendOrderShipped, sendMixedOrderConfirmation, sendVendorOrderNotification, sendOwnerVendorOrderNotification } from '@/lib/email';
+import { buildSiteOrigin } from '@/lib/email/order-tracking-url';
 import { findMatchingZone, type ShippingZone } from '@/lib/shipping-data';
 import { getCurrentMemberFromRequest } from '@/lib/membership/current-member';
 import { resolveProductAccess, parseProductOptions, resolveOptionPriceModifierCents } from '@/lib/ecommerce/resolve-price';
@@ -396,11 +397,15 @@ export async function POST(request: NextRequest) {
     // ── Send emails ──────────────────────────────────────────────────────────
     const { data: siteInfo } = await supabase
         .from('sites')
-        .select('site_slug, design_data')
+        .select('site_slug, design_data, published_domain, custom_domain')
         .eq('id', siteId)
         .single();
     const siteName = siteInfo?.site_slug || undefined;
     const logoUrl: string | undefined = (siteInfo?.design_data as any)?.headerLogo || (siteInfo?.design_data as any)?.siteLogo || undefined;
+    const siteOrigin = buildSiteOrigin({
+        customDomain: siteInfo?.custom_domain,
+        publishedDomain: siteInfo?.published_domain,
+    });
 
     const { data: ecomSettings } = await supabase
         .from('ecommerce_settings')
@@ -463,6 +468,7 @@ export async function POST(request: NextRequest) {
         paymentMethod,
         etransferEmail: paymentConfig?.etransfer_email,
         siteName,
+        siteOrigin,
         logoUrl,
         overrides: emailCustomizations['mixed_order_confirmed'],
     }).catch(err => console.error('Mixed order customer email failed:', err));
@@ -675,11 +681,15 @@ async function createSingleOrder(supabase: any, params: {
     // Get site name + logo for customer emails
     const { data: siteInfo } = await supabase
         .from('sites')
-        .select('site_slug, design_data')
+        .select('site_slug, design_data, published_domain, custom_domain')
         .eq('id', siteId)
         .single();
     const siteName = siteInfo?.site_slug || undefined;
     const logoUrl: string | undefined = (siteInfo?.design_data as any)?.headerLogo || (siteInfo?.design_data as any)?.siteLogo || undefined;
+    const siteOrigin = buildSiteOrigin({
+        customDomain: siteInfo?.custom_domain,
+        publishedDomain: siteInfo?.published_domain,
+    });
 
     // Get e-commerce settings for e-transfer email + notification email
     const { data: ecomSettings } = await supabase
@@ -744,6 +754,7 @@ async function createSingleOrder(supabase: any, params: {
         paymentMethod,
         etransferEmail: paymentConfig?.etransfer_email,
         siteName,
+        siteOrigin,
         logoUrl,
         overrides: emailCustomizations['order_confirmed'],
         notes: notes || undefined,
@@ -905,10 +916,10 @@ export async function PUT(request: NextRequest) {
     if (isBeingMarkedPaid) {
         const { data: paidSiteInfo } = await supabase
             .from('sites')
-            .select('title, site_slug, design_data')
+            .select('site_slug, design_data')
             .eq('id', existingOrder.site_id)
             .single();
-        const paidSiteName = paidSiteInfo?.title || paidSiteInfo?.site_slug || undefined;
+        const paidSiteName = paidSiteInfo?.site_slug || undefined;
         const paidLogoUrl: string | undefined = (paidSiteInfo?.design_data as any)?.headerLogo || (paidSiteInfo?.design_data as any)?.siteLogo || undefined;
 
         const { data: paidCustomRows } = await supabase
@@ -940,10 +951,10 @@ export async function PUT(request: NextRequest) {
     if (isBeingMarkedShipped) {
         const { data: shippedSiteInfo } = await supabase
             .from('sites')
-            .select('title, site_slug, design_data')
+            .select('site_slug, design_data')
             .eq('id', existingOrder.site_id)
             .single();
-        const shippedSiteName = shippedSiteInfo?.title || shippedSiteInfo?.site_slug || undefined;
+        const shippedSiteName = shippedSiteInfo?.site_slug || undefined;
         const shippedLogoUrl: string | undefined = (shippedSiteInfo?.design_data as any)?.headerLogo || (shippedSiteInfo?.design_data as any)?.siteLogo || undefined;
 
         const { data: shippedCustomRows } = await supabase
@@ -995,10 +1006,10 @@ export async function PUT(request: NextRequest) {
     if (isBeingCancelled) {
         const { data: cancelSiteInfo } = await supabase
             .from('sites')
-            .select('title, site_slug, design_data')
+            .select('site_slug, design_data')
             .eq('id', existingOrder.site_id)
             .single();
-        const cancelSiteName = cancelSiteInfo?.title || cancelSiteInfo?.site_slug || undefined;
+        const cancelSiteName = cancelSiteInfo?.site_slug || undefined;
         const cancelLogoUrl: string | undefined = (cancelSiteInfo?.design_data as any)?.headerLogo || (cancelSiteInfo?.design_data as any)?.siteLogo || undefined;
 
         const { data: ecomSettings } = await supabase

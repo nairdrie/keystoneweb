@@ -1,6 +1,7 @@
 import { buildMemberEmailHtml, type EmailBranding } from '@/lib/membership/email-template';
 import { resend } from '@/lib/email/resend';
 import { buildOwnerReplyAddress } from '@/lib/email/threading';
+import { buildOrderTrackingUrl } from '@/lib/email/order-tracking-url';
 
 interface EmailOverrides {
     subject?: string;
@@ -333,6 +334,7 @@ interface OrderEmailData {
     paymentMethod: string;
     etransferEmail?: string;
     siteName?: string;
+    siteOrigin?: string | null;
     logoUrl?: string;
     overrides?: EmailOverrides;
     notes?: string;
@@ -386,6 +388,12 @@ export async function sendOrderConfirmation(data: OrderEmailData) {
         const finalSubject = data.overrides?.subject || emailSubject;
         const finalHeading = data.overrides?.heading || emailHeading;
         const finalSubheading = data.overrides?.subheading || emailSubheading;
+        const trackingPageUrl = buildOrderTrackingUrl(data.siteOrigin, data.orderId);
+        const trackingButton = trackingPageUrl ? `
+            <div style="text-align:center;margin-top:20px;">
+                <a href="${trackingPageUrl}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 22px;border-radius:8px;">View order updates</a>
+                <p style="margin:8px 0 0;font-size:11px;color:#9ca3af;">Bookmark this page to track shipping &amp; status changes anytime.</p>
+            </div>` : '';
 
         await resend.emails.send({
             from: `${data.siteName || 'Keystone Web Design'} <orders@keystoneweb.ca>`,
@@ -403,6 +411,7 @@ export async function sendOrderConfirmation(data: OrderEmailData) {
                         </table>
                     </div>
                     ${paymentSection}
+                    ${trackingButton}
                     <p style="margin-top:16px;font-size:12px;color:#9ca3af;text-align:center;">Ref: ${refId}</p>
                     ${buildEmailFooter(data.siteName, data.overrides?.footerText)}
                 </div>`,
@@ -623,6 +632,7 @@ export async function sendMixedOrderConfirmation(data: {
     paymentMethod: string;
     etransferEmail?: string;
     siteName?: string;
+    siteOrigin?: string | null;
     logoUrl?: string;
     overrides?: EmailOverrides;
 }) {
@@ -662,6 +672,12 @@ export async function sendMixedOrderConfirmation(data: {
         const mixedHeading = data.overrides?.heading || 'Order Received';
         const mixedSubheading = data.overrides?.subheading || `Thank you for your order, ${data.customerName}!`;
         const mixedSubject = data.overrides?.subject || `Order Received — ${refId}`;
+        const mixedTrackingUrl = buildOrderTrackingUrl(data.siteOrigin, data.orderId);
+        const mixedTrackingButton = mixedTrackingUrl ? `
+            <div style="text-align:center;margin-top:20px;">
+                <a href="${mixedTrackingUrl}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;padding:11px 22px;border-radius:8px;">View order updates</a>
+                <p style="margin:8px 0 0;font-size:11px;color:#9ca3af;">Bookmark this page to track shipping &amp; status changes anytime.</p>
+            </div>` : '';
 
         await resend.emails.send({
             from: `${data.siteName || 'Keystone Web Design'} <orders@keystoneweb.ca>`,
@@ -676,6 +692,7 @@ export async function sendMixedOrderConfirmation(data: {
                         </table>
                     </div>
                     ${externalNote}
+                    ${mixedTrackingButton}
                     <p style="margin-top:16px;font-size:12px;color:#9ca3af;text-align:center;">Ref: ${refId}</p>
                     ${buildEmailFooter(data.siteName, data.overrides?.footerText)}
                 </div>`,
