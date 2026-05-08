@@ -356,10 +356,20 @@ function buildHeroHeightCss(scopeClass: string, h: HeroHeight): string {
     const overlayPad = (cfg: HeroHeightConfig): string =>
         cfg.mode === 'fitScreen' ? 'var(--ks-header-height, 0px)' : '0';
 
+    // For fitScreen, lock the height (not just min-height) so the in-flow
+    // sizer of a tall card can't push the section past viewport-minus-header.
+    // The section already has overflow-hidden; bg images use bg-cover/center
+    // and videos use object-cover, so they fill and crop cleanly.
+    const lockHeight = (cfg: HeroHeightConfig): string =>
+        cfg.mode === 'fitScreen' ? `height: ${minH(cfg)};` : '';
+    const overlayLockHeight = (cfg: HeroHeightConfig): string =>
+        cfg.mode === 'fitScreen' ? `height: ${overlayMinH(cfg)};` : '';
+
     const block = (cfg: HeroHeightConfig, scope = sel): string => `
-${scope} { min-height: ${minH(cfg)}; }
+${scope} { min-height: ${minH(cfg)}; ${lockHeight(cfg)} }
 :root[data-ks-header-overlay="true"] .first-block-offset > .ks-block ${scope} {
     min-height: ${overlayMinH(cfg)};
+    ${overlayLockHeight(cfg)}
     padding-top: ${overlayPad(cfg)};
 }`;
 
