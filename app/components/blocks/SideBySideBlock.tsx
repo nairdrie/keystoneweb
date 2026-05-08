@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import { BlockData } from '@/lib/editor-context';
-import { Plus, ArrowUp, ArrowDown, Trash2, Crown } from 'lucide-react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
+import { BlockData, EditorContextType, EditorProvider, useEditorContext } from '@/lib/editor-context';
+import { Plus, Crown } from 'lucide-react';
 import { BLOCK_COMPONENTS, AVAILABLE_BLOCKS } from './block-registry';
 import { getBlockDisplayLabel, getBlockIcon } from './block-icons';
+import BlockWrapper from './BlockWrapper';
 
 type ColumnRatio = '50-50' | '60-40' | '40-60' | '33-67' | '67-33';
 type VerticalAlign = 'start' | 'center' | 'end' | 'stretch';
@@ -86,9 +87,7 @@ export default function SideBySideBlock({ data, isEditMode, palette, updateConte
                 __html: `@media (max-width: 767px) {
                     .ks-side-by-side .ks-side-by-side-grid {
                         ${stackOnMobile ? 'grid-template-columns: 1fr !important;' : ''}
-                        ${stackOnMobile && reverseOnMobile ? 'direction: rtl;' : ''}
                     }
-                    ${stackOnMobile && reverseOnMobile ? '.ks-side-by-side .ks-side-by-side-grid > * { direction: ltr; }' : ''}
                     ${stackOnMobile && reverseOnMobile ? '.ks-side-by-side .ks-side-by-side-grid > [data-side="left"] { order: 2; } .ks-side-by-side .ks-side-by-side-grid > [data-side="right"] { order: 1; }' : ''}
                 }`,
             }} />
@@ -107,36 +106,6 @@ function SideBySideColumn({
     palette: Record<string, string>;
     onChange: (next: BlockData[]) => void;
 }) {
-    const addChild = (type: string, afterIndex?: number) => {
-        const newBlock: BlockData = {
-            id: `block-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-            type,
-            data: {},
-        };
-        const updated = [...blocks];
-        if (afterIndex !== undefined) updated.splice(afterIndex + 1, 0, newBlock);
-        else updated.push(newBlock);
-        onChange(updated);
-    };
-
-    const updateChild = (blockId: string, key: string, value: any) => {
-        onChange(blocks.map(b => b.id === blockId ? { ...b, data: { ...b.data, [key]: value } } : b));
-    };
-
-    const moveChild = (blockId: string, dir: 'up' | 'down') => {
-        const idx = blocks.findIndex(b => b.id === blockId);
-        if (idx === -1) return;
-        const newIdx = dir === 'up' ? idx - 1 : idx + 1;
-        if (newIdx < 0 || newIdx >= blocks.length) return;
-        const updated = [...blocks];
-        [updated[idx], updated[newIdx]] = [updated[newIdx], updated[idx]];
-        onChange(updated);
-    };
-
-    const removeChild = (blockId: string) => {
-        onChange(blocks.filter(b => b.id !== blockId));
-    };
-
     if (!isEditMode) {
         return (
             <div data-side={side} className="min-w-0">
@@ -161,93 +130,151 @@ function SideBySideColumn({
     }
 
     return (
-        <div
-            data-side={side}
-            className="min-w-0 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/40 p-2"
-        >
-            <div className="mb-1 px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                {side === 'left' ? 'Left column' : 'Right column'}
-            </div>
-
-            {blocks.length === 0 ? (
-                <div className="py-6 text-center">
-                    <p className="mb-2 text-xs text-slate-400">Empty column</p>
-                    <InlineAddButton
-                        label="Add block"
-                        alwaysVisible
-                        onAdd={(type) => addChild(type)}
-                    />
+        <ScopedEditMode blocks={blocks} onChange={onChange} palette={palette}>
+            <div
+                data-side={side}
+                className="min-w-0 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/40 p-2"
+            >
+                <div className="mb-1 px-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    {side === 'left' ? 'Left column' : 'Right column'}
                 </div>
-            ) : (
-                <>
-                    {blocks.map((block, i) => {
-                        const Component = BLOCK_COMPONENTS[block.type];
-                        if (!Component) return null;
-                        return (
-                            <div key={block.id} className="relative group/child">
-                                <InlineAddButton onAdd={(type) => addChild(type, i - 1)} position="top" />
 
-                                <div className="absolute top-2 right-2 z-[110] flex overflow-hidden rounded-md border border-slate-200 bg-white opacity-0 shadow transition-opacity group-hover/child:opacity-100">
-                                    <button
-                                        onClick={() => moveChild(block.id, 'up')}
-                                        disabled={i === 0}
-                                        className="border-r border-slate-100 p-1.5 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-700 disabled:opacity-30"
-                                        title="Move up"
-                                    >
-                                        <ArrowUp style={{ width: 14, height: 14 }} />
-                                    </button>
-                                    <button
-                                        onClick={() => moveChild(block.id, 'down')}
-                                        disabled={i === blocks.length - 1}
-                                        className="border-r border-slate-100 p-1.5 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-700 disabled:opacity-30"
-                                        title="Move down"
-                                    >
-                                        <ArrowDown style={{ width: 14, height: 14 }} />
-                                    </button>
-                                    <button
-                                        onClick={() => removeChild(block.id)}
-                                        className="p-1.5 text-red-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                                        title="Remove block"
-                                    >
-                                        <Trash2 style={{ width: 14, height: 14 }} />
-                                    </button>
-                                </div>
-
-                                <div className="rounded border-2 border-transparent transition-colors hover:border-slate-200">
-                                    <Component
+                {blocks.length === 0 ? (
+                    <ScopedAddButton index={0} label="Add block" alwaysVisible />
+                ) : (
+                    <>
+                        {blocks.map((block, i) => {
+                            const Component = BLOCK_COMPONENTS[block.type];
+                            if (!Component) return null;
+                            return (
+                                <div key={block.id} className="relative">
+                                    <ScopedAddButton index={i} position="top" />
+                                    <BlockWrapper
                                         id={block.id}
+                                        type={block.type}
                                         data={block.data || {}}
-                                        isEditMode={true}
+                                        customCss={block.data?.__customCss || ''}
                                         palette={palette}
-                                        updateContent={(key: string, value: any) => updateChild(block.id, key, value)}
-                                        block={block}
-                                    />
+                                        onUpdateBlockData={(key: string, value: unknown) => {
+                                            // Handled via the scoped context's updateBlockData,
+                                            // but BlockWrapper also calls this prop directly — wire it through.
+                                            onChange(blocks.map(b =>
+                                                b.id === block.id ? { ...b, data: { ...b.data, [key]: value } } : b
+                                            ));
+                                        }}
+                                        onUpdateCustomCss={(css: string) => {
+                                            onChange(blocks.map(b =>
+                                                b.id === block.id ? { ...b, data: { ...b.data, __customCss: css } } : b
+                                            ));
+                                        }}
+                                    >
+                                        <Component
+                                            id={block.id}
+                                            data={block.data || {}}
+                                            isEditMode={true}
+                                            palette={palette}
+                                            updateContent={(key: string, value: unknown) => {
+                                                onChange(blocks.map(b =>
+                                                    b.id === block.id ? { ...b, data: { ...b.data, [key]: value } } : b
+                                                ));
+                                            }}
+                                            block={block}
+                                        />
+                                    </BlockWrapper>
                                 </div>
-                            </div>
-                        );
-                    })}
-
-                    <InlineAddButton
-                        label="Add block"
-                        alwaysVisible
-                        onAdd={(type) => addChild(type)}
-                    />
-                </>
-            )}
-        </div>
+                            );
+                        })}
+                        <ScopedAddButton index={blocks.length} label="Add block" alwaysVisible />
+                    </>
+                )}
+            </div>
+        </ScopedEditMode>
     );
 }
 
-// ─── Inline Add Block Button ─────────────────────────────────────────────────
+// ─── Scoped editor context for nested blocks ─────────────────────────────────
+//
+// BlockWrapperEditor (which renders the cog/move/delete buttons and the
+// settings modal) reads `useEditorContext()` to find the block in `blocks`
+// and to invoke moveBlock/removeBlock/updateBlockDataBatch. We replace that
+// context with a column-scoped one so every operation acts on the column
+// array instead of the page-level blocks array.
 
-function InlineAddButton({
-    onAdd, label, position, alwaysVisible,
+function ScopedEditMode({
+    blocks, onChange, palette, children,
 }: {
-    onAdd: (type: string) => void;
+    blocks: BlockData[];
+    onChange: (next: BlockData[]) => void;
+    palette: Record<string, string>;
+    children: React.ReactNode;
+}) {
+    const parent = useEditorContext();
+
+    const scopedValue = useMemo<EditorContextType>(() => {
+        const base: EditorContextType = parent
+            ? { ...parent }
+            : {
+                content: {},
+                siteContent: {},
+                updateSiteContent: () => {},
+                navItems: [],
+                updateNavItems: () => {},
+                isEditMode: true,
+                updateContent: () => {},
+            };
+
+        return {
+            ...base,
+            isEditMode: true,
+            blocks,
+            palette: palette || base.palette,
+            addBlock: (type: string, index?: number) => {
+                const newBlock: BlockData = {
+                    id: `block-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+                    type,
+                    data: {},
+                };
+                const next = [...blocks];
+                const insertAt = typeof index === 'number' && index >= 0 && index <= next.length ? index : next.length;
+                next.splice(insertAt, 0, newBlock);
+                onChange(next);
+            },
+            removeBlock: (id: string) => {
+                onChange(blocks.filter(b => b.id !== id));
+            },
+            moveBlock: (id: string, direction: 'up' | 'down') => {
+                const idx = blocks.findIndex(b => b.id === id);
+                if (idx < 0) return;
+                const target = direction === 'up' ? idx - 1 : idx + 1;
+                if (target < 0 || target >= blocks.length) return;
+                const next = [...blocks];
+                [next[idx], next[target]] = [next[target], next[idx]];
+                onChange(next);
+            },
+            updateBlockData: (id: string, key: string, value: unknown) => {
+                onChange(blocks.map(b => b.id === id ? { ...b, data: { ...b.data, [key]: value } } : b));
+            },
+            updateBlockDataBatch: (id: string, updates: Record<string, unknown>) => {
+                onChange(blocks.map(b => b.id === id ? { ...b, data: { ...b.data, ...updates } } : b));
+            },
+        };
+    }, [parent, blocks, onChange, palette]);
+
+    return <EditorProvider value={scopedValue}>{children}</EditorProvider>;
+}
+
+// ─── Scoped Add Button (uses scoped context.addBlock) ────────────────────────
+
+function ScopedAddButton({
+    index, label, position, alwaysVisible,
+}: {
+    index: number;
     label?: string;
     position?: 'top';
     alwaysVisible?: boolean;
 }) {
+    const ctx = useEditorContext();
+    const isProUser = ctx?.isProUser ?? false;
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
     const ref = useRef<HTMLDivElement>(null);
@@ -266,7 +293,6 @@ function InlineAddButton({
         return () => document.removeEventListener('mousedown', handler);
     }, [open]);
 
-    // Hide sideBySide from itself to avoid runaway nesting.
     const filtered = AVAILABLE_BLOCKS.filter(b =>
         b.type !== 'sideBySide' &&
         getBlockDisplayLabel(b.label).toLowerCase().includes(search.toLowerCase()),
@@ -312,13 +338,21 @@ function InlineAddButton({
                             <button
                                 key={b.type}
                                 className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900"
-                                onClick={() => { onAdd(b.type); setOpen(false); setSearch(''); }}
+                                onClick={() => {
+                                    if (b.proOnly && !isProUser) {
+                                        window.location.href = '/pricing';
+                                        return;
+                                    }
+                                    ctx?.addBlock?.(b.type, index);
+                                    setOpen(false);
+                                    setSearch('');
+                                }}
                             >
                                 <span className="flex min-w-0 items-center gap-2">
                                     {React.createElement(getBlockIcon(b.type), { className: 'h-4 w-4 shrink-0 text-slate-500' })}
                                     <span className="min-w-0 truncate">{getBlockDisplayLabel(b.label)}</span>
                                 </span>
-                                {b.proOnly && (
+                                {b.proOnly && !isProUser && (
                                     <span className="flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
                                         <Crown style={{ width: 10, height: 10 }} />
                                         PRO
@@ -334,4 +368,3 @@ function InlineAddButton({
         </div>
     );
 }
-
