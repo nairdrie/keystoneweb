@@ -1,22 +1,42 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { ChevronDown, Settings, LogOut, Paintbrush, LayoutDashboard, User } from 'lucide-react';
+import { ChevronDown, Settings, LogOut, Paintbrush, LayoutDashboard, User, Menu, X } from 'lucide-react';
 import KeystoneLogo from './KeystoneLogo';
 import { useAuth } from '@/lib/auth/context';
 import ProfileDropdown from './ProfileDropdown';
 import { useRouter } from 'next/navigation';
 
+const ANIM_MS = 220;
+
 export default function Header() {
-  const [isOpen, setIsOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);   // animation state
+  const [menuMounted, setMenuMounted] = useState(false); // DOM presence
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [avatarErrored, setAvatarErrored] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleAvatarError = useCallback(() => setAvatarErrored(true), []);
   const { user, signOut } = useAuth();
   const router = useRouter();
   const userDisplayName = user ? ((user.user_metadata?.full_name || user.user_metadata?.name || user.email) as string) : '';
   const userAvatarUrl = user ? (user.user_metadata?.avatar_url as string | undefined) : undefined;
+
+  const openMenu = useCallback(() => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    setMenuMounted(true);
+    // Two rAFs: first mounts element, second starts the transition
+    requestAnimationFrame(() => requestAnimationFrame(() => setMenuOpen(true)));
+  }, []);
+
+  const closeMenu = useCallback(() => {
+    setMenuOpen(false);
+    closeTimer.current = setTimeout(() => setMenuMounted(false), ANIM_MS);
+  }, []);
+
+  const toggleMenu = useCallback(() => {
+    if (menuOpen) closeMenu(); else openMenu();
+  }, [menuOpen, openMenu, closeMenu]);
 
   return (
     <header className="sticky top-[var(--impersonation-height,0px)] w-full z-50 bg-white border-b border-slate-200">
@@ -92,41 +112,32 @@ export default function Header() {
           )}
         </div>
 
-        {/* Mobile: Get Started/Continue Building + Hamburger */}
+        {/* Mobile: Get Started + Hamburger */}
         <div className="md:hidden flex items-center gap-3">
-          {user ? (
-            <Link
-              href="/onboarding"
-              className="px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shadow-md"
-            >
-              Get Started
-            </Link>
-          ) : (
-            <Link
-              href="/onboarding"
-              className="px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shadow-md"
-            >
-              Get Started
-            </Link>
-          )}
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="p-2 text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+          <Link
+            href="/onboarding"
+            className="px-4 py-2 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shadow-md"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {isOpen ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              )}
-            </svg>
+            Get Started
+          </Link>
+          <button
+            onClick={toggleMenu}
+            className="p-2 text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          >
+            <span className="relative w-6 h-6 flex items-center justify-center">
+              <Menu className={`absolute w-6 h-6 transition-all duration-[220ms] ${menuOpen ? 'opacity-0 rotate-90 scale-50' : 'opacity-100 rotate-0 scale-100'}`} />
+              <X className={`absolute w-6 h-6 transition-all duration-[220ms] ${menuOpen ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-90 scale-50'}`} />
+            </span>
           </button>
         </div>
       </nav>
 
-      {/* Mobile Menu */}
-      {isOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-white shadow-xl absolute w-full left-0">
+      {/* Mobile Menu — always mounted during open+close so close anim can play */}
+      {menuMounted && (
+        <div
+          className={`md:hidden border-t border-slate-200 bg-white shadow-xl absolute w-full left-0 transition-[opacity,transform] duration-[220ms] ease-out ${menuOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'}`}
+        >
           <div className="px-4 py-4 space-y-3">
             {user && (
               <>
@@ -157,7 +168,7 @@ export default function Header() {
                   <Link
                     href="/design"
                     className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-xs text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 rounded-lg transition-colors font-medium"
-                    onClick={() => setIsOpen(false)}
+                    onClick={closeMenu}
                   >
                     <Paintbrush className="w-3.5 h-3.5" />
                     Design
@@ -165,7 +176,7 @@ export default function Header() {
                   <Link
                     href="/admin"
                     className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 text-xs text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 rounded-lg transition-colors font-medium"
-                    onClick={() => setIsOpen(false)}
+                    onClick={closeMenu}
                   >
                     <LayoutDashboard className="w-3.5 h-3.5" />
                     Admin
@@ -174,13 +185,13 @@ export default function Header() {
                 <Link
                   href="/settings"
                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors font-medium"
-                  onClick={() => setIsOpen(false)}
+                  onClick={closeMenu}
                 >
                   <Settings className="w-4 h-4" />
                   Settings
                 </Link>
                 <button
-                  onClick={async () => { setIsOpen(false); await signOut(); router.push('/'); }}
+                  onClick={async () => { closeMenu(); await signOut(); router.push('/'); }}
                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors font-medium text-left"
                 >
                   <LogOut className="w-4 h-4" />
@@ -190,51 +201,27 @@ export default function Header() {
               </>
             )}
 
-            <Link
-              href="/templates"
-              className="block text-sm text-slate-700 hover:text-slate-900 font-medium py-2"
-              onClick={() => setIsOpen(false)}
-            >
+            <Link href="/templates" className="block text-sm text-slate-700 hover:text-slate-900 font-medium py-2" onClick={closeMenu}>
               Templates
             </Link>
 
             <div className="py-2">
               <div className="text-sm text-slate-900 font-bold mb-2">Industries</div>
               <div className="pl-4 space-y-2 border-l-2 border-slate-100">
-                <Link href="/industries/trades" className="block text-sm text-slate-600 hover:text-slate-900 py-1" onClick={() => setIsOpen(false)}>
-                  Trades & Home Services
-                </Link>
-                <Link href="/industries/ecommerce" className="block text-sm text-slate-600 hover:text-slate-900 py-1" onClick={() => setIsOpen(false)}>
-                  E-Commerce & Retail
-                </Link>
-                <Link href="/industries/health-wellness" className="block text-sm text-slate-600 hover:text-slate-900 py-1" onClick={() => setIsOpen(false)}>
-                  Health & Wellness
-                </Link>
-                <Link href="/industries/food-hospitality" className="block text-sm text-slate-600 hover:text-slate-900 py-1" onClick={() => setIsOpen(false)}>
-                  Food & Hospitality
-                </Link>
-                <Link href="/industries/professional-services" className="block text-sm text-slate-600 hover:text-slate-900 py-1" onClick={() => setIsOpen(false)}>
-                  Professional Services
-                </Link>
-                <Link href="/industries/creative-portfolio" className="block text-sm text-slate-600 hover:text-slate-900 py-1" onClick={() => setIsOpen(false)}>
-                  Creative & Portfolio
-                </Link>
+                <Link href="/industries/trades" className="block text-sm text-slate-600 hover:text-slate-900 py-1" onClick={closeMenu}>Trades & Home Services</Link>
+                <Link href="/industries/ecommerce" className="block text-sm text-slate-600 hover:text-slate-900 py-1" onClick={closeMenu}>E-Commerce & Retail</Link>
+                <Link href="/industries/health-wellness" className="block text-sm text-slate-600 hover:text-slate-900 py-1" onClick={closeMenu}>Health & Wellness</Link>
+                <Link href="/industries/food-hospitality" className="block text-sm text-slate-600 hover:text-slate-900 py-1" onClick={closeMenu}>Food & Hospitality</Link>
+                <Link href="/industries/professional-services" className="block text-sm text-slate-600 hover:text-slate-900 py-1" onClick={closeMenu}>Professional Services</Link>
+                <Link href="/industries/creative-portfolio" className="block text-sm text-slate-600 hover:text-slate-900 py-1" onClick={closeMenu}>Creative & Portfolio</Link>
               </div>
             </div>
 
-            <Link
-              href="/pricing"
-              className="block text-sm text-slate-700 hover:text-slate-900 font-medium py-2"
-              onClick={() => setIsOpen(false)}
-            >
+            <Link href="/pricing" className="block text-sm text-slate-700 hover:text-slate-900 font-medium py-2" onClick={closeMenu}>
               Pricing
             </Link>
 
-            <Link
-              href="/contact"
-              className="block text-sm text-slate-700 hover:text-slate-900 font-medium py-2"
-              onClick={() => setIsOpen(false)}
-            >
+            <Link href="/contact" className="block text-sm text-slate-700 hover:text-slate-900 font-medium py-2" onClick={closeMenu}>
               Contact
             </Link>
           </div>
