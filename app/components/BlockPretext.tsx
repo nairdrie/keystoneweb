@@ -10,16 +10,9 @@ export type PretextAlignment = 'left' | 'center';
 export const PRETEXT_STYLES: PretextStyle[] = ['text', 'pill', 'outline', 'underline'];
 export const PRETEXT_ALIGNMENTS: PretextAlignment[] = ['left', 'center'];
 
-export interface PretextData {
-    pretextEnabled?: boolean;
-    pretext?: string;
-    pretextStyle?: PretextStyle;
-    pretextColor?: string;
-    pretextAlignment?: PretextAlignment;
-}
-
 interface BlockPretextProps {
-    data: PretextData & Record<string, unknown>;
+    // Accept any block-data shape — we only read the pretext* keys.
+    data: unknown;
     isEditMode: boolean;
     palette: Record<string, string>;
     updateContent: (key: string, value: unknown) => void;
@@ -35,12 +28,15 @@ export default function BlockPretext({
     defaultText = 'Label',
     contentKey = 'pretext',
 }: BlockPretextProps) {
-    if (!data?.pretextEnabled) return null;
+    const record: Record<string, unknown> = (typeof data === 'object' && data !== null)
+        ? (data as Record<string, unknown>)
+        : {};
+    if (!record.pretextEnabled) return null;
 
-    const style: PretextStyle = isPretextStyle(data.pretextStyle) ? data.pretextStyle : 'text';
-    const align: PretextAlignment = data.pretextAlignment === 'center' ? 'center' : 'left';
-    const colorToken = typeof data.pretextColor === 'string' && data.pretextColor.length > 0
-        ? data.pretextColor
+    const style: PretextStyle = isPretextStyle(record.pretextStyle) ? record.pretextStyle : 'text';
+    const align: PretextAlignment = record.pretextAlignment === 'center' ? 'center' : 'left';
+    const colorToken = typeof record.pretextColor === 'string' && record.pretextColor.length > 0
+        ? record.pretextColor
         : 'palette:secondary';
     const color = resolvePaletteColor(colorToken, palette, palette.secondary || '#dc2626');
 
@@ -64,7 +60,7 @@ export default function BlockPretext({
         elementStyle = { borderColor: color, color };
     }
 
-    const content = typeof data[contentKey] === 'string' ? (data[contentKey] as string) : undefined;
+    const content = typeof record[contentKey] === 'string' ? (record[contentKey] as string) : undefined;
 
     return (
         <div className={`${alignClass} mb-3`}>

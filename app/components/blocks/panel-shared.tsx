@@ -6,6 +6,182 @@ import { resolvePaletteColor } from '@/lib/palette-colors';
 
 export const BLOCK_INSPECTOR_STATE_EVENT = 'ks:block-inspector-state';
 
+// ─── Pretext (block label) shared config ─────────────────────────────────────
+// Block types that render <BlockPretext /> above their primary heading.
+// Adding a block here enables the Label section in its settings panel.
+export const PRETEXT_BLOCKS = new Set<string>([
+    'aboutImageText',
+    'cta',
+    'featuresList',
+    'servicesGrid',
+    'stats',
+    'testimonials',
+    'faq',
+    'gallery',
+    'team',
+    'pricing',
+    'carousel',
+    'resources',
+    'contact',
+    'deliveryLinks',
+]);
+
+export const PRETEXT_DEFAULTS = {
+    pretextEnabled: false,
+    pretextStyle: 'text',
+    pretextColor: 'palette:secondary',
+    pretextAlignment: 'left',
+} as const;
+
+export const PRETEXT_DRAFT_KEYS = ['pretextEnabled', 'pretextStyle', 'pretextColor', 'pretextAlignment'] as const;
+
+const PRETEXT_STYLE_OPTIONS: Array<{ value: string; label: string; description?: string }> = [
+    { value: 'text', label: 'Text', description: 'Tracked uppercase eyebrow.' },
+    { value: 'pill', label: 'Pill', description: 'Filled rounded badge.' },
+    { value: 'outline', label: 'Outline', description: 'Bordered pill.' },
+    { value: 'underline', label: 'Underline', description: 'Underlined text.' },
+];
+
+const PRETEXT_ALIGN_OPTIONS: Array<{ value: string; label: string }> = [
+    { value: 'left', label: 'Left' },
+    { value: 'center', label: 'Center' },
+];
+
+const PRETEXT_COLOR_TOKENS: Array<{ value: string; label: string; paletteKey: string; title: string }> = [
+    { value: 'palette:primary', label: 'P', paletteKey: 'primary', title: 'Use palette primary' },
+    { value: 'palette:secondary', label: 'S', paletteKey: 'secondary', title: 'Use palette secondary' },
+    { value: 'palette:accent', label: 'A', paletteKey: 'accent', title: 'Use palette accent' },
+];
+
+export type PretextDraftValues = {
+    pretextEnabled?: boolean | string | number;
+    pretextStyle?: string;
+    pretextColor?: string;
+    pretextAlignment?: string;
+};
+
+export function readPretextFromBlockData(blockData: Record<string, unknown> | undefined): {
+    pretextEnabled: boolean;
+    pretextStyle: string;
+    pretextColor: string;
+    pretextAlignment: string;
+} {
+    const data = blockData || {};
+    return {
+        pretextEnabled: data.pretextEnabled === undefined || data.pretextEnabled === null
+            ? PRETEXT_DEFAULTS.pretextEnabled
+            : Boolean(data.pretextEnabled),
+        pretextStyle: typeof data.pretextStyle === 'string' && data.pretextStyle ? data.pretextStyle : PRETEXT_DEFAULTS.pretextStyle,
+        pretextColor: typeof data.pretextColor === 'string' && data.pretextColor ? data.pretextColor : PRETEXT_DEFAULTS.pretextColor,
+        pretextAlignment: typeof data.pretextAlignment === 'string' && data.pretextAlignment ? data.pretextAlignment : PRETEXT_DEFAULTS.pretextAlignment,
+    };
+}
+
+export function PretextControls({
+    values,
+    palette,
+    onChange,
+}: {
+    values: PretextDraftValues;
+    palette: Record<string, string>;
+    onChange: (key: string, value: string | boolean) => void;
+}) {
+    const enabled = Boolean(values.pretextEnabled);
+    const style = String(values.pretextStyle ?? PRETEXT_DEFAULTS.pretextStyle);
+    const color = String(values.pretextColor ?? PRETEXT_DEFAULTS.pretextColor);
+    const align = String(values.pretextAlignment ?? PRETEXT_DEFAULTS.pretextAlignment);
+
+    return (
+        <div className="space-y-4">
+            <InspectorToggle
+                label="Show label"
+                description="Small text shown above the heading."
+                checked={enabled}
+                onChange={() => onChange('pretextEnabled', !enabled)}
+            />
+
+            {enabled && (
+                <>
+                    <div>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Style</p>
+                        <div className="grid grid-cols-2 gap-2">
+                            {PRETEXT_STYLE_OPTIONS.map((option) => {
+                                const active = style === option.value;
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => onChange('pretextStyle', option.value)}
+                                        aria-pressed={active}
+                                        className={`rounded-xl border px-3 py-2.5 text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                            active
+                                                ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
+                                                : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <span className="block text-sm font-bold">{option.label}</span>
+                                        {option.description && (
+                                            <span className="mt-0.5 block text-xs leading-snug text-slate-500">{option.description}</span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Color</p>
+                        <div className="flex items-center gap-1">
+                            {PRETEXT_COLOR_TOKENS.map(({ value, label, paletteKey, title }) => {
+                                const active = color === value;
+                                return (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        onClick={() => onChange('pretextColor', value)}
+                                        title={title}
+                                        className={`w-8 h-8 rounded-full border text-[10px] font-bold shadow-sm transition-transform ${active ? 'border-slate-900 scale-105' : 'border-white'}`}
+                                        style={{
+                                            backgroundColor: palette[paletteKey] || '#ffffff',
+                                            color: paletteKey === 'accent' ? (palette.primary || '#0f172a') : '#ffffff',
+                                        }}
+                                    >
+                                        {label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Alignment</p>
+                        <div className="grid grid-cols-2 gap-2">
+                            {PRETEXT_ALIGN_OPTIONS.map((option) => {
+                                const active = align === option.value;
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => onChange('pretextAlignment', option.value)}
+                                        aria-pressed={active}
+                                        className={`rounded-xl border px-3 py-2.5 text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                            active
+                                                ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
+                                                : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <span className="block text-sm font-bold">{option.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
 export type BlockInspectorStateDetail = {
     open: boolean;
     blockType?: string;

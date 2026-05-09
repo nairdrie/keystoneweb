@@ -2,6 +2,7 @@
 
 import React from 'react';
 import EditableText from '../EditableText';
+import BlockPretext from '../BlockPretext';
 import { Plus } from 'lucide-react';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import InlineCardControls, { reorderItems } from './InlineCardControls';
@@ -95,6 +96,13 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                     <div
                         className="rounded-2xl border border-gray-100 bg-white shadow-sm p-8 md:p-10"
                     >
+                        <BlockPretext
+                            data={data}
+                            isEditMode={isEditMode}
+                            palette={palette}
+                            updateContent={updateContent}
+                            defaultText="Skills"
+                        />
                         {(data.title || isEditMode) && (
                             <EditableText
                                 as="h2"
@@ -182,6 +190,13 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
         return (
             <section className="py-20 md:py-12 xl:py-20" style={{ backgroundColor: configuredBackgroundColor || '#ffffff' }}>
                 <div className="max-w-7xl mx-auto px-4">
+                    <BlockPretext
+                        data={data}
+                        isEditMode={isEditMode}
+                        palette={palette}
+                        updateContent={updateContent}
+                        defaultText="By the Numbers"
+                    />
                     {(data.title || isEditMode) && (
                         <EditableText
                             as="h2"

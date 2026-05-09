@@ -2,6 +2,7 @@
 
 import React from 'react';
 import EditableText from '../EditableText';
+import BlockPretext from '../BlockPretext';
 import { ChevronLeft, ChevronRight, Plus, Star } from 'lucide-react';
 import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
@@ -313,6 +314,13 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
             <section className="py-24" style={{ backgroundColor: bgColor || pAccent }}>
                 <div className="max-w-3xl mx-auto px-4 text-center">
                     <Reveal>
+                        <BlockPretext
+                            data={data}
+                            isEditMode={isEditMode}
+                            palette={palette}
+                            updateContent={updateContent}
+                            defaultText="Testimonials"
+                        />
                         <EditableText
                             as="h2"
                             contentKey="title"
@@ -379,6 +387,13 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
         <section className="py-24" style={{ backgroundColor: bgColor || '#ffffff' }}>
             <div className="max-w-7xl mx-auto px-4">
                 <Reveal>
+                    <BlockPretext
+                        data={data}
+                        isEditMode={isEditMode}
+                        palette={palette}
+                        updateContent={updateContent}
+                        defaultText="Testimonials"
+                    />
                     <EditableText
                         as="h2"
                         contentKey="title"

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import EditableText from '../EditableText';
+import BlockPretext from '../BlockPretext';
 import { Plus } from 'lucide-react';
 import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
@@ -54,6 +55,13 @@ export default function FeaturesListBlock({ id, data, isEditMode, palette, updat
         <section className="py-24" style={{ backgroundColor: bgColor }}>
             <div className="max-w-4xl mx-auto px-4">
                 <Reveal>
+                    <BlockPretext
+                        data={data}
+                        isEditMode={isEditMode}
+                        palette={palette}
+                        updateContent={updateContent}
+                        defaultText="Why Us"
+                    />
                     <EditableText
                         as="h2"
                         contentKey="title"

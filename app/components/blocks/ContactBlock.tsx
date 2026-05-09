@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import EditableText from '../EditableText';
+import BlockPretext from '../BlockPretext';
 import { AlertTriangle, GripVertical, Plus, Settings, Trash2, X } from 'lucide-react';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import {
@@ -99,6 +100,13 @@ export default function ContactBlock({ data, isEditMode, palette, updateContent 
             <div className="max-w-5xl mx-auto px-4">
                 {(showTitle || showSubtitle) && (
                     <div className="mb-16 text-center">
+                        <BlockPretext
+                            data={data}
+                            isEditMode={isEditMode}
+                            palette={palette}
+                            updateContent={updateContent}
+                            defaultText="Contact"
+                        />
                         {showTitle && (
                             <EditableText
                                 as="h2"
