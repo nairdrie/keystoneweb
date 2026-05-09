@@ -113,7 +113,14 @@ function SideBySideColumn({
                     const Component = BLOCK_COMPONENTS[block.type];
                     if (!Component) return null;
                     return (
-                        <div key={block.id} className="w-full">
+                        <BlockWrapper
+                            key={block.id}
+                            id={block.id}
+                            type={block.type}
+                            data={block.data || {}}
+                            customCss={block.data?.__customCss || ''}
+                            palette={palette}
+                        >
                             <BlockDataProvider value={block.data || {}}>
                                 <Component
                                     id={block.id}
@@ -124,7 +131,7 @@ function SideBySideColumn({
                                     block={block}
                                 />
                             </BlockDataProvider>
-                        </div>
+                        </BlockWrapper>
                     );
                 })}
             </div>
