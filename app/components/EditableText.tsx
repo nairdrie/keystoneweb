@@ -68,7 +68,10 @@ export default function EditableText({
     ...(fontSize ? { fontSize } : {}),
     ...(color ? { color } : {}),
     ...(fontWeight ? { fontWeight } : {}),
-    ...(textAlign ? { textAlign } : {}),
+    // Alignment only takes effect inside a block formatting context. When the
+    // user explicitly aligns text we force display:block so a span EditableText
+    // (or any element a parent class is forcing inline) actually honors it.
+    ...(textAlign ? { textAlign, display: 'block' } : {}),
     ...(textShadowCss ? { textShadow: textShadowCss } : {}),
   };
 
