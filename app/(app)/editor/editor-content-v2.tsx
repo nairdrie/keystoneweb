@@ -1593,12 +1593,11 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
           </div>
         </div>
 
-        {/* Template Render Wrapper (This section alone scrolls, so sticky headers inside templates stick to the top of THIS container, right below our Editor banner. The transform also makes this element a containing block for `position: fixed` descendants — without it, a fixed site header (overlay + always-visible) would escape to the browser viewport and slip behind the editor toolbar / past the sidebar + inspector.) */}
+        {/* Template Render Wrapper (This section alone scrolls, so sticky headers inside templates stick to the top of THIS container, right below our Editor banner) */}
         <div
           data-tour="builder-canvas"
           data-preview-device={previewDevice}
           className={`flex-1 overflow-y-auto w-full relative ${previewDevice !== 'auto' ? `ks-preview-mode ks-preview-${previewDevice}` : ''}`}
-          style={{ transform: 'translateZ(0)' }}
         >
           <style dangerouslySetInnerHTML={{ __html: PREVIEW_FRAME_CSS }} />
           <MemberProvider siteId={siteId || ''} overrideMember={hasMembershipGate ? (viewAsMember ? MOCK_MEMBER : null) : undefined}>

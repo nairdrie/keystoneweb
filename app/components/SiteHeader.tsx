@@ -799,15 +799,22 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         );
     };
 
-    // When the header is "always visible" AND floats over content, the inner
-    // styled element needs `position: fixed` — using `sticky` inside the
-    // h-0 wrapper would only pin the inner element while the (zero-height)
-    // wrapper is in view, so it would scroll away after a few pixels.
-    const stickyClass = overlay && isSticky
-        ? 'fixed top-0 left-0 right-0 z-50'
-        : isSticky
-            ? 'sticky top-0 z-50'
-            : 'relative z-10';
+    // The outer header is what holds the position. When the header floats
+    // over content we collapse it to h-0 / overflow-visible so it occupies
+    // no flow space; the inner styled box overflows and is what the user
+    // actually sees. Putting the position on the outer (and not on the inner)
+    // matters for two reasons:
+    //   • `position: sticky` on a zero-height inner stops working almost
+    //     immediately because its sticky-constraint rectangle is also
+    //     zero-height. Putting sticky on the outer instead lets the wrapper
+    //     stay pinned for the entire scroll region of its parent.
+    //   • In the editor, `position: fixed` resolves against the browser
+    //     viewport (not the preview canvas), so a fixed inner would slip
+    //     behind the editor toolbar and stretch past the side panels.
+    //     Sticky pins to the nearest scroll container, which is the body in
+    //     the published site and the preview canvas in the editor — the
+    //     same code path works in both contexts.
+    const stickyClass = isSticky ? 'sticky top-0 z-50' : 'relative z-10';
     const overlayWrapperClass = overlay ? 'h-0 overflow-visible' : '';
     const transparentBgClass = overlay && overlayStyle === 'dropShadow'
         ? 'bg-gradient-to-b from-black/45 via-black/15 to-transparent'
@@ -892,7 +899,18 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
             </div>
         );
 
-        const innerHeaderClass = `${stickyClass} ${bgClassFinal} ${scrollBgChange ? 'isolate' : ''} ${isTransparent ? '' : (defaults.borderClass || 'border-b border-gray-100')}`;
+        // Mirror the default-layout split: outer header holds position
+        // (sticky/relative + h-0 when overlay), inner div holds the visible
+        // bg/border styling. Sticky on the outer h-0 wrapper pins to the
+        // nearest scroll container in both the published site and the
+        // editor preview canvas.
+        const aboveStyledClass = `${bgClassFinal} ${scrollBgChange ? 'isolate' : ''} ${isTransparent ? '' : (defaults.borderClass || 'border-b border-gray-100')}`;
+        const aboveOuterClass = overlay
+            ? `${stickyClass} ${overlayWrapperClass} ${isEditMode ? 'group' : ''}`
+            : `ks-site-header ${stickyClass} ${aboveStyledClass} ${isEditMode ? 'group' : ''}`;
+        const aboveInnerDivClass = overlay
+            ? `ks-site-header relative ${aboveStyledClass}`
+            : 'contents';
 
         const aboveScrollBgLayer = scrollBgChange ? (
             <div
@@ -935,18 +953,12 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
                 {bannerEl}
                 <header
                     ref={headerRef}
-                    // The trailing `relative` was dropped: when the header is
-                    // not floating, `innerHeaderClass` already supplies a
-                    // `position` (sticky/fixed/relative) via `stickyClass`,
-                    // and Tailwind v4 emits `.relative` after `.fixed` so a
-                    // redundant `relative` here would override the `fixed`
-                    // positioning used for Always-Visible + Float over content.
-                    className={`ks-site-header ${overlay ? `${overlayWrapperClass} relative` : innerHeaderClass} ${isEditMode ? 'group' : ''}`}
+                    className={aboveOuterClass}
                     style={overlay ? {} : headerInlineStyle}
                 >
                     {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
                     <div
-                        className={overlay ? innerHeaderClass : 'contents'}
+                        className={aboveInnerDivClass}
                         style={overlay ? headerInlineStyle : undefined}
                     >
                         {inner}
@@ -959,12 +971,19 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
     }
 
     // ── DEFAULT (single-row) LAYOUT ─────────────────────────────────────────
-    // NOTE: `stickyClass` already provides a `position` value (sticky/fixed/
-    // relative). We deliberately do NOT append a trailing `relative` here —
-    // Tailwind v4 emits `.relative` *after* `.fixed` in its utilities layer,
-    // so a trailing `relative` would override `fixed` and break Always-Visible
-    // when paired with Float over content.
-    const innerClassName = `ks-site-header ${stickyClass} ${bgClassFinal} ${borderClassFinal} ${scrollBgChange ? 'isolate' : ''} ${isEditMode ? 'group' : ''}`;
+    // When overlay is on, the OUTER header carries the sticky/relative
+    // positioning + h-0 overflow-visible (so it occupies no flow space) and
+    // the INNER div carries the visible bg/border styling. When overlay is
+    // off, the outer header itself is the styled element and the inner div
+    // is `display: contents` (transparent) so the React tree position of
+    // {settingsCog} / {settingsModal} stays stable across overlay toggles.
+    const styledClass = `${bgClassFinal} ${borderClassFinal} ${scrollBgChange ? 'isolate' : ''}`;
+    const outerClassName = overlay
+        ? `${stickyClass} ${overlayWrapperClass} ${isEditMode ? 'group' : ''}`
+        : `ks-site-header ${stickyClass} ${styledClass} ${isEditMode ? 'group' : ''}`;
+    const innerDivClassName = overlay
+        ? `ks-site-header relative ${styledClass}`
+        : 'contents';
     const innerStyle = headerInlineStyle;
 
     const scrollBgLayer = scrollBgChange ? (
@@ -990,17 +1009,17 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         </>
     );
 
-    // Always wrap inner content in a single <div> so {settingsCog} and
-    // {settingsModal} sit at a stable position in the React tree across
-    // overlay toggles. Without this, the panel state (open sections) would
-    // reset every time the user flips "Float over content".
     return (
         <>
             {bannerEl}
-            <header ref={headerRef} className={overlay ? `${overlayWrapperClass} ${isEditMode ? 'group relative' : ''}` : innerClassName} style={overlay ? {} : innerStyle}>
+            <header
+                ref={headerRef}
+                className={outerClassName}
+                style={overlay ? {} : innerStyle}
+            >
                 {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
                 <div
-                    className={overlay ? innerClassName : 'contents'}
+                    className={innerDivClassName}
                     style={overlay ? innerStyle : undefined}
                 >
                     {defaultInnerContent}
