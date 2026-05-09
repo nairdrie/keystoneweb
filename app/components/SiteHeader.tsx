@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { Menu, X, Settings, Facebook, Instagram, Twitter, Linkedin, Youtube, Phone, User } from 'lucide-react';
 import { useHeaderHeight } from '@/lib/hooks/useHeaderHeight';
 import Link from 'next/link';
@@ -26,6 +26,7 @@ import {
     type NavPosition,
     type DesktopMenuStyle,
     type HamburgerPosition,
+    type HeaderOverlayStyle,
 } from '@/app/components/HeaderSettingsModal';
 
 export type { SiteHeaderDefaults, HeaderBgType, HeaderLayout };
@@ -92,11 +93,16 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     const overlay: boolean = siteContent.headerOverlay != null
         ? Boolean(siteContent.headerOverlay)
         : (defaults.overlay ?? false);
+    const overlayStyle: HeaderOverlayStyle = siteContent.headerOverlayStyle || 'dropShadow';
     const bgType: HeaderBgType    = siteContent.headerBgType  || defaults.bgType  || 'white';
     const bgCustom: string        = siteContent.headerBgColor || defaults.bgCustom || '';
     const isSticky: boolean       = siteContent.headerSticky != null
         ? siteContent.headerSticky !== 'none'
         : (defaults.sticky ?? true);
+    const scrollBgChange: boolean = !!siteContent.headerScrollBgChange;
+    const scrollBgUseCustom: boolean = !!siteContent.headerScrollBgUseCustom;
+    const scrollBgType: HeaderBgType = siteContent.headerScrollBgType || 'white';
+    const scrollBgColor: string = siteContent.headerScrollBgColor || '';
     const showBanner: boolean     = siteContent.headerShowBanner != null
         ? Boolean(siteContent.headerShowBanner)
         : (defaults.showBanner ?? false);
@@ -150,7 +156,23 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     // Publish the header height + overlay-ness to CSS so first-block heroes can
     // size themselves around the header.
     useHeaderHeight(headerRef, { overlay: overlay || isTransparent });
-    const textIsLight   = isTransparent ? overlay : getTextIsLight(effectiveBg, palette, bgCustom);
+    const textIsLight   = getTextIsLight(effectiveBg, palette, bgCustom);
+
+    // ── Scroll-bg-change detection ──────────────────────────────────────────
+    // hasScrolled is only consulted while `scrollBgChange` is enabled — when
+    // it's disabled the bg layer is not rendered, so a stale value is
+    // harmless. We avoid a synchronous setState in the disabled branch.
+    const [hasScrolled, setHasScrolled] = useState(false);
+    useEffect(() => {
+        if (!scrollBgChange) return;
+        const el = headerRef.current;
+        const win = el?.ownerDocument?.defaultView ?? (typeof window !== 'undefined' ? window : null);
+        if (!win) return;
+        const handler = () => setHasScrolled(win.scrollY > 8);
+        handler();
+        win.addEventListener('scroll', handler, { passive: true });
+        return () => win.removeEventListener('scroll', handler);
+    }, [scrollBgChange]);
 
     // When bg is white (user-selected or default-white), apply bgClass; otherwise use inline style
     const useBgClass  = isTransparent
@@ -159,6 +181,16 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     const bgInlineStyle: React.CSSProperties = !useBgClass ? getBgStyle(effectiveBg, palette, bgCustom) : {};
     const borderDynStyle: React.CSSProperties = (!isTransparent && defaults.borderStyleFn) ? defaults.borderStyleFn(palette) : {};
     const headerInlineStyle: React.CSSProperties = { ...bgInlineStyle, ...borderDynStyle };
+
+    // Scrolled-bg layer: rendered as an absolutely positioned div over the
+    // header, which fades in via opacity when the page is scrolled. Defaults
+    // to white when the user enables the change but doesn't pick a custom bg.
+    const scrolledBgDescriptor: HeaderBgType = scrollBgUseCustom ? scrollBgType : 'white';
+    const scrolledBgInlineStyle: React.CSSProperties = (() => {
+        if (scrolledBgDescriptor === 'white') return { backgroundColor: '#ffffff' };
+        if (scrolledBgDescriptor === 'transparent') return { backgroundColor: 'transparent' };
+        return getBgStyle(scrolledBgDescriptor, palette, scrollBgColor);
+    })();
 
     // ── Nav item styling ────────────────────────────────────────────────────
     const autoNavClass = textIsLight
@@ -764,9 +796,17 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         );
     };
 
-    const stickyClass  = isSticky ? 'sticky top-0 z-50' : 'relative z-10';
+    // When the header is "always visible" AND floats over content, the inner
+    // styled element needs `position: fixed` — using `sticky` inside the
+    // h-0 wrapper would only pin the inner element while the (zero-height)
+    // wrapper is in view, so it would scroll away after a few pixels.
+    const stickyClass = overlay && isSticky
+        ? 'fixed top-0 left-0 right-0 z-50'
+        : isSticky
+            ? 'sticky top-0 z-50'
+            : 'relative z-10';
     const overlayWrapperClass = overlay ? 'h-0 overflow-visible' : '';
-    const transparentBgClass = overlay
+    const transparentBgClass = overlay && overlayStyle === 'dropShadow'
         ? 'bg-gradient-to-b from-black/45 via-black/15 to-transparent'
         : 'bg-transparent';
     const bgClassFinal = useBgClass ? (isTransparent ? transparentBgClass : (defaults.bgClass || 'bg-white')) : '';
@@ -780,6 +820,14 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         // Floating pill always overlays (h-0) when sticky, and also when overlay=true
         const wrapperClass = (overlay || isSticky) ? `${isSticky ? 'sticky top-0 z-50' : 'relative z-50'} h-0 overflow-visible` : 'relative';
 
+        const pillScrollBgLayer = scrollBgChange ? (
+            <div
+                className="ks-scroll-bg-layer absolute inset-0 transition-opacity duration-300 ease-out pointer-events-none -z-10 rounded-2xl"
+                style={{ ...scrolledBgInlineStyle, opacity: hasScrolled ? 1 : 0 }}
+                aria-hidden
+            />
+        ) : null;
+
         return (
             <>
                 {bannerEl}
@@ -787,9 +835,10 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
                     {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
                     <div className="pt-3 px-4">
                         <div
-                            className={`ks-site-header ${containerClass} mx-auto ${pillBgClass} ${isTransparent ? '' : 'backdrop-blur-xl shadow-lg shadow-black/5 border border-white/50'} rounded-2xl px-5 relative`}
+                            className={`ks-site-header ${containerClass} mx-auto ${pillBgClass} ${isTransparent ? '' : 'backdrop-blur-xl shadow-lg shadow-black/5 border border-white/50'} rounded-2xl px-5 relative ${scrollBgChange ? 'isolate' : ''}`}
                             style={pillInlineStyle}
                         >
+                            {pillScrollBgLayer}
                             {defaults.hasAccentLine && (
                                 <div className="h-0.5 w-full absolute top-0 left-0 rounded-t-2xl"
                                     style={{ background: `linear-gradient(90deg, transparent, ${defaults.accentColor || pSecondary}, transparent)` }} />
@@ -840,10 +889,19 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
             </div>
         );
 
-        const innerHeaderClass = `${stickyClass} ${bgClassFinal} ${isTransparent ? '' : (defaults.borderClass || 'border-b border-gray-100')}`;
+        const innerHeaderClass = `${stickyClass} ${bgClassFinal} ${scrollBgChange ? 'isolate' : ''} ${isTransparent ? '' : (defaults.borderClass || 'border-b border-gray-100')}`;
+
+        const aboveScrollBgLayer = scrollBgChange ? (
+            <div
+                className="ks-scroll-bg-layer absolute inset-0 transition-opacity duration-300 ease-out pointer-events-none -z-10"
+                style={{ ...scrolledBgInlineStyle, opacity: hasScrolled ? 1 : 0 }}
+                aria-hidden
+            />
+        ) : null;
 
         const inner = (
             <>
+                {aboveScrollBgLayer}
                 {defaults.hasAccentLine && (
                     <div className="h-0.5 w-full"
                         style={{ background: `linear-gradient(90deg, transparent, ${defaults.accentColor || pSecondary}, transparent)` }} />
@@ -878,11 +936,12 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
                     style={overlay ? {} : headerInlineStyle}
                 >
                     {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
-                    {overlay ? (
-                        <div className={innerHeaderClass} style={headerInlineStyle}>
-                            {inner}
-                        </div>
-                    ) : inner}
+                    <div
+                        className={overlay ? innerHeaderClass : 'contents'}
+                        style={overlay ? headerInlineStyle : undefined}
+                    >
+                        {inner}
+                    </div>
                     {settingsCog}
                     {settingsModal}
                 </header>
@@ -891,43 +950,49 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
     }
 
     // ── DEFAULT (single-row) LAYOUT ─────────────────────────────────────────
-    const innerClassName = `ks-site-header ${stickyClass} ${bgClassFinal} ${borderClassFinal} ${isEditMode ? 'group relative' : 'relative'}`;
+    const innerClassName = `ks-site-header ${stickyClass} ${bgClassFinal} ${borderClassFinal} ${scrollBgChange ? 'isolate' : ''} ${isEditMode ? 'group relative' : 'relative'}`;
     const innerStyle = headerInlineStyle;
 
+    const scrollBgLayer = scrollBgChange ? (
+        <div
+            className="ks-scroll-bg-layer absolute inset-0 transition-opacity duration-300 ease-out pointer-events-none -z-10"
+            style={{ ...scrolledBgInlineStyle, opacity: hasScrolled ? 1 : 0 }}
+            aria-hidden
+        />
+    ) : null;
+
+    const defaultInnerContent = (
+        <>
+            {scrollBgLayer}
+            {defaults.hasAccentLine && (
+                <div className="h-0.5 w-full"
+                    style={{ background: `linear-gradient(90deg, transparent, ${defaults.accentColor || pSecondary}, transparent)` }} />
+            )}
+            <div className={`${containerClass} mx-auto px-4`}>
+                {renderSingleRow()}
+                {drawerMenu}
+            </div>
+            {secondaryBarEl}
+        </>
+    );
+
+    // Always wrap inner content in a single <div> so {settingsCog} and
+    // {settingsModal} sit at a stable position in the React tree across
+    // overlay toggles. Without this, the panel state (open sections) would
+    // reset every time the user flips "Float over content".
     return (
         <>
             {bannerEl}
             <header ref={headerRef} className={overlay ? `${overlayWrapperClass} ${isEditMode ? 'group relative' : ''}` : innerClassName} style={overlay ? {} : innerStyle}>
                 {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
-                {overlay ? (
-                    <div className={innerClassName} style={innerStyle}>
-                        {defaults.hasAccentLine && (
-                            <div className="h-0.5 w-full"
-                                style={{ background: `linear-gradient(90deg, transparent, ${defaults.accentColor || pSecondary}, transparent)` }} />
-                        )}
-                        <div className={`${containerClass} mx-auto px-4`}>
-                            {renderSingleRow()}
-                            {drawerMenu}
-                        </div>
-                        {secondaryBarEl}
-                        {settingsCog}
-                        {settingsModal}
-                    </div>
-                ) : (
-                    <>
-                        {defaults.hasAccentLine && (
-                            <div className="h-0.5 w-full"
-                                style={{ background: `linear-gradient(90deg, transparent, ${defaults.accentColor || pSecondary}, transparent)` }} />
-                        )}
-                        <div className={`${containerClass} mx-auto px-4`}>
-                            {renderSingleRow()}
-                            {drawerMenu}
-                        </div>
-                        {secondaryBarEl}
-                        {settingsCog}
-                        {settingsModal}
-                    </>
-                )}
+                <div
+                    className={overlay ? innerClassName : 'contents'}
+                    style={overlay ? innerStyle : undefined}
+                >
+                    {defaultInnerContent}
+                </div>
+                {settingsCog}
+                {settingsModal}
             </header>
         </>
     );

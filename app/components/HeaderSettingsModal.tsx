@@ -12,6 +12,7 @@ export type DesktopMenuStyle = 'inline' | 'hamburger';
 export type HamburgerPosition = 'left' | 'right';
 export type ButtonShape = 'square' | 'rounded' | 'pill';
 export type ButtonFill = 'filled' | 'outline' | 'ghost';
+export type HeaderOverlayStyle = 'transparent' | 'dropShadow';
 
 export interface SiteHeaderDefaults {
     layout?: HeaderLayout; // legacy — derived into logoPosition/navPosition when those aren't set
