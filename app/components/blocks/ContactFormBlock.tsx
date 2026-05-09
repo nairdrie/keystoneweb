@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useEditorContext } from '@/lib/editor-context';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 import { Send, Loader2, Settings, MessageSquare, Mail, User, Phone } from 'lucide-react';
 
 interface ContactFormBlockProps {
@@ -29,6 +30,8 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#3b82f6';
     const pAccent = palette.accent || '#e5e7eb';
+    const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
+    const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -68,7 +71,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
 
     if (isEditMode) {
         return (
-            <section className="relative py-16 px-4 text-slate-900" style={{ backgroundColor: '#ffffff' }}>
+            <section className="relative py-16 px-4 text-slate-900" style={{ backgroundColor: bgColor }}>
                 <div className="max-w-3xl mx-auto space-y-8">
                     <div className="text-center space-y-4">
                         <input
@@ -76,14 +79,14 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                             value={title}
                             onChange={(e) => updateContent('title', e.target.value)}
                             className="w-full text-center text-3xl font-bold bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none transition-colors text-slate-900"
-                            style={{ color: pPrimary }}
+                            style={{ color: fgOverride || pPrimary }}
                             placeholder="Contact Form Title"
                         />
                         <textarea
                             value={description}
                             onChange={(e) => updateContent('description', e.target.value)}
                             className="w-full text-center text-lg bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-500 focus:outline-none transition-colors resize-none text-slate-600"
-                            style={{ color: '#4b5563' }}
+                            style={{ color: fgOverride || '#4b5563' }}
                             placeholder="Description text"
                             rows={2}
                         />
@@ -182,13 +185,13 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
     }
 
     return (
-        <section className="py-20 px-4" style={{ backgroundColor: '#ffffff' }}>
+        <section className="py-20 px-4" style={{ backgroundColor: bgColor }}>
             <div className="max-w-3xl mx-auto space-y-12">
                 <div className="text-center space-y-4">
-                    <h2 className="text-4xl md:text-5xl font-bold" style={{ color: pPrimary }}>
+                    <h2 className="text-4xl md:text-5xl font-bold" style={{ color: fgOverride || pPrimary }}>
                         {title}
                     </h2>
-                    <p className="text-lg md:text-xl max-w-2xl mx-auto" style={{ color: '#4b5563' }}>
+                    <p className="text-lg md:text-xl max-w-2xl mx-auto" style={{ color: fgOverride || '#4b5563' }}>
                         {description}
                     </p>
                 </div>

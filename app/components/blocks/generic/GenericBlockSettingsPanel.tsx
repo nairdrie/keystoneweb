@@ -481,6 +481,8 @@ const BACKGROUND_BLOCKS = new Set([
     'faq',
     'deliveryLinks',
     'contact',
+    'contact_form',
+    'contactForm',
     'cta',
     'gallery',
     'featuresList',
