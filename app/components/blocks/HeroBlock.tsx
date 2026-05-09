@@ -21,7 +21,9 @@ import {
     legacyVariantClass,
     migrateLegacyHeroData,
 } from './hero/hero-schema';
-import { HeroBgAnimation } from './hero/HeroBgAnimations';
+import { HeroBgAnimation, HERO_BG_ANIMATION_META } from './hero/HeroBgAnimations';
+import { HeroBgPattern, HERO_BG_PATTERN_META } from './hero/HeroBgPatterns';
+import { resolveSlotColors } from './hero/hero-bg-shared';
 
 const TEXT_ALIGN_CLASS: Record<'left' | 'center' | 'right', string> = {
     left: 'text-left',
@@ -587,7 +589,25 @@ function BackgroundLayer({ bg, palette }: { bg: HeroBackground; palette: Record<
         const stops = via ? `${from}, ${via}, ${to}` : `${from}, ${to}`;
         baseStyle.background = `linear-gradient(${bg.gradient.angle}deg, ${stops})`;
     } else if (bg.type === 'animation' && bg.animation) {
-        mediaLayer = <HeroBgAnimation id={bg.animation.id} />;
+        const meta = HERO_BG_ANIMATION_META[bg.animation.id];
+        if (meta) {
+            const colors = resolveSlotColors(meta.colorSlots, bg.animation.colors, palette, resolvePaletteColor);
+            mediaLayer = <HeroBgAnimation id={bg.animation.id} colors={colors} />;
+        }
+    } else if (bg.type === 'pattern' && bg.pattern) {
+        const meta = HERO_BG_PATTERN_META[bg.pattern.id];
+        if (meta) {
+            const colors = resolveSlotColors(meta.colorSlots, bg.pattern.colors, palette, resolvePaletteColor);
+            mediaLayer = (
+                <HeroBgPattern
+                    id={bg.pattern.id}
+                    colors={colors}
+                    scale={bg.pattern.scale ?? 1}
+                    rotation={bg.pattern.rotation ?? 0}
+                    opacity={bg.pattern.opacity ?? 1}
+                />
+            );
+        }
     } else {
         baseStyle.backgroundColor = palette.accent || '#f3f4f6';
     }
