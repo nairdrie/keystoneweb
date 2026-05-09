@@ -1,8 +1,15 @@
 'use client';
 
-import { useState, useRef, useEffect, useLayoutEffect } from 'react';
-import { Edit2, Check, X, Settings } from 'lucide-react';
-import TextSettingsModal, { textShadowToCss, type TextShadowSettings } from './TextSettingsModal';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Edit2 } from 'lucide-react';
+import { sanitizeRichHtml } from '@/lib/html-sanitize';
+import { useEditorContext } from '@/lib/editor-context';
+import RichTextToolbar, { type InlineCommand } from './RichTextToolbar';
+import {
+  textShadowToCss,
+  type TextShadowSettings,
+  type TextStyles,
+} from '@/lib/text-styles';
 
 interface EditableTextProps {
   contentKey: string;
@@ -28,314 +35,481 @@ export default function EditableText({
   styleData,
 }: EditableTextProps) {
   const displayText = content !== undefined && content !== '' ? content : defaultValue;
+  const editorCtx = useEditorContext();
+  const palette = editorCtx?.palette;
+
   const [isEditing, setIsEditing] = useState(false);
-  const [tempValue, setTempValue] = useState(displayText);
   const [isHovered, setIsHovered] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [controlsOnLeft, setControlsOnLeft] = useState(false);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Live block-level styles while editing (preview before commit)
+  const initialParsed = parseStyleData(styleData);
+  const [pendingStyles, setPendingStyles] = useState<TextStyles>(initialParsed);
+  const editorRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLElement>(null);
   const isEditingRef = useRef(false);
   const displayTextRef = useRef(displayText);
-  const blurSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Parse dynamic styles if present
-  let parsedStyles: Record<string, unknown> = {};
-  if (styleData) {
-    try {
-      const nextStyles = typeof styleData === 'string' ? JSON.parse(styleData) : styleData;
-      parsedStyles = isRecord(nextStyles) ? nextStyles : {};
-    } catch (e) { console.error('Failed to parse styleData for', contentKey, e); }
-  }
+  const parsedStyles: TextStyles = isEditing ? pendingStyles : initialParsed;
 
-  // Combine baseline style with text-specific user settings
-  const fontFamily = typeof parsedStyles.fontFamily === 'string' ? parsedStyles.fontFamily : '';
-  const fontSize = getCssScalar(parsedStyles.fontSize);
-  const color = typeof parsedStyles.color === 'string' ? parsedStyles.color : '';
-  const fontWeight = getCssScalar(parsedStyles.fontWeight);
-  const textShadowSettings = isRecord(parsedStyles.textShadow) ? parsedStyles.textShadow as unknown as TextShadowSettings : undefined;
-  const textShadowCss = textShadowToCss(textShadowSettings);
-  const mergedStyle = {
+  const fontFamily = parsedStyles.fontFamily;
+  const fontSize = parsedStyles.fontSize;
+  const color = parsedStyles.color;
+  const fontWeight = parsedStyles.fontWeight;
+  const textAlign = parsedStyles.textAlign;
+  const textShadowCss = textShadowToCss(parsedStyles.textShadow);
+
+  const mergedStyle: React.CSSProperties = {
     ...style,
     ...(fontFamily ? { fontFamily: `"${fontFamily}", sans-serif` } : {}),
     ...(fontSize ? { fontSize } : {}),
     ...(color ? { color } : {}),
     ...(fontWeight ? { fontWeight } : {}),
-    ...(textShadowCss ? { textShadow: textShadowCss } : {})
+    ...(textAlign ? { textAlign } : {}),
+    ...(textShadowCss ? { textShadow: textShadowCss } : {}),
   };
 
-  // If the user picked a font override via styleData, render a <link> for it.
-  // React 19 hoists and dedupes <link> elements into <head> automatically, so
-  // this loads server-side (discoverable by the preload scanner) instead of
-  // appending to document.head post-hydration like before.
   const overrideFontHref = fontFamily
     ? `https://fonts.googleapis.com/css2?family=${fontFamily.replace(/ /g, '+')}:wght@400;500;600;700;800;900&display=swap`
     : null;
 
-  // Keep refs in sync
+  // Refs in sync
   useEffect(() => { isEditingRef.current = isEditing; }, [isEditing]);
   useEffect(() => { displayTextRef.current = displayText; }, [displayText]);
 
-  // Sync tempValue when content/defaultValue changes externally (undo/redo, page switch)
+  // Reset pending styles when styleData changes externally and we're not editing
   useEffect(() => {
     if (!isEditing) {
-      const newDisplay = content !== undefined && content !== '' ? content : defaultValue;
-      // Keep local draft text aligned with undo/redo and external block updates.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setTempValue(newDisplay);
+      setPendingStyles(parseStyleData(styleData));
     }
-  }, [content, defaultValue, isEditing]);
+  }, [styleData, isEditing]);
 
-  useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [isEditing]);
-
-  useLayoutEffect(() => {
-    if (!isEditing || !inputRef.current) return;
-    const textarea = inputRef.current;
-    textarea.style.height = 'auto';
-    textarea.style.height = `${textarea.scrollHeight}px`;
-  }, [isEditing, tempValue]);
-
-  // Detect if we should show controls on the left based on screen position
-  // Runs on mount and whenever edit mode changes so it also works on mobile (no hover events)
+  // Detect overflow position for the inline edit chrome
   useEffect(() => {
     if (isEditMode && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       const spaceOnRight = window.innerWidth - rect.right;
-      setControlsOnLeft(spaceOnRight < 120);
+      setControlsOnLeft(spaceOnRight < 80);
     }
   }, [isEditMode]);
 
-  // Also update position when hovered (desktop fine-grained update)
   useEffect(() => {
     if (isEditMode && containerRef.current && isHovered) {
       const rect = containerRef.current.getBoundingClientRect();
       const spaceOnRight = window.innerWidth - rect.right;
-      setControlsOnLeft(spaceOnRight < 120);
+      setControlsOnLeft(spaceOnRight < 80);
     }
   }, [isEditMode, isHovered]);
 
-  // Listen for another EditableText starting to edit — close this one if open
+  // Commit pending edit if another EditableText starts editing
   useEffect(() => {
     const handleOtherEditStart = (e: Event) => {
       const key = (e as CustomEvent<{ key: string }>).detail?.key;
       if (key !== contentKey && isEditingRef.current) {
-        // Auto-save and close
-        if (blurSaveTimeout.current) clearTimeout(blurSaveTimeout.current);
-        const current = inputRef.current?.value ?? displayTextRef.current;
-        if (current !== displayTextRef.current) {
-          onSave(contentKey, current);
-        }
-        setIsEditing(false);
+        commitSave();
       }
     };
     window.addEventListener('ks:editstart', handleOtherEditStart);
     return () => window.removeEventListener('ks:editstart', handleOtherEditStart);
-  }, [contentKey, onSave]);
-
-  const handleSave = () => {
-    if (blurSaveTimeout.current) clearTimeout(blurSaveTimeout.current);
-    if (tempValue !== displayText) {
-      onSave(contentKey, tempValue);
-    }
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    if (blurSaveTimeout.current) clearTimeout(blurSaveTimeout.current);
-    setTempValue(displayText);
-    setIsEditing(false);
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contentKey]);
 
   const startEditing = () => {
-    // Notify all other EditableText instances to close
     window.dispatchEvent(new CustomEvent('ks:editstart', { detail: { key: contentKey } }));
+    setPendingStyles(parseStyleData(styleData));
     setIsEditing(true);
   };
 
-  const setContainerRef = (node: HTMLElement | null) => {
-    containerRef.current = node;
+  const commitSave = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) {
+      setIsEditing(false);
+      return;
+    }
+    const rawHtml = normalizeEditorHtml(editor.innerHTML);
+    const initial = initialEditorHtml(displayTextRef.current);
+    if (rawHtml !== initial) {
+      onSave(contentKey, rawHtml);
+    }
+    const stylesJson = JSON.stringify(stripUndefined(pendingStyles));
+    const initialStylesJson = JSON.stringify(stripUndefined(parseStyleData(styleData)));
+    if (stylesJson !== initialStylesJson) {
+      onSave(`${contentKey}__styles`, stylesJson);
+    }
+    setIsEditing(false);
+  }, [contentKey, onSave, pendingStyles, styleData]);
+
+  const cancelEdit = () => {
+    setPendingStyles(parseStyleData(styleData));
+    setIsEditing(false);
   };
 
-  // Helper to parse {{text}} into highlighted spans and \n into <br/>
-  const renderFormattedText = (text: string) => {
-    // Split by literal \n string or actual newline character
-    const lines = text.split(/\n|\\n/g);
+  // Initialize the contenteditable HTML when entering edit mode
+  useEffect(() => {
+    if (!isEditing) return;
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.innerHTML = initialEditorHtml(displayText);
+    editor.focus();
+    // Place cursor at end
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing]);
 
-    return lines.map((line, lineIdx) => {
-      // For each line, handle the {{highlight}} syntax
-      const parts = line.split(/(\{\{.*?\}\})/g);
-      const formattedLine = parts.map((part, partIdx) => {
-        if (part.startsWith('{{') && part.endsWith('}}')) {
-          const content = part.slice(2, -2);
-          return (
-            <span key={`${lineIdx}-${partIdx}`} className="ksw-highlight">
-              {content}
-            </span>
-          );
+  // Toolbar -> inline command runner
+  const runCommand = useCallback((cmd: InlineCommand) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    const sel = window.getSelection();
+    const hasSelection = !!sel && sel.rangeCount > 0 && !sel.getRangeAt(0).collapsed
+      && editor.contains(sel.getRangeAt(0).commonAncestorContainer);
+
+    switch (cmd.kind) {
+      case 'bold':
+      case 'italic':
+      case 'underline':
+      case 'strike': {
+        const map = { bold: 'bold', italic: 'italic', underline: 'underline', strike: 'strikeThrough' } as const;
+        document.execCommand('styleWithCSS', false, 'true');
+        document.execCommand(map[cmd.kind], false);
+        break;
+      }
+      case 'clear': {
+        if (hasSelection) document.execCommand('removeFormat', false);
+        break;
+      }
+      case 'color': {
+        const value = cmd.value || '';
+        if (hasSelection && value) {
+          document.execCommand('styleWithCSS', false, 'true');
+          document.execCommand('foreColor', false, value);
+        } else {
+          setPendingStyles(s => ({ ...s, color: value || undefined }));
         }
-        return part;
-      });
+        break;
+      }
+      case 'fontFamily': {
+        const value = cmd.value || '';
+        if (hasSelection && value) {
+          wrapSelectionWithStyle('font-family', `"${value}", sans-serif`);
+        } else {
+          setPendingStyles(s => ({ ...s, fontFamily: value || undefined }));
+        }
+        break;
+      }
+      case 'fontSize': {
+        const value = cmd.value || '';
+        if (hasSelection && value) {
+          wrapSelectionWithStyle('font-size', value);
+        } else {
+          setPendingStyles(s => ({ ...s, fontSize: value || undefined }));
+        }
+        break;
+      }
+      case 'fontWeight': {
+        const value = cmd.value || '';
+        if (hasSelection && value) {
+          wrapSelectionWithStyle('font-weight', value);
+        } else {
+          setPendingStyles(s => ({ ...s, fontWeight: value || undefined }));
+        }
+        break;
+      }
+    }
+  }, []);
 
-      return (
-        <span key={lineIdx}>
-          {formattedLine}
-          {lineIdx < lines.length - 1 && <br />}
-        </span>
-      );
-    });
+  // Handle keyboard shortcuts inside the editor
+  const handleEditorKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelEdit();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      commitSave();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
+      e.preventDefault();
+      runCommand({ kind: 'bold' });
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'i' || e.key === 'I')) {
+      e.preventDefault();
+      runCommand({ kind: 'italic' });
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'u' || e.key === 'U')) {
+      e.preventDefault();
+      runCommand({ kind: 'underline' });
+      return;
+    }
   };
 
-  // Preview mode: just show the text
+  // Strip rich content from pasted text to plain text
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData('text/plain');
+    document.execCommand('insertText', false, text);
+  };
+
+  // ---- RENDER ----
+
   if (!isEditMode) {
     return (
       <>
         {overrideFontHref && <link rel="stylesheet" href={overrideFontHref} />}
-        <Component className={className} style={mergedStyle}>{renderFormattedText(displayText)}</Component>
+        <Component className={className} style={mergedStyle}>
+          {renderDisplayContent(displayText)}
+        </Component>
       </>
     );
   }
 
-  // Edit mode - show inline element with pencil on hover
   if (isEditing) {
     return (
       <>
         {overrideFontHref && <link rel="stylesheet" href={overrideFontHref} />}
-      <Component className={`${className} relative block min-w-0 max-w-full`} style={mergedStyle}>
-        <textarea
-          ref={inputRef}
-          value={tempValue}
-          onChange={(e) => setTempValue(e.target.value)}
-          className="block w-full min-w-0 resize-none overflow-hidden whitespace-pre-wrap break-words bg-blue-50/80 border-b-2 border-blue-500 text-slate-900 outline-none"
-          rows={1}
-          wrap="soft"
-          style={{
-            fontFamily: 'inherit',
-            fontSize: 'inherit',
-            fontWeight: 'inherit',
-            textAlign: 'inherit',
-            padding: 0,
-            margin: 0,
-            lineHeight: 'inherit',
-            whiteSpace: 'pre-wrap',
-            overflowWrap: 'break-word',
-          }}
-          onKeyDown={(e) => {
-            // Enter saves, Shift+Enter adds newline
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSave();
-            }
-            if (e.key === 'Escape') handleCancel();
-          }}
-          onBlur={() => {
-            // Auto-save when focus leaves the textarea (e.g. clicking elsewhere)
-            // Use a short delay so Save/Cancel button clicks can cancel this first
-            blurSaveTimeout.current = setTimeout(handleSave, 150);
-          }}
+        <Component
+          ref={containerRef as React.Ref<HTMLHeadingElement>}
+          className={`${className} relative block min-w-0 max-w-full`}
+          style={mergedStyle}
+        >
+          <div
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            onKeyDown={handleEditorKeyDown}
+            onPaste={handlePaste}
+            className="outline-none whitespace-pre-wrap break-words bg-blue-50/60 rounded-sm ring-2 ring-blue-400/70"
+            style={{
+              minWidth: '1ch',
+              padding: '2px 4px',
+              fontFamily: 'inherit',
+              fontSize: 'inherit',
+              fontWeight: 'inherit',
+              color: 'inherit',
+              textAlign: 'inherit',
+              lineHeight: 'inherit',
+            }}
+          />
+        </Component>
+        <RichTextToolbar
+          targetEl={editorRef.current}
+          blockStyles={pendingStyles}
+          onBlockStylesChange={setPendingStyles}
+          runCommand={runCommand}
+          onSave={commitSave}
+          onCancel={cancelEdit}
+          palette={palette as { primary?: string; secondary?: string; accent?: string } | undefined}
+          previewText={textPreviewFromHtml(displayText)}
         />
-        <span className="absolute right-0 top-full mt-2 flex items-center gap-2 z-[100] whitespace-nowrap" style={{ display: 'flex' }}>
-          <button
-            onMouseDown={(e) => e.preventDefault()} // Prevent textarea blur
-            onClick={handleSave}
-            className="p-2 bg-green-500 hover:bg-green-600 text-white rounded shadow-lg transition-colors flex items-center gap-1 text-sm font-bold"
-            title="Save (Enter)"
-          >
-            <Check className="w-4 h-4" /> Save
-          </button>
-          <button
-            onMouseDown={(e) => e.preventDefault()} // Prevent textarea blur
-            onClick={handleCancel}
-            className="p-2 bg-red-500 hover:bg-red-600 text-white rounded shadow-lg transition-colors flex items-center gap-1 text-sm font-bold"
-            title="Cancel (Esc)"
-          >
-            <X className="w-4 h-4" /> Cancel
-          </button>
-        </span>
-      </Component>
       </>
     );
   }
 
-  // Edit mode, not currently editing: show text with pencil icon on hover (desktop) or always (mobile)
+  // Edit mode, not currently editing
   return (
     <>
       {overrideFontHref && <link rel="stylesheet" href={overrideFontHref} />}
-    <Component
-      ref={setContainerRef}
-      className={`${className} cursor-text pointer-events-auto transition-colors`}
-      style={mergedStyle}
-      onClick={(e) => {
-        if (isEditMode) {
-          e.preventDefault();
-          e.stopPropagation();
-          startEditing();
-        }
-      }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <span className={`relative inline-block ${isHovered ? 'bg-blue-100/50 outline outline-2 outline-blue-400 outline-offset-2 rounded-sm' : 'bg-blue-100/20 md:bg-transparent outline outline-1 outline-blue-300 md:outline-none outline-offset-2 rounded-sm'}`}>
-        {renderFormattedText(displayText)}
-
-        {/* Desktop: show on hover. Mobile (hover:none): always visible */}
-        <span
+      <Component
+        ref={containerRef as React.Ref<HTMLHeadingElement>}
+        className={`${className} cursor-text pointer-events-auto transition-colors`}
+        style={mergedStyle}
+        onClick={(e: React.MouseEvent) => {
+          if (isEditMode) {
+            e.preventDefault();
+            e.stopPropagation();
+            startEditing();
+          }
+        }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <span className={`relative inline-block ${isHovered ? 'bg-blue-100/50 outline outline-2 outline-blue-400 outline-offset-2 rounded-sm' : 'bg-blue-100/20 md:bg-transparent outline outline-1 outline-blue-300 md:outline-none outline-offset-2 rounded-sm'}`}>
+          {renderDisplayContent(displayText)}
+          <span
             className={`absolute top-1/2 -translate-y-1/2 items-center gap-1 z-50 flex transition-all ${isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'} [@media(hover:none)]:opacity-100 [@media(hover:none)]:scale-100 ${
-                controlsOnLeft ? '-left-14' : '-right-16'
+              controlsOnLeft ? '-left-9' : '-right-9'
             }`}
             onMouseDown={e => e.preventDefault()}
-        >
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              startEditing();
-            }}
-            className="inline-flex items-center justify-center w-7 h-7 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-md"
-            title={`Edit: ${contentKey}`}
-            onMouseDown={(e) => e.preventDefault()}
           >
-            <Edit2 className="w-3 h-3" />
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setIsSettingsOpen(true);
-            }}
-            className="inline-flex items-center justify-center w-7 h-7 bg-slate-800 hover:bg-slate-900 text-white rounded-full shadow-md"
-            title={`Settings: ${contentKey}`}
-          >
-            <Settings className="w-3.5 h-3.5" />
-          </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                startEditing();
+              }}
+              className="inline-flex items-center justify-center w-7 h-7 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-md"
+              title={`Edit: ${contentKey}`}
+              onMouseDown={(e) => e.preventDefault()}
+            >
+              <Edit2 className="w-3 h-3" />
+            </button>
+          </span>
         </span>
-      </span>
-
-      <TextSettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        title="Typography Settings"
-        initialStyles={parsedStyles}
-        previewText={displayText}
-        onSave={(newStyles) => {
-            onSave(`${contentKey}__styles`, JSON.stringify(newStyles));
-        }}
-      />
-    </Component>
+      </Component>
     </>
   );
 }
+
+// ---- helpers ----
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function getCssScalar(value: unknown): string | number | undefined {
-  return typeof value === 'string' || typeof value === 'number' ? value : undefined;
+function getCssScalar(value: unknown): string | undefined {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number') return String(value);
+  return undefined;
+}
+
+function getTextAlign(value: unknown): TextStyles['textAlign'] {
+  return value === 'left' || value === 'center' || value === 'right' || value === 'justify'
+    ? value
+    : undefined;
+}
+
+function parseStyleData(styleData: string | Record<string, unknown> | undefined): TextStyles {
+  if (!styleData) return {};
+  let raw: unknown = styleData;
+  if (typeof styleData === 'string') {
+    try { raw = JSON.parse(styleData); } catch { return {}; }
+  }
+  if (!isRecord(raw)) return {};
+  const styles: TextStyles = {};
+  if (typeof raw.fontFamily === 'string') styles.fontFamily = raw.fontFamily;
+  const fs = getCssScalar(raw.fontSize); if (fs) styles.fontSize = fs;
+  if (typeof raw.color === 'string') styles.color = raw.color;
+  const fw = getCssScalar(raw.fontWeight); if (fw) styles.fontWeight = fw;
+  const ta = getTextAlign(raw.textAlign); if (ta) styles.textAlign = ta;
+  if (isRecord(raw.textShadow)) styles.textShadow = raw.textShadow as unknown as TextShadowSettings;
+  return styles;
+}
+
+function stripUndefined(obj: TextStyles): TextStyles {
+  const out: TextStyles = {};
+  if (obj.fontFamily) out.fontFamily = obj.fontFamily;
+  if (obj.fontSize) out.fontSize = obj.fontSize;
+  if (obj.color) out.color = obj.color;
+  if (obj.fontWeight) out.fontWeight = obj.fontWeight;
+  if (obj.textAlign) out.textAlign = obj.textAlign;
+  if (obj.textShadow && obj.textShadow.enabled) out.textShadow = obj.textShadow;
+  return out;
+}
+
+// Detect whether the stored content already contains rich HTML markup
+function isHtmlContent(s: string): boolean {
+  return /<[a-zA-Z][^>]*>/.test(s);
+}
+
+// Convert {{tagged}} segments and \n into renderable HTML
+function legacyTextToHtml(text: string): string {
+  const escape = (s: string) => s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  // Split by \n or literal \\n
+  const lines = text.split(/\n|\\n/g);
+  const html = lines.map(line => {
+    const parts = line.split(/(\{\{.*?\}\})/g);
+    return parts.map(p => {
+      if (p.startsWith('{{') && p.endsWith('}}')) {
+        const inner = p.slice(2, -2);
+        return `<span class="ksw-highlight">${escape(inner)}</span>`;
+      }
+      return escape(p);
+    }).join('');
+  }).join('<br/>');
+  return html;
+}
+
+// What to put inside the contenteditable when editing begins
+function initialEditorHtml(text: string): string {
+  if (!text) return '';
+  if (isHtmlContent(text)) return sanitizeRichHtml(text);
+  return legacyTextToHtml(text);
+}
+
+// Trim trailing empty lines / strip wrapping artifacts before saving
+function normalizeEditorHtml(html: string): string {
+  const trimmed = html
+    .replace(/^(\s|&nbsp;|<br\s*\/?>)+/i, '')
+    .replace(/(\s|&nbsp;|<br\s*\/?>)+$/i, '');
+  if (!trimmed || /^<br\s*\/?>$/i.test(trimmed.trim())) return '';
+  return trimmed;
+}
+
+// What to render in non-edit (and edit-but-not-yet-editing) display
+function renderDisplayContent(text: string): React.ReactNode {
+  if (!text) return null;
+  if (isHtmlContent(text)) {
+    return <span dangerouslySetInnerHTML={{ __html: sanitizeRichHtml(text) }} />;
+  }
+  // Legacy plain-text + {{}} parser, preserved per request
+  return renderFormattedText(text);
+}
+
+function renderFormattedText(text: string): React.ReactNode {
+  const lines = text.split(/\n|\\n/g);
+  return lines.map((line, lineIdx) => {
+    const parts = line.split(/(\{\{.*?\}\})/g);
+    const formattedLine = parts.map((part, partIdx) => {
+      if (part.startsWith('{{') && part.endsWith('}}')) {
+        const inner = part.slice(2, -2);
+        return (
+          <span key={`${lineIdx}-${partIdx}`} className="ksw-highlight">{inner}</span>
+        );
+      }
+      return part;
+    });
+    return (
+      <span key={lineIdx}>
+        {formattedLine}
+        {lineIdx < lines.length - 1 && <br />}
+      </span>
+    );
+  });
+}
+
+function textPreviewFromHtml(text: string): string {
+  if (!text) return '';
+  if (!isHtmlContent(text)) {
+    return text.replace(/\{\{(.*?)\}\}/g, '$1');
+  }
+  // Strip tags for the preview shown in toolbar popovers
+  if (typeof document === 'undefined') return text.replace(/<[^>]+>/g, '');
+  const tmp = document.createElement('div');
+  tmp.innerHTML = sanitizeRichHtml(text);
+  return tmp.textContent || '';
+}
+
+// Wrap the current selection in a span with a single inline style
+function wrapSelectionWithStyle(prop: string, value: string) {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+  const range = sel.getRangeAt(0);
+  if (range.collapsed) return;
+  const span = document.createElement('span');
+  span.style.setProperty(prop, value);
+  try {
+    span.appendChild(range.extractContents());
+    range.insertNode(span);
+    // Restore the selection over the inserted span
+    const newRange = document.createRange();
+    newRange.selectNodeContents(span);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+  } catch {
+    // If extractContents fails (cross-element selection edge cases), bail silently
+  }
 }
