@@ -46,6 +46,7 @@ import type {
     NavPosition,
     DesktopMenuStyle,
     HamburgerPosition,
+    HeaderOverlayStyle,
 } from '../../HeaderSettingsModal';
 
 // ─── Constants ────────────────────────────────────────────────────────────
@@ -155,6 +156,11 @@ export default function HeaderSettingsPanel({
             headerBgType: siteContent.headerBgType,
             headerBgColor: siteContent.headerBgColor,
             headerSticky: siteContent.headerSticky,
+            headerOverlayStyle: siteContent.headerOverlayStyle,
+            headerScrollBgChange: siteContent.headerScrollBgChange,
+            headerScrollBgUseCustom: siteContent.headerScrollBgUseCustom,
+            headerScrollBgType: siteContent.headerScrollBgType,
+            headerScrollBgColor: siteContent.headerScrollBgColor,
             headerNavFontSize: siteContent.headerNavFontSize,
             headerNavFontWeight: siteContent.headerNavFontWeight,
             headerNavColor: siteContent.headerNavColor,
@@ -204,6 +210,11 @@ export default function HeaderSettingsPanel({
     const bgType: HeaderBgType = siteContent.headerBgType || defaults.bgType || 'white';
     const bgColor: string = siteContent.headerBgColor || '';
     const sticky: 'always' | 'none' = siteContent.headerSticky || (defaults.sticky === false ? 'none' : 'always');
+    const overlayStyle: HeaderOverlayStyle = siteContent.headerOverlayStyle || 'dropShadow';
+    const scrollBgChange: boolean = !!siteContent.headerScrollBgChange;
+    const scrollBgUseCustom: boolean = !!siteContent.headerScrollBgUseCustom;
+    const scrollBgType: HeaderBgType = siteContent.headerScrollBgType || 'white';
+    const scrollBgColor: string = siteContent.headerScrollBgColor || '';
     const navFontSize: string = siteContent.headerNavFontSize || '';
     const navFontWeight: string = siteContent.headerNavFontWeight || '';
     const navColor: string = siteContent.headerNavColor || '';
@@ -504,6 +515,32 @@ export default function HeaderSettingsPanel({
                             checked={overlay}
                             onChange={() => updateSiteContent('headerOverlay', !overlay)}
                         />
+
+                        <div>
+                            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Scroll behavior</p>
+                            <div className="grid grid-cols-2 gap-2">
+                                {([
+                                    { value: 'always', label: 'Always Visible' },
+                                    { value: 'none', label: 'Scrolls Away' },
+                                ] as const).map((opt) => {
+                                    const active = sticky === opt.value;
+                                    return (
+                                        <button
+                                            key={opt.value}
+                                            type="button"
+                                            onClick={() => updateSiteContent('headerSticky', opt.value)}
+                                            className={`rounded-lg border px-3 py-2 text-center text-sm font-bold transition-all ${
+                                                active
+                                                    ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
+                                                    : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </div>
                 </InspectorSection>
 
@@ -869,7 +906,7 @@ export default function HeaderSettingsPanel({
                 {/* ── BACKGROUND ── */}
                 <InspectorSection
                     id="background"
-                    title="Background & Sticky"
+                    title="Background"
                     isCollapsed={sectionState.isCollapsed('background')}
                     onToggle={() => sectionState.toggle('background')}
                 >
@@ -921,30 +958,100 @@ export default function HeaderSettingsPanel({
                             )}
                         </div>
 
-                        <div>
-                            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Scroll behavior</p>
-                            <div className="grid grid-cols-2 gap-2">
-                                {([
-                                    { value: 'always', label: 'Always Visible' },
-                                    { value: 'none', label: 'Scrolls Away' },
-                                ] as const).map((opt) => {
-                                    const active = sticky === opt.value;
-                                    return (
-                                        <button
-                                            key={opt.value}
-                                            type="button"
-                                            onClick={() => updateSiteContent('headerSticky', opt.value)}
-                                            className={`rounded-lg border px-3 py-2 text-center text-sm font-bold transition-all ${
-                                                active
-                                                    ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
-                                                    : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                                            }`}
-                                        >
-                                            {opt.label}
-                                        </button>
-                                    );
-                                })}
+                        {overlay && (
+                            <div>
+                                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Float-over style</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {([
+                                        { value: 'transparent', label: 'Transparent', desc: 'No scrim' },
+                                        { value: 'dropShadow', label: 'Drop shadow', desc: 'Subtle dark scrim' },
+                                    ] as const).map((opt) => {
+                                        const active = overlayStyle === opt.value;
+                                        return (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => updateSiteContent('headerOverlayStyle', opt.value)}
+                                                className={`rounded-lg border px-3 py-2 text-left text-sm transition-all ${
+                                                    active
+                                                        ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600'
+                                                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                                }`}
+                                            >
+                                                <span className="block font-bold text-slate-800">{opt.label}</span>
+                                                <span className="block text-xs text-slate-500">{opt.desc}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
+                        )}
+
+                        <div className="space-y-3">
+                            <InspectorToggle
+                                label="Change on scroll"
+                                description="Header background changes when the page scrolls away from the top (animated)."
+                                checked={scrollBgChange}
+                                onChange={() => updateSiteContent('headerScrollBgChange', !scrollBgChange)}
+                            />
+                            {scrollBgChange && (
+                                <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                    <InspectorToggle
+                                        label="Use custom scrolled background"
+                                        description="Pick a different background for when scrolled (defaults to white)."
+                                        checked={scrollBgUseCustom}
+                                        onChange={() => updateSiteContent('headerScrollBgUseCustom', !scrollBgUseCustom)}
+                                    />
+                                    {scrollBgUseCustom && (
+                                        <div>
+                                            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Scrolled background</p>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {(['white', 'primary', 'secondary', 'gradient', 'custom'] as HeaderBgType[]).map((value) => {
+                                                    const labels: Record<HeaderBgType, string> = {
+                                                        white: 'White',
+                                                        transparent: 'Transparent',
+                                                        primary: 'Primary',
+                                                        secondary: 'Secondary',
+                                                        gradient: 'Gradient',
+                                                        custom: 'Custom',
+                                                    };
+                                                    const active = scrollBgType === value;
+                                                    return (
+                                                        <button
+                                                            key={value}
+                                                            type="button"
+                                                            onClick={() => updateSiteContent('headerScrollBgType', value)}
+                                                            className={`flex items-center gap-2 rounded-lg border p-2 text-left transition-all ${
+                                                                active ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300'
+                                                            }`}
+                                                        >
+                                                            <span className="h-6 w-6 shrink-0 rounded shadow-sm" style={getBgPreviewStyle(value)} />
+                                                            <span className="text-sm font-medium text-slate-700">{labels[value]}</span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                            {scrollBgType === 'custom' && (
+                                                <div className="mt-2 flex items-center gap-2">
+                                                    <input
+                                                        type="color"
+                                                        value={getColorInputValue(scrollBgColor, palette, '#ffffff')}
+                                                        onChange={(e) => updateSiteContent('headerScrollBgColor', e.target.value)}
+                                                        className="h-9 w-9 cursor-pointer rounded border border-slate-200"
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={scrollBgColor}
+                                                        onChange={(e) => updateSiteContent('headerScrollBgColor', e.target.value)}
+                                                        placeholder="#ffffff"
+                                                        className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </InspectorSection>
