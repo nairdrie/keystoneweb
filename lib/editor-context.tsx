@@ -132,3 +132,18 @@ export function useEditorContext(): EditorContextType | undefined {
   return useContext(EditorContext);
 }
 
+/**
+ * Per-block data context. Each block wraps its render in <BlockDataProvider value={data}>
+ * so descendant EditableText components can resolve their styleData (stored under
+ * `${contentKey}__styles`) without every call site having to thread the prop manually.
+ */
+const BlockDataContext = createContext<Record<string, unknown> | undefined>(undefined);
+
+export function BlockDataProvider({ value, children }: { value: Record<string, unknown> | undefined; children: ReactNode }) {
+  return <BlockDataContext.Provider value={value}>{children}</BlockDataContext.Provider>;
+}
+
+export function useBlockData(): Record<string, unknown> | undefined {
+  return useContext(BlockDataContext);
+}
+

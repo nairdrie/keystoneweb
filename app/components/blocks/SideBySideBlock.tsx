@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { BlockData, EditorContextType, EditorProvider, useEditorContext } from '@/lib/editor-context';
+import { BlockData, EditorContextType, EditorProvider, useEditorContext, BlockDataProvider } from '@/lib/editor-context';
 import { Plus, Crown } from 'lucide-react';
 import { BLOCK_COMPONENTS, AVAILABLE_BLOCKS } from './block-registry';
 import { getBlockDisplayLabel, getBlockIcon } from './block-icons';
@@ -114,14 +114,16 @@ function SideBySideColumn({
                     if (!Component) return null;
                     return (
                         <div key={block.id} className="w-full">
-                            <Component
-                                id={block.id}
-                                data={block.data || {}}
-                                isEditMode={false}
-                                palette={palette}
-                                updateContent={() => {}}
-                                block={block}
-                            />
+                            <BlockDataProvider value={block.data || {}}>
+                                <Component
+                                    id={block.id}
+                                    data={block.data || {}}
+                                    isEditMode={false}
+                                    palette={palette}
+                                    updateContent={() => {}}
+                                    block={block}
+                                />
+                            </BlockDataProvider>
                         </div>
                     );
                 })}
@@ -168,18 +170,20 @@ function SideBySideColumn({
                                             ));
                                         }}
                                     >
-                                        <Component
-                                            id={block.id}
-                                            data={block.data || {}}
-                                            isEditMode={true}
-                                            palette={palette}
-                                            updateContent={(key: string, value: unknown) => {
-                                                onChange(blocks.map(b =>
-                                                    b.id === block.id ? { ...b, data: { ...b.data, [key]: value } } : b
-                                                ));
-                                            }}
-                                            block={block}
-                                        />
+                                        <BlockDataProvider value={block.data || {}}>
+                                            <Component
+                                                id={block.id}
+                                                data={block.data || {}}
+                                                isEditMode={true}
+                                                palette={palette}
+                                                updateContent={(key: string, value: unknown) => {
+                                                    onChange(blocks.map(b =>
+                                                        b.id === block.id ? { ...b, data: { ...b.data, [key]: value } } : b
+                                                    ));
+                                                }}
+                                                block={block}
+                                            />
+                                        </BlockDataProvider>
                                     </BlockWrapper>
                                 </div>
                             );

@@ -5,7 +5,7 @@ import { Menu, X, Settings, Facebook, Instagram, Twitter, Linkedin, Youtube, Pho
 import { useHeaderHeight } from '@/lib/hooks/useHeaderHeight';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEditorContext } from '@/lib/editor-context';
+import { useEditorContext, BlockDataProvider } from '@/lib/editor-context';
 import EditableText from '@/app/components/EditableText';
 import EditableButton from '@/app/components/EditableButton';
 import NavMenu from '@/app/components/NavMenu';
@@ -981,7 +981,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
     // overlay toggles. Without this, the panel state (open sections) would
     // reset every time the user flips "Float over content".
     return (
-        <>
+        <BlockDataProvider value={siteContent}>
             {bannerEl}
             <header ref={headerRef} className={overlay ? `${overlayWrapperClass} ${isEditMode ? 'group relative' : ''}` : innerClassName} style={overlay ? {} : innerStyle}>
                 {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
@@ -994,6 +994,6 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
                 {settingsCog}
                 {settingsModal}
             </header>
-        </>
+        </BlockDataProvider>
     );
 }

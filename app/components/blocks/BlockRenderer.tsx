@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useEditorContext, BlockData } from '@/lib/editor-context';
+import { useEditorContext, BlockData, BlockDataProvider } from '@/lib/editor-context';
 import BlockWrapper from './BlockWrapper';
 import { Plus, Crown } from 'lucide-react';
 import MembershipGateBlock from './MembershipGateBlock';
@@ -170,15 +170,17 @@ export default function BlockRenderer({ palette, headerOffset }: { palette: Reco
                             onUpdateCustomCss={(css) => context?.updateBlockData?.(block.id, '__customCss', css)}
                             palette={palette}
                         >
-                            <Component
-                                id={block.id}
-                                data={block.data || {}}
-                                isEditMode={isEditMode}
-                                palette={palette}
-                                updateContent={(key: string, value: any) => context?.updateBlockData?.(block.id, key, value)}
-                                // We also pass the whole block object down for the simpler legacy blocks
-                                block={block}
-                            />
+                            <BlockDataProvider value={block.data || {}}>
+                                <Component
+                                    id={block.id}
+                                    data={block.data || {}}
+                                    isEditMode={isEditMode}
+                                    palette={palette}
+                                    updateContent={(key: string, value: any) => context?.updateBlockData?.(block.id, key, value)}
+                                    // We also pass the whole block object down for the simpler legacy blocks
+                                    block={block}
+                                />
+                            </BlockDataProvider>
                         </BlockWrapper>
                     </div>
                 );
