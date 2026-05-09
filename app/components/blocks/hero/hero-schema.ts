@@ -1,10 +1,11 @@
 import type { HeroBgAnimationId } from './HeroBgAnimations';
+import type { HeroBgPatternId } from './HeroBgPatterns';
 
 export type Align = 'left' | 'center' | 'right';
 export type ImageSide = 'left' | 'right';
 export type HeightMode = 'fitContent' | 'fitScreen' | 'manual';
 export type CardTransition = 'fade' | 'slide' | 'none';
-export type BgType = 'image' | 'video' | 'gradient' | 'animation';
+export type BgType = 'image' | 'video' | 'gradient' | 'animation' | 'pattern';
 export type VideoSource = 'pexels' | 'url';
 
 export interface HeroContent {
@@ -31,8 +32,28 @@ export interface HeroBackground {
     image?: { url: string; settings?: unknown; attribution?: unknown };
     video?: { source: VideoSource; url: string };
     gradient?: { from: string; to: string; via?: string; angle: number };
-    animation?: { id: HeroBgAnimationId };
-    /** Overlay applied above image/video/animation backgrounds. */
+    animation?: {
+        id: HeroBgAnimationId;
+        /**
+         * Optional per-slot color overrides. Each entry is either a hex
+         * color (e.g. "#ec4899") or a palette token (e.g. "palette:primary").
+         * Indexed against the animation's `colorSlots` metadata. Missing
+         * indices fall back to the slot's `defaultToken`.
+         */
+        colors?: string[];
+    };
+    pattern?: {
+        id: HeroBgPatternId;
+        /** Same shape as animation.colors — see above. */
+        colors?: string[];
+        /** 0.5 - 2.0; uniform scale of the tile. */
+        scale?: number;
+        /** Degrees, applied to the tile layer. */
+        rotation?: number;
+        /** 0 - 1, multiplied with overlay opacity. */
+        opacity?: number;
+    };
+    /** Overlay applied above image/video/animation/pattern backgrounds. */
     overlay?: { color: string; opacity: number };
 }
 

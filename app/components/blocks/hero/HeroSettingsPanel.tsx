@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlignCenter, AlignLeft, AlignRight, Crown, Image as ImageIcon, MoveLeft, MoveRight,
     Plus, Trash2, Copy, ChevronUp, ChevronDown, Video, Palette as PaletteIcon, Sparkles,
-    Monitor, Tablet, Smartphone,
+    Monitor, Tablet, Smartphone, LayoutGrid, RotateCcw,
 } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockSettingsPanel from '../BlockSettingsPanel';
@@ -38,7 +38,20 @@ import {
     migrateLegacyHeroData,
     VideoSource,
 } from './hero-schema';
-import { HERO_BG_ANIMATION_LIST, type HeroBgAnimationId } from './HeroBgAnimations';
+import {
+    HERO_BG_ANIMATION_LIST,
+    HERO_BG_ANIMATION_META,
+    HeroBgAnimation,
+    type HeroBgAnimationId,
+} from './HeroBgAnimations';
+import {
+    HERO_BG_PATTERN_LIST,
+    HERO_BG_PATTERN_META,
+    HeroBgPattern,
+    type HeroBgPatternId,
+} from './HeroBgPatterns';
+import { resolveSlotColors } from './hero-bg-shared';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 import ImageEditorModal, { type ImageSettings, type UnsplashAttribution } from '@/app/components/ImageEditorModal';
 import PexelsVideoPickerModal from '@/app/components/PexelsVideoPickerModal';
 
@@ -56,6 +69,7 @@ const BG_TYPE_OPTIONS: { id: BgType; label: string; Icon: typeof ImageIcon }[] =
     { id: 'video', label: 'Video', Icon: Video },
     { id: 'gradient', label: 'Gradient', Icon: PaletteIcon },
     { id: 'animation', label: 'Animation', Icon: Sparkles },
+    { id: 'pattern', label: 'Pattern', Icon: LayoutGrid },
 ];
 
 const HEIGHT_OPTIONS: { id: HeroHeightConfig['mode']; label: string }[] = [
@@ -514,7 +528,7 @@ export default function HeroSettingsPanel({
                     onToggle={() => sectionState.toggle('background')}
                 >
                     <div className="space-y-4">
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-5 gap-2">
                             {BG_TYPE_OPTIONS.map(({ id, label, Icon }) => {
                                 const isActive = activeCard.background.type === id;
                                 return (
@@ -608,28 +622,19 @@ export default function HeroSettingsPanel({
                         )}
 
                         {activeCard.background.type === 'animation' && (
-                            <div className="space-y-3">
-                                <div className="grid grid-cols-2 gap-2">
-                                    {HERO_BG_ANIMATION_LIST.map((anim) => {
-                                        const isActive = (activeCard.background.animation?.id || 'aurora') === anim.id;
-                                        return (
-                                            <button
-                                                key={anim.id}
-                                                type="button"
-                                                onClick={() => updateBackground({ animation: { id: anim.id as HeroBgAnimationId } })}
-                                                aria-pressed={isActive}
-                                                className={`rounded-xl border p-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                                    isActive ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                                                }`}
-                                            >
-                                                <span className="block text-sm font-bold text-slate-900">{anim.label}</span>
-                                                <span className="mt-0.5 block text-xs leading-snug text-slate-500">{anim.description}</span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                <OverlayControls bg={activeCard.background} onChange={updateBackground} />
-                            </div>
+                            <AnimationControls
+                                bg={activeCard.background}
+                                onChange={updateBackground}
+                                palette={palette}
+                            />
+                        )}
+
+                        {activeCard.background.type === 'pattern' && (
+                            <PatternControls
+                                bg={activeCard.background}
+                                onChange={updateBackground}
+                                palette={palette}
+                            />
                         )}
                     </div>
                 </InspectorSection>
@@ -794,6 +799,338 @@ function OverlayControls({ bg, onChange }: { bg: HeroBackground; onChange: (patc
                     />
                 </div>
             </div>
+        </div>
+    );
+}
+
+/** Compact preview tile for an animation or pattern card. Renders the
+ *  actual component at thumbnail size with its current resolved colors. */
+function VariantPreview({ children }: { children: React.ReactNode }) {
+    return (
+        <div className="pointer-events-none relative h-20 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+            {children}
+        </div>
+    );
+}
+
+/** Editor for one named color slot. Hex picker + palette tokens + reset. */
+function ColorSlotEditor({
+    label,
+    value,
+    palette,
+    defaultToken,
+    onChange,
+}: {
+    label: string;
+    value: string;
+    palette: Record<string, string>;
+    defaultToken: string;
+    onChange: (next: string) => void;
+}) {
+    const isDefault = value === defaultToken;
+    const hex = getColorInputValue(value, palette, '#1f2937');
+    return (
+        <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
+                {!isDefault && (
+                    <button
+                        type="button"
+                        onClick={() => onChange(defaultToken)}
+                        className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                        title="Reset to default"
+                    >
+                        <RotateCcw className="h-3 w-3" />
+                        Reset
+                    </button>
+                )}
+            </div>
+            <div className="flex items-center gap-2">
+                <input
+                    type="color"
+                    value={hex}
+                    onChange={(e) => onChange(e.target.value)}
+                    className="h-9 w-9 shrink-0 cursor-pointer rounded border border-slate-200 bg-white"
+                />
+                <PaletteTokenButtons selected={value} palette={palette} onSelect={onChange} />
+            </div>
+        </div>
+    );
+}
+
+/** Update one entry in the colors[] override array, preserving others. */
+function setSlotColor(current: string[] | undefined, slotCount: number, defaults: string[], index: number, next: string): string[] {
+    const arr: string[] = Array.from({ length: slotCount }, (_, i) => current?.[i] ?? defaults[i]);
+    arr[index] = next;
+    return arr;
+}
+
+function AnimationControls({
+    bg,
+    onChange,
+    palette,
+}: {
+    bg: HeroBackground;
+    onChange: (patch: Partial<HeroBackground>) => void;
+    palette: Record<string, string>;
+}) {
+    const activeId: HeroBgAnimationId = (bg.animation?.id || 'aurora') as HeroBgAnimationId;
+    const activeMeta = HERO_BG_ANIMATION_META[activeId] || HERO_BG_ANIMATION_META.aurora;
+    const slots = activeMeta.colorSlots;
+    const defaults = slots.map((s) => s.defaultToken);
+    const overrides = bg.animation?.colors;
+    const resolvedActiveColors = resolveSlotColors(slots, overrides, palette, resolvePaletteColor);
+
+    const setSlot = (index: number, next: string) => {
+        const arr = setSlotColor(overrides, slots.length, defaults, index, next);
+        onChange({ animation: { id: activeId, colors: arr } });
+    };
+
+    const resetAllColors = () => {
+        onChange({ animation: { id: activeId, colors: undefined } });
+    };
+
+    return (
+        <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+                {HERO_BG_ANIMATION_LIST.map((anim) => {
+                    const isActive = activeId === anim.id;
+                    // Each thumbnail renders with the variant's defaults so the
+                    // editor can compare options at a glance.
+                    const previewColors = resolveSlotColors(anim.colorSlots, undefined, palette, resolvePaletteColor);
+                    return (
+                        <button
+                            key={anim.id}
+                            type="button"
+                            onClick={() => onChange({ animation: { id: anim.id, colors: undefined } })}
+                            aria-pressed={isActive}
+                            className={`overflow-hidden rounded-xl border text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                isActive ? 'border-blue-600 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300'
+                            }`}
+                        >
+                            <VariantPreview>
+                                <HeroBgAnimation id={anim.id} colors={previewColors} />
+                            </VariantPreview>
+                            <div className={`px-2.5 py-2 ${isActive ? 'bg-blue-50' : 'bg-white'}`}>
+                                <span className="block text-xs font-bold text-slate-900">{anim.label}</span>
+                                <span className="mt-0.5 block text-[10px] leading-snug text-slate-500 line-clamp-2">{anim.description}</span>
+                            </div>
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* Live large preview of the selected animation */}
+            <div className="relative h-32 overflow-hidden rounded-xl border border-slate-200">
+                <HeroBgAnimation id={activeId} colors={resolvedActiveColors} />
+                <div className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-black/50 px-2 py-0.5 text-[10px] font-bold text-white">
+                    {activeMeta.label}
+                </div>
+            </div>
+
+            {/* Color slot editors */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Colors</p>
+                    {overrides && overrides.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={resetAllColors}
+                            className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                        >
+                            <RotateCcw className="h-3 w-3" />
+                            Reset all
+                        </button>
+                    )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                    {slots.map((slot, i) => {
+                        const value = overrides?.[i] ?? slot.defaultToken;
+                        return (
+                            <ColorSlotEditor
+                                key={`${activeId}-${i}`}
+                                label={slot.label}
+                                value={value}
+                                palette={palette}
+                                defaultToken={slot.defaultToken}
+                                onChange={(next) => setSlot(i, next)}
+                            />
+                        );
+                    })}
+                </div>
+            </div>
+
+            <OverlayControls bg={bg} onChange={onChange} />
+        </div>
+    );
+}
+
+function PatternControls({
+    bg,
+    onChange,
+    palette,
+}: {
+    bg: HeroBackground;
+    onChange: (patch: Partial<HeroBackground>) => void;
+    palette: Record<string, string>;
+}) {
+    const activeId: HeroBgPatternId = (bg.pattern?.id || 'dotsGrid') as HeroBgPatternId;
+    const activeMeta = HERO_BG_PATTERN_META[activeId] || HERO_BG_PATTERN_META.dotsGrid;
+    const slots = activeMeta.colorSlots;
+    const defaults = slots.map((s) => s.defaultToken);
+    const overrides = bg.pattern?.colors;
+    const scale = bg.pattern?.scale ?? 1;
+    const rotation = bg.pattern?.rotation ?? 0;
+    const opacity = bg.pattern?.opacity ?? 1;
+    const resolvedActiveColors = resolveSlotColors(slots, overrides, palette, resolvePaletteColor);
+
+    const updatePattern = (patch: Partial<NonNullable<HeroBackground['pattern']>>) => {
+        onChange({
+            pattern: {
+                id: activeId,
+                colors: overrides,
+                scale,
+                rotation,
+                opacity,
+                ...patch,
+            },
+        });
+    };
+
+    const setSlot = (index: number, next: string) => {
+        const arr = setSlotColor(overrides, slots.length, defaults, index, next);
+        updatePattern({ colors: arr });
+    };
+
+    return (
+        <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+                {HERO_BG_PATTERN_LIST.map((p) => {
+                    const isActive = activeId === p.id;
+                    const previewColors = resolveSlotColors(p.colorSlots, undefined, palette, resolvePaletteColor);
+                    return (
+                        <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => onChange({
+                                pattern: {
+                                    id: p.id,
+                                    colors: undefined,
+                                    scale: 1,
+                                    rotation: 0,
+                                    opacity: 1,
+                                },
+                            })}
+                            aria-pressed={isActive}
+                            className={`overflow-hidden rounded-xl border text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                isActive ? 'border-blue-600 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300'
+                            }`}
+                        >
+                            <VariantPreview>
+                                <HeroBgPattern id={p.id} colors={previewColors} scale={1} rotation={0} opacity={1} />
+                            </VariantPreview>
+                            <div className={`px-2.5 py-2 ${isActive ? 'bg-blue-50' : 'bg-white'}`}>
+                                <span className="block text-xs font-bold text-slate-900">{p.label}</span>
+                                <span className="mt-0.5 block text-[10px] leading-snug text-slate-500 line-clamp-2">{p.description}</span>
+                            </div>
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* Large preview */}
+            <div className="relative h-32 overflow-hidden rounded-xl border border-slate-200">
+                <HeroBgPattern
+                    id={activeId}
+                    colors={resolvedActiveColors}
+                    scale={scale}
+                    rotation={rotation}
+                    opacity={opacity}
+                />
+                <div className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-black/50 px-2 py-0.5 text-[10px] font-bold text-white">
+                    {activeMeta.label}
+                </div>
+            </div>
+
+            {/* Geometry controls */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Tile</p>
+                <div className="space-y-2">
+                    <div>
+                        <label className="mb-0.5 block text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                            Scale: {scale.toFixed(2)}×
+                        </label>
+                        <input
+                            type="range"
+                            min={50}
+                            max={200}
+                            value={Math.round(scale * 100)}
+                            onChange={(e) => updatePattern({ scale: parseInt(e.target.value) / 100 })}
+                            className="w-full accent-blue-600"
+                        />
+                    </div>
+                    <div>
+                        <label className="mb-0.5 block text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                            Rotation: {rotation}°
+                        </label>
+                        <input
+                            type="range"
+                            min={0}
+                            max={360}
+                            value={rotation}
+                            onChange={(e) => updatePattern({ rotation: parseInt(e.target.value) || 0 })}
+                            className="w-full accent-blue-600"
+                        />
+                    </div>
+                    <div>
+                        <label className="mb-0.5 block text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                            Opacity: {Math.round(opacity * 100)}%
+                        </label>
+                        <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            value={Math.round(opacity * 100)}
+                            onChange={(e) => updatePattern({ opacity: parseInt(e.target.value) / 100 })}
+                            className="w-full accent-blue-600"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Color slot editors */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Colors</p>
+                    {overrides && overrides.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => updatePattern({ colors: undefined })}
+                            className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                        >
+                            <RotateCcw className="h-3 w-3" />
+                            Reset all
+                        </button>
+                    )}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                    {slots.map((slot, i) => {
+                        const value = overrides?.[i] ?? slot.defaultToken;
+                        return (
+                            <ColorSlotEditor
+                                key={`${activeId}-${i}`}
+                                label={slot.label}
+                                value={value}
+                                palette={palette}
+                                defaultToken={slot.defaultToken}
+                                onChange={(next) => setSlot(i, next)}
+                            />
+                        );
+                    })}
+                </div>
+            </div>
+
+            <OverlayControls bg={bg} onChange={onChange} />
         </div>
     );
 }
