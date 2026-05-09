@@ -45,7 +45,10 @@ export default function EditableText({
   // Live block-level styles while editing (preview before commit)
   const initialParsed = parseStyleData(styleData);
   const [pendingStyles, setPendingStyles] = useState<TextStyles>(initialParsed);
-  const editorRef = useRef<HTMLDivElement>(null);
+  // Callback ref backed by state so the toolbar receives the actual element
+  // as soon as the contenteditable mounts (a plain useRef wouldn't trigger
+  // the re-render that flushes targetEl into the toolbar's props).
+  const [editorEl, setEditorEl] = useState<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLElement>(null);
   const isEditingRef = useRef(false);
   const displayTextRef = useRef(displayText);
@@ -121,12 +124,11 @@ export default function EditableText({
   };
 
   const commitSave = useCallback(() => {
-    const editor = editorRef.current;
-    if (!editor) {
+    if (!editorEl) {
       setIsEditing(false);
       return;
     }
-    const rawHtml = normalizeEditorHtml(editor.innerHTML);
+    const rawHtml = normalizeEditorHtml(editorEl.innerHTML);
     const initial = initialEditorHtml(displayTextRef.current);
     if (rawHtml !== initial) {
       onSave(contentKey, rawHtml);
@@ -137,7 +139,7 @@ export default function EditableText({
       onSave(`${contentKey}__styles`, stylesJson);
     }
     setIsEditing(false);
-  }, [contentKey, onSave, pendingStyles, styleData]);
+  }, [contentKey, onSave, pendingStyles, styleData, editorEl]);
 
   const cancelEdit = () => {
     setPendingStyles(parseStyleData(styleData));
@@ -146,24 +148,22 @@ export default function EditableText({
 
   // Initialize the contenteditable HTML when entering edit mode
   useEffect(() => {
-    if (!isEditing) return;
-    const editor = editorRef.current;
-    if (!editor) return;
-    editor.innerHTML = initialEditorHtml(displayText);
-    editor.focus();
+    if (!isEditing || !editorEl) return;
+    editorEl.innerHTML = initialEditorHtml(displayText);
+    editorEl.focus();
     // Place cursor at end
     const range = document.createRange();
-    range.selectNodeContents(editor);
+    range.selectNodeContents(editorEl);
     range.collapse(false);
     const sel = window.getSelection();
     sel?.removeAllRanges();
     sel?.addRange(range);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing]);
+  }, [isEditing, editorEl]);
 
   // Toolbar -> inline command runner
   const runCommand = useCallback((cmd: InlineCommand) => {
-    const editor = editorRef.current;
+    const editor = editorEl;
     if (!editor) return;
     editor.focus();
     const sel = window.getSelection();
@@ -222,7 +222,7 @@ export default function EditableText({
         break;
       }
     }
-  }, []);
+  }, [editorEl]);
 
   // Handle keyboard shortcuts inside the editor
   const handleEditorKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -283,7 +283,7 @@ export default function EditableText({
           style={mergedStyle}
         >
           <div
-            ref={editorRef}
+            ref={setEditorEl}
             contentEditable
             suppressContentEditableWarning
             onKeyDown={handleEditorKeyDown}
@@ -302,7 +302,7 @@ export default function EditableText({
           />
         </Component>
         <RichTextToolbar
-          targetEl={editorRef.current}
+          targetEl={editorEl}
           blockStyles={pendingStyles}
           onBlockStylesChange={setPendingStyles}
           runCommand={runCommand}
