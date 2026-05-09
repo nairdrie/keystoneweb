@@ -2152,6 +2152,7 @@ function ProductGrid({
                 style={style}
                 defaultShape="rounded"
                 defaultFill="filled"
+                palette={palette}
             />
         );
     };

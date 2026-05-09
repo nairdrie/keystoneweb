@@ -191,6 +191,7 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
                             onSave={(key, value) => updateContent(key, value)}
                             className="text-lg font-semibold hover:underline transition-colors"
                             style={{ color: pSecondary }}
+                            palette={palette}
                         />
                     </Reveal>
                 )}

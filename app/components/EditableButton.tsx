@@ -6,6 +6,7 @@ import * as Icons from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useEditorContext, NavItem } from '@/lib/editor-context';
 import { useLangPrefix } from '@/lib/hooks/useLangPrefix';
+import { resolvePaletteColor } from '@/lib/palette-colors';
 import NavItemEditModal from './NavItemEditModal';
 import ButtonSettingsModal, { type ButtonShape, type ButtonFill } from './ButtonSettingsModal';
 
@@ -23,6 +24,8 @@ export interface ButtonIconData {
     shape?: ButtonShape;
     fill?: ButtonFill;
     iconOnly?: boolean;
+    /** Optional background color override (hex or palette token like "palette:primary") */
+    bgColor?: string;
 }
 
 const RADIUS_CLASS_RE = /\brounded(?:-(?:none|sm|md|lg|xl|2xl|3xl|full))?\b/g;
@@ -65,6 +68,8 @@ interface EditableButtonProps {
     defaultShape?: ButtonShape;
     /** Default fill used in modal pre-selection (template-level default) */
     defaultFill?: ButtonFill;
+    /** Active palette for resolving palette-token color overrides */
+    palette?: Record<string, string>;
 }
 
 /**
@@ -85,8 +90,10 @@ export default function EditableButton({
     style,
     defaultShape,
     defaultFill,
+    palette,
 }: EditableButtonProps) {
     const context = useEditorContext();
+    const effectivePalette = palette || context?.palette || {};
     const [isEditing, setIsEditing] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [controlsOnLeft, setControlsOnLeft] = useState(false);
@@ -108,8 +115,8 @@ export default function EditableButton({
     const currentIcon = iconData?.icon;
     const currentIconPosition = iconData?.iconPosition || 'left';
     const isIconOnly = !!iconData?.iconOnly && !!currentIcon;
-    const resolvedButton = resolveButtonPresentation(className, style, iconData, defaultShape, defaultFill);
-    const overrideCss = buildButtonOverrideCss(buttonId, iconData);
+    const resolvedButton = resolveButtonPresentation(className, style, iconData, defaultShape, defaultFill, effectivePalette);
+    const overrideCss = buildButtonOverrideCss(buttonId, iconData, effectivePalette);
 
     // Detect if we should show controls on the left based on screen position
     useEffect(() => {
@@ -270,6 +277,7 @@ export default function EditableButton({
                     initialSettings={iconData}
                     defaultShape={defaultShape}
                     defaultFill={defaultFill}
+                    palette={effectivePalette}
                 />
             </>
         );
@@ -296,8 +304,12 @@ export default function EditableButton({
     );
 }
 
-function buildButtonOverrideCss(buttonId: string, iconData: ButtonIconData | undefined): string {
-    if (!buttonId || (!iconData?.shape && !iconData?.fill)) return '';
+function buildButtonOverrideCss(
+    buttonId: string,
+    iconData: ButtonIconData | undefined,
+    palette: Record<string, string>,
+): string {
+    if (!buttonId || (!iconData?.shape && !iconData?.fill && !iconData?.bgColor)) return '';
     const selector = `[data-ks-editable-button][data-ks-editable-button-id="${buttonId}"]`;
     const declarations: string[] = [];
 
@@ -313,6 +325,21 @@ function buildButtonOverrideCss(buttonId: string, iconData: ButtonIconData | und
         declarations.push('border: none !important');
     }
 
+    const bgOverride = iconData?.bgColor ? resolvePaletteColor(iconData.bgColor, palette, '') : '';
+    if (bgOverride) {
+        const fill = iconData?.fill;
+        if (fill === 'outline') {
+            declarations.push(`border-color: ${bgOverride} !important`);
+            declarations.push(`color: ${bgOverride} !important`);
+            declarations.push('background-color: transparent !important');
+        } else if (fill === 'ghost') {
+            declarations.push(`color: ${bgOverride} !important`);
+            declarations.push('background-color: transparent !important');
+        } else {
+            declarations.push(`background-color: ${bgOverride} !important`);
+        }
+    }
+
     return declarations.length ? `${selector} { ${declarations.join('; ')}; }` : '';
 }
 
@@ -322,11 +349,13 @@ function resolveButtonPresentation(
     iconData: ButtonIconData | undefined,
     defaultShape: ButtonShape | undefined,
     defaultFill: ButtonFill | undefined,
+    palette: Record<string, string>,
 ): { className: string; style: React.CSSProperties | undefined } {
     let nextClassName = className;
     const nextStyle: React.CSSProperties = { ...(style || {}) };
     const shape = iconData?.shape;
     const fill = iconData?.fill;
+    const bgOverride = iconData?.bgColor ? resolvePaletteColor(iconData.bgColor, palette, '') : '';
 
     if (shape) {
         nextClassName = stripClasses(nextClassName, RADIUS_CLASS_RE);
@@ -337,7 +366,7 @@ function resolveButtonPresentation(
     }
 
     if (fill) {
-        const accent = resolveButtonAccent(nextStyle);
+        const accent = bgOverride || resolveButtonAccent(nextStyle);
         if (fill === 'outline') {
             nextClassName = stripClasses(nextClassName, SHADOW_CLASS_RE);
             nextStyle.background = 'transparent';
@@ -359,6 +388,15 @@ function resolveButtonPresentation(
         }
     } else if (defaultFill === 'ghost' || defaultFill === 'outline') {
         nextClassName = stripClasses(nextClassName, SHADOW_CLASS_RE);
+        if (bgOverride) {
+            nextStyle.color = bgOverride;
+            if (defaultFill === 'outline') {
+                nextStyle.border = `2px solid ${bgOverride}`;
+            }
+        }
+    } else if (bgOverride) {
+        nextStyle.background = bgOverride;
+        nextStyle.backgroundColor = bgOverride;
     }
 
     if (iconData?.iconOnly && iconData.icon) {

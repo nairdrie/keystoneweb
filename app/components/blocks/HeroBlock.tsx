@@ -528,6 +528,7 @@ function HeroCardContent({
                                         onSave={onSave}
                                         className="hero-button px-8 py-4 text-white font-bold rounded-lg shadow-lg hover:opacity-90 transition-opacity inline-block"
                                         style={{ backgroundColor: pSecondary, color: '#ffffff' }}
+                                        palette={palette}
                                     />
                                 </div>
                             </Reveal>
