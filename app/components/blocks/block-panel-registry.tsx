@@ -87,6 +87,7 @@ const GENERIC_BLOCK_TITLES: Record<string, string> = {
     video: 'Video Embed Settings',
     socialFeed: 'Social Media Embeds Settings',
     tabBar: 'Tab Bar / Menu Bar Settings',
+    timeline: 'Timeline Settings',
     userProfile: 'User Profile Settings',
 };
 
@@ -144,6 +145,10 @@ export const BLOCK_PANEL_REGISTRY: Record<string, PanelEntry> = {
     },
     faq: {
         title: 'FAQ Accordion Settings',
+        component: RepeatableItemsSettingsPanel,
+    },
+    timeline: {
+        title: 'Timeline Settings',
         component: RepeatableItemsSettingsPanel,
     },
     productGrid: {

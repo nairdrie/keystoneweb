@@ -24,6 +24,7 @@ export const PRETEXT_BLOCKS = new Set<string>([
     'resources',
     'contact',
     'deliveryLinks',
+    'timeline',
 ]);
 
 export const PRETEXT_DEFAULTS = {

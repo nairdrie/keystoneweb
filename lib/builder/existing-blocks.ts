@@ -31,6 +31,7 @@ export const KEYSTONE_ALLOWED_BLOCK_DISPLAY_NAMES = [
   'Video Embed',
   'Social Media Embeds',
   'Tab Bar / Menu Bar',
+  'Timeline',
   'User Profile',
   'Membership Gate',
 ] as const;
@@ -115,6 +116,7 @@ export const EXISTING_BUILDER_BLOCKS: readonly ResolvedBuilderBlock[] = [
   { displayName: 'Video Embed', internalType: 'video', componentName: 'VideoBlock', category: 'Media' },
   { displayName: 'Social Media Embeds', internalType: 'socialFeed', componentName: 'SocialFeedBlock', category: 'Media' },
   { displayName: 'Tab Bar / Menu Bar', internalType: 'tabBar', componentName: 'TabBarBlock', category: 'Navigation' },
+  { displayName: 'Timeline', internalType: 'timeline', componentName: 'TimelineBlock', category: 'Content Lists' },
   { displayName: 'User Profile', internalType: 'userProfile', componentName: 'UserProfileBlock', category: 'Membership', isProOnly: true },
   {
     displayName: 'Membership Gate',

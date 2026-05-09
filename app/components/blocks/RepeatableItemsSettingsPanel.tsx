@@ -24,8 +24,8 @@ import {
 
 const REPEATABLE_ITEMS_DRAFT_UPDATE_EVENT = 'ks:repeatable-items-draft-update';
 
-type ManagedBlockType = 'servicesGrid' | 'stats' | 'testimonials' | 'faq';
-type ItemValue = string | number;
+type ManagedBlockType = 'servicesGrid' | 'stats' | 'testimonials' | 'faq' | 'timeline';
+type ItemValue = string | number | string[];
 type ManagedItem = Record<string, ItemValue>;
 type TestimonialDisplaySettings = {
     showMoreEnabled: boolean;
@@ -39,7 +39,7 @@ type TestimonialDisplaySettings = {
 type FieldConfig = {
     key: string;
     label: string;
-    type: 'text' | 'textarea' | 'number';
+    type: 'text' | 'textarea' | 'number' | 'tags';
     placeholder?: string;
     min?: number;
     max?: number;
@@ -227,6 +227,71 @@ const CONFIGS: Record<ManagedBlockType, ManagedBlockConfig> = {
         backgroundFallback: '#ffffff',
         backgroundPlaceholder: 'Default (white)',
         cssPlaceholder: `/* Scoped to this FAQ block */\n.faq-item {\n  border-radius: 0.75rem;\n}`,
+    },
+    timeline: {
+        blockType: 'timeline',
+        title: 'Timeline Settings',
+        subtitle: 'Manage timeline entries, layout, section styling, and advanced CSS.',
+        itemsTitle: 'Timeline Entries',
+        addLabel: 'Add Entry',
+        emptyLabel: 'No entries yet.',
+        itemLabel: 'Entry',
+        defaultItems: [
+            {
+                title: 'Senior Software Developer (Full Stack)',
+                organization: 'Vretta Inc.',
+                dateRange: '2020 - Present',
+                description: 'Architected client-side performance strategies for an e-assessment platform serving millions. Led the migration to a modern component-based UI architecture and implemented granular user analytics.',
+                tags: ['Angular', 'Node.js', 'MySQL', 'Redis', 'AWS', 'Python'],
+            },
+            {
+                title: 'Web Application Developer (Full Stack)',
+                organization: 'Kenna Technology Solutions Inc.',
+                dateRange: '2019 - 2020',
+                description: 'Developed a responsive global sales portal and revamped customer engagement flows. Streamlined the interface to reduce support ticket volume by 20%.',
+                tags: ['React', 'JavaScript', 'Java'],
+            },
+            {
+                title: 'Mobile Game Developer',
+                organization: 'Adknown Inc.',
+                dateRange: '2018',
+                description: 'Built mobile games and ad integrations for a high-growth advertising platform.',
+                tags: ['Unity', 'C#'],
+            },
+        ],
+        createItem: (items) => {
+            const next = nextNumber(items, 'title', /^New Entry\s+(\d+)$/i, items.length + 1);
+            return {
+                title: `New Entry ${next}`,
+                organization: 'Company Name',
+                dateRange: 'Year - Year',
+                description: 'Describe what you accomplished here.',
+                tags: [],
+            };
+        },
+        fields: [
+            { key: 'title', label: 'Title', type: 'text', placeholder: 'Role / Position' },
+            { key: 'organization', label: 'Organization', type: 'text', placeholder: 'Company or institution' },
+            { key: 'dateRange', label: 'Date Range', type: 'text', placeholder: '2020 - Present' },
+            { key: 'description', label: 'Description', type: 'textarea', placeholder: 'What you accomplished.' },
+            { key: 'tags', label: 'Tags', type: 'tags', placeholder: 'Add tag and press Enter' },
+        ],
+        rowTitle: (item, index) => String(item.title || `Entry ${index + 1}`),
+        rowMeta: (item, index) => {
+            const org = String(item.organization || '');
+            const date = String(item.dateRange || '');
+            const meta = [org, date].filter(Boolean).join(' • ');
+            return meta || `Entry ${index + 1}`;
+        },
+        variants: [
+            { id: 'cards', label: 'Side Timeline', description: 'Vertical line on the left with cards.' },
+            { id: 'centered', label: 'Centered', description: 'Alternating cards on either side.' },
+            { id: 'compact', label: 'Compact List', description: 'Date column with minimal cards.' },
+        ],
+        defaultVariant: 'cards',
+        backgroundFallback: '#ffffff',
+        backgroundPlaceholder: 'Default (white)',
+        cssPlaceholder: `/* Scoped to this Timeline block */\n.timeline-item {\n  border-radius: 1rem;\n}`,
     },
 };
 
@@ -896,12 +961,21 @@ function FieldEditor({
     value: ItemValue | '';
     onChange: (value: ItemValue) => void;
 }) {
+    if (field.type === 'tags') {
+        const tags = Array.isArray(value) ? value.map((tag) => String(tag)) : [];
+        return (
+            <label className="block">
+                <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">{field.label}</span>
+                <TagsFieldEditor tags={tags} placeholder={field.placeholder} onChange={onChange} />
+            </label>
+        );
+    }
     return (
         <label className="block">
             <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">{field.label}</span>
             {field.type === 'textarea' ? (
                 <textarea
-                    value={String(value)}
+                    value={typeof value === 'string' || typeof value === 'number' ? String(value) : ''}
                     onChange={(event) => onChange(event.target.value)}
                     placeholder={field.placeholder}
                     rows={4}
@@ -910,7 +984,7 @@ function FieldEditor({
             ) : (
                 <input
                     type={field.type}
-                    value={String(value)}
+                    value={typeof value === 'string' || typeof value === 'number' ? String(value) : ''}
                     min={field.min}
                     max={field.max}
                     onChange={(event) => {
@@ -926,6 +1000,81 @@ function FieldEditor({
                 />
             )}
         </label>
+    );
+}
+
+function TagsFieldEditor({
+    tags,
+    placeholder,
+    onChange,
+}: {
+    tags: string[];
+    placeholder?: string;
+    onChange: (next: string[]) => void;
+}) {
+    const [draft, setDraft] = useState('');
+
+    const commitDraft = () => {
+        const trimmed = draft.trim();
+        if (!trimmed) return;
+        onChange([...tags, trimmed]);
+        setDraft('');
+    };
+
+    const removeAt = (index: number) => {
+        onChange(tags.filter((_, i) => i !== index));
+    };
+
+    const updateAt = (index: number, value: string) => {
+        onChange(tags.map((tag, i) => (i === index ? value : tag)));
+    };
+
+    return (
+        <div className="rounded-lg border border-slate-200 bg-white p-2">
+            <div className="flex flex-wrap gap-1.5">
+                {tags.map((tag, index) => (
+                    <span
+                        key={index}
+                        className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700"
+                    >
+                        <input
+                            type="text"
+                            value={tag}
+                            onChange={(event) => updateAt(index, event.target.value)}
+                            className="bg-transparent border-none outline-none text-xs font-semibold"
+                            style={{ width: `${Math.max(2, tag.length)}ch` }}
+                            aria-label={`Edit tag ${index + 1}`}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => removeAt(index)}
+                            className="rounded-full p-0.5 text-blue-700/70 hover:bg-blue-100 hover:text-blue-800"
+                            aria-label={`Remove tag ${tag}`}
+                            title="Remove tag"
+                        >
+                            <Trash2 className="h-3 w-3" />
+                        </button>
+                    </span>
+                ))}
+                <input
+                    type="text"
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ',') {
+                            event.preventDefault();
+                            commitDraft();
+                        } else if (event.key === 'Backspace' && draft === '' && tags.length > 0) {
+                            event.preventDefault();
+                            removeAt(tags.length - 1);
+                        }
+                    }}
+                    onBlur={commitDraft}
+                    placeholder={tags.length === 0 ? placeholder || 'Add tag…' : 'Add tag…'}
+                    className="min-w-[8ch] flex-1 border-none px-1 py-1 text-xs outline-none focus:ring-0"
+                />
+            </div>
+        </div>
     );
 }
 
@@ -1040,9 +1189,9 @@ function isTestimonialDisplaySectionVisible(variant: string): boolean {
 
 function normalizeItems(value: unknown, defaults: ManagedItem[]): ManagedItem[] {
     if (Array.isArray(value) && value.length > 0) {
-        return value.map((item) => ({ ...(item as ManagedItem) }));
+        return cloneItems(value as ManagedItem[]);
     }
-    return defaults.map((item) => ({ ...item }));
+    return cloneItems(defaults);
 }
 
 function clampNumber(value: unknown, fallback: number, min: number, max: number): number {
@@ -1052,7 +1201,13 @@ function clampNumber(value: unknown, fallback: number, min: number, max: number)
 }
 
 function cloneItems(items: ManagedItem[]): ManagedItem[] {
-    return items.map((item) => ({ ...item }));
+    return items.map((item) => {
+        const clone: ManagedItem = {};
+        for (const [key, value] of Object.entries(item)) {
+            clone[key] = Array.isArray(value) ? [...value] : value;
+        }
+        return clone;
+    });
 }
 
 function isStructuralItemsChange(currentItems: ManagedItem[], nextItems: ManagedItem[]): boolean {
@@ -1096,5 +1251,5 @@ function remapExpandedRowsAfterMove(expanded: Set<number>, fromIndex: number, to
 }
 
 function isManagedBlockType(value: string): value is ManagedBlockType {
-    return value === 'servicesGrid' || value === 'stats' || value === 'testimonials' || value === 'faq';
+    return value === 'servicesGrid' || value === 'stats' || value === 'testimonials' || value === 'faq' || value === 'timeline';
 }
