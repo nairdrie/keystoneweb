@@ -490,6 +490,31 @@ const BACKGROUND_BLOCKS = new Set([
     'testimonials',
 ]);
 
+// Blocks whose components render <BlockPretext /> above their primary title.
+// Adding a block here enables the Label inspector section; the block component
+// itself is responsible for placing the pretext element above its heading.
+const PRETEXT_BLOCKS = new Set([
+    'aboutImageText',
+]);
+
+const PRETEXT_STYLE_OPTIONS: Array<{ value: string; label: string; description?: string }> = [
+    { value: 'text', label: 'Text', description: 'Tracked uppercase eyebrow.' },
+    { value: 'pill', label: 'Pill', description: 'Filled rounded badge.' },
+    { value: 'outline', label: 'Outline', description: 'Bordered pill.' },
+    { value: 'underline', label: 'Underline', description: 'Underlined text.' },
+];
+
+const PRETEXT_ALIGN_OPTIONS: Array<{ value: string; label: string }> = [
+    { value: 'left', label: 'Left' },
+    { value: 'center', label: 'Center' },
+];
+
+const PRETEXT_COLOR_TOKENS: Array<{ value: string; label: string; paletteKey: string; title: string }> = [
+    { value: 'palette:primary', label: 'P', paletteKey: 'primary', title: 'Use palette primary' },
+    { value: 'palette:secondary', label: 'S', paletteKey: 'secondary', title: 'Use palette secondary' },
+    { value: 'palette:accent', label: 'A', paletteKey: 'accent', title: 'Use palette accent' },
+];
+
 export default function GenericBlockSettingsPanel({
     blockId,
     blockType = '',
@@ -508,6 +533,7 @@ export default function GenericBlockSettingsPanel({
         [displayControls],
     );
     const colorFields = useMemo(() => getColorFields(blockType), [blockType]);
+    const supportsPretext = PRETEXT_BLOCKS.has(blockType);
     const layoutCapabilities = useMemo(() => getLayoutCapabilities(blockType), [blockType]);
     const hasColumnLayoutControl = layoutCapabilities.supportsColumns;
     const maxColumnCount = useMemo(
@@ -515,8 +541,8 @@ export default function GenericBlockSettingsPanel({
         [blockType, blockData],
     );
     const initialDraft = useMemo(
-        () => buildInitialDraft(blockType, blockData || {}, customCss, layoutFields, displayControls, colorFields),
-        [blockType, blockData, customCss, layoutFields, displayControls, colorFields],
+        () => buildInitialDraft(blockType, blockData || {}, customCss, layoutFields, displayControls, colorFields, supportsPretext),
+        [blockType, blockData, customCss, layoutFields, displayControls, colorFields, supportsPretext],
     );
     const persistedSectionSettings = useMemo(
         () => normalizeSectionSettings(blockData?.sectionSettings),
@@ -528,11 +554,12 @@ export default function GenericBlockSettingsPanel({
     const sectionIds = useMemo(() => {
         const ids: string[] = ['universal-layout'];
         if (layoutFields.length > 0 || hasColumnLayoutControl) ids.push('block-layout');
+        if (supportsPretext) ids.push('pretext');
         if (visibleDisplayControls.length > 0) ids.push('display');
         if (colorFields.length > 0) ids.push('style');
         ids.push('advanced');
         return ids;
-    }, [layoutFields.length, hasColumnLayoutControl, visibleDisplayControls.length, colorFields.length]);
+    }, [layoutFields.length, hasColumnLayoutControl, supportsPretext, visibleDisplayControls.length, colorFields.length]);
 
     const sectionState = useInspectorSectionState(sectionIds, true);
 
@@ -640,6 +667,21 @@ export default function GenericBlockSettingsPanel({
                             />
                         )}
                     </div>
+                </InspectorSection>
+            )}
+
+            {supportsPretext && (
+                <InspectorSection
+                    id="pretext"
+                    title="Label"
+                    isCollapsed={sectionState.isCollapsed('pretext')}
+                    onToggle={() => sectionState.toggle('pretext')}
+                >
+                    <PretextControls
+                        draft={draft}
+                        palette={palette}
+                        onChange={updateDraft}
+                    />
                 </InspectorSection>
             )}
 
@@ -887,6 +929,111 @@ function ColorFieldControl({
     );
 }
 
+function PretextControls({
+    draft,
+    palette,
+    onChange,
+}: {
+    draft: DraftSettings;
+    palette: Record<string, string>;
+    onChange: (key: string, value: SettingValue) => void;
+}) {
+    const enabled = Boolean(draft.pretextEnabled);
+    const style = String(draft.pretextStyle ?? 'text');
+    const color = String(draft.pretextColor ?? 'palette:secondary');
+    const align = String(draft.pretextAlignment ?? 'left');
+
+    return (
+        <div className="space-y-4">
+            <InspectorToggle
+                label="Show label"
+                description="Small text shown above the heading."
+                checked={enabled}
+                onChange={() => onChange('pretextEnabled', !enabled)}
+            />
+
+            {enabled && (
+                <>
+                    <div>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Style</p>
+                        <div className="grid grid-cols-2 gap-2">
+                            {PRETEXT_STYLE_OPTIONS.map((option) => {
+                                const active = style === option.value;
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => onChange('pretextStyle', option.value)}
+                                        aria-pressed={active}
+                                        className={`rounded-xl border px-3 py-2.5 text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                            active
+                                                ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
+                                                : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <span className="block text-sm font-bold">{option.label}</span>
+                                        {option.description && (
+                                            <span className="mt-0.5 block text-xs leading-snug text-slate-500">{option.description}</span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Color</p>
+                        <div className="flex items-center gap-1">
+                            {PRETEXT_COLOR_TOKENS.map(({ value, label, paletteKey, title }) => {
+                                const active = color === value;
+                                return (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        onClick={() => onChange('pretextColor', value)}
+                                        title={title}
+                                        className={`w-8 h-8 rounded-full border text-[10px] font-bold shadow-sm transition-transform ${active ? 'border-slate-900 scale-105' : 'border-white'}`}
+                                        style={{
+                                            backgroundColor: palette[paletteKey] || '#ffffff',
+                                            color: paletteKey === 'accent' ? (palette.primary || '#0f172a') : '#ffffff',
+                                        }}
+                                    >
+                                        {label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    <div>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Alignment</p>
+                        <div className="grid grid-cols-2 gap-2">
+                            {PRETEXT_ALIGN_OPTIONS.map((option) => {
+                                const active = align === option.value;
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => onChange('pretextAlignment', option.value)}
+                                        aria-pressed={active}
+                                        className={`rounded-xl border px-3 py-2.5 text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                            active
+                                                ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
+                                                : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <span className="block text-sm font-bold">{option.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
 function getColorFields(blockType: string): ColorField[] {
     const fields: ColorField[] = [];
     if (BACKGROUND_BLOCKS.has(blockType)) {
@@ -935,6 +1082,7 @@ function buildInitialDraft(
     layoutFields: ChoiceField[],
     displayControls: DisplayControl[],
     colorFields: ColorField[],
+    supportsPretext: boolean,
 ): DraftSettings {
     const draft: DraftSettings = {
         __customCss: customCss,
@@ -950,6 +1098,13 @@ function buildInitialDraft(
 
     for (const field of colorFields) {
         draft[field.key] = readSetting(blockData, field.key, field.defaultValue);
+    }
+
+    if (supportsPretext) {
+        draft.pretextEnabled = readSetting(blockData, 'pretextEnabled', false);
+        draft.pretextStyle = readSetting(blockData, 'pretextStyle', 'text');
+        draft.pretextColor = readSetting(blockData, 'pretextColor', 'palette:secondary');
+        draft.pretextAlignment = readSetting(blockData, 'pretextAlignment', 'left');
     }
 
     if (blockType === 'socialFeed' && draft.variant === 'single') {

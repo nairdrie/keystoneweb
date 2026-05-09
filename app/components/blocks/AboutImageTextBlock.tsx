@@ -1,6 +1,7 @@
 import React from 'react';
 import EditableText from '../EditableText';
 import EditableImage from '../EditableImage';
+import BlockPretext from '../BlockPretext';
 import { useEditorContext } from '@/lib/editor-context';
 import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
@@ -49,13 +50,13 @@ export default function AboutImageTextBlock({ id, data, isEditMode, palette, upd
             <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-2 gap-16 items-center">
                 {data.imagePosition === 'right' ? (
                     <>
-                        <TextContent data={data} items={items} isEditMode={isEditMode} updateContent={updateContent} handleAddItem={handleAddItem} handleRemoveItem={handleRemoveItem} handleUpdateItem={handleUpdateItem} pPrimary={pPrimary} pSecondary={pSecondary} fgOverride={fgOverride} />
+                        <TextContent data={data} items={items} isEditMode={isEditMode} palette={palette} updateContent={updateContent} handleAddItem={handleAddItem} handleRemoveItem={handleRemoveItem} handleUpdateItem={handleUpdateItem} pPrimary={pPrimary} pSecondary={pSecondary} fgOverride={fgOverride} />
                         <ImageContent data={data} isEditMode={isEditMode} updateContent={updateContent} uploadImage={context?.uploadImage} />
                     </>
                 ) : (
                     <>
                         <ImageContent data={data} isEditMode={isEditMode} updateContent={updateContent} uploadImage={context?.uploadImage} />
-                        <TextContent data={data} items={items} isEditMode={isEditMode} updateContent={updateContent} handleAddItem={handleAddItem} handleRemoveItem={handleRemoveItem} handleUpdateItem={handleUpdateItem} pPrimary={pPrimary} pSecondary={pSecondary} fgOverride={fgOverride} />
+                        <TextContent data={data} items={items} isEditMode={isEditMode} palette={palette} updateContent={updateContent} handleAddItem={handleAddItem} handleRemoveItem={handleRemoveItem} handleUpdateItem={handleUpdateItem} pPrimary={pPrimary} pSecondary={pSecondary} fgOverride={fgOverride} />
                     </>
                 )}
             </div>
@@ -94,10 +95,17 @@ function ImageContent({ data, isEditMode, updateContent, uploadImage }: any) {
     );
 }
 
-function TextContent({ data, items, isEditMode, updateContent, handleAddItem, handleRemoveItem, handleUpdateItem, pPrimary, pSecondary, fgOverride }: any) {
+function TextContent({ data, items, isEditMode, palette, updateContent, handleAddItem, handleRemoveItem, handleUpdateItem, pPrimary, pSecondary, fgOverride }: any) {
     return (
         <div>
             <Reveal>
+                <BlockPretext
+                    data={data}
+                    isEditMode={isEditMode}
+                    palette={palette}
+                    updateContent={updateContent}
+                    defaultText="About"
+                />
                 <EditableText
                     as="h2"
                     contentKey="title"
