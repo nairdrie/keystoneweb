@@ -58,7 +58,10 @@ function getTextIsLight(bgType: HeaderBgType, p: Record<string, string>, custom:
     if (bgType === 'secondary') return isHexDark(p.secondary || '#10b981');
     if (bgType === 'gradient')  return true;
     if (bgType === 'custom' && custom) return isHexDark(custom);
-    if (bgType === 'transparent') return true; // assume hero/image behind — default to light text
+    // 'transparent' is intentionally treated as a light surface — what's behind
+    // the header is unknown, so we don't auto-flip text/CTA colors. Users who
+    // need light text over a dark hero can override the CTA bg via the button
+    // settings, or pick a non-transparent dark bg type.
     return false;
 }
 
@@ -932,7 +935,13 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
                 {bannerEl}
                 <header
                     ref={headerRef}
-                    className={`ks-site-header ${overlay ? overlayWrapperClass : innerHeaderClass} ${isEditMode ? 'group relative' : 'relative'}`}
+                    // The trailing `relative` was dropped: when the header is
+                    // not floating, `innerHeaderClass` already supplies a
+                    // `position` (sticky/fixed/relative) via `stickyClass`,
+                    // and Tailwind v4 emits `.relative` after `.fixed` so a
+                    // redundant `relative` here would override the `fixed`
+                    // positioning used for Always-Visible + Float over content.
+                    className={`ks-site-header ${overlay ? `${overlayWrapperClass} relative` : innerHeaderClass} ${isEditMode ? 'group' : ''}`}
                     style={overlay ? {} : headerInlineStyle}
                 >
                     {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
@@ -950,7 +959,12 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
     }
 
     // ── DEFAULT (single-row) LAYOUT ─────────────────────────────────────────
-    const innerClassName = `ks-site-header ${stickyClass} ${bgClassFinal} ${borderClassFinal} ${scrollBgChange ? 'isolate' : ''} ${isEditMode ? 'group relative' : 'relative'}`;
+    // NOTE: `stickyClass` already provides a `position` value (sticky/fixed/
+    // relative). We deliberately do NOT append a trailing `relative` here —
+    // Tailwind v4 emits `.relative` *after* `.fixed` in its utilities layer,
+    // so a trailing `relative` would override `fixed` and break Always-Visible
+    // when paired with Float over content.
+    const innerClassName = `ks-site-header ${stickyClass} ${bgClassFinal} ${borderClassFinal} ${scrollBgChange ? 'isolate' : ''} ${isEditMode ? 'group' : ''}`;
     const innerStyle = headerInlineStyle;
 
     const scrollBgLayer = scrollBgChange ? (
