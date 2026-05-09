@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useEditorContext, BlockData } from '@/lib/editor-context';
+import { useEditorContext, BlockData, BlockDataProvider } from '@/lib/editor-context';
 import { useMember } from '../membership/MemberProvider';
 import {
   Lock, Settings, Users, Plus, ArrowUp, ArrowDown, Trash2, Crown,
@@ -96,14 +96,16 @@ export default function MembershipGateBlock({ id, data, isEditMode, palette, upd
         if (!Component) return null;
         return (
           <div key={block.id} className="w-full">
-            <Component
-              id={block.id}
-              data={block.data || {}}
-              isEditMode={false}
-              palette={palette}
-              updateContent={() => {}}
-              block={block}
-            />
+            <BlockDataProvider value={block.data || {}}>
+              <Component
+                id={block.id}
+                data={block.data || {}}
+                isEditMode={false}
+                palette={palette}
+                updateContent={() => {}}
+                block={block}
+              />
+            </BlockDataProvider>
           </div>
         );
       })}
@@ -424,14 +426,16 @@ function GateEditView({
 
               {/* Render the actual block */}
               <div className="relative border-2 border-transparent hover:border-slate-200 transition-colors rounded">
-                <Component
-                  id={block.id}
-                  data={block.data || {}}
-                  isEditMode={true}
-                  palette={palette}
-                  updateContent={(key: string, value: any) => updateChildBlock(block.id, key, value)}
-                  block={block}
-                />
+                <BlockDataProvider value={block.data || {}}>
+                  <Component
+                    id={block.id}
+                    data={block.data || {}}
+                    isEditMode={true}
+                    palette={palette}
+                    updateContent={(key: string, value: any) => updateChildBlock(block.id, key, value)}
+                    block={block}
+                  />
+                </BlockDataProvider>
               </div>
             </div>
           );

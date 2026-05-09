@@ -2,7 +2,7 @@
 
 import EditableButton from '@/app/components/EditableButton';
 import EditableText from '@/app/components/EditableText';
-import { useEditorContext } from '@/lib/editor-context';
+import { useEditorContext, BlockDataProvider } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
 import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
@@ -32,6 +32,7 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
     const bodyFont = siteContent.bodyFont || 'Source Sans 3';
 
     return (
+        <BlockDataProvider value={siteContent}>
         <div className="template-wrapper min-h-screen flex flex-col" style={{ backgroundColor: '#ffffff', fontFamily: `"${bodyFont}", sans-serif` }}>
             <TemplateFonts
                 titleFont={titleFont}
@@ -119,5 +120,6 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                 </div>
             </footer>
         </div>
+        </BlockDataProvider>
     );
 }

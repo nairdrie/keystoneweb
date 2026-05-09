@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Edit2 } from 'lucide-react';
 import { sanitizeRichHtml } from '@/lib/html-sanitize';
-import { useEditorContext } from '@/lib/editor-context';
+import { useEditorContext, useBlockData } from '@/lib/editor-context';
 import RichTextToolbar, { type InlineCommand } from './RichTextToolbar';
 import {
   textShadowToCss,
@@ -37,13 +37,17 @@ export default function EditableText({
   const displayText = content !== undefined && content !== '' ? content : defaultValue;
   const editorCtx = useEditorContext();
   const palette = editorCtx?.palette;
+  const blockData = useBlockData();
+  // styleData prop wins; otherwise look it up in the surrounding block's data
+  // via context. Blocks wrap their render in <BlockDataProvider value={data}>.
+  const resolvedStyleData = styleData ?? (blockData?.[`${contentKey}__styles`] as string | Record<string, unknown> | undefined);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [controlsOnLeft, setControlsOnLeft] = useState(false);
 
   // Live block-level styles while editing (preview before commit)
-  const initialParsed = parseStyleData(styleData);
+  const initialParsed = parseStyleData(resolvedStyleData);
   const [pendingStyles, setPendingStyles] = useState<TextStyles>(initialParsed);
   // Callback ref backed by state so the toolbar receives the actual element
   // as soon as the contenteditable mounts (a plain useRef wouldn't trigger
@@ -86,9 +90,9 @@ export default function EditableText({
   // Reset pending styles when styleData changes externally and we're not editing
   useEffect(() => {
     if (!isEditing) {
-      setPendingStyles(parseStyleData(styleData));
+      setPendingStyles(parseStyleData(resolvedStyleData));
     }
-  }, [styleData, isEditing]);
+  }, [resolvedStyleData, isEditing]);
 
   // Detect overflow position for the inline edit chrome
   useEffect(() => {
@@ -122,7 +126,7 @@ export default function EditableText({
 
   const startEditing = () => {
     window.dispatchEvent(new CustomEvent('ks:editstart', { detail: { key: contentKey } }));
-    setPendingStyles(parseStyleData(styleData));
+    setPendingStyles(parseStyleData(resolvedStyleData));
     setIsEditing(true);
   };
 
@@ -137,15 +141,15 @@ export default function EditableText({
       onSave(contentKey, rawHtml);
     }
     const stylesJson = JSON.stringify(stripUndefined(pendingStyles));
-    const initialStylesJson = JSON.stringify(stripUndefined(parseStyleData(styleData)));
+    const initialStylesJson = JSON.stringify(stripUndefined(parseStyleData(resolvedStyleData)));
     if (stylesJson !== initialStylesJson) {
       onSave(`${contentKey}__styles`, stylesJson);
     }
     setIsEditing(false);
-  }, [contentKey, onSave, pendingStyles, styleData, editorEl]);
+  }, [contentKey, onSave, pendingStyles, resolvedStyleData, editorEl]);
 
   const cancelEdit = () => {
-    setPendingStyles(parseStyleData(styleData));
+    setPendingStyles(parseStyleData(resolvedStyleData));
     setIsEditing(false);
   };
 

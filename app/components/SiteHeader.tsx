@@ -5,7 +5,7 @@ import { Menu, X, Settings, Facebook, Instagram, Twitter, Linkedin, Youtube, Pho
 import { useHeaderHeight } from '@/lib/hooks/useHeaderHeight';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEditorContext } from '@/lib/editor-context';
+import { useEditorContext, BlockDataProvider } from '@/lib/editor-context';
 import EditableText from '@/app/components/EditableText';
 import EditableButton from '@/app/components/EditableButton';
 import NavMenu from '@/app/components/NavMenu';
@@ -1010,7 +1010,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
     );
 
     return (
-        <>
+        <BlockDataProvider value={siteContent}>
             {bannerEl}
             <header
                 ref={headerRef}
@@ -1027,6 +1027,6 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
                 {settingsCog}
                 {settingsModal}
             </header>
-        </>
+        </BlockDataProvider>
     );
 }
