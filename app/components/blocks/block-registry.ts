@@ -38,6 +38,7 @@ import ChatSupportBlock from './ChatSupportBlock';
 import VideoBlock from './VideoBlock';
 import EstimateFormBlock from './EstimateFormBlock';
 import SocialFeedBlock from './SocialFeedBlock';
+import TimelineBlock from './TimelineBlock';
 
 export const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     tabBar: TabBarBlock,
@@ -77,6 +78,7 @@ export const BLOCK_COMPONENTS: Record<string, React.ComponentType<any>> = {
     video: VideoBlock,
     estimateForm: EstimateFormBlock,
     socialFeed: SocialFeedBlock,
+    timeline: TimelineBlock,
 };
 
 /** All addable block types (used in both main renderer and inside gates). */
@@ -113,6 +115,7 @@ export const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: bo
     { type: 'video', label: '▶ Video Embed' },
     { type: 'socialFeed', label: '📱 Social Media Embeds' },
     { type: 'tabBar', label: '🗂️ Tab Bar / Menu Bar' },
+    { type: 'timeline', label: 'Timeline' },
     { type: 'userProfile', label: '👤 User Profile', proOnly: true },
     // { type: 'chatSupport', label: '💬 AI Chat Support', proOnly: true }, // Hidden — not yet released
 ];

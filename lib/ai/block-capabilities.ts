@@ -47,6 +47,7 @@ export const AI_SUPPORTED_BLOCK_TYPES = [
   'estimateForm',
   'socialFeed',
   'tabBar',
+  'timeline',
 ] as const;
 
 export const AI_INTENTIONALLY_DISABLED_BLOCK_TYPES = [
@@ -568,6 +569,21 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'showBio', type: 'boolean' },
       { name: 'members', type: 'Array<{ name:string, role:string, bio:string, image?:string }>' },
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
+      { name: '__customCss', type: 'string' },
+    ],
+  },
+  {
+    type: 'timeline',
+    label: 'Chronological timeline',
+    purpose: 'Vertical timeline of work history, education, milestones, or company history.',
+    aiGuidance: ['Use real organization names and dates only when supplied. For generic builds, keep entries plausible and concise.'],
+    fields: [
+      { name: 'title', type: 'string' },
+      { name: 'subtitle', type: 'string' },
+      { name: 'variant', type: 'string', options: ['cards', 'centered', 'compact'] },
+      { name: 'items', type: 'Array<{ title:string, organization:string, dateRange:string, description:string, tags:string[] }>' },
+      { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
+      { name: 'foregroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: '__customCss', type: 'string' },
     ],
   },

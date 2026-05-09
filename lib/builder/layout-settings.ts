@@ -102,6 +102,7 @@ const GAP_BLOCKS = new Set([
   'faq',
   'featuredQuote',
   'carousel',
+  'timeline',
 ]);
 
 export const BLOCK_LAYOUT_CAPABILITIES: Record<string, LayoutCapabilities> = {
@@ -140,6 +141,7 @@ export const BLOCK_LAYOUT_CAPABILITIES: Record<string, LayoutCapabilities> = {
   video: makeCapabilities(),
   socialFeed: makeColumnCapabilities(),
   tabBar: makeCapabilities(),
+  timeline: makeGapCapabilities(),
   userProfile: makeCapabilities(),
   membershipGate: makeCapabilities(),
   sideBySide: makeCapabilities(),

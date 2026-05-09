@@ -392,7 +392,7 @@ function cloneChildrenWithData(
 }
 
 function isRepeatableItemsPanelType(type: string): boolean {
-    return type === 'servicesGrid' || type === 'stats' || type === 'testimonials' || type === 'faq';
+    return type === 'servicesGrid' || type === 'stats' || type === 'testimonials' || type === 'faq' || type === 'timeline';
 }
 
 function isContactDraftKey(key: string): boolean {
