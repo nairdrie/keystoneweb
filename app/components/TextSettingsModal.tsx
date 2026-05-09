@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Type, Search, Sparkles } from 'lucide-react';
+import { X, Type, Search, Sparkles, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
 export interface TextShadowSettings {
@@ -43,11 +43,14 @@ const POPULAR_FONTS = [
     'Cookie', 'Yellowtail', 'Allura', 'Alex Brush', 'Parisienne',
 ];
 
+export type TextAlignValue = 'left' | 'center' | 'right' | 'justify';
+
 interface TextStyles {
     fontFamily?: string;
     fontSize?: string; // e.g. '16px', '1.5rem', 'text-sm'
     color?: string;    // hex or 'red-500'
     fontWeight?: string; // e.g. '400', '700'
+    textAlign?: TextAlignValue;
     textShadow?: TextShadowSettings;
 }
 
@@ -70,7 +73,7 @@ export default function TextSettingsModal({
 }: TextSettingsModalProps) {
     const mouseDownOnBackdrop = useRef(false);
     const [styles, setStyles] = useState<TextStyles>(initialStyles || {});
-    const [activeTab, setActiveTab] = useState<'font' | 'size' | 'weight' | 'color' | 'shadow'>('font');
+    const [activeTab, setActiveTab] = useState<'font' | 'size' | 'weight' | 'color' | 'align' | 'shadow'>('font');
     const [searchQuery, setSearchQuery] = useState('');
 
     // Reset local state when opened with new initialStyles
@@ -103,6 +106,7 @@ export default function TextSettingsModal({
         if (styles.fontSize) cleanedStyles.fontSize = styles.fontSize;
         if (styles.color) cleanedStyles.color = styles.color;
         if (styles.fontWeight) cleanedStyles.fontWeight = styles.fontWeight;
+        if (styles.textAlign) cleanedStyles.textAlign = styles.textAlign;
         if (styles.textShadow && styles.textShadow.enabled) cleanedStyles.textShadow = styles.textShadow;
 
         onSave(cleanedStyles);
@@ -161,6 +165,12 @@ export default function TextSettingsModal({
                         onClick={() => setActiveTab('color')}
                     >
                         Color
+                    </button>
+                    <button
+                        className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'align' ? 'border-red-500 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                        onClick={() => setActiveTab('align')}
+                    >
+                        Align
                     </button>
                     <button
                         className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'shadow' ? 'border-red-500 text-red-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
@@ -368,6 +378,52 @@ export default function TextSettingsModal({
                                 </div>
                             </div>
 
+                        </div>
+                    )}
+
+                    {/* ALIGN TAB */}
+                    {activeTab === 'align' && (
+                        <div className="space-y-6">
+                            <div className="space-y-3">
+                                <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Text Alignment</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {([
+                                        { label: 'Left', value: 'left', Icon: AlignLeft, hint: 'Default — flush left edge' },
+                                        { label: 'Center', value: 'center', Icon: AlignCenter, hint: 'Centered horizontally' },
+                                        { label: 'Right', value: 'right', Icon: AlignRight, hint: 'Flush right edge' },
+                                        { label: 'Justify', value: 'justify', Icon: AlignJustify, hint: 'Stretch to both edges' },
+                                    ] as const).map(opt => {
+                                        const isActive = styles.textAlign === opt.value;
+                                        return (
+                                            <button
+                                                key={opt.value}
+                                                onClick={() => setStyles({ ...styles, textAlign: isActive ? undefined : opt.value })}
+                                                className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition-all text-left ${isActive
+                                                    ? 'bg-red-50 border-red-500 text-red-900 shadow-[0_0_0_2px_rgba(239,68,68,0.2)]'
+                                                    : 'bg-white border-slate-200 hover:border-slate-400 hover:shadow-sm text-slate-700'
+                                                }`}
+                                            >
+                                                <opt.Icon className={`w-5 h-5 ${isActive ? 'text-red-600' : 'text-slate-500'}`} />
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold text-sm">{opt.label}</span>
+                                                    <span className="text-[10px] text-slate-500">{opt.hint}</span>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <p className="text-[10px] text-slate-500 ml-1">Click the active option again to reset to default.</p>
+                            </div>
+
+                            <div className="rounded-lg border border-slate-200 bg-white p-4">
+                                <p className="text-[10px] font-bold uppercase text-slate-500 tracking-wider mb-2">Preview</p>
+                                <p
+                                    className="text-slate-900"
+                                    style={{ textAlign: styles.textAlign ?? 'left' }}
+                                >
+                                    {previewText?.trim() || 'The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs.'}
+                                </p>
+                            </div>
                         </div>
                     )}
 

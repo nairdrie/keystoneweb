@@ -53,14 +53,16 @@ export default function EditableText({
   const fontSize = getCssScalar(parsedStyles.fontSize);
   const color = typeof parsedStyles.color === 'string' ? parsedStyles.color : '';
   const fontWeight = getCssScalar(parsedStyles.fontWeight);
+  const textAlign = getTextAlign(parsedStyles.textAlign);
   const textShadowSettings = isRecord(parsedStyles.textShadow) ? parsedStyles.textShadow as unknown as TextShadowSettings : undefined;
   const textShadowCss = textShadowToCss(textShadowSettings);
-  const mergedStyle = {
+  const mergedStyle: React.CSSProperties = {
     ...style,
     ...(fontFamily ? { fontFamily: `"${fontFamily}", sans-serif` } : {}),
     ...(fontSize ? { fontSize } : {}),
     ...(color ? { color } : {}),
     ...(fontWeight ? { fontWeight } : {}),
+    ...(textAlign ? { textAlign } : {}),
     ...(textShadowCss ? { textShadow: textShadowCss } : {})
   };
 
@@ -338,4 +340,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function getCssScalar(value: unknown): string | number | undefined {
   return typeof value === 'string' || typeof value === 'number' ? value : undefined;
+}
+
+function getTextAlign(value: unknown): React.CSSProperties['textAlign'] | undefined {
+  return value === 'left' || value === 'center' || value === 'right' || value === 'justify'
+    ? value
+    : undefined;
 }
