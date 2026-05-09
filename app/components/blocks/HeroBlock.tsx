@@ -5,11 +5,13 @@ import { BlockData, useEditorContext } from '@/lib/editor-context';
 import EditableText from '@/app/components/EditableText';
 import EditableImage from '@/app/components/EditableImage';
 import EditableButton, { type ButtonIconData, type ButtonLinkData } from '@/app/components/EditableButton';
+import BlockPretext from '@/app/components/BlockPretext';
 import type { ImageSettings, UnsplashAttribution } from '@/app/components/ImageEditorModal';
 import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import {
     DEFAULT_CTA_LABEL,
+    DEFAULT_PRETEXT,
     DEFAULT_SUBTITLE,
     DEFAULT_TITLE,
     HeroBackground,
@@ -121,6 +123,8 @@ export default function HeroBlock({
                 nc.content.title.value = String(value ?? '');
             } else if (key === 'subtitle') {
                 nc.content.subtitle.value = String(value ?? '');
+            } else if (key === 'pretext') {
+                nc.content.pretext.value = String(value ?? '');
             } else if (key === 'buttonText') {
                 nc.content.cta.label = String(value ?? '');
             } else if (key === 'buttonTextLink') {
@@ -474,7 +478,7 @@ function HeroCardContent({
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#ef4444';
 
-    const showText = card.content.title.enabled || card.content.subtitle.enabled || card.content.cta.enabled;
+    const showText = card.content.pretext.enabled || card.content.title.enabled || card.content.subtitle.enabled || card.content.cta.enabled;
     const showForeground = card.content.image.enabled && (card.content.image.url || isEditMode);
     const imageOnRight = card.content.image.side !== 'left';
 
@@ -482,11 +486,31 @@ function HeroCardContent({
     const isMediaBg = card.background.type === 'image' || card.background.type === 'video' || card.background.type === 'animation';
     const textColor = isMediaBg ? '#ffffff' : pPrimary;
 
+    // Project the per-card pretext block onto the shape BlockPretext expects.
+    const pretextData = {
+        pretextEnabled: card.content.pretext.enabled,
+        pretext: card.content.pretext.value,
+        pretextStyle: card.content.pretext.style,
+        pretextColor: card.content.pretext.color,
+        pretextAlignment: card.content.pretext.align,
+    };
+
     return (
         <div className="hero-container ks-layout-content relative z-10 mx-auto flex h-full w-full max-w-7xl items-center px-4 py-20 md:py-24">
             <div className={`grid w-full gap-10 items-center ${showForeground && showText ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
                 {showText && (
                     <div className={`hero-content ${imageOnRight || !showForeground ? 'order-1' : 'order-2'}`}>
+                        {card.content.pretext.enabled && (
+                            <Reveal>
+                                <BlockPretext
+                                    data={pretextData}
+                                    isEditMode={isEditMode}
+                                    palette={palette}
+                                    updateContent={onSave}
+                                    defaultText={DEFAULT_PRETEXT}
+                                />
+                            </Reveal>
+                        )}
                         {card.content.title.enabled && (
                             <Reveal>
                                 <EditableText

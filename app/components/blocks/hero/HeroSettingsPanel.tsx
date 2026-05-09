@@ -31,6 +31,7 @@ import {
     HeroData,
     HeroHeight,
     HeroHeightConfig,
+    HeroPretextStyle,
     HeroTransition,
     ImageSide,
     makeCardId,
@@ -445,6 +446,17 @@ export default function HeroSettingsPanel({
                     onToggle={() => sectionState.toggle('content-layout')}
                 >
                     <div className="space-y-3">
+                        <PretextRow
+                            enabled={activeCard.content.pretext.enabled}
+                            onToggle={() => updateContent('pretext', { enabled: !activeCard.content.pretext.enabled })}
+                            align={activeCard.content.pretext.align}
+                            onAlign={(a) => updateContent('pretext', { align: a })}
+                            style={activeCard.content.pretext.style}
+                            onStyle={(s) => updateContent('pretext', { style: s })}
+                            color={activeCard.content.pretext.color}
+                            onColor={(c) => updateContent('pretext', { color: c })}
+                            palette={palette}
+                        />
                         <ContentRow
                             label="Title"
                             enabled={activeCard.content.title.enabled}
@@ -753,6 +765,124 @@ function ContentRow({
                             </button>
                         );
                     })}
+                </div>
+            )}
+        </div>
+    );
+}
+
+const PRETEXT_STYLE_OPTIONS: Array<{ id: HeroPretextStyle; label: string }> = [
+    { id: 'text', label: 'Text' },
+    { id: 'pill', label: 'Pill' },
+    { id: 'outline', label: 'Outline' },
+    { id: 'underline', label: 'Underline' },
+];
+
+const PRETEXT_COLOR_TOKENS: Array<{ value: string; label: string; paletteKey: string; title: string }> = [
+    { value: 'palette:primary', label: 'P', paletteKey: 'primary', title: 'Use palette primary' },
+    { value: 'palette:secondary', label: 'S', paletteKey: 'secondary', title: 'Use palette secondary' },
+    { value: 'palette:accent', label: 'A', paletteKey: 'accent', title: 'Use palette accent' },
+];
+
+function PretextRow({
+    enabled,
+    onToggle,
+    align,
+    onAlign,
+    style,
+    onStyle,
+    color,
+    onColor,
+    palette,
+}: {
+    enabled: boolean;
+    onToggle: () => void;
+    align: Align;
+    onAlign: (a: Align) => void;
+    style: HeroPretextStyle;
+    onStyle: (s: HeroPretextStyle) => void;
+    color: string;
+    onColor: (c: string) => void;
+    palette: Record<string, string>;
+}) {
+    return (
+        <div className="rounded-xl border border-slate-200 p-3">
+            <div className="flex items-center justify-between gap-3">
+                <div>
+                    <span className="text-sm font-medium text-slate-700">Label</span>
+                    <p className="text-xs text-slate-500">Small text shown above the title.</p>
+                </div>
+                <Toggle checked={enabled} onChange={onToggle} />
+            </div>
+            {enabled && (
+                <div className="mt-3 space-y-3">
+                    <div>
+                        <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">Alignment</p>
+                        <div className="grid grid-cols-3 gap-1">
+                            {ALIGN_OPTIONS.map(({ id, label: alignLabel, Icon }) => {
+                                const isActive = align === id;
+                                return (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        onClick={() => onAlign(id)}
+                                        aria-pressed={isActive}
+                                        className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                            isActive ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                        }`}
+                                        title={`Label ${alignLabel}`}
+                                    >
+                                        <Icon className="h-3.5 w-3.5" />
+                                        {alignLabel}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    <div>
+                        <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">Style</p>
+                        <div className="grid grid-cols-2 gap-2">
+                            {PRETEXT_STYLE_OPTIONS.map((option) => {
+                                const active = style === option.id;
+                                return (
+                                    <button
+                                        key={option.id}
+                                        type="button"
+                                        onClick={() => onStyle(option.id)}
+                                        aria-pressed={active}
+                                        className={`rounded-lg border px-3 py-2 text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                            active ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        {option.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    <div>
+                        <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">Color</p>
+                        <div className="flex items-center gap-1">
+                            {PRETEXT_COLOR_TOKENS.map(({ value, label, paletteKey, title }) => {
+                                const active = color === value;
+                                return (
+                                    <button
+                                        key={value}
+                                        type="button"
+                                        onClick={() => onColor(value)}
+                                        title={title}
+                                        className={`w-8 h-8 rounded-full border text-[10px] font-bold shadow-sm transition-transform ${active ? 'border-slate-900 scale-105' : 'border-white'}`}
+                                        style={{
+                                            backgroundColor: palette[paletteKey] || '#ffffff',
+                                            color: paletteKey === 'accent' ? (palette.primary || '#0f172a') : '#ffffff',
+                                        }}
+                                    >
+                                        {label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

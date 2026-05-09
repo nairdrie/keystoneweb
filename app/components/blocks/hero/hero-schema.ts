@@ -7,8 +7,18 @@ export type HeightMode = 'fitContent' | 'fitScreen' | 'manual';
 export type CardTransition = 'fade' | 'slide' | 'none';
 export type BgType = 'image' | 'video' | 'gradient' | 'animation' | 'pattern';
 export type VideoSource = 'pexels' | 'url';
+export type HeroPretextStyle = 'text' | 'pill' | 'outline' | 'underline';
+
+export interface HeroPretext {
+    enabled: boolean;
+    value: string;
+    style: HeroPretextStyle;
+    color: string;
+    align: Align;
+}
 
 export interface HeroContent {
+    pretext: HeroPretext;
     title: { enabled: boolean; value: string; align: Align };
     subtitle: { enabled: boolean; value: string; align: Align };
     cta: {
@@ -100,11 +110,21 @@ export interface HeroData {
 export const DEFAULT_TITLE = 'Welcome to our site';
 export const DEFAULT_SUBTITLE = 'We offer the best services available.';
 export const DEFAULT_CTA_LABEL = 'Get a Free Quote';
+export const DEFAULT_PRETEXT = 'Welcome';
+
+export const DEFAULT_HERO_PRETEXT: HeroPretext = {
+    enabled: false,
+    value: '',
+    style: 'text',
+    color: 'palette:secondary',
+    align: 'left',
+};
 
 export function makeDefaultCard(id: string): HeroCard {
     return {
         id,
         content: {
+            pretext: { ...DEFAULT_HERO_PRETEXT },
             title: { enabled: true, value: DEFAULT_TITLE, align: 'left' },
             subtitle: { enabled: true, value: DEFAULT_SUBTITLE, align: 'left' },
             cta: { enabled: true, label: DEFAULT_CTA_LABEL, align: 'left' },
@@ -175,6 +195,7 @@ export function migrateLegacyHeroData(raw: unknown): HeroData {
     const baseAlign: Align = variant === 'centered' || variant === 'video' || variant === 'fullImage' ? 'center' : 'left';
 
     const baseContent: HeroContent = {
+        pretext: { ...DEFAULT_HERO_PRETEXT, align: baseAlign },
         title: { enabled: true, value: title, align: baseAlign },
         subtitle: { enabled: true, value: subtitle, align: baseAlign },
         cta: {
@@ -274,6 +295,7 @@ export function migrateLegacyHeroData(raw: unknown): HeroData {
 
 function duplicateContent(c: HeroContent): HeroContent {
     return {
+        pretext: { ...c.pretext },
         title: { ...c.title },
         subtitle: { ...c.subtitle },
         cta: { ...c.cta },
@@ -290,6 +312,7 @@ function normalizeHeroData(data: Record<string, unknown> & { cards?: HeroCard[];
     const cards: HeroCard[] = (data.cards as HeroCard[]).map((c: HeroCard, i: number) => ({
         id: c.id || `card-${i}`,
         content: {
+            pretext: withDefaults(DEFAULT_HERO_PRETEXT, c?.content?.pretext),
             title: withDefaults({ enabled: true, value: DEFAULT_TITLE, align: 'left' as Align }, c?.content?.title),
             subtitle: withDefaults({ enabled: true, value: DEFAULT_SUBTITLE, align: 'left' as Align }, c?.content?.subtitle),
             cta: withDefaults({ enabled: true, label: DEFAULT_CTA_LABEL, align: 'left' as Align }, c?.content?.cta),
