@@ -13,6 +13,7 @@ import {
   Leaf, Sun, Palette, GraduationCap, Headphones,
 } from 'lucide-react';
 import EditableText from '../EditableText';
+import BlockPretext from '../BlockPretext';
 import EditableImage from '../EditableImage';
 import type { ImageSettings } from '../ImageEditorModal';
 import Reveal from '@/app/components/Reveal';
@@ -371,6 +372,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
           {(data.title || data.subtitle || isEditMode) && (
             <div className="text-center max-w-2xl mx-auto mb-12">
               <Reveal>
+                <BlockPretext data={data} isEditMode={isEditMode} palette={palette} updateContent={updateContent} defaultText="Highlights" />
                 <EditableText as="h2" contentKey="title" content={data.title}
                   defaultValue="Why Choose Us" isEditMode={isEditMode}
                   onSave={(k, v) => updateContent(k, v)}
@@ -481,6 +483,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
 
           {(data.title || isEditMode) && (
             <Reveal>
+              <BlockPretext data={data} isEditMode={isEditMode} palette={palette} updateContent={updateContent} defaultText="Our Story" />
               <EditableText as="h2" contentKey="title" content={data.title}
                 defaultValue="Our Story" isEditMode={isEditMode}
                 onSave={(k, v) => updateContent(k, v)}
@@ -572,6 +575,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
         {(data.title || data.subtitle || isEditMode) && (
           <div className="mb-14">
             <Reveal>
+              <BlockPretext data={data} isEditMode={isEditMode} palette={palette} updateContent={updateContent} defaultText="Features" />
               <EditableText as="h2" contentKey="title" content={data.title}
                 defaultValue="Features" isEditMode={isEditMode}
                 onSave={(k, v) => updateContent(k, v)}

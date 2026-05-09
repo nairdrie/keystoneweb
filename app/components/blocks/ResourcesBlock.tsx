@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { useEditorContext } from '@/lib/editor-context';
 import EditableText from '../EditableText';
+import BlockPretext from '../BlockPretext';
 import {
     Plus, FileText, Image as ImageIcon, ExternalLink,
     AlignLeft, Upload, X, Download, ChevronDown, ChevronUp, Link2
@@ -516,6 +517,13 @@ export default function ResourcesBlock({ id, data, isEditMode, palette, updateCo
 
                 {/* Header */}
                 <div className="mb-10 text-center">
+                    <BlockPretext
+                        data={data}
+                        isEditMode={isEditMode}
+                        palette={palette}
+                        updateContent={updateContent}
+                        defaultText="Resources"
+                    />
                     <EditableText
                         as="h2"
                         contentKey="title"

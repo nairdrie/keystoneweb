@@ -1,6 +1,7 @@
 import React from 'react';
 import EditableText from '../EditableText';
 import EditableButton from '../EditableButton';
+import BlockPretext from '../BlockPretext';
 import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 
@@ -34,6 +35,13 @@ export default function CtaBlock({ id, data, isEditMode, palette, updateContent 
             )}
             <div className="max-w-4xl mx-auto px-4 relative z-10">
                 <Reveal>
+                    <BlockPretext
+                        data={data}
+                        isEditMode={isEditMode}
+                        palette={palette}
+                        updateContent={updateContent}
+                        defaultText="Get Started"
+                    />
                     <EditableText
                         as="h2"
                         contentKey="title"

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import EditableText from '../EditableText';
+import BlockPretext from '../BlockPretext';
 import { ChevronDown, Plus } from 'lucide-react';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import InlineCardControls from './InlineCardControls';
@@ -78,6 +79,13 @@ export default function FAQBlock({ data, isEditMode, palette, updateContent }: F
     return (
         <section className="py-24" style={{ backgroundColor: bgColor }}>
             <div className="max-w-3xl mx-auto px-4">
+                <BlockPretext
+                    data={data}
+                    isEditMode={isEditMode}
+                    palette={palette}
+                    updateContent={updateContent}
+                    defaultText="FAQ"
+                />
                 <EditableText
                     as="h2"
                     contentKey="title"

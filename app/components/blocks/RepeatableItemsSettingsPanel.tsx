@@ -7,7 +7,10 @@ import BlockSettingsPanel from './BlockSettingsPanel';
 import {
     InspectorSection,
     PaletteTokenButtons,
+    PRETEXT_BLOCKS,
+    PretextControls,
     getColorInputValue,
+    readPretextFromBlockData,
     useInspectorSectionState,
 } from './panel-shared';
 import { LayoutTab, ResponsiveColumnsControl } from './layout/LayoutTab';
@@ -276,11 +279,26 @@ export default function RepeatableItemsSettingsPanel({
         blockData?.loopScroll,
     ]);
 
+    const supportsPretext = PRETEXT_BLOCKS.has(config.blockType);
+    const persistedPretext = useMemo(
+        () => readPretextFromBlockData(blockData as Record<string, unknown> | undefined),
+        [blockData],
+    );
+
     const sectionIds = useMemo(
-        () => config.variants || hasColumnLayoutControl
-            ? ['items', 'universal-layout', 'block-layout', ...(hasTestimonialDisplayControls ? ['display'] : []), 'style', 'advanced']
-            : ['items', 'universal-layout', 'style', 'advanced'],
-        [config.variants, hasColumnLayoutControl, hasTestimonialDisplayControls],
+        () => {
+            const baseLayout = config.variants || hasColumnLayoutControl
+                ? ['items', 'universal-layout', 'block-layout']
+                : ['items', 'universal-layout'];
+            const tail = [
+                ...(hasTestimonialDisplayControls ? ['display'] : []),
+                ...(supportsPretext ? ['pretext'] : []),
+                'style',
+                'advanced',
+            ];
+            return [...baseLayout, ...tail];
+        },
+        [config.variants, hasColumnLayoutControl, hasTestimonialDisplayControls, supportsPretext],
     );
     const sectionState = useInspectorSectionState(sectionIds, true);
 
@@ -291,6 +309,7 @@ export default function RepeatableItemsSettingsPanel({
     const [foregroundColor, setForegroundColor] = useState<string>(persistedForegroundColor);
     const [sectionSettings, setSectionSettings] = useState<SectionSettings>(persistedSectionSettings);
     const [localCss, setLocalCss] = useState<string>(customCss);
+    const [pretext, setPretext] = useState(persistedPretext);
     const [expandedRows, setExpandedRows] = useState<Set<number>>(() => new Set());
     const [dragIndex, setDragIndex] = useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -340,12 +359,13 @@ export default function RepeatableItemsSettingsPanel({
             items,
             ...(config.variants ? { variant } : {}),
             ...(hasTestimonialDisplayControls ? displaySettings : {}),
+            ...(supportsPretext ? pretext : {}),
             backgroundColor,
             foregroundColor,
             sectionSettings,
             __customCss: localCss,
         });
-    }, [blockData, items, variant, displaySettings, backgroundColor, foregroundColor, sectionSettings, localCss, config.variants, hasTestimonialDisplayControls, onDraftBlockDataChange]);
+    }, [blockData, items, variant, displaySettings, pretext, supportsPretext, backgroundColor, foregroundColor, sectionSettings, localCss, config.variants, hasTestimonialDisplayControls, onDraftBlockDataChange]);
 
     const hasUnsavedChanges = useMemo(() => (
         JSON.stringify(items) !== JSON.stringify(persistedItems) ||
@@ -354,7 +374,8 @@ export default function RepeatableItemsSettingsPanel({
         backgroundColor !== persistedBackgroundColor ||
         foregroundColor !== persistedForegroundColor ||
         !areSectionSettingsEqual(sectionSettings, persistedSectionSettings) ||
-        localCss !== customCss
+        localCss !== customCss ||
+        (supportsPretext && JSON.stringify(pretext) !== JSON.stringify(persistedPretext))
     ), [
         items,
         persistedItems,
@@ -372,6 +393,9 @@ export default function RepeatableItemsSettingsPanel({
         persistedSectionSettings,
         localCss,
         customCss,
+        supportsPretext,
+        pretext,
+        persistedPretext,
     ]);
 
     const bgInputValue = getColorInputValue(backgroundColor, palette, config.backgroundFallback);
@@ -420,6 +444,11 @@ export default function RepeatableItemsSettingsPanel({
             }
         }
         if (localCss !== customCss) updates.__customCss = localCss;
+        if (supportsPretext) {
+            for (const key of ['pretextEnabled', 'pretextStyle', 'pretextColor', 'pretextAlignment'] as const) {
+                if (pretext[key] !== persistedPretext[key]) updates[key] = pretext[key];
+            }
+        }
         if (Object.keys(updates).length > 0 && context?.updateBlockDataBatch) {
             context.updateBlockDataBatch(blockId, updates);
         }
@@ -436,6 +465,7 @@ export default function RepeatableItemsSettingsPanel({
         setForegroundColor(persistedForegroundColor);
         setSectionSettings(persistedSectionSettings);
         setLocalCss(customCss);
+        setPretext(persistedPretext);
         setExpandedRows(new Set());
         sectionState.reset();
     };
@@ -617,6 +647,21 @@ export default function RepeatableItemsSettingsPanel({
                         value={displaySettings}
                         variant={variant}
                         onChange={(updates) => setDisplaySettings((current) => ({ ...current, ...updates }))}
+                    />
+                </InspectorSection>
+            )}
+
+            {supportsPretext && (
+                <InspectorSection
+                    id="pretext"
+                    title="Label"
+                    isCollapsed={sectionState.isCollapsed('pretext')}
+                    onToggle={() => sectionState.toggle('pretext')}
+                >
+                    <PretextControls
+                        values={pretext}
+                        palette={palette}
+                        onChange={(key, value) => setPretext((current) => ({ ...current, [key]: value }))}
                     />
                 </InspectorSection>
             )}

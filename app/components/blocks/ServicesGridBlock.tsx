@@ -3,6 +3,7 @@
 import React from 'react';
 import EditableText from '../EditableText';
 import EditableButton from '../EditableButton';
+import BlockPretext from '../BlockPretext';
 import { Plus } from 'lucide-react';
 import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
@@ -59,6 +60,13 @@ export default function ServicesGridBlock({ id, data, isEditMode, palette, updat
             <div className="max-w-7xl mx-auto px-4">
                 <div className="text-center max-w-3xl mx-auto mb-16">
                     <Reveal>
+                        <BlockPretext
+                            data={data}
+                            isEditMode={isEditMode}
+                            palette={palette}
+                            updateContent={updateContent}
+                            defaultText="Services"
+                        />
                         <EditableText
                             as="h2"
                             contentKey="title"

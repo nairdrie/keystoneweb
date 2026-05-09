@@ -4,6 +4,7 @@ import React from 'react';
 import { Plus, User } from 'lucide-react';
 import EditableText from '../EditableText';
 import EditableImage from '../EditableImage';
+import BlockPretext from '../BlockPretext';
 import { useEditorContext } from '@/lib/editor-context';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import type { ImageSettings } from '../ImageEditorModal';
@@ -131,6 +132,13 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
         return (
             <section className="py-24" style={{ backgroundColor: bgColor }}>
                 <div className="max-w-5xl mx-auto px-4">
+                    <BlockPretext
+                        data={data}
+                        isEditMode={isEditMode}
+                        palette={palette}
+                        updateContent={updateContent}
+                        defaultText="Our Team"
+                    />
                     <EditableText
                         as="h2"
                         contentKey="title"
@@ -222,6 +230,13 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
         return (
             <section className="py-24" style={{ backgroundColor: cardBgColor }}>
                 <div className="max-w-7xl mx-auto px-4">
+                    <BlockPretext
+                        data={data}
+                        isEditMode={isEditMode}
+                        palette={palette}
+                        updateContent={updateContent}
+                        defaultText="Our Team"
+                    />
                     <EditableText
                         as="h2"
                         contentKey="title"
@@ -322,6 +337,13 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
     return (
         <section className="py-24" style={{ backgroundColor: bgColor }}>
             <div className="max-w-7xl mx-auto px-4">
+                <BlockPretext
+                    data={data}
+                    isEditMode={isEditMode}
+                    palette={palette}
+                    updateContent={updateContent}
+                    defaultText="Our Team"
+                />
                 <EditableText
                     as="h2"
                     contentKey="title"

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { useEditorContext } from '@/lib/editor-context';
 import EditableText from '../EditableText';
+import BlockPretext from '../BlockPretext';
 import Reveal from '@/app/components/Reveal';
 import { AlertTriangle, Plus, Trash2, ExternalLink } from 'lucide-react';
 import { resolvePaletteColor } from '@/lib/palette-colors';
@@ -241,6 +242,13 @@ export default function DeliveryLinksBlock({ id, data, isEditMode, palette, upda
         <div className="max-w-2xl mx-auto">
           {/* Editable heading */}
           <div className="text-center mb-8">
+            <BlockPretext
+              data={data}
+              isEditMode={isEditMode}
+              palette={palette}
+              updateContent={updateContent}
+              defaultText="Order"
+            />
             <EditableText
               as="h2"
               contentKey="title"
@@ -382,6 +390,13 @@ export default function DeliveryLinksBlock({ id, data, isEditMode, palette, upda
     <section className="py-16 px-4" style={sectionStyle}>
       <div className="max-w-2xl mx-auto text-center">
         <Reveal>
+          <BlockPretext
+            data={data}
+            isEditMode={isEditMode}
+            palette={palette}
+            updateContent={updateContent}
+            defaultText="Order"
+          />
           <h2
             className="text-3xl md:text-4xl font-bold mb-3"
             style={{ color: fgOverride || pPrimary }}

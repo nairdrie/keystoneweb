@@ -7,7 +7,10 @@ import BlockSettingsPanel from '../BlockSettingsPanel';
 import {
     InspectorSection,
     InspectorToggle,
+    PRETEXT_BLOCKS,
+    PRETEXT_DEFAULTS,
     PaletteTokenButtons,
+    PretextControls,
     getColorInputValue,
     useInspectorSectionState,
 } from '../panel-shared';
@@ -46,10 +49,23 @@ type ContactDraft = {
     contactIconColor: string;
     socialIconColor: string;
     sectionSettings: SectionSettings;
+    pretextEnabled: boolean;
+    pretextStyle: string;
+    pretextColor: string;
+    pretextAlignment: string;
     __customCss: string;
 };
 
-const SECTION_IDS = ['cards', 'social', 'universal-layout', 'display', 'style', 'advanced'];
+const CONTACT_SUPPORTS_PRETEXT = PRETEXT_BLOCKS.has('contact');
+const SECTION_IDS = [
+    'cards',
+    'social',
+    'universal-layout',
+    'display',
+    ...(CONTACT_SUPPORTS_PRETEXT ? ['pretext'] : []),
+    'style',
+    'advanced',
+];
 const CONTACT_DRAFT_UPDATE_EVENT = 'ks:contact-draft-update';
 
 export default function ContactSettingsPanel({
@@ -141,6 +157,10 @@ export default function ContactSettingsPanel({
             backgroundColor: draft.backgroundColor,
             contactIconColor: draft.contactIconColor,
             socialIconColor: draft.socialIconColor,
+            pretextEnabled: draft.pretextEnabled,
+            pretextStyle: draft.pretextStyle,
+            pretextColor: draft.pretextColor,
+            pretextAlignment: draft.pretextAlignment,
             __customCss: draft.__customCss,
         };
         if (!areSectionSettingsEqual(draft.sectionSettings, initialDraft.sectionSettings)) {
@@ -346,6 +366,21 @@ export default function ContactSettingsPanel({
                     )}
                 </div>
             </InspectorSection>
+
+            {CONTACT_SUPPORTS_PRETEXT && (
+                <InspectorSection
+                    id="pretext"
+                    title="Label"
+                    isCollapsed={sectionState.isCollapsed('pretext')}
+                    onToggle={() => sectionState.toggle('pretext')}
+                >
+                    <PretextControls
+                        values={draft}
+                        palette={palette}
+                        onChange={(key, value) => updateDraft({ [key]: value } as Partial<ContactDraft>)}
+                    />
+                </InspectorSection>
+            )}
 
             <InspectorSection
                 id="style"
@@ -822,6 +857,12 @@ function buildInitialDraft(blockData: Record<string, any>, customCss: string): C
         contactIconColor: typeof blockData.contactIconColor === 'string' ? blockData.contactIconColor : '',
         socialIconColor: typeof blockData.socialIconColor === 'string' ? blockData.socialIconColor : '',
         sectionSettings: normalizeSectionSettings(blockData.sectionSettings),
+        pretextEnabled: blockData.pretextEnabled === undefined || blockData.pretextEnabled === null
+            ? PRETEXT_DEFAULTS.pretextEnabled
+            : Boolean(blockData.pretextEnabled),
+        pretextStyle: typeof blockData.pretextStyle === 'string' && blockData.pretextStyle ? blockData.pretextStyle : PRETEXT_DEFAULTS.pretextStyle,
+        pretextColor: typeof blockData.pretextColor === 'string' && blockData.pretextColor ? blockData.pretextColor : PRETEXT_DEFAULTS.pretextColor,
+        pretextAlignment: typeof blockData.pretextAlignment === 'string' && blockData.pretextAlignment ? blockData.pretextAlignment : PRETEXT_DEFAULTS.pretextAlignment,
         __customCss: customCss,
     };
 }

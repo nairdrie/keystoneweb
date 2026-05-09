@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import EditableImage from '../EditableImage';
 import EditableText from '../EditableText';
 import EditableButton from '../EditableButton';
+import BlockPretext from '../BlockPretext';
 import { useEditorContext } from '@/lib/editor-context';
 import { X, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react';
 import { resolvePaletteColor } from '@/lib/palette-colors';
@@ -229,6 +230,13 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
     return (
         <section className="py-24" style={{ backgroundColor: bgColor }}>
             <div className="max-w-7xl mx-auto px-4">
+                <BlockPretext
+                    data={data}
+                    isEditMode={isEditMode}
+                    palette={palette}
+                    updateContent={updateContent}
+                    defaultText="Gallery"
+                />
                 <EditableText
                     as="h2"
                     contentKey="title"
