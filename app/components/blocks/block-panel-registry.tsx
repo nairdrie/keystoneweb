@@ -50,6 +50,7 @@ const HeroSettingsPanel = dynamic(() => import('./hero/HeroSettingsPanel'), { ss
 const ProductSettingsPanel = dynamic(() => import('./product/ProductSettingsPanel'), { ssr: false });
 const GenericBlockSettingsPanel = dynamic(() => import('./generic/GenericBlockSettingsPanel'), { ssr: false });
 const ContactSettingsPanel = dynamic(() => import('./contact/ContactSettingsPanel'), { ssr: false });
+const EstimateQuoteSettingsPanel = dynamic(() => import('./estimate/EstimateQuoteSettingsPanel'), { ssr: false });
 const MapSettingsPanel = dynamic(() => import('./map/MapSettingsPanel'), { ssr: false });
 const RepeatableItemsSettingsPanel = dynamic(() => import('./RepeatableItemsSettingsPanel'), { ssr: false });
 const SideBySideSettingsPanel = dynamic(() => import('./sideBySide/SideBySideSettingsPanel'), { ssr: false });
@@ -223,7 +224,7 @@ export const BLOCK_PANEL_REGISTRY: Record<string, PanelEntry> = {
     },
     estimateForm: {
         title: 'Estimate / Quote Form Settings',
-        component: GenericBlockSettingsPanel,
+        component: EstimateQuoteSettingsPanel,
         primaryButton: { label: 'Settings', icon: Settings },
         secondaryActions: [
             {
