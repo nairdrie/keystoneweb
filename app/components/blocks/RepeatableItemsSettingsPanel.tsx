@@ -27,6 +27,30 @@ const REPEATABLE_ITEMS_DRAFT_UPDATE_EVENT = 'ks:repeatable-items-draft-update';
 type ManagedBlockType = 'servicesGrid' | 'stats' | 'testimonials' | 'faq' | 'timeline';
 type ItemValue = string | number | string[];
 type ManagedItem = Record<string, ItemValue>;
+type StatsSeparator = 'none' | 'line' | 'dot';
+
+const STATS_SEPARATOR_OPTIONS: ReadonlyArray<{ id: StatsSeparator; label: string }> = [
+    { id: 'none', label: 'None' },
+    { id: 'line', label: 'Line' },
+    { id: 'dot', label: 'Dot' },
+];
+
+function normalizeStatsSeparator(value: unknown): StatsSeparator {
+    return value === 'line' || value === 'dot' ? value : 'none';
+}
+
+function SeparatorPreview({ kind, active }: { kind: StatsSeparator; active: boolean }) {
+    const tone = active ? '#2563eb' : '#94a3b8';
+    return (
+        <span className="flex h-7 w-full items-center justify-center gap-2 text-xs font-semibold" style={{ color: tone }}>
+            <span>9+</span>
+            {kind === 'line' && <span style={{ width: 1, height: 18, backgroundColor: tone, opacity: 0.7 }} />}
+            {kind === 'dot' && <span style={{ width: 4, height: 4, borderRadius: 9999, backgroundColor: tone, opacity: 0.7 }} />}
+            {kind === 'none' && <span aria-hidden style={{ width: 12 }} />}
+            <span>9+</span>
+        </span>
+    );
+}
 type TestimonialDisplaySettings = {
     showMoreEnabled: boolean;
     visibleCount: number;
@@ -322,6 +346,10 @@ export default function RepeatableItemsSettingsPanel({
     const persistedVariant = config.variants
         ? String(blockData?.variant || config.defaultVariant || config.variants[0].id)
         : '';
+    const supportsSeparator = managedType === 'stats';
+    const persistedSeparator = supportsSeparator
+        ? normalizeStatsSeparator(blockData?.separator)
+        : 'none';
     const persistedBackgroundColor = typeof blockData?.backgroundColor === 'string' ? blockData.backgroundColor : '';
     const persistedForegroundColor = typeof blockData?.foregroundColor === 'string' ? blockData.foregroundColor : '';
     const persistedSectionSettings = useMemo(
@@ -369,6 +397,7 @@ export default function RepeatableItemsSettingsPanel({
 
     const [items, setItems] = useState<ManagedItem[]>(persistedItems);
     const [variant, setVariant] = useState<string>(persistedVariant);
+    const [separator, setSeparator] = useState<StatsSeparator>(persistedSeparator);
     const [displaySettings, setDisplaySettings] = useState<TestimonialDisplaySettings>(persistedDisplaySettings);
     const [backgroundColor, setBackgroundColor] = useState<string>(persistedBackgroundColor);
     const [foregroundColor, setForegroundColor] = useState<string>(persistedForegroundColor);
@@ -423,6 +452,7 @@ export default function RepeatableItemsSettingsPanel({
             ...(blockData || {}),
             items,
             ...(config.variants ? { variant } : {}),
+            ...(supportsSeparator ? { separator } : {}),
             ...(hasTestimonialDisplayControls ? displaySettings : {}),
             ...(supportsPretext ? pretext : {}),
             backgroundColor,
@@ -430,11 +460,12 @@ export default function RepeatableItemsSettingsPanel({
             sectionSettings,
             __customCss: localCss,
         });
-    }, [blockData, items, variant, displaySettings, pretext, supportsPretext, backgroundColor, foregroundColor, sectionSettings, localCss, config.variants, hasTestimonialDisplayControls, onDraftBlockDataChange]);
+    }, [blockData, items, variant, separator, supportsSeparator, displaySettings, pretext, supportsPretext, backgroundColor, foregroundColor, sectionSettings, localCss, config.variants, hasTestimonialDisplayControls, onDraftBlockDataChange]);
 
     const hasUnsavedChanges = useMemo(() => (
         JSON.stringify(items) !== JSON.stringify(persistedItems) ||
         (config.variants ? variant !== persistedVariant : false) ||
+        (supportsSeparator ? separator !== persistedSeparator : false) ||
         (hasTestimonialDisplayControls ? JSON.stringify(displaySettings) !== JSON.stringify(persistedDisplaySettings) : false) ||
         backgroundColor !== persistedBackgroundColor ||
         foregroundColor !== persistedForegroundColor ||
@@ -447,6 +478,9 @@ export default function RepeatableItemsSettingsPanel({
         config.variants,
         variant,
         persistedVariant,
+        supportsSeparator,
+        separator,
+        persistedSeparator,
         hasTestimonialDisplayControls,
         displaySettings,
         persistedDisplaySettings,
@@ -503,6 +537,7 @@ export default function RepeatableItemsSettingsPanel({
         if (foregroundColor !== persistedForegroundColor) updates.foregroundColor = foregroundColor;
         if (!areSectionSettingsEqual(sectionSettings, persistedSectionSettings)) updates.sectionSettings = normalizeSectionSettings(sectionSettings);
         if (config.variants && variant !== persistedVariant) updates.variant = variant;
+        if (supportsSeparator && separator !== persistedSeparator) updates.separator = separator;
         if (hasTestimonialDisplayControls) {
             for (const key of Object.keys(displaySettings) as Array<keyof TestimonialDisplaySettings>) {
                 if (displaySettings[key] !== persistedDisplaySettings[key]) updates[key] = displaySettings[key];
@@ -525,6 +560,7 @@ export default function RepeatableItemsSettingsPanel({
         structuralItemSnapshotsRef.current = [];
         setItems(persistedItems);
         setVariant(persistedVariant);
+        setSeparator(persistedSeparator);
         setDisplaySettings(persistedDisplaySettings);
         setBackgroundColor(persistedBackgroundColor);
         setForegroundColor(persistedForegroundColor);
@@ -696,6 +732,35 @@ export default function RepeatableItemsSettingsPanel({
                                 onChange={(columns) => updateSectionLayout({ columns })}
                                 maxColumns={items.length}
                             />
+                        )}
+
+                        {supportsSeparator && variant === 'banner' && (
+                            <div>
+                                <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                                    Separator
+                                </span>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {STATS_SEPARATOR_OPTIONS.map((option) => {
+                                        const active = separator === option.id;
+                                        return (
+                                            <button
+                                                key={option.id}
+                                                type="button"
+                                                onClick={() => setSeparator(option.id)}
+                                                aria-pressed={active}
+                                                className={`flex flex-col items-center gap-2 rounded-xl border px-3 py-3 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                                    active
+                                                        ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
+                                                        : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                                }`}
+                                            >
+                                                <SeparatorPreview kind={option.id} active={active} />
+                                                <span className="text-xs font-bold">{option.label}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         )}
                     </div>
                 </InspectorSection>

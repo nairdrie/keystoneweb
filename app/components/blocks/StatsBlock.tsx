@@ -32,6 +32,8 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
     ];
 
     const variant = data.variant || 'banner'; // 'banner' | 'cards' | 'progress'
+    const separator: 'none' | 'line' | 'dot' =
+        data.separator === 'line' || data.separator === 'dot' ? data.separator : 'none';
 
     const handleAddItem = () => {
         updateContent('items', [
@@ -263,6 +265,8 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
     }
 
     // Banner variant (default) — full-width colored band
+    const bannerMdCols = items.length <= 3 ? 3 : 4;
+    const separatorColor = fgOverride || '#ffffff';
     return (
         <section className="py-16 md:py-10 xl:py-16" style={{ backgroundColor: configuredBackgroundColor || pPrimary }}>
             <div className="max-w-7xl mx-auto px-4">
@@ -270,6 +274,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                     {items.map((item: any, index: number) => {
                         const isDragging = draggedIndex === index;
                         const isDragTarget = dragOverIndex === index && draggedIndex !== index;
+                        const showSeparator = separator !== 'none' && index > 0 && index % bannerMdCols !== 0;
                         return (
                         <div
                             key={index}
@@ -278,6 +283,34 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                             } ${isDragging ? 'scale-[0.99] opacity-60' : ''}`}
                             {...getDragHandlers(index)}
                         >
+                            {showSeparator && (
+                                <span
+                                    aria-hidden
+                                    className="pointer-events-none absolute inset-y-0 hidden md:flex items-center justify-center"
+                                    style={{ left: -16, width: 0 }}
+                                >
+                                    {separator === 'line' ? (
+                                        <span
+                                            style={{
+                                                width: 1,
+                                                height: '60%',
+                                                backgroundColor: separatorColor,
+                                                opacity: fgOverride ? 0.35 : 0.25,
+                                            }}
+                                        />
+                                    ) : (
+                                        <span
+                                            style={{
+                                                width: 5,
+                                                height: 5,
+                                                borderRadius: 9999,
+                                                backgroundColor: separatorColor,
+                                                opacity: fgOverride ? 0.6 : 0.5,
+                                            }}
+                                        />
+                                    )}
+                                </span>
+                            )}
                             {renderStatControls(index)}
                             <EditableText
                                 as="div"
