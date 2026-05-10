@@ -1,7 +1,14 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { BlockData, EditorContextType, EditorProvider, useEditorContext, BlockDataProvider } from '@/lib/editor-context';
+import {
+    BlockData,
+    EditorContextType,
+    EditorProvider,
+    useEditorContext,
+    BlockDataProvider,
+    type SideBySideBackgroundOverrideState,
+} from '@/lib/editor-context';
 import { Plus, Crown } from 'lucide-react';
 import { BLOCK_COMPONENTS, AVAILABLE_BLOCKS } from './block-registry';
 import { getBlockDisplayLabel, getBlockIcon } from './block-icons';
@@ -12,10 +19,10 @@ type VerticalAlign = 'start' | 'center' | 'end' | 'stretch';
 
 interface SideBySideBlockProps {
     id: string;
-    data: any;
+    data?: Record<string, unknown>;
     isEditMode: boolean;
     palette: Record<string, string>;
-    updateContent: (key: string, value: any) => void;
+    updateContent: (key: string, value: unknown) => void;
 }
 
 const RATIO_TO_FRACTIONS: Record<ColumnRatio, [string, string]> = {
@@ -33,8 +40,8 @@ const ALIGN_TO_CSS: Record<VerticalAlign, string> = {
     stretch: 'stretch',
 };
 
-function resolveColor(value: string | undefined, palette: Record<string, string>): string | undefined {
-    if (!value) return undefined;
+function resolveColor(value: unknown, palette: Record<string, string>): string | undefined {
+    if (typeof value !== 'string' || !value) return undefined;
     if (value.startsWith('palette:')) {
         const key = value.slice('palette:'.length);
         return palette[key];
@@ -42,7 +49,11 @@ function resolveColor(value: string | undefined, palette: Record<string, string>
     return value;
 }
 
-export default function SideBySideBlock({ data, isEditMode, palette, updateContent }: SideBySideBlockProps) {
+function escapeAttribute(value: string): string {
+    return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+export default function SideBySideBlock({ id, data, isEditMode, palette, updateContent }: SideBySideBlockProps) {
     const leftBlocks: BlockData[] = Array.isArray(data?.leftBlocks) ? data.leftBlocks : [];
     const rightBlocks: BlockData[] = Array.isArray(data?.rightBlocks) ? data.rightBlocks : [];
     const columnRatio: ColumnRatio = (data?.columnRatio as ColumnRatio) || '50-50';
@@ -51,12 +62,22 @@ export default function SideBySideBlock({ data, isEditMode, palette, updateConte
     const stackOnMobile: boolean = data?.stackOnMobile !== false;
     const reverseOnMobile: boolean = Boolean(data?.reverseOnMobile);
     const background = resolveColor(data?.backgroundColor, palette);
+    const overrideChildBackgrounds = Boolean(data?.overrideChildBackgrounds);
+    const childBackground = background || 'transparent';
+    const sectionScope = `[data-side-by-side-id="${escapeAttribute(id)}"]`;
 
     const [leftFr, rightFr] = RATIO_TO_FRACTIONS[columnRatio] || RATIO_TO_FRACTIONS['50-50'];
 
-    const containerStyle: React.CSSProperties = {
+    const containerStyle = {
         backgroundColor: background,
-    };
+        '--side-by-side-child-bg': childBackground,
+    } as React.CSSProperties;
+
+    const backgroundOverride = useMemo<SideBySideBackgroundOverrideState>(() => ({
+        parentBlockId: id,
+        enabled: overrideChildBackgrounds,
+        disable: () => updateContent('overrideChildBackgrounds', false),
+    }), [id, overrideChildBackgrounds, updateContent]);
 
     const gridStyle: React.CSSProperties = {
         display: 'grid',
@@ -66,7 +87,11 @@ export default function SideBySideBlock({ data, isEditMode, palette, updateConte
     };
 
     return (
-        <section style={containerStyle} className="w-full py-8 px-4 sm:px-6 ks-side-by-side">
+        <section
+            style={containerStyle}
+            className="w-full py-8 px-4 sm:px-6 ks-side-by-side"
+            data-side-by-side-id={id}
+        >
             <div className="ks-side-by-side-grid mx-auto max-w-7xl" style={gridStyle}>
                 <SideBySideColumn
                     side="left"
@@ -74,6 +99,7 @@ export default function SideBySideBlock({ data, isEditMode, palette, updateConte
                     isEditMode={isEditMode}
                     palette={palette}
                     onChange={(next) => updateContent('leftBlocks', next)}
+                    backgroundOverride={backgroundOverride}
                 />
                 <SideBySideColumn
                     side="right"
@@ -81,15 +107,23 @@ export default function SideBySideBlock({ data, isEditMode, palette, updateConte
                     isEditMode={isEditMode}
                     palette={palette}
                     onChange={(next) => updateContent('rightBlocks', next)}
+                    backgroundOverride={backgroundOverride}
                 />
             </div>
             <style dangerouslySetInnerHTML={{
                 __html: `@media (max-width: 767px) {
-                    .ks-side-by-side .ks-side-by-side-grid {
+                    ${sectionScope} .ks-side-by-side-grid {
                         ${stackOnMobile ? 'grid-template-columns: 1fr !important;' : ''}
                     }
-                    ${stackOnMobile && reverseOnMobile ? '.ks-side-by-side .ks-side-by-side-grid > [data-side="left"] { order: 2; } .ks-side-by-side .ks-side-by-side-grid > [data-side="right"] { order: 1; }' : ''}
-                }`,
+                    ${stackOnMobile && reverseOnMobile ? `${sectionScope} .ks-side-by-side-grid > [data-side="left"] { order: 2; } ${sectionScope} .ks-side-by-side-grid > [data-side="right"] { order: 1; }` : ''}
+                }
+                ${overrideChildBackgrounds ? `
+                    ${sectionScope} [data-block-id] > section,
+                    ${sectionScope} [data-block-id] > div:first-of-type,
+                    ${sectionScope} [data-block-id] > section .hero-bg-fallback {
+                        background-color: var(--side-by-side-child-bg) !important;
+                    }
+                ` : ''}`,
             }} />
         </section>
     );
@@ -98,13 +132,14 @@ export default function SideBySideBlock({ data, isEditMode, palette, updateConte
 // ─── Column ─────────────────────────────────────────────────────────────────
 
 function SideBySideColumn({
-    side, blocks, isEditMode, palette, onChange,
+    side, blocks, isEditMode, palette, onChange, backgroundOverride,
 }: {
     side: 'left' | 'right';
     blocks: BlockData[];
     isEditMode: boolean;
     palette: Record<string, string>;
     onChange: (next: BlockData[]) => void;
+    backgroundOverride: SideBySideBackgroundOverrideState;
 }) {
     if (!isEditMode) {
         return (
@@ -139,7 +174,12 @@ function SideBySideColumn({
     }
 
     return (
-        <ScopedEditMode blocks={blocks} onChange={onChange} palette={palette}>
+        <ScopedEditMode
+            blocks={blocks}
+            onChange={onChange}
+            palette={palette}
+            backgroundOverride={backgroundOverride}
+        >
             <div
                 data-side={side}
                 className="min-w-0 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/40 p-2"
@@ -212,11 +252,12 @@ function SideBySideColumn({
 // array instead of the page-level blocks array.
 
 function ScopedEditMode({
-    blocks, onChange, palette, children,
+    blocks, onChange, palette, backgroundOverride, children,
 }: {
     blocks: BlockData[];
     onChange: (next: BlockData[]) => void;
     palette: Record<string, string>;
+    backgroundOverride: SideBySideBackgroundOverrideState;
     children: React.ReactNode;
 }) {
     const parent = useEditorContext();
@@ -234,11 +275,16 @@ function ScopedEditMode({
                 updateContent: () => {},
             };
 
+        const effectiveBackgroundOverride = backgroundOverride.enabled
+            ? backgroundOverride
+            : parent?.sideBySideBackgroundOverride;
+
         return {
             ...base,
             isEditMode: true,
             blocks,
             palette: palette || base.palette,
+            sideBySideBackgroundOverride: effectiveBackgroundOverride,
             addBlock: (type: string, index?: number) => {
                 const newBlock: BlockData = {
                     id: `block-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
@@ -269,7 +315,7 @@ function ScopedEditMode({
                 onChange(blocks.map(b => b.id === id ? { ...b, data: { ...b.data, ...updates } } : b));
             },
         };
-    }, [parent, blocks, onChange, palette]);
+    }, [parent, blocks, onChange, palette, backgroundOverride]);
 
     return <EditorProvider value={scopedValue}>{children}</EditorProvider>;
 }

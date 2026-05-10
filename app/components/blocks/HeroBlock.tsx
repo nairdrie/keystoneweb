@@ -656,7 +656,9 @@ function HeroCardContent({
                             isEditMode={isEditMode}
                             onSave={onSave}
                             onUpload={uploadImage}
-                            className="hero-image w-full h-96 object-cover rounded-2xl shadow-xl"
+                            className="hero-image w-full h-96 object-cover shadow-xl"
+                            enableInlineCropControls
+                            editorPreviewFrameClassName="w-full h-96"
                             placeholder="Click to upload hero image"
                             priority
                         />

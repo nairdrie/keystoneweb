@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlignCenter, AlignLeft, AlignRight, Crown, Image as ImageIcon, MoveLeft, MoveRight,
     Plus, Trash2, Copy, ChevronUp, ChevronDown, Video, Palette as PaletteIcon, Sparkles,
@@ -12,6 +12,7 @@ import {
     InspectorSection,
     InspectorToggle,
     PaletteTokenButtons,
+    SideBySideBackgroundOverrideNotice,
     getColorInputValue,
     useInspectorSectionState,
 } from '../panel-shared';
@@ -62,7 +63,7 @@ import { resolvePaletteColor } from '@/lib/palette-colors';
 import ImageEditorModal, { type ImageSettings, type UnsplashAttribution } from '@/app/components/ImageEditorModal';
 import PexelsVideoPickerModal from '@/app/components/PexelsVideoPickerModal';
 
-const SECTION_IDS = ['cards', 'universal-layout', 'transition', 'content-layout', 'background', 'height', 'advanced'];
+const SECTION_IDS = ['cards', 'universal-layout', 'style', 'transition', 'content-layout', 'background', 'height', 'advanced'];
 const HERO_DRAFT_UPDATE_EVENT = 'ks:hero-draft-update';
 
 const ALIGN_OPTIONS: { id: Align; label: string; Icon: typeof AlignLeft }[] = [
@@ -100,11 +101,13 @@ export default function HeroSettingsPanel({
         () => normalizeSectionSettings(blockData?.sectionSettings),
         [blockData?.sectionSettings],
     );
+    const persistedBackgroundColor = typeof blockData?.backgroundColor === 'string' ? blockData.backgroundColor : '';
 
     const [cards, setCards] = useState<HeroCard[]>(persistedData.cards);
     const [transition, setTransition] = useState<HeroTransition>(persistedData.transition);
     const [height, setHeight] = useState<HeroHeight>(persistedData.height);
     const [sectionSettings, setSectionSettings] = useState<SectionSettings>(persistedSectionSettings);
+    const [backgroundColor, setBackgroundColor] = useState<string>(persistedBackgroundColor);
     const [activeHeightBp, setActiveHeightBp] = useState<HeroBreakpoint>('desktop');
     const [activeIndex, setActiveIndex] = useState<number>(0);
     const [localCss, setLocalCss] = useState<string>(customCss);
@@ -137,12 +140,13 @@ export default function HeroSettingsPanel({
             transition,
             height,
             sectionSettings,
+            backgroundColor,
             __activeCardIndex: activeIndex,
             __pauseRotation: true,
             __customCss: localCss,
         };
         onDraftBlockDataChange(draft);
-    }, [cards, transition, height, sectionSettings, activeIndex, localCss, blockData, onDraftBlockDataChange]);
+    }, [cards, transition, height, sectionSettings, backgroundColor, activeIndex, localCss, blockData, onDraftBlockDataChange]);
 
     // Canvas dots can also switch the active card; sync our state when they do.
     useEffect(() => {
@@ -246,8 +250,8 @@ export default function HeroSettingsPanel({
             cards: persistedData.cards,
             transition: persistedData.transition,
             height: persistedData.height,
-        }) || !areSectionSettingsEqual(sectionSettings, persistedSectionSettings) || localCss !== customCss
-    ), [cards, transition, height, persistedData, sectionSettings, persistedSectionSettings, localCss, customCss]);
+        }) || !areSectionSettingsEqual(sectionSettings, persistedSectionSettings) || backgroundColor !== persistedBackgroundColor || localCss !== customCss
+    ), [cards, transition, height, persistedData, sectionSettings, persistedSectionSettings, backgroundColor, persistedBackgroundColor, localCss, customCss]);
 
     const handleSave = () => {
         const cardsToSave = cardsRef.current;
@@ -255,6 +259,7 @@ export default function HeroSettingsPanel({
             cards: cardsToSave,
             transition,
             height,
+            backgroundColor,
         };
         if (!areSectionSettingsEqual(sectionSettings, persistedSectionSettings)) {
             updates.sectionSettings = normalizeSectionSettings(sectionSettings);
@@ -272,7 +277,6 @@ export default function HeroSettingsPanel({
             'image', 'image__settings', 'image__attribution',
             'videoUrl',
             'bgType', 'bgImage', 'bgCarouselImages', 'bgCarouselTiming', 'bgCarouselTransition',
-            'backgroundColor',
         ];
         for (const key of legacyKeys) {
             if (key in (blockData || {})) updates[key] = undefined;
@@ -289,6 +293,7 @@ export default function HeroSettingsPanel({
         setTransition(persistedData.transition);
         setHeight(persistedData.height);
         setSectionSettings(persistedSectionSettings);
+        setBackgroundColor(persistedBackgroundColor);
         setActiveIndex(0);
         setLocalCss(customCss);
         sectionState.reset();
@@ -305,6 +310,9 @@ export default function HeroSettingsPanel({
     const imagePickerInitialSettings = imageEditorOpen === 'foreground'
         ? activeCard.content.image.settings
         : activeCard.background.image?.settings;
+    const imagePickerPreviewFrameClassName = imageEditorOpen === 'foreground'
+        ? 'w-full h-96'
+        : 'w-full min-h-[360px]';
     const handleImagePickerSave = (url: string, settings: ImageSettings, attribution?: UnsplashAttribution) => {
         if (imageEditorOpen === 'foreground') {
             updateContent('image', { url, settings, attribution, enabled: true });
@@ -401,6 +409,20 @@ export default function HeroSettingsPanel({
                         blockType="hero"
                         value={sectionSettings}
                         onChange={setSectionSettings}
+                    />
+                </InspectorSection>
+
+                <InspectorSection
+                    id="style"
+                    title="Style"
+                    isCollapsed={sectionState.isCollapsed('style')}
+                    onToggle={() => sectionState.toggle('style')}
+                >
+                    <SectionBackgroundColorControl
+                        id={`${blockId}-hero-bg`}
+                        value={backgroundColor}
+                        palette={palette}
+                        onChange={setBackgroundColor}
                     />
                 </InspectorSection>
 
@@ -796,6 +818,7 @@ export default function HeroSettingsPanel({
                 onUpload={uploadImage || (async () => '')}
                 contentKey={imageEditorOpen === 'foreground' ? 'image' : 'bgImage'}
                 allowUnsplash
+                previewFrameClassName={imagePickerPreviewFrameClassName}
             />
 
             <PexelsVideoPickerModal
@@ -1090,12 +1113,12 @@ function SocialLinkRow({
     onChange: (patch: Partial<HeroSocialLink>) => void;
     onRemove: () => void;
 }) {
-    const Icon = getSocialIcon(link.platform);
+    const iconComponent = getSocialIcon(link.platform);
     return (
         <div className="rounded-lg border border-slate-200 bg-white p-2.5">
             <div className="flex items-center gap-2">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-600">
-                    <Icon className="h-4 w-4" />
+                    {createElement(iconComponent, { className: 'h-4 w-4' })}
                 </span>
                 <select
                     value={link.platform}
@@ -1309,6 +1332,53 @@ function VariantPreview({ children }: { children: React.ReactNode }) {
     return (
         <div className="pointer-events-none relative h-20 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
             {children}
+        </div>
+    );
+}
+
+function SectionBackgroundColorControl({
+    id,
+    value,
+    palette,
+    onChange,
+}: {
+    id: string;
+    value: string;
+    palette: Record<string, string>;
+    onChange: (next: string) => void;
+}) {
+    return (
+        <div>
+            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={id}>
+                Section background color
+            </label>
+            <SideBySideBackgroundOverrideNotice />
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+                <input
+                    id={id}
+                    type="color"
+                    value={getColorInputValue(value, palette, '#ffffff')}
+                    onChange={(event) => onChange(event.target.value)}
+                    className="h-10 w-10 cursor-pointer rounded border border-slate-200 bg-white"
+                />
+                <PaletteTokenButtons selected={value} palette={palette} onSelect={onChange} />
+            </div>
+            <div className="mt-3 flex gap-2">
+                <input
+                    type="text"
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                    placeholder="Default"
+                    className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                    type="button"
+                    onClick={() => onChange('')}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+                >
+                    Reset
+                </button>
+            </div>
         </div>
     );
 }

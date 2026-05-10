@@ -152,13 +152,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
         return (
             <div
                 key={`tile-${index}`}
-                className={`relative group ${dragOverIndex === index && dragIndex !== null ? 'ring-2 ring-blue-500 ring-offset-2 rounded-xl' : ''}`}
-                draggable={isDraggable}
-                onDragStart={(e) => {
-                    if (!isDraggable) return;
-                    setDragIndex(index);
-                    e.dataTransfer.effectAllowed = 'move';
-                }}
+                className={`relative group ${dragOverIndex === index && dragIndex !== null ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}
                 onDragOver={(e) => {
                     if (!isEditMode || dragIndex === null || isAddSlot) return;
                     e.preventDefault();
@@ -173,10 +167,6 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                     e.preventDefault();
                     handleDrop(index);
                 }}
-                onDragEnd={() => {
-                    setDragIndex(null);
-                    setDragOverIndex(null);
-                }}
             >
                 <EditableImage
                     contentKey={`gallery_image_${index}`}
@@ -186,11 +176,24 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                     isEditMode={isEditMode}
                     onSave={(key, value) => handleImageSave(index, key, value)}
                     onUpload={context?.uploadImage}
-                    className="w-full aspect-square object-cover rounded-xl bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity"
+                    className="w-full aspect-square object-cover bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity"
+                    enableInlineCropControls
+                    editorPreviewFrameClassName="w-full aspect-square"
                     placeholder="+ Add image"
                 />
                 {isDraggable && imageUrl && (
                     <div
+                        draggable
+                        onDragStart={(e) => {
+                            setDragIndex(index);
+                            e.dataTransfer.effectAllowed = 'move';
+                            e.dataTransfer.setData('text/plain', `gallery-image-${index}`);
+                        }}
+                        onDragEnd={() => {
+                            setDragIndex(null);
+                            setDragOverIndex(null);
+                        }}
+                        data-image-crop-control
                         className="absolute top-2 left-2 z-30 p-1.5 bg-black/60 text-white rounded-md opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
                         title="Drag to reorder"
                     >
@@ -200,7 +203,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                 {!isEditMode && imageUrl && opts?.lightbox && (
                     <button
                         type="button"
-                        className="absolute inset-0 appearance-none border-0 bg-black/0 p-0 group-hover:bg-black/20 rounded-xl transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-900"
+                        className="absolute inset-0 appearance-none border-0 bg-black/0 p-0 group-hover:bg-black/20 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-900"
                         onClick={() => setLightboxIndex(index)}
                         aria-label={`Open gallery image ${index + 1}`}
                     />
@@ -302,7 +305,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                                                     <img
                                                         src={url}
                                                         alt=""
-                                                        className="w-full h-full object-cover rounded-xl bg-gray-100 hover:opacity-90 transition-opacity"
+                                                        className="w-full h-full object-cover bg-gray-100 hover:opacity-90 transition-opacity"
                                                     />
                                                 </button>
                                             );

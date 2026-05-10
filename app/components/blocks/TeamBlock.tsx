@@ -163,9 +163,15 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                                         initialSettings={getImageSettings(data, `member_${index}_image__settings`)}
                                         imageUrl={member.image}
                                         isEditMode={isEditMode}
-                                        onSave={(key, value) => { if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value); }}
+                                        onSave={(key, value) => {
+                                            if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value);
+                                            else updateContent(key, value);
+                                        }}
                                         onUpload={context?.uploadImage}
                                         className="h-full w-full object-cover bg-gray-200"
+                                        enableInlineCropControls
+                                        showInlineCropZoomControl={false}
+                                        editorPreviewFrameClassName="h-16 w-16 rounded-full"
                                         placeholder="Photo"
                                         editOverlayStyle="icon"
                                         fallback={
@@ -271,9 +277,14 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                                         initialSettings={getImageSettings(data, `member_${index}_image__settings`)}
                                         imageUrl={member.image}
                                         isEditMode={isEditMode}
-                                        onSave={(key, value) => { if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value); }}
+                                        onSave={(key, value) => {
+                                            if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value);
+                                            else updateContent(key, value);
+                                        }}
                                         onUpload={context?.uploadImage}
                                         className="w-full h-full object-cover bg-gray-200"
+                                        enableInlineCropControls
+                                        editorPreviewFrameClassName="h-64 w-full"
                                         placeholder="Team member photo"
                                         fallback={
                                             <div className="flex h-64 w-full items-center justify-center bg-gray-200">
@@ -378,10 +389,16 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                                     initialSettings={getImageSettings(data, `member_${index}_image__settings`)}
                                     imageUrl={member.image}
                                     isEditMode={isEditMode}
-                                    onSave={(key, value) => { if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value); }}
+                                    onSave={(key, value) => {
+                                        if (key === `member_${index}_image`) handleUpdateMember(index, 'image', value);
+                                        else updateContent(key, value);
+                                    }}
                                     onUpload={context?.uploadImage}
                                     className="h-full w-full object-cover bg-gray-200"
+                                    enableInlineCropControls
+                                    editorPreviewFrameClassName="h-32 w-32 rounded-full"
                                     placeholder="Photo"
+                                    editOverlayStyle="icon"
                                     fallback={
                                         <div className="flex h-32 w-32 items-center justify-center bg-gray-200">
                                             <User className="w-12 h-12 text-gray-400" />

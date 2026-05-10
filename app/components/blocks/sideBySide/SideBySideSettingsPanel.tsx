@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Crown } from 'lucide-react';
+import { Crown, Paintbrush } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockSettingsPanel from '../BlockSettingsPanel';
 import {
     InspectorSection,
     InspectorToggle,
     PaletteTokenButtons,
+    SideBySideBackgroundOverrideNotice,
     getColorInputValue,
     useInspectorSectionState,
 } from '../panel-shared';
@@ -29,6 +30,7 @@ interface DraftSettings {
     stackOnMobile: boolean;
     reverseOnMobile: boolean;
     backgroundColor: string;
+    overrideChildBackgrounds: boolean;
     __customCss: string;
 }
 
@@ -39,6 +41,7 @@ const DEFAULTS: DraftSettings = {
     stackOnMobile: true,
     reverseOnMobile: false,
     backgroundColor: '',
+    overrideChildBackgrounds: false,
     __customCss: '',
 };
 
@@ -66,6 +69,7 @@ function readDraft(blockData: Record<string, unknown> | undefined, customCss: st
         stackOnMobile: data.stackOnMobile === undefined ? DEFAULTS.stackOnMobile : Boolean(data.stackOnMobile),
         reverseOnMobile: Boolean(data.reverseOnMobile),
         backgroundColor: typeof data.backgroundColor === 'string' ? (data.backgroundColor as string) : '',
+        overrideChildBackgrounds: Boolean(data.overrideChildBackgrounds),
         __customCss: customCss,
     };
 }
@@ -78,6 +82,7 @@ function shallowEqual(a: DraftSettings, b: DraftSettings): boolean {
         a.stackOnMobile === b.stackOnMobile &&
         a.reverseOnMobile === b.reverseOnMobile &&
         a.backgroundColor === b.backgroundColor &&
+        a.overrideChildBackgrounds === b.overrideChildBackgrounds &&
         a.__customCss === b.__customCss
     );
 }
@@ -130,6 +135,7 @@ export default function SideBySideSettingsPanel({
         if (draft.stackOnMobile !== initialDraft.stackOnMobile) updates.stackOnMobile = draft.stackOnMobile;
         if (draft.reverseOnMobile !== initialDraft.reverseOnMobile) updates.reverseOnMobile = draft.reverseOnMobile;
         if (draft.backgroundColor !== initialDraft.backgroundColor) updates.backgroundColor = draft.backgroundColor;
+        if (draft.overrideChildBackgrounds !== initialDraft.overrideChildBackgrounds) updates.overrideChildBackgrounds = draft.overrideChildBackgrounds;
         if (draft.__customCss !== initialDraft.__customCss) updates.__customCss = draft.__customCss;
         if (!areSectionSettingsEqual(sectionSettings, persistedSectionSettings)) {
             updates.sectionSettings = normalizeSectionSettings(sectionSettings);
@@ -289,40 +295,66 @@ export default function SideBySideSettingsPanel({
                 isCollapsed={sectionState.isCollapsed('style')}
                 onToggle={() => sectionState.toggle('style')}
             >
-                <div>
-                    <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-bg-color`}>
-                        Section background color
-                    </label>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <input
-                            id={`${blockId}-bg-color`}
-                            type="color"
-                            value={colorInputValue}
-                            onChange={(e) => update('backgroundColor', e.target.value)}
-                            className="h-10 w-10 cursor-pointer rounded border border-slate-200 bg-white"
-                        />
-                        <PaletteTokenButtons
-                            selected={draft.backgroundColor}
-                            palette={palette}
-                            onSelect={(token) => update('backgroundColor', token)}
-                        />
+                <div className="space-y-5">
+                    <div>
+                        <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-bg-color`}>
+                            Section background color
+                        </label>
+                        <SideBySideBackgroundOverrideNotice />
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <input
+                                id={`${blockId}-bg-color`}
+                                type="color"
+                                value={colorInputValue}
+                                onChange={(e) => update('backgroundColor', e.target.value)}
+                                className="h-10 w-10 cursor-pointer rounded border border-slate-200 bg-white"
+                            />
+                            <PaletteTokenButtons
+                                selected={draft.backgroundColor}
+                                palette={palette}
+                                onSelect={(token) => update('backgroundColor', token)}
+                            />
+                        </div>
+                        <div className="mt-3 flex gap-2">
+                            <input
+                                type="text"
+                                value={draft.backgroundColor}
+                                onChange={(e) => update('backgroundColor', e.target.value)}
+                                placeholder="Default"
+                                className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => update('backgroundColor', '')}
+                                className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                Reset
+                            </button>
+                        </div>
                     </div>
-                    <div className="mt-3 flex gap-2">
-                        <input
-                            type="text"
-                            value={draft.backgroundColor}
-                            onChange={(e) => update('backgroundColor', e.target.value)}
-                            placeholder="Default"
-                            className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => update('backgroundColor', '')}
-                            className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            Reset
-                        </button>
-                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => update('overrideChildBackgrounds', !draft.overrideChildBackgrounds)}
+                        aria-pressed={draft.overrideChildBackgrounds}
+                        className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            draft.overrideChildBackgrounds
+                                ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
+                                : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                    >
+                        <span className="flex min-w-0 items-center gap-3">
+                            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white text-current shadow-sm">
+                                <Paintbrush className="h-4 w-4" />
+                            </span>
+                            <span className="min-w-0 text-sm font-bold">Override inner block backgrounds</span>
+                        </span>
+                        <span className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-bold ${
+                            draft.overrideChildBackgrounds ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'
+                        }`}>
+                            {draft.overrideChildBackgrounds ? 'On' : 'Off'}
+                        </span>
+                    </button>
                 </div>
             </InspectorSection>
 

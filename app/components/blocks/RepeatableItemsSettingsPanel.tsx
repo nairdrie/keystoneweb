@@ -9,6 +9,7 @@ import {
     PaletteTokenButtons,
     PRETEXT_BLOCKS,
     PretextControls,
+    SideBySideBackgroundOverrideNotice,
     getColorInputValue,
     readPretextFromBlockData,
     useInspectorSectionState,
@@ -208,7 +209,7 @@ const CONFIGS: Record<ManagedBlockType, ManagedBlockConfig> = {
             { id: 'single', label: 'Single Focus', description: 'Feature the first testimonial.' },
         ],
         defaultVariant: 'cards',
-        backgroundFallback: '#f3f4f6',
+        backgroundFallback: '#ffffff',
         backgroundPlaceholder: 'Default',
         cssPlaceholder: `/* Scoped to this Testimonials block */\n.testimonial-card {\n  border-radius: 1rem;\n}`,
     },
@@ -497,7 +498,8 @@ export default function RepeatableItemsSettingsPanel({
         persistedPretext,
     ]);
 
-    const bgInputValue = getColorInputValue(backgroundColor, palette, config.backgroundFallback);
+    const backgroundFallback = getRepeatableBackgroundFallback(managedType, variant, config.backgroundFallback);
+    const bgInputValue = getColorInputValue(backgroundColor, palette, backgroundFallback);
     const fgInputValue = getColorInputValue(foregroundColor, palette, '#0f172a');
 
     const updateSectionLayout = (patch: Partial<SectionSettings['layout']>) => {
@@ -808,6 +810,7 @@ export default function RepeatableItemsSettingsPanel({
                 >
                     Section background color
                 </label>
+                <SideBySideBackgroundOverrideNotice />
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                     <input
                         id={`${blockId}-${config.blockType}-bg`}
@@ -1317,4 +1320,14 @@ function remapExpandedRowsAfterMove(expanded: Set<number>, fromIndex: number, to
 
 function isManagedBlockType(value: string): value is ManagedBlockType {
     return value === 'servicesGrid' || value === 'stats' || value === 'testimonials' || value === 'faq' || value === 'timeline';
+}
+
+function getRepeatableBackgroundFallback(
+    managedType: ManagedBlockType,
+    variant: string,
+    configuredFallback: string,
+): string {
+    if (managedType === 'stats' && (variant || 'banner') === 'banner') return 'palette:primary';
+    if (managedType === 'testimonials' && (variant || 'cards') === 'single') return 'palette:accent';
+    return configuredFallback;
 }

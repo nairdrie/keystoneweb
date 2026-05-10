@@ -602,7 +602,7 @@ export const blockDocs: BlockDoc[] = [
     ],
   },
   {
-    name: 'Google Map',
+    name: 'Map / Location',
     group: 'Contact',
     summary: 'Embeds a map for a location.',
     bestUsedFor: [

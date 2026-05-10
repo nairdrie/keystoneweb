@@ -176,7 +176,9 @@ function EssayVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
                                 isEditMode={isEditMode}
                                 onSave={(key, value) => updateContent(key, value)}
                                 onUpload={uploadImage}
-                                className="w-full aspect-[3/4] object-cover rounded-2xl shadow-xl bg-gray-200"
+                                className="w-full aspect-[3/4] object-cover shadow-xl bg-gray-200"
+                                enableInlineCropControls
+                                editorPreviewFrameClassName="w-full aspect-[3/4]"
                                 placeholder="Click to upload photo"
                             />
                         </div>
@@ -288,6 +290,9 @@ function CenteredVariant({ data, isEditMode, updateContent, uploadImage, pPrimar
                                 onSave={(key, value) => updateContent(key, value)}
                                 onUpload={uploadImage}
                                 className="w-full h-full object-cover"
+                                enableInlineCropControls
+                                showInlineCropZoomControl={false}
+                                editorPreviewFrameClassName="w-16 h-16 rounded-full"
                                 placeholder="Photo"
                                 editOverlayStyle="icon"
                             />
@@ -335,7 +340,9 @@ function SplitVariant({ data, isEditMode, updateContent, uploadImage, pPrimary, 
                 isEditMode={isEditMode}
                 onSave={(key, value) => updateContent(key, value)}
                 onUpload={uploadImage}
-                className="w-full h-full object-cover rounded-2xl min-h-64 bg-gray-200"
+                className="w-full h-full object-cover min-h-64 bg-gray-200"
+                enableInlineCropControls
+                editorPreviewFrameClassName="w-full min-h-64"
                 placeholder="Click to upload photo"
             />
         </Reveal>
@@ -491,10 +498,15 @@ function MultiGridVariant({ data, isEditMode, updateContent, uploadImage, pPrima
                                         onSave={(key, value) => {
                                             if (key === `people[${index}].image`) {
                                                 handleUpdatePerson(index, 'image', value);
+                                            } else {
+                                                updateContent(key, value);
                                             }
                                         }}
                                         onUpload={uploadImage}
                                         className="w-full h-full object-cover"
+                                        enableInlineCropControls
+                                        showInlineCropZoomControl={false}
+                                        editorPreviewFrameClassName="w-20 h-20 rounded-full"
                                         placeholder="Photo"
                                         editOverlayStyle="icon"
                                     />
@@ -584,6 +596,9 @@ function MinimalVariant({ data, isEditMode, updateContent, uploadImage, pPrimary
                                     onSave={(key, value) => updateContent(key, value)}
                                     onUpload={uploadImage}
                                     className="w-full h-full object-cover"
+                                    enableInlineCropControls
+                                    showInlineCropZoomControl={false}
+                                    editorPreviewFrameClassName="w-10 h-10 rounded-full"
                                     placeholder="Photo"
                                     editOverlayStyle="icon"
                                 />
