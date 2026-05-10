@@ -15,6 +15,7 @@ import ImageEditorModal from './ImageEditorModal';
 import EditHistoryModal from './EditHistoryModal';
 import DoctorPanel from './DoctorPanel';
 import PageSEOPanel from './PageSEOPanel';
+import SiteAnimationControls from './SiteAnimationControls';
 import { AIMessage, UsageRemaining } from '@/lib/hooks/useAIBuilder';
 import { Type, User, Languages, Stethoscope, Globe } from 'lucide-react';
 import ProfileDropdown from './ProfileDropdown';
@@ -1384,6 +1385,29 @@ export default function FloatingToolbar({
                   <Type className="w-4 h-4 text-slate-400" />
                 </button>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Animation Section */}
+        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+          <button
+            onClick={() => toggleSection('animation')}
+            className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
+          >
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" />
+              Animation
+            </span>
+            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('animation') ? 'rotate-180' : ''}`} />
+          </button>
+          {openSections.includes('animation') && (
+            <div className="p-4 border-t border-slate-200 space-y-3">
+              <p className="text-[11px] leading-snug text-slate-500">Default scroll-in animation for sections. Individual blocks can override this in their settings.</p>
+              <SiteAnimationControls
+                siteContent={siteContent}
+                onUpdateSiteContent={(key, value) => onUpdateSiteContent(key, value)}
+              />
             </div>
           )}
         </div>

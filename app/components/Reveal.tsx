@@ -1,8 +1,9 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { revealVariants } from '@/lib/motion';
+import { motion, useReducedMotion } from 'framer-motion';
+import { buildRevealVariants } from '@/lib/motion';
 import { useEditorContext } from '@/lib/editor-context';
+import { resolveAnimation } from '@/lib/animations';
 
 interface RevealProps {
   children: React.ReactNode;
@@ -15,6 +16,12 @@ interface RevealProps {
 export default function Reveal({ children, className = '', delay, onDragOver, onDrop }: RevealProps) {
   const context = useEditorContext();
   const isEditMode = context?.isEditMode || false;
+  const prefersReducedMotion = useReducedMotion();
+  const config = resolveAnimation(context?.siteContent);
+  const variants = buildRevealVariants({
+    config,
+    forceInstant: prefersReducedMotion === true,
+  });
 
   const animationProps = isEditMode
     ? { animate: 'show' as const }
@@ -26,7 +33,7 @@ export default function Reveal({ children, className = '', delay, onDragOver, on
 
   return (
     <motion.div
-      variants={revealVariants}
+      variants={variants}
       className={className}
       transition={delay ? { delay } : undefined}
       {...animationProps}

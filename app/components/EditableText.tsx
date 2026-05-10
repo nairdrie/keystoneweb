@@ -10,6 +10,8 @@ import {
   type TextShadowSettings,
   type TextStyles,
 } from '@/lib/text-styles';
+import TextReveal from './TextReveal';
+import { readTextReveal, type TextRevealConfig } from '@/lib/animations';
 
 interface EditableTextProps {
   contentKey: string;
@@ -41,6 +43,7 @@ export default function EditableText({
   // styleData prop wins; otherwise look it up in the surrounding block's data
   // via context. Blocks wrap their render in <BlockDataProvider value={data}>.
   const resolvedStyleData = styleData ?? (blockData?.[`${contentKey}__styles`] as string | Record<string, unknown> | undefined);
+  const textRevealConfig: TextRevealConfig | undefined = readTextReveal(blockData, contentKey);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -49,6 +52,7 @@ export default function EditableText({
   // Live block-level styles while editing (preview before commit)
   const initialParsed = parseStyleData(resolvedStyleData);
   const [pendingStyles, setPendingStyles] = useState<TextStyles>(initialParsed);
+  const [pendingTextReveal, setPendingTextReveal] = useState<TextRevealConfig | null>(textRevealConfig ?? null);
   // Callback ref backed by state so the toolbar receives the actual element
   // as soon as the contenteditable mounts (a plain useRef wouldn't trigger
   // the re-render that flushes targetEl into the toolbar's props).
@@ -94,6 +98,13 @@ export default function EditableText({
     }
   }, [resolvedStyleData, isEditing]);
 
+  // Reset pending text reveal when external config changes and we're not editing
+  useEffect(() => {
+    if (!isEditing) {
+      setPendingTextReveal(textRevealConfig ?? null);
+    }
+  }, [textRevealConfig, isEditing]);
+
   // Detect overflow position for the inline edit chrome
   useEffect(() => {
     if (isEditMode && containerRef.current) {
@@ -127,6 +138,7 @@ export default function EditableText({
   const startEditing = () => {
     window.dispatchEvent(new CustomEvent('ks:editstart', { detail: { key: contentKey } }));
     setPendingStyles(parseStyleData(resolvedStyleData));
+    setPendingTextReveal(textRevealConfig ?? null);
     setIsEditing(true);
   };
 
@@ -145,11 +157,17 @@ export default function EditableText({
     if (stylesJson !== initialStylesJson) {
       onSave(`${contentKey}__styles`, stylesJson);
     }
+    const nextRevealJson = pendingTextReveal ? JSON.stringify(pendingTextReveal) : '';
+    const initialRevealJson = textRevealConfig ? JSON.stringify(textRevealConfig) : '';
+    if (nextRevealJson !== initialRevealJson) {
+      onSave(`${contentKey}__textReveal`, nextRevealJson);
+    }
     setIsEditing(false);
-  }, [contentKey, onSave, pendingStyles, resolvedStyleData, editorEl]);
+  }, [contentKey, onSave, pendingStyles, pendingTextReveal, resolvedStyleData, textRevealConfig, editorEl]);
 
   const cancelEdit = () => {
     setPendingStyles(parseStyleData(resolvedStyleData));
+    setPendingTextReveal(textRevealConfig ?? null);
     setIsEditing(false);
   };
 
@@ -270,6 +288,22 @@ export default function EditableText({
   // ---- RENDER ----
 
   if (!isEditMode) {
+    if (textRevealConfig && displayText) {
+      const html = isHtmlContent(displayText) ? displayText : legacyTextToHtml(displayText);
+      return (
+        <>
+          {overrideFontHref && <link rel="stylesheet" href={overrideFontHref} />}
+          <TextReveal
+            contentKey={contentKey}
+            html={html}
+            config={textRevealConfig}
+            className={className}
+            style={mergedStyle}
+            as={Component}
+          />
+        </>
+      );
+    }
     return (
       <>
         {overrideFontHref && <link rel="stylesheet" href={overrideFontHref} />}
@@ -317,6 +351,8 @@ export default function EditableText({
           onCancel={cancelEdit}
           palette={palette as { primary?: string; secondary?: string; accent?: string } | undefined}
           previewText={textPreviewFromHtml(displayText)}
+          textReveal={pendingTextReveal}
+          onTextRevealChange={setPendingTextReveal}
         />
       </>
     );
