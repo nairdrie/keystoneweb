@@ -1,11 +1,9 @@
 'use client';
 
-import EditableText from '@/app/components/EditableText';
-import EditableButton from '@/app/components/EditableButton';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
-import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
+import SiteFooter from '@/app/components/SiteFooter';
 import { TemplateFonts } from './TemplateFonts';
 
 interface MasterTemplateProps {
@@ -21,13 +19,8 @@ interface MasterTemplateProps {
  */
 export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTemplateProps) {
     const context = useEditorContext();
-    const content = context?.content || {};
     const siteContent = context?.siteContent || {};
-    const updateContent = context?.updateContent || (() => { });
-    const updateSiteContent = context?.updateSiteContent || (() => { });
 
-    const pPrimary = palette.primary || '#374151';
-    const pSecondary = palette.secondary || '#10b981';
     const pAccent = palette.accent || '#ffffff';
 
     const titleFont = siteContent.titleFont || 'Lora';
@@ -71,30 +64,22 @@ export function MinimalWhiteTemplate({ palette, isEditMode, children }: MasterTe
                 {children || <BlockRenderer palette={palette} />}
             </main>
 
-            {/* Footer — clean & minimal */}
-            <footer className="py-16 border-t border-slate-100">
-                <div className="max-w-6xl mx-auto px-6 text-center">
-                    <div className="flex items-center justify-center gap-3 mb-4">
-                        {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
-                            <img
-                                src={siteContent.footerLogo || siteContent.siteLogo}
-                                alt={stripHighlight(siteContent.siteTitle) || 'Logo'}
-                                className="w-8 h-8 object-contain"
-                             style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
-                        ) : (
-                            <div className="w-8 h-8 rounded flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pPrimary }}>
-                                {(stripHighlight(siteContent.siteTitle) || 'S')[0]?.toUpperCase()}
-                            </div>
-                        ))}
-                        <span className="text-lg font-semibold tracking-wide font-title" style={{ color: pPrimary, ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>
-                            {renderSiteTitle(siteContent.siteTitle || 'Studio')}
-                        </span>
-                    </div>
-                    <p className="text-sm text-slate-400">
-                        Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>
-                    </p>
-                </div>
-            </footer>
+            <SiteFooter
+                palette={palette}
+                isEditMode={isEditMode}
+                defaults={{
+                    layout: 'centered',
+                    bgType: 'transparent',
+                    bgClass: '',
+                    borderClass: 'border-t border-slate-100',
+                    paddingClass: 'py-16',
+                    containerClass: 'max-w-6xl',
+                    logoSize: 32,
+                    logoClass: 'rounded',
+                    logoStyleFn: (p) => ({ backgroundColor: p.primary, color: '#ffffff' }),
+                    titleClass: 'text-lg font-semibold tracking-wide font-title',
+                }}
+            />
         </div>
     );
 }

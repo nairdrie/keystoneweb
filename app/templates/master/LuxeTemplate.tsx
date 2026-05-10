@@ -3,7 +3,7 @@
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
-import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
+import SiteFooter from '@/app/components/SiteFooter';
 import { TemplateFonts } from './TemplateFonts';
 
 interface MasterTemplateProps {
@@ -20,11 +20,6 @@ interface MasterTemplateProps {
 export function LuxeTemplate({ palette, isEditMode, children }: MasterTemplateProps) {
     const context = useEditorContext();
     const siteContent = context?.siteContent || {};
-    const updateSiteContent = context?.updateSiteContent || (() => { });
-
-    const pPrimary = palette.primary || '#1c1917';
-    const pSecondary = palette.secondary || '#b45309';
-    const pAccent = palette.accent || '#fef7ed';
 
     const titleFont = siteContent.titleFont || 'Playfair Display';
     const bodyFont = siteContent.bodyFont || 'Lato';
@@ -68,27 +63,21 @@ export function LuxeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                 {children || <BlockRenderer palette={palette} />}
             </main>
 
-            {/* Footer — elegant with columns */}
-            <footer className="py-16 border-t border-gray-100" style={{ backgroundColor: pPrimary }}>
-                <div className="max-w-6xl mx-auto px-6 text-center">
-                    <div className="flex flex-col items-center gap-4 mb-4">
-                        {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
-                            <img src={siteContent.footerLogo || siteContent.siteLogo} alt={siteContent.siteTitle || 'Site logo'} className="w-10 h-10 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
-                        ) : (
-                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ backgroundColor: pSecondary }}>
-                                {(stripHighlight(siteContent.siteTitle) || 'L')[0]?.toUpperCase()}
-                            </div>
-                        ))}
-                        <div className="text-2xl font-bold tracking-[0.2em] uppercase font-title text-white/90" style={{ ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>
-                            {renderSiteTitle(siteContent.siteTitle || 'LUXE STUDIO')}
-                        </div>
-                    </div>
-                    <div className="w-12 border-t mx-auto mb-6" style={{ borderColor: pSecondary }} />
-                    <p className="text-sm text-white/40">
-                        Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>
-                    </p>
-                </div>
-            </footer>
+            <SiteFooter
+                palette={palette}
+                isEditMode={isEditMode}
+                defaults={{
+                    layout: 'centered',
+                    bgType: 'primary',
+                    paddingClass: 'py-16',
+                    containerClass: 'max-w-6xl',
+                    textIsLight: true,
+                    logoSize: 40,
+                    logoClass: 'rounded-full',
+                    logoStyleFn: (p) => ({ backgroundColor: p.secondary, color: '#ffffff' }),
+                    titleClass: 'text-2xl font-bold tracking-[0.2em] uppercase font-title',
+                }}
+            />
         </div>
     );
 }

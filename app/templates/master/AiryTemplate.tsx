@@ -3,7 +3,7 @@
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
-import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
+import SiteFooter from '@/app/components/SiteFooter';
 import { TemplateFonts } from './TemplateFonts';
 
 interface MasterTemplateProps {
@@ -20,9 +20,7 @@ interface MasterTemplateProps {
 export function AiryTemplate({ palette, isEditMode, children }: MasterTemplateProps) {
     const context = useEditorContext();
     const siteContent = context?.siteContent || {};
-    const updateSiteContent = context?.updateSiteContent || (() => { });
 
-    const pPrimary = palette.primary || '#059669';
     const pAccent = palette.accent || '#ecfdf5';
 
     const titleFont = siteContent.titleFont || 'Nunito';
@@ -67,26 +65,21 @@ export function AiryTemplate({ palette, isEditMode, children }: MasterTemplatePr
                 {children || <BlockRenderer palette={palette} />}
             </main>
 
-            {/* Footer — soft rounded */}
-            <footer className="py-12 mt-8">
-                <div className="max-w-6xl mx-auto px-6">
-                    <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
-                        <div className="flex items-center justify-center gap-2 mb-3">
-                            {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
-                                <img src={siteContent.footerLogo || siteContent.siteLogo} alt={siteContent.siteTitle || 'Site logo'} className="w-8 h-8 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
-                            ) : (
-                                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: pPrimary }}>
-                                    {(stripHighlight(siteContent.siteTitle) || 'A')[0]?.toUpperCase()}
-                                </div>
-                            ))}
-                            <span className="font-bold text-sm" style={{ color: pPrimary, ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>{renderSiteTitle(siteContent.siteTitle || 'Airy Studio')}</span>
-                        </div>
-                        <p className="text-xs text-gray-400">
-                            Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>
-                        </p>
-                    </div>
-                </div>
-            </footer>
+            <SiteFooter
+                palette={palette}
+                isEditMode={isEditMode}
+                defaults={{
+                    layout: 'card',
+                    bgType: 'transparent',
+                    paddingClass: 'py-12 mt-8',
+                    containerClass: 'max-w-6xl',
+                    cardClass: 'bg-white rounded-2xl shadow-sm p-8',
+                    logoSize: 32,
+                    logoClass: 'rounded-full',
+                    logoStyleFn: (p) => ({ backgroundColor: p.primary, color: '#ffffff' }),
+                    titleClass: 'font-bold text-sm',
+                }}
+            />
         </div>
     );
 }
