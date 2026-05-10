@@ -113,9 +113,6 @@ export default function FooterSettingsPanel({
             footerTagline: siteContent.footerTagline,
             showFooterCopyright: siteContent.showFooterCopyright,
             footerCopyrightText: siteContent.footerCopyrightText,
-            showFooterPoweredBy: siteContent.showFooterPoweredBy,
-            footerPoweredByText: siteContent.footerPoweredByText,
-            footerPoweredByLink: siteContent.footerPoweredByLink,
             footerNavMode: siteContent.footerNavMode,
             footerNavItems: siteContent.footerNavItems,
             showFooterSocial: siteContent.showFooterSocial,
@@ -155,7 +152,6 @@ export default function FooterSettingsPanel({
     const showTitle: boolean = siteContent.showFooterTitle !== false;
     const showTagline: boolean = !!siteContent.showFooterTagline;
     const showCopyright: boolean = !!siteContent.showFooterCopyright;
-    const showPoweredBy: boolean = siteContent.showFooterPoweredBy !== false;
     const showSocial: boolean = !!siteContent.showFooterSocial;
     const showContact: boolean = !!siteContent.showFooterContact;
     const showLegalLinks: boolean = !!siteContent.showFooterLegalLinks;
@@ -421,11 +417,6 @@ export default function FooterSettingsPanel({
                             checked={showLegalLinks}
                             onChange={() => updateSiteContent('showFooterLegalLinks', !showLegalLinks)}
                         />
-                        <InspectorToggle
-                            label='"Powered by" credit'
-                            checked={showPoweredBy}
-                            onChange={() => updateSiteContent('showFooterPoweredBy', !showPoweredBy)}
-                        />
                     </div>
                 </InspectorSection>
 
@@ -636,10 +627,10 @@ export default function FooterSettingsPanel({
                     </InspectorSection>
                 )}
 
-                {/* ── COPYRIGHT & POWERED BY ── */}
+                {/* ── COPYRIGHT & LEGAL ── */}
                 <InspectorSection
                     id="copyright"
-                    title="Copyright & Credit"
+                    title="Copyright & Legal"
                     isCollapsed={sectionState.isCollapsed('copyright')}
                     onToggle={() => sectionState.toggle('copyright')}
                 >
@@ -660,34 +651,6 @@ export default function FooterSettingsPanel({
                                     Use <code className="rounded bg-slate-100 px-1 py-0.5 text-[11px] font-mono">{'{year}'}</code> for current year.
                                 </p>
                             </div>
-                        )}
-                        {showPoweredBy && (
-                            <>
-                                <div>
-                                    <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                                        &quot;Powered by&quot; text
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={siteContent.footerPoweredByText || ''}
-                                        onChange={(e) => updateSiteContent('footerPoweredByText', e.target.value)}
-                                        placeholder="Powered by Keystone"
-                                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                                        Link
-                                    </label>
-                                    <input
-                                        type="url"
-                                        value={siteContent.footerPoweredByLink || ''}
-                                        onChange={(e) => updateSiteContent('footerPoweredByLink', e.target.value)}
-                                        placeholder="https://keystoneweb.ca"
-                                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                </div>
-                            </>
                         )}
                         {showLegalLinks && (
                             <div className="space-y-2">

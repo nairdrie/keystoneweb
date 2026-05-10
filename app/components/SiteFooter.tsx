@@ -153,7 +153,6 @@ export default function SiteFooter({
     const showCopyright: boolean = siteContent.showFooterCopyright !== undefined
         ? !!siteContent.showFooterCopyright
         : !!defaults.defaultShowCopyright;
-    const showPoweredBy: boolean = siteContent.showFooterPoweredBy !== false;
     const showSocial: boolean = !!siteContent.showFooterSocial;
     const showContact: boolean = !!siteContent.showFooterContact;
     const showLegalLinks: boolean = !!siteContent.showFooterLegalLinks;
@@ -318,60 +317,22 @@ export default function SiteFooter({
     ) : null;
 
     // ── Powered by ────────────────────────────────────────────────────────
-    const poweredByText = siteContent.footerPoweredByText || 'Powered by Keystone';
-    const poweredByLink = siteContent.footerPoweredByLink || 'https://keystoneweb.ca';
-    const poweredByEl = showPoweredBy ? (
+    // Always shown with fixed text and link — this is the only footer element
+    // that is intentionally not editable or removable.
+    const poweredByEl = (
         <p className={`text-xs ${subtleTextClass}`}>
-            {(() => {
-                // Render text with the link wrapping the brand word.
-                // We split on "Keystone" if present so the link covers that word;
-                // otherwise the whole text is linked.
-                const text = poweredByText;
-                const idx = text.toLowerCase().indexOf('keystone');
-                if (idx === -1 || isEditMode) {
-                    if (isEditMode) {
-                        return (
-                            <EditableText
-                                as="span"
-                                contentKey="footerPoweredByText"
-                                content={siteContent.footerPoweredByText}
-                                defaultValue="Powered by Keystone"
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                            />
-                        );
-                    }
-                    return (
-                        <a
-                            href={poweredByLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="underline hover:opacity-80 transition-opacity"
-                        >
-                            {text}
-                        </a>
-                    );
-                }
-                const before = text.slice(0, idx);
-                const brand = text.slice(idx, idx + 'Keystone'.length);
-                const after = text.slice(idx + 'Keystone'.length);
-                return (
-                    <>
-                        {before}
-                        <a
-                            href={poweredByLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="underline hover:opacity-80 transition-opacity"
-                        >
-                            {brand}
-                        </a>
-                        {after}
-                    </>
-                );
-            })()}
+            Powered by{' '}
+            <a
+                href="https://keystoneweb.ca"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => isEditMode && e.preventDefault()}
+                className="underline hover:opacity-80 transition-opacity"
+            >
+                Keystone
+            </a>
         </p>
-    ) : null;
+    );
 
     // ── Social links ──────────────────────────────────────────────────────
     const socialLinks = [
@@ -609,7 +570,7 @@ export default function SiteFooter({
                     {socialEl && <div className="mt-2">{socialEl}</div>}
                     {legalEl && <div className="mt-2">{legalEl}</div>}
                     {copyrightEl && <div className="mt-2">{copyrightEl}</div>}
-                    {poweredByEl && <div className="mt-2">{poweredByEl}</div>}
+                    <div className="mt-2">{poweredByEl}</div>
                 </div>
             </div>
         );
@@ -647,15 +608,13 @@ export default function SiteFooter({
                         </div>
                     )}
                 </div>
-                {(showCopyright || showPoweredBy || showLegalLinks) && (
-                    <div className={`mt-10 pt-6 border-t ${textIsLight ? 'border-white/10' : 'border-slate-100'} flex flex-col sm:flex-row items-center justify-between gap-3`}>
-                        <div className="flex flex-col sm:flex-row items-center gap-3">
-                            {copyrightEl}
-                            {legalEl}
-                        </div>
-                        {poweredByEl}
+                <div className={`mt-10 pt-6 border-t ${textIsLight ? 'border-white/10' : 'border-slate-100'} flex flex-col sm:flex-row items-center justify-between gap-3`}>
+                    <div className="flex flex-col sm:flex-row items-center gap-3">
+                        {copyrightEl}
+                        {legalEl}
                     </div>
-                )}
+                    {poweredByEl}
+                </div>
             </div>
         );
     }
@@ -687,7 +646,7 @@ export default function SiteFooter({
                         {socialEl && <div className="mt-2">{socialEl}</div>}
                         {legalEl && <div className="mt-2">{legalEl}</div>}
                         {copyrightEl && <div className="mt-1">{copyrightEl}</div>}
-                        {poweredByEl && <div className="mt-1">{poweredByEl}</div>}
+                        <div className="mt-1">{poweredByEl}</div>
                     </div>
                 </div>
             </div>
