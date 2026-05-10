@@ -25,6 +25,7 @@ import {
 import {
     Align,
     BgType,
+    DEFAULT_CTA2_LABEL,
     HeroBackground,
     HeroBreakpoint,
     HeroCard,
@@ -32,13 +33,18 @@ import {
     HeroHeight,
     HeroHeightConfig,
     HeroPretextStyle,
+    HeroSocialLink,
     HeroTransition,
     ImageSide,
+    SecondaryCtaPlacement,
     makeCardId,
     makeDefaultCard,
+    makeSocialLinkId,
     migrateLegacyHeroData,
+    resolveElementOrder,
     VideoSource,
 } from './hero-schema';
+import { SOCIAL_PLATFORM_OPTIONS, getSocialIcon, getSocialPlatformLabel } from '../contact/contact-config';
 import {
     HERO_BG_ANIMATION_LIST,
     HERO_BG_ANIMATION_META,
@@ -220,6 +226,18 @@ export default function HeroSettingsPanel({
             next.splice(target, 0, item);
             if (activeIndex === idx) setActiveIndex(target);
             return next;
+        });
+    };
+
+    const moveElement = (idx: number, dir: -1 | 1) => {
+        updateActiveCard((card) => {
+            const order = resolveElementOrder(card.content.elementOrder);
+            const target = idx + dir;
+            if (target < 0 || target >= order.length) return card;
+            const next = [...order];
+            const [item] = next.splice(idx, 1);
+            next.splice(target, 0, item);
+            return { ...card, content: { ...card.content, elementOrder: next } };
         });
     };
 
@@ -446,38 +464,104 @@ export default function HeroSettingsPanel({
                     onToggle={() => sectionState.toggle('content-layout')}
                 >
                     <div className="space-y-3">
-                        <PretextRow
-                            enabled={activeCard.content.pretext.enabled}
-                            onToggle={() => updateContent('pretext', { enabled: !activeCard.content.pretext.enabled })}
-                            align={activeCard.content.pretext.align}
-                            onAlign={(a) => updateContent('pretext', { align: a })}
-                            style={activeCard.content.pretext.style}
-                            onStyle={(s) => updateContent('pretext', { style: s })}
-                            color={activeCard.content.pretext.color}
-                            onColor={(c) => updateContent('pretext', { color: c })}
-                            palette={palette}
-                        />
-                        <ContentRow
-                            label="Title"
-                            enabled={activeCard.content.title.enabled}
-                            onToggle={() => updateContent('title', { enabled: !activeCard.content.title.enabled })}
-                            align={activeCard.content.title.align}
-                            onAlign={(a) => updateContent('title', { align: a })}
-                        />
-                        <ContentRow
-                            label="Subtitle"
-                            enabled={activeCard.content.subtitle.enabled}
-                            onToggle={() => updateContent('subtitle', { enabled: !activeCard.content.subtitle.enabled })}
-                            align={activeCard.content.subtitle.align}
-                            onAlign={(a) => updateContent('subtitle', { align: a })}
-                        />
-                        <ContentRow
-                            label="CTA Button"
-                            enabled={activeCard.content.cta.enabled}
-                            onToggle={() => updateContent('cta', { enabled: !activeCard.content.cta.enabled })}
-                            align={activeCard.content.cta.align}
-                            onAlign={(a) => updateContent('cta', { align: a })}
-                        />
+                        <p className="text-xs leading-relaxed text-slate-500">
+                            Reorder elements with the up/down arrows. Toggle off any element you don&apos;t need.
+                        </p>
+                        {resolveElementOrder(activeCard.content.elementOrder).map((key, idx, arr) => {
+                            const moveControls = (
+                                <MoveControls
+                                    onMoveUp={() => moveElement(idx, -1)}
+                                    onMoveDown={() => moveElement(idx, 1)}
+                                    canMoveUp={idx > 0}
+                                    canMoveDown={idx < arr.length - 1}
+                                />
+                            );
+                            if (key === 'pretext') {
+                                return (
+                                    <PretextRow
+                                        key="pretext"
+                                        enabled={activeCard.content.pretext.enabled}
+                                        onToggle={() => updateContent('pretext', { enabled: !activeCard.content.pretext.enabled })}
+                                        align={activeCard.content.pretext.align}
+                                        onAlign={(a) => updateContent('pretext', { align: a })}
+                                        style={activeCard.content.pretext.style}
+                                        onStyle={(s) => updateContent('pretext', { style: s })}
+                                        color={activeCard.content.pretext.color}
+                                        onColor={(c) => updateContent('pretext', { color: c })}
+                                        palette={palette}
+                                        moveControls={moveControls}
+                                    />
+                                );
+                            }
+                            if (key === 'title') {
+                                return (
+                                    <ContentRow
+                                        key="title"
+                                        label="Title"
+                                        enabled={activeCard.content.title.enabled}
+                                        onToggle={() => updateContent('title', { enabled: !activeCard.content.title.enabled })}
+                                        align={activeCard.content.title.align}
+                                        onAlign={(a) => updateContent('title', { align: a })}
+                                        moveControls={moveControls}
+                                    />
+                                );
+                            }
+                            if (key === 'subtitle') {
+                                return (
+                                    <ContentRow
+                                        key="subtitle"
+                                        label="Subtitle"
+                                        enabled={activeCard.content.subtitle.enabled}
+                                        onToggle={() => updateContent('subtitle', { enabled: !activeCard.content.subtitle.enabled })}
+                                        align={activeCard.content.subtitle.align}
+                                        onAlign={(a) => updateContent('subtitle', { align: a })}
+                                        moveControls={moveControls}
+                                    />
+                                );
+                            }
+                            if (key === 'social') {
+                                return (
+                                    <SocialRow
+                                        key="social"
+                                        enabled={activeCard.content.social.enabled}
+                                        onToggle={() => updateContent('social', { enabled: !activeCard.content.social.enabled })}
+                                        align={activeCard.content.social.align}
+                                        onAlign={(a) => updateContent('social', { align: a })}
+                                        links={activeCard.content.social.links}
+                                        onLinksChange={(links) => updateContent('social', { links })}
+                                        moveControls={moveControls}
+                                    />
+                                );
+                            }
+                            if (key === 'cta') {
+                                return (
+                                    <ContentRow
+                                        key="cta"
+                                        label="CTA Button"
+                                        enabled={activeCard.content.cta.enabled}
+                                        onToggle={() => updateContent('cta', { enabled: !activeCard.content.cta.enabled })}
+                                        align={activeCard.content.cta.align}
+                                        onAlign={(a) => updateContent('cta', { align: a })}
+                                        moveControls={moveControls}
+                                    >
+                                        <SecondaryCtaControls
+                                            secondary={activeCard.content.cta.secondary}
+                                            placement={activeCard.content.cta.secondaryPlacement === 'below' ? 'below' : 'beside'}
+                                            onSecondaryChange={(patch) => updateContent('cta', {
+                                                secondary: {
+                                                    enabled: false,
+                                                    label: DEFAULT_CTA2_LABEL,
+                                                    ...(activeCard.content.cta.secondary || {}),
+                                                    ...patch,
+                                                },
+                                            })}
+                                            onPlacementChange={(p) => updateContent('cta', { secondaryPlacement: p })}
+                                        />
+                                    </ContentRow>
+                                );
+                            }
+                            return null;
+                        })}
                         <div className="rounded-xl border border-slate-200 p-3">
                             <div className="flex items-center justify-between gap-3">
                                 <div>
@@ -732,41 +816,322 @@ function ContentRow({
     onToggle,
     align,
     onAlign,
+    moveControls,
+    children,
 }: {
     label: string;
     enabled: boolean;
     onToggle: () => void;
     align: Align;
     onAlign: (a: Align) => void;
+    moveControls?: React.ReactNode;
+    children?: React.ReactNode;
 }) {
     return (
         <div className="rounded-xl border border-slate-200 p-3">
             <div className="flex items-center justify-between gap-3">
                 <span className="text-sm font-medium text-slate-700">{label}</span>
-                <Toggle checked={enabled} onChange={onToggle} />
+                <div className="flex items-center gap-1.5">
+                    {moveControls}
+                    <Toggle checked={enabled} onChange={onToggle} />
+                </div>
             </div>
             {enabled && (
-                <div className="mt-3 grid grid-cols-3 gap-1">
-                    {ALIGN_OPTIONS.map(({ id, label: alignLabel, Icon }) => {
-                        const isActive = align === id;
-                        return (
-                            <button
-                                key={id}
-                                type="button"
-                                onClick={() => onAlign(id)}
-                                aria-pressed={isActive}
-                                className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                    isActive ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                                }`}
-                                title={`${label} ${alignLabel}`}
-                            >
-                                <Icon className="h-3.5 w-3.5" />
-                                {alignLabel}
-                            </button>
-                        );
-                    })}
+                <>
+                    <div className="mt-3 grid grid-cols-3 gap-1">
+                        {ALIGN_OPTIONS.map(({ id, label: alignLabel, Icon }) => {
+                            const isActive = align === id;
+                            return (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => onAlign(id)}
+                                    aria-pressed={isActive}
+                                    className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                        isActive ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                    }`}
+                                    title={`${label} ${alignLabel}`}
+                                >
+                                    <Icon className="h-3.5 w-3.5" />
+                                    {alignLabel}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {children && <div className="mt-3">{children}</div>}
+                </>
+            )}
+        </div>
+    );
+}
+
+function MoveControls({
+    onMoveUp,
+    onMoveDown,
+    canMoveUp,
+    canMoveDown,
+}: {
+    onMoveUp: () => void;
+    onMoveDown: () => void;
+    canMoveUp: boolean;
+    canMoveDown: boolean;
+}) {
+    return (
+        <div className="flex items-center">
+            <button
+                type="button"
+                onClick={onMoveUp}
+                disabled={!canMoveUp}
+                className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 disabled:hover:bg-transparent"
+                title="Move up"
+                aria-label="Move element up"
+            >
+                <ChevronUp className="h-3.5 w-3.5" />
+            </button>
+            <button
+                type="button"
+                onClick={onMoveDown}
+                disabled={!canMoveDown}
+                className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-30 disabled:hover:bg-transparent"
+                title="Move down"
+                aria-label="Move element down"
+            >
+                <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+        </div>
+    );
+}
+
+function SecondaryCtaControls({
+    secondary,
+    placement,
+    onSecondaryChange,
+    onPlacementChange,
+}: {
+    secondary: { enabled: boolean; label: string; link?: unknown; icon?: unknown } | undefined;
+    placement: SecondaryCtaPlacement;
+    onSecondaryChange: (patch: Partial<{ enabled: boolean; label: string; link?: unknown; icon?: unknown }>) => void;
+    onPlacementChange: (p: SecondaryCtaPlacement) => void;
+}) {
+    const enabled = !!secondary?.enabled;
+    return (
+        <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="flex items-center justify-between gap-3">
+                <div>
+                    <p className="text-sm font-medium text-slate-700">Secondary button</p>
+                    <p className="text-xs text-slate-500">Add a second link next to the primary CTA.</p>
+                </div>
+                <Toggle checked={enabled} onChange={() => onSecondaryChange({ enabled: !enabled })} />
+            </div>
+            {enabled && (
+                <div className="space-y-3">
+                    <div>
+                        <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">Label</label>
+                        <input
+                            type="text"
+                            value={secondary?.label || ''}
+                            onChange={(e) => onSecondaryChange({ label: e.target.value })}
+                            placeholder={DEFAULT_CTA2_LABEL}
+                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                    <div>
+                        <p className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-500">Placement</p>
+                        <div className="grid grid-cols-2 gap-2">
+                            {(['beside', 'below'] as SecondaryCtaPlacement[]).map((p) => {
+                                const isActive = placement === p;
+                                return (
+                                    <button
+                                        key={p}
+                                        type="button"
+                                        onClick={() => onPlacementChange(p)}
+                                        aria-pressed={isActive}
+                                        className={`rounded-lg border px-3 py-2 text-sm font-bold capitalize transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                            isActive ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        {p}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-slate-500">
+                        Click the button on the canvas to edit its link, icon, and styling.
+                    </p>
                 </div>
             )}
+        </div>
+    );
+}
+
+function SocialRow({
+    enabled,
+    onToggle,
+    align,
+    onAlign,
+    links,
+    onLinksChange,
+    moveControls,
+}: {
+    enabled: boolean;
+    onToggle: () => void;
+    align: Align;
+    onAlign: (a: Align) => void;
+    links: HeroSocialLink[];
+    onLinksChange: (links: HeroSocialLink[]) => void;
+    moveControls?: React.ReactNode;
+}) {
+    const updateLink = (id: string, patch: Partial<HeroSocialLink>) => {
+        onLinksChange(links.map((l) => l.id === id ? { ...l, ...patch } : l));
+    };
+    const removeLink = (id: string) => {
+        onLinksChange(links.filter((l) => l.id !== id));
+    };
+    const addLink = () => {
+        const platform = SOCIAL_PLATFORM_OPTIONS[0];
+        onLinksChange([
+            ...links,
+            { id: makeSocialLinkId(), platform: platform.key, label: platform.label, url: '' },
+        ]);
+    };
+    const moveLink = (idx: number, dir: -1 | 1) => {
+        const target = idx + dir;
+        if (target < 0 || target >= links.length) return;
+        const next = [...links];
+        const [item] = next.splice(idx, 1);
+        next.splice(target, 0, item);
+        onLinksChange(next);
+    };
+
+    return (
+        <div className="rounded-xl border border-slate-200 p-3">
+            <div className="flex items-center justify-between gap-3">
+                <div>
+                    <p className="text-sm font-medium text-slate-700">Social links</p>
+                    <p className="text-xs text-slate-500">Round social icons rendered inline with the content.</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    {moveControls}
+                    <Toggle checked={enabled} onChange={onToggle} />
+                </div>
+            </div>
+            {enabled && (
+                <div className="mt-3 space-y-3">
+                    <div>
+                        <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-slate-500">Alignment</p>
+                        <div className="grid grid-cols-3 gap-1">
+                            {ALIGN_OPTIONS.map(({ id, label: alignLabel, Icon }) => {
+                                const isActive = align === id;
+                                return (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        onClick={() => onAlign(id)}
+                                        aria-pressed={isActive}
+                                        className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-bold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                            isActive ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <Icon className="h-3.5 w-3.5" />
+                                        {alignLabel}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        {links.length === 0 && (
+                            <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                                No social links yet. Add one below.
+                            </p>
+                        )}
+                        {links.map((link, idx) => (
+                            <SocialLinkRow
+                                key={link.id}
+                                link={link}
+                                canMoveUp={idx > 0}
+                                canMoveDown={idx < links.length - 1}
+                                onMoveUp={() => moveLink(idx, -1)}
+                                onMoveDown={() => moveLink(idx, 1)}
+                                onChange={(patch) => updateLink(link.id, patch)}
+                                onRemove={() => removeLink(link.id)}
+                            />
+                        ))}
+                        <button
+                            type="button"
+                            onClick={addLink}
+                            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-blue-300 px-3 py-1.5 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-50"
+                        >
+                            <Plus className="h-3.5 w-3.5" />
+                            Add social link
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function SocialLinkRow({
+    link,
+    canMoveUp,
+    canMoveDown,
+    onMoveUp,
+    onMoveDown,
+    onChange,
+    onRemove,
+}: {
+    link: HeroSocialLink;
+    canMoveUp: boolean;
+    canMoveDown: boolean;
+    onMoveUp: () => void;
+    onMoveDown: () => void;
+    onChange: (patch: Partial<HeroSocialLink>) => void;
+    onRemove: () => void;
+}) {
+    const Icon = getSocialIcon(link.platform);
+    return (
+        <div className="rounded-lg border border-slate-200 bg-white p-2.5">
+            <div className="flex items-center gap-2">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-600">
+                    <Icon className="h-4 w-4" />
+                </span>
+                <select
+                    value={link.platform}
+                    onChange={(e) => {
+                        const platform = e.target.value;
+                        onChange({ platform, label: getSocialPlatformLabel(platform) });
+                    }}
+                    className="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                    {SOCIAL_PLATFORM_OPTIONS.map((opt) => (
+                        <option key={opt.key} value={opt.key}>{opt.label}</option>
+                    ))}
+                </select>
+                <MoveControls
+                    onMoveUp={onMoveUp}
+                    onMoveDown={onMoveDown}
+                    canMoveUp={canMoveUp}
+                    canMoveDown={canMoveDown}
+                />
+                <button
+                    type="button"
+                    onClick={onRemove}
+                    className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500"
+                    title="Remove"
+                    aria-label="Remove social link"
+                >
+                    <Trash2 className="h-3.5 w-3.5" />
+                </button>
+            </div>
+            <input
+                type="url"
+                value={link.url}
+                onChange={(e) => onChange({ url: e.target.value })}
+                placeholder="https://..."
+                className="mt-2 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500"
+            />
         </div>
     );
 }
@@ -794,6 +1159,7 @@ function PretextRow({
     color,
     onColor,
     palette,
+    moveControls,
 }: {
     enabled: boolean;
     onToggle: () => void;
@@ -804,6 +1170,7 @@ function PretextRow({
     color: string;
     onColor: (c: string) => void;
     palette: Record<string, string>;
+    moveControls?: React.ReactNode;
 }) {
     return (
         <div className="rounded-xl border border-slate-200 p-3">
@@ -812,7 +1179,10 @@ function PretextRow({
                     <span className="text-sm font-medium text-slate-700">Label</span>
                     <p className="text-xs text-slate-500">Small text shown above the title.</p>
                 </div>
-                <Toggle checked={enabled} onChange={onToggle} />
+                <div className="flex items-center gap-1.5">
+                    {moveControls}
+                    <Toggle checked={enabled} onChange={onToggle} />
+                </div>
             </div>
             {enabled && (
                 <div className="mt-3 space-y-3">

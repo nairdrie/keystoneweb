@@ -8,6 +8,8 @@ export type CardTransition = 'fade' | 'slide' | 'none';
 export type BgType = 'image' | 'video' | 'gradient' | 'animation' | 'pattern';
 export type VideoSource = 'pexels' | 'url';
 export type HeroPretextStyle = 'text' | 'pill' | 'outline' | 'underline';
+export type SecondaryCtaPlacement = 'beside' | 'below';
+export type HeroElementKey = 'pretext' | 'title' | 'subtitle' | 'social' | 'cta';
 
 export interface HeroPretext {
     enabled: boolean;
@@ -15,6 +17,13 @@ export interface HeroPretext {
     style: HeroPretextStyle;
     color: string;
     align: Align;
+}
+
+export interface HeroSocialLink {
+    id: string;
+    platform: string;
+    label?: string;
+    url: string;
 }
 
 export interface HeroContent {
@@ -27,6 +36,13 @@ export interface HeroContent {
         link?: unknown;
         icon?: unknown;
         align: Align;
+        secondary?: {
+            enabled: boolean;
+            label: string;
+            link?: unknown;
+            icon?: unknown;
+        };
+        secondaryPlacement?: SecondaryCtaPlacement;
     };
     image: {
         enabled: boolean;
@@ -35,6 +51,14 @@ export interface HeroContent {
         settings?: unknown;
         attribution?: unknown;
     };
+    social: {
+        enabled: boolean;
+        align: Align;
+        links: HeroSocialLink[];
+    };
+    /** Vertical order of elements in the text column. Missing keys fall back
+     *  to DEFAULT_ELEMENT_ORDER's positions; unknown keys are ignored. */
+    elementOrder?: HeroElementKey[];
 }
 
 export interface HeroBackground {
@@ -110,6 +134,7 @@ export interface HeroData {
 export const DEFAULT_TITLE = 'Welcome to our site';
 export const DEFAULT_SUBTITLE = 'We offer the best services available.';
 export const DEFAULT_CTA_LABEL = 'Get a Free Quote';
+export const DEFAULT_CTA2_LABEL = 'Learn More';
 export const DEFAULT_PRETEXT = 'Welcome';
 
 export const DEFAULT_HERO_PRETEXT: HeroPretext = {
@@ -120,6 +145,27 @@ export const DEFAULT_HERO_PRETEXT: HeroPretext = {
     align: 'left',
 };
 
+export const DEFAULT_ELEMENT_ORDER: HeroElementKey[] = ['pretext', 'title', 'subtitle', 'social', 'cta'];
+
+/** Returns a sanitized order: known keys in user order followed by any
+ *  default-order keys the user hasn't placed yet. Guarantees every renderer
+ *  key gets emitted exactly once. */
+export function resolveElementOrder(order: HeroElementKey[] | undefined): HeroElementKey[] {
+    const known = new Set<HeroElementKey>(DEFAULT_ELEMENT_ORDER);
+    const seen = new Set<HeroElementKey>();
+    const result: HeroElementKey[] = [];
+    for (const key of order || []) {
+        if (known.has(key) && !seen.has(key)) {
+            result.push(key);
+            seen.add(key);
+        }
+    }
+    for (const key of DEFAULT_ELEMENT_ORDER) {
+        if (!seen.has(key)) result.push(key);
+    }
+    return result;
+}
+
 export function makeDefaultCard(id: string): HeroCard {
     return {
         id,
@@ -127,8 +173,16 @@ export function makeDefaultCard(id: string): HeroCard {
             pretext: { ...DEFAULT_HERO_PRETEXT },
             title: { enabled: true, value: DEFAULT_TITLE, align: 'left' },
             subtitle: { enabled: true, value: DEFAULT_SUBTITLE, align: 'left' },
-            cta: { enabled: true, label: DEFAULT_CTA_LABEL, align: 'left' },
+            cta: {
+                enabled: true,
+                label: DEFAULT_CTA_LABEL,
+                align: 'left',
+                secondary: { enabled: false, label: DEFAULT_CTA2_LABEL },
+                secondaryPlacement: 'beside',
+            },
             image: { enabled: false, url: '', side: 'right' },
+            social: { enabled: false, align: 'left', links: [] },
+            elementOrder: [...DEFAULT_ELEMENT_ORDER],
         },
         background: {
             type: 'gradient',
@@ -204,6 +258,8 @@ export function migrateLegacyHeroData(raw: unknown): HeroData {
             link: data.buttonTextLink,
             icon: data.buttonTextIcon,
             align: baseAlign,
+            secondary: { enabled: false, label: DEFAULT_CTA2_LABEL },
+            secondaryPlacement: 'beside',
         },
         image: {
             enabled: variant === 'split',
@@ -212,6 +268,8 @@ export function migrateLegacyHeroData(raw: unknown): HeroData {
             settings: variant === 'split' ? data.image__settings : undefined,
             attribution: variant === 'split' ? data.image__attribution : undefined,
         },
+        social: { enabled: false, align: baseAlign, links: [] },
+        elementOrder: [...DEFAULT_ELEMENT_ORDER],
     };
 
     const overlayDefault = { color: '#000000', opacity: variant === 'fullImage' || variant === 'video' || variant === 'centered' ? 0.5 : 0 };
@@ -298,13 +356,72 @@ function duplicateContent(c: HeroContent): HeroContent {
         pretext: { ...c.pretext },
         title: { ...c.title },
         subtitle: { ...c.subtitle },
-        cta: { ...c.cta },
+        cta: {
+            ...c.cta,
+            secondary: c.cta.secondary ? { ...c.cta.secondary } : undefined,
+        },
         image: { ...c.image },
+        social: { ...c.social, links: c.social.links.map((l) => ({ ...l })) },
+        elementOrder: c.elementOrder ? [...c.elementOrder] : undefined,
     };
 }
 
 function withDefaults<T extends object>(defaults: T, override: Partial<T> | undefined | null | unknown): T {
     return Object.assign({}, defaults, (override || {}) as Partial<T>) as T;
+}
+
+function normalizeCta(cta: HeroContent['cta'] | undefined): HeroContent['cta'] {
+    const base = withDefaults(
+        { enabled: true, label: DEFAULT_CTA_LABEL, align: 'left' as Align },
+        cta,
+    ) as HeroContent['cta'];
+    const sec = cta?.secondary;
+    return {
+        ...base,
+        secondary: sec
+            ? {
+                enabled: !!sec.enabled,
+                label: typeof sec.label === 'string' && sec.label ? sec.label : DEFAULT_CTA2_LABEL,
+                link: sec.link,
+                icon: sec.icon,
+            }
+            : { enabled: false, label: DEFAULT_CTA2_LABEL },
+        secondaryPlacement: cta?.secondaryPlacement === 'below' ? 'below' : 'beside',
+    };
+}
+
+function normalizeSocial(
+    social: HeroContent['social'] | undefined,
+    fallbackAlign: Align | undefined,
+): HeroContent['social'] {
+    const align: Align = (social?.align === 'left' || social?.align === 'center' || social?.align === 'right')
+        ? social.align
+        : (fallbackAlign || 'left');
+    const rawLinks = Array.isArray(social?.links) ? social!.links : [];
+    const links: HeroSocialLink[] = rawLinks
+        .map((l, i) => normalizeSocialLink(l, i))
+        .filter(Boolean) as HeroSocialLink[];
+    return {
+        enabled: !!social?.enabled,
+        align,
+        links,
+    };
+}
+
+function normalizeSocialLink(item: unknown, index: number): HeroSocialLink | null {
+    if (!item || typeof item !== 'object') return null;
+    const r = item as Partial<HeroSocialLink>;
+    const platform = typeof r.platform === 'string' && r.platform ? r.platform : 'website';
+    return {
+        id: typeof r.id === 'string' && r.id ? r.id : `hero-social-${index + 1}`,
+        platform,
+        label: typeof r.label === 'string' ? r.label : undefined,
+        url: typeof r.url === 'string' ? r.url : '',
+    };
+}
+
+export function makeSocialLinkId(): string {
+    return `hero-social-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 /** Fills in any missing leaves on an already-new-format HeroData. */
@@ -315,8 +432,10 @@ function normalizeHeroData(data: Record<string, unknown> & { cards?: HeroCard[];
             pretext: withDefaults(DEFAULT_HERO_PRETEXT, c?.content?.pretext),
             title: withDefaults({ enabled: true, value: DEFAULT_TITLE, align: 'left' as Align }, c?.content?.title),
             subtitle: withDefaults({ enabled: true, value: DEFAULT_SUBTITLE, align: 'left' as Align }, c?.content?.subtitle),
-            cta: withDefaults({ enabled: true, label: DEFAULT_CTA_LABEL, align: 'left' as Align }, c?.content?.cta),
+            cta: normalizeCta(c?.content?.cta),
             image: withDefaults({ enabled: false, url: '', side: 'right' as ImageSide }, c?.content?.image),
+            social: normalizeSocial(c?.content?.social, c?.content?.title?.align),
+            elementOrder: resolveElementOrder(c?.content?.elementOrder),
         },
         background: Object.assign({ type: 'gradient' as BgType }, c?.background || {}) as HeroBackground,
     }));
