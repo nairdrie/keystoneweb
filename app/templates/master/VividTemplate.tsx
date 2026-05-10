@@ -3,7 +3,7 @@
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
-import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
+import SiteFooter from '@/app/components/SiteFooter';
 import { TemplateFonts } from './TemplateFonts';
 
 interface MasterTemplateProps {
@@ -20,11 +20,6 @@ interface MasterTemplateProps {
 export function VividTemplate({ palette, isEditMode, children }: MasterTemplateProps) {
     const context = useEditorContext();
     const siteContent = context?.siteContent || {};
-    const updateSiteContent = context?.updateSiteContent || (() => { });
-
-    const pPrimary = palette.primary || '#7c3aed';
-    const pSecondary = palette.secondary || '#f59e0b';
-    const pAccent = palette.accent || '#faf5ff';
 
     const titleFont = siteContent.titleFont || 'Space Grotesk';
     const bodyFont = siteContent.bodyFont || 'DM Sans';
@@ -65,27 +60,21 @@ export function VividTemplate({ palette, isEditMode, children }: MasterTemplateP
                 {children || <BlockRenderer palette={palette} />}
             </main>
 
-            {/* Footer — bold with gradient */}
-            <footer className="py-16 text-white" style={{ background: `linear-gradient(135deg, ${pPrimary}, ${pPrimary}dd)` }}>
-                <div className="max-w-7xl mx-auto px-4">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="flex items-center gap-3">
-                            {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
-                                <img src={siteContent.footerLogo || siteContent.siteLogo} alt={siteContent.siteTitle || 'Site logo'} className="w-8 h-8 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
-                            ) : (
-                                <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm" style={{ backgroundColor: pSecondary, color: pPrimary }}>
-                                    {(stripHighlight(siteContent.siteTitle) || 'V')[0]?.toUpperCase()}
-                                </div>
-                            ))}
-                            <span className="font-bold text-lg" style={{ ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>{renderSiteTitle(siteContent.siteTitle || 'Vivid Co')}</span>
-                        </div>
-                        <p className="text-sm text-white/50">
-                            Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>
-                        </p>
-
-                    </div>
-                </div>
-            </footer>
+            <SiteFooter
+                palette={palette}
+                isEditMode={isEditMode}
+                defaults={{
+                    layout: 'simple',
+                    bgType: 'primary',
+                    paddingClass: 'py-16',
+                    containerClass: 'max-w-7xl',
+                    textIsLight: true,
+                    logoSize: 32,
+                    logoClass: 'rounded-lg',
+                    logoStyleFn: (p) => ({ backgroundColor: p.secondary, color: p.primary }),
+                    titleClass: 'font-bold text-lg',
+                }}
+            />
         </div>
     );
 }

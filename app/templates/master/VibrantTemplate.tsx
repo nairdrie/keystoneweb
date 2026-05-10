@@ -3,7 +3,7 @@
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
-import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
+import SiteFooter from '@/app/components/SiteFooter';
 import { TemplateFonts } from './TemplateFonts';
 
 interface MasterTemplateProps {
@@ -20,11 +20,6 @@ interface MasterTemplateProps {
 export function VibrantTemplate({ palette, isEditMode, children }: MasterTemplateProps) {
     const context = useEditorContext();
     const siteContent = context?.siteContent || {};
-    const updateSiteContent = context?.updateSiteContent || (() => { });
-
-    const pPrimary = palette.primary || '#e11d48';
-    const pSecondary = palette.secondary || '#f97316';
-    const pAccent = palette.accent || '#fff1f2';
 
     const titleFont = siteContent.titleFont || 'Plus Jakarta Sans';
     const bodyFont = siteContent.bodyFont || 'Plus Jakarta Sans';
@@ -65,26 +60,22 @@ export function VibrantTemplate({ palette, isEditMode, children }: MasterTemplat
                 {children || <BlockRenderer palette={palette} />}
             </main>
 
-            {/* Footer — gradient with rounded card */}
-            <footer className="py-16" style={{ background: `linear-gradient(135deg, ${pPrimary}, ${pSecondary})` }}>
-                <div className="max-w-6xl mx-auto px-4">
-                    <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-8 text-center">
-                        <div className="flex items-center justify-center gap-2 mb-3">
-                            {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
-                                <img src={siteContent.footerLogo || siteContent.siteLogo} alt={siteContent.siteTitle || 'Site logo'} className="w-7 h-7 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
-                            ) : (
-                                <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-xs font-bold text-white">
-                                    {(stripHighlight(siteContent.siteTitle) || 'V')[0]?.toUpperCase()}
-                                </div>
-                            ))}
-                            <span className="font-bold text-white" style={{ ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>{renderSiteTitle(siteContent.siteTitle || 'Vibrant Co')}</span>
-                        </div>
-                        <p className="text-sm text-white/50">
-                            Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>
-                        </p>
-                    </div>
-                </div>
-            </footer>
+            <SiteFooter
+                palette={palette}
+                isEditMode={isEditMode}
+                defaults={{
+                    layout: 'card',
+                    bgType: 'gradient',
+                    paddingClass: 'py-16',
+                    containerClass: 'max-w-6xl',
+                    textIsLight: true,
+                    cardClass: 'bg-white/10 backdrop-blur-sm rounded-3xl p-8',
+                    logoSize: 28,
+                    logoClass: 'rounded-lg',
+                    logoStyleFn: () => ({ backgroundColor: 'rgba(255,255,255,0.2)', color: '#ffffff' }),
+                    titleClass: 'font-bold',
+                }}
+            />
         </div>
     );
 }

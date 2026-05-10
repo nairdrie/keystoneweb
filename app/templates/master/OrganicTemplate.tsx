@@ -3,7 +3,7 @@
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
-import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
+import SiteFooter from '@/app/components/SiteFooter';
 import { TemplateFonts } from './TemplateFonts';
 
 interface MasterTemplateProps {
@@ -20,9 +20,7 @@ interface MasterTemplateProps {
 export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplateProps) {
     const context = useEditorContext();
     const siteContent = context?.siteContent || {};
-    const updateSiteContent = context?.updateSiteContent || (() => { });
 
-    const pPrimary = palette.primary || '#78350f';
     const pSecondary = palette.secondary || '#d97706';
     const pAccent = palette.accent || '#fffbeb';
 
@@ -69,33 +67,25 @@ export function OrganicTemplate({ palette, isEditMode, children }: MasterTemplat
                 {children || <BlockRenderer palette={palette} />}
             </main>
 
-            {/* Footer — warm with leaf/nature motif */}
-            <footer className="py-16 border-t" style={{ borderColor: `${pSecondary}33` }}>
-                <div className="max-w-6xl mx-auto px-6 text-center">
-                    <div className="flex items-center justify-center gap-3 mb-3">
-                        {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
-                            <img
-                                src={siteContent.footerLogo || siteContent.siteLogo}
-                                alt={stripHighlight(siteContent.siteTitle) || 'Logo'}
-                                className="w-8 h-8 object-contain"
-                             style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
-                        ) : (
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center font-serif font-bold text-[10px] text-white" style={{ backgroundColor: pSecondary }}>
-                                {(stripHighlight(siteContent.siteTitle) || 'O')[0]?.toUpperCase()}
-                            </div>
-                        ))}
-                        <div className="font-title italic text-lg" style={{ color: pPrimary, ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>
-                            {renderSiteTitle(siteContent.siteTitle || 'Organic Co.')}
-                        </div>
-                    </div>
-                    <p className="text-sm text-gray-400">
-                        &copy; {new Date().getFullYear()} {stripHighlight(siteContent.siteTitle) || 'Organic Co.'}. Made with care.
-                    </p>
-                    <p className="text-xs text-gray-400 mt-2">
-                        Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>
-                    </p>
-                </div>
-            </footer>
+            <SiteFooter
+                palette={palette}
+                isEditMode={isEditMode}
+                defaults={{
+                    layout: 'centered',
+                    bgType: 'transparent',
+                    bgClass: '',
+                    borderClass: 'border-t',
+                    borderStyleFn: () => ({ borderColor: `${pSecondary}33` }),
+                    paddingClass: 'py-16',
+                    containerClass: 'max-w-6xl',
+                    logoSize: 32,
+                    logoClass: 'rounded-full',
+                    logoStyleFn: (p) => ({ backgroundColor: p.secondary, color: '#ffffff' }),
+                    titleClass: 'font-title italic text-lg',
+                    defaultShowCopyright: true,
+                    defaultCopyrightText: '© {year} {title}. Made with care.',
+                }}
+            />
         </div>
     );
 }

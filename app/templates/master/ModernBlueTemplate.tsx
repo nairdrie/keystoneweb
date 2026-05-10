@@ -3,7 +3,7 @@
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
-import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
+import SiteFooter from '@/app/components/SiteFooter';
 import { TemplateFonts } from './TemplateFonts';
 
 interface MasterTemplateProps {
@@ -20,11 +20,6 @@ interface MasterTemplateProps {
 export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemplateProps) {
     const context = useEditorContext();
     const siteContent = context?.siteContent || {};
-    const updateSiteContent = context?.updateSiteContent || (() => { });
-
-    const pPrimary = palette.primary || '#0369a1';
-    const pSecondary = palette.secondary || '#0ea5e9';
-    const pAccent = palette.accent || '#f0f9ff';
 
     const titleFont = siteContent.titleFont || 'Inter';
     const bodyFont = siteContent.bodyFont || 'Inter';
@@ -68,35 +63,25 @@ export function ModernBlueTemplate({ palette, isEditMode, children }: MasterTemp
                 {children || <BlockRenderer palette={palette} />}
             </main>
 
-            {/* Footer */}
-            <footer className="py-12 border-t border-slate-100">
-                <div className="max-w-7xl mx-auto px-6">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div className="flex items-center gap-2">
-                            {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
-                                <img
-                                    src={siteContent.footerLogo || siteContent.siteLogo}
-                                    alt={stripHighlight(siteContent.siteTitle) || 'Logo'}
-                                    className="w-6 h-6 object-contain"
-                                 style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
-                            ) : (
-                                <div
-                                    className="w-6 h-6 rounded-lg flex items-center justify-center"
-                                    style={{ background: `linear-gradient(135deg, ${pPrimary}, ${pSecondary})` }}
-                                >
-                                    <span className="text-white font-black text-[8px]">
-                                        {(stripHighlight(siteContent.siteTitle) || 'E')[0]?.toUpperCase()}
-                                    </span>
-                                </div>
-                            ))}
-                            <span className="font-bold text-sm text-slate-800" style={{ ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>{renderSiteTitle(siteContent.siteTitle || 'Elegant Co.')}</span>
-                        </div>
-                        <p className="text-sm text-slate-400">
-                            Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>
-                        </p>
-                    </div>
-                </div>
-            </footer>
+            <SiteFooter
+                palette={palette}
+                isEditMode={isEditMode}
+                defaults={{
+                    layout: 'simple',
+                    bgType: 'transparent',
+                    bgClass: '',
+                    borderClass: 'border-t border-slate-100',
+                    paddingClass: 'py-12',
+                    containerClass: 'max-w-7xl',
+                    logoSize: 24,
+                    logoClass: 'rounded-lg',
+                    logoStyleFn: (p) => ({
+                        background: `linear-gradient(135deg, ${p.primary}, ${p.secondary})`,
+                        color: '#ffffff',
+                    }),
+                    titleClass: 'font-bold text-sm',
+                }}
+            />
         </div>
     );
 }
