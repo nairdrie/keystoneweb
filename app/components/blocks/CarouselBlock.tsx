@@ -350,9 +350,9 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
       <div className="bg-white rounded-2xl p-7 border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full">
         <div className="mb-5 flex-shrink-0">
           {item.mediaType === 'image' && item.image ? (
-            <img src={item.image} alt={item.title} className="w-full h-44 object-cover rounded-xl" />
+            <img src={item.image} alt={item.title} className="w-full h-44 object-cover" />
           ) : item.mediaType === 'image' ? (
-            <div className="w-full h-44 rounded-xl bg-slate-100 flex items-center justify-center">
+            <div className="w-full h-44 bg-slate-100 flex items-center justify-center">
               <Camera className="w-10 h-10 text-slate-300" />
             </div>
           ) : (
@@ -412,7 +412,9 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                           contentKey={`carousel_${idx}_image`} imageUrl={item.image}
                           initialSettings={getImageSettings(`carousel_${idx}_image__settings`)}
                           isEditMode={isEditMode} onSave={(key, value) => handleCarouselImageSave(idx, key, value)}
-                          className="w-full h-44 object-cover rounded-xl"
+                          className="w-full h-44 object-cover"
+                          enableInlineCropControls
+                          editorPreviewFrameClassName="w-full h-44"
                         />
                       ) : (
                         renderIconDisplay(item, idx, 'md')
@@ -491,7 +493,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
             </Reveal>
           )}
 
-          <div className="overflow-hidden rounded-3xl shadow-lg">
+          <div className="overflow-hidden shadow-lg">
             <div style={trackStyle(1)}>
               {items.map((item, idx) => (
                 <div key={idx} style={itemWidthStyle()}>
@@ -509,6 +511,8 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                           isEditMode={isEditMode && idx === current}
                           onSave={(key, value) => handleCarouselImageSave(idx, key, value)}
                           className="w-full h-80 object-cover"
+                          enableInlineCropControls
+                          editorPreviewFrameClassName="w-full h-80"
                         />
                       ) : (
                         renderIconDisplay(item, idx, 'lg')
@@ -605,10 +609,12 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                           contentKey={`carousel_${idx}_image`} imageUrl={item.image}
                           initialSettings={getImageSettings(`carousel_${idx}_image__settings`)}
                           isEditMode={isEditMode} onSave={(key, value) => handleCarouselImageSave(idx, key, value)}
-                          className="w-48 h-48 object-cover rounded-2xl mx-auto"
+                          className="w-48 h-48 object-cover mx-auto"
+                          enableInlineCropControls
+                          editorPreviewFrameClassName="w-48 h-48 mx-auto"
                         />
                       ) : item.image ? (
-                        <img src={item.image} alt={item.title} className="w-48 h-48 object-cover rounded-2xl mx-auto" />
+                        <img src={item.image} alt={item.title} className="w-48 h-48 object-cover mx-auto" />
                       ) : null
                     ) : (
                       renderIconDisplay(item, idx, 'lg')

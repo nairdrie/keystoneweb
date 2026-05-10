@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, cloneElement, isValidElement, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { Children, ReactNode, cloneElement, isValidElement, useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { useEditorContext } from '@/lib/editor-context';
 import { ArrowUp, ArrowDown, Trash2, Settings } from 'lucide-react';
@@ -11,6 +11,7 @@ import { motion } from 'framer-motion';
 import { staggerContainer } from '@/lib/motion';
 import {
     buildLayoutCss,
+    buildSectionStyleCss,
     type LayoutContainerWidth,
     type LayoutHorizontalAlign,
 } from '@/lib/builder/layout-settings';
@@ -146,7 +147,8 @@ export default function BlockWrapperEditor({
         ? scopeCustomCss(id, draftCustomCss)
         : scopedCss;
     const previewLayoutCss = buildLayoutCss(id, type, previewData?.sectionSettings, previewData);
-    const previewScopedCss = [previewCustomCss, previewLayoutCss].filter(Boolean).join('\n');
+    const previewSectionStyleCss = buildSectionStyleCss(id, previewData, palette || {});
+    const previewScopedCss = [previewCustomCss, previewLayoutCss, previewSectionStyleCss].filter(Boolean).join('\n');
     const controlsVisibleClass = isSelected
         ? 'opacity-100'
         : 'opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100';
@@ -373,6 +375,8 @@ type EditableBlockChildProps = {
     data?: Record<string, unknown>;
     block?: { data?: Record<string, unknown> };
     updateContent?: (key: string, value: unknown) => void;
+    value?: Record<string, unknown>;
+    children?: ReactNode;
 };
 
 function cloneChildrenWithData(
@@ -384,15 +388,28 @@ function cloneChildrenWithData(
         return children;
     }
 
+    const nestedChildren = children.props.children
+        ? Children.map(children.props.children, (child) => cloneChildrenWithData(child, data, updateContent))
+        : children.props.children;
+
+    if ('value' in children.props) {
+        return cloneElement(children, {
+            value: data,
+            children: nestedChildren,
+        });
+    }
+
     const block = children.props.block
         ? { ...children.props.block, data }
         : undefined;
 
-    return cloneElement(children, block ? { data, block, updateContent } : { data, updateContent });
+    return cloneElement(children, block
+        ? { data, block, updateContent, children: nestedChildren }
+        : { data, updateContent, children: nestedChildren });
 }
 
 function isRepeatableItemsPanelType(type: string): boolean {
-    return type === 'servicesGrid' || type === 'stats' || type === 'testimonials' || type === 'faq' || type === 'timeline';
+    return type === 'servicesGrid' || type === 'stats' || type === 'testimonials' || type === 'faq' || type === 'timeline' || type === 'aboutImageText';
 }
 
 function isContactDraftKey(key: string): boolean {
@@ -416,6 +433,7 @@ function isMapDraftKey(key: string): boolean {
         'showAllPinsToggle',
         'startWithAllPins',
         'requireMapConsent',
+        'backgroundColor',
     ].includes(key);
 }
 

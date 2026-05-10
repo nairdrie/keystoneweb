@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { Image as ImageIcon, Pencil } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
-import ImageEditorModal, { ImageSettings, UnsplashAttribution } from './ImageEditorModal';
+import ImageEditorModal, { type ImageFrameSize, type ImageSettings, type UnsplashAttribution } from './ImageEditorModal';
+import ImageCropFrame from './ImageCropFrame';
 
 interface EditableImageProps {
   contentKey: string;
@@ -24,6 +25,11 @@ interface EditableImageProps {
   initialAttribution?: UnsplashAttribution;
   /** Mark this as the LCP image: eager + fetchpriority=high. Default false → lazy. */
   priority?: boolean;
+  enableInlineCropControls?: boolean;
+  showInlineCropZoomControl?: boolean;
+  inlineCropFrameClassName?: string;
+  inlineCropImageClassName?: string;
+  editorPreviewFrameClassName?: string;
 }
 
 export default function EditableImage({
@@ -42,17 +48,27 @@ export default function EditableImage({
   initialSettings,
   initialAttribution,
   priority = false,
+  enableInlineCropControls = false,
+  showInlineCropZoomControl = true,
+  inlineCropFrameClassName,
+  inlineCropImageClassName = '',
+  editorPreviewFrameClassName,
 }: EditableImageProps) {
   const context = useEditorContext();
   const [previewUrl, setPreviewUrl] = useState<string | undefined>(imageUrl);
   const [modalOpen, setModalOpen] = useState(false);
-  const [imageSettings, setImageSettings] = useState<ImageSettings>(initialSettings || { objectFit: 'cover', borderRadius: 0 });
+  const [imageSettings, setImageSettings] = useState<ImageSettings>(() => getInitialImageSettings(className, initialSettings));
   const [attribution, setAttribution] = useState<UnsplashAttribution | undefined>(initialAttribution);
+  const [editorPreviewFrameSize, setEditorPreviewFrameSize] = useState<ImageFrameSize | undefined>();
 
   // Sync previewUrl when imageUrl prop changes externally (undo/redo, page switch)
   useEffect(() => {
     setPreviewUrl(imageUrl);
   }, [imageUrl]);
+
+  useEffect(() => {
+    setImageSettings(getInitialImageSettings(className, initialSettings));
+  }, [className, initialSettings]);
 
   useEffect(() => {
     setAttribution(initialAttribution);
@@ -77,10 +93,42 @@ export default function EditableImage({
     }
   };
 
+  const handleSettingsChange = (settings: ImageSettings) => {
+    setImageSettings(settings);
+  };
+
+  const handleSettingsCommit = (settings: ImageSettings) => {
+    setImageSettings(settings);
+    onSave(`${contentKey}__settings`, settings);
+  };
+
+  const handleFrameSizeChange = useCallback((size: ImageFrameSize) => {
+    const next = {
+      width: roundFrameSize(size.width),
+      height: roundFrameSize(size.height),
+    };
+    setEditorPreviewFrameSize((previous) => {
+      if (previous?.width === next.width && previous?.height === next.height) return previous;
+      return next;
+    });
+  }, []);
+
   const imgStyle: React.CSSProperties = {
     objectFit: imageSettings.objectFit || 'cover',
+    objectPosition: imageSettings.objectPosition || 'center center',
+    transform: imageSettings.objectScale && imageSettings.objectScale > 1 ? `scale(${imageSettings.objectScale})` : undefined,
+    transformOrigin: imageSettings.objectPosition || 'center center',
     borderRadius: imageSettings.borderRadius ? `${imageSettings.borderRadius}px` : undefined,
   };
+  const imageClassName = className;
+  const cropFrameClassName = inlineCropFrameClassName || className;
+  const editorFrameClassName = editorPreviewFrameClassName || className || undefined;
+  const imageRadiusClassName = getImageRadiusClasses(className);
+  const imageBorderRadius = imageSettings.borderRadius ? `${imageSettings.borderRadius}px` : undefined;
+  const inlineEditButtonClassName = editOverlayStyle === 'icon'
+    ? 'absolute right-1 top-1 z-30 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-slate-900 opacity-0 shadow-lg transition-opacity hover:bg-white group-hover/editable-image:opacity-100 [@media(hover:none)]:opacity-100'
+    : 'absolute right-3 top-3 z-30 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-slate-900 opacity-0 shadow-lg transition-opacity hover:bg-white group-hover/editable-image:opacity-100 [@media(hover:none)]:opacity-100';
+  const inlineEditIconClassName = editOverlayStyle === 'icon' ? 'h-3.5 w-3.5' : 'h-4 w-4';
 
   // Preview mode: just show the image
   if (!isEditMode) {
@@ -88,18 +136,18 @@ export default function EditableImage({
       if (fallback) return <>{fallback}</>;
 
       return (
-        <div className={`flex min-h-48 items-center justify-center ${emptyBackgroundClassName} text-slate-400 rounded ${className}`}>
+        <div className={`flex min-h-48 items-center justify-center ${emptyBackgroundClassName} text-slate-400 ${imageClassName}`}>
           <ImageIcon className="w-8 h-8" />
         </div>
       );
     }
 
     return (
-      <div className="relative w-full h-full">
+      <div className={`relative w-full h-full overflow-hidden ${imageRadiusClassName}`} style={{ borderRadius: imageBorderRadius }}>
         <img
           src={previewUrl}
           alt={imageSettings.altText || contentKey}
-          className={`rounded ${className}`}
+          className={imageClassName}
           style={imgStyle}
           loading={priority ? 'eager' : 'lazy'}
           fetchPriority={priority ? 'high' : 'auto'}
@@ -113,25 +161,62 @@ export default function EditableImage({
   return (
     <>
       {previewUrl ? (
-        <div className="group/editable-image relative w-full h-full cursor-pointer" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setModalOpen(true); }}>
-          <img
-            src={previewUrl}
-            alt={imageSettings.altText || contentKey}
-            className={`rounded ${className}`}
-            style={imgStyle}
-          />
-          <div className="absolute inset-0 z-20 rounded bg-black/0 opacity-0 transition-all group-hover/editable-image:bg-black/30 group-hover/editable-image:opacity-100 flex items-center justify-center">
-            {editOverlayStyle === 'icon' ? (
-              <span className="p-2 bg-white text-red-600 rounded-full shadow-lg">
-                <Pencil className="w-4 h-4" />
-              </span>
-            ) : (
-              <span className="px-4 py-2 bg-white/90 text-slate-900 rounded-lg text-sm font-semibold shadow-lg flex items-center gap-2">
-                <Pencil className="w-4 h-4" />
-                Edit Image
-              </span>
-            )}
-          </div>
+        <div
+          className={`group/editable-image relative w-full h-full ${enableInlineCropControls ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
+          onClick={enableInlineCropControls ? undefined : (e) => { e.preventDefault(); e.stopPropagation(); setModalOpen(true); }}
+        >
+          {enableInlineCropControls ? (
+            <ImageCropFrame
+              imageUrl={previewUrl}
+              alt={imageSettings.altText || contentKey}
+              settings={imageSettings}
+              onChange={handleSettingsChange}
+              onCommit={handleSettingsCommit}
+              frameClassName={cropFrameClassName}
+              imageClassName={inlineCropImageClassName}
+              frameStyle={{ borderRadius: imageBorderRadius }}
+              showZoomControl={showInlineCropZoomControl}
+              onFrameSizeChange={handleFrameSizeChange}
+            >
+              <button
+                type="button"
+                data-image-crop-control
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setModalOpen(true);
+                }}
+                className={inlineEditButtonClassName}
+                title="Edit image"
+                aria-label="Edit image"
+              >
+                <Pencil className={inlineEditIconClassName} />
+              </button>
+            </ImageCropFrame>
+          ) : (
+            <>
+              <div className={`relative w-full h-full overflow-hidden ${imageRadiusClassName}`} style={{ borderRadius: imageBorderRadius }}>
+                <img
+                  src={previewUrl}
+                  alt={imageSettings.altText || contentKey}
+                  className={imageClassName}
+                  style={imgStyle}
+                />
+              </div>
+              <div className={`absolute inset-0 z-20 bg-black/0 opacity-0 transition-all group-hover/editable-image:bg-black/30 group-hover/editable-image:opacity-100 flex items-center justify-center ${imageRadiusClassName}`} style={{ borderRadius: imageBorderRadius }}>
+                {editOverlayStyle === 'icon' ? (
+                  <span className="p-2 bg-white text-red-600 rounded-full shadow-lg">
+                    <Pencil className="w-4 h-4" />
+                  </span>
+                ) : (
+                  <span className="px-4 py-2 bg-white/90 text-slate-900 rounded-lg text-sm font-semibold shadow-lg flex items-center gap-2">
+                    <Pencil className="w-4 h-4" />
+                    Edit Image
+                  </span>
+                )}
+              </div>
+            </>
+          )}
           {/* Unsplash attribution */}
           {allowUnsplash && showAttribution && attribution && (
             <div className="absolute bottom-1 right-1 z-30 max-w-[calc(100%-0.5rem)] rounded bg-black/70 px-2 py-1 text-right text-[10px] leading-tight text-white opacity-0 shadow transition-opacity group-hover/editable-image:opacity-100">
@@ -164,7 +249,7 @@ export default function EditableImage({
           className="group/editable-image cursor-pointer relative block"
         >
           {fallback}
-          <div className="absolute inset-0 rounded bg-black/0 opacity-0 transition-all group-hover/editable-image:bg-black/30 group-hover/editable-image:opacity-100 flex items-center justify-center">
+          <div className={`absolute inset-0 bg-black/0 opacity-0 transition-all group-hover/editable-image:bg-black/30 group-hover/editable-image:opacity-100 flex items-center justify-center ${imageRadiusClassName}`} style={{ borderRadius: imageBorderRadius }}>
             {editOverlayStyle === 'icon' ? (
               <span className="p-1.5 bg-white text-red-600 rounded-full shadow-lg">
                 <Pencil className="w-3.5 h-3.5" />
@@ -180,7 +265,7 @@ export default function EditableImage({
       ) : (
         <div
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setModalOpen(true); }}
-          className={`group/editable-image flex min-h-48 flex-col items-center justify-center ${emptyBackgroundClassName} border-2 border-dashed border-slate-300 hover:border-slate-400 rounded-lg p-8 text-center cursor-pointer transition-colors ${className}`}
+          className={`group/editable-image flex min-h-48 flex-col items-center justify-center ${emptyBackgroundClassName} border-2 border-dashed border-slate-300 hover:border-slate-400 p-8 text-center cursor-pointer transition-colors ${imageClassName}`}
         >
           <ImageIcon className="w-8 h-8 mx-auto text-slate-400 group-hover/editable-image:text-slate-600 mb-2" />
           <p className="text-sm font-medium text-slate-700">{placeholder}</p>
@@ -201,7 +286,39 @@ export default function EditableImage({
         contentKey={contentKey}
         currentSettings={imageSettings}
         allowUnsplash={allowUnsplash}
+        previewFrameClassName={editorFrameClassName}
+        previewFrameSize={editorPreviewFrameSize}
       />
     </>
   );
+}
+
+function getInitialImageSettings(className: string, initialSettings?: ImageSettings): ImageSettings {
+  const objectFit = className.includes('object-contain')
+    ? 'contain'
+    : className.includes('object-fill')
+      ? 'fill'
+      : 'cover';
+
+  return {
+    objectFit,
+    borderRadius: 0,
+    ...initialSettings,
+  };
+}
+
+function roundFrameSize(value: number): number {
+  return Math.max(1, Math.round(value * 10) / 10);
+}
+
+function getImageRadiusClasses(value: string): string {
+  return value
+    .split(/\s+/)
+    .filter((token) => token && isImageRadiusClass(token))
+    .join(' ');
+}
+
+function isImageRadiusClass(token: string): boolean {
+  const baseClass = token.split(':').pop() || token;
+  return baseClass === 'rounded' || baseClass.startsWith('rounded-');
 }

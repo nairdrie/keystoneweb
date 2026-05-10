@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Upload, Search, Image as ImageIcon, Loader2, Settings, Camera, FileImage, Check } from 'lucide-react';
+import ImageCropFrame from './ImageCropFrame';
 
 interface UnsplashPhoto {
     id: string;
@@ -21,6 +22,8 @@ interface UnsplashPhoto {
 
 export interface ImageSettings {
     objectFit?: 'cover' | 'contain' | 'fill';
+    objectPosition?: string;
+    objectScale?: number;
     borderRadius?: number;
     altText?: string;
 }
@@ -29,6 +32,11 @@ export interface UnsplashAttribution {
     photographerName: string;
     photographerUrl: string;
     unsplashUrl: string;
+}
+
+export interface ImageFrameSize {
+    width: number;
+    height: number;
 }
 
 interface ImageEditorModalProps {
@@ -42,6 +50,8 @@ interface ImageEditorModalProps {
     contentKey: string;
     currentSettings?: ImageSettings;
     allowUnsplash?: boolean;
+    previewFrameClassName?: string;
+    previewFrameSize?: ImageFrameSize;
 }
 
 type Tab = 'upload' | 'unsplash' | 'media' | 'settings';
@@ -50,6 +60,7 @@ interface SiteMediaItem {
     id: string;
     public_url: string;
     file_name: string;
+    media_type?: string;
     size_bytes: number;
     created_at: string;
 }
@@ -65,6 +76,8 @@ export default function ImageEditorModal({
     contentKey,
     currentSettings,
     allowUnsplash = true,
+    previewFrameClassName = 'h-56 w-full',
+    previewFrameSize,
 }: ImageEditorModalProps) {
     const mouseDownOnBackdrop = useRef(false);
     const [activeTab, setActiveTab] = useState<Tab>('upload');
@@ -126,8 +139,9 @@ export default function ImageEditorModal({
             setMediaLoading(true);
             fetch(`/api/sites/media?siteId=${siteId}`, { credentials: 'include' })
                 .then(r => r.ok ? r.json() : { media: [] })
-                .then(data => {
-                    setMediaItems((data.media ?? []).filter((m: any) => m.media_type === 'image'));
+                .then((data: { media?: SiteMediaItem[] }) => {
+                    const media = Array.isArray(data.media) ? data.media : [];
+                    setMediaItems(media.filter((item) => item.media_type === 'image'));
                     setMediaFetched(true);
                 })
                 .catch(() => setMediaFetched(true))
@@ -274,6 +288,13 @@ export default function ImageEditorModal({
 
     if (!isOpen) return null;
 
+    const scaledPreviewFrame = getScaledPreviewFrame(previewFrameClassName, previewFrameSize);
+    const previewFrameStyle: React.CSSProperties = {
+        ...scaledPreviewFrame.style,
+        borderRadius: settings.borderRadius ? `${settings.borderRadius}px` : undefined,
+    };
+    const modalPreviewFrameClassName = `${scaledPreviewFrame.className} mx-auto`.trim();
+
     const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
         { id: 'upload',  label: 'Upload',   icon: <Upload      className="w-4 h-4" /> },
         ...(allowUnsplash ? [{ id: 'unsplash' as Tab, label: 'Unsplash', icon: <Camera className="w-4 h-4" /> }] : []),
@@ -378,11 +399,18 @@ export default function ImageEditorModal({
                             {previewUrl && (
                                 <div className="mt-6">
                                     <p className="text-sm font-medium text-slate-600 mb-2">Current image</p>
-                                    <img
-                                        src={previewUrl}
-                                        alt="Current"
-                                        className="w-full h-48 object-cover rounded-lg border border-slate-200"
-                                    />
+                                    <div className="flex justify-center">
+                                        <ImageCropFrame
+                                            imageUrl={previewUrl}
+                                            alt="Current"
+                                            settings={settings}
+                                            onChange={setSettings}
+                                            frameClassName={modalPreviewFrameClassName}
+                                            frameStyle={previewFrameStyle}
+                                            showZoomControl={false}
+                                            interactive={false}
+                                        />
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -550,15 +578,14 @@ export default function ImageEditorModal({
                             {/* Preview */}
                             <div>
                                 <p className="text-sm font-medium text-slate-600 mb-2">Preview</p>
-                                <div
-                                    className="border border-slate-200 rounded-lg overflow-hidden bg-slate-100"
-                                    style={{ borderRadius: settings.borderRadius ? `${settings.borderRadius}px` : undefined }}
-                                >
-                                    <img
-                                        src={previewUrl}
+                                <div className="flex justify-center">
+                                    <ImageCropFrame
+                                        imageUrl={previewUrl}
                                         alt="Preview"
-                                        className="w-full h-48"
-                                        style={{ objectFit: settings.objectFit || 'cover' }}
+                                        settings={settings}
+                                        onChange={setSettings}
+                                        frameClassName={modalPreviewFrameClassName}
+                                        frameStyle={previewFrameStyle}
                                     />
                                 </div>
                             </div>
@@ -648,4 +675,121 @@ export default function ImageEditorModal({
     );
 
     return createPortal(modal, document.body);
+}
+
+type ScaledPreviewFrame = {
+    className: string;
+    style: React.CSSProperties;
+};
+
+const MODAL_PREVIEW_MAX_WIDTH = 560;
+const MODAL_PREVIEW_MAX_HEIGHT = 420;
+const MODAL_PREVIEW_SMALL_LONG_EDGE = 320;
+
+function getScaledPreviewFrame(sourceClassName: string, measuredSize?: ImageFrameSize): ScaledPreviewFrame {
+    const tokens = sourceClassName.split(/\s+/).filter(Boolean);
+    const radiusClasses = tokens.filter((token) => token.startsWith('rounded')).join(' ');
+    const sourceWidth = readSizeClass(tokens, 'w');
+    const sourceHeight = readSizeClass(tokens, 'h') ?? readSizeClass(tokens, 'min-h');
+    const aspectRatio = readAspectRatio(tokens) ?? (
+        sourceWidth && sourceHeight ? sourceWidth / sourceHeight : undefined
+    );
+    const usesFluidWidth = tokens.includes('w-full') || sourceClassName.includes('w-full');
+    const measuredWidth = measuredSize && measuredSize.width > 0 ? measuredSize.width : undefined;
+    const measuredHeight = measuredSize && measuredSize.height > 0 ? measuredSize.height : undefined;
+
+    let width = measuredWidth ?? sourceWidth;
+    let height = measuredHeight ?? sourceHeight;
+
+    if (!width && usesFluidWidth) {
+        width = MODAL_PREVIEW_MAX_WIDTH;
+    }
+
+    if (width && !height && aspectRatio) {
+        height = width / aspectRatio;
+    } else if (!width && height && aspectRatio) {
+        width = height * aspectRatio;
+    } else if (!width && height) {
+        width = usesFluidWidth ? MODAL_PREVIEW_MAX_WIDTH : Math.min(MODAL_PREVIEW_MAX_WIDTH, height * (4 / 3));
+    } else if (width && !height) {
+        height = aspectRatio ? width / aspectRatio : Math.min(MODAL_PREVIEW_MAX_HEIGHT, width * (3 / 4));
+    } else if (!width || !height) {
+        width = MODAL_PREVIEW_MAX_WIDTH;
+        height = MODAL_PREVIEW_MAX_WIDTH / (aspectRatio || 4 / 3);
+    }
+
+    const scaled = scaleFrameToEditor({
+        width,
+        height,
+        sourceHasFluidWidth: !measuredWidth && usesFluidWidth && !sourceWidth,
+    });
+
+    return {
+        className: radiusClasses,
+        style: {
+            width: `${roundPixel(scaled.width)}px`,
+            maxWidth: '100%',
+            aspectRatio: `${roundPixel(scaled.width)} / ${roundPixel(scaled.height)}`,
+        },
+    };
+}
+
+function scaleFrameToEditor({
+    width,
+    height,
+    sourceHasFluidWidth,
+}: {
+    width: number;
+    height: number;
+    sourceHasFluidWidth: boolean;
+}): { width: number; height: number } {
+    const fitScale = Math.min(MODAL_PREVIEW_MAX_WIDTH / width, MODAL_PREVIEW_MAX_HEIGHT / height);
+    let scale = Math.min(1, fitScale);
+
+    if (!sourceHasFluidWidth) {
+        const longEdge = Math.max(width, height);
+        if (longEdge < MODAL_PREVIEW_SMALL_LONG_EDGE) {
+            scale = Math.min(fitScale, MODAL_PREVIEW_SMALL_LONG_EDGE / longEdge);
+        }
+    }
+
+    return {
+        width: width * scale,
+        height: height * scale,
+    };
+}
+
+function readSizeClass(tokens: string[], prefix: 'w' | 'h' | 'min-h'): number | undefined {
+    const token = tokens.find((candidate) => candidate.startsWith(`${prefix}-`));
+    if (!token) return undefined;
+    const value = token.slice(prefix.length + 1);
+
+    if (value === 'full' || value === 'auto') return undefined;
+
+    const arbitraryPx = value.match(/^\[(\d+(?:\.\d+)?)px\]$/);
+    if (arbitraryPx) return Number(arbitraryPx[1]);
+
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return undefined;
+
+    return numeric * 4;
+}
+
+function readAspectRatio(tokens: string[]): number | undefined {
+    const aspectToken = tokens.find((token) => token.startsWith('aspect-'));
+    if (!aspectToken) return undefined;
+    if (aspectToken === 'aspect-square') return 1;
+
+    const arbitraryRatio = aspectToken.match(/^aspect-\[(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)\]$/);
+    if (!arbitraryRatio) return undefined;
+
+    const width = Number(arbitraryRatio[1]);
+    const height = Number(arbitraryRatio[2]);
+    if (!Number.isFinite(width) || !Number.isFinite(height) || height === 0) return undefined;
+
+    return width / height;
+}
+
+function roundPixel(value: number): number {
+    return Math.max(1, Math.round(value));
 }

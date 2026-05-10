@@ -8,6 +8,7 @@ import {
     InspectorSection,
     InspectorToggle,
     PaletteTokenButtons,
+    SideBySideBackgroundOverrideNotice,
     getColorInputValue,
     useInspectorSectionState,
 } from '../panel-shared';
@@ -388,6 +389,7 @@ export default function ProductSettingsPanel({
                 >
                     Section background color
                 </label>
+                <SideBySideBackgroundOverrideNotice />
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                     <input
                         id={`${blockId}-product-bg`}

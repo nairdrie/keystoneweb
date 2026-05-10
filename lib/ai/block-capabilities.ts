@@ -109,7 +109,7 @@ const SAFE_LIGHT_SECTION_BACKGROUND = 'palette:accent';
 const SAFE_PRIMARY_COLOR = '#111827';
 const SAFE_ACCENT_COLOR = '#f8fafc';
 const AI_DISALLOWED_CUSTOM_CSS_KEYS = new Set(['__customCss', 'headerCustomCss']);
-const UNIVERSAL_ALLOWED_TOP_LEVEL_KEYS = ['sectionSettings'] as const;
+const UNIVERSAL_ALLOWED_TOP_LEVEL_KEYS = ['sectionSettings', 'backgroundColor'] as const;
 
 export function sanitizeAiBlockData(blockType: string, rawData: unknown): Record<string, unknown> {
   const data = filterAiBlockDataToAllowedSettings(blockType, clonePlainObject(rawData));
@@ -398,11 +398,25 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
     fields: [
       { name: 'title', type: 'string' },
       { name: 'description', type: 'string' },
+      { name: 'pretext', type: 'string', notes: 'Eyebrow text shown above the heading when pretextEnabled is true.' },
+      { name: 'pretextEnabled', type: 'boolean' },
+      { name: 'pretextStyle', type: 'string', options: ['text', 'pill', 'outline', 'underline'] },
+      { name: 'pretextColor', type: 'string', notes: 'Hex or palette token.' },
+      { name: 'pretextAlignment', type: 'string', options: ['left', 'center'] },
       { name: 'items', type: 'string[]' },
       { name: 'image', type: 'string', notes: 'Do not invent image URLs. Leave empty for prompt-aware sample media.' },
       { name: 'imagePosition', type: 'string', options: ['left', 'right'] },
+      { name: 'splitRatio', type: 'string', options: ['40-60', '50-50', '60-40'], defaultValue: '50-50' },
+      { name: 'mobileStackOrder', type: 'string', options: ['image-first', 'text-first'], defaultValue: 'image-first' },
       { name: 'variant', type: 'string', options: ['landscape', 'square', 'tall'] },
+      { name: 'imageCaption', type: 'string' },
+      { name: 'showSecondaryButton', type: 'boolean' },
+      { name: 'secondaryButtonText', type: 'string' },
+      { name: 'secondaryButtonTextLink', type: 'Link' },
+      { name: 'secondaryButtonTextIcon', type: 'object' },
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
+      { name: 'foregroundColor', type: 'string', notes: 'Hex or palette token.' },
+      { name: 'image__settings', type: 'object', notes: 'Optional image fit, crop/focal point, zoom scale, border radius, and alt text. objectPosition accepts "50% 50%"; objectScale is 1-3.' },
       { name: '__customCss', type: 'string' },
     ],
   },

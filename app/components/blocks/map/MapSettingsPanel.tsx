@@ -7,6 +7,9 @@ import BlockSettingsPanel from '../BlockSettingsPanel';
 import {
     InspectorSection,
     InspectorToggle,
+    PaletteTokenButtons,
+    SideBySideBackgroundOverrideNotice,
+    getColorInputValue,
     useInspectorSectionState,
 } from '../panel-shared';
 import { LayoutTab } from '../layout/LayoutTab';
@@ -31,6 +34,7 @@ import type { MapLocation, MapProvider, MapSettings, MapStyle } from './map-conf
 
 type MapDraft = MapSettings & {
     address: string;
+    backgroundColor: string;
     sectionSettings: SectionSettings;
     __customCss: string;
 };
@@ -43,13 +47,14 @@ type PlaceSearchResult = {
     longitude: number | null;
 };
 
-const SECTION_IDS = ['provider', 'content', 'locations', 'map-settings', 'display', 'universal-layout', 'advanced'];
+const SECTION_IDS = ['provider', 'content', 'locations', 'map-settings', 'display', 'universal-layout', 'style', 'advanced'];
 const MAP_DRAFT_UPDATE_EVENT = 'ks:map-draft-update';
 
 export default function MapSettingsPanel({
     blockId,
     blockType = 'map',
     blockData,
+    palette,
     isProUser,
     customCss,
     onClose,
@@ -327,6 +332,20 @@ export default function MapSettingsPanel({
                     blockType={blockType}
                     value={draft.sectionSettings}
                     onChange={updateSectionSettings}
+                />
+            </InspectorSection>
+
+            <InspectorSection
+                id="style"
+                title="Style"
+                isCollapsed={sectionState.isCollapsed('style')}
+                onToggle={() => sectionState.toggle('style')}
+            >
+                <SectionBackgroundColorControl
+                    id={`${blockId}-map-bg`}
+                    value={draft.backgroundColor}
+                    palette={palette}
+                    onChange={(backgroundColor) => updateDraft({ backgroundColor })}
                 />
             </InspectorSection>
 
@@ -758,11 +777,59 @@ function TextAreaField({
     );
 }
 
+function SectionBackgroundColorControl({
+    id,
+    value,
+    palette,
+    onChange,
+}: {
+    id: string;
+    value: string;
+    palette: Record<string, string>;
+    onChange: (value: string) => void;
+}) {
+    return (
+        <div>
+            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={id}>
+                Section background color
+            </label>
+            <SideBySideBackgroundOverrideNotice />
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+                <input
+                    id={id}
+                    type="color"
+                    value={getColorInputValue(value, palette, '#ffffff')}
+                    onChange={(event) => onChange(event.target.value)}
+                    className="h-10 w-10 cursor-pointer rounded border border-slate-200 bg-white"
+                />
+                <PaletteTokenButtons selected={value} palette={palette} onSelect={onChange} />
+            </div>
+            <div className="mt-3 flex gap-2">
+                <input
+                    type="text"
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                    placeholder="Default"
+                    className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                    type="button"
+                    onClick={() => onChange('')}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+                >
+                    Reset
+                </button>
+            </div>
+        </div>
+    );
+}
+
 function buildInitialDraft(blockData: Record<string, unknown>, customCss: string): MapDraft {
     const settings = normalizeMapSettings(blockData);
     return {
         ...settings,
         address: settings.locations[0]?.address || '',
+        backgroundColor: typeof blockData.backgroundColor === 'string' ? blockData.backgroundColor : '',
         sectionSettings: normalizeSectionSettings(blockData.sectionSettings),
         __customCss: customCss,
     };
@@ -786,6 +853,7 @@ function serializeMapDraft(draft: MapDraft): Record<string, unknown> {
         showAllPinsToggle: draft.showAllPinsToggle,
         startWithAllPins: draft.startWithAllPins,
         requireMapConsent: draft.requireMapConsent,
+        backgroundColor: draft.backgroundColor,
         sectionSettings: draft.sectionSettings,
         __customCss: draft.__customCss,
     };
@@ -808,5 +876,6 @@ function isMapDraftKey(key: string): boolean {
         'showAllPinsToggle',
         'startWithAllPins',
         'requireMapConsent',
+        'backgroundColor',
     ].includes(key);
 }

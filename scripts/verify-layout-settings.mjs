@@ -29,6 +29,7 @@ requireSnippets('lib/builder/layout-settings.ts', [
   'export function normalizeSectionSettings',
   'export function areSectionSettingsEqual',
   'export function buildLayoutCss',
+  'export function buildSectionStyleCss',
   "if (!hasLayoutOverrides(sectionSettings)) return '';",
   '.ks-layout-content',
   'const COLUMN_BLOCKS = new Set',
@@ -39,6 +40,7 @@ requireSnippets('lib/builder/layout-settings.ts', [
   'faq: makeGapCapabilities()',
   'tabBar: makeCapabilities()',
   'sanitizeCssSize',
+  'sanitizeCssColor',
   'Math.min(normalizeColumnLimit(maxColumns), Math.max(1, Math.round(value)))',
 ]);
 
@@ -67,6 +69,9 @@ requireSnippets('app/components/blocks/layout/LayoutTab.tsx', [
 requireSnippets('app/components/blocks/RepeatableItemsSettingsPanel.tsx', [
   'ResponsiveColumnsControl',
   'hasColumnLayoutControl',
+  'getRepeatableBackgroundFallback',
+  "managedType === 'stats'",
+  "return 'palette:primary';",
   "id=\"block-layout\"",
   'onChange={(columns) => updateSectionLayout({ columns })}',
   'maxColumns={items.length}',
@@ -76,6 +81,13 @@ requireSnippets('app/components/blocks/generic/GenericBlockSettingsPanel.tsx', [
   'ResponsiveColumnsControl',
   'visibleDisplayControls',
   'hasColumnLayoutControl',
+  'shouldShowColumnLayoutControl',
+  'FOREGROUND_COLOR_BLOCKS',
+  'Section background color',
+  'getColorFieldFallback',
+  "case 'cta':",
+  "return 'palette:secondary';",
+  "blockType === 'logoCloud'",
   'getLayoutColumnLimit',
   "control.key !== 'columns'",
   "id=\"block-layout\"",
@@ -91,8 +103,35 @@ requireSnippets('app/components/blocks/product/ProductSettingsPanel.tsx', [
 
 requireSnippets('app/components/blocks/menu/MenuSettingsPanel.tsx', [
   'ResponsiveColumnsControl',
+  'menuBackgroundFallback',
+  "menuModeDraft === 'pdf' ? 'palette:accent' : '#ffffff'",
   "id=\"block-layout\"",
   'onChange={(columns) => updateSectionLayout({ columns })}',
+]);
+
+requireSnippets('app/components/blocks/panel-shared.tsx', [
+  'DEFAULT_PALETTE_COLOR_FALLBACKS',
+  'getColorInputFallback',
+  'normalizeInputHexColor',
+  'SideBySideBackgroundOverrideNotice',
+  'Background color is being overridden',
+  'Turn off override',
+]);
+
+requireSnippets('lib/editor-context.tsx', [
+  'SideBySideBackgroundOverrideState',
+  'sideBySideBackgroundOverride?: SideBySideBackgroundOverrideState;',
+]);
+
+requireSnippets('app/components/blocks/SideBySideBlock.tsx', [
+  'backgroundOverride',
+  'sideBySideBackgroundOverride: effectiveBackgroundOverride',
+  "disable: () => updateContent('overrideChildBackgrounds', false)",
+]);
+
+requireSnippets('app/components/blocks/contact/ContactSettingsPanel.tsx', [
+  'fallback="palette:accent"',
+  'showOverrideNotice',
 ]);
 
 for (const [file, removedSnippets] of Object.entries({
@@ -130,14 +169,17 @@ if (read('lib/builder/layout-settings.ts').includes('text-align:')) {
 }
 
 requireSnippets('app/components/blocks/BlockWrapper.tsx', [
-  "import { buildLayoutCss } from '@/lib/builder/layout-settings';",
+  "import { buildLayoutCss, buildSectionStyleCss } from '@/lib/builder/layout-settings';",
   'const layoutCss = buildLayoutCss(id, type, props.data?.sectionSettings, props.data);',
-  "const combinedCss = [scopedCss, layoutCss].filter(Boolean).join('\\n');",
+  'const sectionStyleCss = buildSectionStyleCss(id, props.data, palette || {});',
+  "const combinedCss = [scopedCss, layoutCss, sectionStyleCss].filter(Boolean).join('\\n');",
 ]);
 
 requireSnippets('app/components/blocks/BlockWrapperEditor.tsx', [
   'buildLayoutCss',
+  'buildSectionStyleCss',
   'const previewLayoutCss = buildLayoutCss(id, type, previewData?.sectionSettings, previewData);',
+  'const previewSectionStyleCss = buildSectionStyleCss(id, previewData, palette || {});',
   'LAYOUT_GUIDE_PREVIEW_EVENT',
   'handleLayoutGuidePreview',
   'ks-container-width-guide',
@@ -148,7 +190,7 @@ requireSnippets('app/components/blocks/HeroBlock.tsx', [
 ]);
 
 requireSnippets('lib/ai/block-capabilities.ts', [
-  "const UNIVERSAL_ALLOWED_TOP_LEVEL_KEYS = ['sectionSettings'] as const;",
+  "const UNIVERSAL_ALLOWED_TOP_LEVEL_KEYS = ['sectionSettings', 'backgroundColor'] as const;",
   'for (const key of UNIVERSAL_ALLOWED_TOP_LEVEL_KEYS) keys.add(key);',
 ]);
 
@@ -160,12 +202,15 @@ for (const file of [
   'app/components/blocks/contact/ContactSettingsPanel.tsx',
   'app/components/blocks/map/MapSettingsPanel.tsx',
   'app/components/blocks/menu/MenuSettingsPanel.tsx',
+  'app/components/blocks/sideBySide/SideBySideSettingsPanel.tsx',
 ]) {
   requireSnippets(file, [
     'LayoutTab',
     'sectionSettings',
     'universal-layout',
     'areSectionSettingsEqual',
+    'Section background color',
+    'SideBySideBackgroundOverrideNotice',
   ]);
 }
 

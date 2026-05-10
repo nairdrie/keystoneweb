@@ -6,7 +6,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { useEditorContext } from '@/lib/editor-context';
 import { getBlockSlug } from '@/lib/block-utils';
 import { buildStaggerContainer } from '@/lib/motion';
-import { buildLayoutCss } from '@/lib/builder/layout-settings';
+import { buildLayoutCss, buildSectionStyleCss } from '@/lib/builder/layout-settings';
 import {
     blockToken,
     resolveAnimation,
@@ -18,8 +18,8 @@ interface BlockWrapperProps {
     id: string;
     type: string;
     children: ReactNode;
-    data?: any;
-    onUpdateBlockData?: (key: string, value: any) => void;
+    data?: Record<string, unknown>;
+    onUpdateBlockData?: (key: string, value: unknown) => void;
     customCss?: string;
     onUpdateCustomCss?: (css: string) => void;
     palette?: Record<string, string>;
@@ -37,7 +37,8 @@ export default function BlockWrapper(props: BlockWrapperProps) {
 
     const scopedCss = scopeCustomCss(id, customCss);
     const layoutCss = buildLayoutCss(id, type, props.data?.sectionSettings, props.data);
-    const combinedCss = [scopedCss, layoutCss].filter(Boolean).join('\n');
+    const sectionStyleCss = buildSectionStyleCss(id, props.data, palette || {});
+    const combinedCss = [scopedCss, layoutCss, sectionStyleCss].filter(Boolean).join('\n');
 
     const paletteVars = palette
         ? ({
@@ -66,7 +67,7 @@ export default function BlockWrapper(props: BlockWrapperProps) {
                 key={`${id}-view`}
                 id={slug}
                 data-block-id={id}
-                variants={variants as any}
+                variants={variants}
                 initial="hidden"
                 animate={gateOpen ? 'show' : 'hidden'}
                 whileInView={gateToken ? undefined : 'show'}
