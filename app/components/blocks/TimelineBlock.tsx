@@ -83,7 +83,7 @@ function normalizeItems(value: unknown): TimelineItem[] {
 export default function TimelineBlock({ data, isEditMode, palette, updateContent }: TimelineBlockProps) {
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
-    const pAccent = palette.accent || '#f3f4f6';
+    const lineColor = palette.accent || '#cbd5e1';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
     const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
     const fgColor = fgOverride || pPrimary;
@@ -320,7 +320,7 @@ export default function TimelineBlock({ data, isEditMode, palette, updateContent
                                         onSave={(_key, value) => updateItem(index, 'dateRange', value)}
                                     />
                                 </div>
-                                <div className="border-l-2 pl-5" style={{ borderColor: pAccent }}>
+                                <div className="border-l-2 pl-5" style={{ borderColor: lineColor }}>
                                     {renderCard(item, index, { compact: true })}
                                 </div>
                             </li>
@@ -349,7 +349,7 @@ export default function TimelineBlock({ data, isEditMode, palette, updateContent
                     <div className="relative">
                         <div
                             className="absolute left-1/2 top-2 bottom-2 hidden w-0.5 -translate-x-1/2 md:block"
-                            style={{ backgroundColor: pAccent }}
+                            style={{ backgroundColor: lineColor }}
                             aria-hidden="true"
                         />
                         <div className="space-y-6 md:space-y-10">
@@ -392,8 +392,8 @@ export default function TimelineBlock({ data, isEditMode, palette, updateContent
                 {renderHeader({ title: 'Work Experience', subtitle: 'My professional journey building products at companies of all sizes.', pretext: 'Career' })}
                 <div className="relative pl-8 md:pl-14">
                     <div
-                        className="absolute left-2.5 md:left-5 top-2 bottom-2 w-0.5"
-                        style={{ backgroundColor: pAccent }}
+                        className="absolute left-[14px] md:left-[26px] top-2 bottom-2 w-0.5"
+                        style={{ backgroundColor: lineColor }}
                         aria-hidden="true"
                     />
                     <ol className="space-y-6">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Crown } from 'lucide-react';
+import { Crown, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockSettingsPanel from '../BlockSettingsPanel';
 import { AVAILABLE_BLOCKS } from '../block-registry';
@@ -12,6 +12,7 @@ import {
     PretextControls,
     PRETEXT_BLOCKS,
     PRETEXT_DEFAULTS,
+    SideBySideBackgroundOverrideNotice,
     getColorInputValue,
     useInspectorSectionState,
 } from '../panel-shared';
@@ -25,8 +26,16 @@ import {
     type SectionSettings,
 } from '@/lib/builder/layout-settings';
 
-type SettingValue = string | number | boolean;
+type SettingValue = string | number | boolean | string[];
 type DraftSettings = Record<string, SettingValue>;
+
+const REPEATABLE_ITEMS_DRAFT_UPDATE_EVENT = 'ks:repeatable-items-draft-update';
+const DEFAULT_ABOUT_ITEMS = [
+    'Licensed & Insured Experts',
+    '100% Satisfaction Guarantee',
+    'Upfront Honest Pricing',
+    'Decades of Experience',
+];
 
 type ChoiceOption = {
     value: SettingValue;
@@ -122,6 +131,25 @@ const LAYOUT_FIELDS: Record<string, ChoiceField[]> = {
             options: [
                 { value: 'left', label: 'Left' },
                 { value: 'right', label: 'Right' },
+            ],
+        },
+        {
+            key: 'splitRatio',
+            label: 'Split ratio',
+            defaultValue: '50-50',
+            options: [
+                { value: '40-60', label: 'Image 40 / Text 60' },
+                { value: '50-50', label: 'Balanced 50 / 50' },
+                { value: '60-40', label: 'Image 60 / Text 40' },
+            ],
+        },
+        {
+            key: 'mobileStackOrder',
+            label: 'Mobile order',
+            defaultValue: 'image-first',
+            options: [
+                { value: 'image-first', label: 'Image first' },
+                { value: 'text-first', label: 'Text first' },
             ],
         },
     ],
@@ -291,6 +319,22 @@ const LAYOUT_FIELDS: Record<string, ChoiceField[]> = {
 };
 
 const DISPLAY_CONTROLS: Record<string, DisplayControl[]> = {
+    aboutImageText: [
+        {
+            kind: 'toggle',
+            key: 'showSecondaryButton',
+            label: 'Show secondary CTA',
+            description: 'Adds an outline-style button below the about copy.',
+            defaultValue: false,
+        },
+        {
+            kind: 'text',
+            key: 'imageCaption',
+            label: 'Image caption',
+            defaultValue: '',
+            placeholder: 'Optional caption under the image',
+        },
+    ],
     gallery: [
         {
             kind: 'select',
@@ -473,7 +517,7 @@ const DISPLAY_CONTROLS: Record<string, DisplayControl[]> = {
 const EMPTY_LAYOUT_FIELDS: ChoiceField[] = [];
 const EMPTY_DISPLAY_CONTROLS: DisplayControl[] = [];
 
-const BACKGROUND_BLOCKS = new Set([
+const FOREGROUND_COLOR_BLOCKS = new Set([
     'aboutImageText',
     'carousel',
     'featuredQuote',
@@ -514,9 +558,10 @@ export default function GenericBlockSettingsPanel({
         [displayControls],
     );
     const colorFields = useMemo(() => getColorFields(blockType), [blockType]);
+    const hasAboutItemsControl = blockType === 'aboutImageText';
     const supportsPretext = PRETEXT_BLOCKS.has(blockType);
     const layoutCapabilities = useMemo(() => getLayoutCapabilities(blockType), [blockType]);
-    const hasColumnLayoutControl = layoutCapabilities.supportsColumns;
+    const supportsColumnLayoutControl = layoutCapabilities.supportsColumns;
     const maxColumnCount = useMemo(
         () => getLayoutColumnLimit(blockType, blockData),
         [blockType, blockData],
@@ -531,16 +576,17 @@ export default function GenericBlockSettingsPanel({
     );
     const [draft, setDraft] = useState<DraftSettings>(initialDraft);
     const [sectionSettings, setSectionSettings] = useState<SectionSettings>(persistedSectionSettings);
+    const hasColumnLayoutControl = supportsColumnLayoutControl && shouldShowColumnLayoutControl(blockType, draft);
 
     const sectionIds = useMemo(() => {
-        const ids: string[] = ['universal-layout'];
+        const ids: string[] = hasAboutItemsControl ? ['items', 'universal-layout'] : ['universal-layout'];
         if (layoutFields.length > 0 || hasColumnLayoutControl) ids.push('block-layout');
         if (supportsPretext) ids.push('pretext');
         if (visibleDisplayControls.length > 0) ids.push('display');
         if (colorFields.length > 0) ids.push('style');
         ids.push('advanced');
         return ids;
-    }, [layoutFields.length, hasColumnLayoutControl, supportsPretext, visibleDisplayControls.length, colorFields.length]);
+    }, [hasAboutItemsControl, layoutFields.length, hasColumnLayoutControl, supportsPretext, visibleDisplayControls.length, colorFields.length]);
 
     const sectionState = useInspectorSectionState(sectionIds, true);
 
@@ -553,6 +599,27 @@ export default function GenericBlockSettingsPanel({
         });
     }, [blockData, draft, sectionSettings, onDraftBlockDataChange]);
 
+    useEffect(() => {
+        if (!hasAboutItemsControl) return;
+
+        const handleCanvasDraftUpdate = (event: Event) => {
+            const detail = (event as CustomEvent<{
+                blockId?: string;
+                key?: string;
+                value?: unknown;
+            }>).detail;
+            if (detail?.blockId !== blockId || detail.key !== 'items') return;
+
+            setDraft((current) => ({
+                ...current,
+                items: normalizeAboutItems(detail.value),
+            }));
+        };
+
+        window.addEventListener(REPEATABLE_ITEMS_DRAFT_UPDATE_EVENT, handleCanvasDraftUpdate);
+        return () => window.removeEventListener(REPEATABLE_ITEMS_DRAFT_UPDATE_EVENT, handleCanvasDraftUpdate);
+    }, [blockId, hasAboutItemsControl]);
+
     const hasUnsavedChanges = useMemo(
         () => !areRecordsEqual(draft, initialDraft) || !areSectionSettingsEqual(sectionSettings, persistedSectionSettings),
         [draft, initialDraft, sectionSettings, persistedSectionSettings],
@@ -560,6 +627,12 @@ export default function GenericBlockSettingsPanel({
 
     const updateDraft = (key: string, value: SettingValue) => {
         setDraft((current) => ({ ...current, [key]: value }));
+    };
+
+    const aboutItems = useMemo(() => normalizeAboutItems(draft.items), [draft.items]);
+
+    const updateAboutItems = (nextItems: string[]) => {
+        updateDraft('items', nextItems);
     };
 
     const updateSectionLayout = (patch: Partial<SectionSettings['layout']>) => {
@@ -609,6 +682,20 @@ export default function GenericBlockSettingsPanel({
             onToggleAllCollapsed={() => sectionState.setAll(!sectionState.allCollapsed)}
             tourId="generic-block-settings-panel"
         >
+            {hasAboutItemsControl && (
+                <InspectorSection
+                    id="items"
+                    title="Items"
+                    isCollapsed={sectionState.isCollapsed('items')}
+                    onToggle={() => sectionState.toggle('items')}
+                >
+                    <AboutItemsControl
+                        items={aboutItems}
+                        onChange={updateAboutItems}
+                    />
+                </InspectorSection>
+            )}
+
             <InspectorSection
                 id="universal-layout"
                 title="Layout"
@@ -654,7 +741,7 @@ export default function GenericBlockSettingsPanel({
             {supportsPretext && (
                 <InspectorSection
                     id="pretext"
-                    title="Label"
+                    title={blockType === 'aboutImageText' ? 'Eyebrow' : 'Label'}
                     isCollapsed={sectionState.isCollapsed('pretext')}
                     onToggle={() => sectionState.toggle('pretext')}
                 >
@@ -662,6 +749,7 @@ export default function GenericBlockSettingsPanel({
                         values={draft}
                         palette={palette}
                         onChange={updateDraft}
+                        labelName={blockType === 'aboutImageText' ? 'eyebrow' : 'label'}
                     />
                 </InspectorSection>
             )}
@@ -700,6 +788,7 @@ export default function GenericBlockSettingsPanel({
                             <ColorFieldControl
                                 key={field.key}
                                 field={field}
+                                fallback={getColorFieldFallback(blockType, field, draft)}
                                 value={String(draft[field.key] ?? '')}
                                 palette={palette}
                                 onChange={(value) => updateDraft(field.key, value)}
@@ -739,6 +828,114 @@ export default function GenericBlockSettingsPanel({
                 )}
             </InspectorSection>
         </BlockSettingsPanel>
+    );
+}
+
+function AboutItemsControl({
+    items,
+    onChange,
+}: {
+    items: string[];
+    onChange: (items: string[]) => void;
+}) {
+    const [dragIndex, setDragIndex] = useState<number | null>(null);
+    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+    const updateItem = (index: number, value: string) => {
+        onChange(items.map((item, itemIndex) => itemIndex === index ? value : item));
+    };
+
+    const addItem = () => {
+        onChange([...items, `New Benefit ${getNextAboutBenefitNumber(items)}`]);
+    };
+
+    const deleteItem = (index: number) => {
+        if (items.length <= 1) return;
+        onChange(items.filter((_, itemIndex) => itemIndex !== index));
+    };
+
+    const reorderItem = (fromIndex: number, toIndex: number) => {
+        if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return;
+        if (fromIndex >= items.length || toIndex >= items.length) return;
+        const next = [...items];
+        const [moved] = next.splice(fromIndex, 1);
+        next.splice(toIndex, 0, moved);
+        onChange(next);
+    };
+
+    return (
+        <div className="space-y-2">
+            {items.map((item, index) => {
+                const isDragOver = dragOverIndex === index && dragIndex !== index;
+                return (
+                    <div
+                        key={`about-item-settings-${index}`}
+                        className={`rounded-xl border bg-white transition-colors ${
+                            isDragOver ? 'border-blue-400 bg-blue-50/50' : 'border-slate-200'
+                        }`}
+                        onDragOver={(event) => {
+                            event.preventDefault();
+                            setDragOverIndex(index);
+                        }}
+                        onDrop={(event) => {
+                            event.preventDefault();
+                            if (dragIndex !== null) reorderItem(dragIndex, index);
+                            setDragIndex(null);
+                            setDragOverIndex(null);
+                        }}
+                    >
+                        <div className="flex items-center gap-2 px-3 py-2">
+                            <button
+                                type="button"
+                                draggable
+                                onDragStart={(event) => {
+                                    event.dataTransfer.effectAllowed = 'move';
+                                    event.dataTransfer.setData('text/plain', `about-item-${index}`);
+                                    setDragIndex(index);
+                                }}
+                                onDragEnd={() => {
+                                    setDragIndex(null);
+                                    setDragOverIndex(null);
+                                }}
+                                className="cursor-grab rounded p-1.5 text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-700 active:cursor-grabbing"
+                                title="Drag to reorder about item"
+                                aria-label="Drag to reorder about item"
+                            >
+                                <GripVertical className="h-4 w-4" />
+                            </button>
+                            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-xs font-bold text-slate-500">
+                                {index + 1}
+                            </span>
+                            <input
+                                type="text"
+                                value={item}
+                                onChange={(event) => updateItem(index, event.target.value)}
+                                aria-label={`About item ${index + 1}`}
+                                className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => deleteItem(index)}
+                                disabled={items.length <= 1}
+                                className="rounded-md border border-slate-200 p-2 text-red-500 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                title="Delete about item"
+                                aria-label="Delete about item"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                );
+            })}
+            <button
+                type="button"
+                onClick={addItem}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm font-bold text-slate-600 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+                <Plus className="h-4 w-4" />
+                Add Item
+            </button>
+        </div>
     );
 }
 
@@ -860,22 +1057,25 @@ function DisplayControlRow({
 
 function ColorFieldControl({
     field,
+    fallback,
     value,
     palette,
     onChange,
 }: {
     field: ColorField;
+    fallback: string;
     value: string;
     palette: Record<string, string>;
     onChange: (value: string) => void;
 }) {
-    const inputValue = getColorInputValue(value, palette, field.fallback);
+    const inputValue = getColorInputValue(value, palette, fallback);
 
     return (
         <div>
             <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`generic-${field.key}`}>
                 {field.label}
             </label>
+            {field.key === 'backgroundColor' && <SideBySideBackgroundOverrideNotice />}
             <div className="mt-2 flex flex-wrap items-center gap-2">
                 <input
                     id={`generic-${field.key}`}
@@ -911,15 +1111,17 @@ function ColorFieldControl({
 }
 
 function getColorFields(blockType: string): ColorField[] {
-    const fields: ColorField[] = [];
-    if (BACKGROUND_BLOCKS.has(blockType)) {
-        fields.push({
+    const fields: ColorField[] = [
+        {
             key: 'backgroundColor',
             label: 'Section background color',
             defaultValue: '',
             fallback: '#ffffff',
             placeholder: 'Default',
-        });
+        },
+    ];
+
+    if (FOREGROUND_COLOR_BLOCKS.has(blockType)) {
         fields.push({
             key: 'foregroundColor',
             label: 'Section text color',
@@ -949,6 +1151,36 @@ function getColorFields(blockType: string): ColorField[] {
     }
 
     return fields;
+}
+
+function getColorFieldFallback(blockType: string, field: ColorField, draft: DraftSettings): string {
+    if (field.key !== 'backgroundColor') return field.fallback;
+
+    switch (blockType) {
+        case 'aboutImageText':
+        case 'deliveryLinks':
+        case 'featuredQuote':
+            return 'palette:accent';
+        case 'cta':
+            return 'palette:secondary';
+        case 'resources':
+            return '#f8fafc';
+        case 'carousel':
+            return readDraftString(draft, 'variant', 'cards') === 'slides' ? 'palette:accent' : '#ffffff';
+        case 'logoCloud':
+            return readDraftString(draft, 'variant', 'inline') === 'marquee' ? 'palette:accent' : '#ffffff';
+        case 'pricing':
+            return readDraftString(draft, 'variant', 'cards') === 'simple' ? '#ffffff' : 'palette:accent';
+        case 'team':
+            return readDraftString(draft, 'variant', 'grid') === 'cards' ? 'palette:accent' : '#ffffff';
+        default:
+            return field.fallback;
+    }
+}
+
+function readDraftString(draft: DraftSettings, key: string, fallback: string): string {
+    const value = draft[key];
+    return typeof value === 'string' && value.trim() ? value : fallback;
 }
 
 function buildInitialDraft(
@@ -983,6 +1215,10 @@ function buildInitialDraft(
         draft.pretextAlignment = readSetting(blockData, 'pretextAlignment', PRETEXT_DEFAULTS.pretextAlignment);
     }
 
+    if (blockType === 'aboutImageText') {
+        draft.items = normalizeAboutItems(blockData.items);
+    }
+
     if (blockType === 'socialFeed' && draft.variant === 'single') {
         draft.columns = readSetting(blockData, 'columns', 1);
     }
@@ -990,9 +1226,28 @@ function buildInitialDraft(
     return draft;
 }
 
+function normalizeAboutItems(value: unknown): string[] {
+    if (!Array.isArray(value) || value.length === 0) return DEFAULT_ABOUT_ITEMS;
+    const items = value.map((item) => String(item)).filter(Boolean);
+    return items.length > 0 ? items : DEFAULT_ABOUT_ITEMS;
+}
+
+function getNextAboutBenefitNumber(items: string[]): number {
+    const existingNumbers = items
+        .map((item) => item.match(/^New Benefit (\d+)$/)?.[1])
+        .filter((value): value is string => Boolean(value))
+        .map((value) => Number(value))
+        .filter(Number.isFinite);
+
+    return existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : items.length + 1;
+}
+
 function readSetting(blockData: Record<string, unknown>, key: string, defaultValue: SettingValue): SettingValue {
     const value = blockData[key];
     if (value === undefined || value === null) return defaultValue;
+    if (Array.isArray(defaultValue)) {
+        return Array.isArray(value) ? value.map((item) => String(item)).filter(Boolean) : defaultValue;
+    }
     if (typeof defaultValue === 'number') {
         const numeric = Number(value);
         return Number.isFinite(numeric) ? numeric : defaultValue;
@@ -1005,6 +1260,13 @@ function shouldShowControl(control: DisplayControl, draft: DraftSettings): boole
     if (!control.dependsOn) return true;
     const dependencies = Array.isArray(control.dependsOn) ? control.dependsOn : [control.dependsOn];
     return dependencies.every((dependency) => areValuesEqual(draft[dependency.key], dependency.value));
+}
+
+function shouldShowColumnLayoutControl(blockType: string, draft: DraftSettings): boolean {
+    if (blockType === 'logoCloud') {
+        return String(draft.variant || 'inline') === 'grid';
+    }
+    return true;
 }
 
 function areRecordsEqual(a: DraftSettings, b: DraftSettings): boolean {

@@ -56,6 +56,12 @@ requireSnippets('app/components/blocks/LogoCloudBlock.tsx', [
   'handleLogoSave',
   'updateContent(key, value);',
   "typeof logo === 'string' ? logo : ''",
+  'renderLogoImage',
+  'pendingLogoSlots',
+  'handleAddLogo',
+  'Add Logo',
+  'fallback={<LogoPlaceholder className={previewFrameClassName} />}',
+  'function LogoPlaceholder',
 ], failures);
 
 requireSnippets('app/components/blocks/CarouselBlock.tsx', [
@@ -172,6 +178,187 @@ requireSnippets('app/components/blocks/GalleryBlock.tsx', [
   'type="button"',
 ], failures);
 
+requireSnippets('app/components/blocks/AboutImageTextBlock.tsx', [
+  "import InlineCardControls, { reorderItems } from './InlineCardControls';",
+  'normalizeImageFocalPoint(persistedImageSettings.objectPosition ?? data.imageFocalPoint)',
+  'isImagePositionPercentToken(x)',
+  'roundImagePositionPercent(Number(x.slice(0, -1)))',
+  'enableInlineCropControls',
+  'editorPreviewFrameClassName={`w-full ${aspectClass}`}',
+  'handleReorderItem(draggedIndex, index);',
+  'dragTitle="Drag to reorder about item"',
+  'removeTitle="Delete about item"',
+], failures);
+
+requireSnippets('app/components/blocks/generic/GenericBlockSettingsPanel.tsx', [
+  "const REPEATABLE_ITEMS_DRAFT_UPDATE_EVENT = 'ks:repeatable-items-draft-update';",
+  'const DEFAULT_ABOUT_ITEMS = [',
+  "const hasAboutItemsControl = blockType === 'aboutImageText';",
+  "const ids: string[] = hasAboutItemsControl ? ['items', 'universal-layout'] : ['universal-layout'];",
+  'title="Items"',
+  'function AboutItemsControl',
+  'Drag to reorder about item',
+  'Delete about item',
+  "draft.items = normalizeAboutItems(blockData.items);",
+], failures);
+
+requireSnippets('app/components/EditableImage.tsx', [
+  'editorPreviewFrameClassName?: string;',
+  'showInlineCropZoomControl?: boolean;',
+  'inlineCropFrameClassName?: string;',
+  'inlineCropImageClassName?: string;',
+  'const editorFrameClassName = editorPreviewFrameClassName || className || undefined;',
+  'const imageRadiusClassName = getImageRadiusClasses(className);',
+  'frameClassName={cropFrameClassName}',
+  'previewFrameClassName={editorFrameClassName}',
+  'previewFrameSize={editorPreviewFrameSize}',
+  'onFrameSizeChange={handleFrameSizeChange}',
+  'showZoomControl={showInlineCropZoomControl}',
+  'getInitialImageSettings(className, initialSettings)',
+  'function getImageRadiusClasses(value: string): string',
+], failures);
+
+const editableImageSource = read('app/components/EditableImage.tsx');
+if (editableImageSource.includes('stripImageRadiusClasses') || editableImageSource.includes('frameClassName={`rounded ${cropFrameClassName}`}')) {
+  failures.push('app/components/EditableImage.tsx should preserve real image radius classes without adding or stripping rounded corners');
+}
+
+requireSnippets('app/components/ImageCropFrame.tsx', [
+  'onFrameSizeChange?: (size: Size) => void;',
+  'onFrameSizeChange?.(nextSize);',
+  'const cropFrameTitle = interactive',
+  'Use the slider to zoom.',
+  'title={cropFrameTitle}',
+], failures);
+
+const imageCropFrameSource = read('app/components/ImageCropFrame.tsx');
+if (imageCropFrameSource.includes("addEventListener('wheel'") || imageCropFrameSource.includes('Scroll to zoom')) {
+  failures.push('app/components/ImageCropFrame.tsx should not support scroll-to-zoom');
+}
+
+requireSnippets('app/components/ImageEditorModal.tsx', [
+  'previewFrameClassName?: string;',
+  'previewFrameSize?: ImageFrameSize;',
+  "previewFrameClassName = 'h-56 w-full'",
+  'const scaledPreviewFrame = getScaledPreviewFrame(previewFrameClassName, previewFrameSize);',
+  'const modalPreviewFrameClassName = `${scaledPreviewFrame.className} mx-auto`.trim();',
+  'frameClassName={modalPreviewFrameClassName}',
+  'aspectRatio: `${roundPixel(scaled.width)} / ${roundPixel(scaled.height)}`',
+  'function getScaledPreviewFrame(sourceClassName: string, measuredSize?: ImageFrameSize): ScaledPreviewFrame',
+  'const measuredWidth = measuredSize && measuredSize.width > 0 ? measuredSize.width : undefined;',
+], failures);
+
+const imageEditorModalSource = read('app/components/ImageEditorModal.tsx');
+if (imageEditorModalSource.includes('rounded-lg border border-slate-200 bg-slate-100 p-3')) {
+  failures.push('app/components/ImageEditorModal.tsx should not add a gray box behind image previews');
+}
+
+requireSnippets('app/components/blocks/CarouselBlock.tsx', [
+  'enableInlineCropControls',
+  'editorPreviewFrameClassName="w-full h-44"',
+  'editorPreviewFrameClassName="w-full h-80"',
+  'editorPreviewFrameClassName="w-48 h-48 mx-auto"',
+], failures);
+
+requireSnippets('app/components/blocks/FeaturedQuoteBlock.tsx', [
+  'enableInlineCropControls',
+  'showInlineCropZoomControl={false}',
+  'editorPreviewFrameClassName="w-full aspect-[3/4]"',
+  'editorPreviewFrameClassName="w-16 h-16 rounded-full"',
+  'editorPreviewFrameClassName="w-full min-h-64"',
+  'editorPreviewFrameClassName="w-20 h-20 rounded-full"',
+  'editorPreviewFrameClassName="w-10 h-10 rounded-full"',
+  'updateContent(key, value);',
+], failures);
+
+requireSnippets('app/components/blocks/GalleryBlock.tsx', [
+  'enableInlineCropControls',
+  'editorPreviewFrameClassName="w-full aspect-square"',
+  'e.dataTransfer.setData(\'text/plain\', `gallery-image-${index}`)',
+], failures);
+
+requireSnippets('app/components/blocks/HeroBlock.tsx', [
+  'enableInlineCropControls',
+  'editorPreviewFrameClassName="w-full h-96"',
+], failures);
+
+requireSnippets('app/components/blocks/ImageBlock.tsx', [
+  'enableInlineCropControls',
+  'editorPreviewFrameClassName="w-full min-h-[300px]"',
+], failures);
+
+requireSnippets('app/components/blocks/LogoCloudBlock.tsx', [
+  'enableInlineCropControls',
+  'showInlineCropZoomControl={false}',
+  'inlineCropFrameClassName="h-full w-full object-contain"',
+  'ks-layout-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8',
+  'flex w-[200%] items-center animate-marquee',
+  'flex w-1/2 items-center justify-center gap-16',
+  'editorPreviewFrameClassName={previewFrameClassName}',
+  "previewFrameClassName: 'h-12 w-40 max-w-full'",
+  "previewFrameClassName: 'h-10 w-36 max-w-full'",
+], failures);
+
+const logoCloudSource = read('app/components/blocks/LogoCloudBlock.tsx');
+if (logoCloudSource.includes('Math.max(logos.length + 1, 6)')) {
+  failures.push('app/components/blocks/LogoCloudBlock.tsx should use an Add Logo button instead of fixed empty logo slots');
+}
+if (logoCloudSource.includes('[...logos, ...logos].map')) {
+  failures.push('app/components/blocks/LogoCloudBlock.tsx should keep marquee duplicate logos offscreen at the centered starting position');
+}
+
+requireSnippets('app/components/blocks/TeamBlock.tsx', [
+  'enableInlineCropControls',
+  'showInlineCropZoomControl={false}',
+  'editorPreviewFrameClassName="h-16 w-16 rounded-full"',
+  'editorPreviewFrameClassName="h-64 w-full"',
+  'editorPreviewFrameClassName="h-32 w-32 rounded-full"',
+  'else updateContent(key, value);',
+], failures);
+
+requireSnippets('app/components/blocks/hero/HeroSettingsPanel.tsx', [
+  'const imagePickerPreviewFrameClassName = imageEditorOpen === \'foreground\'',
+  'previewFrameClassName={imagePickerPreviewFrameClassName}',
+], failures);
+
+requireSnippets('app/components/blocks/sideBySide/SideBySideSettingsPanel.tsx', [
+  'overrideChildBackgrounds: boolean;',
+  'Override inner block backgrounds',
+  "updates.overrideChildBackgrounds = draft.overrideChildBackgrounds;",
+], failures);
+
+requireSnippets('app/components/blocks/SideBySideBlock.tsx', [
+  'const overrideChildBackgrounds = Boolean(data?.overrideChildBackgrounds);',
+  'data-side-by-side-id={id}',
+  'background-color: var(--side-by-side-child-bg) !important;',
+], failures);
+
+[
+  ['app/components/blocks/AboutImageTextBlock.tsx', 'rounded-lg shadow-xl object-cover'],
+  ['app/components/blocks/AboutImageTextBlock.tsx', 'editorPreviewFrameClassName={`w-full ${aspectClass} rounded-lg`}'],
+  ['app/components/blocks/ImageBlock.tsx', 'object-cover rounded-xl shadow-md'],
+  ['app/components/blocks/ImageBlock.tsx', 'editorPreviewFrameClassName="w-full min-h-[300px] rounded-xl"'],
+  ['app/components/blocks/HeroBlock.tsx', 'object-cover rounded-2xl shadow-xl'],
+  ['app/components/blocks/HeroBlock.tsx', 'editorPreviewFrameClassName="w-full h-96 rounded-2xl"'],
+  ['app/components/blocks/hero/HeroSettingsPanel.tsx', "'w-full h-96 rounded-2xl'"],
+  ['app/components/blocks/hero/HeroSettingsPanel.tsx', "'w-full min-h-[360px] rounded-xl'"],
+  ['app/components/blocks/GalleryBlock.tsx', 'aspect-square object-cover rounded-xl'],
+  ['app/components/blocks/GalleryBlock.tsx', 'editorPreviewFrameClassName="w-full aspect-square rounded-xl"'],
+  ['app/components/blocks/CarouselBlock.tsx', 'h-44 object-cover rounded-xl'],
+  ['app/components/blocks/CarouselBlock.tsx', 'h-44 rounded-xl bg-slate-100'],
+  ['app/components/blocks/CarouselBlock.tsx', 'overflow-hidden rounded-3xl shadow-lg'],
+  ['app/components/blocks/CarouselBlock.tsx', 'w-48 h-48 object-cover rounded-2xl'],
+  ['app/components/blocks/CarouselBlock.tsx', 'editorPreviewFrameClassName="w-48 h-48 rounded-2xl mx-auto"'],
+  ['app/components/blocks/FeaturedQuoteBlock.tsx', 'aspect-[3/4] object-cover rounded-2xl'],
+  ['app/components/blocks/FeaturedQuoteBlock.tsx', 'editorPreviewFrameClassName="w-full aspect-[3/4] rounded-2xl"'],
+  ['app/components/blocks/FeaturedQuoteBlock.tsx', 'object-cover rounded-2xl min-h-64'],
+  ['app/components/blocks/FeaturedQuoteBlock.tsx', 'editorPreviewFrameClassName="w-full min-h-64 rounded-2xl"'],
+].forEach(([file, snippet]) => {
+  if (read(file).includes(snippet)) {
+    failures.push(`${file} should keep default rectangular image boxes square: remove "${snippet}"`);
+  }
+});
+
 requireSnippets('lib/url.ts', [
   'SAFE_EXPLICIT_HREF_PATTERN',
   'HAS_SCHEME_PATTERN',
@@ -228,6 +415,11 @@ requireSnippets('app/components/blocks/BlockWrapperEditor.tsx', [
   "settingsOpen && usesPanel && type === 'contact' && isContactDraftKey(key)",
   'window.dispatchEvent(new CustomEvent(CONTACT_DRAFT_UPDATE_EVENT',
   "return key === 'contactItems' || key === 'socialLinks';",
+  "import { Children, ReactNode, cloneElement",
+  "Children.map(children.props.children",
+  "if ('value' in children.props)",
+  "value: data,",
+  "type === 'timeline' || type === 'aboutImageText'",
 ], failures);
 
 requireSnippets('app/components/blocks/contact/ContactSettingsPanel.tsx', [

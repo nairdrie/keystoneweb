@@ -1,11 +1,19 @@
 'use client';
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { createContext, useContext, ReactNode } from 'react';
 
 export interface BlockData {
   id: string;
   type: string;
   data: Record<string, any>;
+}
+
+export interface SideBySideBackgroundOverrideState {
+  parentBlockId: string;
+  enabled: boolean;
+  disable: () => void;
 }
 
 export interface NavItem {
@@ -59,6 +67,7 @@ export interface EditorContextType {
   moveBlock?: (id: string, direction: 'up' | 'down') => void;
   updateBlockData?: (id: string, key: string, value: any) => void;
   updateBlockDataBatch?: (id: string, updates: Record<string, any>) => void;
+  sideBySideBackgroundOverride?: SideBySideBackgroundOverrideState;
   isAiBuilderActive?: boolean;
   /** Whether we're in edit mode */
   isEditMode: boolean;

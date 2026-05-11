@@ -10,6 +10,7 @@ import type { ImageSettings, UnsplashAttribution } from '@/app/components/ImageE
 import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import {
+    DEFAULT_CTA2_LABEL,
     DEFAULT_CTA_LABEL,
     DEFAULT_PRETEXT,
     DEFAULT_SUBTITLE,
@@ -18,11 +19,15 @@ import {
     HeroBreakpoint,
     HeroCard,
     HeroData,
+    HeroElementKey,
     HeroHeight,
     HeroHeightConfig,
+    HeroSocialLink,
     legacyVariantClass,
     migrateLegacyHeroData,
+    resolveElementOrder,
 } from './hero/hero-schema';
+import { getSocialIcon, getSocialPlatformLabel, normalizeHref } from './contact/contact-config';
 import { HeroBgAnimation, HERO_BG_ANIMATION_META } from './hero/HeroBgAnimations';
 import { HeroBgPattern, HERO_BG_PATTERN_META } from './hero/HeroBgPatterns';
 import { resolveSlotColors } from './hero/hero-bg-shared';
@@ -131,6 +136,21 @@ export default function HeroBlock({
                 nc.content.cta.link = value;
             } else if (key === 'buttonTextIcon') {
                 nc.content.cta.icon = value;
+            } else if (key === 'buttonText2') {
+                nc.content.cta.secondary = {
+                    ...(nc.content.cta.secondary || { enabled: true, label: DEFAULT_CTA2_LABEL }),
+                    label: String(value ?? ''),
+                };
+            } else if (key === 'buttonText2Link') {
+                nc.content.cta.secondary = {
+                    ...(nc.content.cta.secondary || { enabled: true, label: DEFAULT_CTA2_LABEL }),
+                    link: value,
+                };
+            } else if (key === 'buttonText2Icon') {
+                nc.content.cta.secondary = {
+                    ...(nc.content.cta.secondary || { enabled: true, label: DEFAULT_CTA2_LABEL }),
+                    icon: value,
+                };
             } else if (key === 'image') {
                 const nextUrl = String(value ?? '');
                 nc.content.image.url = nextUrl;
@@ -478,7 +498,13 @@ function HeroCardContent({
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#ef4444';
 
-    const showText = card.content.pretext.enabled || card.content.title.enabled || card.content.subtitle.enabled || card.content.cta.enabled;
+    const social = card.content.social;
+    const visibleSocialLinks = social && social.enabled
+        ? (isEditMode ? social.links : social.links.filter((l) => l.url.trim()))
+        : [];
+    const hasSocial = visibleSocialLinks.length > 0;
+
+    const showText = card.content.pretext.enabled || card.content.title.enabled || card.content.subtitle.enabled || card.content.cta.enabled || hasSocial;
     const showForeground = card.content.image.enabled && (card.content.image.url || isEditMode);
     const imageOnRight = card.content.image.side !== 'left';
 
@@ -495,70 +521,129 @@ function HeroCardContent({
         pretextAlignment: card.content.pretext.align,
     };
 
+    const order = resolveElementOrder(card.content.elementOrder);
+    const secondary = card.content.cta.secondary;
+    const secondaryEnabled = !!secondary?.enabled;
+    const secondaryPlacement = card.content.cta.secondaryPlacement === 'below' ? 'below' : 'beside';
+    const ctaWrapperFlex = secondaryEnabled && secondaryPlacement === 'below' ? 'flex-col gap-3' : 'flex-row gap-4 flex-wrap';
+
+    const renderElement = (key: HeroElementKey): React.ReactNode => {
+        if (key === 'pretext') {
+            if (!card.content.pretext.enabled) return null;
+            return (
+                <Reveal key="pretext">
+                    <BlockPretext
+                        data={pretextData}
+                        isEditMode={isEditMode}
+                        palette={palette}
+                        updateContent={onSave}
+                        defaultText={DEFAULT_PRETEXT}
+                    />
+                </Reveal>
+            );
+        }
+        if (key === 'title') {
+            if (!card.content.title.enabled) return null;
+            return (
+                <Reveal key="title">
+                    <EditableText
+                        as="h1"
+                        contentKey="title"
+                        styleData={blockData?.['title__styles'] as string | Record<string, unknown> | undefined}
+                        content={card.content.title.value}
+                        defaultValue={DEFAULT_TITLE}
+                        isEditMode={isEditMode}
+                        onSave={onSave}
+                        className={`hero-title text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight ${TEXT_ALIGN_CLASS[card.content.title.align]}`}
+                        style={{ color: textColor }}
+                    />
+                </Reveal>
+            );
+        }
+        if (key === 'subtitle') {
+            if (!card.content.subtitle.enabled) return null;
+            return (
+                <Reveal key="subtitle">
+                    <EditableText
+                        as="p"
+                        contentKey="subtitle"
+                        styleData={blockData?.['subtitle__styles'] as string | Record<string, unknown> | undefined}
+                        content={card.content.subtitle.value}
+                        defaultValue={DEFAULT_SUBTITLE}
+                        isEditMode={isEditMode}
+                        onSave={onSave}
+                        className={`hero-subtitle mt-6 text-base sm:text-lg md:text-xl ${TEXT_ALIGN_CLASS[card.content.subtitle.align]}`}
+                        style={{ color: isMediaBg ? 'rgba(255,255,255,0.85)' : 'rgba(15,23,42,0.7)' }}
+                    />
+                </Reveal>
+            );
+        }
+        if (key === 'social') {
+            if (!hasSocial) return null;
+            return (
+                <Reveal key="social">
+                    <div className={`hero-social mt-6 flex ${FLEX_ALIGN_CLASS[social.align]}`}>
+                        <ul className="flex items-center gap-3 flex-wrap">
+                            {visibleSocialLinks.map((link) => (
+                                <SocialIconLink
+                                    key={link.id}
+                                    link={link}
+                                    color={textColor}
+                                    onMediaBg={isMediaBg}
+                                />
+                            ))}
+                        </ul>
+                    </div>
+                </Reveal>
+            );
+        }
+        if (key === 'cta') {
+            if (!card.content.cta.enabled) return null;
+            return (
+                <Reveal key="cta">
+                    <div className={`mt-8 flex ${FLEX_ALIGN_CLASS[card.content.cta.align]}`}>
+                        <div className={`inline-flex items-center ${ctaWrapperFlex}`}>
+                            <EditableButton
+                                contentKey="buttonText"
+                                label={card.content.cta.label}
+                                linkData={card.content.cta.link as Partial<ButtonLinkData> | undefined}
+                                iconData={card.content.cta.icon as ButtonIconData | undefined}
+                                defaultLabel={DEFAULT_CTA_LABEL}
+                                isEditMode={isEditMode}
+                                onSave={onSave}
+                                className="hero-button px-8 py-4 text-white font-bold rounded-lg shadow-lg hover:opacity-90 transition-opacity inline-block"
+                                style={{ backgroundColor: pSecondary, color: '#ffffff' }}
+                                palette={palette}
+                            />
+                            {secondaryEnabled && (
+                                <EditableButton
+                                    contentKey="buttonText2"
+                                    label={secondary?.label}
+                                    linkData={secondary?.link as Partial<ButtonLinkData> | undefined}
+                                    iconData={secondary?.icon as ButtonIconData | undefined}
+                                    defaultLabel={DEFAULT_CTA2_LABEL}
+                                    isEditMode={isEditMode}
+                                    onSave={onSave}
+                                    defaultFill="ghost"
+                                    className="hero-button-secondary px-8 py-4 font-bold rounded-lg hover:opacity-70 transition-opacity inline-block"
+                                    style={{ color: textColor, backgroundColor: 'transparent' }}
+                                    palette={palette}
+                                />
+                            )}
+                        </div>
+                    </div>
+                </Reveal>
+            );
+        }
+        return null;
+    };
+
     return (
         <div className="hero-container ks-layout-content relative z-10 mx-auto flex h-full w-full max-w-7xl items-center px-4 py-20 md:py-24">
             <div className={`grid w-full gap-10 items-center ${showForeground && showText ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
                 {showText && (
                     <div className={`hero-content ${imageOnRight || !showForeground ? 'order-1' : 'order-2'}`}>
-                        {card.content.pretext.enabled && (
-                            <Reveal>
-                                <BlockPretext
-                                    data={pretextData}
-                                    isEditMode={isEditMode}
-                                    palette={palette}
-                                    updateContent={onSave}
-                                    defaultText={DEFAULT_PRETEXT}
-                                />
-                            </Reveal>
-                        )}
-                        {card.content.title.enabled && (
-                            <Reveal>
-                                <EditableText
-                                    as="h1"
-                                    contentKey="title"
-                                    styleData={blockData?.['title__styles'] as string | Record<string, unknown> | undefined}
-                                    content={card.content.title.value}
-                                    defaultValue={DEFAULT_TITLE}
-                                    isEditMode={isEditMode}
-                                    onSave={onSave}
-                                    className={`hero-title text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight ${TEXT_ALIGN_CLASS[card.content.title.align]}`}
-                                    style={{ color: textColor }}
-                                />
-                            </Reveal>
-                        )}
-                        {card.content.subtitle.enabled && (
-                            <Reveal>
-                                <EditableText
-                                    as="p"
-                                    contentKey="subtitle"
-                                    styleData={blockData?.['subtitle__styles'] as string | Record<string, unknown> | undefined}
-                                    content={card.content.subtitle.value}
-                                    defaultValue={DEFAULT_SUBTITLE}
-                                    isEditMode={isEditMode}
-                                    onSave={onSave}
-                                    className={`hero-subtitle mt-6 text-base sm:text-lg md:text-xl ${TEXT_ALIGN_CLASS[card.content.subtitle.align]}`}
-                                    style={{ color: isMediaBg ? 'rgba(255,255,255,0.85)' : 'rgba(15,23,42,0.7)' }}
-                                />
-                            </Reveal>
-                        )}
-                        {card.content.cta.enabled && (
-                            <Reveal>
-                                <div className={`mt-8 flex ${FLEX_ALIGN_CLASS[card.content.cta.align]}`}>
-                                    <EditableButton
-                                        contentKey="buttonText"
-                                        label={card.content.cta.label}
-                                        linkData={card.content.cta.link as Partial<ButtonLinkData> | undefined}
-                                        iconData={card.content.cta.icon as ButtonIconData | undefined}
-                                        defaultLabel={DEFAULT_CTA_LABEL}
-                                        isEditMode={isEditMode}
-                                        onSave={onSave}
-                                        className="hero-button px-8 py-4 text-white font-bold rounded-lg shadow-lg hover:opacity-90 transition-opacity inline-block"
-                                        style={{ backgroundColor: pSecondary, color: '#ffffff' }}
-                                        palette={palette}
-                                    />
-                                </div>
-                            </Reveal>
-                        )}
+                        {order.map(renderElement)}
                     </div>
                 )}
                 {showForeground && (
@@ -571,7 +656,9 @@ function HeroCardContent({
                             isEditMode={isEditMode}
                             onSave={onSave}
                             onUpload={uploadImage}
-                            className="hero-image w-full h-96 object-cover rounded-2xl shadow-xl"
+                            className="hero-image w-full h-96 object-cover shadow-xl"
+                            enableInlineCropControls
+                            editorPreviewFrameClassName="w-full h-96"
                             placeholder="Click to upload hero image"
                             priority
                         />
@@ -579,6 +666,40 @@ function HeroCardContent({
                 )}
             </div>
         </div>
+    );
+}
+
+function SocialIconLink({ link, color, onMediaBg }: { link: HeroSocialLink; color: string; onMediaBg: boolean }) {
+    const Icon = getSocialIcon(link.platform);
+    const label = link.label || getSocialPlatformLabel(link.platform);
+    const href = normalizeHref(link.url);
+    const bgClass = onMediaBg
+        ? 'bg-white/15 hover:bg-white/25'
+        : 'bg-slate-100 hover:bg-slate-200';
+    const inner = (
+        <span
+            className={`inline-flex h-11 w-11 items-center justify-center rounded-full transition-colors ${bgClass}`}
+            style={{ color }}
+        >
+            <Icon className="h-5 w-5" />
+        </span>
+    );
+    return (
+        <li>
+            {href ? (
+                <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={label}
+                    className="inline-flex"
+                >
+                    {inner}
+                </a>
+            ) : (
+                <span aria-label={label} className="inline-flex">{inner}</span>
+            )}
+        </li>
     );
 }
 

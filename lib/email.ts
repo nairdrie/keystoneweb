@@ -475,7 +475,7 @@ export async function sendOrderNotification(data: OrderEmailData, ownerEmail: st
                     ${data.notes ? `
                     <div style="background:#fefce8;border:1px solid #fef08a;border-radius:8px;padding:14px;margin-top:16px;">
                         <h3 style="margin:0 0 6px;font-size:13px;color:#713f12;">📝 Customer notes</h3>
-                        <p style="margin:0;font-size:14px;color:#422006;white-space:pre-wrap;">${data.notes.replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' } as any)[c])}</p>
+                        <p style="margin:0;font-size:14px;color:#422006;white-space:pre-wrap;">${escapeEmailHtml(data.notes)}</p>
                     </div>` : ''}
                     ${awaitingPaymentSection}
                     <p style="margin-top:24px;font-size:12px;color:#9ca3af;text-align:center;">Powered by Keystone Web Design</p>
@@ -716,7 +716,14 @@ export async function sendVendorOrderNotification(data: {
     customerName: string;
     customerEmail: string;
     customerPhone?: string;
-    shippingAddress?: any;
+    shippingAddress?: {
+        line1?: string;
+        city?: string;
+        region?: string;
+        province?: string;
+        postal?: string;
+        country?: string;
+    } | null;
     items: Array<{ name: string; price_cents: number; qty: number }>;
     subtotalCents: number;
     currency: string;
@@ -1011,12 +1018,182 @@ interface ContactEmailData {
     submissionId?: string;
     siteId?: string;
     sourceType?: string;
-    metadata?: any;
+    metadata?: Record<string, unknown> | null;
     /** Inbox address that received this message — used to deep-link the right inbox tab. */
     inboxAddressId?: string | null;
     /** When supplied, replaces the message body in the email so owner can preview without opening admin. */
     previewBody?: string | null;
     subject?: string | null;
+}
+
+function escapeEmailHtml(value: unknown): string {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function formatQuoteCentsForEmail(cents: unknown, currency: unknown): string {
+    const amount = typeof cents === 'number' ? cents : Number(cents || 0);
+    const code = typeof currency === 'string' && currency ? currency : 'CAD';
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: code,
+        minimumFractionDigits: Math.abs(amount) % 100 === 0 ? 0 : 2,
+        maximumFractionDigits: 2,
+    }).format(amount / 100);
+}
+
+function isEmailRecord(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function toEmailRecord(value: unknown): Record<string, unknown> {
+    return isEmailRecord(value) ? value : {};
+}
+
+function readEmailString(value: unknown, fallback: string): string {
+    return typeof value === 'string' && value.length > 0 ? value : fallback;
+}
+
+function numberEmailValue(value: unknown): number {
+    const numeric = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function buildEstimateQuoteOwnerSummaryHtml(metadata: Record<string, unknown> | null | undefined): string {
+    const result = toEmailRecord(metadata?.quoteResult);
+    if (Object.keys(result).length === 0) return '';
+    const settings = toEmailRecord(metadata?.estimateQuoteSettings);
+    const currency = readEmailString(result.currency, readEmailString(metadata?.estimate_currency, 'CAD'));
+    const displayText = readEmailString(
+        metadata?.quoteDisplayText,
+        readEmailString(result.displayMode, '') === 'hidden'
+            ? 'Request quote'
+            : formatQuoteCentsForEmail(result.totalCents, currency),
+    );
+    const lineItems = Array.isArray(result.lineItems) ? result.lineItems.filter(isEmailRecord) : [];
+    const rules = Array.isArray(settings.pricingRules) ? settings.pricingRules.filter(isEmailRecord) : [];
+    const triggeredRuleNames = Array.isArray(result.triggeredRuleIds)
+        ? result.triggeredRuleIds.map(String).map((id) => readEmailString(rules.find((rule) => rule.id === id)?.name, id))
+        : [];
+    const tracking = toEmailRecord(metadata?.tracking);
+    const trackingRows = ([
+        ['UTM source', tracking.utm_source],
+        ['UTM medium', tracking.utm_medium],
+        ['UTM campaign', tracking.utm_campaign],
+        ['UTM term', tracking.utm_term],
+        ['UTM content', tracking.utm_content],
+        ['Landing page', tracking.landingPageUrl],
+        ['Referrer', tracking.referrer],
+        ['Current page', tracking.currentPageUrl],
+    ] as Array<[string, unknown]>).filter(([, value]) => value);
+
+    return `
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:16px;">
+            <p style="margin:0 0 4px;font-size:12px;color:#475569;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Calculated quote</p>
+            <p style="margin:0;font-size:26px;font-weight:800;color:#0f172a;">${escapeEmailHtml(displayText)}</p>
+            ${metadata?.serverCalculated ? `<p style="margin:6px 0 0;font-size:12px;color:#047857;font-weight:600;">Validated server-side</p>` : ''}
+            ${lineItems.length ? `
+            <table style="width:100%;border-collapse:collapse;margin-top:14px;font-size:13px;">
+                ${lineItems.filter((item) => item.type !== 'deposit').map((item) => `
+                <tr>
+                    <td style="padding:6px 8px 6px 0;border-top:1px solid #e2e8f0;color:#475569;">${escapeEmailHtml(item.label)}</td>
+                    <td style="padding:6px 0;border-top:1px solid #e2e8f0;color:#0f172a;font-weight:700;text-align:right;">${formatQuoteCentsForEmail(item.amountCents, currency)}</td>
+                </tr>
+                `).join('')}
+                ${numberEmailValue(result.depositCents) > 0 ? `
+                <tr>
+                    <td style="padding:6px 8px 6px 0;border-top:1px solid #e2e8f0;color:#047857;">Deposit due</td>
+                    <td style="padding:6px 0;border-top:1px solid #e2e8f0;color:#047857;font-weight:700;text-align:right;">${formatQuoteCentsForEmail(result.depositCents, currency)}</td>
+                </tr>
+                ` : ''}
+            </table>` : ''}
+            ${triggeredRuleNames.length ? `
+            <div style="margin-top:14px;">
+                <p style="margin:0 0 6px;font-size:12px;color:#475569;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Triggered pricing rules</p>
+                <p style="margin:0;font-size:13px;color:#0f172a;">${triggeredRuleNames.map(escapeEmailHtml).join(', ')}</p>
+            </div>` : ''}
+            ${trackingRows.length ? `
+            <div style="margin-top:14px;">
+                <p style="margin:0 0 6px;font-size:12px;color:#475569;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Attribution</p>
+                <table style="width:100%;border-collapse:collapse;font-size:12px;">
+                    ${trackingRows.map(([label, value]) => `
+                    <tr>
+                        <td style="padding:4px 8px 4px 0;color:#64748b;width:34%;">${escapeEmailHtml(label)}</td>
+                        <td style="padding:4px 0;color:#0f172a;word-break:break-word;">${escapeEmailHtml(value)}</td>
+                    </tr>
+                    `).join('')}
+                </table>
+            </div>` : ''}
+        </div>
+    `;
+}
+
+export async function sendEstimateQuoteCustomerConfirmation(data: {
+    siteName: string;
+    customerName: string;
+    customerEmail: string;
+    metadata: Record<string, unknown>;
+    settings: unknown;
+    result: unknown;
+    submissionId?: string;
+}) {
+    try {
+        const settings = toEmailRecord(data.settings);
+        const result = toEmailRecord(data.result);
+        const notifications = toEmailRecord(settings.notifications);
+        const display = toEmailRecord(settings.display);
+        const success = toEmailRecord(settings.success);
+        const subject = readEmailString(notifications.customerEmailSubject, 'We received your quote request');
+        const currency = readEmailString(result.currency, readEmailString(settings.currency, 'CAD'));
+        const displayText = readEmailString(
+            data.metadata.quoteDisplayText,
+            readEmailString(result.displayMode, '') === 'hidden'
+                ? 'Request quote'
+                : formatQuoteCentsForEmail(result.totalCents, currency),
+        );
+        const lineItems = Array.isArray(result.lineItems) ? result.lineItems.filter(isEmailRecord) : [];
+        const disclaimer = readEmailString(display.disclaimer, readEmailString(display.quoteExpirationText, ''));
+        const thankYou = readEmailString(success.message, 'Thank you. We received your quote request and will follow up shortly.');
+
+        await resend.emails.send({
+            from: 'Keystone Web Design <contact@keystoneweb.ca>',
+            to: data.customerEmail,
+            subject,
+            html: `
+                <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px 0;">
+                    <div style="text-align:center;padding-bottom:20px;border-bottom:1px solid #e5e7eb;margin-bottom:20px;">
+                        <h1 style="margin:0 0 6px;font-size:22px;color:#111827;">${escapeEmailHtml(data.siteName)}</h1>
+                        <p style="margin:0;color:#6b7280;font-size:14px;">${escapeEmailHtml(thankYou)}</p>
+                    </div>
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:18px;margin-bottom:16px;text-align:center;">
+                        <p style="margin:0 0 4px;font-size:12px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Quote summary</p>
+                        <p style="margin:0;font-size:28px;font-weight:800;color:#0f172a;">${escapeEmailHtml(displayText)}</p>
+                        ${numberEmailValue(result.depositCents) > 0 ? `<p style="margin:8px 0 0;font-size:14px;color:#047857;font-weight:700;">Deposit: ${formatQuoteCentsForEmail(result.depositCents, currency)}</p>` : ''}
+                    </div>
+                    ${display.showLineItems !== false && lineItems.length ? `
+                    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:14px;">
+                        ${lineItems.filter((item) => item.type !== 'deposit').map((item) => `
+                        <tr>
+                            <td style="padding:8px 8px 8px 0;border-bottom:1px solid #f1f5f9;color:#475569;">${escapeEmailHtml(item.label)}</td>
+                            <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#111827;font-weight:700;text-align:right;">${formatQuoteCentsForEmail(item.amountCents, currency)}</td>
+                        </tr>
+                        `).join('')}
+                    </table>` : ''}
+                    ${disclaimer ? `<p style="margin:0 0 16px;font-size:12px;line-height:1.6;color:#64748b;">${escapeEmailHtml(disclaimer)}</p>` : ''}
+                    <p style="margin:0;font-size:13px;color:#6b7280;text-align:center;">Questions? Reply to this email or contact ${escapeEmailHtml(data.siteName)} directly.</p>
+                    ${data.submissionId ? `<p style="margin-top:18px;font-size:10px;color:#cbd5e1;text-align:center;">ref:${escapeEmailHtml(data.submissionId)}</p>` : ''}
+                </div>
+            `,
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send estimate quote customer email:', error);
+        return { success: false, error };
+    }
 }
 
 /**
@@ -1037,6 +1214,12 @@ export async function sendContactFormNotification(data: ContactEmailData, ownerE
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/\n/g, '<br>');
+    const estimateSummaryHtml = data.sourceType === 'estimate_form'
+        ? buildEstimateQuoteOwnerSummaryHtml(data.metadata)
+        : '';
+    const estimateFieldRows = data.sourceType === 'estimate_form' && Array.isArray(data.metadata?.fields)
+        ? data.metadata.fields.filter(isEmailRecord)
+        : [];
 
     // Build the per-thread reply address so the owner can hit Reply in their
     // own email client and have it delivered straight back to the customer.
@@ -1074,24 +1257,26 @@ export async function sendContactFormNotification(data: ContactEmailData, ownerE
                         <p style="margin: 0; color: #6b7280; font-size: 14px;">Someone reached out from <strong>${data.siteName}</strong></p>
                     </div>
 
+                    ${estimateSummaryHtml}
+
                     ${data.sourceType === 'estimate_form' && data.metadata?.estimate_shown ? `
                     <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 16px; margin-bottom: 16px; text-align: center;">
                         <p style="margin: 0 0 4px; font-size: 12px; color: #047857; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Estimate Shown to Visitor</p>
                         <p style="margin: 0; font-size: 24px; font-weight: 700; color: #065f46;">
-                            ${new Intl.NumberFormat('en-US', { style: 'currency', currency: data.metadata.estimate_currency || 'CAD', minimumFractionDigits: 0 }).format(data.metadata.estimate_low_cents / 100)}
+                            ${formatQuoteCentsForEmail(data.metadata.estimate_low_cents, data.metadata.estimate_currency)}
                             &ndash;
-                            ${new Intl.NumberFormat('en-US', { style: 'currency', currency: data.metadata.estimate_currency || 'CAD', minimumFractionDigits: 0 }).format(data.metadata.estimate_high_cents / 100)}
+                            ${formatQuoteCentsForEmail(data.metadata.estimate_high_cents, data.metadata.estimate_currency)}
                         </p>
                     </div>
                     ` : ''}
 
-                    ${data.sourceType === 'estimate_form' && data.metadata?.fields?.length ? `
+                    ${data.sourceType === 'estimate_form' && estimateFieldRows.length ? `
                     <div style="background: #f9fafb; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
                         <h3 style="margin: 0 0 10px; font-size: 13px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Form Details</h3>
                         <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                            ${data.metadata.fields.map((f: any) => `
+                            ${estimateFieldRows.map((f) => `
                             <tr>
-                                <td style="padding: 6px 8px 6px 0; color: #6b7280; font-weight: 500; border-bottom: 1px solid #f3f4f6; width: 40%;">${f.label}</td>
+                                <td style="padding: 6px 8px 6px 0; color: #6b7280; font-weight: 500; border-bottom: 1px solid #f3f4f6; width: 40%;">${escapeEmailHtml(f.label)}</td>
                                 <td style="padding: 6px 0; color: #111827; border-bottom: 1px solid #f3f4f6;">${f.value != null ? String(f.value) : '—'}${f.unit ? ` ${f.unit}` : ''}</td>
                             </tr>
                             `).join('')}

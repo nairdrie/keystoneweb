@@ -3,7 +3,7 @@
 import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
-import { renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
+import SiteFooter from '@/app/components/SiteFooter';
 import { TemplateFonts } from './TemplateFonts';
 
 interface MasterTemplateProps {
@@ -20,9 +20,7 @@ interface MasterTemplateProps {
 export function EdgeTemplate({ palette, isEditMode, children }: MasterTemplateProps) {
     const context = useEditorContext();
     const siteContent = context?.siteContent || {};
-    const updateSiteContent = context?.updateSiteContent || (() => { });
 
-    const pPrimary = palette.primary || '#0f172a';
     const pSecondary = palette.secondary || '#22d3ee';
     const pAccent = palette.accent || '#0f172a';
 
@@ -71,24 +69,22 @@ export function EdgeTemplate({ palette, isEditMode, children }: MasterTemplatePr
                 {children || <BlockRenderer palette={palette} />}
             </main>
 
-            {/* Footer — dark with accent line */}
-            <footer className="py-12 border-t" style={{ backgroundColor: '#0a0f1a', borderColor: `${pSecondary}22` }}>
-                <div className="max-w-7xl mx-auto px-4">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                        <div className="flex items-center gap-2">
-                            {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
-                                <img src={siteContent.footerLogo || siteContent.siteLogo} alt={siteContent.siteTitle || 'Site logo'} className="w-6 h-6 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
-                            ) : (
-                                <span className="font-mono text-xs" style={{ color: pSecondary }}>{'// '}</span>
-                            ))}
-                            <span className="font-bold text-sm text-white" style={{ ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>{renderSiteTitle(siteContent.siteTitle || 'Edge Co')}</span>
-                        </div>
-                        <p className="text-xs text-gray-600">
-                            Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>
-                        </p>
-                    </div>
-                </div>
-            </footer>
+            <SiteFooter
+                palette={palette}
+                isEditMode={isEditMode}
+                defaults={{
+                    layout: 'simple',
+                    bgType: 'dark',
+                    paddingClass: 'py-12',
+                    containerClass: 'max-w-7xl',
+                    textIsLight: true,
+                    borderClass: 'border-t',
+                    borderStyleFn: () => ({ borderColor: `${pSecondary}22` }),
+                    logoSize: 24,
+                    logoFallbackPrefix: '// ',
+                    titleClass: 'font-bold text-sm',
+                }}
+            />
         </div>
     );
 }

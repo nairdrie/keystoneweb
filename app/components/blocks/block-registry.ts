@@ -102,7 +102,7 @@ export const AVAILABLE_BLOCKS: Array<{ type: string; label: string; proOnly?: bo
     { type: 'logoCloud', label: 'Logo Cloud / Partners' },
     { type: 'pricing', label: 'Pricing Table' },
     { type: 'team', label: 'Team Members' },
-    { type: 'map', label: 'Google Map' },
+    { type: 'map', label: 'Map / Location' },
     { type: 'blog', label: '📝 Blog / News' },
     { type: 'menu', label: '🍽️ Menu' },
     { type: 'deliveryLinks', label: '🛵 Delivery App Links' },

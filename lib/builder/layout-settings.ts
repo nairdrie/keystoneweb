@@ -1,3 +1,5 @@
+import { resolvePaletteColor, type PaletteColors } from '@/lib/palette-colors';
+
 export type ResponsiveBreakpoint = 'desktop' | 'tablet' | 'mobile';
 
 export type ResponsiveValue<T> = {
@@ -273,6 +275,28 @@ export function buildLayoutCss(blockId: string, blockType: string, sectionSettin
   return rules.join('\n');
 }
 
+export function buildSectionStyleCss(
+  blockId: string,
+  blockData: unknown,
+  palette: PaletteColors = {},
+): string {
+  const data = isObject(blockData) ? blockData : {};
+  const backgroundColor = sanitizeCssColor(resolvePaletteColor(data.backgroundColor, palette, ''));
+  if (!backgroundColor) return '';
+
+  const scope = `[data-block-id="${escapeAttribute(blockId)}"]`;
+  const targets = [
+    `${scope} > section`,
+    `${scope} > div:first-of-type`,
+  ].join(', ');
+  const heroFallbackTarget = `${scope} > section .hero-bg-fallback`;
+
+  return [
+    `${targets} { background-color: ${backgroundColor} !important; }`,
+    `${heroFallbackTarget} { background-color: ${backgroundColor} !important; }`,
+  ].join('\n');
+}
+
 export function getLayoutColumnLimit(
   blockType: string,
   blockData?: unknown,
@@ -341,6 +365,18 @@ function sanitizeCssSize(value: unknown): string | undefined {
   if (/^-?\d*\.?\d+(px|rem|em|%|vh|vw|svh|lvh|dvh|svw|lvw|dvw|ch|ex)$/i.test(trimmed)) return trimmed;
   if (/^0$/.test(trimmed)) return trimmed;
   if (/^(calc|clamp|min|max)\([0-9a-z%.\s,+\-*/()]+\)$/i.test(trimmed)) return trimmed;
+  return undefined;
+}
+
+function sanitizeCssColor(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 80) return undefined;
+  if (/[;{}<>]/.test(trimmed)) return undefined;
+  if (/^#[0-9a-f]{3,8}$/i.test(trimmed)) return trimmed;
+  if (/^(transparent|currentcolor)$/i.test(trimmed)) return trimmed;
+  if (/^[a-z]+$/i.test(trimmed)) return trimmed;
+  if (/^(rgb|rgba|hsl|hsla)\([0-9\s,%.+-]+\)$/i.test(trimmed)) return trimmed;
   return undefined;
 }
 

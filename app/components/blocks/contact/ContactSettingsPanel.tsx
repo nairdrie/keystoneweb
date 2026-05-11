@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { createElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronDown, Crown, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockSettingsPanel from '../BlockSettingsPanel';
@@ -11,6 +11,7 @@ import {
     PRETEXT_DEFAULTS,
     PaletteTokenButtons,
     PretextControls,
+    SideBySideBackgroundOverrideNotice,
     getColorInputValue,
     useInspectorSectionState,
 } from '../panel-shared';
@@ -89,6 +90,9 @@ export default function ContactSettingsPanel({
     const [draggedSocialId, setDraggedSocialId] = useState<string | null>(null);
     const [dragOverSocialId, setDragOverSocialId] = useState<string | null>(null);
     const sectionState = useInspectorSectionState(SECTION_IDS, true);
+    const updateDraft = useCallback((updates: Partial<ContactDraft>) => {
+        setDraft((current) => ({ ...current, ...updates }));
+    }, []);
 
     useEffect(() => {
         if (!onDraftBlockDataChange) return;
@@ -112,16 +116,12 @@ export default function ContactSettingsPanel({
 
         window.addEventListener(CONTACT_DRAFT_UPDATE_EVENT, handleCanvasDraftUpdate);
         return () => window.removeEventListener(CONTACT_DRAFT_UPDATE_EVENT, handleCanvasDraftUpdate);
-    }, [blockId]);
+    }, [blockId, updateDraft]);
 
     const hasUnsavedChanges = useMemo(
         () => JSON.stringify(draft) !== JSON.stringify(initialDraft),
         [draft, initialDraft],
     );
-
-    const updateDraft = (updates: Partial<ContactDraft>) => {
-        setDraft((current) => ({ ...current, ...updates }));
-    };
 
     const updateCard = (id: string, updates: Partial<ContactItem>) => {
         updateDraft({
@@ -394,7 +394,8 @@ export default function ContactSettingsPanel({
                         label="Section background color"
                         value={draft.backgroundColor}
                         palette={palette}
-                        fallback="#ffffff"
+                        fallback="palette:accent"
+                        showOverrideNotice
                         onChange={(value) => updateDraft({ backgroundColor: value })}
                     />
                     <ColorSetting
@@ -473,7 +474,7 @@ function ContactCardEditor({
     onDelete: () => void;
     onUpdate: (updates: Partial<ContactItem>) => void;
 }) {
-    const Icon = getContactIcon(item.icon);
+    const icon = getContactIcon(item.icon);
     const [isExpanded, setIsExpanded] = useState(false);
 
     return (
@@ -505,7 +506,7 @@ function ContactCardEditor({
                         <GripVertical className="h-4 w-4" />
                     </button>
                     <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-                        <Icon className="h-4 w-4" />
+                        {createElement(icon, { className: 'h-4 w-4' })}
                     </span>
                     <div>
                         <p className="text-sm font-bold text-slate-800">{item.label || 'Contact card'}</p>
@@ -587,7 +588,7 @@ function SocialLinkEditor({
     onDelete: () => void;
     onUpdate: (updates: Partial<SocialLinkItem>) => void;
 }) {
-    const Icon = getSocialIcon(item.platform);
+    const icon = getSocialIcon(item.platform);
     const platformLabel = getSocialPlatformLabel(item.platform);
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -620,7 +621,7 @@ function SocialLinkEditor({
                         <GripVertical className="h-4 w-4" />
                     </button>
                     <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600">
-                        <Icon className="h-4 w-4" />
+                        {createElement(icon, { className: 'h-4 w-4' })}
                     </span>
                     <div>
                         <p className="text-sm font-bold text-slate-800">{platformLabel}</p>
@@ -794,6 +795,7 @@ function ColorSetting({
     value,
     palette,
     fallback,
+    showOverrideNotice = false,
     onChange,
 }: {
     id: string;
@@ -801,6 +803,7 @@ function ColorSetting({
     value: string;
     palette: Record<string, string>;
     fallback: string;
+    showOverrideNotice?: boolean;
     onChange: (value: string) => void;
 }) {
     return (
@@ -808,6 +811,7 @@ function ColorSetting({
             <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={id}>
                 {label}
             </label>
+            {showOverrideNotice && <SideBySideBackgroundOverrideNotice />}
             <div className="mt-2 flex flex-wrap items-center gap-2">
                 <input
                     id={id}
@@ -842,7 +846,7 @@ function ColorSetting({
     );
 }
 
-function buildInitialDraft(blockData: Record<string, any>, customCss: string): ContactDraft {
+function buildInitialDraft(blockData: Record<string, unknown>, customCss: string): ContactDraft {
     return {
         contactItems: normalizeContactItems(blockData),
         socialLinks: normalizeSocialLinks(blockData),

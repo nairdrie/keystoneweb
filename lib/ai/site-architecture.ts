@@ -166,7 +166,7 @@ function serviceArchitecture(categoryLabel: string, requested: Set<string>, isTr
       page('contact', 'Contact', 'Contact', 'contact', 'Give visitors several ways to contact the business.', [
         block('Contact Info', 'Show phone, email, area, and hours.'),
         quoteBlock,
-        block('Google Map', 'Show location or service area if relevant.'),
+        block('Map / Location', 'Show location or service area if relevant.'),
       ]),
       ...(requested.has('booking') ? [bookingPage(categoryLabel)] : []),
     ],
@@ -200,7 +200,7 @@ function appointmentServiceArchitecture(categoryLabel: string, requested: Set<st
       page('contact', 'Contact', 'Contact', 'contact', 'Provide contact details and a fallback inquiry form.', [
         block('Contact Info', 'Show contact details and hours.'),
         block('Contact Form', 'Collect questions before booking.'),
-        block('Google Map', 'Show the location when relevant.'),
+        block('Map / Location', 'Show the location when relevant.'),
       ]),
     ],
     managedContent: { products: false, menu: false, booking: true, blog: false, events: false, membership: false },
@@ -227,7 +227,7 @@ function restaurantArchitecture(categoryLabel: string, requested: Set<string>): 
       ]),
       page('visit', 'Visit', 'Visit', 'contact', 'Help guests find and contact the restaurant.', [
         block('Contact Info', 'Show address, phone, and hours.'),
-        block('Google Map', 'Show the location.'),
+        block('Map / Location', 'Show the location.'),
         block('Contact Form', 'Collect private event or general inquiries.'),
       ]),
       ...(requested.has('gallery') ? [galleryPage(categoryLabel)] : []),
@@ -331,7 +331,7 @@ function nonprofitArchitecture(categoryLabel: string, requested: Set<string>): S
       page('contact', 'Contact', 'Contact', 'contact', 'Let visitors reach the organization.', [
         block('Contact Form', 'Collect messages.'),
         block('Contact Info', 'Show contact details.'),
-        block('Google Map', 'Show location when relevant.'),
+        block('Map / Location', 'Show location when relevant.'),
       ]),
     ],
     managedContent: { products: false, menu: false, booking: false, blog: false, events: true, membership: requested.has('membership') },

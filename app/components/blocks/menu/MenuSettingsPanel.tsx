@@ -8,6 +8,7 @@ import {
     InspectorSection,
     InspectorToggle,
     PaletteTokenButtons,
+    SideBySideBackgroundOverrideNotice,
     getColorInputValue,
     useInspectorSectionState,
 } from '../panel-shared';
@@ -35,7 +36,7 @@ const SECTION_IDS = [
     'menu-icons',
     'item-detail-popup',
     'category-style',
-    'background',
+    'style',
     'advanced',
 ];
 
@@ -191,6 +192,14 @@ export default function MenuSettingsPanel({
         () => normalizeSectionSettings(blockData?.sectionSettings),
         [blockData?.sectionSettings],
     );
+    const fallbackMenuItems = useMemo<MenuSectionSourceItem[]>(
+        () => Array.isArray(blockData?.fallbackItems) ? blockData.fallbackItems as MenuSectionSourceItem[] : [],
+        [blockData],
+    );
+    const fallbackMenuSections = useMemo(
+        () => extractMenuSectionNames(fallbackMenuItems),
+        [fallbackMenuItems],
+    );
 
     // Local CSS draft (mirrors prior behavior — committed via batch)
     const [localCss, setLocalCss] = useState(customCss);
@@ -222,26 +231,26 @@ export default function MenuSettingsPanel({
     const [menuItemDetailTextColor, setMenuItemDetailTextColor] = useState<string>(blockData?.itemDetailTextColor || '#ffffff');
     const [sectionSettings, setSectionSettings] = useState<SectionSettings>(persistedSectionSettings);
     const [menuPreviewSection, setMenuPreviewSection] = useState<string>('');
-    const [menuSections, setMenuSections] = useState<string[]>([]);
+    const [menuSections, setMenuSections] = useState<string[]>(fallbackMenuSections);
     const [menuIconOptions, setMenuIconOptions] = useState<MenuIconOptionSource[]>(DEFAULT_MENU_ICON_OPTIONS);
 
     const sectionState = useInspectorSectionState(SECTION_IDS, true);
+    const visibleMenuSections = context?.siteId ? menuSections : fallbackMenuSections;
+    const visibleMenuIconOptions = context?.siteId ? menuIconOptions : DEFAULT_MENU_ICON_OPTIONS;
 
-    const menuBgColorInputValue = getColorInputValue(menuBgColor, palette, '#ffffff');
+    const menuBackgroundFallback = menuModeDraft === 'pdf' ? 'palette:accent' : '#ffffff';
+    const menuBgColorInputValue = getColorInputValue(menuBgColor, palette, menuBackgroundFallback);
     const menuItemDetailCaptionBgInputValue = getColorInputValue(menuItemDetailCaptionBg, palette, '#0f172a');
     const menuItemDetailTextColorInputValue = getColorInputValue(menuItemDetailTextColor, palette, '#ffffff');
 
     // Load menu sections + icon options
     useEffect(() => {
         let isMounted = true;
-        const fallbackItems: MenuSectionSourceItem[] = Array.isArray(blockData?.fallbackItems)
-            ? blockData!.fallbackItems
-            : [];
 
         if (!context?.siteId) {
-            setMenuSections(extractMenuSectionNames(fallbackItems));
-            setMenuIconOptions(DEFAULT_MENU_ICON_OPTIONS);
-            return;
+            return () => {
+                isMounted = false;
+            };
         }
 
         fetch(`/api/menu?siteId=${context.siteId}`)
@@ -251,12 +260,12 @@ export default function MenuSettingsPanel({
                 const availableItems = Array.isArray(data.items)
                     ? data.items.filter((item) => item?.is_available !== false)
                     : [];
-                setMenuSections(extractMenuSectionNames(availableItems.length > 0 ? availableItems : fallbackItems));
+                setMenuSections(extractMenuSectionNames(availableItems.length > 0 ? availableItems : fallbackMenuItems));
                 setMenuIconOptions(getCombinedMenuIconOptions(Array.isArray(data.iconOptions) ? data.iconOptions : []));
             })
             .catch(() => {
                 if (isMounted) {
-                    setMenuSections(extractMenuSectionNames(fallbackItems));
+                    setMenuSections(extractMenuSectionNames(fallbackMenuItems));
                     setMenuIconOptions(DEFAULT_MENU_ICON_OPTIONS);
                 }
             });
@@ -264,7 +273,7 @@ export default function MenuSettingsPanel({
         return () => {
             isMounted = false;
         };
-    }, [context?.siteId, blockData?.fallbackItems]);
+    }, [context?.siteId, fallbackMenuItems]);
 
     // Forward draft to canvas for live preview
     useEffect(() => {
@@ -369,7 +378,7 @@ export default function MenuSettingsPanel({
     const handleSelectMenuIconLegendMode = (mode: string) => {
         setMenuIconLegendMode(mode);
         if (mode === 'custom' && menuIconLegendIds.length === 0) {
-            setMenuIconLegendIds(menuIconOptions.map(option => option.id));
+            setMenuIconLegendIds(visibleMenuIconOptions.map(option => option.id));
         }
     };
     const toggleMenuLegendIconId = (id: string) => {
@@ -633,7 +642,7 @@ export default function MenuSettingsPanel({
                     className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:ring-2 focus:ring-blue-500"
                 >
                     <option value="">Public default</option>
-                    {menuSections.map((section) => (
+                    {visibleMenuSections.map((section) => (
                         <option key={section} value={section}>{section}</option>
                     ))}
                 </select>
@@ -736,7 +745,7 @@ export default function MenuSettingsPanel({
                                         <div className="flex items-center gap-2">
                                             <button
                                                 type="button"
-                                                onClick={() => setMenuIconLegendIds(menuIconOptions.map(option => option.id))}
+                                                onClick={() => setMenuIconLegendIds(visibleMenuIconOptions.map(option => option.id))}
                                                 className="text-xs font-bold text-blue-600 transition-colors hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             >
                                                 Select all
@@ -751,7 +760,7 @@ export default function MenuSettingsPanel({
                                         </div>
                                     </div>
                                     <div className="space-y-2">
-                                        {menuIconOptions.map((option) => {
+                                        {visibleMenuIconOptions.map((option) => {
                                             const isSelected = menuIconLegendIds.includes(option.id);
                                             return (
                                                 <label
@@ -938,14 +947,15 @@ export default function MenuSettingsPanel({
             </InspectorSection>
 
             <InspectorSection
-                id="background"
-                title="Background"
-                isCollapsed={sectionState.isCollapsed('background')}
-                onToggle={() => sectionState.toggle('background')}
+                id="style"
+                title="Style"
+                isCollapsed={sectionState.isCollapsed('style')}
+                onToggle={() => sectionState.toggle('style')}
             >
                 <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-menu-bg`}>
                     Section background color
                 </label>
+                <SideBySideBackgroundOverrideNotice />
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                     <input
                         id={`${blockId}-menu-bg`}

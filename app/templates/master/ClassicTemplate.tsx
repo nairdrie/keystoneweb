@@ -1,11 +1,9 @@
 'use client';
 
-import EditableButton from '@/app/components/EditableButton';
-import EditableText from '@/app/components/EditableText';
-import { useEditorContext, BlockDataProvider } from '@/lib/editor-context';
+import { useEditorContext } from '@/lib/editor-context';
 import BlockRenderer from '@/app/components/blocks/BlockRenderer';
 import SiteHeader from '@/app/components/SiteHeader';
-import { stripHighlight, renderSiteTitle, parseSiteTitleStyles } from '@/lib/site-title-utils';
+import SiteFooter from '@/app/components/SiteFooter';
 import { TemplateFonts } from './TemplateFonts';
 
 interface MasterTemplateProps {
@@ -22,17 +20,11 @@ interface MasterTemplateProps {
 export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplateProps) {
     const context = useEditorContext();
     const siteContent = context?.siteContent || {};
-    const updateSiteContent = context?.updateSiteContent || (() => { });
-
-    const pPrimary = palette.primary || '#1e3a5f';
-    const pSecondary = palette.secondary || '#dc2626';
-    const pAccent = palette.accent || '#f8fafc';
 
     const titleFont = siteContent.titleFont || 'Merriweather';
     const bodyFont = siteContent.bodyFont || 'Source Sans 3';
 
     return (
-        <BlockDataProvider value={siteContent}>
         <div className="template-wrapper min-h-screen flex flex-col" style={{ backgroundColor: '#ffffff', fontFamily: `"${bodyFont}", sans-serif` }}>
             <TemplateFonts
                 titleFont={titleFont}
@@ -73,53 +65,23 @@ export function ClassicTemplate({ palette, isEditMode, children }: MasterTemplat
                 {children || <BlockRenderer palette={palette} />}
             </main>
 
-            {/* Footer — structured two-row */}
-            <footer style={{ backgroundColor: pPrimary }}>
-                <div className="max-w-7xl mx-auto px-4 py-12">
-                    <div className="flex flex-col md:flex-row items-center gap-6">
-                        <div className="flex items-center gap-3 flex-1">
-                            {siteContent.showFooterLogo !== false && ((siteContent.footerLogo || siteContent.siteLogo) ? (
-                                <img src={siteContent.footerLogo || siteContent.siteLogo} alt={siteContent.siteTitle || 'Site logo'} className="w-10 h-10 object-contain"  style={{ height: siteContent.footerLogoHeight ? `${siteContent.footerLogoHeight}px` : undefined, width: siteContent.footerLogoHeight ? 'auto' : undefined }} />
-                            ) : (
-                                <div className="w-10 h-10 rounded flex items-center justify-center font-bold text-sm text-white" style={{ backgroundColor: pSecondary }}>
-                                    {(stripHighlight(siteContent.siteTitle) || 'C')[0]?.toUpperCase()}
-                                </div>
-                            ))}
-                        </div>
-                        <div className="text-center flex-1">
-                            <div className="font-bold text-lg text-white font-title" style={{ ...parseSiteTitleStyles(siteContent['siteTitle__styles']) }}>{renderSiteTitle(siteContent.siteTitle || 'Classic Services')}</div>
-                            <EditableText
-                                contentKey="footerSlogan"
-                                content={siteContent.footerSlogan}
-                                defaultValue="Professional service you can trust."
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="text-sm text-white/50 mt-1 block"
-                            />
-                        </div>
-                        <div className="flex-1 flex justify-end">
-                            <EditableButton
-                                contentKey="navButtonText"
-                                label={siteContent.navButtonText}
-                                linkData={siteContent.navButtonTextLink} iconData={siteContent.navButtonTextIcon}
-                                defaultLabel="Get a Quote"
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                                className="px-8 py-3 rounded text-white text-sm font-bold transition-all hover:opacity-90 cursor-pointer inline-flex items-center justify-center"
-                                style={{ backgroundColor: pSecondary }}
-                            />
-                        </div>
-                    </div>
-                </div>
-                <div className="border-t border-white/10 py-4">
-                    <div className="max-w-7xl mx-auto px-4 text-center">
-                        <p className="text-xs text-white/30">
-                            Powered by <a href="https://keystoneweb.ca" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80 transition-opacity">Keystone</a>
-                        </p>
-                    </div>
-                </div>
-            </footer>
+            <SiteFooter
+                palette={palette}
+                isEditMode={isEditMode}
+                defaults={{
+                    layout: 'centered',
+                    bgType: 'primary',
+                    paddingClass: 'py-12',
+                    containerClass: 'max-w-7xl',
+                    textIsLight: true,
+                    logoSize: 40,
+                    logoClass: 'rounded',
+                    logoStyleFn: (p) => ({ backgroundColor: p.secondary, color: '#ffffff' }),
+                    titleClass: 'font-bold text-lg font-title',
+                    defaultShowTagline: true,
+                    defaultTaglineText: 'Professional service you can trust.',
+                }}
+            />
         </div>
-        </BlockDataProvider>
     );
 }

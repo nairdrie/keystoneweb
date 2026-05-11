@@ -23,7 +23,9 @@ export default function ImageBlock({ block, palette }: { block: BlockData, palet
                     isEditMode={isEditMode}
                     onSave={(key, val) => updateData(key, val)}
                     onUpload={context?.uploadImage}
-                    className="w-full h-auto min-h-[300px] object-cover rounded-xl shadow-md"
+                    className="w-full h-auto min-h-[300px] object-cover shadow-md"
+                    enableInlineCropControls
+                    editorPreviewFrameClassName="w-full min-h-[300px]"
                     placeholder="Click to upload a giant featured image"
                 />
             </div>

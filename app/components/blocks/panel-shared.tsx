@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { AlertTriangle, ChevronDown } from 'lucide-react';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import { useEditorContext } from '@/lib/editor-context';
 
 export const BLOCK_INSPECTOR_STATE_EVENT = 'ks:block-inspector-state';
 
@@ -82,10 +83,12 @@ export function PretextControls({
     values,
     palette,
     onChange,
+    labelName = 'label',
 }: {
     values: PretextDraftValues;
     palette: Record<string, string>;
     onChange: (key: string, value: string | boolean) => void;
+    labelName?: string;
 }) {
     const enabled = Boolean(values.pretextEnabled);
     const style = String(values.pretextStyle ?? PRETEXT_DEFAULTS.pretextStyle);
@@ -95,7 +98,7 @@ export function PretextControls({
     return (
         <div className="space-y-4">
             <InspectorToggle
-                label="Show label"
+                label={`Show ${labelName}`}
                 description="Small text shown above the heading."
                 checked={enabled}
                 onChange={() => onChange('pretextEnabled', !enabled)}
@@ -293,9 +296,67 @@ export function PaletteTokenButtons({ selected, palette, onSelect }: {
     );
 }
 
+const DEFAULT_PALETTE_COLOR_FALLBACKS: Record<string, string> = {
+    primary: '#1f2937',
+    secondary: '#dc2626',
+    accent: '#f3f4f6',
+};
+
 export function getColorInputValue(value: string, palette: Record<string, string>, fallback: string): string {
-    const resolved = resolvePaletteColor(value, palette, fallback);
-    return /^#[0-9a-f]{6}$/i.test(resolved) ? resolved : fallback;
+    const safeFallback = getColorInputFallback(fallback, palette);
+    const resolved = resolvePaletteColor(value, palette, safeFallback);
+    return normalizeInputHexColor(resolved) || safeFallback;
+}
+
+export function SideBySideBackgroundOverrideNotice() {
+    const override = useEditorContext()?.sideBySideBackgroundOverride;
+
+    if (!override?.enabled) return null;
+
+    return (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+            <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <div className="min-w-0">
+                    <p className="font-bold">Background color is being overridden</p>
+                    <p className="mt-1 leading-relaxed">
+                        The parent Side by Side block is replacing this inner block background.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={override.disable}
+                        className="mt-2 rounded-md border border-amber-300 bg-white px-2.5 py-1.5 text-xs font-bold text-amber-800 transition-colors hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    >
+                        Turn off override
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function getColorInputFallback(fallback: string, palette: Record<string, string>): string {
+    const resolved = resolvePaletteColor(fallback, palette, '');
+    const normalizedResolved = normalizeInputHexColor(resolved);
+    if (normalizedResolved) return normalizedResolved;
+
+    if (fallback.startsWith('palette:')) {
+        const key = fallback.slice('palette:'.length);
+        return normalizeInputHexColor(palette[key] || DEFAULT_PALETTE_COLOR_FALLBACKS[key] || '') || '#ffffff';
+    }
+
+    return normalizeInputHexColor(fallback) || '#ffffff';
+}
+
+function normalizeInputHexColor(value: string): string | null {
+    const trimmed = value.trim();
+    const short = trimmed.match(/^#([0-9a-f]{3})$/i);
+    if (short) {
+        return `#${short[1].split('').map((part) => part + part).join('').toLowerCase()}`;
+    }
+
+    const full = trimmed.match(/^#([0-9a-f]{6})$/i);
+    return full ? `#${full[1].toLowerCase()}` : null;
 }
 
 export function useInspectorSectionState(sectionIds: string[], defaultCollapsed: boolean = true) {

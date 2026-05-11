@@ -18,7 +18,7 @@ export const KEYSTONE_ALLOWED_BLOCK_DISPLAY_NAMES = [
   'Logo Cloud / Partners',
   'Pricing Table',
   'Team Members',
-  'Google Map',
+  'Map / Location',
   'Blog / News',
   'Menu',
   'Delivery App Links',
@@ -82,7 +82,7 @@ export const EXISTING_BUILDER_BLOCKS: readonly ResolvedBuilderBlock[] = [
   { displayName: 'Logo Cloud / Partners', internalType: 'logoCloud', componentName: 'LogoCloudBlock', category: 'Trust' },
   { displayName: 'Pricing Table', internalType: 'pricing', componentName: 'PricingBlock', category: 'Commerce and Scheduling' },
   { displayName: 'Team Members', internalType: 'team', componentName: 'TeamBlock', category: 'Trust' },
-  { displayName: 'Google Map', internalType: 'map', componentName: 'MapBlock', category: 'Contact' },
+  { displayName: 'Map / Location', internalType: 'map', componentName: 'MapBlock', category: 'Contact' },
   {
     displayName: 'Blog / News',
     internalType: 'blog',
