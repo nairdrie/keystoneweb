@@ -18,6 +18,7 @@ import {
 } from '../panel-shared';
 import { LayoutTab, ResponsiveColumnsControl } from '../layout/LayoutTab';
 import type { BlockPanelProps } from '../block-panel-registry';
+import KeyframeEditor, { inferFieldNames } from '../KeyframeEditor';
 import {
     areSectionSettingsEqual,
     getLayoutCapabilities,
@@ -805,24 +806,36 @@ export default function GenericBlockSettingsPanel({
                 onToggle={() => sectionState.toggle('advanced')}
             >
                 {isProUser ? (
-                    <div>
-                        <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-generic-css`}>
-                            Custom CSS
-                        </label>
-                        <textarea
-                            id={`${blockId}-generic-css`}
-                            value={String(draft.__customCss ?? '')}
-                            onChange={(e) => updateDraft('__customCss', e.target.value)}
-                            placeholder={`/* Scoped to this block */\nsection {\n  padding-top: 5rem;\n}`}
-                            className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-sm text-green-400 outline-none selection:bg-green-900 focus:ring-2 focus:ring-blue-500"
-                            spellCheck={false}
-                        />
+                    <div className="space-y-5">
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-generic-css`}>
+                                Custom CSS
+                            </label>
+                            <textarea
+                                id={`${blockId}-generic-css`}
+                                value={String(draft.__customCss ?? '')}
+                                onChange={(e) => updateDraft('__customCss', e.target.value)}
+                                placeholder={`/* Scoped to this block */\nsection {\n  padding-top: 5rem;\n}`}
+                                className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-sm text-green-400 outline-none selection:bg-green-900 focus:ring-2 focus:ring-blue-500"
+                                spellCheck={false}
+                            />
+                        </div>
+                        <div className="border-t border-slate-200 pt-4">
+                            <KeyframeEditor
+                                blockId={blockId}
+                                blockType={blockType}
+                                value={String(draft.__customScript ?? '')}
+                                onChange={(value) => updateDraft('__customScript', value)}
+                                isProUser={isProUser}
+                                fieldNames={inferFieldNames(draft)}
+                            />
+                        </div>
                     </div>
                 ) : (
                     <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-sm text-amber-800">
                         <div className="flex items-center gap-2 font-bold">
                             <Crown className="h-4 w-4" />
-                            Custom CSS is a Pro feature
+                            Custom CSS &amp; Keyframe scripting are Pro features
                         </div>
                     </div>
                 )}

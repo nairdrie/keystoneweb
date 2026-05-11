@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Crown, LayoutGrid, Rows, Columns, ListOrdered } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockSettingsPanel from '../BlockSettingsPanel';
+import KeyframeEditor, { inferFieldNames } from '../KeyframeEditor';
 import {
     InspectorSection,
     InspectorToggle,
@@ -64,6 +65,8 @@ export default function ProductSettingsPanel({
     const [autoScrollPauseOnHover, setAutoScrollPauseOnHover] = useState<boolean>(blockData?.autoScrollPauseOnHover !== false);
     const [sectionSettings, setSectionSettings] = useState<SectionSettings>(persistedSectionSettings);
     const [localCss, setLocalCss] = useState<string>(customCss);
+    const persistedScript = typeof blockData?.__customScript === 'string' ? blockData.__customScript : '';
+    const [localScript, setLocalScript] = useState<string>(persistedScript);
 
     const [categoryTree, setCategoryTree] = useState<Record<string, string[]>>({});
 
@@ -104,6 +107,7 @@ export default function ProductSettingsPanel({
             autoScrollPauseOnHover,
             sectionSettings,
             __customCss: localCss,
+            __customScript: localScript,
         });
     }, [
         blockData,
@@ -119,6 +123,7 @@ export default function ProductSettingsPanel({
         autoScrollPauseOnHover,
         sectionSettings,
         localCss,
+        localScript,
         onDraftBlockDataChange,
     ]);
 
@@ -140,7 +145,8 @@ export default function ProductSettingsPanel({
         autoScrollIntervalSec !== (typeof blockData?.autoScrollIntervalSec === 'number' ? blockData.autoScrollIntervalSec : 5) ||
         autoScrollPauseOnHover !== (blockData?.autoScrollPauseOnHover !== false) ||
         !areSectionSettingsEqual(sectionSettings, persistedSectionSettings) ||
-        localCss !== customCss
+        localCss !== customCss ||
+        localScript !== persistedScript
     ), [
         blockData,
         variant,
@@ -158,6 +164,8 @@ export default function ProductSettingsPanel({
         persistedSectionSettings,
         localCss,
         customCss,
+        localScript,
+        persistedScript,
     ]);
 
     const updateSectionLayout = (patch: Partial<SectionSettings['layout']>) => {
@@ -184,6 +192,7 @@ export default function ProductSettingsPanel({
         };
         if (!areSectionSettingsEqual(sectionSettings, persistedSectionSettings)) updates.sectionSettings = normalizeSectionSettings(sectionSettings);
         if (localCss !== customCss) updates['__customCss'] = localCss;
+        if (localScript !== persistedScript) updates['__customScript'] = localScript;
         if (context?.updateBlockDataBatch) {
             context.updateBlockDataBatch(blockId, updates);
         }
@@ -203,6 +212,7 @@ export default function ProductSettingsPanel({
         setAutoScrollPauseOnHover(blockData?.autoScrollPauseOnHover !== false);
         setSectionSettings(persistedSectionSettings);
         setLocalCss(customCss);
+        setLocalScript(persistedScript);
         sectionState.reset();
     };
 
@@ -433,24 +443,36 @@ export default function ProductSettingsPanel({
                 onToggle={() => sectionState.toggle('advanced')}
             >
                 {isProUser ? (
-                    <div>
-                        <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-product-css`}>
-                            Custom CSS
-                        </label>
-                        <textarea
-                            id={`${blockId}-product-css`}
-                            value={localCss}
-                            onChange={(e) => setLocalCss(e.target.value)}
-                            placeholder={`/* Scoped to this Products block */\n.product-card {\n  border-radius: 1rem;\n}`}
-                            className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-sm text-green-400 outline-none selection:bg-green-900 focus:ring-2 focus:ring-blue-500"
-                            spellCheck={false}
-                        />
+                    <div className="space-y-5">
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-product-css`}>
+                                Custom CSS
+                            </label>
+                            <textarea
+                                id={`${blockId}-product-css`}
+                                value={localCss}
+                                onChange={(e) => setLocalCss(e.target.value)}
+                                placeholder={`/* Scoped to this Products block */\n.product-card {\n  border-radius: 1rem;\n}`}
+                                className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-sm text-green-400 outline-none selection:bg-green-900 focus:ring-2 focus:ring-blue-500"
+                                spellCheck={false}
+                            />
+                        </div>
+                        <div className="border-t border-slate-200 pt-4">
+                            <KeyframeEditor
+                                blockId={blockId}
+                                blockType="products"
+                                value={localScript}
+                                onChange={setLocalScript}
+                                isProUser={isProUser}
+                                fieldNames={inferFieldNames(blockData)}
+                            />
+                        </div>
                     </div>
                 ) : (
                     <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-sm text-amber-800">
                         <div className="flex items-center gap-2 font-bold">
                             <Crown className="h-4 w-4" />
-                            Custom CSS is a Pro feature
+                            Custom CSS &amp; Keyframe scripting are Pro features
                         </div>
                     </div>
                 )}

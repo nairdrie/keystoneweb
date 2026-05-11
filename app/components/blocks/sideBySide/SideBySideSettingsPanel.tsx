@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Crown, Paintbrush } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockSettingsPanel from '../BlockSettingsPanel';
+import KeyframeEditor, { inferFieldNames } from '../KeyframeEditor';
 import {
     InspectorSection,
     InspectorToggle,
@@ -32,6 +33,7 @@ interface DraftSettings {
     backgroundColor: string;
     overrideChildBackgrounds: boolean;
     __customCss: string;
+    __customScript: string;
 }
 
 const DEFAULTS: DraftSettings = {
@@ -43,6 +45,7 @@ const DEFAULTS: DraftSettings = {
     backgroundColor: '',
     overrideChildBackgrounds: false,
     __customCss: '',
+    __customScript: '',
 };
 
 const RATIO_OPTIONS: Array<{ value: ColumnRatio; label: string }> = [
@@ -71,6 +74,7 @@ function readDraft(blockData: Record<string, unknown> | undefined, customCss: st
         backgroundColor: typeof data.backgroundColor === 'string' ? (data.backgroundColor as string) : '',
         overrideChildBackgrounds: Boolean(data.overrideChildBackgrounds),
         __customCss: customCss,
+        __customScript: typeof data.__customScript === 'string' ? (data.__customScript as string) : '',
     };
 }
 
@@ -83,7 +87,8 @@ function shallowEqual(a: DraftSettings, b: DraftSettings): boolean {
         a.reverseOnMobile === b.reverseOnMobile &&
         a.backgroundColor === b.backgroundColor &&
         a.overrideChildBackgrounds === b.overrideChildBackgrounds &&
-        a.__customCss === b.__customCss
+        a.__customCss === b.__customCss &&
+        a.__customScript === b.__customScript
     );
 }
 
@@ -137,6 +142,7 @@ export default function SideBySideSettingsPanel({
         if (draft.backgroundColor !== initialDraft.backgroundColor) updates.backgroundColor = draft.backgroundColor;
         if (draft.overrideChildBackgrounds !== initialDraft.overrideChildBackgrounds) updates.overrideChildBackgrounds = draft.overrideChildBackgrounds;
         if (draft.__customCss !== initialDraft.__customCss) updates.__customCss = draft.__customCss;
+        if (draft.__customScript !== initialDraft.__customScript) updates.__customScript = draft.__customScript;
         if (!areSectionSettingsEqual(sectionSettings, persistedSectionSettings)) {
             updates.sectionSettings = normalizeSectionSettings(sectionSettings);
         }
@@ -365,24 +371,36 @@ export default function SideBySideSettingsPanel({
                 onToggle={() => sectionState.toggle('advanced')}
             >
                 {isProUser ? (
-                    <div>
-                        <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-side-by-side-css`}>
-                            Custom CSS
-                        </label>
-                        <textarea
-                            id={`${blockId}-side-by-side-css`}
-                            value={draft.__customCss}
-                            onChange={(e) => update('__customCss', e.target.value)}
-                            placeholder={`/* Scoped to this block */\nsection {\n  padding-top: 5rem;\n}`}
-                            className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-sm text-green-400 outline-none selection:bg-green-900 focus:ring-2 focus:ring-blue-500"
-                            spellCheck={false}
-                        />
+                    <div className="space-y-5">
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-side-by-side-css`}>
+                                Custom CSS
+                            </label>
+                            <textarea
+                                id={`${blockId}-side-by-side-css`}
+                                value={draft.__customCss}
+                                onChange={(e) => update('__customCss', e.target.value)}
+                                placeholder={`/* Scoped to this block */\nsection {\n  padding-top: 5rem;\n}`}
+                                className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-sm text-green-400 outline-none selection:bg-green-900 focus:ring-2 focus:ring-blue-500"
+                                spellCheck={false}
+                            />
+                        </div>
+                        <div className="border-t border-slate-200 pt-4">
+                            <KeyframeEditor
+                                blockId={blockId}
+                                blockType={blockType}
+                                value={draft.__customScript}
+                                onChange={(value) => update('__customScript', value)}
+                                isProUser={isProUser}
+                                fieldNames={inferFieldNames(blockData)}
+                            />
+                        </div>
                     </div>
                 ) : (
                     <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-sm text-amber-800">
                         <div className="flex items-center gap-2 font-bold">
                             <Crown className="h-4 w-4" />
-                            Custom CSS is a Pro feature
+                            Custom CSS &amp; Keyframe scripting are Pro features
                         </div>
                     </div>
                 )}

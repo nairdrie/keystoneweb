@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Crown } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockSettingsPanel from '../BlockSettingsPanel';
+import KeyframeEditor, { inferFieldNames } from '../KeyframeEditor';
 import {
     InspectorSection,
     InspectorToggle,
@@ -203,6 +204,8 @@ export default function MenuSettingsPanel({
 
     // Local CSS draft (mirrors prior behavior — committed via batch)
     const [localCss, setLocalCss] = useState(customCss);
+    const persistedScript = typeof blockData?.__customScript === 'string' ? blockData.__customScript : '';
+    const [localScript, setLocalScript] = useState<string>(persistedScript);
 
     const [menuModeDraft, setMenuModeDraft] = useState<string>(blockData?.mode || 'items');
     const [menuVariantDraft, setMenuVariantDraft] = useState<string>(blockData?.variant || 'list');
@@ -307,6 +310,7 @@ export default function MenuSettingsPanel({
             itemDetailTextColor: menuItemDetailTextColor,
             sectionSettings,
             __customCss: localCss,
+            __customScript: localScript,
             __previewMenuSection: menuPreviewSection || undefined,
         });
     }, [
@@ -338,6 +342,7 @@ export default function MenuSettingsPanel({
         menuItemDetailTextColor,
         sectionSettings,
         localCss,
+        localScript,
         menuPreviewSection,
         onDraftBlockDataChange,
     ]);
@@ -416,7 +421,8 @@ export default function MenuSettingsPanel({
         menuItemDetailCaptionBg !== (blockData?.itemDetailCaptionBg || '#0f172a') ||
         menuItemDetailTextColor !== (blockData?.itemDetailTextColor || '#ffffff') ||
         !areSectionSettingsEqual(sectionSettings, persistedSectionSettings) ||
-        localCss !== customCss
+        localCss !== customCss ||
+        localScript !== persistedScript
     ), [
         blockData,
         menuModeDraft,
@@ -448,6 +454,8 @@ export default function MenuSettingsPanel({
         persistedSectionSettings,
         localCss,
         customCss,
+        localScript,
+        persistedScript,
     ]);
 
     const updateSectionLayout = (patch: Partial<SectionSettings['layout']>) => {
@@ -493,6 +501,9 @@ export default function MenuSettingsPanel({
         if (localCss !== customCss) {
             updates['__customCss'] = localCss;
         }
+        if (localScript !== persistedScript) {
+            updates['__customScript'] = localScript;
+        }
         if (context?.updateBlockDataBatch) {
             context.updateBlockDataBatch(blockId, updates);
         }
@@ -527,6 +538,7 @@ export default function MenuSettingsPanel({
         setMenuItemDetailTextColor('#ffffff');
         setSectionSettings(persistedSectionSettings);
         setLocalCss('');
+        setLocalScript('');
         sectionState.reset();
     };
 
@@ -995,24 +1007,36 @@ export default function MenuSettingsPanel({
                 onToggle={() => sectionState.toggle('advanced')}
             >
                 {isProUser ? (
-                    <div>
-                        <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-menu-css`}>
-                            Custom CSS
-                        </label>
-                        <textarea
-                            id={`${blockId}-menu-css`}
-                            value={localCss}
-                            onChange={(e) => setLocalCss(e.target.value)}
-                            placeholder={`/* Scoped to this Menu block */\nh3 {\n  letter-spacing: 0.04em;\n}`}
-                            className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-sm text-green-400 outline-none selection:bg-green-900 focus:ring-2 focus:ring-blue-500"
-                            spellCheck={false}
-                        />
+                    <div className="space-y-5">
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-menu-css`}>
+                                Custom CSS
+                            </label>
+                            <textarea
+                                id={`${blockId}-menu-css`}
+                                value={localCss}
+                                onChange={(e) => setLocalCss(e.target.value)}
+                                placeholder={`/* Scoped to this Menu block */\nh3 {\n  letter-spacing: 0.04em;\n}`}
+                                className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-sm text-green-400 outline-none selection:bg-green-900 focus:ring-2 focus:ring-blue-500"
+                                spellCheck={false}
+                            />
+                        </div>
+                        <div className="border-t border-slate-200 pt-4">
+                            <KeyframeEditor
+                                blockId={blockId}
+                                blockType="menu"
+                                value={localScript}
+                                onChange={setLocalScript}
+                                isProUser={isProUser}
+                                fieldNames={inferFieldNames(blockData)}
+                            />
+                        </div>
                     </div>
                 ) : (
                     <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-sm text-amber-800">
                         <div className="flex items-center gap-2 font-bold">
                             <Crown className="h-4 w-4" />
-                            Custom CSS is a Pro feature
+                            Custom CSS &amp; Keyframe scripting are Pro features
                         </div>
                     </div>
                 )}

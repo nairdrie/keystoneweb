@@ -4,6 +4,7 @@ import { createElement, useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronDown, Crown, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockSettingsPanel from '../BlockSettingsPanel';
+import KeyframeEditor, { inferFieldNames } from '../KeyframeEditor';
 import {
     InspectorSection,
     InspectorToggle,
@@ -55,6 +56,7 @@ type ContactDraft = {
     pretextColor: string;
     pretextAlignment: string;
     __customCss: string;
+    __customScript: string;
 };
 
 const CONTACT_SUPPORTS_PRETEXT = PRETEXT_BLOCKS.has('contact');
@@ -162,6 +164,7 @@ export default function ContactSettingsPanel({
             pretextColor: draft.pretextColor,
             pretextAlignment: draft.pretextAlignment,
             __customCss: draft.__customCss,
+            __customScript: draft.__customScript,
         };
         if (!areSectionSettingsEqual(draft.sectionSettings, initialDraft.sectionSettings)) {
             updates.sectionSettings = normalizeSectionSettings(draft.sectionSettings);
@@ -424,26 +427,38 @@ export default function ContactSettingsPanel({
                 onToggle={() => sectionState.toggle('advanced')}
             >
                 {isProUser ? (
-                    <div>
-                        <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-contact-css`}>
-                            Custom CSS
-                        </label>
-                        <textarea
-                            id={`${blockId}-contact-css`}
-                            value={draft.__customCss}
-                            onChange={(event) => updateDraft({ __customCss: event.target.value })}
-                            placeholder={`/* Scoped to this block */\nsection {\n  padding-top: 5rem;\n}`}
-                            className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-sm text-green-400 outline-none selection:bg-green-900 focus:ring-2 focus:ring-blue-500"
-                            spellCheck={false}
-                        />
+                    <div className="space-y-5">
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-contact-css`}>
+                                Custom CSS
+                            </label>
+                            <textarea
+                                id={`${blockId}-contact-css`}
+                                value={draft.__customCss}
+                                onChange={(event) => updateDraft({ __customCss: event.target.value })}
+                                placeholder={`/* Scoped to this block */\nsection {\n  padding-top: 5rem;\n}`}
+                                className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-sm text-green-400 outline-none selection:bg-green-900 focus:ring-2 focus:ring-blue-500"
+                                spellCheck={false}
+                            />
+                        </div>
+                        <div className="border-t border-slate-200 pt-4">
+                            <KeyframeEditor
+                                blockId={blockId}
+                                blockType={blockType}
+                                value={draft.__customScript}
+                                onChange={(value) => updateDraft({ __customScript: value })}
+                                isProUser={isProUser}
+                                fieldNames={inferFieldNames(blockData)}
+                            />
+                        </div>
                     </div>
                 ) : (
                     <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-sm text-amber-800">
                         <div className="flex items-center gap-2 font-bold">
                             <Crown className="h-4 w-4" />
-                            Custom CSS is a Pro feature
+                            Custom CSS &amp; Keyframe scripting are Pro features
                         </div>
-                        <p className="mt-1 text-xs text-amber-700">Upgrade to add scoped CSS to this block.</p>
+                        <p className="mt-1 text-xs text-amber-700">Upgrade to add scoped CSS and safe scripting to this block.</p>
                     </div>
                 )}
             </InspectorSection>
@@ -868,5 +883,6 @@ function buildInitialDraft(blockData: Record<string, unknown>, customCss: string
         pretextColor: typeof blockData.pretextColor === 'string' && blockData.pretextColor ? blockData.pretextColor : PRETEXT_DEFAULTS.pretextColor,
         pretextAlignment: typeof blockData.pretextAlignment === 'string' && blockData.pretextAlignment ? blockData.pretextAlignment : PRETEXT_DEFAULTS.pretextAlignment,
         __customCss: customCss,
+        __customScript: typeof blockData.__customScript === 'string' ? blockData.__customScript : '',
     };
 }

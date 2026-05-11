@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Crown, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockSettingsPanel from './BlockSettingsPanel';
+import KeyframeEditor, { inferFieldNames } from './KeyframeEditor';
 import {
     InspectorSection,
     PaletteTokenButtons,
@@ -404,6 +405,8 @@ export default function RepeatableItemsSettingsPanel({
     const [foregroundColor, setForegroundColor] = useState<string>(persistedForegroundColor);
     const [sectionSettings, setSectionSettings] = useState<SectionSettings>(persistedSectionSettings);
     const [localCss, setLocalCss] = useState<string>(customCss);
+    const persistedScript = typeof blockData?.__customScript === 'string' ? blockData.__customScript : '';
+    const [localScript, setLocalScript] = useState<string>(persistedScript);
     const [pretext, setPretext] = useState(persistedPretext);
     const [expandedRows, setExpandedRows] = useState<Set<number>>(() => new Set());
     const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -460,6 +463,7 @@ export default function RepeatableItemsSettingsPanel({
             foregroundColor,
             sectionSettings,
             __customCss: localCss,
+            __customScript: localScript,
         });
     }, [blockData, items, variant, separator, supportsSeparator, displaySettings, pretext, supportsPretext, backgroundColor, foregroundColor, sectionSettings, localCss, config.variants, hasTestimonialDisplayControls, onDraftBlockDataChange]);
 
@@ -472,6 +476,7 @@ export default function RepeatableItemsSettingsPanel({
         foregroundColor !== persistedForegroundColor ||
         !areSectionSettingsEqual(sectionSettings, persistedSectionSettings) ||
         localCss !== customCss ||
+        localScript !== persistedScript ||
         (supportsPretext && JSON.stringify(pretext) !== JSON.stringify(persistedPretext))
     ), [
         items,
@@ -493,6 +498,8 @@ export default function RepeatableItemsSettingsPanel({
         persistedSectionSettings,
         localCss,
         customCss,
+        localScript,
+        persistedScript,
         supportsPretext,
         pretext,
         persistedPretext,
@@ -546,6 +553,7 @@ export default function RepeatableItemsSettingsPanel({
             }
         }
         if (localCss !== customCss) updates.__customCss = localCss;
+        if (localScript !== persistedScript) updates.__customScript = localScript;
         if (supportsPretext) {
             for (const key of ['pretextEnabled', 'pretextStyle', 'pretextColor', 'pretextAlignment'] as const) {
                 if (pretext[key] !== persistedPretext[key]) updates[key] = pretext[key];
@@ -568,6 +576,7 @@ export default function RepeatableItemsSettingsPanel({
         setForegroundColor(persistedForegroundColor);
         setSectionSettings(persistedSectionSettings);
         setLocalCss(customCss);
+        setLocalScript(persistedScript);
         setPretext(persistedPretext);
         setExpandedRows(new Set());
         sectionState.reset();
@@ -887,24 +896,36 @@ export default function RepeatableItemsSettingsPanel({
                 onToggle={() => sectionState.toggle('advanced')}
             >
                 {isProUser ? (
-                    <div>
-                        <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-${config.blockType}-css`}>
-                            Custom CSS
-                        </label>
-                        <textarea
-                            id={`${blockId}-${config.blockType}-css`}
-                            value={localCss}
-                            onChange={(event) => setLocalCss(event.target.value)}
-                            placeholder={config.cssPlaceholder}
-                            className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-sm text-green-400 outline-none selection:bg-green-900 focus:ring-2 focus:ring-blue-500"
-                            spellCheck={false}
-                        />
+                    <div className="space-y-5">
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-${config.blockType}-css`}>
+                                Custom CSS
+                            </label>
+                            <textarea
+                                id={`${blockId}-${config.blockType}-css`}
+                                value={localCss}
+                                onChange={(event) => setLocalCss(event.target.value)}
+                                placeholder={config.cssPlaceholder}
+                                className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-sm text-green-400 outline-none selection:bg-green-900 focus:ring-2 focus:ring-blue-500"
+                                spellCheck={false}
+                            />
+                        </div>
+                        <div className="border-t border-slate-200 pt-4">
+                            <KeyframeEditor
+                                blockId={blockId}
+                                blockType={config.blockType}
+                                value={localScript}
+                                onChange={setLocalScript}
+                                isProUser={isProUser}
+                                fieldNames={inferFieldNames(blockData)}
+                            />
+                        </div>
                     </div>
                 ) : (
                     <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-sm text-amber-800">
                         <div className="flex items-center gap-2 font-bold">
                             <Crown className="h-4 w-4" />
-                            Custom CSS is a Pro feature
+                            Custom CSS &amp; Keyframe scripting are Pro features
                         </div>
                     </div>
                 )}

@@ -25,6 +25,8 @@ interface EditableImageProps {
   initialAttribution?: UnsplashAttribution;
   /** Mark this as the LCP image: eager + fetchpriority=high. Default false → lazy. */
   priority?: boolean;
+  /** Optional index for indexed fields. Emits data-ks-index for Keyframe selectors. */
+  index?: number;
   enableInlineCropControls?: boolean;
   showInlineCropZoomControl?: boolean;
   inlineCropFrameClassName?: string;
@@ -48,12 +50,16 @@ export default function EditableImage({
   initialSettings,
   initialAttribution,
   priority = false,
+  index,
   enableInlineCropControls = false,
   showInlineCropZoomControl = true,
   inlineCropFrameClassName,
   inlineCropImageClassName = '',
   editorPreviewFrameClassName,
 }: EditableImageProps) {
+  const ksFieldClass = `ks-field ks-field--${contentKey.replace(/[^A-Za-z0-9_-]/g, '_')}`;
+  const ksMarkerProps: Record<string, string> = { 'data-ks-field': contentKey };
+  if (index !== undefined) ksMarkerProps['data-ks-index'] = String(index);
   const context = useEditorContext();
   const [previewUrl, setPreviewUrl] = useState<string | undefined>(imageUrl);
   const [modalOpen, setModalOpen] = useState(false);
@@ -136,14 +142,14 @@ export default function EditableImage({
       if (fallback) return <>{fallback}</>;
 
       return (
-        <div className={`flex min-h-48 items-center justify-center ${emptyBackgroundClassName} text-slate-400 ${imageClassName}`}>
+        <div className={`flex min-h-48 items-center justify-center ${emptyBackgroundClassName} text-slate-400 ${imageClassName} ${ksFieldClass}`} {...ksMarkerProps}>
           <ImageIcon className="w-8 h-8" />
         </div>
       );
     }
 
     return (
-      <div className={`relative w-full h-full overflow-hidden ${imageRadiusClassName}`} style={{ borderRadius: imageBorderRadius }}>
+      <div className={`relative w-full h-full overflow-hidden ${imageRadiusClassName} ${ksFieldClass}`} style={{ borderRadius: imageBorderRadius }} {...ksMarkerProps}>
         <img
           src={previewUrl}
           alt={imageSettings.altText || contentKey}

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockSettingsPanel from '../BlockSettingsPanel';
+import KeyframeEditor, { inferFieldNames } from '../KeyframeEditor';
 import { InspectorSection, InspectorToggle, useInspectorSectionState } from '../panel-shared';
 import { LayoutTab } from '../layout/LayoutTab';
 import type { BlockPanelProps } from '../block-panel-registry';
@@ -43,6 +44,7 @@ type EstimateQuoteDraft = {
     settings: EstimateQuoteSettings;
     sectionSettings: SectionSettings;
     __customCss: string;
+    __customScript: string;
 };
 
 const SECTION_IDS = ['mode', 'guided', 'fields', 'steps', 'display', 'advanced-pricing', 'integrations', 'preview', 'universal-layout', 'advanced'];
@@ -601,21 +603,33 @@ export default function EstimateQuoteSettingsPanel({
                 onToggle={() => sectionState.toggle('advanced')}
             >
                 {isProUser ? (
-                    <div>
-                        <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-estimate-css`}>
-                            Custom CSS
-                        </label>
-                        <textarea
-                            id={`${blockId}-estimate-css`}
-                            value={draft.__customCss}
-                            onChange={(event) => setDraft((current) => ({ ...current, __customCss: event.target.value }))}
-                            className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-sm text-green-400 outline-none selection:bg-green-900 focus:ring-2 focus:ring-blue-500"
-                            spellCheck={false}
-                        />
+                    <div className="space-y-5">
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-estimate-css`}>
+                                Custom CSS
+                            </label>
+                            <textarea
+                                id={`${blockId}-estimate-css`}
+                                value={draft.__customCss}
+                                onChange={(event) => setDraft((current) => ({ ...current, __customCss: event.target.value }))}
+                                className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-sm text-green-400 outline-none selection:bg-green-900 focus:ring-2 focus:ring-blue-500"
+                                spellCheck={false}
+                            />
+                        </div>
+                        <div className="border-t border-slate-200 pt-4">
+                            <KeyframeEditor
+                                blockId={blockId}
+                                blockType="estimateForm"
+                                value={draft.__customScript}
+                                onChange={(value) => setDraft((current) => ({ ...current, __customScript: value }))}
+                                isProUser={isProUser}
+                                fieldNames={inferFieldNames(blockData)}
+                            />
+                        </div>
                     </div>
                 ) : (
                     <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-sm text-amber-800">
-                        Custom CSS is a Pro feature.
+                        Custom CSS &amp; Keyframe scripting are Pro features.
                     </div>
                 )}
             </InspectorSection>
@@ -874,6 +888,7 @@ function buildInitialDraft(blockData: Record<string, unknown>, customCss: string
         settings: normalizeEstimateQuoteSettings(blockData),
         sectionSettings: normalizeSectionSettings(blockData.sectionSettings),
         __customCss: customCss,
+        __customScript: typeof blockData.__customScript === 'string' ? blockData.__customScript : '',
     };
 }
 
@@ -884,6 +899,7 @@ function buildPreviewBlockData(blockData: Record<string, unknown>, draft: Estima
         estimateQuoteSettings: draft.settings,
         sectionSettings: draft.sectionSettings,
         __customCss: draft.__customCss,
+        __customScript: draft.__customScript,
     };
 }
 
@@ -892,6 +908,7 @@ function buildSaveUpdates(blockData: Record<string, unknown>, draft: EstimateQuo
         ...legacyMirror(draft.settings),
         estimateQuoteSettings: draft.settings,
         __customCss: draft.__customCss,
+        __customScript: draft.__customScript,
     };
     const initialSectionSettings = normalizeSectionSettings(blockData.sectionSettings);
     if (!areSectionSettingsEqual(draft.sectionSettings, initialSectionSettings)) {

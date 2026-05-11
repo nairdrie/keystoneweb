@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Code, Lock, Crown, LayoutTemplate, Palette } from 'lucide-react';
+import { X, Code, Lock, Crown, LayoutTemplate, Palette, Sliders } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import { getPanelEntry } from './block-panel-registry';
 import { AVAILABLE_BLOCKS } from './block-registry';
+import KeyframeEditor, { inferFieldNames } from './KeyframeEditor';
 
 interface BlockSettingsModalProps {
     isOpen: boolean;
@@ -91,15 +92,19 @@ export default function BlockSettingsModal({
     const hasVariantSettings = !!VARIANTS[blockType];
     const hasGallerySettings = blockType === 'gallery';
 
-    type TabType = 'layout' | 'gallery' | 'css';
+    type TabType = 'layout' | 'gallery' | 'advanced';
+    type AdvancedSub = 'css' | 'kf';
     const defaultTab: TabType = hasVariantSettings
         ? 'layout'
         : hasGallerySettings
             ? 'gallery'
-            : 'css';
+            : 'advanced';
 
     const [localCss, setLocalCss] = useState(customCss);
+    const initialScript = typeof blockData?.__customScript === 'string' ? blockData.__customScript : '';
+    const [localScript, setLocalScript] = useState<string>(initialScript);
     const [activeTab, setActiveTab] = useState<TabType>(defaultTab);
+    const [advancedSub, setAdvancedSub] = useState<AdvancedSub>('css');
 
     // Team Style State
     const [teamShowBio, setTeamShowBio] = useState<boolean>(blockData?.showBio !== false);
@@ -119,7 +124,9 @@ export default function BlockSettingsModal({
     useEffect(() => {
         if (isOpen) {
             setLocalCss(customCss);
+            setLocalScript(typeof blockData?.__customScript === 'string' ? blockData.__customScript : '');
             setActiveTab(defaultTab);
+            setAdvancedSub('css');
             setTeamShowBio(blockData?.showBio !== false);
             setCarouselAutoPlay(blockData?.autoPlay !== false);
             setCarouselInterval(blockData?.interval || 5);
@@ -157,6 +164,10 @@ export default function BlockSettingsModal({
 
         if (localCss !== customCss) {
             updates['__customCss'] = localCss;
+        }
+
+        if (localScript !== initialScript) {
+            updates['__customScript'] = localScript;
         }
 
         if (blockType === 'team') {
@@ -243,13 +254,13 @@ export default function BlockSettingsModal({
                         </button>
                     )}
                     <button
-                        onClick={() => setActiveTab('css')}
+                        onClick={() => setActiveTab('advanced')}
                         className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                            activeTab === 'css' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+                            activeTab === 'advanced' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
                         }`}
                     >
-                        <Code className="w-4 h-4" />
-                        Custom CSS
+                        <Sliders className="w-4 h-4" />
+                        Advanced
                         {!isProUser && <Crown className="w-3.5 h-3.5 text-amber-500" />}
                     </button>
                 </div>
@@ -544,26 +555,60 @@ export default function BlockSettingsModal({
                         </div>
                     ) : isProUser ? (
                         <div className="space-y-4">
-                            <div>
-                                <p className="text-sm font-medium text-slate-700 mb-1">
-                                    Custom CSS for this block
-                                </p>
-                                <p className="text-xs text-slate-500 mb-3">
-                                    Styles are scoped to <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] font-mono">#{blockId}</code>.
-                                    Use child selectors to target elements inside this block,
-                                    e.g. <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] font-mono">h1 {'{'} color: red; {'}'}</code>
-                                </p>
-                                <p className="text-xs text-slate-500 mb-3">
-                                    Block class: <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] font-mono">.ks-block-{blockType}</code>
-                                </p>
+                            {/* Sub-tabs */}
+                            <div className="flex gap-1 rounded-lg bg-slate-100 p-1 text-xs font-semibold">
+                                <button
+                                    onClick={() => setAdvancedSub('css')}
+                                    className={`flex-1 rounded-md px-3 py-1.5 transition-colors ${
+                                        advancedSub === 'css' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                    }`}
+                                >
+                                    Custom CSS
+                                </button>
+                                <button
+                                    onClick={() => setAdvancedSub('kf')}
+                                    className={`flex-1 rounded-md px-3 py-1.5 transition-colors ${
+                                        advancedSub === 'kf' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                    }`}
+                                >
+                                    Keyframe Script
+                                </button>
                             </div>
-                            <textarea
-                                value={localCss}
-                                onChange={(e) => setLocalCss(e.target.value)}
-                                placeholder={`/* Example: */\nh1 {\n  color: red;\n  font-size: 3rem;\n}\n\np {\n  line-height: 1.8;\n}`}
-                                className="w-full bg-slate-950 text-green-400 font-mono text-sm p-4 min-h-[300px] outline-none border border-slate-700 rounded-lg resize-y selection:bg-green-900"
-                                spellCheck={false}
-                            />
+
+                            {advancedSub === 'css' ? (
+                                <>
+                                    <div>
+                                        <p className="text-sm font-medium text-slate-700 mb-1">
+                                            Custom CSS for this block
+                                        </p>
+                                        <p className="text-xs text-slate-500 mb-3">
+                                            Styles are scoped to <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] font-mono">#{blockId}</code>.
+                                            Use child selectors to target elements inside this block,
+                                            e.g. <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] font-mono">h1 {'{'} color: red; {'}'}</code>
+                                        </p>
+                                        <p className="text-xs text-slate-500 mb-3">
+                                            Block class: <code className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] font-mono">.ks-block-{blockType}</code>
+                                        </p>
+                                    </div>
+                                    <textarea
+                                        value={localCss}
+                                        onChange={(e) => setLocalCss(e.target.value)}
+                                        placeholder={`/* Example: */\nh1 {\n  color: red;\n  font-size: 3rem;\n}\n\np {\n  line-height: 1.8;\n}`}
+                                        className="w-full bg-slate-950 text-green-400 font-mono text-sm p-4 min-h-[300px] outline-none border border-slate-700 rounded-lg resize-y selection:bg-green-900"
+                                        spellCheck={false}
+                                    />
+                                </>
+                            ) : (
+                                <KeyframeEditor
+                                    blockId={blockId}
+                                    blockType={blockType}
+                                    value={localScript}
+                                    onChange={setLocalScript}
+                                    isProUser={isProUser}
+                                    fieldNames={inferFieldNames(blockData)}
+                                />
+                            )}
+
                             <div className="flex justify-end gap-3">
                                 <button
                                     onClick={onClose}
@@ -575,7 +620,7 @@ export default function BlockSettingsModal({
                                     onClick={handleSave}
                                     className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-lg transition-colors"
                                 >
-                                    Apply CSS
+                                    {advancedSub === 'css' ? 'Apply CSS' : 'Apply Script'}
                                 </button>
                             </div>
                         </div>
@@ -586,11 +631,11 @@ export default function BlockSettingsModal({
                                 <Lock className="w-8 h-8 text-amber-500" />
                             </div>
                             <h3 className="text-xl font-bold text-slate-900 mb-2">
-                                Custom CSS is a Pro Feature
+                                Advanced is a Pro Feature
                             </h3>
                             <p className="text-sm text-slate-500 max-w-sm mb-6">
-                                Upgrade to Pro to add custom CSS to any block on your site.
-                                Get full control over styling with scoped CSS that targets individual blocks.
+                                Upgrade to Pro to unlock Custom CSS and Keyframe scripting on any block.
+                                Get full control over styling and add safe, declarative interactions.
                             </p>
                             <a
                                 href="/pricing"
