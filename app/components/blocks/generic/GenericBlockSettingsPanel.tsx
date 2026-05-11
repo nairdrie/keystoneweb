@@ -16,7 +16,6 @@ import {
     useInspectorSectionState,
 } from '../panel-shared';
 import { LayoutTab, ResponsiveColumnsControl } from '../layout/LayoutTab';
-import BlockAnimationSection from '../BlockAnimationSection';
 import type { BlockPanelProps } from '../block-panel-registry';
 import {
     areSectionSettingsEqual,
@@ -25,10 +24,6 @@ import {
     normalizeSectionSettings,
     type SectionSettings,
 } from '@/lib/builder/layout-settings';
-import {
-    readBlockAnimationOverride,
-    type PartialAnimationConfig,
-} from '@/lib/animations';
 
 type SettingValue = string | number | boolean;
 type DraftSettings = Record<string, SettingValue>;
@@ -534,13 +529,8 @@ export default function GenericBlockSettingsPanel({
         () => normalizeSectionSettings(blockData?.sectionSettings),
         [blockData?.sectionSettings],
     );
-    const persistedAnimation = useMemo<PartialAnimationConfig | undefined>(
-        () => readBlockAnimationOverride(blockData),
-        [blockData],
-    );
     const [draft, setDraft] = useState<DraftSettings>(initialDraft);
     const [sectionSettings, setSectionSettings] = useState<SectionSettings>(persistedSectionSettings);
-    const [animationDraft, setAnimationDraft] = useState<PartialAnimationConfig | undefined>(persistedAnimation);
 
     const sectionIds = useMemo(() => {
         const ids: string[] = ['universal-layout'];
@@ -548,7 +538,6 @@ export default function GenericBlockSettingsPanel({
         if (supportsPretext) ids.push('pretext');
         if (visibleDisplayControls.length > 0) ids.push('display');
         if (colorFields.length > 0) ids.push('style');
-        ids.push('animation');
         ids.push('advanced');
         return ids;
     }, [layoutFields.length, hasColumnLayoutControl, supportsPretext, visibleDisplayControls.length, colorFields.length]);
@@ -561,15 +550,12 @@ export default function GenericBlockSettingsPanel({
             ...(blockData || {}),
             ...draft,
             sectionSettings,
-            animation: animationDraft,
         });
-    }, [blockData, draft, sectionSettings, animationDraft, onDraftBlockDataChange]);
+    }, [blockData, draft, sectionSettings, onDraftBlockDataChange]);
 
     const hasUnsavedChanges = useMemo(
-        () => !areRecordsEqual(draft, initialDraft)
-            || !areSectionSettingsEqual(sectionSettings, persistedSectionSettings)
-            || !areAnimationOverridesEqual(animationDraft, persistedAnimation),
-        [draft, initialDraft, sectionSettings, persistedSectionSettings, animationDraft, persistedAnimation],
+        () => !areRecordsEqual(draft, initialDraft) || !areSectionSettingsEqual(sectionSettings, persistedSectionSettings),
+        [draft, initialDraft, sectionSettings, persistedSectionSettings],
     );
 
     const updateDraft = (key: string, value: SettingValue) => {
@@ -593,9 +579,6 @@ export default function GenericBlockSettingsPanel({
         if (!areSectionSettingsEqual(sectionSettings, persistedSectionSettings)) {
             updates.sectionSettings = normalizeSectionSettings(sectionSettings);
         }
-        if (!areAnimationOverridesEqual(animationDraft, persistedAnimation)) {
-            updates.animation = animationDraft ?? null;
-        }
         if (Object.keys(updates).length > 0 && context?.updateBlockDataBatch) {
             context.updateBlockDataBatch(blockId, updates);
         }
@@ -605,7 +588,6 @@ export default function GenericBlockSettingsPanel({
     const handleReset = () => {
         setDraft(initialDraft);
         setSectionSettings(persistedSectionSettings);
-        setAnimationDraft(persistedAnimation);
         sectionState.reset();
     };
 
@@ -726,19 +708,6 @@ export default function GenericBlockSettingsPanel({
                     </div>
                 </InspectorSection>
             )}
-
-            <InspectorSection
-                id="animation"
-                title="Animation"
-                isCollapsed={sectionState.isCollapsed('animation')}
-                onToggle={() => sectionState.toggle('animation')}
-            >
-                <BlockAnimationSection
-                    blockId={blockId}
-                    draft={animationDraft}
-                    onChange={setAnimationDraft}
-                />
-            </InspectorSection>
 
             <InspectorSection
                 id="advanced"
@@ -1048,11 +1017,4 @@ function areRecordsEqual(a: DraftSettings, b: DraftSettings): boolean {
 
 function areValuesEqual(a: unknown, b: unknown): boolean {
     return JSON.stringify(a) === JSON.stringify(b);
-}
-
-function areAnimationOverridesEqual(
-    a: PartialAnimationConfig | undefined,
-    b: PartialAnimationConfig | undefined,
-): boolean {
-    return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 }

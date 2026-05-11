@@ -1,18 +1,13 @@
 'use client';
 
-import { ReactNode, useCallback } from 'react';
+import { ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useEditorContext } from '@/lib/editor-context';
 import { getBlockSlug } from '@/lib/block-utils';
 import { buildStaggerContainer } from '@/lib/motion';
 import { buildLayoutCss } from '@/lib/builder/layout-settings';
-import {
-    blockToken,
-    resolveAnimation,
-    type AnimationConfig,
-} from '@/lib/animations';
-import { markComplete, useAnimationGate } from '@/lib/animation-bus';
+import { resolveAnimation } from '@/lib/animations';
 
 interface BlockWrapperProps {
     id: string;
@@ -47,41 +42,60 @@ export default function BlockWrapper(props: BlockWrapperProps) {
         } as React.CSSProperties)
         : undefined;
 
-    const config: AnimationConfig = resolveAnimation(context?.siteContent, props.data);
-    const prefersReducedMotion = useReducedMotion();
-    const forceInstant = prefersReducedMotion === true || config.reduceMotion || config.effect === 'none';
-
-    const gateToken = config.trigger?.kind === 'after' ? config.trigger.after : undefined;
-    const gateOpen = useAnimationGate(gateToken);
-
-    const onAnimationComplete = useCallback(() => {
-        markComplete(blockToken(id));
-    }, [id]);
-
-    if (!isEditMode) {
-        const variants = buildStaggerContainer({ config, forceInstant });
-
-        return (
-            <motion.div
-                key={`${id}-view`}
-                id={slug}
-                data-block-id={id}
-                variants={variants as any}
-                initial="hidden"
-                animate={gateOpen ? 'show' : 'hidden'}
-                whileInView={gateToken ? undefined : 'show'}
-                viewport={gateToken ? undefined : { once: true, margin: '-50px' }}
-                onAnimationComplete={onAnimationComplete}
-                style={paletteVars}
-                className={`w-full ks-block ks-block-${type}`}
-            >
-                {combinedCss && <style dangerouslySetInnerHTML={{ __html: combinedCss }} />}
-                {children}
-            </motion.div>
-        );
+    if (isEditMode) {
+        return <BlockWrapperEditor {...props} slug={slug} scopedCss={scopedCss} paletteVars={paletteVars} />;
     }
 
-    return <BlockWrapperEditor {...props} slug={slug} scopedCss={scopedCss} paletteVars={paletteVars} />;
+    return (
+        <BlockWrapperView
+            id={id}
+            type={type}
+            slug={slug}
+            siteContent={context?.siteContent}
+            combinedCss={combinedCss}
+            paletteVars={paletteVars}
+        >
+            {children}
+        </BlockWrapperView>
+    );
+}
+
+interface BlockWrapperViewProps {
+    id: string;
+    type: string;
+    slug: string;
+    siteContent?: Record<string, unknown>;
+    combinedCss: string;
+    paletteVars?: React.CSSProperties;
+    children: ReactNode;
+}
+
+/**
+ * View-mode rendering lives in its own component so the framer-motion hooks
+ * only run on the published site, never during editor sessions.
+ */
+function BlockWrapperView({ id, type, slug, siteContent, combinedCss, paletteVars, children }: BlockWrapperViewProps) {
+    const config = resolveAnimation(siteContent);
+    const prefersReducedMotion = useReducedMotion();
+    const forceInstant = prefersReducedMotion === true || config.reduceMotion || config.effect === 'none';
+    const variants = buildStaggerContainer({ config, forceInstant });
+
+    return (
+        <motion.div
+            key={`${id}-view`}
+            id={slug}
+            data-block-id={id}
+            variants={variants as any}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: '-50px' }}
+            style={paletteVars}
+            className={`w-full ks-block ks-block-${type}`}
+        >
+            {combinedCss && <style dangerouslySetInnerHTML={{ __html: combinedCss }} />}
+            {children}
+        </motion.div>
+    );
 }
 
 function scopeCustomCss(id: string, customCss?: string): string {
