@@ -329,6 +329,24 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   // fires onAuthStateChange which creates a new user object reference)
   const hasFetchedSiteRef = useRef<string | null>(null);
   const hasFetchedPagesRef = useRef<string | null>(null);
+
+  // Reset editor state synchronously when the URL `siteId` changes so the
+  // previous site's template/page can never render against the new URL while
+  // the new site is being fetched.
+  const [trackedUrlSiteId, setTrackedUrlSiteId] = useState(siteId);
+  if (siteId !== trackedUrlSiteId) {
+    setTrackedUrlSiteId(siteId);
+    setSite(null);
+    setTemplateComponent(null);
+    setTemplateInfo(null);
+    setEditableContent({});
+    setSiteContent({});
+    setLoading(true);
+    setError(null);
+    hasFetchedSiteRef.current = null;
+    hasFetchedPagesRef.current = null;
+  }
+
   useEffect(() => {
     if (authLoading) return;
 
@@ -383,12 +401,16 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   // Update URL when currentPageId changes (write-only, no feedback loop)
   useEffect(() => {
     if (!currentPageId || !siteId) return;
+    // While a site switch is in flight, the URL siteId belongs to the new site
+    // but currentPageId still belongs to the old one. Don't write stale state.
+    if (!site || site.id !== siteId) return;
+    if (pages.length > 0 && !pages.some(p => p.id === currentPageId)) return;
     const url = new URL(window.location.href);
     if (url.searchParams.get('pageId') !== currentPageId) {
       url.searchParams.set('pageId', currentPageId);
       router.replace(url.pathname + url.search, { scroll: false });
     }
-  }, [currentPageId, siteId, router]);
+  }, [currentPageId, siteId, site, pages, router]);
 
   // Load page-specific content when page changes
   useEffect(() => {

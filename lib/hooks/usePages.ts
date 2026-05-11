@@ -17,6 +17,19 @@ export function usePages(siteId: string, initialPageId?: string | null) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Reset page state when the site changes so a stale page from the previous
+  // site is never observable while the new site's pages are fetched. This is
+  // done during render (with a tracking state) so consumers never see a render
+  // with the new siteId but the old pages/currentPageId.
+  const [trackedSiteId, setTrackedSiteId] = useState(siteId);
+  if (siteId !== trackedSiteId) {
+    setTrackedSiteId(siteId);
+    setPages([]);
+    setCurrentPageId(null);
+    setLoading(true);
+    setError(null);
+  }
+
   // Fetch pages for site
   const fetchPages = useCallback(async () => {
     if (!siteId) return; // Stay loading=true until a real siteId triggers a fetch
