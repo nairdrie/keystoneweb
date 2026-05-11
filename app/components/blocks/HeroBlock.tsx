@@ -168,10 +168,10 @@ export default function HeroBlock({
         if (updateContent) updateContent('cards', next);
         else context?.updateBlockData?.(block.id, 'cards', next);
 
-        // Style metadata (font/color) is still keyed off the old `__styles`
-        // properties — pass through unchanged so existing element-level
-        // settings keep working.
-        if (key.endsWith('__styles')) {
+        // Style metadata (font/color) and reveal animation config are still
+        // keyed off the old `__styles` / `__textReveal` properties — pass them
+        // through unchanged so element-level settings keep working.
+        if (key.endsWith('__styles') || key.endsWith('__textReveal')) {
             if (updateContent) updateContent(key, value);
             else context?.updateBlockData?.(block.id, key, value);
         }
