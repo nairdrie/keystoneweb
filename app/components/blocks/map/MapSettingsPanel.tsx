@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Check, Crown, Layers, Loader2, Map as MapIcon, Plus, Search, Trash2 } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockSettingsPanel from '../BlockSettingsPanel';
+import KeyframeEditor, { inferFieldNames } from '../KeyframeEditor';
 import {
     InspectorSection,
     InspectorToggle,
@@ -37,6 +38,7 @@ type MapDraft = MapSettings & {
     backgroundColor: string;
     sectionSettings: SectionSettings;
     __customCss: string;
+    __customScript: string;
 };
 
 type PlaceSearchResult = {
@@ -155,6 +157,9 @@ export default function MapSettingsPanel({
         }
         if (draft.__customCss === initialDraft.__customCss) {
             delete updates.__customCss;
+        }
+        if (draft.__customScript === initialDraft.__customScript) {
+            delete updates.__customScript;
         }
         if (Object.keys(updates).length > 0 && context?.updateBlockDataBatch) {
             context.updateBlockDataBatch(blockId, updates);
@@ -356,24 +361,36 @@ export default function MapSettingsPanel({
                 onToggle={() => sectionState.toggle('advanced')}
             >
                 {isProUser ? (
-                    <div>
-                        <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-map-css`}>
-                            Custom CSS
-                        </label>
-                        <textarea
-                            id={`${blockId}-map-css`}
-                            value={draft.__customCss}
-                            onChange={(event) => updateDraft({ __customCss: event.target.value })}
-                            placeholder={`/* Scoped to this Map block */\n.map-card {\n  border-radius: 0.75rem;\n}`}
-                            className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-sm text-green-400 outline-none selection:bg-green-900 focus:ring-2 focus:ring-blue-500"
-                            spellCheck={false}
-                        />
+                    <div className="space-y-5">
+                        <div>
+                            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-map-css`}>
+                                Custom CSS
+                            </label>
+                            <textarea
+                                id={`${blockId}-map-css`}
+                                value={draft.__customCss}
+                                onChange={(event) => updateDraft({ __customCss: event.target.value })}
+                                placeholder={`/* Scoped to this Map block */\n.map-card {\n  border-radius: 0.75rem;\n}`}
+                                className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-sm text-green-400 outline-none selection:bg-green-900 focus:ring-2 focus:ring-blue-500"
+                                spellCheck={false}
+                            />
+                        </div>
+                        <div className="border-t border-slate-200 pt-4">
+                            <KeyframeEditor
+                                blockId={blockId}
+                                blockType="map"
+                                value={draft.__customScript}
+                                onChange={(value) => updateDraft({ __customScript: value })}
+                                isProUser={isProUser}
+                                fieldNames={inferFieldNames(blockData)}
+                            />
+                        </div>
                     </div>
                 ) : (
                     <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-sm text-amber-800">
                         <div className="flex items-center gap-2 font-bold">
                             <Crown className="h-4 w-4" />
-                            Custom CSS is a Pro feature
+                            Custom CSS &amp; Keyframe scripting are Pro features
                         </div>
                     </div>
                 )}
@@ -832,6 +849,7 @@ function buildInitialDraft(blockData: Record<string, unknown>, customCss: string
         backgroundColor: typeof blockData.backgroundColor === 'string' ? blockData.backgroundColor : '',
         sectionSettings: normalizeSectionSettings(blockData.sectionSettings),
         __customCss: customCss,
+        __customScript: typeof blockData.__customScript === 'string' ? blockData.__customScript : '',
     };
 }
 
@@ -856,6 +874,7 @@ function serializeMapDraft(draft: MapDraft): Record<string, unknown> {
         backgroundColor: draft.backgroundColor,
         sectionSettings: draft.sectionSettings,
         __customCss: draft.__customCss,
+        __customScript: draft.__customScript,
     };
 }
 

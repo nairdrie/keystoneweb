@@ -29,6 +29,9 @@ interface TextRevealProps {
   className?: string;
   style?: React.CSSProperties;
   as?: React.ElementType;
+  /** Forwarded to the rendered root so Keyframe scripts can target this element. */
+  dataKsField?: string;
+  dataKsIndex?: number;
 }
 
 export default function TextReveal({
@@ -38,7 +41,12 @@ export default function TextReveal({
   className,
   style,
   as = 'span',
+  dataKsField,
+  dataKsIndex,
 }: TextRevealProps) {
+  const ksAttrs: Record<string, string> = {};
+  if (dataKsField) ksAttrs['data-ks-field'] = dataKsField;
+  if (dataKsIndex !== undefined) ksAttrs['data-ks-index'] = String(dataKsIndex);
   const Component = as;
   const prefersReducedMotion = useReducedMotion();
   const gateOpen = useAnimationGate(config.trigger?.kind === 'after' ? config.trigger.after : undefined);
@@ -83,6 +91,7 @@ export default function TextReveal({
         ref={containerRef as React.Ref<HTMLElement>}
         className={className}
         style={style}
+        {...ksAttrs}
         dangerouslySetInnerHTML={{ __html: safeHtml }}
       />
     );
@@ -100,6 +109,7 @@ export default function TextReveal({
         style={style}
         as={as}
         innerRef={containerRef}
+        extraAttrs={ksAttrs}
       />
     );
   }
@@ -116,6 +126,7 @@ export default function TextReveal({
         style={style}
         as={as}
         innerRef={containerRef}
+        extraAttrs={ksAttrs}
       />
     );
   }
@@ -132,6 +143,7 @@ export default function TextReveal({
         style={style}
         as={as}
         innerRef={containerRef}
+        extraAttrs={ksAttrs}
       />
     );
   }
@@ -141,6 +153,7 @@ export default function TextReveal({
       ref={containerRef as React.Ref<HTMLElement>}
       className={className}
       style={style}
+      {...ksAttrs}
       dangerouslySetInnerHTML={{ __html: safeHtml }}
     />
   );
@@ -156,9 +169,10 @@ interface RevealVariantProps {
   style?: React.CSSProperties;
   as: React.ElementType;
   innerRef: React.RefObject<HTMLElement | null>;
+  extraAttrs?: Record<string, string>;
 }
 
-function TypewriterText({ contentKey, text, speed, delayMs, active, className, style, as, innerRef }: RevealVariantProps) {
+function TypewriterText({ contentKey, text, speed, delayMs, active, className, style, as, innerRef, extraAttrs }: RevealVariantProps) {
   const Component = as;
   const [chars, setChars] = useState(0);
   const sanitizedSpeed = speed > 0 ? speed : 25;
@@ -203,6 +217,7 @@ function TypewriterText({ contentKey, text, speed, delayMs, active, className, s
       className={className}
       style={style}
       aria-label={text}
+      {...(extraAttrs || {})}
     >
       <span aria-hidden>{visible}</span>
       {showCaret && (
@@ -216,7 +231,7 @@ function TypewriterText({ contentKey, text, speed, delayMs, active, className, s
   );
 }
 
-function WordReveal({ contentKey, text, speed, delayMs, active, className, style, as, innerRef }: RevealVariantProps) {
+function WordReveal({ contentKey, text, speed, delayMs, active, className, style, as, innerRef, extraAttrs }: RevealVariantProps) {
   const Component = as;
   const words = useMemo(() => text.split(/(\s+)/), [text]);
   const [count, setCount] = useState(0);
@@ -259,7 +274,7 @@ function WordReveal({ contentKey, text, speed, delayMs, active, className, style
   const revealedSet = new Set(wordIndices.slice(0, count));
 
   return (
-    <Component ref={innerRef as React.Ref<HTMLElement>} className={className} style={style} aria-label={text}>
+    <Component ref={innerRef as React.Ref<HTMLElement>} className={className} style={style} aria-label={text} {...(extraAttrs || {})}>
       {words.map((part, idx) => {
         if (/^\s+$/.test(part)) return <span key={idx} aria-hidden>{part}</span>;
         const visible = revealedSet.has(idx);
@@ -282,7 +297,7 @@ function WordReveal({ contentKey, text, speed, delayMs, active, className, style
   );
 }
 
-function LetterFade({ contentKey, text, speed, delayMs, active, className, style, as, innerRef }: RevealVariantProps) {
+function LetterFade({ contentKey, text, speed, delayMs, active, className, style, as, innerRef, extraAttrs }: RevealVariantProps) {
   const Component = as;
   const [count, setCount] = useState(0);
   const letters = useMemo(() => Array.from(text), [text]);
@@ -319,7 +334,7 @@ function LetterFade({ contentKey, text, speed, delayMs, active, className, style
   }, [active, letters, stepMs, delayMs, contentKey]);
 
   return (
-    <Component ref={innerRef as React.Ref<HTMLElement>} className={className} style={style} aria-label={text}>
+    <Component ref={innerRef as React.Ref<HTMLElement>} className={className} style={style} aria-label={text} {...(extraAttrs || {})}>
       {letters.map((char, idx) => {
         const visible = idx < count;
         return (

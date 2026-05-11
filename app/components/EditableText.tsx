@@ -23,6 +23,8 @@ interface EditableTextProps {
   as?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'span' | 'div';
   style?: React.CSSProperties;
   styleData?: string | Record<string, unknown>;
+  /** Optional index for indexed fields (e.g. cards in a list). Emits data-ks-index for Keyframe selectors. */
+  index?: number;
 }
 
 export default function EditableText({
@@ -35,7 +37,13 @@ export default function EditableText({
   as: Component = 'span',
   style = {},
   styleData,
+  index,
 }: EditableTextProps) {
+  const ksFieldClass = `ks-field ks-field--${sanitizeFieldName(contentKey)}`;
+  const ksMarkerProps = {
+    'data-ks-field': contentKey,
+    ...(index !== undefined ? { 'data-ks-index': String(index) } : {}),
+  };
   const displayText = content !== undefined && content !== '' ? content : defaultValue;
   const editorCtx = useEditorContext();
   const palette = editorCtx?.palette;
@@ -297,9 +305,11 @@ export default function EditableText({
             contentKey={contentKey}
             html={html}
             config={textRevealConfig}
-            className={className}
+            className={`${className} ${ksFieldClass}`.trim()}
             style={mergedStyle}
             as={Component}
+            dataKsField={contentKey}
+            dataKsIndex={index}
           />
         </>
       );
@@ -307,7 +317,7 @@ export default function EditableText({
     return (
       <>
         {overrideFontHref && <link rel="stylesheet" href={overrideFontHref} />}
-        <Component className={className} style={mergedStyle}>
+        <Component className={`${className} ${ksFieldClass}`.trim()} style={mergedStyle} {...ksMarkerProps}>
           {renderDisplayContent(displayText)}
         </Component>
       </>
@@ -405,6 +415,13 @@ export default function EditableText({
 }
 
 // ---- helpers ----
+
+// Normalize a contentKey into a CSS-class-safe suffix. Keyframe selectors use
+// `[data-ks-field="..."]` for the raw value, but the human-readable
+// `ks-field--{name}` class is also emitted for custom CSS targeting.
+function sanitizeFieldName(name: string): string {
+  return name.replace(/[^A-Za-z0-9_-]/g, '_');
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

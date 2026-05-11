@@ -32,6 +32,8 @@ interface BlockWrapperEditorProps {
     onUpdateBlockData?: (key: string, value: unknown) => void;
     customCss?: string;
     onUpdateCustomCss?: (css: string) => void;
+    /** Keyframe script — passed through for completeness; runs only in view mode. */
+    customScript?: string;
     palette?: Record<string, string>;
     slug: string;
     scopedCss: string;

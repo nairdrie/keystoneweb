@@ -70,6 +70,8 @@ interface EditableButtonProps {
     defaultFill?: ButtonFill;
     /** Active palette for resolving palette-token color overrides */
     palette?: Record<string, string>;
+    /** Optional index for indexed fields. Emits data-ks-index for Keyframe selectors. */
+    index?: number;
 }
 
 /**
@@ -91,7 +93,11 @@ export default function EditableButton({
     defaultShape,
     defaultFill,
     palette,
+    index,
 }: EditableButtonProps) {
+    const ksFieldClass = `ks-field ks-field--${contentKey.replace(/[^A-Za-z0-9_-]/g, '_')}`;
+    const ksMarkerProps: Record<string, string> = { 'data-ks-field': contentKey };
+    if (index !== undefined) ksMarkerProps['data-ks-index'] = String(index);
     const context = useEditorContext();
     const effectivePalette = palette || context?.palette || {};
     const [isEditing, setIsEditing] = useState(false);
@@ -295,7 +301,8 @@ export default function EditableButton({
                 rel={isExternal ? 'noopener noreferrer' : undefined}
                 data-ks-editable-button
                 data-ks-editable-button-id={buttonId}
-                className={resolvedButton.className}
+                {...ksMarkerProps}
+                className={`${resolvedButton.className} ${ksFieldClass}`.trim()}
                 style={resolvedButton.style}
             >
                 {renderButtonContent()}

@@ -18,6 +18,7 @@ import {
 } from '../panel-shared';
 import { LayoutTab } from '../layout/LayoutTab';
 import type { BlockPanelProps } from '../block-panel-registry';
+import KeyframeEditor from '../KeyframeEditor';
 import {
     areSectionSettingsEqual,
     normalizeSectionSettings,
@@ -111,6 +112,8 @@ export default function HeroSettingsPanel({
     const [activeHeightBp, setActiveHeightBp] = useState<HeroBreakpoint>('desktop');
     const [activeIndex, setActiveIndex] = useState<number>(0);
     const [localCss, setLocalCss] = useState<string>(customCss);
+    const persistedScript = typeof blockData?.__customScript === 'string' ? blockData.__customScript : '';
+    const [localScript, setLocalScript] = useState<string>(persistedScript);
     const cardsRef = useRef<HeroCard[]>(persistedData.cards);
 
     const [imageEditorOpen, setImageEditorOpen] = useState<null | 'foreground' | 'background'>(null);
@@ -144,9 +147,10 @@ export default function HeroSettingsPanel({
             __activeCardIndex: activeIndex,
             __pauseRotation: true,
             __customCss: localCss,
+            __customScript: localScript,
         };
         onDraftBlockDataChange(draft);
-    }, [cards, transition, height, sectionSettings, backgroundColor, activeIndex, localCss, blockData, onDraftBlockDataChange]);
+    }, [cards, transition, height, sectionSettings, backgroundColor, activeIndex, localCss, localScript, blockData, onDraftBlockDataChange]);
 
     // Canvas dots can also switch the active card; sync our state when they do.
     useEffect(() => {
@@ -250,8 +254,8 @@ export default function HeroSettingsPanel({
             cards: persistedData.cards,
             transition: persistedData.transition,
             height: persistedData.height,
-        }) || !areSectionSettingsEqual(sectionSettings, persistedSectionSettings) || backgroundColor !== persistedBackgroundColor || localCss !== customCss
-    ), [cards, transition, height, persistedData, sectionSettings, persistedSectionSettings, backgroundColor, persistedBackgroundColor, localCss, customCss]);
+        }) || !areSectionSettingsEqual(sectionSettings, persistedSectionSettings) || backgroundColor !== persistedBackgroundColor || localCss !== customCss || localScript !== persistedScript
+    ), [cards, transition, height, persistedData, sectionSettings, persistedSectionSettings, backgroundColor, persistedBackgroundColor, localCss, customCss, localScript, persistedScript]);
 
     const handleSave = () => {
         const cardsToSave = cardsRef.current;
@@ -266,6 +270,9 @@ export default function HeroSettingsPanel({
         }
         if (localCss !== customCss) {
             updates['__customCss'] = localCss;
+        }
+        if (localScript !== persistedScript) {
+            updates['__customScript'] = localScript;
         }
         // Clear legacy fields so the new schema is the source of truth.
         // NOTE: title__styles / subtitle__styles / buttonText__styles are NOT
@@ -780,27 +787,39 @@ export default function HeroSettingsPanel({
                     onToggle={() => sectionState.toggle('advanced')}
                 >
                     {isProUser ? (
-                        <div>
-                            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-hero-css`}>
-                                Custom CSS
-                            </label>
-                            <textarea
-                                id={`${blockId}-hero-css`}
-                                value={localCss}
-                                onChange={(e) => setLocalCss(e.target.value)}
-                                placeholder={`/* Scoped to this Hero block */\n.hero-title {\n  letter-spacing: -0.02em;\n}`}
-                                className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-sm text-green-400 outline-none selection:bg-green-900 focus:ring-2 focus:ring-blue-500"
-                                spellCheck={false}
-                            />
-                            <p className="mt-2 text-xs text-slate-500">
-                                Helpful classes: <code>.hero-title</code>, <code>.hero-subtitle</code>, <code>.hero-button</code>, <code>.hero-image</code>, <code>.hero-overlay</code>.
-                            </p>
+                        <div className="space-y-5">
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`${blockId}-hero-css`}>
+                                    Custom CSS
+                                </label>
+                                <textarea
+                                    id={`${blockId}-hero-css`}
+                                    value={localCss}
+                                    onChange={(e) => setLocalCss(e.target.value)}
+                                    placeholder={`/* Scoped to this Hero block */\n.hero-title {\n  letter-spacing: -0.02em;\n}`}
+                                    className="mt-2 min-h-40 w-full resize-y rounded-lg border border-slate-800 bg-slate-950 p-3 font-mono text-sm text-green-400 outline-none selection:bg-green-900 focus:ring-2 focus:ring-blue-500"
+                                    spellCheck={false}
+                                />
+                                <p className="mt-2 text-xs text-slate-500">
+                                    Helpful classes: <code>.hero-title</code>, <code>.hero-subtitle</code>, <code>.hero-button</code>, <code>.hero-image</code>, <code>.hero-overlay</code>.
+                                </p>
+                            </div>
+                            <div className="border-t border-slate-200 pt-4">
+                                <KeyframeEditor
+                                    blockId={blockId}
+                                    blockType="hero"
+                                    value={localScript}
+                                    onChange={setLocalScript}
+                                    isProUser={isProUser}
+                                    fieldNames={['title', 'subtitle', 'buttonText', 'buttonTextSecondary', 'image', 'pretext']}
+                                />
+                            </div>
                         </div>
                     ) : (
                         <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-sm text-amber-800">
                             <div className="flex items-center gap-2 font-bold">
                                 <Crown className="h-4 w-4" />
-                                Custom CSS is a Pro feature
+                                Custom CSS &amp; Keyframe scripting are Pro features
                             </div>
                         </div>
                     )}
