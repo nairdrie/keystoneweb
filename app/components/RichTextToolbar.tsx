@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import {
     Bold, Italic, Underline, Strikethrough,
     Type, ALargeSmall, Weight, Palette, AlignLeft, AlignCenter, AlignRight, AlignJustify,
-    Sparkles, Check, X, Search, Eraser, Wand2,
+    Sparkles, Check, X, Search, Eraser,
 } from 'lucide-react';
 import {
     DEFAULT_TEXT_SHADOW,
@@ -18,12 +18,6 @@ import {
     NEUTRAL_SWATCHES,
     textShadowToCss,
 } from '@/lib/text-styles';
-import {
-    DEFAULT_TEXT_REVEAL,
-    TEXT_REVEAL_LABELS,
-    type TextRevealConfig,
-    type TextRevealEffect,
-} from '@/lib/animations';
 
 export type InlineCommand =
     | { kind: 'bold' }
@@ -45,12 +39,9 @@ interface RichTextToolbarProps {
     onCancel: () => void;
     palette?: { primary?: string; secondary?: string; accent?: string };
     previewText?: string;
-    /** Optional per-text reveal animation config + setter. When omitted, the Reveal button is hidden. */
-    textReveal?: TextRevealConfig | null;
-    onTextRevealChange?: (next: TextRevealConfig | null) => void;
 }
 
-type PopoverKey = 'font' | 'size' | 'weight' | 'color' | 'shadow' | 'reveal' | null;
+type PopoverKey = 'font' | 'size' | 'weight' | 'color' | 'shadow' | null;
 
 export default function RichTextToolbar({
     targetEl,
@@ -61,8 +52,6 @@ export default function RichTextToolbar({
     onCancel,
     palette,
     previewText,
-    textReveal,
-    onTextRevealChange,
 }: RichTextToolbarProps) {
     const toolbarRef = useRef<HTMLDivElement>(null);
     const [pos, setPos] = useState<{ top: number; left: number; placement: 'above' | 'below' } | null>(null);
@@ -255,17 +244,6 @@ export default function RichTextToolbar({
                 >
                     <Sparkles className="w-4 h-4" />
                 </ToolbarBtn>
-
-                {/* Reveal animation */}
-                {onTextRevealChange && (
-                    <ToolbarBtn
-                        title="Reveal animation"
-                        active={openPopover === 'reveal' || (!!textReveal && textReveal.effect !== 'none')}
-                        onClick={() => togglePopover('reveal')}
-                    >
-                        <Wand2 className="w-4 h-4" />
-                    </ToolbarBtn>
-                )}
 
                 <Divider />
 
@@ -548,13 +526,6 @@ export default function RichTextToolbar({
                             </div>
                         );
                     })()}
-
-                    {openPopover === 'reveal' && onTextRevealChange && (
-                        <RevealPopover
-                            value={textReveal ?? null}
-                            onChange={onTextRevealChange}
-                        />
-                    )}
                 </div>
             )}
         </div>
@@ -615,99 +586,6 @@ function ShadowSlider({
                 onChange={(e) => onChange(Number(e.target.value))}
                 className="w-full accent-red-500"
             />
-        </div>
-    );
-}
-
-const REVEAL_EFFECTS: TextRevealEffect[] = ['none', 'typewriter', 'word', 'letter-fade'];
-
-const REVEAL_DEFAULT_SPEED: Record<Exclude<TextRevealEffect, 'none'>, number> = {
-    typewriter: 25,
-    word: 4,
-    'letter-fade': 30,
-};
-
-const REVEAL_SPEED_LABEL: Record<Exclude<TextRevealEffect, 'none'>, string> = {
-    typewriter: 'chars/sec',
-    word: 'words/sec',
-    'letter-fade': 'letters/sec',
-};
-
-function RevealPopover({
-    value,
-    onChange,
-}: {
-    value: TextRevealConfig | null;
-    onChange: (next: TextRevealConfig | null) => void;
-}) {
-    const preserveFocus = (e: React.MouseEvent) => e.preventDefault();
-    const current = value ?? { ...DEFAULT_TEXT_REVEAL };
-    const effect = current.effect;
-    const speed = current.speed > 0 ? current.speed : (effect !== 'none' ? REVEAL_DEFAULT_SPEED[effect] : 0);
-
-    const setEffect = (next: TextRevealEffect) => {
-        if (next === 'none') {
-            onChange(null);
-            return;
-        }
-        onChange({
-            effect: next,
-            speed: REVEAL_DEFAULT_SPEED[next],
-            delayMs: current.delayMs,
-        });
-    };
-
-    const setSpeed = (n: number) => {
-        if (effect === 'none') return;
-        onChange({ ...current, speed: n });
-    };
-
-    return (
-        <div className="w-[300px] space-y-3">
-            <p className="text-[10px] font-bold uppercase text-slate-500 tracking-wider">Reveal animation</p>
-            <div className="grid grid-cols-2 gap-1.5">
-                {REVEAL_EFFECTS.map((opt) => {
-                    const active = effect === opt;
-                    return (
-                        <button
-                            key={opt}
-                            type="button"
-                            onMouseDown={preserveFocus}
-                            onClick={() => setEffect(opt)}
-                            aria-pressed={active}
-                            className={`rounded-md border px-2.5 py-2 text-left text-xs font-bold transition-all ${
-                                active
-                                    ? 'bg-red-50 border-red-500 text-red-900'
-                                    : 'bg-white border-slate-200 hover:border-slate-400 text-slate-700'
-                            }`}
-                        >
-                            {TEXT_REVEAL_LABELS[opt]}
-                        </button>
-                    );
-                })}
-            </div>
-
-            {effect !== 'none' && (
-                <div>
-                    <div className="flex items-center justify-between mb-1">
-                        <label className="text-[10px] font-bold uppercase text-slate-500 tracking-wider">Speed</label>
-                        <span className="text-[10px] font-mono text-slate-600">{Math.round(speed)} {REVEAL_SPEED_LABEL[effect]}</span>
-                    </div>
-                    <input
-                        type="range"
-                        min={effect === 'word' ? 1 : 4}
-                        max={effect === 'word' ? 12 : 80}
-                        step={1}
-                        value={speed}
-                        onChange={(e) => setSpeed(Number(e.target.value))}
-                        className="w-full accent-red-500"
-                    />
-                </div>
-            )}
-
-            <p className="text-[10px] text-slate-500 leading-snug">
-                Plays once when this text scrolls into view. Other elements can chain after it via the block&apos;s Animation settings.
-            </p>
         </div>
     );
 }
