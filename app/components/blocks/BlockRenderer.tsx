@@ -31,6 +31,17 @@ export default function BlockRenderer({ palette, headerOffset }: { palette: Reco
     const isEditMode = context?.isEditMode || false;
     const isProUser = context?.isProUser || false;
 
+    // Preload BlockWrapperEditor as soon as we're rendered in an editor-capable
+    // context (signaled by addBlock). Without this, the first toggle from View
+    // to Edit pops every block to 0 height while the dynamic chunk loads,
+    // leaving the AddBlockMenu "+" markers stacked together.
+    const canEdit = !!context?.addBlock;
+    useEffect(() => {
+        if (canEdit) {
+            void import('./BlockWrapperEditor');
+        }
+    }, [canEdit]);
+
     const AddBlockMenu = ({ index }: { index: number }) => {
         const [isOpen, setIsOpen] = useState(false);
         const [searchQuery, setSearchQuery] = useState('');
