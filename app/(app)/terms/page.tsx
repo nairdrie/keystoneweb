@@ -151,23 +151,38 @@ export default function TermsOfServicePage() {
 
           {/* 11 */}
           <section>
-            <h2 className="text-xl font-bold text-slate-900 mb-3">11. Changes to These Terms</h2>
-            <p>
-              We may update these Terms from time to time. Material changes will be communicated by email or via a notice in the dashboard. Continued use of the Service after the effective date of updated Terms constitutes acceptance.
+            <h2 className="text-xl font-bold text-slate-900 mb-3">11. Sunset Clause &amp; Business Continuity</h2>
+            <p className="mb-2">
+              In the event that Keystone elects to discontinue the platform in whole, we commit to the following business continuity guarantees:
+            </p>
+            <ul className="list-disc pl-5 space-y-2 text-sm">
+              <li><strong>Minimum 90 days&rsquo; notice.</strong> We will provide written notice of platform discontinuation to all active account holders at least 90 days before service ends.</li>
+              <li><strong>Complete data export.</strong> During the notice period, you will have access to a complete export of your site content and data so that you can move your site to an independent hosting environment.</li>
+            </ul>
+            <p className="mt-3 text-sm">
+              This section does not apply to suspension or termination of an individual account under Section 7 (Acceptable Use) or Section 10 (Termination).
             </p>
           </section>
 
           {/* 12 */}
           <section>
-            <h2 className="text-xl font-bold text-slate-900 mb-3">12. Governing Law</h2>
+            <h2 className="text-xl font-bold text-slate-900 mb-3">12. Changes to These Terms</h2>
             <p>
-              These Terms are governed by the laws of the Province of Ontario, Canada, without regard to conflict-of-law principles. Any disputes shall be resolved in the courts of Ontario.
+              We may update these Terms from time to time. Material changes will be communicated by email or via a notice in the dashboard. Continued use of the Service after the effective date of updated Terms constitutes acceptance.
             </p>
           </section>
 
           {/* 13 */}
           <section>
-            <h2 className="text-xl font-bold text-slate-900 mb-3">13. Contact</h2>
+            <h2 className="text-xl font-bold text-slate-900 mb-3">13. Governing Law</h2>
+            <p>
+              These Terms are governed by the laws of the Province of Ontario, Canada, without regard to conflict-of-law principles. Any disputes shall be resolved in the courts of Ontario.
+            </p>
+          </section>
+
+          {/* 14 */}
+          <section>
+            <h2 className="text-xl font-bold text-slate-900 mb-3">14. Contact</h2>
             <p>
               Questions about these Terms? Reach us at{' '}
               <a href={`mailto:${CONTACT_EMAIL}`} className="text-red-600 hover:underline">{CONTACT_EMAIL}</a>.
