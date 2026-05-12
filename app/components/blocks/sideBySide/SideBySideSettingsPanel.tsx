@@ -78,20 +78,6 @@ function readDraft(blockData: Record<string, unknown> | undefined, customCss: st
     };
 }
 
-function shallowEqual(a: DraftSettings, b: DraftSettings): boolean {
-    return (
-        a.columnRatio === b.columnRatio &&
-        a.verticalAlign === b.verticalAlign &&
-        a.gap === b.gap &&
-        a.stackOnMobile === b.stackOnMobile &&
-        a.reverseOnMobile === b.reverseOnMobile &&
-        a.backgroundColor === b.backgroundColor &&
-        a.overrideChildBackgrounds === b.overrideChildBackgrounds &&
-        a.__customCss === b.__customCss &&
-        a.__customScript === b.__customScript
-    );
-}
-
 export default function SideBySideSettingsPanel({
     blockId,
     blockType = 'sideBySide',
@@ -124,15 +110,12 @@ export default function SideBySideSettingsPanel({
         });
     }, [blockData, draft, sectionSettings, onDraftBlockDataChange]);
 
-    const hasUnsavedChanges =
-        !shallowEqual(draft, initialDraft) ||
-        !areSectionSettingsEqual(sectionSettings, persistedSectionSettings);
-
     const update = <K extends keyof DraftSettings>(key: K, value: DraftSettings[K]) => {
         setDraft((current) => ({ ...current, [key]: value }));
     };
 
-    const handleSave = () => {
+    useEffect(() => {
+        if (!context?.updateBlockDataBatch) return;
         const updates: Record<string, unknown> = {};
         if (draft.columnRatio !== initialDraft.columnRatio) updates.columnRatio = draft.columnRatio;
         if (draft.verticalAlign !== initialDraft.verticalAlign) updates.verticalAlign = draft.verticalAlign;
@@ -146,17 +129,10 @@ export default function SideBySideSettingsPanel({
         if (!areSectionSettingsEqual(sectionSettings, persistedSectionSettings)) {
             updates.sectionSettings = normalizeSectionSettings(sectionSettings);
         }
-        if (Object.keys(updates).length > 0 && context?.updateBlockDataBatch) {
+        if (Object.keys(updates).length > 0) {
             context.updateBlockDataBatch(blockId, updates);
         }
-        onClose();
-    };
-
-    const handleReset = () => {
-        setDraft(initialDraft);
-        setSectionSettings(persistedSectionSettings);
-        sectionState.reset();
-    };
+    }, [draft, initialDraft, sectionSettings, persistedSectionSettings, blockId, context]);
 
     const colorInputValue = getColorInputValue(draft.backgroundColor, palette, '#ffffff');
 
@@ -167,10 +143,7 @@ export default function SideBySideSettingsPanel({
             subtitle="Place two columns of blocks next to each other and tune their layout."
             blockId={blockId}
             blockType={blockType}
-            hasUnsavedChanges={hasUnsavedChanges}
             onClose={onClose}
-            onSave={handleSave}
-            onReset={handleReset}
             allCollapsed={sectionState.allCollapsed}
             onToggleAllCollapsed={() => sectionState.setAll(!sectionState.allCollapsed)}
             tourId="side-by-side-settings-panel"

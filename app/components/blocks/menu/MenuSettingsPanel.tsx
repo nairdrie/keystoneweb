@@ -86,12 +86,6 @@ function getCombinedMenuIconOptions(customOptions: MenuIconOptionSource[]): Menu
         });
 }
 
-function areStringArraysEqual(a: string[], b: string[]): boolean {
-    if (a.length !== b.length) return false;
-    const aSet = new Set(a);
-    return b.every(value => aSet.has(value));
-}
-
 function extractMenuSectionNames(items: MenuSectionSourceItem[]): string[] {
     const sections = new Map<string, number>();
 
@@ -394,70 +388,6 @@ export default function MenuSettingsPanel({
         ));
     };
 
-    const hasUnsavedChanges = useMemo(() => (
-        menuModeDraft !== (blockData?.mode || 'items') ||
-        menuVariantDraft !== (blockData?.variant || 'list') ||
-        menuShowPrices !== (blockData?.showPrices !== false) ||
-        menuShowDescriptions !== (blockData?.showDescriptions !== false) ||
-        menuShowImages !== (blockData?.showImages === true) ||
-        menuShowFeaturedImages !== (blockData?.showFeaturedImages !== false) ||
-        menuShowTabs !== (blockData?.showMenuTabs !== false) ||
-        menuShowIcons !== (blockData?.showMenuIcons !== false) ||
-        menuShowIconLegend !== (blockData?.showMenuIconLegend === true) ||
-        menuIconLegendPosition !== (blockData?.menuIconLegendPosition || 'bottom') ||
-        menuIconLegendMode !== (blockData?.menuIconLegendMode || 'all') ||
-        !areStringArraysEqual(menuIconLegendIds, normalizeMenuIconLegendIds(blockData?.menuIconLegendIds)) ||
-        menuCategoryStyle !== (blockData?.categoryStyle || 'heading') ||
-        menuBgColor !== (blockData?.backgroundColor || '') ||
-        menuItemDetailEnabled !== (blockData?.itemDetailEnabled === true) ||
-        menuItemDetailShowPhoto !== (blockData?.itemDetailShowPhoto !== false) ||
-        menuItemDetailPhotoVisibility !== (blockData?.itemDetailPhotoVisibility || 'always') ||
-        menuItemDetailShowName !== (blockData?.itemDetailShowName !== false) ||
-        menuItemDetailShowDescription !== (blockData?.itemDetailShowDescription !== false) ||
-        menuItemDetailShowPrice !== (blockData?.itemDetailShowPrice !== false) ||
-        menuItemDetailShowCategory !== (blockData?.itemDetailShowCategory === true) ||
-        menuItemDetailShowIcons !== (blockData?.itemDetailShowIcons === true) ||
-        menuItemDetailImageFit !== (blockData?.itemDetailImageFit || 'contain') ||
-        menuItemDetailCaptionBg !== (blockData?.itemDetailCaptionBg || '#0f172a') ||
-        menuItemDetailTextColor !== (blockData?.itemDetailTextColor || '#ffffff') ||
-        !areSectionSettingsEqual(sectionSettings, persistedSectionSettings) ||
-        localCss !== customCss ||
-        localScript !== persistedScript
-    ), [
-        blockData,
-        menuModeDraft,
-        menuVariantDraft,
-        menuShowPrices,
-        menuShowDescriptions,
-        menuShowImages,
-        menuShowFeaturedImages,
-        menuShowTabs,
-        menuShowIcons,
-        menuShowIconLegend,
-        menuIconLegendPosition,
-        menuIconLegendMode,
-        menuIconLegendIds,
-        menuCategoryStyle,
-        menuBgColor,
-        menuItemDetailEnabled,
-        menuItemDetailShowPhoto,
-        menuItemDetailPhotoVisibility,
-        menuItemDetailShowName,
-        menuItemDetailShowDescription,
-        menuItemDetailShowPrice,
-        menuItemDetailShowCategory,
-        menuItemDetailShowIcons,
-        menuItemDetailImageFit,
-        menuItemDetailCaptionBg,
-        menuItemDetailTextColor,
-        sectionSettings,
-        persistedSectionSettings,
-        localCss,
-        customCss,
-        localScript,
-        persistedScript,
-    ]);
-
     const updateSectionLayout = (patch: Partial<SectionSettings['layout']>) => {
         setSectionSettings((current) => ({
             layout: {
@@ -467,7 +397,8 @@ export default function MenuSettingsPanel({
         }));
     };
 
-    const handleSave = () => {
+    useEffect(() => {
+        if (!context?.updateBlockDataBatch) return;
         const updates: Record<string, unknown> = {
             mode: menuModeDraft,
             variant: menuVariantDraft,
@@ -504,43 +435,42 @@ export default function MenuSettingsPanel({
         if (localScript !== persistedScript) {
             updates['__customScript'] = localScript;
         }
-        if (context?.updateBlockDataBatch) {
-            context.updateBlockDataBatch(blockId, updates);
-        }
-        onClose();
-    };
-
-    const handleReset = () => {
-        setMenuModeDraft(blockData?.mode || 'items');
-        setMenuVariantDraft('list');
-        setMenuShowPrices(true);
-        setMenuShowDescriptions(true);
-        setMenuShowImages(false);
-        setMenuShowFeaturedImages(true);
-        setMenuShowTabs(true);
-        setMenuShowIcons(true);
-        setMenuShowIconLegend(false);
-        setMenuIconLegendPosition('bottom');
-        setMenuIconLegendMode('all');
-        setMenuIconLegendIds([]);
-        setMenuCategoryStyle('heading');
-        setMenuBgColor('');
-        setMenuItemDetailEnabled(false);
-        setMenuItemDetailShowPhoto(true);
-        setMenuItemDetailPhotoVisibility('always');
-        setMenuItemDetailShowName(true);
-        setMenuItemDetailShowDescription(true);
-        setMenuItemDetailShowPrice(true);
-        setMenuItemDetailShowCategory(false);
-        setMenuItemDetailShowIcons(false);
-        setMenuItemDetailImageFit('contain');
-        setMenuItemDetailCaptionBg('#0f172a');
-        setMenuItemDetailTextColor('#ffffff');
-        setSectionSettings(persistedSectionSettings);
-        setLocalCss('');
-        setLocalScript('');
-        sectionState.reset();
-    };
+        context.updateBlockDataBatch(blockId, updates);
+    }, [
+        menuModeDraft,
+        menuVariantDraft,
+        menuShowPrices,
+        menuShowDescriptions,
+        menuShowImages,
+        menuShowFeaturedImages,
+        menuShowTabs,
+        menuShowIcons,
+        menuShowIconLegend,
+        menuIconLegendPosition,
+        menuIconLegendMode,
+        menuIconLegendIds,
+        menuCategoryStyle,
+        menuBgColor,
+        menuItemDetailEnabled,
+        menuItemDetailShowPhoto,
+        menuItemDetailPhotoVisibility,
+        menuItemDetailShowName,
+        menuItemDetailShowDescription,
+        menuItemDetailShowPrice,
+        menuItemDetailShowCategory,
+        menuItemDetailShowIcons,
+        menuItemDetailImageFit,
+        menuItemDetailCaptionBg,
+        menuItemDetailTextColor,
+        sectionSettings,
+        persistedSectionSettings,
+        localCss,
+        customCss,
+        localScript,
+        persistedScript,
+        blockId,
+        context,
+    ]);
 
     return (
         <BlockSettingsPanel
@@ -549,10 +479,7 @@ export default function MenuSettingsPanel({
             subtitle="Design changes update the canvas preview instantly."
             blockId={blockId}
             blockType="menu"
-            hasUnsavedChanges={hasUnsavedChanges}
             onClose={onClose}
-            onSave={handleSave}
-            onReset={handleReset}
             allCollapsed={sectionState.allCollapsed}
             onToggleAllCollapsed={() => sectionState.setAll(!sectionState.allCollapsed)}
             tourId="menu-settings-panel"

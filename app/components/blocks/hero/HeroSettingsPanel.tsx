@@ -249,15 +249,8 @@ export default function HeroSettingsPanel({
         });
     };
 
-    const hasUnsavedChanges = useMemo(() => (
-        JSON.stringify({ cards, transition, height }) !== JSON.stringify({
-            cards: persistedData.cards,
-            transition: persistedData.transition,
-            height: persistedData.height,
-        }) || !areSectionSettingsEqual(sectionSettings, persistedSectionSettings) || backgroundColor !== persistedBackgroundColor || localCss !== customCss || localScript !== persistedScript
-    ), [cards, transition, height, persistedData, sectionSettings, persistedSectionSettings, backgroundColor, persistedBackgroundColor, localCss, customCss, localScript, persistedScript]);
-
-    const handleSave = () => {
+    useEffect(() => {
+        if (!context?.updateBlockDataBatch) return;
         const cardsToSave = cardsRef.current;
         const updates: Record<string, unknown> = {
             cards: cardsToSave,
@@ -288,23 +281,8 @@ export default function HeroSettingsPanel({
         for (const key of legacyKeys) {
             if (key in (blockData || {})) updates[key] = undefined;
         }
-        if (context?.updateBlockDataBatch) {
-            context.updateBlockDataBatch(blockId, updates);
-        }
-        onClose();
-    };
-
-    const handleReset = () => {
-        cardsRef.current = persistedData.cards;
-        setCards(persistedData.cards);
-        setTransition(persistedData.transition);
-        setHeight(persistedData.height);
-        setSectionSettings(persistedSectionSettings);
-        setBackgroundColor(persistedBackgroundColor);
-        setActiveIndex(0);
-        setLocalCss(customCss);
-        sectionState.reset();
-    };
+        context.updateBlockDataBatch(blockId, updates);
+    }, [cards, transition, height, backgroundColor, sectionSettings, persistedSectionSettings, localCss, customCss, localScript, persistedScript, blockData, blockId, context]);
 
     const siteCategory = context?.siteCategory;
     const siteId = context?.siteId || '';
@@ -340,10 +318,7 @@ export default function HeroSettingsPanel({
                 subtitle="Build the hero with cards, layout, and a custom background."
                 blockId={blockId}
                 blockType="hero"
-                hasUnsavedChanges={hasUnsavedChanges}
                 onClose={onClose}
-                onSave={handleSave}
-                onReset={handleReset}
                 allCollapsed={sectionState.allCollapsed}
                 onToggleAllCollapsed={() => sectionState.setAll(!sectionState.allCollapsed)}
                 tourId="hero-settings-panel"

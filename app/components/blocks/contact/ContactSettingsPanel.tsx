@@ -120,11 +120,6 @@ export default function ContactSettingsPanel({
         return () => window.removeEventListener(CONTACT_DRAFT_UPDATE_EVENT, handleCanvasDraftUpdate);
     }, [blockId, updateDraft]);
 
-    const hasUnsavedChanges = useMemo(
-        () => JSON.stringify(draft) !== JSON.stringify(initialDraft),
-        [draft, initialDraft],
-    );
-
     const updateCard = (id: string, updates: Partial<ContactItem>) => {
         updateDraft({
             contactItems: draft.contactItems.map((item) => item.id === id ? { ...item, ...updates } : item),
@@ -145,7 +140,8 @@ export default function ContactSettingsPanel({
         updateDraft({ socialLinks: reorderById(draft.socialLinks, sourceId, targetId) });
     };
 
-    const handleSave = () => {
+    useEffect(() => {
+        if (!context?.updateBlockDataBatch) return;
         const updates: Record<string, unknown> = {
             contactItems: draft.contactItems,
             socialLinks: draft.socialLinks,
@@ -169,14 +165,8 @@ export default function ContactSettingsPanel({
         if (!areSectionSettingsEqual(draft.sectionSettings, initialDraft.sectionSettings)) {
             updates.sectionSettings = normalizeSectionSettings(draft.sectionSettings);
         }
-        context?.updateBlockDataBatch?.(blockId, updates);
-        onClose();
-    };
-
-    const handleReset = () => {
-        setDraft(initialDraft);
-        sectionState.reset();
-    };
+        context.updateBlockDataBatch(blockId, updates);
+    }, [draft, initialDraft, blockId, context]);
 
     return (
         <BlockSettingsPanel
@@ -185,10 +175,7 @@ export default function ContactSettingsPanel({
             subtitle="Manage contact cards, icons, social links, and section styling."
             blockId={blockId}
             blockType={blockType}
-            hasUnsavedChanges={hasUnsavedChanges}
             onClose={onClose}
-            onSave={handleSave}
-            onReset={handleReset}
             allCollapsed={sectionState.allCollapsed}
             onToggleAllCollapsed={() => sectionState.setAll(!sectionState.allCollapsed)}
             tourId="contact-settings-panel"

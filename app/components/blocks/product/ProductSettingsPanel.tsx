@@ -132,42 +132,6 @@ export default function ProductSettingsPanel({
 
     const bgInputValue = getColorInputValue(bgColor, palette, '#ffffff');
 
-    const persistedShowTitle = typeof blockData?.showTitle === 'boolean' ? blockData.showTitle : !!blockData?.featuredOnly;
-    const hasUnsavedChanges = useMemo(() => (
-        variant !== ((blockData?.variant as VariantId) || 'grid') ||
-        categoryFilter !== (blockData?.categoryFilter || '') ||
-        subcategoryFilter !== (blockData?.subcategoryFilter || '') ||
-        featuredOnly !== !!blockData?.featuredOnly ||
-        showTitle !== persistedShowTitle ||
-        showSeeMore !== !!blockData?.showSeeMore ||
-        bgColor !== (blockData?.backgroundColor || '') ||
-        autoScroll !== (blockData?.autoScroll !== false) ||
-        autoScrollIntervalSec !== (typeof blockData?.autoScrollIntervalSec === 'number' ? blockData.autoScrollIntervalSec : 5) ||
-        autoScrollPauseOnHover !== (blockData?.autoScrollPauseOnHover !== false) ||
-        !areSectionSettingsEqual(sectionSettings, persistedSectionSettings) ||
-        localCss !== customCss ||
-        localScript !== persistedScript
-    ), [
-        blockData,
-        variant,
-        categoryFilter,
-        subcategoryFilter,
-        featuredOnly,
-        showTitle,
-        persistedShowTitle,
-        showSeeMore,
-        bgColor,
-        autoScroll,
-        autoScrollIntervalSec,
-        autoScrollPauseOnHover,
-        sectionSettings,
-        persistedSectionSettings,
-        localCss,
-        customCss,
-        localScript,
-        persistedScript,
-    ]);
-
     const updateSectionLayout = (patch: Partial<SectionSettings['layout']>) => {
         setSectionSettings((current) => ({
             layout: {
@@ -177,7 +141,8 @@ export default function ProductSettingsPanel({
         }));
     };
 
-    const handleSave = () => {
+    useEffect(() => {
+        if (!context?.updateBlockDataBatch) return;
         const updates: Record<string, unknown> = {
             variant,
             categoryFilter,
@@ -193,28 +158,27 @@ export default function ProductSettingsPanel({
         if (!areSectionSettingsEqual(sectionSettings, persistedSectionSettings)) updates.sectionSettings = normalizeSectionSettings(sectionSettings);
         if (localCss !== customCss) updates['__customCss'] = localCss;
         if (localScript !== persistedScript) updates['__customScript'] = localScript;
-        if (context?.updateBlockDataBatch) {
-            context.updateBlockDataBatch(blockId, updates);
-        }
-        onClose();
-    };
-
-    const handleReset = () => {
-        setVariant((blockData?.variant as VariantId) || 'grid');
-        setCategoryFilter(blockData?.categoryFilter || '');
-        setSubcategoryFilter(blockData?.subcategoryFilter || '');
-        setFeaturedOnly(!!blockData?.featuredOnly);
-        setShowTitle(persistedShowTitle);
-        setShowSeeMore(!!blockData?.showSeeMore);
-        setBgColor(blockData?.backgroundColor || '');
-        setAutoScroll(blockData?.autoScroll !== false);
-        setAutoScrollIntervalSec(typeof blockData?.autoScrollIntervalSec === 'number' ? blockData.autoScrollIntervalSec : 5);
-        setAutoScrollPauseOnHover(blockData?.autoScrollPauseOnHover !== false);
-        setSectionSettings(persistedSectionSettings);
-        setLocalCss(customCss);
-        setLocalScript(persistedScript);
-        sectionState.reset();
-    };
+        context.updateBlockDataBatch(blockId, updates);
+    }, [
+        variant,
+        categoryFilter,
+        subcategoryFilter,
+        featuredOnly,
+        showTitle,
+        showSeeMore,
+        bgColor,
+        autoScroll,
+        autoScrollIntervalSec,
+        autoScrollPauseOnHover,
+        sectionSettings,
+        persistedSectionSettings,
+        localCss,
+        customCss,
+        localScript,
+        persistedScript,
+        blockId,
+        context,
+    ]);
 
     return (
         <BlockSettingsPanel
@@ -223,10 +187,7 @@ export default function ProductSettingsPanel({
             subtitle="Filter, lay out, and style the product block."
             blockId={blockId}
             blockType="productGrid"
-            hasUnsavedChanges={hasUnsavedChanges}
             onClose={onClose}
-            onSave={handleSave}
-            onReset={handleReset}
             allCollapsed={sectionState.allCollapsed}
             onToggleAllCollapsed={() => sectionState.setAll(!sectionState.allCollapsed)}
             tourId="product-settings-panel"

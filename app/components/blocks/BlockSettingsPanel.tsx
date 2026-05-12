@@ -11,13 +11,9 @@ interface BlockSettingsPanelProps {
     subtitle?: string;
     blockId: string;
     blockType: string;
-    hasUnsavedChanges: boolean;
     onClose: () => void;
-    onSave: () => void;
-    onReset: () => void;
     onToggleAllCollapsed?: () => void;
     allCollapsed?: boolean;
-    saveLabel?: string;
     children: ReactNode;
     /** Stable test/tour id for the aside element */
     tourId?: string;
@@ -27,6 +23,10 @@ interface BlockSettingsPanelProps {
  * Generic right-sidebar settings panel. Hosts a block-specific panel component
  * via children. Dispatches `ks:block-inspector-state` so the editor can shift
  * the canvas right-margin while the panel is open.
+ *
+ * Edits made inside the panel commit immediately to the editor's change
+ * tracker, so the panel doesn't need its own apply/cancel workflow — closing
+ * just dismisses the UI. The main editor toolbar handles undo/save draft.
  */
 export default function BlockSettingsPanel({
     isOpen,
@@ -34,13 +34,9 @@ export default function BlockSettingsPanel({
     subtitle,
     blockId,
     blockType,
-    hasUnsavedChanges,
     onClose,
-    onSave,
-    onReset,
     onToggleAllCollapsed,
     allCollapsed,
-    saveLabel = 'Apply',
     children,
     tourId,
 }: BlockSettingsPanelProps) {
@@ -63,14 +59,7 @@ export default function BlockSettingsPanel({
         >
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
                 <div>
-                    <div className="flex items-center gap-2">
-                        <h2 className="text-base font-bold text-slate-900">{title}</h2>
-                        {hasUnsavedChanges && (
-                            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">
-                                Unsaved
-                            </span>
-                        )}
-                    </div>
+                    <h2 className="text-base font-bold text-slate-900">{title}</h2>
                     {subtitle && <p className="mt-1 text-xs text-slate-500">{subtitle}</p>}
                     {onToggleAllCollapsed && (
                         <button
@@ -96,30 +85,14 @@ export default function BlockSettingsPanel({
                 {children}
             </div>
 
-            <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-white px-5 py-4">
+            <div className="flex items-center justify-end gap-3 border-t border-slate-200 bg-white px-5 py-4">
                 <button
                     type="button"
                     onClick={onClose}
-                    className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                    Discard
+                    Dismiss
                 </button>
-                <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={onReset}
-                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        Reset
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onSave}
-                        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                    >
-                        {saveLabel}
-                    </button>
-                </div>
             </div>
         </aside>
     );
