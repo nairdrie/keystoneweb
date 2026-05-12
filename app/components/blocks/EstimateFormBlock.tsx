@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Calculator, CheckCircle2, ChevronLeft, ChevronRight, Loader2, Send } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
+import Reveal from '@/app/components/Reveal';
 import {
     calculateQuote,
     formatQuoteMoney,
@@ -233,6 +234,7 @@ export default function EstimateFormBlock({ id, data, isEditMode, palette }: Est
     return (
         <section className="px-4 py-16 md:py-20" style={{ backgroundColor: '#ffffff' }}>
             <div className="mx-auto max-w-6xl">
+                <Reveal>
                 <div className="mx-auto max-w-3xl text-center">
                     <h2 className="text-3xl font-bold tracking-normal md:text-5xl" style={{ color: pPrimary }}>
                         {settings.title}
@@ -241,8 +243,10 @@ export default function EstimateFormBlock({ id, data, isEditMode, palette }: Est
                         <p className="mt-4 text-base leading-7 text-slate-600 md:text-lg">{settings.description}</p>
                     )}
                 </div>
+                </Reveal>
 
                 <div className={`mt-10 grid gap-6 ${showLiveEstimate ? 'lg:grid-cols-[minmax(0,1fr)_360px]' : 'mx-auto max-w-3xl'}`}>
+                    <Reveal>
                     <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-7">
                         <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }}>
                             <label htmlFor={`_hp_${id}`}>Leave this field blank</label>
@@ -326,11 +330,14 @@ export default function EstimateFormBlock({ id, data, isEditMode, palette }: Est
                             </div>
                         )}
                     </form>
+                    </Reveal>
 
                     {showLiveEstimate && (
+                        <Reveal>
                         <aside className="lg:sticky lg:top-8 lg:self-start">
                             <QuotePreview result={quoteResult} settings={settings} />
                         </aside>
+                        </Reveal>
                     )}
                 </div>
             </div>

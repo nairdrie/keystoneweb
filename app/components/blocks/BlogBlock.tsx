@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { useEditorContext } from '@/lib/editor-context';
 import { useLangPrefix, prefixInternalLinks } from '@/lib/hooks/useLangPrefix';
 import { sanitizeRichHtml } from '@/lib/html-sanitize';
+import Reveal, { useStaggerSec } from '@/app/components/Reveal';
 import {
     Newspaper, Loader2, ArrowLeft,
     Calendar, User,
@@ -163,10 +164,12 @@ function PostMeta({ post, opts, className = '' }: { post: BlogPost; opts: Displa
 }
 
 function GridLayout({ posts, onOpen, pSecondary, opts }: { posts: BlogPost[]; onOpen: (p: BlogPost) => void; pSecondary: string; opts: DisplayOpts }) {
+    const staggerSec = useStaggerSec();
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {posts.map(post => (
-                <a key={post.id} href={`/blog/${post.slug}`} onClick={(e) => { e.preventDefault(); onOpen(post); }} className="group cursor-pointer rounded-2xl border border-slate-100 overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1 bg-white block">
+            {posts.map((post, index) => (
+                <Reveal key={post.id} delay={index * staggerSec}>
+                <a href={`/blog/${post.slug}`} onClick={(e) => { e.preventDefault(); onOpen(post); }} className="group cursor-pointer rounded-2xl border border-slate-100 overflow-hidden hover:shadow-xl transition-all hover:-translate-y-1 bg-white block">
                     <div className="aspect-[16/9] bg-slate-50 overflow-hidden">
                         {post.cover_image ? (
                             <img src={post.cover_image} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
@@ -187,16 +190,19 @@ function GridLayout({ posts, onOpen, pSecondary, opts }: { posts: BlogPost[]; on
                         <PostMeta post={post} opts={opts} className="mt-4" />
                     </div>
                 </a>
+                </Reveal>
             ))}
         </div>
     );
 }
 
 function ListLayout({ posts, onOpen, pSecondary, opts }: { posts: BlogPost[]; onOpen: (p: BlogPost) => void; pSecondary: string; opts: DisplayOpts }) {
+    const staggerSec = useStaggerSec();
     return (
         <div className="space-y-6 max-w-3xl mx-auto">
-            {posts.map(post => (
-                <a key={post.id} href={`/blog/${post.slug}`} onClick={(e) => { e.preventDefault(); onOpen(post); }} className="group cursor-pointer flex gap-5 rounded-2xl border border-slate-100 overflow-hidden hover:shadow-lg transition-all bg-white p-4 block">
+            {posts.map((post, index) => (
+                <Reveal key={post.id} delay={index * staggerSec}>
+                <a href={`/blog/${post.slug}`} onClick={(e) => { e.preventDefault(); onOpen(post); }} className="group cursor-pointer flex gap-5 rounded-2xl border border-slate-100 overflow-hidden hover:shadow-lg transition-all bg-white p-4 block">
                     {post.cover_image && (
                         <div className="w-36 h-28 flex-shrink-0 rounded-xl overflow-hidden bg-slate-50">
                             <img src={post.cover_image} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
@@ -218,6 +224,7 @@ function ListLayout({ posts, onOpen, pSecondary, opts }: { posts: BlogPost[]; on
                         </div>
                     </div>
                 </a>
+                </Reveal>
             ))}
         </div>
     );
@@ -226,9 +233,11 @@ function ListLayout({ posts, onOpen, pSecondary, opts }: { posts: BlogPost[]; on
 function MagazineLayout({ posts, onOpen, pSecondary, opts }: { posts: BlogPost[]; onOpen: (p: BlogPost) => void; pSecondary: string; opts: DisplayOpts }) {
     const featured = posts.find(post => post.is_featured) || posts[0];
     const rest = posts.filter(post => post.id !== featured?.id);
+    const staggerSec = useStaggerSec();
     return (
         <div className="space-y-6">
             {featured && (
+                <Reveal>
                 <a href={`/blog/${featured.slug}`} onClick={(e) => { e.preventDefault(); onOpen(featured); }} className="group cursor-pointer grid md:grid-cols-2 gap-0 rounded-2xl overflow-hidden border border-slate-100 hover:shadow-xl transition-all bg-white block">
                     <div className="aspect-[4/3] md:aspect-auto bg-slate-50 overflow-hidden">
                         {featured.cover_image ? (
@@ -251,11 +260,13 @@ function MagazineLayout({ posts, onOpen, pSecondary, opts }: { posts: BlogPost[]
                         <PostMeta post={featured} opts={opts} className="mt-6 text-sm" />
                     </div>
                 </a>
+                </Reveal>
             )}
             {rest.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {rest.map(post => (
-                        <a key={post.id} href={`/blog/${post.slug}`} onClick={(e) => { e.preventDefault(); onOpen(post); }} className="group cursor-pointer rounded-2xl border border-slate-100 overflow-hidden hover:shadow-lg transition-all bg-white block">
+                    {rest.map((post, index) => (
+                        <Reveal key={post.id} delay={(index + 1) * staggerSec}>
+                        <a href={`/blog/${post.slug}`} onClick={(e) => { e.preventDefault(); onOpen(post); }} className="group cursor-pointer rounded-2xl border border-slate-100 overflow-hidden hover:shadow-lg transition-all bg-white block">
                             <div className="aspect-[16/9] bg-slate-50 overflow-hidden">
                                 {post.cover_image ? (
                                     <img src={post.cover_image} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
@@ -274,6 +285,7 @@ function MagazineLayout({ posts, onOpen, pSecondary, opts }: { posts: BlogPost[]
                                 </div>
                             </div>
                         </a>
+                        </Reveal>
                     ))}
                 </div>
             )}

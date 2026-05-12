@@ -2,6 +2,7 @@
 
 import { BlockData, useEditorContext } from '@/lib/editor-context';
 import EditableImage from '@/app/components/EditableImage';
+import Reveal from '@/app/components/Reveal';
 
 export default function ImageBlock({ block, palette }: { block: BlockData, palette: Record<string, string> }) {
     const context = useEditorContext();
@@ -15,7 +16,7 @@ export default function ImageBlock({ block, palette }: { block: BlockData, palet
 
     return (
         <section className="py-12 bg-white">
-            <div className="max-w-5xl mx-auto px-4">
+            <Reveal className="max-w-5xl mx-auto px-4">
                 <EditableImage
                     contentKey="image"
                     initialSettings={block.data.image__settings}
@@ -28,7 +29,7 @@ export default function ImageBlock({ block, palette }: { block: BlockData, palet
                     editorPreviewFrameClassName="w-full min-h-[300px]"
                     placeholder="Click to upload a giant featured image"
                 />
-            </div>
+            </Reveal>
         </section>
     );
 }

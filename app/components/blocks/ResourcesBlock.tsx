@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import { normalizeExternalHref } from '@/lib/url';
 import InlineCardControls, { reorderItems } from './InlineCardControls';
+import Reveal, { useStaggerSec } from '@/app/components/Reveal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -311,19 +312,21 @@ function ItemEditPanel({ item, siteId, canRemove, isDragging, isDragTarget, onUp
 
 // ─── Grid card (view mode) ─────────────────────────────────────────────────────
 
-function GridCard({ item, palette }: { item: ResourceItem; palette: Record<string, string> }) {
+function GridCard({ item, palette, index = 0 }: { item: ResourceItem; palette: Record<string, string>; index?: number }) {
     const primary = palette.primary || '#1f2937';
     const accent = palette.secondary || '#3b82f6';
     const Icon = typeIcon(item.type, item.fileType);
     const badge = typeBadgeColors(item.type, item.fileType);
     const [textOpen, setTextOpen] = useState(false);
+    const staggerSec = useStaggerSec();
 
     const rawActionHref = item.type === 'file' ? item.fileUrl : item.type === 'link' ? item.url : undefined;
     const actionHref = rawActionHref ? normalizeExternalHref(rawActionHref) : undefined;
     const actionLabel = item.type === 'file' ? 'Download' : item.type === 'link' ? 'Visit' : null;
 
     return (
-        <div className="flex flex-col bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+        <Reveal delay={index * staggerSec}>
+        <div className="flex flex-col bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow h-full">
             {/* Icon header */}
             <div className="flex items-center justify-between px-5 pt-5 pb-3">
                 <div
@@ -391,22 +394,25 @@ function GridCard({ item, palette }: { item: ResourceItem; palette: Record<strin
                 )}
             </div>
         </div>
+        </Reveal>
     );
 }
 
 // ─── List row (view mode) ──────────────────────────────────────────────────────
 
-function ListRow({ item, palette, isLast }: { item: ResourceItem; palette: Record<string, string>; isLast: boolean }) {
+function ListRow({ item, palette, isLast, index = 0 }: { item: ResourceItem; palette: Record<string, string>; isLast: boolean; index?: number }) {
     const primary = palette.primary || '#1f2937';
     const accent = palette.secondary || '#3b82f6';
     const Icon = typeIcon(item.type, item.fileType);
     const badge = typeBadgeColors(item.type, item.fileType);
     const [textOpen, setTextOpen] = useState(false);
+    const staggerSec = useStaggerSec();
 
     const rawActionHref = item.type === 'file' ? item.fileUrl : item.type === 'link' ? item.url : undefined;
     const actionHref = rawActionHref ? normalizeExternalHref(rawActionHref) : undefined;
 
     return (
+        <Reveal delay={index * staggerSec}>
         <div className={`py-5 flex items-start gap-4 ${!isLast ? 'border-b border-slate-100' : ''}`}>
             {/* Icon */}
             <div
@@ -466,6 +472,7 @@ function ListRow({ item, palette, isLast }: { item: ResourceItem; palette: Recor
                 </a>
             )}
         </div>
+        </Reveal>
     );
 }
 
@@ -608,15 +615,15 @@ export default function ResourcesBlock({ id, data, isEditMode, palette, updateCo
                 ) : variant === 'grid' ? (
                     /* ── GRID VIEW ── */
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                        {items.map(item => (
-                            <GridCard key={item.id} item={item} palette={palette} />
+                        {items.map((item, i) => (
+                            <GridCard key={item.id} item={item} palette={palette} index={i} />
                         ))}
                     </div>
                 ) : (
                     /* ── LIST VIEW ── */
                     <div className="bg-white border border-slate-200 rounded-2xl px-6 divide-y divide-slate-100 shadow-sm">
                         {items.map((item, i) => (
-                            <ListRow key={item.id} item={item} palette={palette} isLast={i === items.length - 1} />
+                            <ListRow key={item.id} item={item} palette={palette} isLast={i === items.length - 1} index={i} />
                         ))}
                     </div>
                 )}

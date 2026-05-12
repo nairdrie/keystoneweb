@@ -3,6 +3,7 @@
 import { BlockData, useEditorContext } from '@/lib/editor-context';
 import { useState, useRef } from 'react';
 import { Upload, Download, FileText, X } from 'lucide-react';
+import Reveal from '@/app/components/Reveal';
 
 export default function PDFBlock({ block, palette }: { block: BlockData; palette: Record<string, string> }) {
     const context = useEditorContext();
@@ -62,7 +63,7 @@ export default function PDFBlock({ block, palette }: { block: BlockData; palette
 
     return (
         <section className="py-12 bg-white">
-            <div className="max-w-5xl mx-auto px-4">
+            <Reveal className="max-w-5xl mx-auto px-4">
 
                 {/* Title */}
                 {isEditMode ? (
@@ -184,7 +185,7 @@ export default function PDFBlock({ block, palette }: { block: BlockData; palette
                         )}
                     </div>
                 )}
-            </div>
+            </Reveal>
         </section>
     );
 }

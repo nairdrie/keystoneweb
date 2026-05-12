@@ -18,6 +18,7 @@ import EditableText from '@/app/components/EditableText';
 import { stripHtml } from '@/lib/ecommerce/description';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import Reveal, { useStaggerSec } from '@/app/components/Reveal';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -1756,6 +1757,7 @@ function ProductGrid({
     isEditMode?: boolean;
     updateContent?: (key: string, value: any) => void;
 }) {
+    const staggerSec = useStaggerSec();
     const [products, setProducts] = useState<Product[]>([]);
     const [categoryTree, setCategoryTree] = useState<Record<string, string[]>>({});
     const [popularity, setPopularity] = useState<Record<string, number>>({});
@@ -1992,7 +1994,7 @@ function ProductGrid({
         </div>
     );
 
-    const renderCard = (product: Product) => {
+    const renderCard = (product: Product, index: number = 0) => {
         const effectivePriceCents = product.effective_price_cents ?? product.price_cents;
         const hasDiscount = !!product.compare_at_cents && product.compare_at_cents > effectivePriceCents;
         const outOfStock = product.inventory_count === 0;
@@ -2003,8 +2005,8 @@ function ProductGrid({
             && product.public_price_cents > effectivePriceCents;
 
         return (
+            <Reveal key={product.id} delay={index * staggerSec}>
             <a
-                key={product.id}
                 href={productHref(product)}
                 onClick={(e) => handleProductNav(e, product)}
                 target={external && !isEditor ? '_blank' : undefined}
@@ -2071,16 +2073,17 @@ function ProductGrid({
                     </div>
                 </div>
             </a>
+            </Reveal>
         );
     };
 
-    const renderListRow = (product: Product) => {
+    const renderListRow = (product: Product, index: number = 0) => {
         const hasDiscount = !!product.compare_at_cents && product.compare_at_cents > product.price_cents;
         const outOfStock = product.inventory_count === 0;
         const external = isExternal(product);
         return (
+            <Reveal key={product.id} delay={index * staggerSec}>
             <a
-                key={product.id}
                 href={productHref(product)}
                 onClick={(e) => handleProductNav(e, product)}
                 target={external && !isEditor ? '_blank' : undefined}
@@ -2131,6 +2134,7 @@ function ProductGrid({
                     </button>
                 )}
             </a>
+            </Reveal>
         );
     };
 

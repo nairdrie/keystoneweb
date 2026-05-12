@@ -5,6 +5,7 @@ import { BlockData, useEditorContext } from '@/lib/editor-context';
 import { useLangPrefix, prefixInternalLinks } from '@/lib/hooks/useLangPrefix';
 import { Lock, Crown } from 'lucide-react';
 import sanitizeHtml from 'sanitize-html';
+import Reveal from '@/app/components/Reveal';
 
 export default function CustomHTMLBlock({ block, palette }: { block: BlockData, palette: Record<string, string> }) {
     const context = useEditorContext();
@@ -38,7 +39,11 @@ export default function CustomHTMLBlock({ block, palette }: { block: BlockData, 
     const langPrefix = useLangPrefix();
 
     if (!isEditMode) {
-        return <div dangerouslySetInnerHTML={{ __html: prefixInternalLinks(safeHTML, langPrefix) }} />;
+        return (
+            <Reveal>
+                <div dangerouslySetInnerHTML={{ __html: prefixInternalLinks(safeHTML, langPrefix) }} />
+            </Reveal>
+        );
     }
 
     // Paywall for non-pro users in edit mode

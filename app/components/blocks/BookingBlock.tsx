@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
 import PayPalButton from '@/app/components/ecommerce/PayPalButton';
+import Reveal from '@/app/components/Reveal';
 import ConvergeLightbox from '@/app/components/ecommerce/ConvergeLightbox';
 import CloverIframe from '@/app/components/checkout/CloverIframe';
 import {
@@ -1761,7 +1762,7 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
 
     return (
         <section className="py-16 px-4" style={{ backgroundColor: pAccent }}>
-            <div className="max-w-xl mx-auto">
+            <Reveal className="max-w-xl mx-auto">
                 {/* Progress */}
                 <div className="flex items-center justify-center gap-1 mb-8">
                     {['service', 'date', 'time', 'form'].map((s, i) => (
@@ -2218,7 +2219,7 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                         )}
                     </div>
                 )}
-            </div>
+            </Reveal>
         </section>
     );
 }

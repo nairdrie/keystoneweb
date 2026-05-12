@@ -7,6 +7,7 @@ import { useLangPrefix } from '@/lib/hooks/useLangPrefix';
 import { getBlockSlug } from '@/lib/block-utils';
 import { getTabClass, getTabStyle, TabStyle, TabAlign } from './tab-bar-styles';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import Reveal, { useStaggerSec } from '@/app/components/Reveal';
 
 interface TabBarBlockProps {
     id: string;
@@ -111,6 +112,7 @@ function TabBarView({ items, tabStyle, tabAlign, activeColor, bgColor, resolveHr
     resolveHref: (item: NavItem) => string;
     isActive: (item: NavItem) => boolean;
 }) {
+    const staggerSec = useStaggerSec();
     if (items.length === 0) return null;
 
     const containerAlign =
@@ -123,21 +125,22 @@ function TabBarView({ items, tabStyle, tabAlign, activeColor, bgColor, resolveHr
     return (
         <div className={`w-full ${bgColor ? 'px-4 py-2' : ''}`} style={outerStyle}>
             <nav className={`flex flex-wrap gap-1 ${tabAlign !== 'stretch' ? containerAlign : ''}`}>
-                {items.map(item => {
+                {items.map((item, index) => {
                     const active = isActive(item);
                     const href = resolveHref(item);
                     const external = item.linkType === 'custom' && (item.href?.startsWith('http') || item.href?.startsWith('//'));
 
                     return (
-                        <a
-                            key={item.id}
-                            href={href}
-                            {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                            className={getTabClass(tabStyle, active, tabAlign)}
-                            style={getTabStyle(tabStyle, active, activeColor)}
-                        >
-                            {item.label}
-                        </a>
+                        <Reveal key={item.id} delay={index * staggerSec}>
+                            <a
+                                href={href}
+                                {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                                className={getTabClass(tabStyle, active, tabAlign)}
+                                style={getTabStyle(tabStyle, active, activeColor)}
+                            >
+                                {item.label}
+                            </a>
+                        </Reveal>
                     );
                 })}
             </nav>

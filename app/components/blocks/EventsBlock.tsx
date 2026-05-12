@@ -6,6 +6,7 @@ import { useEditorContext } from '@/lib/editor-context';
 import { CalendarDays, ExternalLink, ArrowDownUp, Eye, EyeOff } from 'lucide-react';
 import EditableText from '../EditableText';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import Reveal, { useStaggerSec } from '@/app/components/Reveal';
 
 interface Event {
     id: string;
@@ -185,8 +186,8 @@ export default function EventsBlock({ id, data, isEditMode, palette, updateConte
 
                 {!loading && events.length > 0 && (
                     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                        {events.map(event => (
-                            <EventCard key={event.id} event={event} pPrimary={pPrimary} pAccent={pAccent} />
+                        {events.map((event, index) => (
+                            <EventCard key={event.id} event={event} pPrimary={pPrimary} pAccent={pAccent} index={index} />
                         ))}
                     </div>
                 )}
@@ -195,7 +196,8 @@ export default function EventsBlock({ id, data, isEditMode, palette, updateConte
     );
 }
 
-function EventCard({ event, pPrimary, pAccent }: { event: Event; pPrimary: string; pAccent: string }) {
+function EventCard({ event, pPrimary, pAccent, index }: { event: Event; pPrimary: string; pAccent: string; index: number }) {
+    const staggerSec = useStaggerSec();
     const inner = (
         <div className="group flex flex-col rounded-2xl overflow-hidden border border-slate-200 bg-white hover:shadow-lg transition-shadow h-full">
             {event.image_url ? (
@@ -247,11 +249,17 @@ function EventCard({ event, pPrimary, pAccent }: { event: Event; pPrimary: strin
 
     if (event.event_url) {
         return (
-            <a href={event.event_url} target="_blank" rel="noopener noreferrer" className="flex flex-col h-full">
-                {inner}
-            </a>
+            <Reveal delay={index * staggerSec}>
+                <a href={event.event_url} target="_blank" rel="noopener noreferrer" className="flex flex-col h-full">
+                    {inner}
+                </a>
+            </Reveal>
         );
     }
 
-    return <div className="flex flex-col h-full">{inner}</div>;
+    return (
+        <Reveal delay={index * staggerSec}>
+            <div className="flex flex-col h-full">{inner}</div>
+        </Reveal>
+    );
 }

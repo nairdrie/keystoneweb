@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import EditableText from '../EditableText';
 import BlockPretext from '../BlockPretext';
+import Reveal, { useStaggerSec } from '@/app/components/Reveal';
 import { ChevronDown, Plus } from 'lucide-react';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import InlineCardControls from './InlineCardControls';
@@ -44,6 +45,7 @@ export default function FAQBlock({ data, isEditMode, palette, updateContent }: F
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
     const items = Array.isArray(data.items) ? data.items : DEFAULT_FAQ_ITEMS;
+    const staggerSec = useStaggerSec();
 
     const handleUpdateItem = (index: number, field: keyof FAQItem, value: string) => {
         const newItems = items.map((item, i) =>
@@ -113,8 +115,8 @@ export default function FAQBlock({ data, isEditMode, palette, updateContent }: F
                         const isDragging = draggedIndex === index;
                         const isDragTarget = dragOverIndex === index && draggedIndex !== index;
                         return (
+                            <Reveal key={index} delay={index * staggerSec}>
                             <div
-                                key={index}
                                 className={`faq-item group/card relative border rounded-xl bg-white transition-[border-color,box-shadow,opacity,transform] ${
                                     isDragTarget ? 'border-blue-300 shadow-md ring-2 ring-blue-100' : 'border-gray-200'
                                 } ${isDragging ? 'scale-[0.99] opacity-60' : ''} ${isEditMode ? 'overflow-visible' : 'overflow-hidden'}`}
@@ -185,6 +187,7 @@ export default function FAQBlock({ data, isEditMode, palette, updateContent }: F
                                     </div>
                                 </div>
                             </div>
+                            </Reveal>
                         );
                     })}
                 </div>

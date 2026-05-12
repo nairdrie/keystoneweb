@@ -6,6 +6,7 @@ import type { Map as MapLibreMap, Marker as MapLibreMarker } from 'maplibre-gl';
 import { ExternalLink, MapPin, Navigation } from 'lucide-react';
 import EditableText from '@/app/components/EditableText';
 import type { BlockData } from '@/lib/editor-context';
+import Reveal, { useStaggerSec } from '@/app/components/Reveal';
 import {
     DEFAULT_MAP_ADDRESS,
     DEFAULT_MAP_CENTER,
@@ -51,6 +52,7 @@ export default function MapBlock({ data, block, isEditMode, palette, updateConte
     const markersRef = useRef<MapLibreMarker[]>([]);
     const styleUrlRef = useRef('');
 
+    const staggerSec = useStaggerSec();
     const primaryColor = palette.primary || '#0f172a';
     const accentColor = palette.accent || '#f8fafc';
     const mapTilerKey = getMapTilerKey();
@@ -235,6 +237,7 @@ export default function MapBlock({ data, block, isEditMode, palette, updateConte
     return (
         <section className="py-16 bg-slate-50">
             <div className="max-w-6xl mx-auto px-4 flex flex-col items-center">
+                <Reveal className="w-full flex flex-col items-center">
                 <EditableText
                     as="h2"
                     contentKey="title"
@@ -245,7 +248,9 @@ export default function MapBlock({ data, block, isEditMode, palette, updateConte
                     onSave={(key, val) => updateContent(key, val)}
                     className="text-3xl font-bold mb-8 text-center"
                 />
+                </Reveal>
 
+                <Reveal className="w-full" delay={staggerSec}>
                 <div
                     className="w-full rounded-xl overflow-hidden shadow-lg border border-slate-200 relative group bg-white"
                     style={{ height: settings.mapHeight }}
@@ -338,21 +343,23 @@ export default function MapBlock({ data, block, isEditMode, palette, updateConte
                         </>
                     )}
                 </div>
+                </Reveal>
 
                 {showLocationCards && (
                     <div className="mt-5 grid w-full gap-3 md:grid-cols-2">
-                        {settings.locations.map((location) => (
-                            <LocationCard
-                                key={location.id}
-                                location={location}
-                                active={location.id === selectedLocation?.id}
-                                showDirections={settings.showCardDirections}
-                                directionsHref={buildDirectionsUrl(location.address, coordinatesById[location.id])}
-                                onSelect={() => {
-                                    setSelectedLocationId(location.id);
-                                    setShowAllLocations(false);
-                                }}
-                            />
+                        {settings.locations.map((location, index) => (
+                            <Reveal key={location.id} delay={(index + 2) * staggerSec}>
+                                <LocationCard
+                                    location={location}
+                                    active={location.id === selectedLocation?.id}
+                                    showDirections={settings.showCardDirections}
+                                    directionsHref={buildDirectionsUrl(location.address, coordinatesById[location.id])}
+                                    onSelect={() => {
+                                        setSelectedLocationId(location.id);
+                                        setShowAllLocations(false);
+                                    }}
+                                />
+                            </Reveal>
                         ))}
                     </div>
                 )}

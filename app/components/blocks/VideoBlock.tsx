@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Play, Video, ExternalLink } from 'lucide-react';
 import { BlockData, useEditorContext } from '@/lib/editor-context';
+import Reveal from '@/app/components/Reveal';
 
 /**
  * Converts a user-pasted YouTube / Vimeo / raw URL into an embeddable src.
@@ -145,7 +146,7 @@ export default function VideoBlock({ block, palette }: Props) {
 
     return (
         <section className={outerClass}>
-            <div className={innerClass}>
+            <Reveal className={innerClass}>
                 {/* Optional title */}
                 {(title || isEditMode) && variant === 'contained' && (
                     <div className="mb-4 text-center">
@@ -229,7 +230,7 @@ export default function VideoBlock({ block, palette }: Props) {
                         )}
                     </div>
                 )}
-            </div>
+            </Reveal>
         </section>
     );
 }

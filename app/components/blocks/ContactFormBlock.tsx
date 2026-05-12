@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useEditorContext } from '@/lib/editor-context';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import { Send, Loader2, Settings, MessageSquare, Mail, User, Phone } from 'lucide-react';
+import Reveal from '@/app/components/Reveal';
 
 interface ContactFormBlockProps {
     id: string;
@@ -187,6 +188,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
     return (
         <section className="py-20 px-4" style={{ backgroundColor: bgColor }}>
             <div className="max-w-3xl mx-auto space-y-12">
+                <Reveal>
                 <div className="text-center space-y-4">
                     <h2 className="text-4xl md:text-5xl font-bold" style={{ color: fgOverride || pPrimary }}>
                         {title}
@@ -195,6 +197,8 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                         {description}
                     </p>
                 </div>
+                </Reveal>
+                <Reveal>
 
                 {success ? (
                     <div className="bg-green-50 border border-green-200 rounded-2xl p-8 text-center space-y-4">
@@ -323,6 +327,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                         </button>
                     </form>
                 )}
+                </Reveal>
             </div>
         </section>
     );

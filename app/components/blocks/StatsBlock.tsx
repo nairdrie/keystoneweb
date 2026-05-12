@@ -1,10 +1,14 @@
 'use client';
 
 import React from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import EditableText from '../EditableText';
 import BlockPretext from '../BlockPretext';
+import Reveal, { useStaggerSec } from '@/app/components/Reveal';
 import { Plus } from 'lucide-react';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import { useEditorContext } from '@/lib/editor-context';
+import { resolveAnimation, speedToMs } from '@/lib/animations';
 import InlineCardControls, { reorderItems } from './InlineCardControls';
 
 interface StatsBlockProps {
@@ -23,6 +27,10 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
     const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
     const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
+    const editorContext = useEditorContext();
+    const animationConfig = resolveAnimation(editorContext?.siteContent);
+    const staggerSec = useStaggerSec();
+    const durationSec = Math.max(0, speedToMs(animationConfig) / 1000);
 
     const items = data.items || [
         { value: '500+', label: 'Happy Clients' },
@@ -122,52 +130,48 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                                 const isDragging = draggedIndex === index;
                                 const isDragTarget = dragOverIndex === index && draggedIndex !== index;
                                 const percent = parsePercent(item.value);
+                                const delay = index * staggerSec;
                                 return (
-                                    <div
-                                        key={index}
-                                        className={`relative group/card transition-[opacity,transform] ${
-                                            isDragTarget ? 'ring-2 ring-blue-100 rounded-md' : ''
-                                        } ${isDragging ? 'scale-[0.99] opacity-60' : ''}`}
-                                        {...getDragHandlers(index)}
-                                    >
-                                        {renderStatControls(index, 'skill')}
-                                        <div className="flex items-center justify-between mb-2 gap-3">
-                                            <EditableText
-                                                as="span"
-                                                contentKey={`stat_${index}_label`}
-                                                content={item.label}
-                                                defaultValue="Skill"
-                                                isEditMode={isEditMode}
-                                                onSave={(_key, value) => handleUpdateItem(index, 'label', value)}
-                                                className="text-base font-semibold"
-                                                style={{ color: pPrimary }}
-                                            />
-                                            <EditableText
-                                                as="span"
-                                                contentKey={`stat_${index}_value`}
-                                                content={item.value}
-                                                defaultValue="90%"
-                                                isEditMode={isEditMode}
-                                                onSave={(_key, value) => handleUpdateItem(index, 'value', value)}
-                                                className="text-sm font-medium tabular-nums"
-                                                style={{ color: pPrimary, opacity: 0.6 }}
-                                            />
-                                        </div>
+                                    <Reveal key={index} delay={delay}>
                                         <div
-                                            className="h-1.5 rounded-full overflow-hidden"
-                                            style={{ backgroundColor: '#f1f5f9' }}
-                                            role="progressbar"
-                                            aria-valuenow={percent}
-                                            aria-valuemin={0}
-                                            aria-valuemax={100}
-                                            aria-label={typeof item.label === 'string' ? item.label : undefined}
+                                            className={`relative group/card transition-[opacity,transform] ${
+                                                isDragTarget ? 'ring-2 ring-blue-100 rounded-md' : ''
+                                            } ${isDragging ? 'scale-[0.99] opacity-60' : ''}`}
+                                            {...getDragHandlers(index)}
                                         >
-                                            <div
-                                                className="h-full rounded-full transition-[width] duration-500"
-                                                style={{ width: `${percent}%`, backgroundColor: pSecondary }}
+                                            {renderStatControls(index, 'skill')}
+                                            <div className="flex items-center justify-between mb-2 gap-3">
+                                                <EditableText
+                                                    as="span"
+                                                    contentKey={`stat_${index}_label`}
+                                                    content={item.label}
+                                                    defaultValue="Skill"
+                                                    isEditMode={isEditMode}
+                                                    onSave={(_key, value) => handleUpdateItem(index, 'label', value)}
+                                                    className="text-base font-semibold"
+                                                    style={{ color: pPrimary }}
+                                                />
+                                                <EditableText
+                                                    as="span"
+                                                    contentKey={`stat_${index}_value`}
+                                                    content={item.value}
+                                                    defaultValue="90%"
+                                                    isEditMode={isEditMode}
+                                                    onSave={(_key, value) => handleUpdateItem(index, 'value', value)}
+                                                    className="text-sm font-medium tabular-nums"
+                                                    style={{ color: pPrimary, opacity: 0.6 }}
+                                                />
+                                            </div>
+                                            <ProgressBarFill
+                                                percent={percent}
+                                                color={pSecondary}
+                                                ariaLabel={typeof item.label === 'string' ? item.label : undefined}
+                                                isEditMode={isEditMode}
+                                                delaySec={delay}
+                                                durationSec={Math.max(durationSec, 0.6)}
                                             />
                                         </div>
-                                    </div>
+                                    </Reveal>
                                 );
                             })}
                         </div>
@@ -216,11 +220,10 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                             const isDragging = draggedIndex === index;
                             const isDragTarget = dragOverIndex === index && draggedIndex !== index;
                             return (
-                            <div
-                                key={index}
-                                className={`relative group/card text-center p-8 md:p-6 xl:p-8 rounded-2xl border bg-white shadow-sm hover:shadow-md transition-[border-color,box-shadow,opacity,transform] ${
+                            <Reveal key={index} delay={index * staggerSec} className={`relative group/card text-center p-8 md:p-6 xl:p-8 rounded-2xl border bg-white shadow-sm hover:shadow-md transition-[border-color,box-shadow,opacity,transform] ${
                                     isDragTarget ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-100'
-                                } ${isDragging ? 'scale-[0.99] opacity-60' : ''}`}
+                                } ${isDragging ? 'scale-[0.99] opacity-60' : ''}`}>
+                            <div
                                 {...getDragHandlers(index)}
                             >
                                 {renderStatControls(index)}
@@ -245,6 +248,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                                     style={{ color: fgOverride || pPrimary, opacity: 0.7 }}
                                 />
                             </div>
+                            </Reveal>
                             );
                         })}
                     </div>
@@ -276,11 +280,10 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                         const isDragTarget = dragOverIndex === index && draggedIndex !== index;
                         const showSeparator = separator !== 'none' && index > 0 && index % bannerMdCols !== 0;
                         return (
-                        <div
-                            key={index}
-                            className={`relative group/card text-center rounded-lg px-2 py-3 transition-[box-shadow,opacity,transform] ${
+                        <Reveal key={index} delay={index * staggerSec} className={`relative group/card text-center rounded-lg px-2 py-3 transition-[box-shadow,opacity,transform] ${
                                 isDragTarget ? 'ring-2 ring-blue-100' : ''
-                            } ${isDragging ? 'scale-[0.99] opacity-60' : ''}`}
+                            } ${isDragging ? 'scale-[0.99] opacity-60' : ''}`}>
+                        <div
                             {...getDragHandlers(index)}
                         >
                             {showSeparator && (
@@ -333,6 +336,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                                 style={{ color: fgOverride || '#ffffff', opacity: fgOverride ? 1 : 0.7 }}
                             />
                         </div>
+                        </Reveal>
                         );
                     })}
                 </div>
@@ -349,6 +353,41 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                 )}
             </div>
         </section>
+    );
+}
+
+interface ProgressBarFillProps {
+    percent: number;
+    color: string;
+    ariaLabel?: string;
+    isEditMode: boolean;
+    delaySec: number;
+    durationSec: number;
+}
+
+function ProgressBarFill({ percent, color, ariaLabel, isEditMode, delaySec, durationSec }: ProgressBarFillProps) {
+    const prefersReducedMotion = useReducedMotion();
+    const animate = !isEditMode && !prefersReducedMotion;
+    return (
+        <div
+            className="h-1.5 rounded-full overflow-hidden"
+            style={{ backgroundColor: '#f1f5f9' }}
+            role="progressbar"
+            aria-valuenow={percent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={ariaLabel}
+        >
+            <motion.div
+                className="h-full rounded-full"
+                style={{ backgroundColor: color }}
+                initial={animate ? { width: '0%' } : false}
+                whileInView={animate ? { width: `${percent}%` } : undefined}
+                animate={animate ? undefined : { width: `${percent}%` }}
+                viewport={animate ? { once: true, margin: '-50px' } : undefined}
+                transition={{ duration: durationSec, ease: [0.22, 1, 0.36, 1], delay: delaySec }}
+            />
+        </div>
     );
 }
 

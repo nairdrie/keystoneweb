@@ -5,6 +5,15 @@ import { buildRevealVariants } from '@/lib/motion';
 import { useEditorContext } from '@/lib/editor-context';
 import { resolveAnimation } from '@/lib/animations';
 
+/**
+ * Resolves the site-wide stagger delay (in seconds) for use with `<Reveal delay={index * useStaggerSec()}>`.
+ */
+export function useStaggerSec(): number {
+  const context = useEditorContext();
+  const config = resolveAnimation(context?.siteContent);
+  return Math.max(0, (config.staggerMs ?? 150) / 1000);
+}
+
 interface RevealProps {
   children: React.ReactNode;
   className?: string;
@@ -18,10 +27,23 @@ export default function Reveal({ children, className = '', delay, onDragOver, on
   const isEditMode = context?.isEditMode || false;
   const prefersReducedMotion = useReducedMotion();
   const config = resolveAnimation(context?.siteContent);
-  const variants = buildRevealVariants({
+  const baseVariants = buildRevealVariants({
     config,
     forceInstant: prefersReducedMotion === true,
   });
+  const variants =
+    delay && delay > 0 && baseVariants.show && typeof baseVariants.show === 'object'
+      ? {
+          ...baseVariants,
+          show: {
+            ...(baseVariants.show as Record<string, unknown>),
+            transition: {
+              ...((baseVariants.show as { transition?: Record<string, unknown> }).transition ?? {}),
+              delay,
+            },
+          },
+        }
+      : baseVariants;
 
   const animationProps = isEditMode
     ? { animate: 'show' as const }
@@ -35,7 +57,6 @@ export default function Reveal({ children, className = '', delay, onDragOver, on
     <motion.div
       variants={variants}
       className={className}
-      transition={delay ? { delay } : undefined}
       {...animationProps}
       onDragOver={onDragOver}
       onDrop={onDrop}
