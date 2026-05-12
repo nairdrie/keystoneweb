@@ -6,7 +6,7 @@ import {
   Mail, Inbox as InboxIcon, AlertCircle, Send, Trash2,
   Sparkles, Bot, User, Loader2, Plus, Settings,
   ShieldAlert, RefreshCw, ArrowLeft, ChevronDown,
-  CornerUpLeft, MailMinus, Menu, X, PenLine,
+  CornerUpLeft, MailMinus, FolderOpen, X, PenLine,
   Maximize2, Minimize2, Calculator,
 } from 'lucide-react';
 import { useAdminContext } from '@/app/(app)/admin/admin-context';
@@ -566,10 +566,12 @@ export default function EmailClient() {
       <div className="flex-none flex items-center gap-2 px-3 sm:px-4 py-2 bg-white border-b border-slate-200">
         <button
           onClick={() => setShowFolderDrawer(true)}
-          className="md:hidden p-2 -ml-1 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors shrink-0"
+          className="md:hidden flex items-center gap-1.5 px-2 py-1.5 -ml-1 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors shrink-0 text-[11px] font-bold"
           aria-label="Open folders"
+          title="Folders"
         >
-          <Menu className="w-4 h-4" />
+          <FolderOpen className="w-4 h-4" />
+          <span>Folders</span>
         </button>
 
         <button

@@ -3,12 +3,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
-import { ChevronDown, Plus, Paintbrush, LayoutDashboard, ExternalLink, Pencil, Check, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, HelpCircle, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, Eye, EyeOff, BookOpen, UtensilsCrossed, FileImage, Users, Minimize2 } from 'lucide-react';
-import KeystoneLogo from '@/app/components/KeystoneLogo';
-import ProfileDropdown from '@/app/components/ProfileDropdown';
+import { ChevronDown, Plus, ExternalLink, Pencil, Check, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, EyeOff, BookOpen, UtensilsCrossed, FileImage, Users, Minimize2, HelpCircle } from 'lucide-react';
 import AlertModal from '@/app/components/ui/AlertModal';
 import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 import WalkthroughModal, { WalkthroughStep } from '@/app/components/WalkthroughModal';
+import AdminSidebar from './admin-sidebar';
 import { AdminContext, AdminSiteData, UsageData, UsagePlan, SiteUsageBreakdown } from './admin-context';
 
 interface Site {
@@ -369,7 +368,25 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   return (
     <AdminContext.Provider value={{ siteId, site, siteTitle, setSiteTitle, isProUser, palette, usage, usagePlan, siteBreakdown, siteBlockTypes, refreshInboxUnread, focusMode, setFocusMode }}>
-      <div className="fixed inset-0 flex flex-col overflow-hidden bg-slate-50">
+      <div className="fixed inset-0 overflow-hidden bg-slate-50">
+
+        {/* Persistent admin sidebar (desktop rail + mobile drawer) */}
+        {!focusMode && (
+          <AdminSidebar
+            tabs={visibleTabs}
+            activeTabId={activeTabId}
+            inboxUnread={inboxUnread}
+            showAllFeatures={showAllFeatures}
+            onToggleShowAllFeatures={toggleShowAllFeatures}
+            onOpenWalkthrough={openWalkthrough}
+            mobileOpen={showMobileMenu}
+            onMobileClose={() => setShowMobileMenu(false)}
+            onNavigate={navigateTab}
+          />
+        )}
+
+        {/* Main content column — offset on desktop by the rail width (pl-14 = 56px = RAIL_WIDTH_PX) */}
+        <div className={`h-full flex flex-col ${focusMode ? '' : 'md:pl-14'}`}>
 
         {/* Focus mode: slim exit bar replaces all the header rows */}
         {focusMode && (
@@ -389,43 +406,26 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           </div>
         )}
 
-        {/* ── Top Bar ── */}
-        <div className={`${focusMode ? 'hidden' : 'flex'} flex-none items-center justify-between px-3 h-12 bg-white border-b border-slate-200 z-10 shrink-0`}>
-          <div className="flex items-center gap-2">
-            <div onClick={() => router.push('/')} className="cursor-pointer shrink-0">
-              <KeystoneLogo href={undefined} size="md" showText={false} />
-            </div>
-
-            {/* Design / Admin switcher */}
-            <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-full">
-              <a
-                href={`/design${siteId ? `?siteId=${siteId}` : ''}`}
-                onClick={(e) => {
-                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
-                  e.preventDefault();
-                  router.push(`/design${siteId ? `?siteId=${siteId}` : ''}`);
-                }}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold text-slate-500 hover:text-slate-800 hover:bg-white/70 transition-colors"
-              >
-                <Paintbrush className="w-3 h-3" />
-                Design
-              </a>
-              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white shadow-sm text-slate-800 select-none">
-                <LayoutDashboard className="w-3 h-3" />
-                Admin
-              </span>
-            </div>
-          </div>
-
+        {/* ── Mobile top bar (hamburger only) ── */}
+        <div className={`${focusMode ? 'hidden' : 'flex'} md:hidden flex-none items-center justify-between px-2 h-12 bg-white border-b border-slate-200 z-10 shrink-0`}>
           <button
-            onClick={openWalkthrough}
-            className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-            title="Show walkthrough"
-            aria-label="Show walkthrough"
+            onClick={() => setShowMobileMenu(true)}
+            className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+            aria-label="Open navigation menu"
           >
-            <HelpCircle className="w-4 h-4" />
+            <Menu className="w-5 h-5" />
           </button>
-          <ProfileDropdown buttonClassName="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-full transition-colors flex-shrink-0 overflow-hidden" />
+          {(() => {
+            const activeTab = ALL_TABS.find(t => t.id === activeTabId);
+            const Icon = activeTab?.icon;
+            return (
+              <span className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                {Icon && <Icon className="w-3.5 h-3.5" />}
+                {activeTab?.label}
+              </span>
+            );
+          })()}
+          <div className="w-9" aria-hidden />
         </div>
 
         {/* ── Hero / Site Header ── */}
@@ -588,130 +588,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           </div>
         </div>
 
-        {/* ── Tabs (desktop) / Hamburger (mobile) ── */}
-        <div className={`${focusMode ? 'hidden' : 'block'} flex-none bg-white border-b border-slate-200`}>
-          {/* Mobile: current tab + hamburger */}
-          <div className="sm:hidden flex items-center justify-between px-4 py-2">
-            {(() => {
-              const activeTab = ALL_TABS.find(t => t.id === activeTabId);
-              const Icon = activeTab?.icon;
-              return (
-                <span className="flex items-center gap-1.5 text-xs font-bold text-slate-900">
-                  {Icon && <Icon className="w-3.5 h-3.5" />}
-                  {activeTab?.label}
-                </span>
-              );
-            })()}
-            <button
-              onClick={() => setShowMobileMenu(v => !v)}
-              className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-              aria-label="Toggle navigation menu"
-            >
-              {showMobileMenu ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-            </button>
-          </div>
-
-          {/* Mobile dropdown menu */}
-          {showMobileMenu && (
-            <div className="sm:hidden border-t border-slate-100 px-2 pb-2 space-y-0.5">
-              {visibleTabs.map(tab => {
-                const Icon = tab.icon;
-                const isActive = activeTabId === tab.id;
-                const badge = tab.id === 'inbox' && inboxUnread > 0 ? inboxUnread : null;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => { navigateTab(tab.path); setShowMobileMenu(false); }}
-                    className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                      isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {tab.label}
-                    {tab.comingSoon && (
-                      <span className="ml-1 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide bg-slate-100 text-slate-400 rounded-full">
-                        Soon
-                      </span>
-                    )}
-                    {badge !== null && (
-                      <span className="ml-auto min-w-[20px] h-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-black px-1">
-                        {badge > 99 ? '99+' : badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-
-              {/* Toggle — mobile */}
-              <div className="pt-1 mt-1 border-t border-slate-100">
-                <button
-                  onClick={toggleShowAllFeatures}
-                  className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold transition-all ${
-                    showAllFeatures ? 'text-slate-700 hover:bg-slate-100' : 'text-slate-400 hover:bg-slate-100'
-                  }`}
-                >
-                  {showAllFeatures ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  {showAllFeatures ? 'Showing all features' : 'Showing active only'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Desktop: regular tabs + toggle */}
-          <div className="hidden sm:flex items-center justify-between px-4 py-2">
-            <div className="flex gap-1.5 flex-wrap">
-              {visibleTabs.map(tab => {
-                const Icon = tab.icon;
-                const isActive = activeTabId === tab.id;
-                const badge = tab.id === 'inbox' && inboxUnread > 0 ? inboxUnread : null;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => navigateTab(tab.path)}
-                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
-                      isActive
-                        ? 'bg-slate-900 text-white shadow-sm'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {tab.label}
-                    {tab.comingSoon && (
-                      <span className={`px-1 py-px text-[8px] font-black uppercase tracking-wide rounded-full ${
-                        isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'
-                      }`}>
-                        Soon
-                      </span>
-                    )}
-                    {badge !== null && (
-                      <span className="ml-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-black px-1">
-                        {badge > 99 ? '99+' : badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Toggle — desktop, right side */}
-            <button
-              onClick={toggleShowAllFeatures}
-              title={showAllFeatures ? 'Hide unused features' : 'Show all features'}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all shrink-0 ml-2 ${
-                showAllFeatures
-                  ? 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
-                  : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
-              }`}
-            >
-              {showAllFeatures ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-              <span className="hidden md:inline">{showAllFeatures ? 'All features' : 'Active only'}</span>
-            </button>
-          </div>
-        </div>
-
         {/* ── Tab Content ── */}
         <div className="flex-1 overflow-y-auto">
           {children}
+        </div>
         </div>
 
         <AlertModal
