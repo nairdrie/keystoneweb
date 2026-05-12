@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
-import { ChevronDown, Plus, ExternalLink, Pencil, Check, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, EyeOff, BookOpen, UtensilsCrossed, FileImage, Users, Minimize2, HelpCircle } from 'lucide-react';
+import Link from 'next/link';
+import { ExternalLink, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, BookOpen, UtensilsCrossed, FileImage, Users, Minimize2, Paintbrush } from 'lucide-react';
 import AlertModal from '@/app/components/ui/AlertModal';
 import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 import WalkthroughModal, { WalkthroughStep } from '@/app/components/WalkthroughModal';
@@ -63,11 +64,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   const [site, setSite] = useState<AdminSiteData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [siteTitle, setSiteTitle] = useState('My Website');
-  const [isRenaming, setIsRenaming] = useState(false);
-  const [renameDraft, setRenameDraft] = useState('');
-  const [showSiteSwitcher, setShowSiteSwitcher] = useState(false);
   const [userSites, setUserSites] = useState<Site[]>([]);
   const [isProUser, setIsProUser] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' }>({ isOpen: false, message: '' });
@@ -75,6 +72,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [inboxUnread, setInboxUnread] = useState(0);
   const [goingLive, setGoingLive] = useState(false);
   const [focusMode, setFocusModeState] = useState(false);
+  const [hasUnpublishedChanges, setHasUnpublishedChanges] = useState(false);
 
   const FOCUS_MODE_KEY = 'ks_admin_focus_mode';
 
@@ -288,7 +286,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       setSite(data);
       setSiteTitle(data.siteSlug || 'My Website');
 
-      // Detect which block types exist in this site's pages
+      // Detect which block types exist in this site's pages + whether there are unpublished changes
       if (pagesRes.ok) {
         const pagesData = await pagesRes.json();
         const pages: any[] = pagesData.pages || pagesData || [];
@@ -300,6 +298,31 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           }
         }
         setSiteBlockTypes(blockTypes);
+
+        // Unpublished changes: only meaningful once the site has been published at least once.
+        // Compare site.designData vs site.publishedData and each page's design_data vs published_data.
+        // Strip internal __meta keys to match the editor's behavior.
+        const stripMeta = (obj: unknown): unknown => {
+          if (!obj || typeof obj !== 'object') return obj;
+          const cleaned: Record<string, unknown> = {};
+          for (const k of Object.keys(obj as Record<string, unknown>)) {
+            if (!k.startsWith('__')) cleaned[k] = (obj as Record<string, unknown>)[k];
+          }
+          return cleaned;
+        };
+        const sameJson = (a: unknown, b: unknown) =>
+          JSON.stringify(stripMeta(a) ?? {}) === JSON.stringify(stripMeta(b) ?? {});
+        if (data.isPublished) {
+          let differs = !sameJson(data.designData, data.publishedData);
+          if (!differs) {
+            for (const p of pages) {
+              if (!sameJson(p.design_data, p.published_data)) { differs = true; break; }
+            }
+          }
+          setHasUnpublishedChanges(differs);
+        } else {
+          setHasUnpublishedChanges(false);
+        }
       }
 
       // Fetch inbox unread count
@@ -314,37 +337,23 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     }
   }
 
-  async function handleSaveTitle() {
-    if (!site || !renameDraft.trim()) return;
-    setSaving(true);
-    try {
-      const res = await fetch('/api/sites', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          siteId: site.id,
-          title: renameDraft.trim(),
-        }),
-      });
-      if (res.ok) {
-        const updated = await res.json();
-        setSite(updated.site || updated);
-        setSiteTitle(renameDraft.trim());
-        setIsRenaming(false);
-      }
-    } catch {}
-    finally { setSaving(false); }
-  }
-
   function navigateTab(path: string) {
     router.push(`${path}${siteId ? `?siteId=${siteId}` : ''}`);
   }
 
   function navigateSite(newSiteId: string) {
-    setShowSiteSwitcher(false);
     const tab = ALL_TABS.find(t => pathname.startsWith(t.path))?.path ?? '/admin/analytics';
     router.push(`${tab}?siteId=${newSiteId}`);
+  }
+
+  async function unpublishSite(targetSiteId: string) {
+    await fetch('/api/sites/unpublish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ siteId: targetSiteId }),
+    });
+    setUserSites(prev => prev.map(s => s.id === targetSiteId ? { ...s, isPublished: false } : s));
   }
 
   if (loading || authLoading) return <EditorLoadingScreen />;
@@ -382,6 +391,12 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             mobileOpen={showMobileMenu}
             onMobileClose={() => setShowMobileMenu(false)}
             onNavigate={navigateTab}
+            currentSiteId={siteId}
+            currentSiteLabel={siteTitle}
+            userSites={userSites}
+            onNavigateSite={navigateSite}
+            onUnpublishSite={unpublishSite}
+            onCreateNewSite={() => router.push('/onboarding')}
           />
         )}
 
@@ -430,149 +445,84 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
         {/* ── Hero / Site Header ── */}
         <div className={`${focusMode ? 'hidden' : 'block'} flex-none bg-white border-b border-slate-200 px-4 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-4`}>
-          {/* Site name row */}
-          <div className="flex items-start justify-between gap-2 sm:gap-4">
+          <div className="flex items-center justify-between gap-3 sm:gap-4">
+            {/* Site title — kept big, no rename / help */}
             <div className="min-w-0">
-              {isRenaming ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    autoFocus
-                    value={renameDraft}
-                    onChange={e => setRenameDraft(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') setIsRenaming(false); }}
-                    className="text-xl sm:text-2xl font-black text-slate-900 bg-white border border-slate-300 rounded-lg px-3 py-1 focus:border-red-500 focus:ring-1 focus:ring-red-500 focus:outline-none w-48 sm:w-80"
-                    placeholder="Site name"
-                  />
-                  <button onClick={handleSaveTitle} disabled={saving} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors shrink-0">
-                    {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
-                  </button>
-                  <button onClick={() => setIsRenaming(false)} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg transition-colors shrink-0">
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight truncate">
-                    {siteTitle || 'Untitled Site'} <span className="text-slate-400 font-light hidden sm:inline">Dashboard</span>
-                  </h1>
-                  <button
-                    onClick={() => { setRenameDraft(siteTitle); setIsRenaming(true); }}
-                    className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors shrink-0 mt-0.5"
-                  >
-                    <Pencil className="w-3 h-3" />
-                    <span className="hidden sm:inline">Rename</span>
-                  </button>
-                  <div className="relative group shrink-0 mt-0.5">
-                    <HelpCircle className="w-4 h-4 text-slate-300 hover:text-slate-500 cursor-help transition-colors" />
-                    <div className="absolute right-0 top-full mt-1.5 w-64 bg-slate-800 text-white text-xs leading-relaxed rounded-lg px-3 py-2.5 shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-50">
-                      This name is customer-facing. It appears as the sender name in booking confirmations, contact replies, membership emails, and more.
-                      <div className="absolute right-1.5 -top-1 w-2 h-2 bg-slate-800 rotate-45" />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Site URL + switcher */}
-              {!isRenaming && (
-                <div className="flex items-center gap-2 mt-1">
-                  {liveUrl ? (
-                    <a href={liveUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-slate-400 hover:text-slate-700 transition-colors">
-                      {displayDomain} ↗
-                    </a>
-                  ) : (
-                    <span className="text-xs text-slate-400">Not yet published</span>
-                  )}
-                  <span className="text-slate-200">·</span>
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowSiteSwitcher(v => !v)}
-                      className="text-xs text-slate-400 hover:text-slate-700 flex items-center gap-1 transition-colors"
-                    >
-                      Switch site
-                      <ChevronDown className={`w-3 h-3 transition-transform ${showSiteSwitcher ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {showSiteSwitcher && (
-                      <div className="absolute left-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 z-[9999] animate-in fade-in slide-in-from-top-2 w-64">
-                        <div className="max-h-64 overflow-y-auto p-2 space-y-1">
-                          {userSites.length > 0 ? (
-                            <>
-                              <div className="px-3 py-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Your Sites</div>
-                              {userSites.map(s => {
-                                const isActive = siteId === s.id;
-                                const label = s.siteSlug || `Site ${s.id.slice(0, 8)}`;
-                                return (
-                                  <div
-                                    key={s.id}
-                                    className={`w-full text-left px-3 py-2.5 rounded-lg transition-all text-sm flex items-center justify-between gap-2 ${isActive ? 'bg-red-50 text-red-900 font-semibold border border-red-100' : 'text-slate-700 hover:bg-slate-100'}`}
-                                  >
-                                    <button
-                                      onClick={() => navigateSite(s.id)}
-                                      className="flex items-center gap-2 flex-1 min-w-0 text-left"
-                                    >
-                                      <span
-                                        className={`shrink-0 w-2 h-2 rounded-full ${s.isPublished ? 'bg-green-500' : 'bg-slate-300'}`}
-                                        title={s.isPublished ? 'Live' : 'Draft'}
-                                      />
-                                      <span className="truncate">{label}</span>
-                                    </button>
-                                    <div className="flex items-center gap-1 shrink-0">
-                                      {isActive && <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />}
-                                      {s.isPublished && (
-                                        <button
-                                          onClick={async (e) => {
-                                            e.stopPropagation();
-                                            if (!confirm('Unpublish this site? It will go offline.')) return;
-                                            await fetch('/api/sites/unpublish', {
-                                              method: 'POST',
-                                              headers: { 'Content-Type': 'application/json' },
-                                              credentials: 'include',
-                                              body: JSON.stringify({ siteId: s.id }),
-                                            });
-                                            setUserSites(prev => prev.map(site => site.id === s.id ? { ...site, isPublished: false } : site));
-                                          }}
-                                          title="Unpublish"
-                                          className="p-0.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                                        >
-                                          <EyeOff className="w-3 h-3" />
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                              <div className="h-px bg-slate-100 my-1 mx-1" />
-                            </>
-                          ) : (
-                            <div className="px-3 py-4 text-sm text-slate-500 text-center">No other sites</div>
-                          )}
-                          <button
-                            onClick={() => { setShowSiteSwitcher(false); router.push('/onboarding'); }}
-                            className="w-full text-left px-3 py-2.5 rounded-lg text-sm flex items-center gap-2 text-red-600 hover:bg-red-50 font-medium"
-                          >
-                            <Plus className="w-4 h-4" />
-                            Create New Site
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight truncate">
+                {siteTitle || 'Untitled Site'}
+                <span className="text-slate-400 font-light hidden sm:inline"> Dashboard</span>
+              </h1>
             </div>
 
-            {/* Action buttons */}
-            <div className="flex items-center gap-2 shrink-0">
-              {liveUrl ? (
-                <a
-                  href={liveUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-bold rounded-lg transition-colors"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">View Live</span>
-                </a>
+            {/* Right side: live status indicator + primary action */}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              {site.isPublished && liveUrl ? (
+                <>
+                  {/* Animated status light + domain link (lifted from designer) */}
+                  <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-lg">
+                    <span className="relative flex h-2.5 w-2.5">
+                      <span
+                        className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                          hasUnpublishedChanges ? 'bg-amber-400' : 'bg-green-400'
+                        }`}
+                      />
+                      <span
+                        className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
+                          hasUnpublishedChanges ? 'bg-amber-500' : 'bg-green-500'
+                        }`}
+                      />
+                    </span>
+                    <div className="flex flex-col leading-tight">
+                      <span
+                        className={`text-[9px] font-black uppercase tracking-wider ${
+                          hasUnpublishedChanges ? 'text-amber-700' : 'text-slate-700'
+                        }`}
+                      >
+                        {hasUnpublishedChanges ? 'Unpublished changes' : 'Live'}
+                      </span>
+                      {displayDomain && (
+                        <a
+                          href={liveUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-slate-500 hover:text-slate-900 truncate max-w-[180px] transition-colors"
+                        >
+                          {displayDomain} ↗
+                        </a>
+                      )}
+                    </div>
+                  </div>
+
+                  {hasUnpublishedChanges ? (
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/design${siteId ? `?siteId=${siteId}` : ''}`}
+                        className="hidden md:inline text-[11px] font-semibold text-slate-500 hover:text-slate-900 underline underline-offset-2 decoration-slate-300 hover:decoration-slate-900 transition-colors"
+                      >
+                        View changes in Design
+                      </Link>
+                      <Link
+                        href={`/design${siteId ? `?siteId=${siteId}` : ''}`}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors"
+                        title="Publish your unpublished changes"
+                      >
+                        <Paintbrush className="w-3.5 h-3.5" />
+                        Publish Site
+                      </Link>
+                    </div>
+                  ) : (
+                    <a
+                      href={liveUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-bold rounded-lg transition-colors hover:brightness-110"
+                      style={{ backgroundColor: 'var(--brand-primary, #dc2626)' }}
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">View Live</span>
+                    </a>
+                  )}
+                </>
               ) : (
                 <button
                   onClick={handleGoLive}

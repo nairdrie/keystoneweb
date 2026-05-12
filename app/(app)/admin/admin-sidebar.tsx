@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   User as UserIcon, Settings, LogOut, Paintbrush, LayoutDashboard,
-  Eye, EyeOff, HelpCircle, ChevronRight, X,
+  Eye, EyeOff, HelpCircle, ChevronDown, Plus, X,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from '@/app/components/KeystoneLogo';
@@ -18,6 +18,12 @@ export interface AdminSidebarTab {
   comingSoon?: boolean;
 }
 
+export interface SidebarSite {
+  id: string;
+  siteSlug?: string;
+  isPublished?: boolean;
+}
+
 interface AdminSidebarProps {
   tabs: AdminSidebarTab[];
   activeTabId: string;
@@ -28,9 +34,17 @@ interface AdminSidebarProps {
   mobileOpen: boolean;
   onMobileClose: () => void;
   onNavigate: (path: string) => void;
+  // Site switcher
+  currentSiteId: string | null;
+  currentSiteLabel: string;
+  userSites: SidebarSite[];
+  onNavigateSite: (siteId: string) => void;
+  onUnpublishSite: (siteId: string) => void;
+  onCreateNewSite: () => void;
 }
 
 const RAIL_WIDTH_PX = 56;
+const EXPANDED_WIDTH_PX = 240;
 
 export default function AdminSidebar({
   tabs,
@@ -42,38 +56,49 @@ export default function AdminSidebar({
   mobileOpen,
   onMobileClose,
   onNavigate,
+  currentSiteId,
+  currentSiteLabel,
+  userSites,
+  onNavigateSite,
+  onUnpublishSite,
+  onCreateNewSite,
 }: AdminSidebarProps) {
   const router = useRouter();
   const { user, signOut } = useAuth();
 
   const [hovered, setHovered] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [siteSwitcherOpen, setSiteSwitcherOpen] = useState(false);
   const [avatarErrored, setAvatarErrored] = useState(false);
   const railRef = useRef<HTMLElement | null>(null);
 
-  const expanded = hovered || profileOpen;
+  const expanded = hovered || profileOpen || siteSwitcherOpen;
 
-  // Close profile panel when clicking outside the rail (desktop only).
+  // Close menus when clicking outside the rail.
   useEffect(() => {
-    if (!profileOpen) return;
+    if (!profileOpen && !siteSwitcherOpen) return;
     function handleClick(e: MouseEvent) {
       if (railRef.current && !railRef.current.contains(e.target as Node)) {
         setProfileOpen(false);
+        setSiteSwitcherOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
-  }, [profileOpen]);
+  }, [profileOpen, siteSwitcherOpen]);
 
-  // Close profile panel on Escape.
+  // Close on Escape.
   useEffect(() => {
-    if (!profileOpen) return;
+    if (!profileOpen && !siteSwitcherOpen) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setProfileOpen(false);
+      if (e.key === 'Escape') {
+        setProfileOpen(false);
+        setSiteSwitcherOpen(false);
+      }
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [profileOpen]);
+  }, [profileOpen, siteSwitcherOpen]);
 
   const userDisplayName = user
     ? ((user.user_metadata?.full_name || user.user_metadata?.name || user.email) as string)
@@ -90,117 +115,212 @@ export default function AdminSidebar({
   function handleTabClick(path: string) {
     onNavigate(path);
     setProfileOpen(false);
+    setSiteSwitcherOpen(false);
     onMobileClose();
   }
 
-  // Avatar element used both in collapsed rail and expanded sidebar.
-  const avatar = (size: 'sm' | 'md') => {
-    const cls = size === 'sm' ? 'w-8 h-8' : 'w-9 h-9';
+  const avatarEl = (
+    <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-200 flex items-center justify-center text-slate-500 shrink-0 ring-2 ring-white shadow-sm">
+      {userAvatarUrl && !avatarErrored ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={userAvatarUrl}
+          alt={userDisplayName}
+          className="w-full h-full object-cover"
+          referrerPolicy="no-referrer"
+          onError={handleAvatarError}
+        />
+      ) : (
+        <UserIcon className="w-4 h-4" />
+      )}
+    </div>
+  );
+
+  // Header row: collapsed = just profile (centered); expanded = logo + switcher (left) + profile (right).
+  // The profile is anchored at `right: 12px`. With avatar w-8 (32px) inside a 56px rail, that
+  // resolves to left:12px which is centered — and when the rail grows to 240px the profile
+  // naturally slides right with the panel's right edge.
+  function renderHeader(showLabels: boolean, isMobile: boolean) {
     return (
-      <div className={`${cls} rounded-full overflow-hidden bg-slate-200 flex items-center justify-center text-slate-500 shrink-0`}>
-        {userAvatarUrl && !avatarErrored ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={userAvatarUrl}
-            alt={userDisplayName}
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-            onError={handleAvatarError}
-          />
-        ) : (
-          <UserIcon className="w-4 h-4" />
+      <div className="relative h-12 shrink-0 border-b border-slate-100">
+        {/* Logo + Design/Admin switcher — only visible when expanded */}
+        <div
+          className={`absolute inset-y-0 left-3 flex items-center gap-2 transition-opacity duration-200 ${
+            showLabels ? 'opacity-100 delay-75' : 'opacity-0 pointer-events-none'
+          }`}
+        >
+          <Link href="/" aria-label="Keystone home" className="shrink-0">
+            <KeystoneLogo href={undefined} size="md" showText={false} />
+          </Link>
+          <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-full">
+            <Link
+              href={`/design${currentSiteId ? `?siteId=${currentSiteId}` : ''}`}
+              onClick={() => { setProfileOpen(false); onMobileClose(); }}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-slate-500 hover:text-slate-800 hover:bg-white/70 transition-colors"
+            >
+              <Paintbrush className="w-3 h-3" />
+              Design
+            </Link>
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-white shadow-sm text-slate-800 select-none">
+              <LayoutDashboard className="w-3 h-3" />
+              Admin
+            </span>
+          </div>
+        </div>
+
+        {/* Profile avatar — always rendered. Anchored to right edge so it slides with the panel. */}
+        <button
+          onClick={() => {
+            if (isMobile) return;
+            setProfileOpen(v => !v);
+            setSiteSwitcherOpen(false);
+          }}
+          className="absolute top-1/2 -translate-y-1/2 rounded-full hover:ring-2 hover:ring-slate-200 transition-shadow"
+          style={{ right: 12 }}
+          title={isMobile ? userDisplayName : (profileOpen ? 'Hide profile menu' : 'Open profile menu')}
+          aria-label="Profile menu"
+        >
+          {avatarEl}
+        </button>
+
+        {/* Mobile-only close button stays near the right */}
+        {isMobile && (
+          <button
+            onClick={onMobileClose}
+            className="absolute top-1/2 -translate-y-1/2 right-12 p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg"
+            aria-label="Close menu"
+          >
+            <X className="w-4 h-4" />
+          </button>
         )}
       </div>
     );
-  };
+  }
 
-  // The content rendered inside the sidebar (shared between desktop overlay and mobile drawer).
-  // `forceExpanded` = always render labels (mobile drawer or desktop expanded state).
-  // This is a render helper (not a child component) so its state stays in this parent.
-  function renderBody(forceExpanded: boolean, isMobile: boolean) {
-    const showLabels = forceExpanded;
-
+  function renderProfilePanel(isMobile: boolean) {
     return (
-      <div className="h-full flex flex-col">
-        {/* ── Top: profile + (mobile only) close ── */}
-        <div className={`flex items-center gap-2 px-2.5 pt-3 pb-2 ${showLabels ? '' : 'justify-center'}`}>
-          <button
-            onClick={() => {
-              if (isMobile) return;
-              setProfileOpen(v => !v);
-            }}
-            className={`flex items-center gap-2.5 rounded-full transition-colors ${
-              showLabels ? 'flex-1 p-1 hover:bg-slate-100' : 'p-1 hover:bg-slate-100'
-            }`}
-            title={isMobile ? userDisplayName : (profileOpen ? 'Hide profile menu' : 'Open profile menu')}
-            aria-label="Profile menu"
-          >
-            {avatar('sm')}
-            {showLabels && (
-              <div className="min-w-0 flex-1 text-left">
-                <div className="text-xs font-bold text-slate-900 truncate">
-                  {userDisplayName || 'Account'}
-                </div>
-                {user?.email && userDisplayName !== user.email && (
-                  <div className="text-[10px] text-slate-500 truncate">{user.email}</div>
-                )}
-              </div>
-            )}
-            {showLabels && !isMobile && (
-              <ChevronRight
-                className={`w-3.5 h-3.5 text-slate-400 transition-transform shrink-0 mr-1 ${profileOpen ? 'rotate-90' : ''}`}
-              />
-            )}
-          </button>
-          {isMobile && (
-            <button
-              onClick={onMobileClose}
-              className="p-2 -mr-1 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg shrink-0"
-              aria-label="Close menu"
-            >
-              <X className="w-4 h-4" />
-            </button>
+      <div className="px-2 pt-2 pb-2 border-b border-slate-100 space-y-1 bg-slate-50">
+        <div className="px-2 pb-1">
+          <div className="text-xs font-bold text-slate-900 truncate">{userDisplayName || 'Account'}</div>
+          {user?.email && userDisplayName !== user.email && (
+            <div className="text-[10px] text-slate-500 truncate">{user.email}</div>
           )}
         </div>
-
-        {/* Profile expanded panel (desktop only when profileOpen, mobile always shown) */}
-        {showLabels && (profileOpen || isMobile) && (
-          <div className="px-2 pb-2 border-b border-slate-100 space-y-1">
-            <div className="flex gap-1.5 px-1">
-              <Link
-                href="/design"
-                onClick={() => { setProfileOpen(false); onMobileClose(); }}
-                className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[11px] font-bold text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 rounded-md transition-colors"
-              >
-                <Paintbrush className="w-3 h-3" />
-                Design
-              </Link>
-              <span
-                className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[11px] font-bold bg-red-600 text-white border border-red-600 rounded-md select-none"
-              >
-                <LayoutDashboard className="w-3 h-3" />
-                Admin
-              </span>
-            </div>
+        {/* On mobile we still need a Design/Admin switcher in this panel since the header
+            row hides them when there's no space. On desktop the switcher already lives in the header. */}
+        {isMobile && (
+          <div className="flex gap-1.5 px-1">
             <Link
-              href="/settings"
+              href="/design"
               onClick={() => { setProfileOpen(false); onMobileClose(); }}
-              className="w-full flex items-center gap-2 px-2.5 py-1.5 text-[11px] font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-900 rounded-md transition-colors"
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[11px] font-bold text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 rounded-md transition-colors"
             >
-              <Settings className="w-3.5 h-3.5" />
-              Settings
+              <Paintbrush className="w-3 h-3" />
+              Design
             </Link>
-            <button
-              onClick={handleSignOut}
-              className="w-full flex items-center gap-2 px-2.5 py-1.5 text-[11px] font-bold text-red-600 hover:bg-red-50 rounded-md transition-colors text-left"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              Log out
-            </button>
+            <span className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[11px] font-bold bg-red-600 text-white border border-red-600 rounded-md select-none">
+              <LayoutDashboard className="w-3 h-3" />
+              Admin
+            </span>
           </div>
         )}
+        <Link
+          href="/settings"
+          onClick={() => { setProfileOpen(false); onMobileClose(); }}
+          className="w-full flex items-center gap-2 px-2.5 py-1.5 text-[11px] font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-900 rounded-md transition-colors"
+        >
+          <Settings className="w-3.5 h-3.5" />
+          Settings
+        </Link>
+        <button
+          onClick={handleSignOut}
+          className="w-full flex items-center gap-2 px-2.5 py-1.5 text-[11px] font-bold text-red-600 hover:bg-red-50 rounded-md transition-colors text-left"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          Log out
+        </button>
+      </div>
+    );
+  }
 
-        {/* ── Tabs ── */}
+  function renderSiteSwitcher() {
+    return (
+      <div className="px-2 pt-2 pb-1 shrink-0 border-b border-slate-100">
+        <div className="relative">
+          <button
+            onClick={() => { setSiteSwitcherOpen(v => !v); setProfileOpen(false); }}
+            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors"
+            title="Switch site"
+          >
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 shrink-0">Site</span>
+            <span className="truncate flex-1 text-left">{currentSiteLabel || 'Current site'}</span>
+            <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform shrink-0 ${siteSwitcherOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {siteSwitcherOpen && (
+            <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 z-[60] animate-in fade-in slide-in-from-top-2">
+              <div className="max-h-72 overflow-y-auto p-2 space-y-1">
+                {userSites.length > 0 ? (
+                  <>
+                    <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Your Sites</div>
+                    {userSites.map(s => {
+                      const isActive = currentSiteId === s.id;
+                      const label = s.siteSlug || `Site ${s.id.slice(0, 8)}`;
+                      return (
+                        <div
+                          key={s.id}
+                          className={`w-full text-left px-2 py-1.5 rounded-md transition-colors text-xs flex items-center justify-between gap-1.5 ${
+                            isActive ? 'bg-red-50 text-red-900 font-bold' : 'text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          <button
+                            onClick={() => { setSiteSwitcherOpen(false); onMobileClose(); onNavigateSite(s.id); }}
+                            className="flex items-center gap-1.5 flex-1 min-w-0 text-left"
+                          >
+                            <span
+                              className={`shrink-0 w-1.5 h-1.5 rounded-full ${s.isPublished ? 'bg-green-500' : 'bg-slate-300'}`}
+                              title={s.isPublished ? 'Live' : 'Draft'}
+                            />
+                            <span className="truncate">{label}</span>
+                          </button>
+                          {s.isPublished && !isActive && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!confirm('Unpublish this site? It will go offline.')) return;
+                                onUnpublishSite(s.id);
+                              }}
+                              title="Unpublish"
+                              className="p-0.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            >
+                              <EyeOff className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <div className="h-px bg-slate-100 my-1 mx-1" />
+                  </>
+                ) : (
+                  <div className="px-2 py-3 text-xs text-slate-500 text-center">No other sites</div>
+                )}
+                <button
+                  onClick={() => { setSiteSwitcherOpen(false); onMobileClose(); onCreateNewSite(); }}
+                  className="w-full text-left px-2 py-1.5 rounded-md text-xs flex items-center gap-1.5 text-red-600 hover:bg-red-50 font-bold"
+                >
+                  <Plus className="w-3 h-3" />
+                  Create New Site
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  function renderTabsAndBottom(showLabels: boolean) {
+    return (
+      <>
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-2 space-y-0.5">
           {tabs.map(tab => {
             const Icon = tab.icon;
@@ -245,7 +365,6 @@ export default function AdminSidebar({
           })}
         </nav>
 
-        {/* ── Bottom: toggle + help ── */}
         <div className="flex-none border-t border-slate-100 p-2 space-y-0.5">
           <button
             onClick={() => { onToggleShowAllFeatures(); }}
@@ -272,6 +391,19 @@ export default function AdminSidebar({
             {showLabels && <span className="truncate text-left">Help</span>}
           </button>
         </div>
+      </>
+    );
+  }
+
+  function renderBody(showLabels: boolean, isMobile: boolean) {
+    return (
+      <div className="h-full flex flex-col">
+        {renderHeader(showLabels, isMobile)}
+        {/* Profile expanded panel — slides in below the header when toggled (or always on mobile). */}
+        {showLabels && (profileOpen || isMobile) && renderProfilePanel(isMobile)}
+        {/* Site switcher — only visible when expanded */}
+        {showLabels && renderSiteSwitcher()}
+        {renderTabsAndBottom(showLabels)}
       </div>
     );
   }
@@ -279,10 +411,7 @@ export default function AdminSidebar({
   return (
     <>
       {/* ─────────────────────────────────────────────────────────────
-          DESKTOP: thin icon rail, expands as overlay on hover.
-          The aside grows from 56→240px on hover. Because the main
-          content has a fixed md:pl-14 (56px) gutter, the expanded
-          width overlays content rather than reflowing it.
+          DESKTOP: thin icon rail, expands to overlay on hover.
          ───────────────────────────────────────────────────────────── */}
       <aside
         ref={railRef}
@@ -291,20 +420,10 @@ export default function AdminSidebar({
         className={`hidden md:flex flex-col fixed left-0 top-0 bottom-0 z-40 bg-white border-r border-slate-200 transition-[width,box-shadow] duration-200 ease-out ${
           expanded ? 'shadow-2xl' : ''
         }`}
-        style={{ width: expanded ? 240 : RAIL_WIDTH_PX }}
+        style={{ width: expanded ? EXPANDED_WIDTH_PX : RAIL_WIDTH_PX }}
         aria-label="Admin navigation"
       >
-        {/* Logo strip */}
-        <div className="h-12 flex items-center justify-center border-b border-slate-200 shrink-0">
-          <Link href="/" aria-label="Keystone home">
-            <KeystoneLogo href={undefined} size="md" showText={false} />
-          </Link>
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 min-h-0">
-          {renderBody(expanded, false)}
-        </div>
+        {renderBody(expanded, false)}
       </aside>
 
       {/* ─────────────────────────────────────────────────────────────
@@ -327,20 +446,7 @@ export default function AdminSidebar({
             mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
-          <div className="h-12 flex items-center px-3 border-b border-slate-200 shrink-0">
-            <Link
-              href="/"
-              onClick={onMobileClose}
-              className="flex items-center gap-2"
-              aria-label="Keystone home"
-            >
-              <KeystoneLogo href={undefined} size="md" showText={false} />
-              <span className="text-sm font-black text-slate-900">Keystone</span>
-            </Link>
-          </div>
-          <div className="flex-1 min-h-0">
-            {renderBody(true, true)}
-          </div>
+          {renderBody(true, true)}
         </aside>
       </div>
     </>
