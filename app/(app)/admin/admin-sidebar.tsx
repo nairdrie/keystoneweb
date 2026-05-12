@@ -44,7 +44,7 @@ interface AdminSidebarProps {
 }
 
 const RAIL_WIDTH_PX = 56;
-const EXPANDED_WIDTH_PX = 240;
+const EXPANDED_WIDTH_PX = 280;
 
 export default function AdminSidebar({
   tabs,
