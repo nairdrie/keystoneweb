@@ -118,11 +118,6 @@ export default function EstimateQuoteSettingsPanel({
         onDraftBlockDataChange(buildPreviewBlockData(blockData || {}, draft));
     }, [blockData, draft, onDraftBlockDataChange]);
 
-    const hasUnsavedChanges = useMemo(
-        () => JSON.stringify(draft) !== JSON.stringify(initialDraft),
-        [draft, initialDraft],
-    );
-
     const updateSettings = (updates: Partial<EstimateQuoteSettings>) => {
         setDraft((current) => ({ ...current, settings: { ...current.settings, ...updates } }));
     };
@@ -186,17 +181,12 @@ export default function EstimateQuoteSettingsPanel({
         setTestValues({});
     };
 
-    const handleSave = () => {
+    useEffect(() => {
+        if (!context?.updateBlockDataBatch) return;
+        if (JSON.stringify(draft) === JSON.stringify(initialDraft)) return;
         const updates = buildSaveUpdates(blockData || {}, draft);
-        context?.updateBlockDataBatch?.(blockId, updates);
-        onClose();
-    };
-
-    const handleReset = () => {
-        setDraft(initialDraft);
-        setTestValues({});
-        sectionState.reset();
-    };
+        context.updateBlockDataBatch(blockId, updates);
+    }, [draft, initialDraft, blockData, blockId, context]);
 
     return (
         <BlockSettingsPanel
@@ -205,10 +195,7 @@ export default function EstimateQuoteSettingsPanel({
             subtitle="Build a guided quote form with optional pricing rules and a live preview."
             blockId={blockId}
             blockType={blockType}
-            hasUnsavedChanges={hasUnsavedChanges}
             onClose={onClose}
-            onSave={handleSave}
-            onReset={handleReset}
             allCollapsed={sectionState.allCollapsed}
             onToggleAllCollapsed={() => sectionState.setAll(!sectionState.allCollapsed)}
             tourId="estimate-quote-settings-panel"

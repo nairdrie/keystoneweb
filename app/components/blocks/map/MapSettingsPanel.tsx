@@ -113,11 +113,6 @@ export default function MapSettingsPanel({
         return () => window.removeEventListener(MAP_DRAFT_UPDATE_EVENT, handleCanvasDraftUpdate);
     }, [blockId]);
 
-    const hasUnsavedChanges = useMemo(
-        () => JSON.stringify(draft) !== JSON.stringify(initialDraft),
-        [draft, initialDraft],
-    );
-
     const updateSectionSettings = (sectionSettings: SectionSettings) => {
         updateDraft({ sectionSettings });
     };
@@ -146,11 +141,9 @@ export default function MapSettingsPanel({
         updateDraft({ locations, address: locations[0]?.address || '' });
     };
 
-    const handleSave = () => {
-        if (!hasUnsavedChanges) {
-            onClose();
-            return;
-        }
+    useEffect(() => {
+        if (!context?.updateBlockDataBatch) return;
+        if (JSON.stringify(draft) === JSON.stringify(initialDraft)) return;
         const updates = serializeMapDraft(draft);
         if (areSectionSettingsEqual(draft.sectionSettings, initialDraft.sectionSettings)) {
             delete updates.sectionSettings;
@@ -161,16 +154,10 @@ export default function MapSettingsPanel({
         if (draft.__customScript === initialDraft.__customScript) {
             delete updates.__customScript;
         }
-        if (Object.keys(updates).length > 0 && context?.updateBlockDataBatch) {
+        if (Object.keys(updates).length > 0) {
             context.updateBlockDataBatch(blockId, updates);
         }
-        onClose();
-    };
-
-    const handleReset = () => {
-        setDraft(initialDraft);
-        sectionState.reset();
-    };
+    }, [draft, initialDraft, blockId, context]);
 
     return (
         <BlockSettingsPanel
@@ -179,10 +166,7 @@ export default function MapSettingsPanel({
             subtitle="Configure map provider, locations, visitor controls, and custom CSS."
             blockId={blockId}
             blockType={blockType}
-            hasUnsavedChanges={hasUnsavedChanges}
             onClose={onClose}
-            onSave={handleSave}
-            onReset={handleReset}
             allCollapsed={sectionState.allCollapsed}
             onToggleAllCollapsed={() => sectionState.setAll(!sectionState.allCollapsed)}
             tourId="map-settings-panel"

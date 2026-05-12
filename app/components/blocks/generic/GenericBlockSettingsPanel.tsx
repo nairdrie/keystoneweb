@@ -621,11 +621,6 @@ export default function GenericBlockSettingsPanel({
         return () => window.removeEventListener(REPEATABLE_ITEMS_DRAFT_UPDATE_EVENT, handleCanvasDraftUpdate);
     }, [blockId, hasAboutItemsControl]);
 
-    const hasUnsavedChanges = useMemo(
-        () => !areRecordsEqual(draft, initialDraft) || !areSectionSettingsEqual(sectionSettings, persistedSectionSettings),
-        [draft, initialDraft, sectionSettings, persistedSectionSettings],
-    );
-
     const updateDraft = (key: string, value: SettingValue) => {
         setDraft((current) => ({ ...current, [key]: value }));
     };
@@ -645,7 +640,8 @@ export default function GenericBlockSettingsPanel({
         }));
     };
 
-    const handleSave = () => {
+    useEffect(() => {
+        if (!context?.updateBlockDataBatch) return;
         const updates: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(draft)) {
             if (!areValuesEqual(value, initialDraft[key])) updates[key] = value;
@@ -653,17 +649,10 @@ export default function GenericBlockSettingsPanel({
         if (!areSectionSettingsEqual(sectionSettings, persistedSectionSettings)) {
             updates.sectionSettings = normalizeSectionSettings(sectionSettings);
         }
-        if (Object.keys(updates).length > 0 && context?.updateBlockDataBatch) {
+        if (Object.keys(updates).length > 0) {
             context.updateBlockDataBatch(blockId, updates);
         }
-        onClose();
-    };
-
-    const handleReset = () => {
-        setDraft(initialDraft);
-        setSectionSettings(persistedSectionSettings);
-        sectionState.reset();
-    };
+    }, [draft, sectionSettings, initialDraft, persistedSectionSettings, blockId, context]);
 
     const title = getBlockSettingsTitle(blockType);
     const subtitle = BLOCK_SUBTITLES[blockType] || 'Adjust this block and preview changes before saving.';
@@ -675,10 +664,7 @@ export default function GenericBlockSettingsPanel({
             subtitle={subtitle}
             blockId={blockId}
             blockType={blockType}
-            hasUnsavedChanges={hasUnsavedChanges}
             onClose={onClose}
-            onSave={handleSave}
-            onReset={handleReset}
             allCollapsed={sectionState.allCollapsed}
             onToggleAllCollapsed={() => sectionState.setAll(!sectionState.allCollapsed)}
             tourId="generic-block-settings-panel"
@@ -1278,14 +1264,6 @@ function shouldShowControl(control: DisplayControl, draft: DraftSettings): boole
 function shouldShowColumnLayoutControl(blockType: string, draft: DraftSettings): boolean {
     if (blockType === 'logoCloud') {
         return String(draft.variant || 'inline') === 'grid';
-    }
-    return true;
-}
-
-function areRecordsEqual(a: DraftSettings, b: DraftSettings): boolean {
-    const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
-    for (const key of keys) {
-        if (!areValuesEqual(a[key], b[key])) return false;
     }
     return true;
 }

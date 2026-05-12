@@ -465,45 +465,7 @@ export default function RepeatableItemsSettingsPanel({
             __customCss: localCss,
             __customScript: localScript,
         });
-    }, [blockData, items, variant, separator, supportsSeparator, displaySettings, pretext, supportsPretext, backgroundColor, foregroundColor, sectionSettings, localCss, config.variants, hasTestimonialDisplayControls, onDraftBlockDataChange]);
-
-    const hasUnsavedChanges = useMemo(() => (
-        JSON.stringify(items) !== JSON.stringify(persistedItems) ||
-        (config.variants ? variant !== persistedVariant : false) ||
-        (supportsSeparator ? separator !== persistedSeparator : false) ||
-        (hasTestimonialDisplayControls ? JSON.stringify(displaySettings) !== JSON.stringify(persistedDisplaySettings) : false) ||
-        backgroundColor !== persistedBackgroundColor ||
-        foregroundColor !== persistedForegroundColor ||
-        !areSectionSettingsEqual(sectionSettings, persistedSectionSettings) ||
-        localCss !== customCss ||
-        localScript !== persistedScript ||
-        (supportsPretext && JSON.stringify(pretext) !== JSON.stringify(persistedPretext))
-    ), [
-        items,
-        persistedItems,
-        config.variants,
-        variant,
-        persistedVariant,
-        supportsSeparator,
-        separator,
-        persistedSeparator,
-        hasTestimonialDisplayControls,
-        displaySettings,
-        persistedDisplaySettings,
-        backgroundColor,
-        persistedBackgroundColor,
-        foregroundColor,
-        persistedForegroundColor,
-        sectionSettings,
-        persistedSectionSettings,
-        localCss,
-        customCss,
-        localScript,
-        persistedScript,
-        supportsPretext,
-        pretext,
-        persistedPretext,
-    ]);
+    }, [blockData, items, variant, separator, supportsSeparator, displaySettings, pretext, supportsPretext, backgroundColor, foregroundColor, sectionSettings, localCss, localScript, config.variants, hasTestimonialDisplayControls, onDraftBlockDataChange]);
 
     const backgroundFallback = getRepeatableBackgroundFallback(managedType, variant, config.backgroundFallback);
     const bgInputValue = getColorInputValue(backgroundColor, palette, backgroundFallback);
@@ -518,12 +480,8 @@ export default function RepeatableItemsSettingsPanel({
         }));
     };
 
-    const handleSave = () => {
-        if (!hasUnsavedChanges) {
-            onClose();
-            return;
-        }
-
+    useEffect(() => {
+        if (!context?.updateBlockDataBatch) return;
         const updates: Record<string, unknown> = {};
         const hasItemChanges = JSON.stringify(items) !== JSON.stringify(persistedItems);
         let lastCommittedItems = persistedItems;
@@ -534,7 +492,6 @@ export default function RepeatableItemsSettingsPanel({
                 context.updateBlockData(blockId, 'items', snapshot);
                 lastCommittedItems = snapshot;
             }
-
             if (JSON.stringify(items) !== JSON.stringify(lastCommittedItems)) {
                 updates.items = items;
             }
@@ -559,28 +516,38 @@ export default function RepeatableItemsSettingsPanel({
                 if (pretext[key] !== persistedPretext[key]) updates[key] = pretext[key];
             }
         }
-        if (Object.keys(updates).length > 0 && context?.updateBlockDataBatch) {
+        if (Object.keys(updates).length > 0) {
             context.updateBlockDataBatch(blockId, updates);
         }
         structuralItemSnapshotsRef.current = [];
-        onClose();
-    };
-
-    const handleReset = () => {
-        structuralItemSnapshotsRef.current = [];
-        setItems(persistedItems);
-        setVariant(persistedVariant);
-        setSeparator(persistedSeparator);
-        setDisplaySettings(persistedDisplaySettings);
-        setBackgroundColor(persistedBackgroundColor);
-        setForegroundColor(persistedForegroundColor);
-        setSectionSettings(persistedSectionSettings);
-        setLocalCss(customCss);
-        setLocalScript(persistedScript);
-        setPretext(persistedPretext);
-        setExpandedRows(new Set());
-        sectionState.reset();
-    };
+    }, [
+        items,
+        persistedItems,
+        variant,
+        persistedVariant,
+        separator,
+        persistedSeparator,
+        displaySettings,
+        persistedDisplaySettings,
+        backgroundColor,
+        persistedBackgroundColor,
+        foregroundColor,
+        persistedForegroundColor,
+        sectionSettings,
+        persistedSectionSettings,
+        localCss,
+        customCss,
+        localScript,
+        persistedScript,
+        pretext,
+        persistedPretext,
+        supportsPretext,
+        supportsSeparator,
+        hasTestimonialDisplayControls,
+        config.variants,
+        blockId,
+        context,
+    ]);
 
     const toggleRow = (index: number) => {
         setExpandedRows((current) => {
@@ -628,10 +595,7 @@ export default function RepeatableItemsSettingsPanel({
             subtitle={config.subtitle}
             blockId={blockId}
             blockType={config.blockType}
-            hasUnsavedChanges={hasUnsavedChanges}
             onClose={onClose}
-            onSave={handleSave}
-            onReset={handleReset}
             allCollapsed={sectionState.allCollapsed}
             onToggleAllCollapsed={() => sectionState.setAll(!sectionState.allCollapsed)}
             tourId={`${config.blockType}-settings-panel`}

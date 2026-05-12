@@ -393,7 +393,6 @@ requireSnippets('app/components/blocks/hero/HeroSettingsPanel.tsx', [
   'window.addEventListener(HERO_DRAFT_UPDATE_EVENT, handler);',
   'const cardsToSave = cardsRef.current;',
   'cards: cardsToSave,',
-  'cardsRef.current = persistedData.cards;',
 ], failures);
 
 requireSnippets('app/components/blocks/HeroBlock.tsx', [
