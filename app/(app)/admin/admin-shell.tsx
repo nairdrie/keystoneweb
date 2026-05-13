@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
 import Link from 'next/link';
-import { ExternalLink, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, BookOpen, UtensilsCrossed, FileImage, Users, Minimize2, Paintbrush } from 'lucide-react';
+import { ExternalLink, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, BookOpen, UtensilsCrossed, FileImage, Users, Minimize2, Paintbrush, ChevronDown, EyeOff, Plus } from 'lucide-react';
 import AlertModal from '@/app/components/ui/AlertModal';
 import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 import WalkthroughModal, { WalkthroughStep } from '@/app/components/WalkthroughModal';
@@ -73,6 +73,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [goingLive, setGoingLive] = useState(false);
   const [focusMode, setFocusModeState] = useState(false);
   const [hasUnpublishedChanges, setHasUnpublishedChanges] = useState(false);
+  const [showSiteSwitcher, setShowSiteSwitcher] = useState(false);
 
   const FOCUS_MODE_KEY = 'ks_admin_focus_mode';
 
@@ -392,11 +393,6 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             onMobileClose={() => setShowMobileMenu(false)}
             onNavigate={navigateTab}
             currentSiteId={siteId}
-            currentSiteLabel={siteTitle}
-            userSites={userSites}
-            onNavigateSite={navigateSite}
-            onUnpublishSite={unpublishSite}
-            onCreateNewSite={() => router.push('/onboarding')}
           />
         )}
 
@@ -446,12 +442,78 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         {/* ── Hero / Site Header ── */}
         <div className={`${focusMode ? 'hidden' : 'block'} flex-none bg-white border-b border-slate-200 px-4 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-4`}>
           <div className="flex items-center justify-between gap-3 sm:gap-4">
-            {/* Site title — kept big, no rename / help */}
+            {/* Site title — big, no rename / help. Switch-site lives just below it. */}
             <div className="min-w-0">
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight truncate">
                 {siteTitle || 'Untitled Site'}
                 <span className="text-slate-400 font-light hidden sm:inline"> Dashboard</span>
               </h1>
+              <div className="relative mt-0.5">
+                <button
+                  onClick={() => setShowSiteSwitcher(v => !v)}
+                  className="text-[11px] text-slate-400 hover:text-slate-700 flex items-center gap-1 transition-colors"
+                >
+                  Switch site
+                  <ChevronDown className={`w-3 h-3 transition-transform ${showSiteSwitcher ? 'rotate-180' : ''}`} />
+                </button>
+                {showSiteSwitcher && (
+                  <div className="absolute left-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 z-[60] animate-in fade-in slide-in-from-top-2 w-64">
+                    <div className="max-h-64 overflow-y-auto p-2 space-y-1">
+                      {userSites.length > 0 ? (
+                        <>
+                          <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Your Sites</div>
+                          {userSites.map(s => {
+                            const isActive = siteId === s.id;
+                            const label = s.siteSlug || `Site ${s.id.slice(0, 8)}`;
+                            return (
+                              <div
+                                key={s.id}
+                                className={`w-full text-left px-3 py-2 rounded-lg transition-colors text-xs flex items-center justify-between gap-2 ${
+                                  isActive ? 'bg-red-50 text-red-900 font-bold' : 'text-slate-700 hover:bg-slate-100'
+                                }`}
+                              >
+                                <button
+                                  onClick={() => { setShowSiteSwitcher(false); navigateSite(s.id); }}
+                                  className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                                >
+                                  <span
+                                    className={`shrink-0 w-1.5 h-1.5 rounded-full ${s.isPublished ? 'bg-green-500' : 'bg-slate-300'}`}
+                                    title={s.isPublished ? 'Live' : 'Draft'}
+                                  />
+                                  <span className="truncate">{label}</span>
+                                </button>
+                                {s.isPublished && !isActive && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!confirm('Unpublish this site? It will go offline.')) return;
+                                      unpublishSite(s.id);
+                                    }}
+                                    title="Unpublish"
+                                    className="p-0.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                  >
+                                    <EyeOff className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                          <div className="h-px bg-slate-100 my-1 mx-1" />
+                        </>
+                      ) : (
+                        <div className="px-3 py-3 text-xs text-slate-500 text-center">No other sites</div>
+                      )}
+                      <button
+                        onClick={() => { setShowSiteSwitcher(false); router.push('/onboarding'); }}
+                        className="w-full text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 text-red-600 hover:bg-red-50 font-bold"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Create New Site
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Right side: live status indicator + primary action */}
