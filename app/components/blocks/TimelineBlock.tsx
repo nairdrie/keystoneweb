@@ -84,7 +84,7 @@ function normalizeItems(value: unknown): TimelineItem[] {
 export default function TimelineBlock({ data, isEditMode, palette, updateContent }: TimelineBlockProps) {
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
-    const lineColor = palette.accent || '#cbd5e1';
+    const lineColor = pSecondary;
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
     const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
     const fgColor = fgOverride || pPrimary;
