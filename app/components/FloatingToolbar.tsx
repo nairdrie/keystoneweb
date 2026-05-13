@@ -192,7 +192,7 @@ export default function FloatingToolbar({
   onPageSeoUpdate,
 }: FloatingToolbarProps) {
   const router = useRouter();
-  const { signOut, user } = useAuth();
+  const { user } = useAuth();
   const isLargeScreen = useIsLargeScreen();
   const freeAiPromptsLeft = aiRemaining?.total;
   const freeAiBadgeLabel = getFreeAiBadgeLabel(aiRemaining);
@@ -507,11 +507,6 @@ export default function FloatingToolbar({
 
     fetchSites();
   }, [isOpen, user]);
-
-  const handleLogout = async () => {
-    await signOut();
-    router.push('/settings');
-  };
 
   const handleSave = () => {
     if (!user) {
@@ -1794,9 +1789,6 @@ export default function FloatingToolbar({
           )}
         </div>
 
-        {user && (
-          <button onClick={handleLogout} className="w-full py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-lg transition-colors">Log Out</button>
-        )}
       </div>
 
       <FontPickerModal
