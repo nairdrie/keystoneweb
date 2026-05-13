@@ -1821,7 +1821,7 @@ export default function FloatingToolbar({
           {/* Sidebar Panel */}
           <div
             ref={drawerRef}
-            className={`fixed top-[var(--impersonation-height,0px)] left-0 bottom-0 z-[9999] bg-white shadow-2xl border-r border-slate-200 overflow-y-auto transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+            className={`fixed top-[var(--impersonation-height,0px)] left-0 bottom-0 z-[9999] bg-white shadow-2xl border-r border-slate-200 flex flex-col transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
             style={{ width: '22rem' }}
           >
             {/* Sidebar Header */}
@@ -1912,7 +1912,9 @@ export default function FloatingToolbar({
             </div>
 
             {/* Sidebar Body */}
-            {panelContent}
+            <div className="flex-1 min-h-0">
+              {panelContent}
+            </div>
           </div>
         </>
       )}
