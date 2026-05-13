@@ -581,6 +581,7 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
 
                 {showBulkEdit && selectedIds.size > 0 && (
                     <BulkEditModal
+                        siteId={siteId}
                         selectedProducts={products.filter(p => selectedIds.has(p.id))}
                         vendors={vendors}
                         onClose={() => setShowBulkEdit(false)}
@@ -606,17 +607,20 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
 // ─── Bulk Edit Modal ────────────────────────────────────────────────────────────
 
 function BulkEditModal({
+    siteId,
     selectedProducts,
     vendors,
     onClose,
     onSaved,
 }: {
+    siteId: string;
     selectedProducts: Product[];
     vendors: Array<{ id: string; name: string; payment_mode: string; is_default: boolean }>;
     onClose: () => void;
     onSaved: () => void;
 }) {
     const count = selectedProducts.length;
+    const packages = useMembershipPackages(siteId);
 
     const [dirtyFields, setDirtyFields] = useState<Set<string>>(new Set());
     const markDirty = (field: string) =>
@@ -635,6 +639,8 @@ function BulkEditModal({
     const categoryInfo = allSame(p => p.category ?? '');
     const tagsInfo = allSame(p => (p.tags ?? []).join(', '));
     const brandInfo = allSame(p => p.brand ?? '');
+    const allowedPackagesInfo = allSame(p => (p.allowed_package_ids ?? []).slice().sort().join(','));
+    const gateEnabledInfo = allSame(p => (p.allowed_package_ids ?? []).length > 0);
 
     const [status, setStatus] = useState(statusInfo.same ? statusInfo.value : '');
     const [isActive, setIsActive] = useState(isActiveInfo.same ? isActiveInfo.value : true);
@@ -644,12 +650,24 @@ function BulkEditModal({
     const [tags, setTags] = useState(tagsInfo.same ? tagsInfo.value : '');
     const [brand, setBrand] = useState(brandInfo.same ? brandInfo.value : '');
 
+    // Membership pricing — one input per package. Accepts "12.50" (absolute $) or "20%" (% off public).
+    // Blank means "leave unchanged". The "clear all member prices" toggle replaces tier_prices with [].
+    const [tierInputs, setTierInputs] = useState<Record<string, string>>({});
+    const [clearTiers, setClearTiers] = useState(false);
+    const [gateEnabled, setGateEnabled] = useState<boolean>(gateEnabledInfo.same ? gateEnabledInfo.value : false);
+    const [allowedPackageIds, setAllowedPackageIds] = useState<string[]>(
+        allowedPackagesInfo.same && selectedProducts[0]?.allowed_package_ids
+            ? selectedProducts[0].allowed_package_ids
+            : []
+    );
+
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const fieldLabels: Record<string, string> = {
         status: 'Status', is_active: 'Active', is_featured: 'Featured',
         vendor_id: 'Vendor', category: 'Category', tags: 'Tags', brand: 'Brand',
+        member_pricing: 'Member pricing', member_access: 'Member-only access',
     };
 
     const handleSave = async () => {
@@ -665,6 +683,47 @@ function BulkEditModal({
         if (dirtyFields.has('category')) payload.category = category.trim() || null;
         if (dirtyFields.has('tags')) payload.tags = tags.split(',').map(t => t.trim()).filter(Boolean);
         if (dirtyFields.has('brand')) payload.brand = brand.trim() || null;
+
+        if (dirtyFields.has('member_pricing')) {
+            if (clearTiers) {
+                payload.member_pricing = { clear: true };
+            } else {
+                const tiers: Array<{ packageId: string; absoluteCents?: number; percentOff?: number }> = [];
+                for (const [packageId, raw] of Object.entries(tierInputs) as Array<[string, string]>) {
+                    const trimmed = (raw || '').trim();
+                    if (!trimmed) continue;
+                    const pctMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*%\s*(?:off)?$/i);
+                    if (pctMatch) {
+                        const pct = parseFloat(pctMatch[1]);
+                        if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+                            setError(`Invalid percent for ${packages.find(p => p.id === packageId)?.name || packageId}: must be 0–100%`);
+                            setSaving(false);
+                            return;
+                        }
+                        tiers.push({ packageId, percentOff: pct });
+                    } else {
+                        const dollarMatch = trimmed.replace(/[$,]/g, '');
+                        const num = parseFloat(dollarMatch);
+                        if (!Number.isFinite(num) || num < 0) {
+                            setError(`Invalid price for ${packages.find(p => p.id === packageId)?.name || packageId}`);
+                            setSaving(false);
+                            return;
+                        }
+                        tiers.push({ packageId, absoluteCents: Math.round(num * 100) });
+                    }
+                }
+                if (tiers.length === 0) {
+                    setError('Enter at least one member price, or toggle "clear all member prices".');
+                    setSaving(false);
+                    return;
+                }
+                payload.member_pricing = { tiers };
+            }
+        }
+
+        if (dirtyFields.has('member_access')) {
+            payload.allowed_package_ids = gateEnabled ? allowedPackageIds : [];
+        }
 
         const res = await fetch('/api/products', {
             method: 'PUT',
@@ -799,6 +858,76 @@ function BulkEditModal({
                             className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     </div>
+
+                    {packages.length > 0 && (
+                        <div className="pt-3 border-t border-slate-100 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <Crown className="w-4 h-4 text-emerald-600" />
+                                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">Member pricing</h4>
+                            </div>
+                            <p className="text-[11px] text-slate-500">
+                                Enter a dollar amount (e.g. <code className="px-1 bg-slate-100 rounded">12.50</code>) or a percent off the public price (e.g. <code className="px-1 bg-slate-100 rounded">20%</code>). Leave blank to keep each product's current price. Prices are clamped to ≤ public price per product.
+                            </p>
+                            <div className="space-y-2">
+                                {packages.map(pkg => (
+                                    <div key={pkg.id} className="flex items-center gap-2">
+                                        <label className="flex-1 text-xs font-medium text-slate-700 truncate">{pkg.name}</label>
+                                        <input
+                                            type="text"
+                                            disabled={clearTiers}
+                                            value={tierInputs[pkg.id] ?? ''}
+                                            placeholder="12.50 or 20%"
+                                            onChange={e => {
+                                                setTierInputs(t => ({ ...t, [pkg.id]: e.target.value }));
+                                                markDirty('member_pricing');
+                                            }}
+                                            className="w-32 px-2 py-1.5 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:bg-slate-100 disabled:text-slate-400"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                            <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={clearTiers}
+                                    onChange={e => { setClearTiers(e.target.checked); markDirty('member_pricing'); }}
+                                />
+                                Clear all member prices on selected products
+                            </label>
+
+                            <div className="pt-2 flex items-center justify-between">
+                                <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                                    <Lock className="w-3.5 h-3.5 text-slate-500" /> Restrict purchase to members
+                                </label>
+                                {renderToggle(gateEnabled, gateEnabledInfo, 'member_access', setGateEnabled, 'bg-emerald-600')}
+                            </div>
+                            {gateEnabled && (
+                                <div className="space-y-1.5 pl-1">
+                                    {packages.map(pkg => {
+                                        const checked = allowedPackageIds.includes(pkg.id);
+                                        return (
+                                            <label key={pkg.id} className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    onChange={e => {
+                                                        setAllowedPackageIds(prev => e.target.checked
+                                                            ? [...prev, pkg.id]
+                                                            : prev.filter(id => id !== pkg.id));
+                                                        markDirty('member_access');
+                                                    }}
+                                                />
+                                                {pkg.name}
+                                            </label>
+                                        );
+                                    })}
+                                    {allowedPackageIds.length === 0 && (
+                                        <p className="text-[11px] text-amber-600">Pick at least one package, or turn off the restriction to allow everyone.</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     {error && <p className="text-xs text-red-600">{error}</p>}
                 </div>

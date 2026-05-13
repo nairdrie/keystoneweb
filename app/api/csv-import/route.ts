@@ -52,6 +52,8 @@ interface ColumnMapping {
     variants: string | null;
     inventory_count: string | null;
     tags: string | null;
+    member_prices: string | null;
+    allowed_packages: string | null;
 }
 
 // ─── AI Column Mapping ────────────────────────────────────────────────────────
@@ -88,7 +90,9 @@ async function mapColumnsWithAI(
 - status: Publication status ("draft" or "published")
 - variants: Product variants (e.g. "Size:S,M,L | Color:Red,Blue")
 - category: Product category name (e.g. "Skin Care", "Clothing")
-- tags: Comma-separated tags (e.g. "gift set, retinol, holiday")`;
+- tags: Comma-separated tags (e.g. "gift set, retinol, holiday")
+- member_prices: Per-membership-package prices in dollars (e.g. "Gold:28.00 | Silver:32.00")
+- allowed_packages: Pipe-separated package names restricting who can purchase (e.g. "Gold | Platinum"); blank means anyone`;
 
     const sampleText = sampleRows.slice(0, 3).map((row, i) =>
         `Row ${i + 1}: ${JSON.stringify(Object.fromEntries(headers.map((h, j) => [h, row[j] ?? ''])))}`
@@ -96,7 +100,7 @@ async function mapColumnsWithAI(
 
     const exampleFormat = importType === 'services'
         ? `{"name": "Service Name", "description": "Desc", "price": "Price", "compare_at_price": null, "currency": null, "status": null, "duration_minutes": null, "is_featured": null, "options": null, "options_required": null, "category": null, "variants": null, "inventory_count": null}`
-        : `{"name": "Product Name", "description": "Desc", "price": "Price", "compare_at_price": null, "currency": null, "status": null, "duration_minutes": null, "is_featured": null, "options": null, "options_required": null, "category": null, "variants": null, "inventory_count": null, "tags": null}`;
+        : `{"name": "Product Name", "description": "Desc", "price": "Price", "compare_at_price": null, "currency": null, "status": null, "duration_minutes": null, "is_featured": null, "options": null, "options_required": null, "category": null, "variants": null, "inventory_count": null, "tags": null, "member_prices": null, "allowed_packages": null}`;
 
     const prompt = `You are mapping CSV columns for a data import. The user is importing ${importType}.
 
@@ -158,6 +162,8 @@ Example: ${exampleFormat}`;
             variants:         pick(parsed.variants,         fallback.variants),
             inventory_count:  pick(parsed.inventory_count,  fallback.inventory_count),
             tags:             pick(parsed.tags,             fallback.tags),
+            member_prices:    pick(parsed.member_prices,    fallback.member_prices),
+            allowed_packages: pick(parsed.allowed_packages, fallback.allowed_packages),
         };
     } catch (err) {
         console.error('AI column mapping error, using fuzzy fallback:', err);
@@ -196,7 +202,36 @@ function fuzzyMapColumns(headers: string[], importType: ImportType): ColumnMappi
         variants:         importType === 'products' ? find('variants', 'options', 'variations') : null,
         inventory_count:  importType === 'products' ? find('inventory', 'stock', 'quantity', 'qty', 'inventory_count', 'count') : null,
         tags:             importType === 'products' ? find('tags', 'tag', 'keywords', 'labels') : null,
+        member_prices:    importType === 'products' ? find('member_prices', 'member prices', 'tier_prices', 'tier prices', 'membership_prices', 'membership prices') : null,
+        allowed_packages: importType === 'products' ? find('allowed_packages', 'allowed packages', 'restricted_to', 'members_only', 'gated_packages') : null,
     };
+}
+
+/**
+ * Parse "Gold:28.00 | Silver:32.00" into raw entries (still keyed by package name).
+ * Caller is responsible for mapping names → package IDs and clamping to public price.
+ */
+function parseMemberPrices(val: string | undefined): Array<{ name: string; priceCents: number }> {
+    if (!val || val.trim() === '') return [];
+    const parts = val.split(/\s*\|\s*/);
+    const out: Array<{ name: string; priceCents: number }> = [];
+    for (const part of parts) {
+        if (!part.trim()) continue;
+        const colon = part.lastIndexOf(':');
+        if (colon === -1) continue;
+        const name = part.slice(0, colon).trim();
+        const priceStr = part.slice(colon + 1).trim();
+        const cents = parsePriceCents(priceStr);
+        if (name && cents !== null) {
+            out.push({ name, priceCents: cents });
+        }
+    }
+    return out;
+}
+
+function parseAllowedPackageNames(val: string | undefined): string[] {
+    if (!val || val.trim() === '') return [];
+    return val.split(/\s*\|\s*/).map(s => s.trim()).filter(Boolean);
 }
 
 // ─── Value Parsers ────────────────────────────────────────────────────────────
@@ -391,6 +426,18 @@ function serviceIsIdentical(existing: any, incoming: any): boolean {
 }
 
 function productIsIdentical(existing: any, incoming: any): boolean {
+    const normTier = (raw: unknown) => {
+        if (!Array.isArray(raw)) return '[]';
+        return JSON.stringify(
+            raw
+                .map((t: any) => ({ packageId: t?.packageId, priceCents: t?.priceCents }))
+                .sort((a: any, b: any) => String(a.packageId).localeCompare(String(b.packageId)))
+        );
+    };
+    const normAllowed = (raw: unknown) => {
+        if (!Array.isArray(raw)) return '[]';
+        return JSON.stringify([...raw].sort());
+    };
     return (
         existing.description === incoming.description &&
         existing.price_cents === incoming.price_cents &&
@@ -399,7 +446,9 @@ function productIsIdentical(existing: any, incoming: any): boolean {
         existing.status === incoming.status &&
         existing.inventory_count === incoming.inventory_count &&
         existing.is_featured === incoming.is_featured &&
-        JSON.stringify(existing.variants) === JSON.stringify(incoming.variants)
+        JSON.stringify(existing.variants) === JSON.stringify(incoming.variants) &&
+        normTier(existing.tier_prices) === normTier(incoming.tier_prices) &&
+        normAllowed(existing.allowed_package_ids) === normAllowed(incoming.allowed_package_ids)
     );
 }
 
@@ -517,6 +566,22 @@ export async function POST(req: NextRequest) {
         const varIdx         = colIdx(mapping.variants);
         const invIdx         = colIdx(mapping.inventory_count);
         const tagsIdx        = colIdx(mapping.tags);
+        const memberPriceIdx = colIdx(mapping.member_prices);
+        const allowedPkgIdx  = colIdx(mapping.allowed_packages);
+
+        // Load this site's membership packages once. Member-price / allowed-package
+        // names in the CSV are matched against this list (case-insensitive); unknown
+        // names are reported as per-row warnings rather than failing the whole import.
+        const pkgByNameLower = new Map<string, { id: string; name: string }>();
+        if (importType === 'products' && (memberPriceIdx >= 0 || allowedPkgIdx >= 0)) {
+            const { data: pkgs } = await supabase
+                .from('membership_packages')
+                .select('id, name')
+                .eq('site_id', siteId);
+            for (const pkg of (pkgs || [])) {
+                pkgByNameLower.set(pkg.name.toLowerCase(), { id: pkg.id, name: pkg.name });
+            }
+        }
 
         // ── Pre-load Existing Items (for duplicate detection) ────────────────
 
@@ -629,6 +694,29 @@ export async function POST(req: NextRequest) {
                         : [];
 
                     const isFeatured = featIdx >= 0 ? parseBool(row[featIdx]) : false;
+
+                    // Member prices: clamp each to <= public price; drop entries
+                    // whose package name doesn't match any known package on this site.
+                    const tierPrices: Array<{ packageId: string; priceCents: number }> = [];
+                    if (memberPriceIdx >= 0) {
+                        const parsedTiers = parseMemberPrices(row[memberPriceIdx]);
+                        for (const t of parsedTiers) {
+                            const pkg = pkgByNameLower.get(t.name.toLowerCase());
+                            if (!pkg) continue;
+                            tierPrices.push({
+                                packageId: pkg.id,
+                                priceCents: Math.max(0, Math.min(t.priceCents, priceCents)),
+                            });
+                        }
+                    }
+                    const allowedPackageIds: string[] = [];
+                    if (allowedPkgIdx >= 0) {
+                        for (const name of parseAllowedPackageNames(row[allowedPkgIdx])) {
+                            const pkg = pkgByNameLower.get(name.toLowerCase());
+                            if (pkg) allowedPackageIds.push(pkg.id);
+                        }
+                    }
+
                     const incoming = {
                         description,
                         price_cents: priceCents,
@@ -640,6 +728,8 @@ export async function POST(req: NextRequest) {
                         category: productCategory,
                         tags: productTags,
                         is_featured: isFeatured,
+                        tier_prices: tierPrices,
+                        allowed_package_ids: allowedPackageIds,
                     };
 
                     if (existingItem) {

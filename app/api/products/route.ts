@@ -410,22 +410,146 @@ export async function PUT(request: NextRequest) {
 
     // Bulk update path
     if (ids) {
-        const { data: firstProduct, error: firstError } = await supabase
+        // Load all selected rows in one shot — needed both for ownership verification
+        // and to compute per-row tier prices (which depend on each product's public price).
+        const { data: bulkRows, error: bulkRowsError } = await supabase
             .from('products')
-            .select('site_id')
-            .eq('id', ids[0])
-            .single();
-        if (firstError || !firstProduct) {
-            return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+            .select('id, site_id, price_cents, tier_prices')
+            .in('id', ids);
+        if (bulkRowsError || !bulkRows || bulkRows.length === 0) {
+            return NextResponse.json({ error: 'Products not found' }, { status: 404 });
         }
+        const siteIds = new Set(bulkRows.map(r => r.site_id));
+        if (siteIds.size !== 1) {
+            return NextResponse.json({ error: 'All products must belong to the same site' }, { status: 400 });
+        }
+        const bulkSiteId = bulkRows[0].site_id;
         const { data: siteOwner } = await supabase
             .from('sites')
             .select('user_id')
-            .eq('id', firstProduct.site_id)
+            .eq('id', bulkSiteId)
             .single();
         if (!siteOwner || siteOwner.user_id !== user.id) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
+
+        // Membership pricing bulk operation. Either { clear: true } or { tiers: [{ packageId, absoluteCents?, percentOff? }] }.
+        // We compute per-row tier_prices because the clamp-to-public-price invariant
+        // depends on each product's own price.
+        let perRowTierPrices: Map<string, Array<{ packageId: string; priceCents: number }>> | null = null;
+        if (fields.member_pricing !== undefined) {
+            const mp = fields.member_pricing;
+            if (!mp || typeof mp !== 'object') {
+                return NextResponse.json({ error: 'Invalid member_pricing' }, { status: 400 });
+            }
+            if (mp.clear === true) {
+                perRowTierPrices = new Map(bulkRows.map(r => [r.id, []]));
+            } else {
+                const tiers = mp.tiers;
+                if (!Array.isArray(tiers) || tiers.length === 0) {
+                    return NextResponse.json({ error: 'member_pricing.tiers must be a non-empty array' }, { status: 400 });
+                }
+                const referencedPackageIds = new Set<string>();
+                for (const t of tiers) {
+                    if (!t || typeof t !== 'object' || typeof t.packageId !== 'string' || !t.packageId) {
+                        return NextResponse.json({ error: 'Invalid member_pricing tier entry' }, { status: 400 });
+                    }
+                    const hasAbs = typeof t.absoluteCents === 'number' && Number.isFinite(t.absoluteCents) && t.absoluteCents >= 0;
+                    const hasPct = typeof t.percentOff === 'number' && Number.isFinite(t.percentOff) && t.percentOff >= 0 && t.percentOff <= 100;
+                    if (!hasAbs && !hasPct) {
+                        return NextResponse.json({ error: 'Each tier must specify absoluteCents (>=0) or percentOff (0–100)' }, { status: 400 });
+                    }
+                    referencedPackageIds.add(t.packageId);
+                }
+                // Validate all referenced packages belong to this site.
+                const admin = createAdminClient();
+                const { data: pkgs, error: pkgErr } = await admin
+                    .from('membership_packages')
+                    .select('id')
+                    .eq('site_id', bulkSiteId)
+                    .in('id', Array.from(referencedPackageIds));
+                if (pkgErr) {
+                    return NextResponse.json({ error: 'Failed to validate membership packages' }, { status: 500 });
+                }
+                const validIds = new Set((pkgs || []).map((p: any) => p.id));
+                for (const id of referencedPackageIds) {
+                    if (!validIds.has(id)) {
+                        return NextResponse.json({ error: `Package ${id} does not belong to this site` }, { status: 400 });
+                    }
+                }
+
+                perRowTierPrices = new Map();
+                for (const row of bulkRows) {
+                    const publicCents = Math.max(0, Math.round(row.price_cents ?? 0));
+                    // Start from existing entries for packages that aren't being overridden.
+                    const existing = Array.isArray(row.tier_prices) ? row.tier_prices as Array<{ packageId: string; priceCents: number }> : [];
+                    const next: Array<{ packageId: string; priceCents: number }> = [];
+                    const overridden = new Set(tiers.map((t: any) => t.packageId));
+                    for (const e of existing) {
+                        if (e && typeof e.packageId === 'string' && !overridden.has(e.packageId)) {
+                            next.push({ packageId: e.packageId, priceCents: Math.min(Math.max(0, Math.round(e.priceCents ?? 0)), publicCents) });
+                        }
+                    }
+                    for (const t of tiers as Array<{ packageId: string; absoluteCents?: number; percentOff?: number }>) {
+                        let cents: number;
+                        if (typeof t.absoluteCents === 'number') {
+                            cents = Math.round(t.absoluteCents);
+                        } else {
+                            cents = Math.round(publicCents * (1 - (t.percentOff ?? 0) / 100));
+                        }
+                        cents = Math.max(0, Math.min(cents, publicCents));
+                        next.push({ packageId: t.packageId, priceCents: cents });
+                    }
+                    perRowTierPrices.set(row.id, next);
+                }
+            }
+        }
+
+        // Bulk allowed_package_ids — applied uniformly across all selected products.
+        if (fields.allowed_package_ids !== undefined) {
+            if (!Array.isArray(fields.allowed_package_ids)) {
+                return NextResponse.json({ error: 'allowed_package_ids must be an array' }, { status: 400 });
+            }
+            const ids: string[] = [];
+            for (const v of fields.allowed_package_ids) {
+                if (typeof v !== 'string' || !v) {
+                    return NextResponse.json({ error: 'Invalid allowed_package_ids entry' }, { status: 400 });
+                }
+                ids.push(v);
+            }
+            if (ids.length > 0) {
+                const admin = createAdminClient();
+                const { data: pkgs } = await admin
+                    .from('membership_packages')
+                    .select('id')
+                    .eq('site_id', bulkSiteId)
+                    .in('id', ids);
+                const validIds = new Set((pkgs || []).map((p: any) => p.id));
+                for (const id of ids) {
+                    if (!validIds.has(id)) {
+                        return NextResponse.json({ error: `Package ${id} does not belong to this site` }, { status: 400 });
+                    }
+                }
+            }
+            updates.allowed_package_ids = ids;
+        }
+
+        // If we have per-row tier prices, we need per-row updates. Otherwise a single
+        // .in('id', ids) update is enough.
+        if (perRowTierPrices) {
+            for (const [rowId, tierPrices] of perRowTierPrices) {
+                const rowUpdate = { ...updates, tier_prices: tierPrices };
+                const { error: rowErr } = await supabase
+                    .from('products')
+                    .update(rowUpdate)
+                    .eq('id', rowId);
+                if (rowErr) {
+                    return NextResponse.json({ error: rowErr.message }, { status: 500 });
+                }
+            }
+            return NextResponse.json({ success: true, updated: perRowTierPrices.size });
+        }
+
         const { error: bulkError } = await supabase
             .from('products')
             .update(updates)
