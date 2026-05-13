@@ -33,6 +33,7 @@ interface ButtonSettings {
     fill?: ButtonFill;
     iconOnly?: boolean;
     bgColor?: string;
+    textColor?: string;
 }
 
 interface ButtonSettingsModalProps {
@@ -215,6 +216,39 @@ export default function ButtonSettingsModal({
                                     <button
                                         type="button"
                                         onClick={() => setSettings({ ...settings, bgColor: '' })}
+                                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+                                    >
+                                        Reset
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Text Color</label>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <input
+                                        type="color"
+                                        value={getColorInputValue(settings.textColor || '', effectivePalette, '#ffffff')}
+                                        onChange={(e) => setSettings({ ...settings, textColor: e.target.value })}
+                                        className="h-10 w-10 cursor-pointer rounded border border-slate-200 bg-white"
+                                    />
+                                    <PaletteTokenButtons
+                                        selected={settings.textColor || ''}
+                                        palette={effectivePalette}
+                                        onSelect={(token) => setSettings({ ...settings, textColor: token })}
+                                    />
+                                </div>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={settings.textColor || ''}
+                                        onChange={(e) => setSettings({ ...settings, textColor: e.target.value })}
+                                        placeholder="Default"
+                                        className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setSettings({ ...settings, textColor: '' })}
                                         className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
                                     >
                                         Reset

@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { useEditorContext, NavItem } from '@/lib/editor-context';
 import { useLangPrefix } from '@/lib/hooks/useLangPrefix';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import { getSamePageHash, smoothScrollToId } from '@/lib/smooth-scroll';
 import NavItemEditModal from './NavItemEditModal';
 import ButtonSettingsModal, { type ButtonShape, type ButtonFill } from './ButtonSettingsModal';
 
@@ -26,6 +27,8 @@ export interface ButtonIconData {
     iconOnly?: boolean;
     /** Optional background color override (hex or palette token like "palette:primary") */
     bgColor?: string;
+    /** Optional text color override (hex or palette token like "palette:primary") */
+    textColor?: string;
 }
 
 const RADIUS_CLASS_RE = /\brounded(?:-(?:none|sm|md|lg|xl|2xl|3xl|full))?\b/g;
@@ -304,6 +307,12 @@ export default function EditableButton({
                 {...ksMarkerProps}
                 className={`${resolvedButton.className} ${ksFieldClass}`.trim()}
                 style={resolvedButton.style}
+                onClick={(e) => {
+                    const sameHash = getSamePageHash(href, pathname);
+                    if (sameHash && smoothScrollToId(sameHash)) {
+                        e.preventDefault();
+                    }
+                }}
             >
                 {renderButtonContent()}
             </a>
@@ -316,7 +325,7 @@ function buildButtonOverrideCss(
     iconData: ButtonIconData | undefined,
     palette: Record<string, string>,
 ): string {
-    if (!buttonId || (!iconData?.shape && !iconData?.fill && !iconData?.bgColor)) return '';
+    if (!buttonId || (!iconData?.shape && !iconData?.fill && !iconData?.bgColor && !iconData?.textColor)) return '';
     const selector = `[data-ks-editable-button][data-ks-editable-button-id="${buttonId}"]`;
     const declarations: string[] = [];
 
@@ -347,6 +356,11 @@ function buildButtonOverrideCss(
         }
     }
 
+    const textOverride = iconData?.textColor ? resolvePaletteColor(iconData.textColor, palette, '') : '';
+    if (textOverride) {
+        declarations.push(`color: ${textOverride} !important`);
+    }
+
     return declarations.length ? `${selector} { ${declarations.join('; ')}; }` : '';
 }
 
@@ -363,6 +377,7 @@ function resolveButtonPresentation(
     const shape = iconData?.shape;
     const fill = iconData?.fill;
     const bgOverride = iconData?.bgColor ? resolvePaletteColor(iconData.bgColor, palette, '') : '';
+    const textOverride = iconData?.textColor ? resolvePaletteColor(iconData.textColor, palette, '') : '';
 
     if (shape) {
         nextClassName = stripClasses(nextClassName, RADIUS_CLASS_RE);
@@ -404,6 +419,10 @@ function resolveButtonPresentation(
     } else if (bgOverride) {
         nextStyle.background = bgOverride;
         nextStyle.backgroundColor = bgOverride;
+    }
+
+    if (textOverride) {
+        nextStyle.color = textOverride;
     }
 
     if (iconData?.iconOnly && iconData.icon) {
