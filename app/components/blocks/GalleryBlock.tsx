@@ -8,6 +8,7 @@ import BlockPretext from '../BlockPretext';
 import { useEditorContext } from '@/lib/editor-context';
 import { X, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import Reveal, { useStaggerSec } from '@/app/components/Reveal';
 
 interface GalleryBlockProps {
     id: string;
@@ -19,6 +20,7 @@ interface GalleryBlockProps {
 
 export default function GalleryBlock({ id, data, isEditMode, palette, updateContent }: GalleryBlockProps) {
     const context = useEditorContext();
+    const staggerSec = useStaggerSec();
     const pPrimary = palette.primary || '#1f2937';
     const pAccent = palette.accent || '#3b82f6';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
@@ -150,8 +152,8 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
         const isDraggable = isEditMode && !isAddSlot;
 
         return (
+            <Reveal key={`tile-${index}`} delay={index * staggerSec}>
             <div
-                key={`tile-${index}`}
                 className={`relative group ${dragOverIndex === index && dragIndex !== null ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}
                 onDragOver={(e) => {
                     if (!isEditMode || dragIndex === null || isAddSlot) return;
@@ -209,6 +211,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                     />
                 )}
             </div>
+            </Reveal>
         );
     };
 

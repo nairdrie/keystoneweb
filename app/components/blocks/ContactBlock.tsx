@@ -5,6 +5,7 @@ import EditableText from '../EditableText';
 import BlockPretext from '../BlockPretext';
 import { AlertTriangle, GripVertical, Plus, Settings, Trash2, X } from 'lucide-react';
 import { resolvePaletteColor } from '@/lib/palette-colors';
+import Reveal, { useStaggerSec } from '@/app/components/Reveal';
 import {
     CONTACT_ICON_OPTIONS,
     ContactItem,
@@ -95,6 +96,8 @@ export default function ContactBlock({ data, isEditMode, palette, updateContent 
         updateSocialLinks(reorderById(socialLinks, sourceId, targetId));
     };
 
+    const staggerSec = useStaggerSec();
+
     return (
         <section className="py-24" style={{ backgroundColor: bgColor }}>
             <div className="max-w-5xl mx-auto px-4">
@@ -137,8 +140,8 @@ export default function ContactBlock({ data, isEditMode, palette, updateContent 
                 {contactItems.length > 0 ? (
                     <div className={`grid gap-6 ${cardColumns === 1 ? 'max-w-2xl mx-auto' : 'md:grid-cols-2'}`}>
                         {contactItems.map((item, index) => (
+                            <Reveal key={item.id} delay={index * staggerSec}>
                             <ContactInfoCard
-                                key={item.id}
                                 item={item}
                                 index={index}
                                 isEditMode={isEditMode}
@@ -165,6 +168,7 @@ export default function ContactBlock({ data, isEditMode, palette, updateContent 
                                 onUpdate={updateContactItem}
                                 onTogglePanel={() => setEditingContactId(editingContactId === item.id ? null : item.id)}
                             />
+                            </Reveal>
                         ))}
                     </div>
                 ) : isEditMode ? (
@@ -211,9 +215,9 @@ export default function ContactBlock({ data, isEditMode, palette, updateContent 
 
                         {visibleSocialLinks.length > 0 ? (
                             <div className="flex items-center gap-3 flex-wrap justify-center">
-                                {visibleSocialLinks.map((link) => (
+                                {visibleSocialLinks.map((link, sIndex) => (
+                                    <Reveal key={link.id} delay={sIndex * staggerSec}>
                                     <SocialIconControl
-                                        key={link.id}
                                         link={link}
                                         isEditMode={isEditMode}
                                         isPanelOpen={editingSocialId === link.id}
@@ -238,6 +242,7 @@ export default function ContactBlock({ data, isEditMode, palette, updateContent 
                                             setDragOverSocialId(null);
                                         }}
                                     />
+                                    </Reveal>
                                 ))}
                             </div>
                         ) : isEditMode ? (

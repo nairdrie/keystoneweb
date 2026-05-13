@@ -7,6 +7,7 @@ import type { ImageSettings } from '../ImageEditorModal';
 import { useEditorContext } from '@/lib/editor-context';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import { Image as ImageIcon, Plus, Trash2 } from 'lucide-react';
+import Reveal, { useStaggerSec } from '@/app/components/Reveal';
 
 type LogoCloudData = Record<string, unknown>;
 type UpdateContent = (key: string, value: unknown) => void;
@@ -21,6 +22,7 @@ interface LogoCloudBlockProps {
 
 export default function LogoCloudBlock({ data, isEditMode, palette, updateContent }: LogoCloudBlockProps) {
     const context = useEditorContext();
+    const staggerSec = useStaggerSec();
     const pPrimary = palette.primary || '#1f2937';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '');
     const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
@@ -150,13 +152,13 @@ export default function LogoCloudBlock({ data, isEditMode, palette, updateConten
                     <div className="ks-layout-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
                         {logoSlots.map((logoUrl, index) => {
                             return (
-                                <div key={index} className="flex min-h-28 items-center justify-center bg-gray-50 p-6">
+                                <Reveal key={index} delay={index * staggerSec} className="flex min-h-28 items-center justify-center bg-gray-50 p-6">
                                     {renderLogoImage(index, logoUrl, {
                                         imageClassName: 'grayscale opacity-60 transition-all hover:grayscale-0 hover:opacity-100',
                                         slotClassName: 'h-12 w-40 max-w-full',
                                         previewFrameClassName: 'h-12 w-40 max-w-full',
                                     })}
-                                </div>
+                                </Reveal>
                             );
                         })}
                         {isEditMode && (
@@ -248,13 +250,13 @@ export default function LogoCloudBlock({ data, isEditMode, palette, updateConten
                 <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6">
                     {logoSlots.map((logoUrl, index) => {
                         return (
-                            <React.Fragment key={index}>
+                            <Reveal key={index} delay={index * staggerSec}>
                                 {renderLogoImage(index, logoUrl, {
                                     imageClassName: 'grayscale opacity-50 transition-all hover:grayscale-0 hover:opacity-100',
                                     slotClassName: 'h-10 w-36 max-w-[140px]',
                                     previewFrameClassName: 'h-10 w-36 max-w-full',
                                 })}
-                            </React.Fragment>
+                            </Reveal>
                         );
                     })}
                     {isEditMode && renderAddLogoButton('h-10')}

@@ -6,6 +6,7 @@ import EditableText from '../EditableText';
 import BlockPretext from '../BlockPretext';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import InlineCardControls, { reorderItems } from './InlineCardControls';
+import Reveal, { useStaggerSec } from '@/app/components/Reveal';
 
 interface TimelineItem {
     title: string;
@@ -90,6 +91,7 @@ export default function TimelineBlock({ data, isEditMode, palette, updateContent
 
     const variant = typeof data.variant === 'string' ? data.variant : 'cards';
     const items = normalizeItems(data.items);
+    const staggerSec = useStaggerSec();
 
     const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
@@ -309,7 +311,8 @@ export default function TimelineBlock({ data, isEditMode, palette, updateContent
                     {renderHeader({ title: 'Timeline', subtitle: 'A chronological overview.' })}
                     <ol className="space-y-3">
                         {items.map((item, index) => (
-                            <li key={index} className="grid grid-cols-1 gap-3 md:grid-cols-[160px_1fr] md:gap-6">
+                            <Reveal key={index} delay={index * staggerSec}>
+                            <li className="grid grid-cols-1 gap-3 md:grid-cols-[160px_1fr] md:gap-6">
                                 <div className="text-sm font-semibold tabular-nums" style={{ color: pSecondary }}>
                                     <EditableText
                                         as="span"
@@ -324,6 +327,7 @@ export default function TimelineBlock({ data, isEditMode, palette, updateContent
                                     {renderCard(item, index, { compact: true })}
                                 </div>
                             </li>
+                            </Reveal>
                         ))}
                     </ol>
                     {isEditMode && (
@@ -356,7 +360,8 @@ export default function TimelineBlock({ data, isEditMode, palette, updateContent
                             {items.map((item, index) => {
                                 const isLeft = index % 2 === 0;
                                 return (
-                                    <div key={index} className="relative md:grid md:grid-cols-2 md:gap-10">
+                                    <Reveal key={index} delay={index * staggerSec}>
+                                    <div className="relative md:grid md:grid-cols-2 md:gap-10">
                                         <div
                                             className="absolute left-1/2 top-6 hidden h-3.5 w-3.5 -translate-x-1/2 rounded-full ring-4 ring-white md:block"
                                             style={{ backgroundColor: pSecondary }}
@@ -366,6 +371,7 @@ export default function TimelineBlock({ data, isEditMode, palette, updateContent
                                             {renderCard(item, index)}
                                         </div>
                                     </div>
+                                    </Reveal>
                                 );
                             })}
                         </div>
@@ -398,7 +404,8 @@ export default function TimelineBlock({ data, isEditMode, palette, updateContent
                     />
                     <ol className="space-y-6">
                         {items.map((item, index) => (
-                            <li key={index} className="relative">
+                            <Reveal key={index} delay={index * staggerSec}>
+                            <li className="relative">
                                 <span
                                     className="absolute -left-6 top-6 h-3.5 w-3.5 rounded-full ring-4 ring-white md:-left-9"
                                     style={{ backgroundColor: pSecondary }}
@@ -406,6 +413,7 @@ export default function TimelineBlock({ data, isEditMode, palette, updateContent
                                 />
                                 {renderCard(item, index)}
                             </li>
+                            </Reveal>
                         ))}
                     </ol>
                 </div>

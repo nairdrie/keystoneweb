@@ -6,6 +6,7 @@ import EditableButton from '../EditableButton';
 import BlockPretext from '../BlockPretext';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import InlineCardControls, { reorderItems } from './InlineCardControls';
+import Reveal, { useStaggerSec } from '@/app/components/Reveal';
 
 interface PricingBlockProps {
     id: string;
@@ -23,6 +24,7 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
     const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
     const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
+    const staggerSec = useStaggerSec();
 
     const variant = data.variant || 'cards'; // 'cards' | 'comparison' | 'simple'
 
@@ -151,8 +153,8 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                     />
                     <div className="space-y-4">
                         {tiers.map((tier: any, index: number) => (
+                            <Reveal key={index} delay={index * staggerSec}>
                             <div
-                                key={index}
                                 className={`group/card relative flex items-center justify-between p-6 rounded-xl border transition-[border-color,box-shadow,opacity,transform] ${tier.highlighted ? 'border-2 shadow-md' : 'border-gray-200'} ${getTierStateClass(index)}`}
                                 style={tier.highlighted ? { borderColor: pSecondary } : {}}
                                 {...getTierDragHandlers(index)}
@@ -208,6 +210,7 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                                     />
                                 </div>
                             </div>
+                            </Reveal>
                         ))}
                     </div>
                 </div>
@@ -249,9 +252,9 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
 
                 <div className={`grid gap-8 items-stretch ${tiers.length === 2 ? 'md:grid-cols-2 max-w-4xl mx-auto' : 'md:grid-cols-3'}`}>
                     {tiers.map((tier: any, index: number) => (
+                        <Reveal key={index} delay={index * staggerSec} className="flex">
                         <div
-                            key={index}
-                            className={`group/card relative flex flex-col bg-white rounded-2xl p-8 shadow-sm border-2 transition-[border-color,box-shadow,opacity,transform] hover:shadow-lg ${tier.highlighted ? 'ring-2 scale-105 shadow-lg' : ''} ${getTierStateClass(index)}`}
+                            className={`group/card relative flex flex-col bg-white rounded-2xl p-8 shadow-sm border-2 transition-[border-color,box-shadow,opacity,transform] hover:shadow-lg w-full ${tier.highlighted ? 'ring-2 scale-105 shadow-lg' : ''} ${getTierStateClass(index)}`}
                             style={tier.highlighted ? { borderColor: pSecondary, '--tw-ring-color': pSecondary } as React.CSSProperties : { borderColor: '#e5e7eb' }}
                             {...getTierDragHandlers(index)}
                         >
@@ -330,6 +333,7 @@ export default function PricingBlock({ id, data, isEditMode, palette, updateCont
                                 palette={palette}
                             />
                         </div>
+                        </Reveal>
                     ))}
                 </div>
             </div>

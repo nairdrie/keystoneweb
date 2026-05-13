@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { BlockData, useEditorContext } from '@/lib/editor-context';
 import { useLangPrefix, prefixInternalLinks } from '@/lib/hooks/useLangPrefix';
 import { sanitizeRichHtml } from '@/lib/html-sanitize';
+import Reveal from '@/app/components/Reveal';
 
 const defaultHtml = `<h2>Rich Text Block</h2><p>Click to edit this rich text content. You can use <strong>bold</strong>, <em>italics</em>, and more.</p>`;
 
@@ -20,10 +21,9 @@ export default function TextBlock({ block, palette }: { block: BlockData; palett
     if (!isEditMode) {
         return (
             <section className="py-16 bg-white">
-                <div
-                    className="max-w-7xl mx-auto px-4 prose"
-                    dangerouslySetInnerHTML={{ __html: html }}
-                />
+                <Reveal className="max-w-7xl mx-auto px-4 prose">
+                    <div dangerouslySetInnerHTML={{ __html: html }} />
+                </Reveal>
             </section>
         );
     }

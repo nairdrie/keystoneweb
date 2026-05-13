@@ -9,6 +9,7 @@ import { useEditorContext } from '@/lib/editor-context';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import type { ImageSettings } from '../ImageEditorModal';
 import InlineCardControls, { reorderItems } from './InlineCardControls';
+import Reveal, { useStaggerSec } from '@/app/components/Reveal';
 
 interface TeamMember {
     name: string;
@@ -44,6 +45,7 @@ const DEFAULT_TEAM_MEMBERS: TeamMember[] = [
 
 export default function TeamBlock({ data, isEditMode, palette, updateContent }: TeamBlockProps) {
     const context = useEditorContext();
+    const staggerSec = useStaggerSec();
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
@@ -151,8 +153,8 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                     />
                     <div className="space-y-8">
                         {members.map((member, index) => (
+                            <Reveal key={index} delay={index * staggerSec}>
                             <div
-                                key={index}
                                 className={`flex items-center gap-6 group/card relative rounded-xl border border-transparent p-2 transition-[border-color,box-shadow,opacity,transform] ${getMemberCardStateClass(index)}`}
                                 {...getMemberDragHandlers(index)}
                             >
@@ -216,6 +218,7 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                                     )}
                                 </div>
                             </div>
+                            </Reveal>
                         ))}
                         {isEditMode && (
                             <button
@@ -265,8 +268,8 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                     />
                     <div className={`grid gap-8 ${getGridCols('md:grid-cols-2 max-w-4xl mx-auto', 'md:grid-cols-3', 'md:grid-cols-2 lg:grid-cols-4')}`}>
                         {members.map((member, index) => (
+                            <Reveal key={index} delay={index * staggerSec}>
                             <div
-                                key={index}
                                 className={`relative group/card bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-lg transition-[border-color,box-shadow,opacity,transform] ${getMemberCardStateClass(index)}`}
                                 {...getMemberDragHandlers(index)}
                             >
@@ -328,6 +331,7 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                                     )}
                                 </div>
                             </div>
+                            </Reveal>
                         ))}
                         {isEditMode && (
                             <button
@@ -377,8 +381,8 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                 />
                 <div className={`grid gap-12 ${getGridCols('md:grid-cols-2 max-w-3xl mx-auto', 'md:grid-cols-3', 'grid-cols-2 md:grid-cols-4')}`}>
                     {members.map((member, index) => (
+                        <Reveal key={index} delay={index * staggerSec}>
                         <div
-                            key={index}
                             className={`text-center group/card relative rounded-2xl border border-transparent p-2 transition-[border-color,box-shadow,opacity,transform] ${getMemberCardStateClass(index)}`}
                             {...getMemberDragHandlers(index)}
                         >
@@ -439,6 +443,7 @@ export default function TeamBlock({ data, isEditMode, palette, updateContent }: 
                                 />
                             )}
                         </div>
+                        </Reveal>
                     ))}
                     {isEditMode && (
                         <div className="text-center">

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { BLOCK_COMPONENTS, AVAILABLE_BLOCKS } from './block-registry';
 import { getBlockDisplayLabel, getBlockIcon } from './block-icons';
+import Reveal from '@/app/components/Reveal';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -126,7 +127,7 @@ function GateView({
 }) {
   const primary = palette.primary || '#374151';
   return (
-    <div className="py-16 px-6 flex flex-col items-center justify-center text-center">
+    <Reveal className="py-16 px-6 flex flex-col items-center justify-center text-center">
       <div
         className="w-16 h-16 rounded-full flex items-center justify-center mb-6"
         style={{ backgroundColor: `${primary}15` }}
@@ -143,7 +144,7 @@ function GateView({
         <LogIn className="w-4 h-4" />
         {ctaLabel}
       </a>
-    </div>
+    </Reveal>
   );
 }
 

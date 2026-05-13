@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useMember, MemberData } from '../membership/MemberProvider';
 import { useEditorContext } from '@/lib/editor-context';
 import { Mail, Package, Calendar, LogOut, Pencil, Check, X, KeyRound, ChevronDown, ChevronUp } from 'lucide-react';
+import Reveal from '@/app/components/Reveal';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -175,7 +176,7 @@ function ProfileView({ member, signOut, palette, fieldLabels }: { member: Member
   };
 
   return (
-    <div className="py-8 px-4 max-w-2xl mx-auto space-y-4">
+    <Reveal className="py-8 px-4 max-w-2xl mx-auto space-y-4">
 
       {/* ── Profile card ──────────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -339,6 +340,6 @@ function ProfileView({ member, signOut, palette, fieldLabels }: { member: Member
         <LogOut className="w-4 h-4" />
         Sign Out
       </button>
-    </div>
+    </Reveal>
   );
 }

@@ -8,6 +8,7 @@ import {
   Lock, Users, Plus, Trash2, Type, Image as ImageIcon, Video, FileDown, Code,
   GripVertical, Settings, LogIn,
 } from 'lucide-react';
+import Reveal, { useStaggerSec } from '@/app/components/Reveal';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -82,6 +83,11 @@ export default function MembershipPortalBlock({ id, data, isEditMode, palette, u
   }
 
   // ── Published mode — authenticated and authorized ─────────────────────────
+  return <AuthorizedPortalContent contentBlocks={contentBlocks} />;
+}
+
+function AuthorizedPortalContent({ contentBlocks }: { contentBlocks: ContentItem[] }) {
+  const staggerSec = useStaggerSec();
   return (
     <div className="py-8">
       {contentBlocks.length === 0 ? (
@@ -90,8 +96,10 @@ export default function MembershipPortalBlock({ id, data, isEditMode, palette, u
         </div>
       ) : (
         <div className="space-y-6">
-          {contentBlocks.map((block) => (
-            <ContentBlockRenderer key={block.id} block={block} />
+          {contentBlocks.map((block, index) => (
+            <Reveal key={block.id} delay={index * staggerSec}>
+              <ContentBlockRenderer block={block} />
+            </Reveal>
           ))}
         </div>
       )}
@@ -112,7 +120,7 @@ function GateView({
   const primary = palette.primary || '#374151';
 
   return (
-    <div className="py-16 px-6 flex flex-col items-center justify-center text-center">
+    <Reveal className="py-16 px-6 flex flex-col items-center justify-center text-center">
       <div
         className="w-16 h-16 rounded-full flex items-center justify-center mb-6"
         style={{ backgroundColor: `${primary}10` }}
@@ -129,7 +137,7 @@ function GateView({
         <LogIn className="w-4 h-4" />
         {showUpgrade ? 'View Membership Options' : 'Sign In / Sign Up'}
       </a>
-    </div>
+    </Reveal>
   );
 }
 

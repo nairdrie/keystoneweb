@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { BlockData, useEditorContext } from '@/lib/editor-context';
+import Reveal, { useStaggerSec } from '@/app/components/Reveal';
 
 type Platform = 'youtube' | 'instagram' | 'facebook' | 'tiktok' | 'twitter' | 'unknown';
 
@@ -162,6 +163,7 @@ export default function SocialFeedBlock({ block, palette }: Props) {
     const variant: 'grid' | 'single' = block.data.variant || 'grid';
     const columns: 1 | 2 | 3 | 4 = block.data.columns || 3;
     const items: FeedItem[] = Array.isArray(block.data.items) ? block.data.items : [];
+    const staggerSec = useStaggerSec();
 
     const [draftUrls, setDraftUrls] = useState<Record<string, string>>({});
 
@@ -355,11 +357,11 @@ export default function SocialFeedBlock({ block, palette }: Props) {
                 {/* Grid of embeds */}
                 {items.length > 0 && (
                     <div className={`grid ${gridColsClass} gap-6`}>
-                        {items.map((item) => (
-                            <div key={item.id} className="flex flex-col">
+                        {items.map((item, index) => (
+                            <Reveal key={item.id} delay={index * staggerSec} className="flex flex-col">
                                 <EmbedFrame item={item} />
                                 {isEditMode && <ItemEditor item={item} />}
-                            </div>
+                            </Reveal>
                         ))}
                     </div>
                 )}
