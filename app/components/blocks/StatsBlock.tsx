@@ -278,7 +278,10 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                     {items.map((item: any, index: number) => {
                         const isDragging = draggedIndex === index;
                         const isDragTarget = dragOverIndex === index && draggedIndex !== index;
-                        const showSeparator = separator !== 'none' && index > 0 && index % bannerMdCols !== 0;
+                        const inMdColumn = index > 0 && index % bannerMdCols !== 0;
+                        const inMobileRightColumn = items.length > 3 && index > 0 && index % 2 !== 0;
+                        const showSeparator = separator !== 'none' && inMdColumn;
+                        const separatorVisibilityClass = inMobileRightColumn ? '' : 'hidden md:block';
                         return (
                         <Reveal key={index} delay={index * staggerSec} className={`relative group/card text-center rounded-lg px-2 py-3 transition-[box-shadow,opacity,transform] ${
                                 isDragTarget ? 'ring-2 ring-blue-100' : ''
@@ -286,33 +289,35 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                         <div
                             {...getDragHandlers(index)}
                         >
-                            {showSeparator && (
-                                <span
+                            {showSeparator && separator === 'line' && (
+                                <div
                                     aria-hidden
-                                    className="pointer-events-none absolute inset-y-0 hidden md:flex items-center justify-center"
-                                    style={{ left: -16, width: 0 }}
-                                >
-                                    {separator === 'line' ? (
-                                        <span
-                                            style={{
-                                                width: 1,
-                                                height: '60%',
-                                                backgroundColor: separatorColor,
-                                                opacity: fgOverride ? 0.35 : 0.25,
-                                            }}
-                                        />
-                                    ) : (
-                                        <span
-                                            style={{
-                                                width: 5,
-                                                height: 5,
-                                                borderRadius: 9999,
-                                                backgroundColor: separatorColor,
-                                                opacity: fgOverride ? 0.6 : 0.5,
-                                            }}
-                                        />
-                                    )}
-                                </span>
+                                    className={`pointer-events-none absolute ${separatorVisibilityClass}`}
+                                    style={{
+                                        left: -16,
+                                        top: '20%',
+                                        bottom: '20%',
+                                        width: 1,
+                                        backgroundColor: separatorColor,
+                                        opacity: fgOverride ? 0.35 : 0.3,
+                                    }}
+                                />
+                            )}
+                            {showSeparator && separator === 'dot' && (
+                                <div
+                                    aria-hidden
+                                    className={`pointer-events-none absolute ${separatorVisibilityClass}`}
+                                    style={{
+                                        left: -18,
+                                        top: '50%',
+                                        width: 5,
+                                        height: 5,
+                                        marginTop: -2.5,
+                                        borderRadius: 9999,
+                                        backgroundColor: separatorColor,
+                                        opacity: 0.55,
+                                    }}
+                                />
                             )}
                             {renderStatControls(index)}
                             <EditableText
