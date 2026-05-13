@@ -251,6 +251,14 @@ export default function EditableText({
       commitSave();
       return;
     }
+    // Plain Enter: insert <br> consistently across browsers, instead of
+    // letting Chrome wrap subsequent content in <div> blocks (which then
+    // fail to render line breaks inside the inline display container).
+    if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      insertLineBreakAtCursor();
+      return;
+    }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'b' || e.key === 'B')) {
       e.preventDefault();
       runCommand({ kind: 'bold' });
@@ -464,11 +472,47 @@ function initialEditorHtml(text: string): string {
 
 // Trim trailing empty lines / strip wrapping artifacts before saving
 function normalizeEditorHtml(html: string): string {
-  const trimmed = html
+  // Convert browser-inserted block wrappers (Chrome/Edge wrap each Enter-press
+  // in a <div>) into inline <br> separators so the saved HTML renders the same
+  // inside an inline display container as it does inside the contenteditable.
+  let normalized = html
+    .replace(/<div>\s*<br\s*\/?>\s*<\/div>/gi, '<br>')
+    .replace(/<p>\s*<br\s*\/?>\s*<\/p>/gi, '<br>')
+    .replace(/<\/(?:div|p)>\s*<(?:div|p)(\s[^>]*)?>/gi, '<br>')
+    .replace(/<(?:div|p)(\s[^>]*)?>/gi, '<br>')
+    .replace(/<\/(?:div|p)>/gi, '');
+  const trimmed = normalized
     .replace(/^(\s|&nbsp;|<br\s*\/?>)+/i, '')
     .replace(/(\s|&nbsp;|<br\s*\/?>)+$/i, '');
   if (!trimmed || /^<br\s*\/?>$/i.test(trimmed.trim())) return '';
   return trimmed;
+}
+
+// Insert a <br> at the current selection inside the active contenteditable.
+// Some browsers need an extra trailing <br> so the new line is actually
+// rendered when it's the final node.
+function insertLineBreakAtCursor() {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+  const range = sel.getRangeAt(0);
+  range.deleteContents();
+  const br = document.createElement('br');
+  range.insertNode(br);
+  // If the <br> is now the last node in its parent, append a sentinel <br>
+  // so the visible line break renders (lone trailing <br>s collapse otherwise).
+  const needsSentinel = !br.nextSibling
+    || (br.nextSibling.nodeType === Node.TEXT_NODE && br.nextSibling.textContent === '');
+  if (needsSentinel) {
+    const sentinel = document.createElement('br');
+    br.parentNode?.insertBefore(sentinel, br.nextSibling);
+    range.setStartBefore(sentinel);
+    range.setEndBefore(sentinel);
+  } else {
+    range.setStartAfter(br);
+    range.setEndAfter(br);
+  }
+  sel.removeAllRanges();
+  sel.addRange(range);
 }
 
 // What to render in non-edit (and edit-but-not-yet-editing) display
