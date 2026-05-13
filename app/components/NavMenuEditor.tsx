@@ -35,9 +35,11 @@ interface NavMenuProps {
     submenuClassName?: string;
     /** Filter to nav items belonging to a specific bar (primary/secondary). */
     bar?: 'primary' | 'secondary';
+    /** Direction the desktop submenu opens. Footer passes 'up'. */
+    dropDirection?: 'down' | 'up';
 }
 
-export default function NavMenuEditor({ className = '', itemClassName = '', submenuClassName = '', bar }: NavMenuProps) {
+export default function NavMenuEditor({ className = '', itemClassName = '', submenuClassName = '', bar, dropDirection = 'down' }: NavMenuProps) {
     const context = useEditorContext();
     const allNavItems = context?.navItems || [];
     const navItems = bar
@@ -275,6 +277,7 @@ export default function NavMenuEditor({ className = '', itemClassName = '', subm
                                     hasChildren={hasChildren}
                                     itemClassName={itemClassName}
                                     submenuClassName={resolvedSubmenuClassName}
+                                    dropDirection={dropDirection}
                                     isEditMode={isEditMode}
                                     sensors={sensors}
                                     resolveHref={resolveHref}
@@ -322,6 +325,7 @@ function SortableDesktopNavItem({
     hasChildren,
     itemClassName,
     submenuClassName,
+    dropDirection,
     isEditMode,
     sensors,
     resolveHref,
@@ -336,6 +340,7 @@ function SortableDesktopNavItem({
     hasChildren: boolean;
     itemClassName: string;
     submenuClassName: string;
+    dropDirection: 'down' | 'up';
     isEditMode: boolean;
     sensors: ReturnType<typeof useSensors>;
     resolveHref: (item: NavItem) => string;
@@ -369,6 +374,7 @@ function SortableDesktopNavItem({
                 hasChildren={hasChildren}
                 itemClassName={itemClassName}
                 submenuClassName={submenuClassName}
+                dropDirection={dropDirection}
                 isEditMode={isEditMode}
                 sensors={sensors}
                 resolveHref={resolveHref}
@@ -673,6 +679,7 @@ function DesktopNavItem({
     hasChildren,
     itemClassName,
     submenuClassName,
+    dropDirection,
     isEditMode,
     sensors,
     resolveHref,
@@ -689,6 +696,7 @@ function DesktopNavItem({
     hasChildren: boolean;
     itemClassName: string;
     submenuClassName: string;
+    dropDirection: 'down' | 'up';
     isEditMode: boolean;
     sensors: ReturnType<typeof useSensors>;
     resolveHref: (item: NavItem) => string;
@@ -778,7 +786,7 @@ function DesktopNavItem({
             {/* Desktop dropdown submenu */}
             {hasChildren && open && (
                 <div
-                    className="absolute top-full left-0 pt-2 z-[60]"
+                    className={`absolute left-0 z-[60] ${dropDirection === 'up' ? 'bottom-full pb-2' : 'top-full pt-2'}`}
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
                 >
