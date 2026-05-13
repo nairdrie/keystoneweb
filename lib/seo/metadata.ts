@@ -86,7 +86,18 @@ export function cleanSeoTitle(publishedData: Record<string, any>, fallback: stri
     (publishedData.siteTitle?.trim()) ||
     (publishedData.title?.trim()) ||
     fallback;
-  return raw.replace(/\{\{(.*?)\}\}/g, '$1').replace(/\\n|\n/g, ' ');
+  return raw
+    .replace(/\{\{(.*?)\}\}/g, '$1')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\\n|\n/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /**
