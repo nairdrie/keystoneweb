@@ -19,6 +19,11 @@ interface NavMenuProps {
      * behavior).
      */
     bar?: 'primary' | 'secondary';
+    /**
+     * Direction the desktop submenu opens. Defaults to 'down' for headers; the
+     * footer passes 'up' so submenus don't fall off the bottom of the page.
+     */
+    dropDirection?: 'down' | 'up';
 }
 
 // Editor (sortable, edit modal, drag handles) is loaded only in edit mode so
@@ -36,7 +41,7 @@ export default function NavMenu(props: NavMenuProps) {
     return <NavMenuView {...props} />;
 }
 
-function NavMenuView({ className = '', itemClassName = '', submenuClassName = '', bar }: NavMenuProps) {
+function NavMenuView({ className = '', itemClassName = '', submenuClassName = '', bar, dropDirection = 'down' }: NavMenuProps) {
     const context = useEditorContext();
     const allNavItems = context?.navItems || [];
     const navItems = bar
@@ -187,7 +192,9 @@ function NavMenuView({ className = '', itemClassName = '', submenuClassName = ''
                             {hasChildren && <ChevronDown className="w-3.5 h-3.5 transition-transform group-hover/navitem:rotate-180" />}
                         </Link>
                         {hasChildren && (
-                            <div className="absolute top-full left-0 pt-2 z-[60] opacity-0 invisible group-hover/navitem:opacity-100 group-hover/navitem:visible transition-opacity">
+                            <div className={`absolute left-0 z-[60] opacity-0 invisible group-hover/navitem:opacity-100 group-hover/navitem:visible transition-opacity ${
+                                dropDirection === 'up' ? 'bottom-full pb-2' : 'top-full pt-2'
+                            }`}>
                                 <div className={`rounded-lg py-1.5 min-w-[180px] ${resolvedSubmenuClassName}`}>
                                     {item.children!.map(sub => {
                                         const subExternal = sub.linkType === 'custom' && sub.href.startsWith('http');

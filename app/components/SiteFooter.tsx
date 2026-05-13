@@ -415,7 +415,7 @@ export default function SiteFooter({
     ) : null;
 
     // ── Nav menu ──────────────────────────────────────────────────────────
-    // 'header' mode: reuse the header navItems via NavMenu (no submenu hover).
+    // 'header' mode: reuse the header navItems via NavMenu.
     // 'custom' mode: render footer-specific items inline.
     const navItemsToRender: NavItem[] = navMode === 'header'
         ? headerNavItems
@@ -423,18 +423,39 @@ export default function SiteFooter({
             ? customFooterNavItems
             : [];
 
+    // When mirroring the header menu, match the header's submenu styling rather
+    // than auto-styling from the footer's bg — otherwise the footer dropdown
+    // looks unrelated to the header dropdown the user is replicating.
+    const headerBgTypeRaw = siteContent.headerBgType as string | undefined;
+    const headerUserSetBg = !!headerBgTypeRaw;
+    const headerEffectiveBg = headerUserSetBg ? headerBgTypeRaw : 'white';
+    const headerBgCustom = siteContent.headerBgColor || '';
+    const headerTextIsLight = (() => {
+        if (headerEffectiveBg === 'primary')   return isHexDark(palette.primary   || '#374151');
+        if (headerEffectiveBg === 'secondary') return isHexDark(palette.secondary || '#10b981');
+        if (headerEffectiveBg === 'gradient')  return true;
+        if (headerEffectiveBg === 'dark')      return true;
+        if (headerEffectiveBg === 'custom' && headerBgCustom) return isHexDark(headerBgCustom);
+        return false;
+    })();
+    const headerSubmenuClass = headerTextIsLight
+        ? 'bg-slate-900 border border-slate-700 shadow-xl'
+        : 'bg-white border border-slate-100 shadow-lg';
+
     const navEl = navMode !== 'none' && (navItemsToRender.length > 0 || isEditMode) ? (
         <nav className={`ks-footer-nav flex flex-wrap items-center gap-x-5 gap-y-2 ${
             layout === 'columns' ? 'flex-col items-start gap-y-2' : ''
         }`}>
             {navMode === 'header' ? (
-                // Reuse the same navItems via NavMenu — but with footer styling.
-                // NavMenu already filters by bar; we render primary items only.
+                // Reuse the same navItems via NavMenu — using the header's submenu
+                // styling so the dropdowns look identical to the header's.
+                // Submenus open upward since the footer sits at the bottom.
                 <NavMenu
                     className={layout === 'columns' ? 'flex flex-col gap-2' : 'flex flex-wrap items-center gap-x-5 gap-y-2'}
                     itemClassName={navItemClass}
-                    submenuClassName={textIsLight ? 'bg-slate-900 border border-slate-700 shadow-xl' : 'bg-white border border-slate-100 shadow-lg'}
+                    submenuClassName={headerSubmenuClass}
                     bar="primary"
+                    dropDirection="up"
                 />
             ) : (
                 // Custom footer items — flat list (no submenus in footer).
