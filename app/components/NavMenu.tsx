@@ -8,6 +8,7 @@ import { ChevronDown } from 'lucide-react';
 import { useEditorContext, NavItem } from '@/lib/editor-context';
 import { useLangPrefix } from '@/lib/hooks/useLangPrefix';
 import { getBlockSlug } from '@/lib/block-utils';
+import { getSamePageHash, smoothScrollToId } from '@/lib/smooth-scroll';
 
 interface NavMenuProps {
     className?: string;
@@ -141,6 +142,12 @@ function NavMenuView({ className = '', itemClassName = '', submenuClassName = ''
                                     rel={external ? 'noopener noreferrer' : undefined}
                                     className={`${itemClassName} flex-1 ${activeClass}`}
                                     aria-current={isActivePage(item) ? 'page' : undefined}
+                                    onClick={(e) => {
+                                        const sameHash = getSamePageHash(href, pathname);
+                                        if (sameHash && smoothScrollToId(sameHash)) {
+                                            e.preventDefault();
+                                        }
+                                    }}
                                 >
                                     {item.label}
                                 </Link>
@@ -160,13 +167,20 @@ function NavMenuView({ className = '', itemClassName = '', submenuClassName = ''
                                 <div className="pl-4 flex flex-col gap-0.5 mt-0.5">
                                     {item.children!.map(sub => {
                                         const subExternal = sub.linkType === 'custom' && sub.href.startsWith('http');
+                                        const subHref = resolveHref(sub);
                                         return (
                                             <Link
                                                 key={sub.id}
-                                                href={resolveHref(sub)}
+                                                href={subHref}
                                                 target={subExternal ? '_blank' : undefined}
                                                 rel={subExternal ? 'noopener noreferrer' : undefined}
                                                 className={`${itemClassName} text-[0.8125rem] opacity-80`}
+                                                onClick={(e) => {
+                                                    const sameHash = getSamePageHash(subHref, pathname);
+                                                    if (sameHash && smoothScrollToId(sameHash)) {
+                                                        e.preventDefault();
+                                                    }
+                                                }}
                                             >
                                                 {sub.label}
                                             </Link>
@@ -187,6 +201,12 @@ function NavMenuView({ className = '', itemClassName = '', submenuClassName = ''
                             rel={external ? 'noopener noreferrer' : undefined}
                             className={`${itemClassName} ${activeClass} ${hasChildren ? 'inline-flex items-center gap-1' : ''}`}
                             aria-current={isActivePage(item) ? 'page' : undefined}
+                            onClick={(e) => {
+                                const sameHash = getSamePageHash(href, pathname);
+                                if (sameHash && smoothScrollToId(sameHash)) {
+                                    e.preventDefault();
+                                }
+                            }}
                         >
                             {item.label}
                             {hasChildren && <ChevronDown className="w-3.5 h-3.5 transition-transform group-hover/navitem:rotate-180" />}
@@ -198,13 +218,20 @@ function NavMenuView({ className = '', itemClassName = '', submenuClassName = ''
                                 <div className={`rounded-lg py-1.5 min-w-[180px] ${resolvedSubmenuClassName}`}>
                                     {item.children!.map(sub => {
                                         const subExternal = sub.linkType === 'custom' && sub.href.startsWith('http');
+                                        const subHref = resolveHref(sub);
                                         return (
                                             <Link
                                                 key={sub.id}
-                                                href={resolveHref(sub)}
+                                                href={subHref}
                                                 target={subExternal ? '_blank' : undefined}
                                                 rel={subExternal ? 'noopener noreferrer' : undefined}
                                                 className="block w-full px-4 py-2 text-sm transition-colors hover:bg-black/5"
+                                                onClick={(e) => {
+                                                    const sameHash = getSamePageHash(subHref, pathname);
+                                                    if (sameHash && smoothScrollToId(sameHash)) {
+                                                        e.preventDefault();
+                                                    }
+                                                }}
                                             >
                                                 {sub.label}
                                             </Link>
