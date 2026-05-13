@@ -42,10 +42,42 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Membership packages for this site — we serialize tier prices / allowed packages
+    // by name so the spreadsheet stays human-readable across re-imports.
+    const { data: pkgs } = await supabase
+        .from('membership_packages')
+        .select('id, name')
+        .eq('site_id', siteId);
+    const pkgNameById = new Map<string, string>();
+    for (const pkg of (pkgs || [])) pkgNameById.set(pkg.id, pkg.name);
+
+    const formatTierPrices = (raw: unknown): string => {
+        if (!Array.isArray(raw)) return '';
+        return raw
+            .map((t: any) => {
+                if (!t || typeof t !== 'object') return null;
+                const name = pkgNameById.get(t.packageId);
+                if (!name) return null;
+                const cents = typeof t.priceCents === 'number' ? t.priceCents : 0;
+                return `${name}:${(cents / 100).toFixed(2)}`;
+            })
+            .filter(Boolean)
+            .join(' | ');
+    };
+
+    const formatAllowedPackages = (raw: unknown): string => {
+        if (!Array.isArray(raw)) return '';
+        return raw
+            .map((id: any) => (typeof id === 'string' ? pkgNameById.get(id) : null))
+            .filter(Boolean)
+            .join(' | ');
+    };
+
     const headers = [
         'id', 'name', 'description', 'category', 'tags',
         'price', 'compare_at_price', 'currency', 'inventory_count',
         'status', 'is_active', 'slug', 'images', 'variants',
+        'member_prices', 'allowed_packages',
         'created_at', 'updated_at',
     ];
 
@@ -64,6 +96,8 @@ export async function GET(request: NextRequest) {
         p.slug || '',
         Array.isArray(p.images) ? p.images.join(' | ') : '',
         Array.isArray(p.variants) ? JSON.stringify(p.variants) : '',
+        formatTierPrices(p.tier_prices),
+        formatAllowedPackages(p.allowed_package_ids),
         p.created_at || '',
         p.updated_at || '',
     ]);

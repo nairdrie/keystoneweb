@@ -77,25 +77,43 @@ const SERVICES_TEMPLATE_ROWS = [
 const PRODUCTS_TEMPLATE_HEADERS = [
     'name', 'description', 'price', 'compare_at_price',
     'currency', 'inventory_count', 'status', 'variants',
+    'member_prices', 'allowed_packages',
 ];
 
+// member_prices format:    "Package Name:price | Other Package:price"   (price in dollars; clamped to <= public price)
+// allowed_packages format: "Package Name | Other Package"               (blank/empty = anyone can buy)
+// Package names are matched case-insensitively against your existing membership packages.
 const PRODUCTS_TEMPLATE_ROWS = [
     [
         'Classic Logo T-Shirt',
         'Soft 100% cotton tee with embroidered logo.',
         '35.00', '45.00', 'CAD', '150', 'published',
         'Size:XS,S,M,L,XL,2XL | Color:Black,White,Navy',
+        'Gold:28.00 | Silver:32.00',
+        '',
     ],
     [
         'Branded Water Bottle',
         'BPA-free 750ml insulated bottle. Keeps drinks cold 24hrs.',
         '28.00', '', 'CAD', '75', 'published',
         'Color:Black,Silver,Rose Gold',
+        'Gold:22.00',
+        '',
+    ],
+    [
+        'Members-only Hoodie',
+        'Heavyweight hoodie available exclusively to Gold members.',
+        '80.00', '', 'CAD', '50', 'published',
+        'Size:S,M,L,XL',
+        'Gold:60.00',
+        'Gold',
     ],
     [
         'Gift Card',
         'Give the gift of choice. Redeemable in-store and online.',
         '50.00', '', 'CAD', '-1', 'draft',
+        '',
+        '',
         '',
     ],
 ];
