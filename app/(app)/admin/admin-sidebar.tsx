@@ -61,12 +61,16 @@ export default function AdminSidebar({
 
   const expanded = hovered || profileOpen;
 
-  // Measure the natural header width once mounted — keeps the expanded panel
-  // exactly as wide as it needs to be for logo + switcher + profile to fit.
+  // Measure just the left-group (logo + switcher) natural width and compute the panel width
+  // from that plus the fixed avatar + padding budget. This avoids double-spacing from a flex
+  // `gap-*` plus explicit spacers and ends up narrower than the designer's sidebar, which is
+  // what we want for a compact admin overlay.
   useIsoLayoutEffect(() => {
     if (!headerMeasureRef.current) return;
-    const w = Math.ceil(headerMeasureRef.current.getBoundingClientRect().width);
-    if (w > RAIL_WIDTH_PX) setExpandedWidth(w);
+    const leftGroup = Math.ceil(headerMeasureRef.current.getBoundingClientRect().width);
+    // 12 (left pad) + leftGroup + 16 (min gap to avatar) + 32 (avatar w-8) + 12 (right pad)
+    const total = 12 + leftGroup + 16 + 32 + 12;
+    if (total > RAIL_WIDTH_PX) setExpandedWidth(total);
   }, []);
 
   // Close profile when clicking outside the rail.
@@ -186,32 +190,26 @@ export default function AdminSidebar({
     );
   }
 
-  // Hidden mirror used to measure the natural width of the expanded header content.
-  // We render it once in normal flex flow (not absolute), invisibly off-screen, and
-  // measure its width to feed back as the expanded panel width.
+  // Hidden mirror: only the left group (logo + switcher) in its natural layout. The total
+  // expanded width is computed from this measurement plus the fixed avatar + padding budget
+  // in useIsoLayoutEffect above.
   const headerMeasureMirror = (
     <div
       ref={headerMeasureRef}
       aria-hidden
-      className="invisible pointer-events-none fixed -left-[9999px] top-0 flex items-center gap-2 px-3 whitespace-nowrap"
-      style={{ height: 48 }}
+      className="invisible pointer-events-none fixed -left-[9999px] top-0 inline-flex items-center gap-2 whitespace-nowrap"
     >
       <KeystoneLogo href={undefined} size="md" showText={false} />
       <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-full">
-        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap">
+        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold">
           <Paintbrush className="w-3 h-3" />
           Design
         </span>
-        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap">
+        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold">
           <LayoutDashboard className="w-3 h-3" />
           Admin
         </span>
       </div>
-      {/* min gap between switcher and profile avatar */}
-      <div style={{ width: 24 }} />
-      <div className="w-8 h-8 rounded-full" />
-      {/* matches the right-side breathing room used by the visible header */}
-      <div style={{ width: 12 }} />
     </div>
   );
 
