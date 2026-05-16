@@ -8,9 +8,10 @@ import SeoRedirectsPanel from '@/app/components/seo/SeoRedirectsPanel';
 import SeoOverviewPanel from '@/app/components/seo/SeoOverviewPanel';
 import SeoSchemaPanel from '@/app/components/seo/SeoSchemaPanel';
 import SeoAuditPanel from '@/app/components/seo/SeoAuditPanel';
-import { LayoutDashboard, Globe, FileText, Code2, ArrowRightLeft, ListChecks } from 'lucide-react';
+import SeoProfilesPanel from '@/app/components/seo/SeoProfilesPanel';
+import { LayoutDashboard, Globe, FileText, Code2, ArrowRightLeft, ListChecks, MapPin } from 'lucide-react';
 
-type TabId = 'overview' | 'site' | 'pages' | 'schema' | 'redirects' | 'audit';
+type TabId = 'overview' | 'site' | 'pages' | 'schema' | 'redirects' | 'audit' | 'profiles';
 
 export default function AdminSEOPage() {
   const { siteId } = useAdminContext();
@@ -23,6 +24,7 @@ export default function AdminSEOPage() {
     { id: 'schema', label: 'Schema', icon: Code2 },
     { id: 'redirects', label: 'Redirects', icon: ArrowRightLeft },
     { id: 'audit', label: 'Audit', icon: ListChecks },
+    { id: 'profiles', label: 'Profiles', icon: MapPin },
   ];
 
   return (
@@ -57,6 +59,7 @@ export default function AdminSEOPage() {
         {activeTab === 'schema' && <SeoSchemaPanel siteId={siteId ?? undefined} />}
         {activeTab === 'redirects' && <SeoRedirectsPanel siteId={siteId ?? undefined} />}
         {activeTab === 'audit' && <SeoAuditPanel siteId={siteId ?? undefined} />}
+        {activeTab === 'profiles' && <SeoProfilesPanel siteId={siteId ?? undefined} />}
       </div>
     </div>
   );

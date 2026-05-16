@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Globe, FileText, ArrowRightLeft, AlertTriangle, ArrowRight } from 'lucide-react';
 
-type TabId = 'overview' | 'site' | 'pages' | 'schema' | 'redirects' | 'audit';
+type TabId = 'overview' | 'site' | 'pages' | 'schema' | 'redirects' | 'audit' | 'profiles';
 
 interface SeoOverviewPanelProps {
   siteId: string | undefined;
