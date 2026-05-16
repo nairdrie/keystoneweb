@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, CheckCircle, AlertCircle, Link as LinkIcon, Image as ImageIcon } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, Link as LinkIcon, Image as ImageIcon, Wand2 } from 'lucide-react';
 
 interface SeoFields {
   seoTitle?: string;
@@ -38,6 +38,8 @@ export default function SeoPagesPanel({ siteId }: SeoPagesPanelProps) {
   const [draft, setDraft] = useState<SeoFields>({});
   const [draftSlug, setDraftSlug] = useState<string>('');
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState<'seoTitle' | 'seoDescription' | null>(null);
+  const [pageScores, setPageScores] = useState<Record<string, number>>({});
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [statusMessage, setStatusMessage] = useState<string>('');
 
@@ -45,14 +47,21 @@ export default function SeoPagesPanel({ siteId }: SeoPagesPanelProps) {
 
   useEffect(() => {
     if (!siteId) return;
-    setLoading(true);
-    fetch(`/api/seo/pages?siteId=${siteId}`, { credentials: 'include' })
-      .then(r => r.ok ? r.json() : { pages: [] })
-      .then(data => {
-        setPages(data.pages || []);
-        if (data.pages?.length && !selectedId) setSelectedId(data.pages[0].id);
-      })
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    Promise.all([
+      fetch(`/api/seo/pages?siteId=${siteId}`, { credentials: 'include' }).then(r => r.ok ? r.json() : { pages: [] }),
+      fetch(`/api/seo/audit?siteId=${siteId}`, { credentials: 'include' }).then(r => r.ok ? r.json() : { pageScores: {} }),
+    ]).then(([pagesData, auditData]) => {
+      if (cancelled) return;
+      setPages(pagesData.pages || []);
+      if (pagesData.pages?.length && !selectedId) setSelectedId(pagesData.pages[0].id);
+      const scores: Record<string, number> = {};
+      for (const [id, s] of Object.entries(auditData.pageScores || {})) {
+        scores[id] = (s as { score: number }).score;
+      }
+      setPageScores(scores);
+    }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [siteId, selectedId]);
 
   useEffect(() => {
@@ -69,6 +78,29 @@ export default function SeoPagesPanel({ siteId }: SeoPagesPanelProps) {
   }
 
   const update = (patch: Partial<SeoFields>) => setDraft(prev => ({ ...prev, ...patch }));
+
+  const generate = async (field: 'seoTitle' | 'seoDescription') => {
+    if (!selected) return;
+    setGenerating(field);
+    try {
+      const res = await fetch('/api/seo/pages/generate', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteId, pageId: selected.id, field }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'generate failed');
+      update({ [field]: data.value });
+      setSaveStatus('idle');
+      setStatusMessage('');
+    } catch (err) {
+      setSaveStatus('error');
+      setStatusMessage(err instanceof Error ? err.message : 'AI generation failed.');
+    } finally {
+      setGenerating(null);
+    }
+  };
 
   const saveSeo = async () => {
     if (!selected) return;
@@ -141,7 +173,7 @@ export default function SeoPagesPanel({ siteId }: SeoPagesPanelProps) {
         ) : (
           <ul className="divide-y divide-slate-100 max-h-[60vh] overflow-y-auto">
             {pages.map(p => {
-              const isMissing = !p.seo?.seoTitle || !p.seo?.seoDescription;
+              const score = pageScores[p.id];
               return (
                 <li key={p.id}>
                   <button
@@ -154,7 +186,15 @@ export default function SeoPagesPanel({ siteId }: SeoPagesPanelProps) {
                       <div className="text-sm font-medium text-slate-900 truncate">{p.displayName || p.title}</div>
                       <div className="text-xs text-slate-500 font-mono truncate">/{p.slug === 'home' ? '' : p.slug}</div>
                     </div>
-                    {isMissing && <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-amber-600">Needs SEO</span>}
+                    {score !== undefined && (
+                      <span
+                        className={`shrink-0 text-[10px] font-bold rounded-full px-2 py-0.5 ${
+                          score >= 80 ? 'bg-emerald-100 text-emerald-700' : score >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'
+                        }`}
+                      >
+                        {score}
+                      </span>
+                    )}
                   </button>
                 </li>
               );
@@ -200,6 +240,17 @@ export default function SeoPagesPanel({ siteId }: SeoPagesPanelProps) {
               label="SEO title"
               counter={`${(draft.seoTitle ?? '').length} / 60`}
               warn={(draft.seoTitle ?? '').length > 60}
+              action={
+                <button
+                  type="button"
+                  onClick={() => generate('seoTitle')}
+                  disabled={generating !== null}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+                >
+                  {generating === 'seoTitle' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                  Generate with AI
+                </button>
+              }
             >
               <input
                 type="text"
@@ -214,6 +265,17 @@ export default function SeoPagesPanel({ siteId }: SeoPagesPanelProps) {
               label="Meta description"
               counter={`${(draft.seoDescription ?? '').length} / 160`}
               warn={(draft.seoDescription ?? '').length > 160}
+              action={
+                <button
+                  type="button"
+                  onClick={() => generate('seoDescription')}
+                  disabled={generating !== null}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+                >
+                  {generating === 'seoDescription' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                  Generate with AI
+                </button>
+              }
             >
               <textarea
                 value={draft.seoDescription ?? ''}
@@ -305,21 +367,26 @@ function Field({
   hint,
   counter,
   warn,
+  action,
   children,
 }: {
   label: string;
   hint?: string;
   counter?: string;
   warn?: boolean;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="space-y-1.5">
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-baseline justify-between gap-2">
         <label className="text-xs font-bold uppercase tracking-wide text-slate-600">{label}</label>
-        {counter && (
-          <span className={`text-[11px] font-mono ${warn ? 'text-amber-600' : 'text-slate-400'}`}>{counter}</span>
-        )}
+        <div className="flex items-center gap-3">
+          {action}
+          {counter && (
+            <span className={`text-[11px] font-mono ${warn ? 'text-amber-600' : 'text-slate-400'}`}>{counter}</span>
+          )}
+        </div>
       </div>
       {children}
       {hint && <p className="text-[11px] text-slate-500 leading-relaxed">{hint}</p>}

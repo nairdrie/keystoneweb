@@ -7,6 +7,7 @@ import SeoPagesPanel from '@/app/components/seo/SeoPagesPanel';
 import SeoRedirectsPanel from '@/app/components/seo/SeoRedirectsPanel';
 import SeoOverviewPanel from '@/app/components/seo/SeoOverviewPanel';
 import SeoSchemaPanel from '@/app/components/seo/SeoSchemaPanel';
+import SeoAuditPanel from '@/app/components/seo/SeoAuditPanel';
 import { LayoutDashboard, Globe, FileText, Code2, ArrowRightLeft, ListChecks } from 'lucide-react';
 
 type TabId = 'overview' | 'site' | 'pages' | 'schema' | 'redirects' | 'audit';
@@ -55,22 +56,9 @@ export default function AdminSEOPage() {
         {activeTab === 'pages' && <SeoPagesPanel siteId={siteId ?? undefined} />}
         {activeTab === 'schema' && <SeoSchemaPanel siteId={siteId ?? undefined} />}
         {activeTab === 'redirects' && <SeoRedirectsPanel siteId={siteId ?? undefined} />}
-        {activeTab === 'audit' && (
-          <ComingSoon
-            title="AI-powered SEO Audit"
-            description="Full-site SEO scorecard with AI-generated fix suggestions, GBP completeness checks, voice-search readiness, and one-click apply. Phase 3 work."
-          />
-        )}
+        {activeTab === 'audit' && <SeoAuditPanel siteId={siteId ?? undefined} />}
       </div>
     </div>
   );
 }
 
-function ComingSoon({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8 text-center">
-      <h3 className="text-base font-bold text-slate-900 mb-2">{title}</h3>
-      <p className="text-sm text-slate-500 leading-relaxed max-w-md mx-auto">{description}</p>
-    </div>
-  );
-}
