@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { createClient } from '@/lib/db/supabase-server';
+import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import SiteNotFound from '@/app/components/SiteNotFound';
 import {
   buildSiteMetadata,
   cleanSeoTitle,
@@ -75,13 +75,7 @@ export default async function SiteLayout({
     .single();
 
   if (!site) {
-    return (
-      <SiteNotFound
-        message="The site for this domain is not public or does not exist. Are you the owner?"
-        ctaText="Login to manage domain"
-        domain={cleanDomain}
-      />
-    );
+    notFound();
   }
 
   return <>{children}</>;

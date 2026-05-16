@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/db/supabase-server';
+import { notFound } from 'next/navigation';
 import EditorContent from '@/app/(app)/editor/editor-content-v2';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
@@ -73,13 +74,7 @@ export default async function CustomDomainProductDetailPage({
             .single();
 
         if (siteError || !site) {
-            return (
-                <div className="flex items-center justify-center min-h-screen bg-slate-50">
-                    <div className="text-center">
-                        <h1 className="text-4xl font-bold text-slate-900 mb-4">Site Not Found</h1>
-                    </div>
-                </div>
-            );
+            notFound();
         }
 
         // Fetch the product
@@ -93,14 +88,7 @@ export default async function CustomDomainProductDetailPage({
             .single();
 
         if (prodError || !product) {
-            return (
-                <div className="flex items-center justify-center min-h-screen bg-slate-50">
-                    <div className="text-center">
-                        <h1 className="text-4xl font-bold text-slate-900 mb-4">Product Not Found</h1>
-                        <a href="/" className="text-blue-600 hover:underline">← Back to store</a>
-                    </div>
-                </div>
-            );
+            notFound();
         }
 
         // Fetch all products for "related products"
@@ -217,6 +205,11 @@ export default async function CustomDomainProductDetailPage({
             </>
         );
     } catch (error) {
+        // Don't swallow Next.js control-flow errors (redirect/notFound).
+        const digest = (error as { digest?: unknown } | null)?.digest;
+        if (typeof digest === 'string' && (digest.startsWith('NEXT_REDIRECT') || digest.startsWith('NEXT_NOT_FOUND'))) {
+            throw error;
+        }
         console.error('Error rendering product page:', error);
         return (
             <div className="flex items-center justify-center min-h-screen bg-slate-50">

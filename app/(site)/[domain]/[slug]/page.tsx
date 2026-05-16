@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/db/supabase-server';
+import { notFound } from 'next/navigation';
 import EditorContent from '@/app/(app)/editor/editor-content-v2';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
@@ -89,13 +90,7 @@ export default async function CustomDomainDynamicPage({
             .single();
 
         if (error || !site) {
-            return (
-                <div className="flex items-center justify-center min-h-screen bg-slate-50">
-                    <div className="text-center">
-                        <h1 className="text-4xl font-bold text-slate-900 mb-4">Site Not Found</h1>
-                    </div>
-                </div>
-            );
+            notFound();
         }
 
         // Check if this is a membership system route
@@ -118,14 +113,7 @@ export default async function CustomDomainDynamicPage({
             .single();
 
         if (pageError || !routePage) {
-            return (
-                <div className="flex items-center justify-center min-h-screen bg-slate-50">
-                    <div className="text-center">
-                        <h1 className="text-4xl font-bold text-slate-900 mb-4">Page Not Found</h1>
-                        <a href="/" className="text-blue-600 hover:underline">← Back to home</a>
-                    </div>
-                </div>
-            );
+            notFound();
         }
 
         // Fetch all pages for navigation links (lightweight: no published_data needed)
@@ -202,6 +190,11 @@ export default async function CustomDomainDynamicPage({
             </>
         );
     } catch (error) {
+        // Don't swallow Next.js control-flow errors (redirect/notFound).
+        const digest = (error as { digest?: unknown } | null)?.digest;
+        if (typeof digest === 'string' && (digest.startsWith('NEXT_REDIRECT') || digest.startsWith('NEXT_NOT_FOUND'))) {
+            throw error;
+        }
         console.error('Error rendering dynamic page:', error);
         return (
             <div className="flex items-center justify-center min-h-screen bg-slate-50">

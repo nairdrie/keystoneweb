@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/db/supabase-server';
+import { notFound } from 'next/navigation';
 import EditorContent from '@/app/(app)/editor/editor-content-v2';
 import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
 import { getTemplateComponent } from '@/app/templates/registry';
@@ -6,9 +7,7 @@ import { getTemplateMetadata } from '@/lib/db/template-queries';
 import JsonLdScript from '@/app/components/JsonLdScript';
 import { BusinessProfile } from '@/lib/types/sites';
 import { fetchTranslationsConfig } from '@/lib/translations/resolve';
-import SiteNotFound from '@/app/components/SiteNotFound';
 import { extractTestimonials } from '@/lib/seo/testimonials';
-import { PUBLISHED_ROOT } from '@/lib/env/domain';
 
 export const dynamic = 'force-dynamic'; // Always fetch fresh data
 
@@ -31,13 +30,7 @@ export default async function PublicSitePage({
       .single();
 
     if (error || !site) {
-      return (
-        <SiteNotFound 
-          message="Start building to claim this subdomain."
-          ctaText="Login to start building"
-          domain={`${subdomain}.${PUBLISHED_ROOT}`}
-        />
-      );
+      notFound();
     }
 
     // Fetch the home page's published data which contains the actual blocks
@@ -128,6 +121,11 @@ export default async function PublicSitePage({
       </>
     );
   } catch (error) {
+    // Don't swallow Next.js control-flow errors (redirect/notFound).
+    const digest = (error as { digest?: unknown } | null)?.digest;
+    if (typeof digest === 'string' && (digest.startsWith('NEXT_REDIRECT') || digest.startsWith('NEXT_NOT_FOUND'))) {
+      throw error;
+    }
     console.error('Error rendering published site:', error);
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50">
