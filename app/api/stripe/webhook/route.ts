@@ -417,6 +417,35 @@ export async function POST(request: NextRequest) {
         // Look up plan config for visitor/storage limits
         const planConfig = getPlanByName(planName);
 
+        // Referral attribution: prefer metadata (set from ks_ref cookie at checkout
+        // creation). If absent, backfill from the applied Stripe promotion code so
+        // walk-ins who typed COMPUWAREZ still get attributed to Mike.
+        let referralSource = (session.metadata?.referral_source ?? '')
+          .toLowerCase()
+          .replace(/[^a-z0-9_-]/g, '')
+          .slice(0, 32);
+
+        if (!referralSource) {
+          try {
+            const stripeClient = getStripeClient();
+            const expanded = await stripeClient.checkout.sessions.retrieve(session.id, {
+              expand: ['total_details.breakdown.discounts.discount.promotion_code'],
+            });
+            const discounts = expanded.total_details?.breakdown?.discounts ?? [];
+            for (const d of discounts) {
+              const promoCode = (d.discount as unknown as { promotion_code?: { code?: string } })
+                ?.promotion_code?.code;
+              if (promoCode) {
+                referralSource = promoCode.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
+                break;
+              }
+            }
+          } catch (refErr) {
+            // Non-blocking — subscription still activates, attribution just won't be recorded
+            console.error('Failed to backfill referral_source from promo code:', refErr);
+          }
+        }
+
         // Upsert subscription info in user_subscriptions DB
         const { error } = await supabase
           .from('user_subscriptions')
@@ -428,6 +457,7 @@ export async function POST(request: NextRequest) {
             stripe_subscription_id: session.subscription as string,
             subscription_started_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
+            ...(referralSource ? { referral_source: referralSource } : {}),
             ...(planConfig ? {
               visitor_limit: planConfig.visitorLimit,
               storage_limit_mb: planConfig.storageLimitMb,
