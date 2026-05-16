@@ -27,6 +27,14 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Never expose Shippo credentials to the public storefront fetch — only the
+    // owner-only flag that a key is configured.
+    let publicSettings: any = data;
+    if (data) {
+        const { shippo_api_key, ...rest } = data as any;
+        publicSettings = { ...rest, shippo_configured: !!shippo_api_key };
+    }
+
     // Also fetch stripe_account_id and paypal fields from sites table
     const { data: site } = await supabase
         .from('sites')
@@ -35,7 +43,7 @@ export async function GET(request: NextRequest) {
         .single();
 
     return NextResponse.json({
-        settings: data || null,
+        settings: publicSettings || null,
         stripeConnected: !!site?.stripe_account_id,
         paypalConnected:
             !!site?.paypal_merchant_id && site?.paypal_onboarding_status === 'active',

@@ -3,7 +3,8 @@ import { createAdminClient } from '@/lib/db/supabase-admin';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendOrderConfirmation, sendOrderNotification, sendOrderPaymentConfirmed, sendOrderCancellationToCustomer, sendOrderCancellationToOwner, sendOrderShipped, sendMixedOrderConfirmation, sendVendorOrderNotification, sendOwnerVendorOrderNotification } from '@/lib/email';
 import { buildSiteOrigin } from '@/lib/email/order-tracking-url';
-import { findMatchingZone, type ShippingZone } from '@/lib/shipping-data';
+import { findMatchingZone, applyMarkup, type ShippingZone } from '@/lib/shipping-data';
+import { getRates, buildSingleParcel, type ShippoAddress } from '@/lib/shipping/shippo';
 import { getCurrentMemberFromRequest } from '@/lib/membership/current-member';
 import { resolveProductAccess, parseProductOptions, resolveOptionPriceModifierCents } from '@/lib/ecommerce/resolve-price';
 import Stripe from 'stripe';
@@ -87,6 +88,102 @@ async function upsertGuestMember(
  * PUT /api/products/orders — Update order status (owner only)
  */
 
+/**
+ * Re-quote a carrier zone via Shippo and verify that the customer-selected
+ * service token + price still match. Tolerance: ±$0.50 to absorb harmless
+ * rounding drift between successive quotes. Returns the authoritative
+ * amount/label/token to persist on the order.
+ */
+async function verifyCarrierRate(args: {
+    zone: ShippingZone;
+    settings: {
+        origin_line1: string | null;
+        origin_line2: string | null;
+        origin_city: string | null;
+        origin_region: string | null;
+        origin_postal: string | null;
+        origin_country: string | null;
+        shippo_api_key: string | null;
+    } | null;
+    items: any[];
+    shippingAddress: any;
+    chosenToken: string | null;
+    clientCents: number | null;
+}): Promise<
+    | { ok: true; amountCents: number; label: string; serviceToken: string; carrier: string }
+    | { ok: false; error: string }
+> {
+    const { zone, settings, items, shippingAddress, chosenToken, clientCents } = args;
+    if (!chosenToken) return { ok: false, error: 'Pick a shipping option' };
+    if (!settings?.shippo_api_key || !settings.origin_line1 || !settings.origin_postal) {
+        return { ok: false, error: 'Shipping is not configured for this store.' };
+    }
+
+    const parcelItems = items.map(i => ({
+        qty: Math.max(1, Math.floor(Number(i.qty) || 1)),
+        weight_grams: i.weight_grams || null,
+        length_mm: i.length_mm || null,
+        width_mm: i.width_mm || null,
+        height_mm: i.height_mm || null,
+    }));
+    const parcel = buildSingleParcel(parcelItems);
+    if (!parcel) {
+        return { ok: false, error: 'Cart items are missing weight or dimensions.' };
+    }
+
+    const addressFrom: ShippoAddress = {
+        street1: settings.origin_line1!,
+        street2: settings.origin_line2 || undefined,
+        city: settings.origin_city || '',
+        state: settings.origin_region || '',
+        zip: settings.origin_postal!,
+        country: settings.origin_country || 'US',
+    };
+    const addressTo: ShippoAddress = {
+        street1: shippingAddress?.line1 || '',
+        city: shippingAddress?.city || '',
+        state: shippingAddress?.region || shippingAddress?.province || '',
+        zip: shippingAddress?.postal || '',
+        country: shippingAddress?.country || '',
+    };
+
+    let rates;
+    try {
+        rates = await getRates({
+            apiKey: settings.shippo_api_key!,
+            addressFrom,
+            addressTo,
+            parcels: [parcel],
+        });
+    } catch (err: any) {
+        console.error('Shippo re-quote failed:', err?.message || err);
+        return { ok: false, error: 'Could not verify shipping rate.' };
+    }
+
+    const allowed = Array.isArray(zone.carrier_services) ? zone.carrier_services : [];
+    const matched = rates.find(r => r.servicelevel_token === chosenToken
+        && (allowed.length === 0 || allowed.includes(r.servicelevel_token)));
+    if (!matched) {
+        return { ok: false, error: 'Selected shipping option is no longer available.' };
+    }
+
+    const serverCents = applyMarkup(matched.amount_cents, zone.markup_type, zone.markup_cents);
+    if (clientCents !== null && Math.abs(serverCents - clientCents) > 50) {
+        return { ok: false, error: 'Shipping price changed — please re-confirm at checkout.' };
+    }
+
+    const days = typeof matched.estimated_days === 'number' && matched.estimated_days > 0
+        ? ` (~${matched.estimated_days} day${matched.estimated_days === 1 ? '' : 's'})`
+        : '';
+    return {
+        ok: true,
+        amountCents: serverCents,
+        label: `${matched.provider} ${matched.servicelevel_name}${days}`,
+        serviceToken: matched.servicelevel_token,
+        carrier: matched.provider.toLowerCase(),
+    };
+}
+
 export async function POST(request: NextRequest) {
     const supabase = await createClient();
     const body = await request.json();
@@ -94,6 +191,8 @@ export async function POST(request: NextRequest) {
     const {
         siteId, items, customerName, customerEmail, customerPhone,
         shippingAddress, shippingCents: clientShippingCents, shippingMethod: clientShippingMethod,
+        shippingServiceToken: clientShippingServiceToken,
+        shippingCarrier: clientShippingCarrier,
         notes, paymentMethod = 'none', stripeSessionId,
         saveProfile, marketingOptIn,
     } = body;
@@ -114,7 +213,7 @@ export async function POST(request: NextRequest) {
     const productIds = Array.from(new Set(items.map((i: any) => i.productId as string)));
     const { data: productRows, error: productFetchError } = await supabase
         .from('products')
-        .select('id, site_id, name, price_cents, currency, tier_prices, allowed_package_ids, options, is_active, vendor_id')
+        .select('id, site_id, name, price_cents, currency, tier_prices, allowed_package_ids, options, is_active, vendor_id, weight_grams, length_mm, width_mm, height_mm')
         .in('id', productIds as string[]);
     if (productFetchError) {
         return NextResponse.json({ error: 'Failed to validate items' }, { status: 500 });
@@ -156,6 +255,10 @@ export async function POST(request: NextRequest) {
             image: rawItem.image,
             variants: rawItem.variants,
             options: rawItem.options,
+            weight_grams: (product as any).weight_grams ?? null,
+            length_mm: (product as any).length_mm ?? null,
+            width_mm: (product as any).width_mm ?? null,
+            height_mm: (product as any).height_mm ?? null,
         });
     }
 
@@ -180,10 +283,12 @@ export async function POST(request: NextRequest) {
     // Server-side shipping validation: re-calculate shipping from zones to prevent tampering
     let validatedShippingCents = 0;
     let validatedShippingMethod: string | null = null;
+    let validatedShippingServiceToken: string | null = null;
+    let validatedShippingCarrier: string | null = null;
 
     const { data: ecomSettingsRow } = await supabase
         .from('ecommerce_settings')
-        .select('shipping_required')
+        .select('shipping_required, origin_line1, origin_line2, origin_city, origin_region, origin_postal, origin_country, shippo_api_key')
         .eq('site_id', siteId)
         .single();
 
@@ -205,8 +310,30 @@ export async function POST(request: NextRequest) {
                 subtotalCents
             );
             if (result) {
-                validatedShippingCents = result.shippingCents;
-                validatedShippingMethod = result.label;
+                const matchedZone = result.zone;
+                if (matchedZone.rate_type === 'carrier') {
+                    // Re-quote Shippo with the same inputs and verify the customer's
+                    // chosen service token + price. ±$0.50 tolerance covers tiny
+                    // rounding drift between the two quotes.
+                    const verified = await verifyCarrierRate({
+                        zone: matchedZone,
+                        settings: ecomSettingsRow as any,
+                        items: resolvedItems,
+                        shippingAddress,
+                        chosenToken: clientShippingServiceToken || null,
+                        clientCents: typeof clientShippingCents === 'number' ? clientShippingCents : null,
+                    });
+                    if (!verified.ok) {
+                        return NextResponse.json({ error: verified.error }, { status: 400 });
+                    }
+                    validatedShippingCents = verified.amountCents;
+                    validatedShippingMethod = verified.label;
+                    validatedShippingServiceToken = verified.serviceToken;
+                    validatedShippingCarrier = verified.carrier;
+                } else {
+                    validatedShippingCents = result.shippingCents;
+                    validatedShippingMethod = result.label;
+                }
             }
         }
     }
@@ -247,6 +374,7 @@ export async function POST(request: NextRequest) {
         return await createSingleOrder(supabase, {
             siteId, items: resolvedItems, customerName, customerEmail, customerPhone,
             shippingAddress, validatedShippingCents, validatedShippingMethod,
+            validatedShippingServiceToken, validatedShippingCarrier,
             notes, paymentMethod, shippingRequired, memberId: attributedMemberId,
         });
     }
@@ -274,6 +402,8 @@ export async function POST(request: NextRequest) {
             subtotal_cents: subtotalCents,
             shipping_cents: validatedShippingCents,
             shipping_method: validatedShippingMethod,
+            shipping_service_token: validatedShippingServiceToken,
+            shipping_carrier: validatedShippingCarrier,
             customer_name: customerName,
             customer_email: customerEmail,
             customer_phone: customerPhone || null,
@@ -311,6 +441,8 @@ export async function POST(request: NextRequest) {
         const bearsShipping = vendorKey === shippingBearerKey;
         const groupShipping = bearsShipping ? validatedShippingCents : 0;
         const groupShippingMethod = bearsShipping ? validatedShippingMethod : null;
+        const groupShippingServiceToken = bearsShipping ? validatedShippingServiceToken : null;
+        const groupShippingCarrier = bearsShipping ? validatedShippingCarrier : null;
 
         let orderPaymentMethod: string;
         let orderStatus: string;
@@ -348,6 +480,8 @@ export async function POST(request: NextRequest) {
                 subtotal_cents: groupSubtotal,
                 shipping_cents: groupShipping,
                 shipping_method: groupShippingMethod,
+                shipping_service_token: groupShippingServiceToken,
+                shipping_carrier: groupShippingCarrier,
                 customer_name: customerName,
                 customer_email: customerEmail,
                 customer_phone: customerPhone || null,
@@ -602,12 +736,16 @@ export async function POST(request: NextRequest) {
 async function createSingleOrder(supabase: any, params: {
     siteId: string; items: any[]; customerName: string; customerEmail: string;
     customerPhone?: string; shippingAddress?: any; validatedShippingCents: number;
-    validatedShippingMethod: string | null; notes?: string; paymentMethod: string;
+    validatedShippingMethod: string | null;
+    validatedShippingServiceToken?: string | null;
+    validatedShippingCarrier?: string | null;
+    notes?: string; paymentMethod: string;
     shippingRequired: boolean; memberId?: string | null;
 }) {
     const {
         siteId, items, customerName, customerEmail, customerPhone,
         shippingAddress, validatedShippingCents, validatedShippingMethod,
+        validatedShippingServiceToken, validatedShippingCarrier,
         notes, paymentMethod, memberId,
     } = params;
 
@@ -640,6 +778,8 @@ async function createSingleOrder(supabase: any, params: {
             subtotal_cents: subtotalCents,
             shipping_cents: validatedShippingCents,
             shipping_method: validatedShippingMethod,
+            shipping_service_token: validatedShippingServiceToken || null,
+            shipping_carrier: validatedShippingCarrier || null,
             tax_cents: taxCents,
             tax_label: orderTaxLabel,
             customer_name: customerName,
