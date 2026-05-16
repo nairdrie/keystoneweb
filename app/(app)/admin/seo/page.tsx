@@ -6,6 +6,7 @@ import SEOPanel from '@/app/components/SEOPanel';
 import SeoPagesPanel from '@/app/components/seo/SeoPagesPanel';
 import SeoRedirectsPanel from '@/app/components/seo/SeoRedirectsPanel';
 import SeoOverviewPanel from '@/app/components/seo/SeoOverviewPanel';
+import SeoSchemaPanel from '@/app/components/seo/SeoSchemaPanel';
 import { LayoutDashboard, Globe, FileText, Code2, ArrowRightLeft, ListChecks } from 'lucide-react';
 
 type TabId = 'overview' | 'site' | 'pages' | 'schema' | 'redirects' | 'audit';
@@ -52,12 +53,7 @@ export default function AdminSEOPage() {
           </div>
         )}
         {activeTab === 'pages' && <SeoPagesPanel siteId={siteId ?? undefined} />}
-        {activeTab === 'schema' && (
-          <ComingSoon
-            title="Structured Data (JSON-LD)"
-            description="Inspect and customize every schema.org block emitted on your site — LocalBusiness, Product, Article, FAQ, Breadcrumb, and more. Phase 2 work."
-          />
-        )}
+        {activeTab === 'schema' && <SeoSchemaPanel siteId={siteId ?? undefined} />}
         {activeTab === 'redirects' && <SeoRedirectsPanel siteId={siteId ?? undefined} />}
         {activeTab === 'audit' && (
           <ComingSoon

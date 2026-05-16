@@ -7,6 +7,7 @@ import JsonLdScript from '@/app/components/JsonLdScript';
 import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
 import { BusinessProfile } from '@/lib/types/sites';
 import { extractTestimonials } from '@/lib/seo/testimonials';
+import type { Block, SocialLinks } from '@/lib/seo/jsonld';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,17 +91,26 @@ export default async function CustomDomainPage({
     }
 
     // Render the published site via unified EditorContent (read-only mode)
+    const siteUrl = `https://${domain}`;
+    const homeBlocks: Block[] = Array.isArray((mergedPublishData as { blocks?: unknown[] }).blocks)
+      ? ((mergedPublishData as { blocks: Block[] }).blocks)
+      : [];
+
     return (
       <>
         <SiteAnalyticsTracker siteId={site.id} />
-        {site.business_profile && (
-          <JsonLdScript
-            businessProfile={site.business_profile as BusinessProfile}
-            siteUrl={`https://${domain}`}
-            socialLinks={(mergedPublishData as any).socialLinks}
-            testimonials={extractTestimonials(mergedPublishData)}
-          />
-        )}
+        <JsonLdScript
+          businessProfile={site.business_profile as BusinessProfile | null}
+          siteUrl={siteUrl}
+          pageUrl={siteUrl}
+          socialLinks={(mergedPublishData as { socialLinks?: SocialLinks }).socialLinks}
+          testimonials={extractTestimonials(mergedPublishData)}
+          blocks={homeBlocks}
+          pageTitle={(mergedPublishData as { seoTitle?: string; siteTitle?: string }).seoTitle || (mergedPublishData as { siteTitle?: string }).siteTitle}
+          pageDescription={(mergedPublishData as { seoDescription?: string }).seoDescription}
+          isHomePage
+        />
+
         <EditorContent
           isPublicView={true}
           publicSiteData={{

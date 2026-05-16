@@ -8,6 +8,7 @@ import JsonLdScript from '@/app/components/JsonLdScript';
 import { BusinessProfile } from '@/lib/types/sites';
 import { fetchTranslationsConfig } from '@/lib/translations/resolve';
 import { extractTestimonials } from '@/lib/seo/testimonials';
+import type { Block, SocialLinks } from '@/lib/seo/jsonld';
 
 export const dynamic = 'force-dynamic'; // Always fetch fresh data
 
@@ -90,16 +91,24 @@ export default async function PublicSitePage({
     }
 
     // Render the published site via unified EditorContent (read-only mode)
+    const siteUrl = `https://${subdomain}.kswd.ca`;
+    const pageBlocks = Array.isArray((mergedPublishData as { blocks?: unknown[] }).blocks)
+      ? (mergedPublishData as { blocks: Block[] }).blocks
+      : [];
+
     return (
       <>
-        {site.business_profile && (
-          <JsonLdScript
-            businessProfile={site.business_profile as BusinessProfile}
-            siteUrl={`https://${subdomain}.kswd.ca`}
-            socialLinks={(mergedPublishData as any).socialLinks}
-            testimonials={extractTestimonials(mergedPublishData)}
-          />
-        )}
+        <JsonLdScript
+          businessProfile={site.business_profile as BusinessProfile | null}
+          siteUrl={siteUrl}
+          pageUrl={siteUrl}
+          socialLinks={(mergedPublishData as { socialLinks?: SocialLinks }).socialLinks}
+          testimonials={extractTestimonials(mergedPublishData)}
+          blocks={pageBlocks}
+          pageTitle={(mergedPublishData as { seoTitle?: string; siteTitle?: string }).seoTitle || (mergedPublishData as { siteTitle?: string }).siteTitle}
+          pageDescription={(mergedPublishData as { seoDescription?: string }).seoDescription}
+          isHomePage
+        />
         <SiteAnalyticsTracker siteId={site.id} />
         <EditorContent
           isPublicView={true}

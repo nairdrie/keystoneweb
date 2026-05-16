@@ -5,6 +5,7 @@ import { getPlanByName } from '@/lib/plans';
 import { getUserEffectiveLimits } from '@/lib/addons';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import { migratePaletteTokensInDesignData } from '@/lib/template-palette-migration';
+import { submitIndexNow } from '@/lib/seo/indexnow';
 
 interface PublishRequest {
   siteId: string;
@@ -317,6 +318,30 @@ export async function POST(request: NextRequest) {
       siteId,
       metadata: { domain: fullPublishedDomain },
     });
+
+    // Fire-and-forget IndexNow ping so Bing/Yandex pick up the new content
+    // immediately. Sitemap is included so any reverse-lookup also works.
+    void (async () => {
+      try {
+        const host = reattachedDomain || fullPublishedDomain;
+        const baseUrl = `https://${host}`;
+        const { data: allPagesForPing } = await supabase
+          .from('pages')
+          .select('slug')
+          .eq('site_id', siteId);
+        const urls = [
+          baseUrl,
+          `${baseUrl}/sitemap.xml`,
+          ...(allPagesForPing || [])
+            .filter(p => p.slug && p.slug !== 'home')
+            .map(p => `${baseUrl}/${p.slug}`),
+        ];
+        const result = await submitIndexNow({ host, urls, siteId });
+        if (!result.ok) console.warn('[publish] IndexNow ping failed:', result.error);
+      } catch (err) {
+        console.warn('[publish] IndexNow ping threw:', err);
+      }
+    })();
 
     return NextResponse.json({
       success: true,

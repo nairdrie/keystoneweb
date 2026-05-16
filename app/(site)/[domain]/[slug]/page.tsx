@@ -7,6 +7,7 @@ import JsonLdScript from '@/app/components/JsonLdScript';
 import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
 import { BusinessProfile } from '@/lib/types/sites';
 import { extractTestimonials } from '@/lib/seo/testimonials';
+import type { Block, SocialLinks } from '@/lib/seo/jsonld';
 import {
     isMemberSystemRoute,
     renderMemberSystemPage,
@@ -159,17 +160,34 @@ export default async function CustomDomainDynamicPage({
             }
         }
 
+        const siteUrl = `https://${domain}`;
+        const pageUrl = `${siteUrl}/${slug}`;
+        const subBlocks: Block[] = Array.isArray((mergedPublishData as { blocks?: unknown[] }).blocks)
+            ? ((mergedPublishData as { blocks: Block[] }).blocks)
+            : [];
+        const subPageDisplayName = (pagePublishData as { displayName?: string; title?: string }).displayName
+            || (pagePublishData as { title?: string }).title
+            || slug;
+        const subBreadcrumbs = [
+            { name: 'Home', url: siteUrl },
+            { name: subPageDisplayName, url: pageUrl },
+        ];
+
         return (
             <>
                 <SiteAnalyticsTracker siteId={site.id} />
-                {site.business_profile && (
-                    <JsonLdScript
-                        businessProfile={site.business_profile as BusinessProfile}
-                        siteUrl={`https://${domain}/${slug}`}
-                        socialLinks={(mergedPublishData as any).socialLinks}
-                        testimonials={extractTestimonials(mergedPublishData)}
-                    />
-                )}
+                <JsonLdScript
+                    businessProfile={site.business_profile as BusinessProfile | null}
+                    siteUrl={siteUrl}
+                    pageUrl={pageUrl}
+                    socialLinks={(mergedPublishData as { socialLinks?: SocialLinks }).socialLinks}
+                    testimonials={extractTestimonials(mergedPublishData)}
+                    blocks={subBlocks}
+                    breadcrumbs={subBreadcrumbs}
+                    pageTitle={(pagePublishData as { seoTitle?: string }).seoTitle || subPageDisplayName}
+                    pageDescription={(pagePublishData as { seoDescription?: string }).seoDescription}
+                />
+
                 <EditorContent
                     isPublicView={true}
                     publicSiteData={{

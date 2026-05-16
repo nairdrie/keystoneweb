@@ -8,6 +8,7 @@ import LanguageSelector from '@/app/components/LanguageSelector';
 import JsonLdScript from '@/app/components/JsonLdScript';
 import { BusinessProfile } from '@/lib/types/sites';
 import { extractTestimonials } from '@/lib/seo/testimonials';
+import type { Block, SocialLinks } from '@/lib/seo/jsonld';
 import {
     fetchTranslationsConfig,
     fetchSiteTranslations,
@@ -201,16 +202,24 @@ async function renderHomePage(
     const metadata = await getTemplateMetadata(site.selected_template_id);
     const paletteData = resolvePalette(sitePublishData, metadata);
 
+    const homeBlocks = Array.isArray((mergedPublishData as unknown as { blocks?: unknown[] }).blocks)
+        ? ((mergedPublishData as unknown as { blocks: Block[] }).blocks)
+        : [];
+    const homeSiteUrl = `https://${subdomain}.kswd.ca`;
+
     return (
         <>
-            {site.business_profile && (
-                <JsonLdScript
-                    businessProfile={site.business_profile as BusinessProfile}
-                    siteUrl={`https://${subdomain}.kswd.ca/${language}`}
-                    socialLinks={(mergedPublishData as any).socialLinks}
-                    testimonials={extractTestimonials(mergedPublishData)}
-                />
-            )}
+            <JsonLdScript
+                businessProfile={site.business_profile as BusinessProfile | null}
+                siteUrl={homeSiteUrl}
+                pageUrl={`${homeSiteUrl}/${language}`}
+                socialLinks={(mergedPublishData as { socialLinks?: SocialLinks }).socialLinks}
+                testimonials={extractTestimonials(mergedPublishData)}
+                blocks={homeBlocks}
+                pageTitle={(mergedPublishData as { seoTitle?: string; siteTitle?: string }).seoTitle || (mergedPublishData as { siteTitle?: string }).siteTitle}
+                pageDescription={(mergedPublishData as { seoDescription?: string }).seoDescription}
+                isHomePage
+            />
             <EditorContent
                 isPublicView={true}
                 publicSiteData={{
@@ -299,17 +308,36 @@ async function renderPage(
     const metadata = await getTemplateMetadata(site.selected_template_id);
     const paletteData = resolvePalette(sitePublishData, metadata);
 
+    const siteUrl = `https://${subdomain}.kswd.ca`;
+    const pageUrl = `${siteUrl}/${pageSlug}`;
+    const pageBlocks: Block[] = Array.isArray((mergedPublishData as unknown as { blocks?: unknown[] }).blocks)
+        ? ((mergedPublishData as unknown as { blocks: Block[] }).blocks)
+        : [];
+    const currentPageMeta = (allPages || []).find((p: { slug?: string }) => p.slug === pageSlug);
+    const pageDisplayName = (translatedPageData as { displayName?: string; title?: string }).displayName
+        || (translatedPageData as { title?: string }).title
+        || currentPageMeta?.title
+        || pageSlug;
+    const breadcrumbs = [
+        { name: 'Home', url: siteUrl },
+        { name: pageDisplayName, url: pageUrl },
+    ];
+
     return (
         <>
             <SiteAnalyticsTracker siteId={site.id} />
-            {site.business_profile && (
-                <JsonLdScript
-                    businessProfile={site.business_profile as BusinessProfile}
-                    siteUrl={`https://${subdomain}.kswd.ca/${pageSlug}`}
-                    socialLinks={(mergedPublishData as any).socialLinks}
-                    testimonials={extractTestimonials(mergedPublishData)}
-                />
-            )}
+            <JsonLdScript
+                businessProfile={site.business_profile as BusinessProfile | null}
+                siteUrl={siteUrl}
+                pageUrl={pageUrl}
+                socialLinks={(mergedPublishData as { socialLinks?: SocialLinks }).socialLinks}
+                testimonials={extractTestimonials(mergedPublishData)}
+                blocks={pageBlocks}
+                breadcrumbs={breadcrumbs}
+                pageTitle={(translatedPageData as { seoTitle?: string }).seoTitle || pageDisplayName}
+                pageDescription={(translatedPageData as { seoDescription?: string }).seoDescription}
+            />
+
             <EditorContent
                 isPublicView={true}
                 publicSiteData={{
