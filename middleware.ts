@@ -243,6 +243,22 @@ export async function middleware(request: NextRequest) {
   // ============================================================
   const response = NextResponse.next();
 
+  // Referral capture: `?ref=<slug>` → `ks_ref` cookie (90 days).
+  // Read at checkout to attribute partner referrals (e.g. compuwarez storefront QR).
+  const rawRef = request.nextUrl.searchParams.get('ref');
+  if (rawRef) {
+    const refSlug = rawRef.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
+    if (refSlug) {
+      response.cookies.set('ks_ref', refSlug, {
+        maxAge: 60 * 60 * 24 * 90,
+        path: '/',
+        domain: COOKIE_DOMAIN,
+        sameSite: 'lax',
+        httpOnly: true,
+      });
+    }
+  }
+
   try {
     // Create server client with cookies from middleware
     const supabase = createServerClient(
