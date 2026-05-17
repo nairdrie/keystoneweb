@@ -27,12 +27,16 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Never expose Shippo credentials to the public storefront fetch — only the
-    // owner-only flag that a key is configured.
+    // Shippo runs off a single platform-level API key (env). Surface only the
+    // boolean to the storefront — the column on ecommerce_settings is unused
+    // and never returned.
+    const shippoConfigured = !!process.env.SHIPPO_API_KEY;
     let publicSettings: any = data;
     if (data) {
-        const { shippo_api_key, ...rest } = data as any;
-        publicSettings = { ...rest, shippo_configured: !!shippo_api_key };
+        const { shippo_api_key: _omit, ...rest } = data as any;
+        publicSettings = { ...rest, shippo_configured: shippoConfigured };
+    } else {
+        publicSettings = { shippo_configured: shippoConfigured };
     }
 
     // Also fetch stripe_account_id and paypal fields from sites table
