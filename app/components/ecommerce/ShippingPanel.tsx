@@ -74,12 +74,12 @@ export default function ShippingPanel({ siteId, shippingRequired, onShippingRequ
     const [thresholdInput, setThresholdInput] = useState('0');
     const [markupInput, setMarkupInput] = useState('0.00');
 
-    // Shippo / origin settings
+    // Ship-from / origin settings. Shippo itself is configured platform-wide
+    // by Keystone; merchants only supply their warehouse address.
     const [origin, setOrigin] = useState<OriginForm>({
         origin_line1: '', origin_line2: '',
         origin_city: '', origin_region: '', origin_postal: '', origin_country: 'US',
     });
-    const [shippoKeyInput, setShippoKeyInput] = useState('');
     const [shippoConfigured, setShippoConfigured] = useState(false);
     const [originSaving, setOriginSaving] = useState(false);
     const [originSaved, setOriginSaved] = useState(false);
@@ -121,20 +121,16 @@ export default function ShippingPanel({ siteId, shippingRequired, onShippingRequ
         }
     };
 
-    const saveOriginAndKey = async () => {
+    const saveOrigin = async () => {
         setOriginSaving(true);
         setOriginSaved(false);
         try {
-            const payload: any = { siteId, ...origin };
-            if (shippoKeyInput.trim()) payload.shippo_api_key = shippoKeyInput.trim();
             const res = await fetch('/api/products/settings', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
+                body: JSON.stringify({ siteId, ...origin }),
             });
             if (res.ok) {
-                if (shippoKeyInput.trim()) setShippoConfigured(true);
-                setShippoKeyInput('');
                 setOriginSaved(true);
                 setTimeout(() => setOriginSaved(false), 2500);
             }
@@ -287,11 +283,11 @@ export default function ShippingPanel({ siteId, shippingRequired, onShippingRequ
 
                 {shippingRequired && (
                     <>
-                        {/* ── Origin address + Shippo credentials ── */}
+                        {/* ── Ship-from (origin) address ── */}
                         <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
                             <div className="flex items-center gap-2">
                                 <Truck className="w-4 h-4 text-slate-500" />
-                                <h4 className="text-sm font-bold text-slate-800">Ship-from Address & Carrier API</h4>
+                                <h4 className="text-sm font-bold text-slate-800">Ship-from Address</h4>
                             </div>
                             <p className="text-xs text-slate-500">
                                 Required for live carrier rate quoting. Your warehouse or shop address.
@@ -367,30 +363,8 @@ export default function ShippingPanel({ siteId, shippingRequired, onShippingRequ
                                 />
                             </div>
 
-                            <div className="pt-2 border-t border-slate-200">
-                                <label className="text-xs font-medium text-slate-600 block mb-1">
-                                    Shippo API Key
-                                    {shippoConfigured && (
-                                        <span className="ml-2 inline-flex items-center gap-1 text-green-700">
-                                            <Check className="w-3 h-3" /> configured
-                                        </span>
-                                    )}
-                                </label>
-                                <input
-                                    type="password"
-                                    value={shippoKeyInput}
-                                    onChange={e => setShippoKeyInput(e.target.value)}
-                                    placeholder={shippoConfigured ? 'Paste a new key to replace, or leave blank to keep' : 'shippo_test_... or shippo_live_...'}
-                                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white font-mono"
-                                    autoComplete="off"
-                                />
-                                <p className="text-[11px] text-slate-400 mt-1">
-                                    Rate quoting is free on Shippo. Get a key at goshippo.com.
-                                </p>
-                            </div>
-
                             <button
-                                onClick={saveOriginAndKey}
+                                onClick={saveOrigin}
                                 disabled={originSaving}
                                 className="px-3 py-2 text-xs font-bold bg-slate-900 text-white rounded-lg hover:bg-slate-700 disabled:opacity-50 flex items-center gap-1.5"
                             >
@@ -605,7 +579,7 @@ export default function ShippingPanel({ siteId, shippingRequired, onShippingRequ
                                                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 flex items-start gap-2">
                                                         <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
                                                         <p className="text-xs text-amber-700">
-                                                            Add your Shippo API key above first. Carrier zones won&apos;t return any rates without it.
+                                                            Live rates aren&apos;t available on this Keystone install yet. Contact support to enable them.
                                                         </p>
                                                     </div>
                                                 )}

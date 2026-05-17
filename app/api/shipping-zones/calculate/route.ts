@@ -84,14 +84,15 @@ export async function POST(request: NextRequest) {
         });
     }
 
-    // Carrier zone — need origin address, shippo key, and item weights/dimensions.
+    // Carrier zone — need origin address + Keystone's platform Shippo key + item weights/dimensions.
+    const shippoApiKey = process.env.SHIPPO_API_KEY;
     const { data: settings } = await supabase
         .from('ecommerce_settings')
-        .select('origin_line1, origin_line2, origin_city, origin_region, origin_postal, origin_country, shippo_api_key')
+        .select('origin_line1, origin_line2, origin_city, origin_region, origin_postal, origin_country')
         .eq('site_id', siteId)
         .single();
 
-    if (!settings?.shippo_api_key || !settings?.origin_line1 || !settings?.origin_postal) {
+    if (!shippoApiKey || !settings?.origin_line1 || !settings?.origin_postal) {
         return NextResponse.json({
             error: 'no_rates',
             message: 'Live shipping rates are not yet configured for this store.',
@@ -148,7 +149,7 @@ export async function POST(request: NextRequest) {
     let rates;
     try {
         rates = await getRates({
-            apiKey: settings.shippo_api_key,
+            apiKey: shippoApiKey,
             addressFrom,
             addressTo,
             parcels: [parcel],

@@ -1,4 +1,3 @@
-import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
 import { validateAddress, type ShippoAddress } from '@/lib/shipping/shippo';
 
@@ -9,7 +8,7 @@ import { validateAddress, type ShippoAddress } from '@/lib/shipping/shippo';
  *
  * Output:
  *   { valid: boolean, corrected?: {...}, messages: [{text}] }
- *   { error: 'not_configured' } — site has no Shippo key, treat as skip on the client
+ *   { error: 'not_configured' } — platform has no Shippo key, treat as skip on the client
  */
 export async function POST(request: NextRequest) {
     const body = await request.json();
@@ -19,14 +18,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const supabase = await createClient();
-    const { data: settings } = await supabase
-        .from('ecommerce_settings')
-        .select('shippo_api_key')
-        .eq('site_id', siteId)
-        .single();
-
-    if (!settings?.shippo_api_key) {
+    const shippoApiKey = process.env.SHIPPO_API_KEY;
+    if (!shippoApiKey) {
         return NextResponse.json({ error: 'not_configured' }, { status: 200 });
     }
 
@@ -40,7 +33,7 @@ export async function POST(request: NextRequest) {
     };
 
     try {
-        const result = await validateAddress({ apiKey: settings.shippo_api_key, address: shippoAddress });
+        const result = await validateAddress({ apiKey: shippoApiKey, address: shippoAddress });
         const corrected = result.corrected ? {
             line1: result.corrected.street1,
             line2: result.corrected.street2,

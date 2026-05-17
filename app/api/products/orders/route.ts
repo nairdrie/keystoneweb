@@ -103,7 +103,6 @@ async function verifyCarrierRate(args: {
         origin_region: string | null;
         origin_postal: string | null;
         origin_country: string | null;
-        shippo_api_key: string | null;
     } | null;
     items: any[];
     shippingAddress: any;
@@ -114,8 +113,9 @@ async function verifyCarrierRate(args: {
     | { ok: false; error: string }
 > {
     const { zone, settings, items, shippingAddress, chosenToken, clientCents } = args;
+    const shippoApiKey = process.env.SHIPPO_API_KEY;
     if (!chosenToken) return { ok: false, error: 'Pick a shipping option' };
-    if (!settings?.shippo_api_key || !settings.origin_line1 || !settings.origin_postal) {
+    if (!shippoApiKey || !settings?.origin_line1 || !settings.origin_postal) {
         return { ok: false, error: 'Shipping is not configured for this store.' };
     }
 
@@ -150,7 +150,7 @@ async function verifyCarrierRate(args: {
     let rates;
     try {
         rates = await getRates({
-            apiKey: settings.shippo_api_key!,
+            apiKey: shippoApiKey,
             addressFrom,
             addressTo,
             parcels: [parcel],
@@ -288,7 +288,7 @@ export async function POST(request: NextRequest) {
 
     const { data: ecomSettingsRow } = await supabase
         .from('ecommerce_settings')
-        .select('shipping_required, origin_line1, origin_line2, origin_city, origin_region, origin_postal, origin_country, shippo_api_key')
+        .select('shipping_required, origin_line1, origin_line2, origin_city, origin_region, origin_postal, origin_country')
         .eq('site_id', siteId)
         .single();
 
