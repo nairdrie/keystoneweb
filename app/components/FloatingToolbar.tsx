@@ -14,10 +14,9 @@ import TranslationsPanel from './TranslationsPanel';
 import ImageEditorModal from './ImageEditorModal';
 import EditHistoryModal from './EditHistoryModal';
 import DoctorPanel from './DoctorPanel';
-import PageSEOPanel from './PageSEOPanel';
 import SiteAnimationControls from './SiteAnimationControls';
 import { AIMessage, UsageRemaining } from '@/lib/hooks/useAIBuilder';
-import { Type, User, Languages, Stethoscope, Globe } from 'lucide-react';
+import { Type, User, Languages, Stethoscope } from 'lucide-react';
 import ProfileDropdown from './ProfileDropdown';
 import WalkthroughModal, { WalkthroughStep } from './WalkthroughModal';
 import SiteLimitModal from './SiteLimitModal';
@@ -100,12 +99,7 @@ interface FloatingToolbarProps {
   aiRemaining?: UsageRemaining | null;
   focusAiBuilder?: boolean;
   onHistoryRevert?: () => void;
-  // Per-page SEO
-  currentPageTitle?: string;
   currentPageSlug?: string;
-  currentPageSeoTitle?: string;
-  currentPageSeoDescription?: string;
-  onPageSeoUpdate?: (field: 'seoTitle' | 'seoDescription', value: string) => void;
 }
 
 function getFreeAiBadgeLabel(remaining: UsageRemaining | null | undefined) {
@@ -185,11 +179,7 @@ export default function FloatingToolbar({
   aiRemaining,
   focusAiBuilder = false,
   onHistoryRevert,
-  currentPageTitle = '',
   currentPageSlug = '',
-  currentPageSeoTitle = '',
-  currentPageSeoDescription = '',
-  onPageSeoUpdate,
 }: FloatingToolbarProps) {
   const router = useRouter();
   const { user } = useAuth();
@@ -1479,33 +1469,6 @@ export default function FloatingToolbar({
             </div>
           )}
         </div>
-
-        {/* Page SEO Section */}
-        {onPageSeoUpdate && (
-          <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
-            <button
-              onClick={() => toggleSection('page-seo')}
-              className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 transition-colors"
-            >
-              <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide flex items-center gap-1.5">
-                <Globe className="w-3.5 h-3.5" />
-                Page SEO
-              </span>
-              <ChevronDown className={`w-4 h-4 text-emerald-500 transition-transform ${openSections.includes('page-seo') ? 'rotate-180' : ''}`} />
-            </button>
-
-            {openSections.includes('page-seo') && (
-              <div className="border-t border-slate-200">
-                <PageSEOPanel
-                  pageTitle={currentPageTitle}
-                  seoTitle={currentPageSeoTitle}
-                  seoDescription={currentPageSeoDescription}
-                  onUpdate={onPageSeoUpdate}
-                />
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Health Check Section */}
         <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">

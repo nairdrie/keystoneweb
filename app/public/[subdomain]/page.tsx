@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/db/supabase-server';
+import { notFound } from 'next/navigation';
 import EditorContent from '@/app/(app)/editor/editor-content-v2';
 import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
 import { getTemplateComponent } from '@/app/templates/registry';
@@ -6,9 +7,8 @@ import { getTemplateMetadata } from '@/lib/db/template-queries';
 import JsonLdScript from '@/app/components/JsonLdScript';
 import { BusinessProfile } from '@/lib/types/sites';
 import { fetchTranslationsConfig } from '@/lib/translations/resolve';
-import SiteNotFound from '@/app/components/SiteNotFound';
 import { extractTestimonials } from '@/lib/seo/testimonials';
-import { PUBLISHED_ROOT } from '@/lib/env/domain';
+import type { Block, SocialLinks } from '@/lib/seo/jsonld';
 
 export const dynamic = 'force-dynamic'; // Always fetch fresh data
 
@@ -31,13 +31,7 @@ export default async function PublicSitePage({
       .single();
 
     if (error || !site) {
-      return (
-        <SiteNotFound 
-          message="Start building to claim this subdomain."
-          ctaText="Login to start building"
-          domain={`${subdomain}.${PUBLISHED_ROOT}`}
-        />
-      );
+      notFound();
     }
 
     // Fetch the home page's published data which contains the actual blocks
@@ -97,16 +91,24 @@ export default async function PublicSitePage({
     }
 
     // Render the published site via unified EditorContent (read-only mode)
+    const siteUrl = `https://${subdomain}.kswd.ca`;
+    const pageBlocks = Array.isArray((mergedPublishData as { blocks?: unknown[] }).blocks)
+      ? (mergedPublishData as { blocks: Block[] }).blocks
+      : [];
+
     return (
       <>
-        {site.business_profile && (
-          <JsonLdScript
-            businessProfile={site.business_profile as BusinessProfile}
-            siteUrl={`https://${subdomain}.kswd.ca`}
-            socialLinks={(mergedPublishData as any).socialLinks}
-            testimonials={extractTestimonials(mergedPublishData)}
-          />
-        )}
+        <JsonLdScript
+          businessProfile={site.business_profile as BusinessProfile | null}
+          siteUrl={siteUrl}
+          pageUrl={siteUrl}
+          socialLinks={(mergedPublishData as { socialLinks?: SocialLinks }).socialLinks}
+          testimonials={extractTestimonials(mergedPublishData)}
+          blocks={pageBlocks}
+          pageTitle={(mergedPublishData as { seoTitle?: string; siteTitle?: string }).seoTitle || (mergedPublishData as { siteTitle?: string }).siteTitle}
+          pageDescription={(mergedPublishData as { seoDescription?: string }).seoDescription}
+          isHomePage
+        />
         <SiteAnalyticsTracker siteId={site.id} />
         <EditorContent
           isPublicView={true}
@@ -128,6 +130,11 @@ export default async function PublicSitePage({
       </>
     );
   } catch (error) {
+    // Don't swallow Next.js control-flow errors (redirect/notFound).
+    const digest = (error as { digest?: unknown } | null)?.digest;
+    if (typeof digest === 'string' && (digest.startsWith('NEXT_REDIRECT') || digest.startsWith('NEXT_NOT_FOUND'))) {
+      throw error;
+    }
     console.error('Error rendering published site:', error);
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50">

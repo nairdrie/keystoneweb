@@ -27,6 +27,11 @@ function resolveOgImage(publishedData: Record<string, any>, businessProfile?: an
 
 /**
  * Build full Metadata object with OG + Twitter Card tags for a published site page.
+ *
+ * Per-page overrides from publishedData take precedence over the auto-derived
+ * site-wide defaults: ogImage / ogTitle / ogDescription, twitterTitle /
+ * twitterDescription / twitterImage, canonical override, robotsNoindex /
+ * robotsNofollow.
  */
 export function buildSiteMetadata({
   siteTitle,
@@ -47,32 +52,49 @@ export function buildSiteMetadata({
   businessProfile?: any;
   alternateLanguages?: Record<string, string>;
 }): Metadata {
+  const pd = publishedData || {};
   const title = pageTitle || siteTitle;
-  const image = ogImage ?? (publishedData ? resolveOgImage(publishedData, businessProfile) : null);
+  const ogTitle = (pd.ogTitle as string) || title;
+  const ogDescription = (pd.ogDescription as string) || description;
+  const twitterTitle = (pd.twitterTitle as string) || ogTitle;
+  const twitterDescription = (pd.twitterDescription as string) || ogDescription;
+  const image = (pd.ogImage as string) || ogImage || (publishedData ? resolveOgImage(publishedData, businessProfile) : null);
+  const twitterImage = (pd.twitterImage as string) || image;
+  const effectiveCanonical = (pd.canonical as string) || canonicalUrl;
+  const noindex = !!pd.robotsNoindex;
+  const nofollow = !!pd.robotsNofollow;
 
   const metadata: Metadata = {
     title,
     description,
     alternates: {
-      canonical: canonicalUrl,
+      canonical: effectiveCanonical,
       ...(alternateLanguages ? { languages: alternateLanguages } : {}),
     },
     openGraph: {
-      title,
-      description,
-      url: canonicalUrl,
+      title: ogTitle,
+      description: ogDescription,
+      url: effectiveCanonical,
       siteName: siteTitle,
       type: 'website',
       locale: 'en_CA',
-      ...(image ? { images: [{ url: image, width: 1200, height: 630, alt: title }] } : {}),
+      ...(image ? { images: [{ url: image, width: 1200, height: 630, alt: ogTitle }] } : {}),
     },
     twitter: {
-      card: image ? 'summary_large_image' : 'summary',
-      title,
-      description,
-      ...(image ? { images: [image] } : {}),
+      card: twitterImage ? 'summary_large_image' : 'summary',
+      title: twitterTitle,
+      description: twitterDescription,
+      ...(twitterImage ? { images: [twitterImage] } : {}),
     },
   };
+
+  if (noindex || nofollow) {
+    metadata.robots = {
+      index: !noindex,
+      follow: !nofollow,
+      googleBot: { index: !noindex, follow: !nofollow },
+    };
+  }
 
   return metadata;
 }

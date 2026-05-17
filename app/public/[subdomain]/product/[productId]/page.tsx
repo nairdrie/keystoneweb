@@ -5,12 +5,10 @@ import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import ProductPageClient from '@/app/components/ecommerce/ProductPageWrapper';
 import ProductJsonLd from '@/app/components/ProductJsonLd';
-import SiteNotFound from '@/app/components/SiteNotFound';
 import { getCurrentMember } from '@/lib/membership/current-member';
 import { resolveProductAccess } from '@/lib/ecommerce/resolve-price';
-import { PUBLISHED_ROOT } from '@/lib/env/domain';
 import type { Metadata } from 'next';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { buildSiteMetadata, buildCanonicalUrl, cleanSeoTitle } from '@/lib/seo/metadata';
 
 export const dynamic = 'force-dynamic';
@@ -78,13 +76,7 @@ export default async function ProductDetailPage({
             .single();
 
         if (siteError || !site) {
-            return (
-                <SiteNotFound 
-                    message="Start building to claim this subdomain."
-                    ctaText="Login to start building"
-                    domain={`${subdomain}.${PUBLISHED_ROOT}`}
-                />
-            );
+            notFound();
         }
 
         // Fetch the product
@@ -98,14 +90,7 @@ export default async function ProductDetailPage({
             .single();
 
         if (prodError || !product) {
-            return (
-                <div className="flex items-center justify-center min-h-screen bg-slate-50">
-                    <div className="text-center">
-                        <h1 className="text-4xl font-bold text-slate-900 mb-4">Product Not Found</h1>
-                        <a href="/" className="text-blue-600 hover:underline">← Back to store</a>
-                    </div>
-                </div>
-            );
+            notFound();
         }
 
         if (product.external_url && /^https?:\/\//i.test(product.external_url)) {

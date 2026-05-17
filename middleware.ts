@@ -12,9 +12,64 @@ import {
  * 2. Subdomain routing (published sites at *.kswd.ca / *.staging.kswd.ca)
  * 3. Custom domain routing (user-owned domains pointed via DNS)
  * 4. Ops dashboard routing (ops.keystoneweb.ca / ops.staging.keystoneweb.ca → /ops/*)
+ * 5. Per-site URL redirects (site_redirects table, e.g. /contact-us → /contact)
  *
  * Environment-specific domains live in lib/env/domain.ts.
  */
+
+/**
+ * Check site_redirects for a published site. If a matching entry exists,
+ * returns a NextResponse.redirect for the middleware to short-circuit on.
+ * The lookup is keyed by site (published_domain OR custom_domain) + from_path.
+ */
+async function lookupSiteRedirect(
+  request: NextRequest,
+  match: { published_domain: string } | { custom_domain: string },
+  pathname: string,
+): Promise<NextResponse | null> {
+  // Normalize: strip trailing slash except for root, never blank.
+  let from = pathname || '/';
+  if (from.length > 1 && from.endsWith('/')) from = from.slice(0, -1);
+
+  try {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return request.cookies.getAll(); },
+          setAll() {},
+        },
+      },
+    );
+
+    const sitesQuery = supabase.from('sites').select('id').eq('is_published', true).limit(1);
+    const { data: site } =
+      'published_domain' in match
+        ? await sitesQuery.eq('published_domain', match.published_domain).maybeSingle()
+        : await sitesQuery.eq('custom_domain', match.custom_domain).maybeSingle();
+    if (!site) return null;
+
+    const { data: redirect } = await supabase
+      .from('site_redirects')
+      .select('to_path, status_code, id')
+      .eq('site_id', site.id)
+      .eq('from_path', from)
+      .maybeSingle();
+
+    if (!redirect?.to_path) return null;
+
+    // Fire-and-forget hit counter — don't await.
+    supabase.rpc('bump_site_redirect_hit', { redirect_id: redirect.id }).then(() => {});
+
+    const destUrl = request.nextUrl.clone();
+    destUrl.pathname = redirect.to_path;
+    return NextResponse.redirect(destUrl, { status: redirect.status_code || 301 });
+  } catch (err) {
+    console.error('[Middleware] Redirect lookup failed:', err);
+    return null;
+  }
+}
 
 export async function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
@@ -124,6 +179,11 @@ export async function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
+    // Per-site URL redirects (e.g. /contact-us → /contact). Looked up before
+    // any rewrite so the user sees the canonical URL in the address bar.
+    const redirect = await lookupSiteRedirect(request, { published_domain: subdomain }, pathname);
+    if (redirect) return redirect;
+
     // ── /admin and /design shortcuts ──────────────────────────────────────────
     // Visiting mysite.kswd.ca/admin or /design redirects to the app with siteId=...
     const isAdminPath = pathname === '/admin' || pathname.startsWith('/admin/');
@@ -187,6 +247,10 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith('/api/')) {
       return NextResponse.next();
     }
+
+    // Per-site URL redirects (e.g. /contact-us → /contact).
+    const redirect = await lookupSiteRedirect(request, { custom_domain: cleanDomain }, pathname);
+    if (redirect) return redirect;
 
     // ── /admin and /design shortcuts ──────────────────────────────────────────
     // Visiting customdomain.com/admin or /design redirects to the app with siteId=...

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/db/supabase-server';
+import { notFound } from 'next/navigation';
 import EditorContent from '@/app/(app)/editor/editor-content-v2';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
@@ -6,6 +7,7 @@ import JsonLdScript from '@/app/components/JsonLdScript';
 import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
 import { BusinessProfile } from '@/lib/types/sites';
 import { extractTestimonials } from '@/lib/seo/testimonials';
+import type { Block, SocialLinks } from '@/lib/seo/jsonld';
 import {
     isMemberSystemRoute,
     renderMemberSystemPage,
@@ -89,13 +91,7 @@ export default async function CustomDomainDynamicPage({
             .single();
 
         if (error || !site) {
-            return (
-                <div className="flex items-center justify-center min-h-screen bg-slate-50">
-                    <div className="text-center">
-                        <h1 className="text-4xl font-bold text-slate-900 mb-4">Site Not Found</h1>
-                    </div>
-                </div>
-            );
+            notFound();
         }
 
         // Check if this is a membership system route
@@ -118,14 +114,7 @@ export default async function CustomDomainDynamicPage({
             .single();
 
         if (pageError || !routePage) {
-            return (
-                <div className="flex items-center justify-center min-h-screen bg-slate-50">
-                    <div className="text-center">
-                        <h1 className="text-4xl font-bold text-slate-900 mb-4">Page Not Found</h1>
-                        <a href="/" className="text-blue-600 hover:underline">← Back to home</a>
-                    </div>
-                </div>
-            );
+            notFound();
         }
 
         // Fetch all pages for navigation links (lightweight: no published_data needed)
@@ -171,17 +160,34 @@ export default async function CustomDomainDynamicPage({
             }
         }
 
+        const siteUrl = `https://${domain}`;
+        const pageUrl = `${siteUrl}/${slug}`;
+        const subBlocks: Block[] = Array.isArray((mergedPublishData as { blocks?: unknown[] }).blocks)
+            ? ((mergedPublishData as { blocks: Block[] }).blocks)
+            : [];
+        const subPageDisplayName = (pagePublishData as { displayName?: string; title?: string }).displayName
+            || (pagePublishData as { title?: string }).title
+            || slug;
+        const subBreadcrumbs = [
+            { name: 'Home', url: siteUrl },
+            { name: subPageDisplayName, url: pageUrl },
+        ];
+
         return (
             <>
                 <SiteAnalyticsTracker siteId={site.id} />
-                {site.business_profile && (
-                    <JsonLdScript
-                        businessProfile={site.business_profile as BusinessProfile}
-                        siteUrl={`https://${domain}/${slug}`}
-                        socialLinks={(mergedPublishData as any).socialLinks}
-                        testimonials={extractTestimonials(mergedPublishData)}
-                    />
-                )}
+                <JsonLdScript
+                    businessProfile={site.business_profile as BusinessProfile | null}
+                    siteUrl={siteUrl}
+                    pageUrl={pageUrl}
+                    socialLinks={(mergedPublishData as { socialLinks?: SocialLinks }).socialLinks}
+                    testimonials={extractTestimonials(mergedPublishData)}
+                    blocks={subBlocks}
+                    breadcrumbs={subBreadcrumbs}
+                    pageTitle={(pagePublishData as { seoTitle?: string }).seoTitle || subPageDisplayName}
+                    pageDescription={(pagePublishData as { seoDescription?: string }).seoDescription}
+                />
+
                 <EditorContent
                     isPublicView={true}
                     publicSiteData={{
@@ -202,6 +208,11 @@ export default async function CustomDomainDynamicPage({
             </>
         );
     } catch (error) {
+        // Don't swallow Next.js control-flow errors (redirect/notFound).
+        const digest = (error as { digest?: unknown } | null)?.digest;
+        if (typeof digest === 'string' && (digest.startsWith('NEXT_REDIRECT') || digest.startsWith('NEXT_NOT_FOUND'))) {
+            throw error;
+        }
         console.error('Error rendering dynamic page:', error);
         return (
             <div className="flex items-center justify-center min-h-screen bg-slate-50">

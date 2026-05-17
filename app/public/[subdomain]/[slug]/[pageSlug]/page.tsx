@@ -1,10 +1,9 @@
 import { createClient } from '@/lib/db/supabase-server';
+import { notFound } from 'next/navigation';
 import EditorContent from '@/app/(app)/editor/editor-content-v2';
 import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
-import SiteNotFound from '@/app/components/SiteNotFound';
-import { PUBLISHED_ROOT } from '@/lib/env/domain';
 import {
     isLanguageCode,
     resolveTranslatedContent,
@@ -37,27 +36,14 @@ export default async function PublicSiteTranslatedPage({
             .single();
 
         if (error || !site) {
-            return (
-                <SiteNotFound 
-                    message="Start building to claim this subdomain."
-                    ctaText="Login to start building"
-                    domain={`${subdomain}.${PUBLISHED_ROOT}`}
-                />
-            );
+            notFound();
         }
 
         const config = site.translations_config as any;
 
         // Verify this is actually a language code
         if (!isLanguageCode(langCode, config)) {
-            return (
-                <div className="flex items-center justify-center min-h-screen bg-slate-50">
-                    <div className="text-center">
-                        <h1 className="text-4xl font-bold text-slate-900 mb-4">Page Not Found</h1>
-                        <a href="/" className="text-blue-600 hover:underline">← Back to home</a>
-                    </div>
-                </div>
-            );
+            notFound();
         }
 
         const defaultLang = config?.defaultLanguage || 'en';
@@ -71,14 +57,7 @@ export default async function PublicSiteTranslatedPage({
             .single();
 
         if (pageError || !routePage) {
-            return (
-                <div className="flex items-center justify-center min-h-screen bg-slate-50">
-                    <div className="text-center">
-                        <h1 className="text-4xl font-bold text-slate-900 mb-4">Page Not Found</h1>
-                        <a href={`/${langCode}`} className="text-blue-600 hover:underline">← Back to home</a>
-                    </div>
-                </div>
-            );
+            notFound();
         }
 
         const sitePublishData = site.published_data || {};
@@ -154,6 +133,11 @@ export default async function PublicSiteTranslatedPage({
             </>
         );
     } catch (error) {
+        // Don't swallow Next.js control-flow errors (redirect/notFound).
+        const digest = (error as { digest?: unknown } | null)?.digest;
+        if (typeof digest === 'string' && (digest.startsWith('NEXT_REDIRECT') || digest.startsWith('NEXT_NOT_FOUND'))) {
+            throw error;
+        }
         console.error('Error rendering translated page:', error);
         return (
             <div className="flex items-center justify-center min-h-screen bg-slate-50">
