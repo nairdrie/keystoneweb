@@ -28,11 +28,24 @@ interface EcommerceSettings {
     tax_enabled?: boolean;
 }
 
+interface ShippingOption {
+    id: string;
+    label: string;
+    amount_cents: number;
+    carrier?: string;
+    service_token?: string;
+    zone_id: string;
+}
+
 interface ShippingResult {
     zone: { id: string; name: string; is_local_pickup: boolean };
-    shippingCents: number;
-    shippingLabel: string;
+    options: ShippingOption[];
+    selectedId: string;
     freeThresholdCents: number | null;
+}
+
+interface AddressSuggestion {
+    line1: string; line2?: string; city: string; region: string; postal: string; country: string;
 }
 
 type Step = 'cart' | 'address' | 'payment' | 'split-pay' | 'confirmation';
@@ -96,6 +109,10 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
     const [shippingError, setShippingError] = useState<string | null>(null);
     const [shippingLoading, setShippingLoading] = useState(false);
     const [noZonesConfigured, setNoZonesConfigured] = useState(false);
+
+    // Address validation (Shippo) — only surfaced when Shippo proposes a correction.
+    const [addressSuggestion, setAddressSuggestion] = useState<AddressSuggestion | null>(null);
+    const [addressDismissed, setAddressDismissed] = useState(false);
 
     const mouseDownOnOverlayRef = useRef(false);
 
@@ -279,7 +296,11 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                     siteId,
                     country: form.country,
                     region: form.region,
+                    postal: form.postal,
+                    city: form.city,
+                    line1: form.line1,
                     subtotalCents: cart?.subtotalCents || 0,
+                    items: (cart?.items || []).map(i => ({ productId: i.productId, qty: i.qty })),
                 }),
             });
             const data = await res.json();
@@ -290,15 +311,78 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
             } else if (data.error === 'no_zone') {
                 setShippingError(data.message || "We don't currently ship to this area.");
                 setShippingResult(null);
-            } else if (data.zone) {
-                setShippingResult(data);
+            } else if (data.error === 'no_rates') {
+                setShippingError(data.message || "Live shipping rates aren't available for this address.");
+                setShippingResult(null);
+            } else if (Array.isArray(data.options) && data.options.length > 0) {
+                setShippingResult({
+                    zone: data.zone,
+                    options: data.options,
+                    selectedId: data.default_id || data.options[0].id,
+                    freeThresholdCents: data.freeThresholdCents ?? null,
+                });
             }
         } catch {
             setShippingError('Failed to calculate shipping.');
         } finally {
             setShippingLoading(false);
         }
-    }, [siteId, form.country, form.region, cart?.subtotalCents, shippingRequired]);
+    }, [siteId, form.country, form.region, form.postal, form.city, form.line1, cart?.subtotalCents, cart?.items, shippingRequired]);
+
+    // Run Shippo address validation once we have a complete address. Errors are
+    // swallowed (returns valid=true) so a Shippo outage never blocks checkout.
+    const validateShippingAddress = useCallback(async () => {
+        if (!shippingRequired) return true;
+        if (!form.line1 || !form.city || !form.country) return true;
+        try {
+            const res = await fetch('/api/shipping/validate-address', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    siteId,
+                    address: {
+                        line1: form.line1, city: form.city, region: form.region,
+                        postal: form.postal, country: form.country,
+                    },
+                }),
+            });
+            const data = await res.json();
+            if (data?.error === 'not_configured') return true;
+            // Only prompt when Shippo gives back a corrected address that actually differs.
+            const c = data?.corrected;
+            const differs = c && (
+                (c.line1 || '').toLowerCase() !== form.line1.toLowerCase() ||
+                (c.city || '').toLowerCase() !== form.city.toLowerCase() ||
+                (c.postal || '').replace(/\s/g, '').toLowerCase() !== form.postal.replace(/\s/g, '').toLowerCase() ||
+                (c.region || '').toLowerCase() !== form.region.toLowerCase()
+            );
+            if (differs && !addressDismissed) {
+                setAddressSuggestion(c);
+                return false;
+            }
+            return true;
+        } catch {
+            return true;
+        }
+    }, [siteId, shippingRequired, form.line1, form.city, form.region, form.postal, form.country, addressDismissed]);
+
+    const acceptAddressSuggestion = () => {
+        if (!addressSuggestion) return;
+        setForm(f => ({
+            ...f,
+            line1: addressSuggestion.line1,
+            city: addressSuggestion.city,
+            region: addressSuggestion.region,
+            postal: addressSuggestion.postal,
+            country: addressSuggestion.country,
+        }));
+        setAddressSuggestion(null);
+        setShippingResult(null);
+    };
+    const dismissAddressSuggestion = () => {
+        setAddressSuggestion(null);
+        setAddressDismissed(true);
+    };
 
     // Auto-initialize Clover when the customer reaches the payment step
     useEffect(() => {
@@ -316,7 +400,8 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
     const pSecondary = palette.secondary || '#dc2626';
     const currency = cart.items[0]?.currency || 'CAD';
     const subtotal = cart.subtotalCents;
-    const shippingCents = shippingResult?.shippingCents ?? 0;
+    const selectedShippingOption = shippingResult?.options.find(o => o.id === shippingResult?.selectedId) || null;
+    const shippingCents = selectedShippingOption?.amount_cents ?? 0;
     // Flat-rate tax: applied to e-transfer checkouts always; applied to Stripe
     // only when Stripe automatic_tax is OFF (otherwise Stripe calculates it).
     const taxRateBps = ecomSettings?.tax_rate_bps || 0;
@@ -361,10 +446,13 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
         // Reset shipping when address changes
         setShippingResult(null);
         setShippingError(null);
+        setAddressDismissed(false);
     };
 
     const handleProceedToPayment = async () => {
         if (shippingRequired) {
+            const ok = await validateShippingAddress();
+            if (!ok) return; // suggestion banner is now visible — wait for user to accept/dismiss
             await calculateShipping();
         }
         setStep('payment');
@@ -397,7 +485,9 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                     country: form.country,
                 } : undefined,
                 shippingCents: shippingRequired ? shippingCents : 0,
-                shippingMethod: shippingRequired ? (shippingResult?.shippingLabel || '') : undefined,
+                shippingMethod: shippingRequired ? (selectedShippingOption?.label || '') : undefined,
+                shippingServiceToken: shippingRequired ? (selectedShippingOption?.service_token || null) : undefined,
+                shippingCarrier: shippingRequired ? (selectedShippingOption?.carrier || null) : undefined,
                 paymentMethod,
                 notes: form.notes.trim() || undefined,
                 saveProfile: !member ? saveProfile : undefined,
@@ -444,7 +534,9 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                         country: form.country,
                     } : undefined,
                     shippingCents: shippingRequired ? shippingCents : 0,
-                    shippingMethod: shippingRequired ? (shippingResult?.shippingLabel || '') : undefined,
+                    shippingMethod: shippingRequired ? (selectedShippingOption?.label || '') : undefined,
+                    shippingServiceToken: shippingRequired ? (selectedShippingOption?.service_token || null) : undefined,
+                    shippingCarrier: shippingRequired ? (selectedShippingOption?.carrier || null) : undefined,
                     paymentMethod: selectedPayment,
                     notes: form.notes.trim() || undefined,
                     saveProfile: !member ? saveProfile : undefined,
@@ -776,7 +868,9 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                         postal: form.postal, country: form.country,
                     } : undefined,
                     shippingCents: shippingRequired ? shippingCents : 0,
-                    shippingMethod: shippingRequired ? (shippingResult?.shippingLabel || '') : undefined,
+                    shippingMethod: shippingRequired ? (selectedShippingOption?.label || '') : undefined,
+                    shippingServiceToken: shippingRequired ? (selectedShippingOption?.service_token || null) : undefined,
+                    shippingCarrier: shippingRequired ? (selectedShippingOption?.carrier || null) : undefined,
                     paymentMethod: 'paypal',
                     notes: form.notes.trim() || undefined,
                     saveProfile: !member ? saveProfile : undefined,
@@ -1100,7 +1194,11 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                     <label className="text-xs font-medium text-slate-600 block mb-1">Country *</label>
                                     <select
                                         value={form.country}
-                                        onChange={e => setForm({ ...form, country: e.target.value, region: '' })}
+                                        onChange={e => {
+                                            setForm({ ...form, country: e.target.value, region: '' });
+                                            setShippingResult(null);
+                                            setAddressDismissed(false);
+                                        }}
                                         className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     >
                                         {COUNTRIES.map(c => (
@@ -1243,20 +1341,56 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                 </div>
 
                                 {shippingRequired && (
-                                    <div className="flex justify-between py-1">
-                                        <span className="text-slate-600 flex items-center gap-1">
-                                            <Truck className="w-3.5 h-3.5" />
-                                            Shipping
-                                            {shippingResult && <span className="text-xs text-slate-400">({shippingResult.shippingLabel})</span>}
-                                        </span>
-                                        {shippingLoading ? (
-                                            <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
-                                        ) : shippingResult ? (
-                                            <span className="font-medium text-slate-900">
-                                                {shippingCents === 0 ? 'Free' : `$${(shippingCents / 100).toFixed(2)}`}
-                                            </span>
+                                    <div className="py-1">
+                                        {/* Single-option (flat/free/local): inline summary.
+                                            Multi-option (carrier rates): radio list so the customer picks. */}
+                                        {shippingResult && shippingResult.options.length > 1 ? (
+                                            <div>
+                                                <div className="flex items-center gap-1 text-slate-600 mb-1.5">
+                                                    <Truck className="w-3.5 h-3.5" />
+                                                    <span>Shipping</span>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    {shippingResult.options.map(opt => {
+                                                        const isSelected = opt.id === shippingResult.selectedId;
+                                                        return (
+                                                            <label
+                                                                key={opt.id}
+                                                                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border cursor-pointer text-xs ${isSelected ? 'border-blue-400 bg-blue-50' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                                                            >
+                                                                <input
+                                                                    type="radio"
+                                                                    name="shipping_option"
+                                                                    checked={isSelected}
+                                                                    onChange={() => setShippingResult(prev => prev ? { ...prev, selectedId: opt.id } : prev)}
+                                                                    className="text-blue-500"
+                                                                />
+                                                                <span className="flex-1 text-slate-700 truncate">{opt.label}</span>
+                                                                <span className="font-semibold text-slate-900">
+                                                                    {opt.amount_cents === 0 ? 'Free' : `$${(opt.amount_cents / 100).toFixed(2)}`}
+                                                                </span>
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
                                         ) : (
-                                            <span className="text-xs text-slate-400">—</span>
+                                            <div className="flex justify-between">
+                                                <span className="text-slate-600 flex items-center gap-1">
+                                                    <Truck className="w-3.5 h-3.5" />
+                                                    Shipping
+                                                    {selectedShippingOption && <span className="text-xs text-slate-400">({selectedShippingOption.label})</span>}
+                                                </span>
+                                                {shippingLoading ? (
+                                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
+                                                ) : selectedShippingOption ? (
+                                                    <span className="font-medium text-slate-900">
+                                                        {shippingCents === 0 ? 'Free' : `$${(shippingCents / 100).toFixed(2)}`}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-xs text-slate-400">—</span>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
                                 )}
@@ -1280,6 +1414,33 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                                     </p>
                                 )}
                             </div>
+
+                            {/* Address suggestion (from Shippo address validation) */}
+                            {shippingRequired && addressSuggestion && (
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                    <p className="text-xs font-bold text-blue-900 mb-1">Did you mean this address?</p>
+                                    <p className="text-sm text-blue-800">
+                                        {addressSuggestion.line1}{addressSuggestion.line2 ? `, ${addressSuggestion.line2}` : ''}
+                                    </p>
+                                    <p className="text-sm text-blue-800">
+                                        {addressSuggestion.city}, {addressSuggestion.region} {addressSuggestion.postal}
+                                    </p>
+                                    <div className="flex gap-2 mt-2">
+                                        <button
+                                            onClick={acceptAddressSuggestion}
+                                            className="px-3 py-1.5 text-xs font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                        >
+                                            Use this address
+                                        </button>
+                                        <button
+                                            onClick={dismissAddressSuggestion}
+                                            className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50"
+                                        >
+                                            Keep mine
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Shipping errors */}
                             {shippingRequired && shippingError && (

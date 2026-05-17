@@ -80,11 +80,40 @@ export interface ShippingZone {
     name: string;
     countries: string[];
     regions: string[];
-    rate_type: 'flat' | 'free' | 'free_above';
+    rate_type: 'flat' | 'free' | 'free_above' | 'carrier';
     rate_cents: number;
     free_threshold_cents: number;
     is_local_pickup: boolean;
     sort_order: number;
+    /** For rate_type='carrier': allowed Shippo servicelevel tokens. Empty = allow all. */
+    carrier_services: string[];
+    /** For rate_type='carrier': pass carrier price through ('exact') or add a flat handling fee. */
+    markup_type: 'exact' | 'flat';
+    /** For rate_type='carrier' + markup_type='flat': cents added on top of each rate. */
+    markup_cents: number;
+}
+
+/** A single shipping option presented to the customer at checkout. */
+export interface ShippingOption {
+    /** Unique within the response — used as the radio key + persisted on the order. */
+    id: string;
+    label: string;
+    amount_cents: number;
+    /** Shippo carrier slug ("usps", "ups", ...) — set only for carrier zones. */
+    carrier?: string;
+    /** Shippo servicelevel.token — set only for carrier zones. */
+    service_token?: string;
+    zone_id: string;
+}
+
+/** Apply a zone's markup policy to a raw carrier rate. */
+export function applyMarkup(
+    baseCents: number,
+    markupType: 'exact' | 'flat',
+    markupCents: number,
+): number {
+    if (markupType === 'flat') return baseCents + Math.max(0, markupCents || 0);
+    return baseCents;
 }
 
 /** Find the first shipping zone matching a given country + region */

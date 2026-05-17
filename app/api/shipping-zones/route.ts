@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { siteId, name, countries, regions, rate_type, rate_cents, free_threshold_cents, is_local_pickup, sort_order } = body;
+    const { siteId, name, countries, regions, rate_type, rate_cents, free_threshold_cents, is_local_pickup, sort_order, carrier_services, markup_type, markup_cents } = body;
 
     if (!siteId || !name || !countries?.length) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -62,6 +62,9 @@ export async function POST(request: NextRequest) {
             free_threshold_cents: free_threshold_cents || 0,
             is_local_pickup: is_local_pickup || false,
             sort_order: sort_order ?? 0,
+            carrier_services: Array.isArray(carrier_services) ? carrier_services : [],
+            markup_type: markup_type === 'flat' ? 'flat' : 'exact',
+            markup_cents: typeof markup_cents === 'number' && markup_cents >= 0 ? Math.round(markup_cents) : 0,
         })
         .select()
         .single();
@@ -104,7 +107,7 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const allowedFields = ['name', 'countries', 'regions', 'rate_type', 'rate_cents', 'free_threshold_cents', 'is_local_pickup', 'sort_order'];
+    const allowedFields = ['name', 'countries', 'regions', 'rate_type', 'rate_cents', 'free_threshold_cents', 'is_local_pickup', 'sort_order', 'carrier_services', 'markup_type', 'markup_cents'];
     const filtered: Record<string, any> = {};
     for (const key of allowedFields) {
         if (updates[key] !== undefined) filtered[key] = updates[key];

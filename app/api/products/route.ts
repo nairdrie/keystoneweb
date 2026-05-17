@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { siteId, name, brand, description, price_cents, compare_at_cents, currency, images, variants, options, inventory_count, vendor_id, category, subcategory, tags, tier_prices, allowed_package_ids, external_url, is_featured } = body;
+    const { siteId, name, brand, description, price_cents, compare_at_cents, currency, images, variants, options, inventory_count, vendor_id, category, subcategory, tags, tier_prices, allowed_package_ids, external_url, is_featured, weight_grams, length_mm, width_mm, height_mm } = body;
 
     if (!siteId || !name) {
         return NextResponse.json({ error: 'Missing siteId or name' }, { status: 400 });
@@ -308,6 +308,10 @@ export async function POST(request: NextRequest) {
             allowed_package_ids: membershipValidation.allowedPackageIds ?? [],
             external_url: normalizedExternalUrl,
             is_featured: !!is_featured,
+            weight_grams: typeof weight_grams === 'number' && weight_grams >= 0 ? Math.round(weight_grams) : null,
+            length_mm: typeof length_mm === 'number' && length_mm >= 0 ? Math.round(length_mm) : null,
+            width_mm: typeof width_mm === 'number' && width_mm >= 0 ? Math.round(width_mm) : null,
+            height_mm: typeof height_mm === 'number' && height_mm >= 0 ? Math.round(height_mm) : null,
         })
         .select()
         .single();
@@ -356,7 +360,7 @@ export async function PUT(request: NextRequest) {
 
     const updates: Record<string, any> = { updated_at: new Date().toISOString() };
 
-    const allowedFields = ['name', 'brand', 'description', 'price_cents', 'compare_at_cents', 'currency', 'images', 'variants', 'inventory_count', 'is_active', 'is_featured', 'sort_order', 'status', 'category', 'subcategory', 'tags', 'vendor_id'];
+    const allowedFields = ['name', 'brand', 'description', 'price_cents', 'compare_at_cents', 'currency', 'images', 'variants', 'inventory_count', 'is_active', 'is_featured', 'sort_order', 'status', 'category', 'subcategory', 'tags', 'vendor_id', 'weight_grams', 'length_mm', 'width_mm', 'height_mm'];
 
     for (const key of allowedFields) {
         if (fields[key] !== undefined) updates[key] = fields[key];

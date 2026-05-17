@@ -50,6 +50,10 @@ interface Product {
     gate_reason?: 'guest' | 'wrong-tier' | null;
     external_url?: string | null;
     vendor_id?: string | null;
+    weight_grams?: number | null;
+    length_mm?: number | null;
+    width_mm?: number | null;
+    height_mm?: number | null;
 }
 
 interface ProductGridBlockProps {
@@ -993,6 +997,11 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
     const [compareAt, setCompareAt] = useState(product?.compare_at_cents ? (product.compare_at_cents / 100).toFixed(2) : '');
     const [images, setImages] = useState<string[]>(product?.images ?? []);
     const [inventory, setInventory] = useState(product ? String(product.inventory_count) : '-1');
+    // Shipping physical dimensions — used for live carrier rate quoting.
+    const [weightG, setWeightG] = useState(product?.weight_grams ? String(product.weight_grams) : '');
+    const [lengthMm, setLengthMm] = useState(product?.length_mm ? String(product.length_mm) : '');
+    const [widthMm, setWidthMm] = useState(product?.width_mm ? String(product.width_mm) : '');
+    const [heightMm, setHeightMm] = useState(product?.height_mm ? String(product.height_mm) : '');
     const [category, setCategory] = useState(product?.category ?? '');
     const [subcategory, setSubcategory] = useState(product?.subcategory ?? '');
     const [tags, setTags] = useState((product?.tags ?? []).join(', '));
@@ -1230,6 +1239,10 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
             allowed_package_ids: gateEnabled ? allowedPackageIds : [],
             external_url: externalUrl.trim() || null,
             is_featured: isFeatured,
+            weight_grams: weightG.trim() ? parseInt(weightG, 10) : null,
+            length_mm: lengthMm.trim() ? parseInt(lengthMm, 10) : null,
+            width_mm: widthMm.trim() ? parseInt(widthMm, 10) : null,
+            height_mm: heightMm.trim() ? parseInt(heightMm, 10) : null,
         };
 
         setSaving(true);
@@ -1338,6 +1351,44 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
                 <input type="number" value={inventory} onChange={e => setInventory(e.target.value)}
                     className="w-full px-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 />
+            </div>
+
+            {/* Shipping dimensions (required for live carrier rate quoting). */}
+            <div className="border border-slate-200 rounded-lg p-3 space-y-3 bg-slate-50/50">
+                <div>
+                    <p className="text-xs font-semibold text-slate-700">Shipping (optional)</p>
+                    <p className="text-[11px] text-slate-500">Weight and box dimensions — required if any zone uses live carrier rates.</p>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div>
+                        <label className="text-[11px] font-medium text-slate-600 mb-1 block">Weight (g)</label>
+                        <input type="number" min="0" step="1" value={weightG} onChange={e => setWeightG(e.target.value)}
+                            className="w-full px-2.5 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                            placeholder="500"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[11px] font-medium text-slate-600 mb-1 block">Length (mm)</label>
+                        <input type="number" min="0" step="1" value={lengthMm} onChange={e => setLengthMm(e.target.value)}
+                            className="w-full px-2.5 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                            placeholder="200"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[11px] font-medium text-slate-600 mb-1 block">Width (mm)</label>
+                        <input type="number" min="0" step="1" value={widthMm} onChange={e => setWidthMm(e.target.value)}
+                            className="w-full px-2.5 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                            placeholder="150"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[11px] font-medium text-slate-600 mb-1 block">Height (mm)</label>
+                        <input type="number" min="0" step="1" value={heightMm} onChange={e => setHeightMm(e.target.value)}
+                            className="w-full px-2.5 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                            placeholder="50"
+                        />
+                    </div>
+                </div>
             </div>
 
             {/* External URL */}
