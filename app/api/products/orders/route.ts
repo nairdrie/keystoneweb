@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/db/supabase-admin';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendOrderConfirmation, sendOrderNotification, sendOrderPaymentConfirmed, sendOrderCancellationToCustomer, sendOrderCancellationToOwner, sendOrderShipped, sendMixedOrderConfirmation, sendVendorOrderNotification, sendOwnerVendorOrderNotification } from '@/lib/email';
 import { buildSiteOrigin } from '@/lib/email/order-tracking-url';
-import { findMatchingZone, applyMarkup, type ShippingZone } from '@/lib/shipping-data';
+import { findMatchingZone, applyMarkup, productMissingShippingInfo, siteHasCarrierZone, type ShippingZone } from '@/lib/shipping-data';
 import { getRates, buildSingleParcel, type ShippoAddress } from '@/lib/shipping/shippo';
 import { getCurrentMemberFromRequest } from '@/lib/membership/current-member';
 import { resolveProductAccess, parseProductOptions, resolveOptionPriceModifierCents } from '@/lib/ecommerce/resolve-price';
@@ -128,7 +128,7 @@ async function verifyCarrierRate(args: {
     }));
     const parcel = buildSingleParcel(parcelItems);
     if (!parcel) {
-        return { ok: false, error: 'Cart items are missing weight or dimensions.' };
+        return { ok: false, error: 'One or more items in your cart are currently unavailable for shipping.' };
     }
 
     const addressFrom: ShippoAddress = {
@@ -301,6 +301,19 @@ export async function POST(request: NextRequest) {
             .eq('site_id', siteId)
             .eq('is_archived', false)
             .order('sort_order');
+
+        // Hard reject when any carrier zone exists and any cart item is
+        // missing dims — the storefront should already have hidden these
+        // products, this is the defense-in-depth check.
+        if (zones && siteHasCarrierZone(zones)) {
+            const offender = resolvedItems.find(i => productMissingShippingInfo(i));
+            if (offender) {
+                return NextResponse.json({
+                    error: `"${offender.name}" is currently unavailable for purchase.`,
+                    productId: offender.productId,
+                }, { status: 400 });
+            }
+        }
 
         if (zones && zones.length > 0) {
             const result = findMatchingZone(

@@ -8,7 +8,7 @@ import {
     ImageIcon, Upload, Download, Send, Search,
     ChevronLeft, ChevronRight, Tag, Pencil, Lock, Crown, Star,
     Square, CheckSquare, Minus, SlidersHorizontal,
-    FolderTree,
+    FolderTree, AlertTriangle,
 } from 'lucide-react';
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
 import ProductCategoriesManager from './ProductCategoriesManager';
@@ -47,7 +47,8 @@ interface Product {
     public_price_cents?: number;
     matched_package_id?: string | null;
     can_purchase?: boolean;
-    gate_reason?: 'guest' | 'wrong-tier' | null;
+    gate_reason?: 'guest' | 'wrong-tier' | 'unavailable' | null;
+    shipping_warning?: 'missing_dimensions' | null;
     external_url?: string | null;
     vendor_id?: string | null;
     weight_grams?: number | null;
@@ -457,6 +458,14 @@ export function ProductManager({ siteId, palette }: { siteId: string; palette: R
                                 )}
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
+                                        {product.shipping_warning === 'missing_dimensions' && (
+                                            <span
+                                                className="shrink-0 inline-flex items-center"
+                                                title="Missing weight or dimensions — required for live carrier rates. Product is hidden from the storefront."
+                                            >
+                                                <AlertTriangle className="w-4 h-4 text-red-500" />
+                                            </span>
+                                        )}
                                         <h4 className="font-semibold text-slate-900 text-sm truncate">{product.name}</h4>
                                         {product.status === 'draft' && (
                                             <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded border border-amber-200">Draft</span>
@@ -1356,8 +1365,11 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
             {/* Shipping dimensions (required for live carrier rate quoting). */}
             <div className="border border-slate-200 rounded-lg p-3 space-y-3 bg-slate-50/50">
                 <div>
-                    <p className="text-xs font-semibold text-slate-700">Shipping (optional)</p>
-                    <p className="text-[11px] text-slate-500">Weight and box dimensions — required if any zone uses live carrier rates.</p>
+                    <p className="text-xs font-semibold text-slate-700">Shipping</p>
+                    <p className="text-[11px] text-slate-500">
+                        Weight and box dimensions. <span className="text-red-600 font-medium">Required</span> if any
+                        shipping zone uses live carrier rates — the product will be hidden from the storefront otherwise.
+                    </p>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     <div>
@@ -2218,10 +2230,16 @@ function ProductGrid({
                     )}
                     {isGated && !outOfStock && (
                         <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-1.5">
-                            <Lock className="w-6 h-6 text-white" />
-                            <span className="text-white font-bold text-xs tracking-wide px-2 text-center">
-                                {product.gate_reason === 'guest' ? 'SIGN IN TO PURCHASE' : 'MEMBERS ONLY'}
-                            </span>
+                            {product.gate_reason === 'unavailable' ? (
+                                <span className="text-white font-bold text-sm tracking-wide px-2 text-center">UNAVAILABLE</span>
+                            ) : (
+                                <>
+                                    <Lock className="w-6 h-6 text-white" />
+                                    <span className="text-white font-bold text-xs tracking-wide px-2 text-center">
+                                        {product.gate_reason === 'guest' ? 'SIGN IN TO PURCHASE' : 'MEMBERS ONLY'}
+                                    </span>
+                                </>
+                            )}
                         </div>
                     )}
                     {!outOfStock && !isGated && !external && (

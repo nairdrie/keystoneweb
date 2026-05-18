@@ -24,7 +24,8 @@ interface Product {
     public_price_cents?: number;
     matched_package_id?: string | null;
     can_purchase?: boolean;
-    gate_reason?: 'guest' | 'wrong-tier' | null;
+    gate_reason?: 'guest' | 'wrong-tier' | 'unavailable' | null;
+    shipping_warning?: 'missing_dimensions' | null;
 }
 
 interface ProductPageProps {
@@ -440,6 +441,11 @@ export default function ProductPage({ product, siteId, palette, siteName, allPro
                                         <><ShoppingCart className="w-5 h-5" /> Add to Cart — ${(effectivePriceCents * qty / 100).toFixed(2)}</>
                                     )}
                                 </button>
+                            </div>
+                        ) : gateReason === 'unavailable' ? (
+                            <div className="mb-6 p-5 rounded-xl border-2 border-slate-200 bg-slate-50 text-center space-y-2">
+                                <p className="text-base font-bold text-slate-900">Currently unavailable</p>
+                                <p className="text-sm text-slate-500">This product is not available for purchase right now.</p>
                             </div>
                         ) : (
                             <div className="mb-6 p-5 rounded-xl border-2 border-slate-200 bg-slate-50 text-center space-y-3">
