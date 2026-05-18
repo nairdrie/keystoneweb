@@ -427,7 +427,10 @@ function GateEditView({
 
               {/* Render the actual block */}
               <div className="relative border-2 border-transparent hover:border-slate-200 transition-colors rounded">
-                <BlockDataProvider value={block.data || {}}>
+                <BlockDataProvider
+                  value={block.data || {}}
+                  saveMeta={(key: string, value: unknown) => updateChildBlock(block.id, key, value)}
+                >
                   <Component
                     id={block.id}
                     data={block.data || {}}

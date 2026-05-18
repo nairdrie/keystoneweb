@@ -705,7 +705,7 @@ export default function SiteFooter({
         .join(' ');
 
     return (
-        <BlockDataProvider value={siteContent}>
+        <BlockDataProvider value={siteContent} saveMeta={updateSiteContent}>
             <footer className={wrapperClasses} style={footerInlineStyle}>
                 {hasStyleSheet && <style dangerouslySetInnerHTML={{ __html: styleSheet }} />}
                 {body}

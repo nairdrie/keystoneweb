@@ -145,14 +145,39 @@ export function useEditorContext(): EditorContextType | undefined {
  * Per-block data context. Each block wraps its render in <BlockDataProvider value={data}>
  * so descendant EditableText components can resolve their styleData (stored under
  * `${contentKey}__styles`) without every call site having to thread the prop manually.
+ *
+ * `saveMeta` is an optional sibling persistence channel used to write per-field
+ * metadata (e.g. `${contentKey}__removed`) without going through the block's
+ * bespoke per-item onSave handler.
  */
-const BlockDataContext = createContext<Record<string, unknown> | undefined>(undefined);
+interface BlockDataContextValue {
+  data: Record<string, unknown> | undefined;
+  saveMeta?: (key: string, value: unknown) => void;
+}
 
-export function BlockDataProvider({ value, children }: { value: Record<string, unknown> | undefined; children: ReactNode }) {
-  return <BlockDataContext.Provider value={value}>{children}</BlockDataContext.Provider>;
+const BlockDataContext = createContext<BlockDataContextValue | undefined>(undefined);
+
+export function BlockDataProvider({
+  value,
+  saveMeta,
+  children,
+}: {
+  value: Record<string, unknown> | undefined;
+  saveMeta?: (key: string, value: unknown) => void;
+  children: ReactNode;
+}) {
+  return (
+    <BlockDataContext.Provider value={{ data: value, saveMeta }}>
+      {children}
+    </BlockDataContext.Provider>
+  );
 }
 
 export function useBlockData(): Record<string, unknown> | undefined {
-  return useContext(BlockDataContext);
+  return useContext(BlockDataContext)?.data;
+}
+
+export function useBlockMetaSave(): ((key: string, value: unknown) => void) | undefined {
+  return useContext(BlockDataContext)?.saveMeta;
 }
 

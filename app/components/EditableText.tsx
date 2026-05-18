@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Edit2 } from 'lucide-react';
+import { Edit2, Plus, X } from 'lucide-react';
 import { sanitizeRichHtml } from '@/lib/html-sanitize';
-import { useEditorContext, useBlockData } from '@/lib/editor-context';
+import { useEditorContext, useBlockData, useBlockMetaSave } from '@/lib/editor-context';
 import RichTextToolbar, { type InlineCommand } from './RichTextToolbar';
 import {
   textShadowToCss,
@@ -46,9 +46,15 @@ export default function EditableText({
   const editorCtx = useEditorContext();
   const palette = editorCtx?.palette;
   const blockData = useBlockData();
+  const saveMeta = useBlockMetaSave();
   // styleData prop wins; otherwise look it up in the surrounding block's data
   // via context. Blocks wrap their render in <BlockDataProvider value={data}>.
   const resolvedStyleData = styleData ?? (blockData?.[`${contentKey}__styles`] as string | Record<string, unknown> | undefined);
+  const removed = Boolean(blockData?.[`${contentKey}__removed`]);
+
+  const setRemoved = useCallback((next: boolean) => {
+    if (saveMeta) saveMeta(`${contentKey}__removed`, next);
+  }, [saveMeta, contentKey]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -286,6 +292,7 @@ export default function EditableText({
   // ---- RENDER ----
 
   if (!isEditMode) {
+    if (removed) return null;
     return (
       <>
         {overrideFontHref && <link rel="stylesheet" href={overrideFontHref} />}
@@ -293,6 +300,31 @@ export default function EditableText({
           {renderDisplayContent(displayText)}
         </Component>
       </>
+    );
+  }
+
+  if (removed) {
+    const label = humanizeFieldName(contentKey);
+    return (
+      <Component
+        className={`${className} ${ksFieldClass}`.trim()}
+        style={style}
+        {...ksMarkerProps}
+      >
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setRemoved(false);
+          }}
+          className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-50 border border-dashed border-blue-400 rounded-full hover:bg-blue-100 hover:border-blue-500 transition-colors"
+          title={`Restore ${label}`}
+        >
+          <Plus className="w-3 h-3" />
+          <span>{label}</span>
+        </button>
+      </Component>
     );
   }
 
@@ -377,6 +409,21 @@ export default function EditableText({
             >
               <Edit2 className="w-3 h-3" />
             </button>
+            {saveMeta && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setRemoved(true);
+                }}
+                className="inline-flex items-center justify-center w-7 h-7 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-full shadow-md"
+                title={`Remove: ${contentKey}`}
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
           </span>
         </span>
       </Component>
@@ -391,6 +438,18 @@ export default function EditableText({
 // `ks-field--{name}` class is also emitted for custom CSS targeting.
 function sanitizeFieldName(name: string): string {
   return name.replace(/[^A-Za-z0-9_-]/g, '_');
+}
+
+// Turn a contentKey like "faq_0_question" or "bannerPhone" into a readable
+// label for the restore placeholder ("+ question", "+ banner phone").
+function humanizeFieldName(name: string): string {
+  const parts = name
+    .split(/[_-]+/g)
+    .filter((p) => p.length > 0 && !/^\d+$/.test(p));
+  if (parts.length === 0) return name;
+  const last = parts[parts.length - 1];
+  const spaced = last.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+  return spaced;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
