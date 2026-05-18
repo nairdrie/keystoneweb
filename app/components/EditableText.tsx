@@ -70,6 +70,10 @@ export default function EditableText({
   const containerRef = useRef<HTMLElement>(null);
   const isEditingRef = useRef(false);
   const displayTextRef = useRef(displayText);
+  // Last non-collapsed selection range inside the editor. Restored when a
+  // toolbar control (slider, color input, etc.) takes focus and clears the
+  // live selection so style commands still target the user's intended text.
+  const savedRangeRef = useRef<Range | null>(null);
 
   const parsedStyles: TextStyles = isEditing ? pendingStyles : initialParsed;
 
@@ -128,6 +132,28 @@ export default function EditableText({
       setControlsOnLeft(spaceOnRight < 80);
     }
   }, [isEditMode, isHovered]);
+
+  // Track the live selection while editing so commands triggered from the
+  // toolbar (sliders, color inputs) can apply to the user's last real
+  // selection even after focus moves to a control.
+  useEffect(() => {
+    if (!isEditing || !editorEl) return;
+    const handler = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      const r = sel.getRangeAt(0);
+      if (!r.collapsed && editorEl.contains(r.commonAncestorContainer)) {
+        savedRangeRef.current = r.cloneRange();
+      }
+    };
+    document.addEventListener('selectionchange', handler);
+    return () => document.removeEventListener('selectionchange', handler);
+  }, [isEditing, editorEl]);
+
+  // Clear any stale saved range when a new edit session begins
+  useEffect(() => {
+    if (!isEditing) savedRangeRef.current = null;
+  }, [isEditing]);
 
   // Commit pending edit if another EditableText starts editing
   useEffect(() => {
@@ -191,7 +217,18 @@ export default function EditableText({
     const editor = editorEl;
     if (!editor) return;
     editor.focus();
-    const sel = window.getSelection();
+    // After focusing, the live selection may be collapsed at the cursor
+    // (focus moved here from a slider/input). Restore the last good range so
+    // the command operates on the user's intended text.
+    let sel = window.getSelection();
+    const live = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    const liveValid = !!live && !live.collapsed && editor.contains(live.commonAncestorContainer);
+    if (!liveValid && savedRangeRef.current && !savedRangeRef.current.collapsed
+        && editor.contains(savedRangeRef.current.commonAncestorContainer)) {
+      sel?.removeAllRanges();
+      sel?.addRange(savedRangeRef.current);
+    }
+    sel = window.getSelection();
     const hasSelection = !!sel && sel.rangeCount > 0 && !sel.getRangeAt(0).collapsed
       && editor.contains(sel.getRangeAt(0).commonAncestorContainer);
 
@@ -365,7 +402,7 @@ export default function EditableText({
             suppressContentEditableWarning
             onKeyDown={handleEditorKeyDown}
             onPaste={handlePaste}
-            className="outline-none whitespace-pre-wrap break-words bg-blue-50/60 rounded-sm ring-2 ring-blue-400/70"
+            className="outline-none whitespace-pre-wrap break-words bg-blue-50/60 rounded-sm ring-2 ring-blue-400/70 cursor-text"
             style={{
               minWidth: '1ch',
               padding: '2px 4px',
@@ -375,6 +412,7 @@ export default function EditableText({
               color: 'inherit',
               textAlign: 'inherit',
               lineHeight: 'inherit',
+              letterSpacing: 'inherit',
             }}
           />
         </Component>
