@@ -64,7 +64,16 @@ export interface HeroContent {
 export interface HeroBackground {
     type: BgType;
     image?: { url: string; settings?: unknown; attribution?: unknown };
-    video?: { source: VideoSource; url: string };
+    video?: {
+        source: VideoSource;
+        url: string;
+        /** How the video frame is scaled inside the hero. Defaults to 'cover'. */
+        objectFit?: 'cover' | 'contain';
+        /** CSS object-position string, e.g. "50% 30%". Defaults to "50% 50%". */
+        objectPosition?: string;
+        /** Additional zoom multiplier applied via transform: scale(). 1 = none. */
+        scale?: number;
+    };
     gradient?: { from: string; to: string; via?: string; angle: number };
     animation?: {
         id: HeroBgAnimationId;

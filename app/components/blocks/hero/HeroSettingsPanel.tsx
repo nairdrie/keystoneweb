@@ -707,7 +707,7 @@ export default function HeroSettingsPanel({
                                     />
                                 )}
                                 {activeCard.background.video?.url && (
-                                    <video src={activeCard.background.video.url} className="h-32 w-full rounded-lg object-cover" muted autoPlay loop playsInline />
+                                    <VideoFramingControls bg={activeCard.background} onChange={updateBackground} />
                                 )}
                                 <OverlayControls bg={activeCard.background} onChange={updateBackground} />
                             </div>
@@ -1287,6 +1287,119 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
         >
             <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${checked ? 'left-[22px]' : 'left-0.5'}`} />
         </button>
+    );
+}
+
+const FOCAL_POSITIONS: { label: string; value: string }[] = [
+    { label: 'Top left', value: '0% 0%' },
+    { label: 'Top center', value: '50% 0%' },
+    { label: 'Top right', value: '100% 0%' },
+    { label: 'Middle left', value: '0% 50%' },
+    { label: 'Center', value: '50% 50%' },
+    { label: 'Middle right', value: '100% 50%' },
+    { label: 'Bottom left', value: '0% 100%' },
+    { label: 'Bottom center', value: '50% 100%' },
+    { label: 'Bottom right', value: '100% 100%' },
+];
+
+function VideoFramingControls({ bg, onChange }: { bg: HeroBackground; onChange: (patch: Partial<HeroBackground>) => void }) {
+    const video = bg.video;
+    if (!video?.url) return null;
+    const objectFit = video.objectFit === 'contain' ? 'contain' : 'cover';
+    const objectPosition = video.objectPosition || '50% 50%';
+    const scale = typeof video.scale === 'number' && video.scale > 0 ? video.scale : 1;
+    const patch = (partial: Partial<NonNullable<HeroBackground['video']>>) => {
+        onChange({ video: { ...video, ...partial } });
+    };
+    return (
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Frame</p>
+
+            <div className="relative aspect-video overflow-hidden rounded-lg bg-slate-900">
+                <video
+                    src={video.url}
+                    muted
+                    autoPlay
+                    loop
+                    playsInline
+                    className="absolute inset-0 h-full w-full"
+                    style={{
+                        objectFit,
+                        objectPosition,
+                        transform: scale !== 1 ? `scale(${scale})` : undefined,
+                        transformOrigin: objectPosition,
+                    }}
+                />
+            </div>
+
+            <div>
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">Fit</p>
+                <div className="grid grid-cols-2 gap-2">
+                    {(['cover', 'contain'] as const).map((fit) => {
+                        const isActive = objectFit === fit;
+                        return (
+                            <button
+                                key={fit}
+                                type="button"
+                                onClick={() => patch({ objectFit: fit })}
+                                aria-pressed={isActive}
+                                className={`rounded-lg border px-3 py-1.5 text-xs font-bold capitalize transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                    isActive ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                                }`}
+                            >
+                                {fit === 'cover' ? 'Cover (crop)' : 'Contain (fit)'}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            <div>
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">Focal point</p>
+                <div className="grid w-24 grid-cols-3 gap-1">
+                    {FOCAL_POSITIONS.map((pos) => {
+                        const isActive = objectPosition === pos.value;
+                        return (
+                            <button
+                                key={pos.value}
+                                type="button"
+                                onClick={() => patch({ objectPosition: pos.value })}
+                                aria-label={pos.label}
+                                aria-pressed={isActive}
+                                className={`h-6 w-6 rounded-md border transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                    isActive ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white hover:border-slate-400'
+                                }`}
+                            />
+                        );
+                    })}
+                </div>
+            </div>
+
+            <div>
+                <label className="mb-0.5 block text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                    Zoom: {scale.toFixed(2)}x
+                </label>
+                <input
+                    type="range"
+                    min={100}
+                    max={300}
+                    step={5}
+                    value={Math.round(scale * 100)}
+                    onChange={(e) => patch({ scale: parseInt(e.target.value) / 100 })}
+                    className="w-full accent-blue-600"
+                />
+            </div>
+
+            {(scale !== 1 || objectPosition !== '50% 50%' || objectFit !== 'cover') && (
+                <button
+                    type="button"
+                    onClick={() => patch({ objectFit: 'cover', objectPosition: '50% 50%', scale: 1 })}
+                    className="text-xs font-semibold text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline"
+                >
+                    Reset frame
+                </button>
+            )}
+        </div>
     );
 }
 
