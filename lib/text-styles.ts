@@ -29,8 +29,67 @@ export interface TextStyles {
     fontSize?: string;
     color?: string;
     fontWeight?: string;
+    letterSpacing?: string;
+    lineHeight?: string;
     textAlign?: TextAlignValue;
     textShadow?: TextShadowSettings;
+}
+
+export const FONT_SIZE_SLIDER = {
+    min: 8,
+    max: 160,
+    step: 1,
+    unit: 'px',
+    fallback: 16,
+};
+
+export const FONT_WEIGHT_SLIDER = {
+    min: 100,
+    max: 900,
+    step: 100,
+    fallback: 400,
+};
+
+export const LETTER_SPACING_SLIDER = {
+    min: -5,
+    max: 20,
+    step: 0.1,
+    unit: 'px',
+    fallback: 0,
+};
+
+export const LINE_HEIGHT_SLIDER = {
+    min: 0.8,
+    max: 3,
+    step: 0.05,
+    fallback: 1.4,
+};
+
+// Parse a CSS length value into a number in px. Returns the slider fallback
+// when the value can't be parsed. Handles px, rem, em, %, and unitless.
+export function parseLengthPx(value: string | undefined, fallbackPx: number, basePx = 16): number {
+    if (!value) return fallbackPx;
+    const trimmed = String(value).trim();
+    const match = /^(-?\d*\.?\d+)\s*([a-z%]*)$/i.exec(trimmed);
+    if (!match) return fallbackPx;
+    const n = parseFloat(match[1]);
+    const unit = match[2].toLowerCase();
+    if (!isFinite(n)) return fallbackPx;
+    switch (unit) {
+        case '':
+        case 'px': return n;
+        case 'rem':
+        case 'em': return n * basePx;
+        case '%': return (n / 100) * basePx;
+        default: return n;
+    }
+}
+
+// Parse a unitless or "x.xx" line-height into a number.
+export function parseUnitless(value: string | undefined, fallback: number): number {
+    if (value === undefined || value === null || value === '') return fallback;
+    const n = parseFloat(String(value));
+    return isFinite(n) ? n : fallback;
 }
 
 export const POPULAR_FONTS = [
@@ -44,29 +103,6 @@ export const POPULAR_FONTS = [
     'Permanent Marker', 'Caveat', 'Patrick Hand', 'Varela Round', 'Boogaloo',
     'Dancing Script', 'Lobster', 'Sacramento', 'Great Vibes', 'Satisfy',
     'Cookie', 'Yellowtail', 'Allura', 'Alex Brush', 'Parisienne',
-];
-
-export const FONT_SIZE_PRESETS = [
-    { label: 'XS', val: '0.75rem' },
-    { label: 'SM', val: '0.875rem' },
-    { label: 'Base', val: '1rem' },
-    { label: 'LG', val: '1.25rem' },
-    { label: 'XL', val: '1.5rem' },
-    { label: '2XL', val: '2rem' },
-    { label: '4XL', val: '3rem' },
-    { label: 'Hero', val: '5rem' },
-];
-
-export const FONT_WEIGHT_PRESETS = [
-    { label: 'Thin', value: '100' },
-    { label: 'Extra Light', value: '200' },
-    { label: 'Light', value: '300' },
-    { label: 'Regular', value: '400' },
-    { label: 'Medium', value: '500' },
-    { label: 'Semi Bold', value: '600' },
-    { label: 'Bold', value: '700' },
-    { label: 'Extra Bold', value: '800' },
-    { label: 'Black', value: '900' },
 ];
 
 export const NEUTRAL_SWATCHES = [
