@@ -59,7 +59,7 @@ export const LETTER_SPACING_SLIDER = {
 };
 
 export const LINE_HEIGHT_SLIDER = {
-    min: 0.8,
+    min: 0,
     max: 3,
     step: 0.05,
     fallback: 1.4,
