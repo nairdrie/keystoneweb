@@ -44,7 +44,7 @@ export interface PricingMember {
   packageId: string | null | undefined;
 }
 
-export type GateReason = 'guest' | 'wrong-tier' | null;
+export type GateReason = 'guest' | 'wrong-tier' | 'unavailable' | null;
 
 export interface ResolvedProductAccess {
   priceCents: number;

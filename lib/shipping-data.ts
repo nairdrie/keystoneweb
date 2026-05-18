@@ -106,6 +106,24 @@ export interface ShippingOption {
     zone_id: string;
 }
 
+/**
+ * A product needs weight + all three dimensions to be quotable by a carrier.
+ * Returns true if any of the four fields is missing or non-positive.
+ */
+export function productMissingShippingInfo(p: {
+    weight_grams?: number | null;
+    length_mm?: number | null;
+    width_mm?: number | null;
+    height_mm?: number | null;
+}): boolean {
+    return !p.weight_grams || !p.length_mm || !p.width_mm || !p.height_mm;
+}
+
+/** True if the site has at least one carrier (live-rate) shipping zone. */
+export function siteHasCarrierZone(zones: Array<{ rate_type: string; is_archived?: boolean }>): boolean {
+    return (zones || []).some(z => z.rate_type === 'carrier' && z.is_archived !== true);
+}
+
 /** Apply a zone's markup policy to a raw carrier rate. */
 export function applyMarkup(
     baseCents: number,

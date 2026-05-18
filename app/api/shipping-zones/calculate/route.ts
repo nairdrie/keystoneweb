@@ -123,9 +123,12 @@ export async function POST(request: NextRequest) {
 
     const parcel = buildSingleParcel(parcelItems);
     if (!parcel) {
+        // Should never reach a customer — products without dims are gated as
+        // 'unavailable' upstream. This is the defense-in-depth message for
+        // stale carts after a merchant config change.
         return NextResponse.json({
             error: 'no_rates',
-            message: 'Some products are missing weight or dimensions, so live rates can\'t be calculated.',
+            message: "One or more items in your cart are currently unavailable for shipping.",
         }, { status: 200 });
     }
 

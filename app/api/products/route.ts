@@ -5,6 +5,7 @@ import { scanText } from '@/lib/moderation/text-scan';
 import { handleModerationResult } from '@/lib/moderation/report';
 import { getCurrentMemberFromRequest } from '@/lib/membership/current-member';
 import { resolveProductAccess, parseProductOptions } from '@/lib/ecommerce/resolve-price';
+import { productMissingShippingInfo, siteHasCarrierZone } from '@/lib/shipping-data';
 
 /**
  * GET /api/products?siteId=...
@@ -96,17 +97,33 @@ export async function GET(request: NextRequest) {
     }
     const categories = Array.from(categorySet).sort();
 
+    // Carrier zones make weight/dimensions mandatory: a product that's missing
+    // them can't be quoted by Shippo, so we gate it as 'unavailable' instead
+    // of letting a customer reach checkout and hit a generic error.
+    const { data: zoneRows } = await supabase
+        .from('shipping_zones')
+        .select('rate_type, is_archived')
+        .eq('site_id', siteId)
+        .eq('is_archived', false);
+    const carrierZonePresent = siteHasCarrierZone(zoneRows || []);
+
     // Resolve per-product pricing/access for the current member (if any).
     const member = await getCurrentMemberFromRequest(request, siteId);
     const products = (data || []).map(p => {
         const resolved = resolveProductAccess(p, member);
+        const missingShipping = carrierZonePresent && productMissingShippingInfo(p);
+        // Membership gates win — a 'sign in to purchase' message is more
+        // actionable than 'unavailable' when both apply.
+        const canPurchase = resolved.canPurchase && !missingShipping;
+        const gateReason = resolved.gateReason ?? (missingShipping ? 'unavailable' : null);
         return {
             ...p,
             effective_price_cents: resolved.priceCents,
             public_price_cents: resolved.publicPriceCents,
             matched_package_id: resolved.matchedPackageId,
-            can_purchase: resolved.canPurchase,
-            gate_reason: resolved.gateReason,
+            can_purchase: canPurchase,
+            gate_reason: gateReason,
+            shipping_warning: missingShipping ? 'missing_dimensions' : null,
         };
     });
 

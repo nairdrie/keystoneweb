@@ -8,6 +8,7 @@ import ProductJsonLd from '@/app/components/ProductJsonLd';
 import SiteNotFound from '@/app/components/SiteNotFound';
 import { getCurrentMember } from '@/lib/membership/current-member';
 import { resolveProductAccess } from '@/lib/ecommerce/resolve-price';
+import { productMissingShippingInfo, siteHasCarrierZone } from '@/lib/shipping-data';
 import { PUBLISHED_ROOT } from '@/lib/env/domain';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
@@ -115,13 +116,28 @@ export default async function ProductDetailPage({
         // Resolve the viewing member's price/access for this product.
         const member = await getCurrentMember(site.id);
         const access = resolveProductAccess(product, member);
+
+        // Carrier-zone gate: a product without weight/dimensions can't be
+        // quoted, so we mark it unavailable rather than letting the customer
+        // hit an opaque checkout error.
+        const { data: zoneRows } = await supabase
+            .from('shipping_zones')
+            .select('rate_type, is_archived')
+            .eq('site_id', site.id)
+            .eq('is_archived', false);
+        const carrierZonePresent = siteHasCarrierZone(zoneRows || []);
+        const productMissingShip = carrierZonePresent && productMissingShippingInfo(product);
+        const productCanPurchase = access.canPurchase && !productMissingShip;
+        const productGateReason = access.gateReason ?? (productMissingShip ? 'unavailable' : null);
+
         const resolvedProduct = {
             ...product,
             effective_price_cents: access.priceCents,
             public_price_cents: access.publicPriceCents,
             matched_package_id: access.matchedPackageId,
-            can_purchase: access.canPurchase,
-            gate_reason: access.gateReason,
+            can_purchase: productCanPurchase,
+            gate_reason: productGateReason,
+            shipping_warning: productMissingShip ? 'missing_dimensions' : null,
         };
 
         // Fetch all products for "related products"
@@ -134,13 +150,15 @@ export default async function ProductDetailPage({
             .order('sort_order');
         const allProducts = (allProductsRaw || []).map(p => {
             const r = resolveProductAccess(p, member);
+            const missingShip = carrierZonePresent && productMissingShippingInfo(p);
             return {
                 ...p,
                 effective_price_cents: r.priceCents,
                 public_price_cents: r.publicPriceCents,
                 matched_package_id: r.matchedPackageId,
-                can_purchase: r.canPurchase,
-                gate_reason: r.gateReason,
+                can_purchase: r.canPurchase && !missingShip,
+                gate_reason: r.gateReason ?? (missingShip ? 'unavailable' : null),
+                shipping_warning: missingShip ? 'missing_dimensions' : null,
             };
         });
 
