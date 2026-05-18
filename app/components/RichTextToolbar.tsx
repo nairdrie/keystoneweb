@@ -161,8 +161,7 @@ export default function RichTextToolbar({
 
     const popover = openPopover ? (
         <div
-            className={`rounded-xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20 p-3 max-w-[480px] ${popoverSide === 'top' ? 'mb-1.5' : 'mt-1.5'}`}
-            onMouseDown={preserveFocus}
+            className="rounded-xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20 p-3 max-w-[min(95vw,480px)]"
         >
             {openPopover === 'font' && (
                 <div className="w-[420px] max-w-[80vw]">
@@ -549,13 +548,17 @@ export default function RichTextToolbar({
     const toolbar = (
         <div
             ref={toolbarRef}
-            className="fixed z-[10000] select-none flex flex-col items-center"
+            className="fixed z-[10000] select-none"
             style={{ top: pos.top, left: pos.left }}
-            onMouseDown={preserveFocus}
         >
-            {popoverSide === 'top' && popover}
             {toolbarBar}
-            {popoverSide === 'bottom' && popover}
+            {popover && (
+                <div
+                    className={`absolute left-1/2 -translate-x-1/2 ${popoverSide === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}
+                >
+                    {popover}
+                </div>
+            )}
         </div>
     );
 
@@ -658,7 +661,6 @@ function StyleSlider({
                         setLocal(v);
                         onChange(v);
                     }}
-                    onMouseDown={(e) => e.preventDefault()}
                     className="flex-1 accent-red-500 cursor-pointer"
                 />
                 {onReset && (
