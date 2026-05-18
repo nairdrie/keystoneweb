@@ -359,8 +359,14 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
             renderIconDisplay(item, idx, 'md')
           )}
         </div>
-        <h3 className="text-xl font-bold mb-2" style={{ color: textColor }}>{item.title}</h3>
-        <p className="text-sm leading-relaxed flex-1" style={{ color: textColor, opacity: 0.7 }}>{item.text}</p>
+        <EditableText as="h3" contentKey={`carousel_${idx}_title`} content={item.title}
+          defaultValue={`Feature ${idx + 1}`} isEditMode={false}
+          onSave={() => {}}
+          className="text-xl font-bold mb-2" style={{ color: textColor }} />
+        <EditableText as="p" contentKey={`carousel_${idx}_text`} content={item.text}
+          defaultValue="Add your description here." isEditMode={false}
+          onSave={() => {}}
+          className="text-sm leading-relaxed flex-1" style={{ color: textColor, opacity: 0.7 }} />
       </div>
     );
 
