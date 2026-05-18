@@ -1010,7 +1010,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
     );
 
     return (
-        <BlockDataProvider value={siteContent}>
+        <BlockDataProvider value={siteContent} saveMeta={updateSiteContent}>
             {bannerEl}
             <header
                 ref={headerRef}

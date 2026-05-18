@@ -182,7 +182,10 @@ export default function BlockRenderer({ palette, headerOffset }: { palette: Reco
                             customScript={block.data?.__customScript || ''}
                             palette={palette}
                         >
-                            <BlockDataProvider value={block.data || {}}>
+                            <BlockDataProvider
+                                value={block.data || {}}
+                                saveMeta={(key: string, value: unknown) => context?.updateBlockData?.(block.id, key, value)}
+                            >
                                 <Component
                                     id={block.id}
                                     data={block.data || {}}

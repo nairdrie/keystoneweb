@@ -217,7 +217,14 @@ function SideBySideColumn({
                                             ));
                                         }}
                                     >
-                                        <BlockDataProvider value={block.data || {}}>
+                                        <BlockDataProvider
+                                            value={block.data || {}}
+                                            saveMeta={(key: string, value: unknown) => {
+                                                onChange(blocks.map(b =>
+                                                    b.id === block.id ? { ...b, data: { ...b.data, [key]: value } } : b
+                                                ));
+                                            }}
+                                        >
                                             <Component
                                                 id={block.id}
                                                 data={block.data || {}}
