@@ -717,13 +717,22 @@ function BackgroundLayer({ bg, palette }: { bg: HeroBackground; palette: Record<
             />
         );
     } else if (bg.type === 'video' && bg.video?.url) {
+        const objectFit = bg.video.objectFit === 'contain' ? 'contain' : 'cover';
+        const objectPosition = bg.video.objectPosition || '50% 50%';
+        const scale = typeof bg.video.scale === 'number' && bg.video.scale > 0 ? bg.video.scale : 1;
         mediaLayer = (
             <video
                 autoPlay
                 muted
                 loop
                 playsInline
-                className="hero-video-bg absolute inset-0 z-0 h-full w-full object-cover"
+                className="hero-video-bg absolute inset-0 z-0 h-full w-full"
+                style={{
+                    objectFit,
+                    objectPosition,
+                    transform: scale !== 1 ? `scale(${scale})` : undefined,
+                    transformOrigin: objectPosition,
+                }}
             >
                 <source src={bg.video.url} type="video/mp4" />
             </video>
