@@ -135,14 +135,19 @@ export default function EditableText({
 
   // Track the live selection while editing so commands triggered from the
   // toolbar (sliders, color inputs) can apply to the user's last real
-  // selection even after focus moves to a control.
+  // selection even after focus moves to a control. When the user collapses
+  // their selection (just a cursor in the editor), clear the saved range so
+  // subsequent style changes operate at the block level, not on stale text.
   useEffect(() => {
     if (!isEditing || !editorEl) return;
     const handler = () => {
       const sel = window.getSelection();
       if (!sel || sel.rangeCount === 0) return;
       const r = sel.getRangeAt(0);
-      if (!r.collapsed && editorEl.contains(r.commonAncestorContainer)) {
+      if (!editorEl.contains(r.commonAncestorContainer)) return;
+      if (r.collapsed) {
+        savedRangeRef.current = null;
+      } else {
         savedRangeRef.current = r.cloneRange();
       }
     };
@@ -293,12 +298,12 @@ export default function EditableText({
         break;
       }
       case 'lineHeight': {
+        // Line-height is inherently a paragraph-level property. Applying it
+        // to a wrapper span around a selection can only enlarge the line box,
+        // never shrink it below the parent's strut — so we always apply at
+        // the block level for predictable behavior.
         const value = cmd.value || '';
-        if (hasSelection && value) {
-          wrapSelectionWithStyle('line-height', value);
-        } else {
-          setPendingStyles(s => ({ ...s, lineHeight: value || undefined }));
-        }
+        setPendingStyles(s => ({ ...s, lineHeight: value || undefined }));
         break;
       }
     }

@@ -64,9 +64,34 @@ export default function RichTextToolbar({
     const [openPopover, setOpenPopover] = useState<PopoverKey>(null);
     const [fontSearch, setFontSearch] = useState('');
 
-    // Position the toolbar relative to the target element. Reserve room for
-    // the popover panel above (when toolbar sits above the text) so opening
-    // the popover doesn't push it under the viewport edge.
+    // Room we want available above/below the text so the toolbar AND any
+    // popover that opens have somewhere to go without overlapping the text.
+    const POPOVER_RESERVE = 360;
+
+    // When the editor first opens, scroll the text into a position with
+    // enough breathing room above and below for the toolbar + popover. Without
+    // this an EditableText at the very top of the page (e.g. in a sticky
+    // header) leaves the toolbar nowhere to go.
+    useEffect(() => {
+        if (!targetEl) return;
+        const r = targetEl.getBoundingClientRect();
+        const roomAbove = r.top;
+        const roomBelow = window.innerHeight - r.bottom;
+        if (roomAbove < POPOVER_RESERVE && roomBelow < POPOVER_RESERVE) {
+            targetEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        } else if (roomAbove < POPOVER_RESERVE) {
+            // Plenty of room below — slide down so the toolbar can sit above.
+            const delta = roomAbove - POPOVER_RESERVE; // negative
+            window.scrollBy({ top: delta, behavior: 'smooth' });
+        } else if (roomBelow < POPOVER_RESERVE) {
+            const delta = POPOVER_RESERVE - roomBelow;
+            window.scrollBy({ top: delta, behavior: 'smooth' });
+        }
+    }, [targetEl]);
+
+    // Position the toolbar relative to the target element. Pick the side
+    // (above vs below) that has more room so the popover, when opened, has
+    // somewhere to go without covering the text.
     useLayoutEffect(() => {
         if (!targetEl) return;
         const update = () => {
@@ -75,9 +100,19 @@ export default function RichTextToolbar({
             const tbHeight = tb?.offsetHeight ?? 56;
             const tbWidth = tb?.offsetWidth ?? 480;
             const gap = 8;
-            const above = r.top - gap - tbHeight;
-            const placement: 'above' | 'below' = above >= 8 ? 'above' : 'below';
-            const top = placement === 'above' ? above : Math.min(window.innerHeight - tbHeight - 8, r.bottom + gap);
+            const roomAbove = r.top - gap - tbHeight;
+            const roomBelow = window.innerHeight - r.bottom - gap - tbHeight;
+            // Prefer the side with enough room for the popover; tie-break to
+            // whichever side has the most room overall.
+            const aboveFits = roomAbove >= POPOVER_RESERVE;
+            const belowFits = roomBelow >= POPOVER_RESERVE;
+            let placement: 'above' | 'below';
+            if (aboveFits && !belowFits) placement = 'above';
+            else if (belowFits && !aboveFits) placement = 'below';
+            else placement = roomAbove >= roomBelow ? 'above' : 'below';
+            const top = placement === 'above'
+                ? Math.max(8, r.top - gap - tbHeight)
+                : Math.min(window.innerHeight - tbHeight - 8, r.bottom + gap);
             const rawLeft = r.left + (r.width / 2) - (tbWidth / 2);
             const left = Math.max(8, Math.min(rawLeft, window.innerWidth - tbWidth - 8));
             setPos({ top, left, placement });
@@ -161,7 +196,7 @@ export default function RichTextToolbar({
 
     const popover = openPopover ? (
         <div
-            className="rounded-xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20 p-3 max-w-[min(95vw,480px)]"
+            className="rounded-xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/20 p-3 max-w-[min(95vw,480px)] max-h-[min(80vh,500px)] overflow-y-auto"
         >
             {openPopover === 'font' && (
                 <div className="w-[420px] max-w-[80vw]">
