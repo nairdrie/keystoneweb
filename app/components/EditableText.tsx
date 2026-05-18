@@ -77,6 +77,8 @@ export default function EditableText({
   const fontSize = parsedStyles.fontSize;
   const color = parsedStyles.color;
   const fontWeight = parsedStyles.fontWeight;
+  const letterSpacing = parsedStyles.letterSpacing;
+  const lineHeight = parsedStyles.lineHeight;
   const textAlign = parsedStyles.textAlign;
   const textShadowCss = textShadowToCss(parsedStyles.textShadow);
 
@@ -86,6 +88,8 @@ export default function EditableText({
     ...(fontSize ? { fontSize } : {}),
     ...(color ? { color } : {}),
     ...(fontWeight ? { fontWeight } : {}),
+    ...(letterSpacing ? { letterSpacing } : {}),
+    ...(lineHeight ? { lineHeight } : {}),
     // Alignment only takes effect inside a block formatting context. When the
     // user explicitly aligns text we force display:block so a span EditableText
     // (or any element a parent class is forcing inline) actually honors it.
@@ -239,6 +243,24 @@ export default function EditableText({
           wrapSelectionWithStyle('font-weight', value);
         } else {
           setPendingStyles(s => ({ ...s, fontWeight: value || undefined }));
+        }
+        break;
+      }
+      case 'letterSpacing': {
+        const value = cmd.value || '';
+        if (hasSelection && value) {
+          wrapSelectionWithStyle('letter-spacing', value);
+        } else {
+          setPendingStyles(s => ({ ...s, letterSpacing: value || undefined }));
+        }
+        break;
+      }
+      case 'lineHeight': {
+        const value = cmd.value || '';
+        if (hasSelection && value) {
+          wrapSelectionWithStyle('line-height', value);
+        } else {
+          setPendingStyles(s => ({ ...s, lineHeight: value || undefined }));
         }
         break;
       }
@@ -480,6 +502,8 @@ function parseStyleData(styleData: string | Record<string, unknown> | undefined)
   const fs = getCssScalar(raw.fontSize); if (fs) styles.fontSize = fs;
   if (typeof raw.color === 'string') styles.color = raw.color;
   const fw = getCssScalar(raw.fontWeight); if (fw) styles.fontWeight = fw;
+  const ls = getCssScalar(raw.letterSpacing); if (ls) styles.letterSpacing = ls;
+  const lh = getCssScalar(raw.lineHeight); if (lh) styles.lineHeight = lh;
   const ta = getTextAlign(raw.textAlign); if (ta) styles.textAlign = ta;
   if (isRecord(raw.textShadow)) styles.textShadow = raw.textShadow as unknown as TextShadowSettings;
   return styles;
@@ -491,6 +515,8 @@ function stripUndefined(obj: TextStyles): TextStyles {
   if (obj.fontSize) out.fontSize = obj.fontSize;
   if (obj.color) out.color = obj.color;
   if (obj.fontWeight) out.fontWeight = obj.fontWeight;
+  if (obj.letterSpacing) out.letterSpacing = obj.letterSpacing;
+  if (obj.lineHeight) out.lineHeight = obj.lineHeight;
   if (obj.textAlign) out.textAlign = obj.textAlign;
   if (obj.textShadow && obj.textShadow.enabled) out.textShadow = obj.textShadow;
   return out;
@@ -618,18 +644,32 @@ function textPreviewFromHtml(text: string): string {
   return tmp.textContent || '';
 }
 
-// Wrap the current selection in a span with a single inline style
+// Wrap the current selection in a span with a single inline style. When the
+// selection exactly matches the contents of an existing inline span, reuse
+// that span instead of nesting another one — this lets slider drags update
+// in place rather than producing a deep <span><span>... pile.
 function wrapSelectionWithStyle(prop: string, value: string) {
   const sel = window.getSelection();
   if (!sel || sel.rangeCount === 0) return;
   const range = sel.getRangeAt(0);
   if (range.collapsed) return;
+
+  const reusable = findReusableSpanForRange(range);
+  if (reusable) {
+    if (value) reusable.style.setProperty(prop, value);
+    else reusable.style.removeProperty(prop);
+    const newRange = document.createRange();
+    newRange.selectNodeContents(reusable);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+    return;
+  }
+
   const span = document.createElement('span');
-  span.style.setProperty(prop, value);
+  if (value) span.style.setProperty(prop, value);
   try {
     span.appendChild(range.extractContents());
     range.insertNode(span);
-    // Restore the selection over the inserted span
     const newRange = document.createRange();
     newRange.selectNodeContents(span);
     sel.removeAllRanges();
@@ -637,4 +677,45 @@ function wrapSelectionWithStyle(prop: string, value: string) {
   } catch {
     // If extractContents fails (cross-element selection edge cases), bail silently
   }
+}
+
+// Return the SPAN whose contents exactly match the range, if any. Used so a
+// slider can keep updating the same wrapper rather than nesting new ones.
+function findReusableSpanForRange(range: Range): HTMLSpanElement | null {
+  // Case 1: selection is contained within a single text node whose parent is
+  // a span, and the range spans the whole text.
+  if (
+    range.startContainer === range.endContainer &&
+    range.startContainer.nodeType === Node.TEXT_NODE
+  ) {
+    const text = range.startContainer as Text;
+    const parent = text.parentElement;
+    if (
+      parent &&
+      parent.tagName === 'SPAN' &&
+      parent.childNodes.length === 1 &&
+      range.startOffset === 0 &&
+      range.endOffset === (text.textContent?.length ?? 0)
+    ) {
+      return parent as HTMLSpanElement;
+    }
+  }
+  // Case 2: the common ancestor itself is a span and the range covers all of
+  // its children.
+  const ancestor = range.commonAncestorContainer;
+  if (
+    ancestor.nodeType === Node.ELEMENT_NODE &&
+    (ancestor as Element).tagName === 'SPAN'
+  ) {
+    const el = ancestor as HTMLSpanElement;
+    if (
+      range.startContainer === el &&
+      range.endContainer === el &&
+      range.startOffset === 0 &&
+      range.endOffset === el.childNodes.length
+    ) {
+      return el;
+    }
+  }
+  return null;
 }
