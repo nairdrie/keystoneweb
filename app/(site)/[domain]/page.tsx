@@ -1,12 +1,13 @@
 import { createClient } from '@/lib/db/supabase-server';
+import { notFound } from 'next/navigation';
 import EditorContent from '@/app/(app)/editor/editor-content-v2';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import JsonLdScript from '@/app/components/JsonLdScript';
 import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
 import { BusinessProfile } from '@/lib/types/sites';
-import SiteNotFound from '@/app/components/SiteNotFound';
 import { extractTestimonials } from '@/lib/seo/testimonials';
+import type { Block, SocialLinks } from '@/lib/seo/jsonld';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,13 +31,7 @@ export default async function CustomDomainPage({
       .single();
 
     if (error || !site) {
-      return (
-        <SiteNotFound 
-          message="The site for this domain is not public or does not exist. Are you the owner?"
-          ctaText="Login to manage domain"
-          domain={domain}
-        />
-      );
+      notFound();
     }
 
     // Fetch the home page's published data which contains the actual blocks
@@ -96,17 +91,26 @@ export default async function CustomDomainPage({
     }
 
     // Render the published site via unified EditorContent (read-only mode)
+    const siteUrl = `https://${domain}`;
+    const homeBlocks: Block[] = Array.isArray((mergedPublishData as { blocks?: unknown[] }).blocks)
+      ? ((mergedPublishData as { blocks: Block[] }).blocks)
+      : [];
+
     return (
       <>
         <SiteAnalyticsTracker siteId={site.id} />
-        {site.business_profile && (
-          <JsonLdScript
-            businessProfile={site.business_profile as BusinessProfile}
-            siteUrl={`https://${domain}`}
-            socialLinks={(mergedPublishData as any).socialLinks}
-            testimonials={extractTestimonials(mergedPublishData)}
-          />
-        )}
+        <JsonLdScript
+          businessProfile={site.business_profile as BusinessProfile | null}
+          siteUrl={siteUrl}
+          pageUrl={siteUrl}
+          socialLinks={(mergedPublishData as { socialLinks?: SocialLinks }).socialLinks}
+          testimonials={extractTestimonials(mergedPublishData)}
+          blocks={homeBlocks}
+          pageTitle={(mergedPublishData as { seoTitle?: string; siteTitle?: string }).seoTitle || (mergedPublishData as { siteTitle?: string }).siteTitle}
+          pageDescription={(mergedPublishData as { seoDescription?: string }).seoDescription}
+          isHomePage
+        />
+
         <EditorContent
           isPublicView={true}
           publicSiteData={{
@@ -127,6 +131,11 @@ export default async function CustomDomainPage({
       </>
     );
   } catch (error) {
+    // Don't swallow Next.js control-flow errors (redirect/notFound).
+    const digest = (error as { digest?: unknown } | null)?.digest;
+    if (typeof digest === 'string' && (digest.startsWith('NEXT_REDIRECT') || digest.startsWith('NEXT_NOT_FOUND'))) {
+      throw error;
+    }
     console.error('Error rendering custom domain site:', error);
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50">

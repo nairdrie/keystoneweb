@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
-import { getPlanByName } from '@/lib/plans';
 import Stripe from 'stripe';
 
 // Initialize Stripe only when API key is available
@@ -121,8 +120,13 @@ export async function POST(request: NextRequest) {
     // the webhook (checkout.session.completed) — Stripe Checkout doesn't allow
     // mixed billing intervals, and we want overage billed monthly regardless
     // of whether the base plan is monthly or yearly.
-    const plan = getPlanByName(planName);
-    const isMonthly = plan ? priceId === plan.stripe.monthly : false;
+
+    // Referral attribution: prefer the ks_ref cookie (set by middleware from ?ref=...).
+    // Webhook will backfill from the Stripe promotion code if this is empty.
+    const refCookie = request.cookies.get('ks_ref')?.value;
+    const referralSource = refCookie
+      ? refCookie.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32)
+      : '';
 
     // No existing subscription — create a new Stripe checkout session
     const session = await stripe.checkout.sessions.create({
@@ -135,8 +139,9 @@ export async function POST(request: NextRequest) {
         billing_mode: {
           type: 'flexible',
         },
+        ...(referralSource ? { metadata: { referral_source: referralSource } } : {}),
       },
-      ...(isMonthly && { allow_promotion_codes: true }),
+      allow_promotion_codes: true,
       success_url: siteId
         ? `${process.env.NEXT_PUBLIC_APP_URL}/publish/plan-activated?session_id={CHECKOUT_SESSION_ID}&siteId=${siteId}`
         : `${process.env.NEXT_PUBLIC_APP_URL}/onboarding?session_id={CHECKOUT_SESSION_ID}`,
@@ -149,6 +154,7 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         planName,
         siteName,
+        ...(referralSource ? { referral_source: referralSource } : {}),
       },
     });
 

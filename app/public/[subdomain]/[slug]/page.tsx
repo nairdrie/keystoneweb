@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/db/supabase-server';
+import { notFound } from 'next/navigation';
 import EditorContent from '@/app/(app)/editor/editor-content-v2';
 import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
 import { getTemplateComponent } from '@/app/templates/registry';
@@ -6,9 +7,8 @@ import { getTemplateMetadata } from '@/lib/db/template-queries';
 import LanguageSelector from '@/app/components/LanguageSelector';
 import JsonLdScript from '@/app/components/JsonLdScript';
 import { BusinessProfile } from '@/lib/types/sites';
-import SiteNotFound from '@/app/components/SiteNotFound';
 import { extractTestimonials } from '@/lib/seo/testimonials';
-import { PUBLISHED_ROOT } from '@/lib/env/domain';
+import type { Block, SocialLinks } from '@/lib/seo/jsonld';
 import {
     fetchTranslationsConfig,
     fetchSiteTranslations,
@@ -99,13 +99,7 @@ export default async function PublicSiteDynamicPage({
             .single();
 
         if (error || !site) {
-            return (
-                <SiteNotFound 
-                    message="Start building to claim this subdomain."
-                    ctaText="Login to start building"
-                    domain={`${subdomain}.${PUBLISHED_ROOT}`}
-                />
-            );
+            notFound();
         }
 
         // Check if this is a membership system route (signin, signup, member, forgot-password)
@@ -129,6 +123,11 @@ export default async function PublicSiteDynamicPage({
         // Otherwise, render the specific page (no language prefix = default language)
         return renderPage(supabase, site, subdomain, slug, translationsConfig?.defaultLanguage || 'en');
     } catch (error) {
+        // Don't swallow Next.js control-flow errors (redirect/notFound).
+        const digest = (error as { digest?: unknown } | null)?.digest;
+        if (typeof digest === 'string' && (digest.startsWith('NEXT_REDIRECT') || digest.startsWith('NEXT_NOT_FOUND'))) {
+            throw error;
+        }
         console.error('Error rendering dynamic page:', error);
         return (
             <div className="flex items-center justify-center min-h-screen bg-slate-50">
@@ -203,16 +202,24 @@ async function renderHomePage(
     const metadata = await getTemplateMetadata(site.selected_template_id);
     const paletteData = resolvePalette(sitePublishData, metadata);
 
+    const homeBlocks = Array.isArray((mergedPublishData as unknown as { blocks?: unknown[] }).blocks)
+        ? ((mergedPublishData as unknown as { blocks: Block[] }).blocks)
+        : [];
+    const homeSiteUrl = `https://${subdomain}.kswd.ca`;
+
     return (
         <>
-            {site.business_profile && (
-                <JsonLdScript
-                    businessProfile={site.business_profile as BusinessProfile}
-                    siteUrl={`https://${subdomain}.kswd.ca/${language}`}
-                    socialLinks={(mergedPublishData as any).socialLinks}
-                    testimonials={extractTestimonials(mergedPublishData)}
-                />
-            )}
+            <JsonLdScript
+                businessProfile={site.business_profile as BusinessProfile | null}
+                siteUrl={homeSiteUrl}
+                pageUrl={`${homeSiteUrl}/${language}`}
+                socialLinks={(mergedPublishData as { socialLinks?: SocialLinks }).socialLinks}
+                testimonials={extractTestimonials(mergedPublishData)}
+                blocks={homeBlocks}
+                pageTitle={(mergedPublishData as { seoTitle?: string; siteTitle?: string }).seoTitle || (mergedPublishData as { siteTitle?: string }).siteTitle}
+                pageDescription={(mergedPublishData as { seoDescription?: string }).seoDescription}
+                isHomePage
+            />
             <EditorContent
                 isPublicView={true}
                 publicSiteData={{
@@ -255,14 +262,7 @@ async function renderPage(
         .single();
 
     if (pageError || !routePage) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-slate-50">
-                <div className="text-center">
-                    <h1 className="text-4xl font-bold text-slate-900 mb-4">Page Not Found</h1>
-                    <a href="/" className="text-blue-600 hover:underline">← Back to home</a>
-                </div>
-            </div>
-        );
+        notFound();
     }
 
     const sitePublishData = site.published_data || {};
@@ -308,17 +308,36 @@ async function renderPage(
     const metadata = await getTemplateMetadata(site.selected_template_id);
     const paletteData = resolvePalette(sitePublishData, metadata);
 
+    const siteUrl = `https://${subdomain}.kswd.ca`;
+    const pageUrl = `${siteUrl}/${pageSlug}`;
+    const pageBlocks: Block[] = Array.isArray((mergedPublishData as unknown as { blocks?: unknown[] }).blocks)
+        ? ((mergedPublishData as unknown as { blocks: Block[] }).blocks)
+        : [];
+    const currentPageMeta = (allPages || []).find((p: { slug?: string }) => p.slug === pageSlug);
+    const pageDisplayName = (translatedPageData as { displayName?: string; title?: string }).displayName
+        || (translatedPageData as { title?: string }).title
+        || currentPageMeta?.title
+        || pageSlug;
+    const breadcrumbs = [
+        { name: 'Home', url: siteUrl },
+        { name: pageDisplayName, url: pageUrl },
+    ];
+
     return (
         <>
             <SiteAnalyticsTracker siteId={site.id} />
-            {site.business_profile && (
-                <JsonLdScript
-                    businessProfile={site.business_profile as BusinessProfile}
-                    siteUrl={`https://${subdomain}.kswd.ca/${pageSlug}`}
-                    socialLinks={(mergedPublishData as any).socialLinks}
-                    testimonials={extractTestimonials(mergedPublishData)}
-                />
-            )}
+            <JsonLdScript
+                businessProfile={site.business_profile as BusinessProfile | null}
+                siteUrl={siteUrl}
+                pageUrl={pageUrl}
+                socialLinks={(mergedPublishData as { socialLinks?: SocialLinks }).socialLinks}
+                testimonials={extractTestimonials(mergedPublishData)}
+                blocks={pageBlocks}
+                breadcrumbs={breadcrumbs}
+                pageTitle={(translatedPageData as { seoTitle?: string }).seoTitle || pageDisplayName}
+                pageDescription={(translatedPageData as { seoDescription?: string }).seoDescription}
+            />
+
             <EditorContent
                 isPublicView={true}
                 publicSiteData={{
