@@ -188,7 +188,7 @@ function HeroSlab() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.05 }}
             className="mb-7 font-black tracking-[-0.035em] text-black"
-            style={{ fontSize: 'clamp(48px, 8.5vw, 116px)', lineHeight: 0.92 }}
+            style={{ fontSize: 'clamp(44px, 6vw, 116px)', lineHeight: 0.95 }}
           >
             Tell us<br />
             what you do.<br />
