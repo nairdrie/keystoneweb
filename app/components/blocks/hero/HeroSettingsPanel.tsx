@@ -1420,39 +1420,71 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
     );
 }
 
-const FOCAL_POSITIONS: { label: string; value: string }[] = [
-    { label: 'Top left', value: '0% 0%' },
-    { label: 'Top center', value: '50% 0%' },
-    { label: 'Top right', value: '100% 0%' },
-    { label: 'Middle left', value: '0% 50%' },
-    { label: 'Center', value: '50% 50%' },
-    { label: 'Middle right', value: '100% 50%' },
-    { label: 'Bottom left', value: '0% 100%' },
-    { label: 'Bottom center', value: '50% 100%' },
-    { label: 'Bottom right', value: '100% 100%' },
-];
+function parseObjectPosition(str: string): { x: number; y: number } {
+    const m = str.match(/^(-?\d+(?:\.\d+)?)%\s+(-?\d+(?:\.\d+)?)%$/);
+    if (!m) return { x: 50, y: 50 };
+    return {
+        x: Math.min(100, Math.max(0, parseFloat(m[1]))),
+        y: Math.min(100, Math.max(0, parseFloat(m[2]))),
+    };
+}
+
+function formatObjectPosition(x: number, y: number): string {
+    const rx = Math.round(x * 10) / 10;
+    const ry = Math.round(y * 10) / 10;
+    return `${rx}% ${ry}%`;
+}
 
 function VideoFramingControls({ bg, onChange }: { bg: HeroBackground; onChange: (patch: Partial<HeroBackground>) => void }) {
     const video = bg.video;
+    const previewRef = useRef<HTMLDivElement | null>(null);
+    const activePointerRef = useRef<number | null>(null);
     if (!video?.url) return null;
     const objectFit = video.objectFit === 'contain' ? 'contain' : 'cover';
     const objectPosition = video.objectPosition || '50% 50%';
     const scale = typeof video.scale === 'number' && video.scale > 0 ? video.scale : 1;
+    const { x: focalX, y: focalY } = parseObjectPosition(objectPosition);
     const patch = (partial: Partial<NonNullable<HeroBackground['video']>>) => {
         onChange({ video: { ...video, ...partial } });
+    };
+    const setFocalFromPointer = (clientX: number, clientY: number) => {
+        const rect = previewRef.current?.getBoundingClientRect();
+        if (!rect || rect.width === 0 || rect.height === 0) return;
+        const x = Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100));
+        const y = Math.min(100, Math.max(0, ((clientY - rect.top) / rect.height) * 100));
+        patch({ objectPosition: formatObjectPosition(x, y) });
     };
     return (
         <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
             <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Frame</p>
 
-            <div className="relative aspect-video overflow-hidden rounded-lg bg-slate-900">
+            <div
+                ref={previewRef}
+                className="relative aspect-video cursor-crosshair touch-none select-none overflow-hidden rounded-lg bg-slate-900"
+                onPointerDown={(e) => {
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                    activePointerRef.current = e.pointerId;
+                    setFocalFromPointer(e.clientX, e.clientY);
+                }}
+                onPointerMove={(e) => {
+                    if (activePointerRef.current !== e.pointerId) return;
+                    setFocalFromPointer(e.clientX, e.clientY);
+                }}
+                onPointerUp={(e) => {
+                    if (activePointerRef.current === e.pointerId) {
+                        e.currentTarget.releasePointerCapture(e.pointerId);
+                        activePointerRef.current = null;
+                    }
+                }}
+                onPointerCancel={() => { activePointerRef.current = null; }}
+            >
                 <video
                     src={video.url}
                     muted
                     autoPlay
                     loop
                     playsInline
-                    className="absolute inset-0 h-full w-full"
+                    className="pointer-events-none absolute inset-0 h-full w-full"
                     style={{
                         objectFit,
                         objectPosition,
@@ -1460,7 +1492,15 @@ function VideoFramingControls({ bg, onChange }: { bg: HeroBackground; onChange: 
                         transformOrigin: objectPosition,
                     }}
                 />
+                <div
+                    className="pointer-events-none absolute h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-lg ring-2 ring-blue-600"
+                    style={{ left: `${focalX}%`, top: `${focalY}%` }}
+                >
+                    <span className="absolute left-1/2 top-1/2 h-0.5 w-3 -translate-x-1/2 -translate-y-1/2 bg-white" />
+                    <span className="absolute left-1/2 top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 bg-white" />
+                </div>
             </div>
+            <p className="text-[10px] text-slate-500">Click or drag inside the preview to set the focal point.</p>
 
             <div>
                 <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">Fit</p>
@@ -1484,24 +1524,37 @@ function VideoFramingControls({ bg, onChange }: { bg: HeroBackground; onChange: 
                 </div>
             </div>
 
-            <div>
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">Focal point</p>
-                <div className="grid w-24 grid-cols-3 gap-1">
-                    {FOCAL_POSITIONS.map((pos) => {
-                        const isActive = objectPosition === pos.value;
-                        return (
-                            <button
-                                key={pos.value}
-                                type="button"
-                                onClick={() => patch({ objectPosition: pos.value })}
-                                aria-label={pos.label}
-                                aria-pressed={isActive}
-                                className={`h-6 w-6 rounded-md border transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                    isActive ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white hover:border-slate-400'
-                                }`}
-                            />
-                        );
-                    })}
+            <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Focal point</p>
+                <div>
+                    <label className="mb-0.5 flex items-center justify-between text-[10px] font-semibold text-slate-500">
+                        <span>Horizontal</span>
+                        <span className="tabular-nums">{focalX.toFixed(1)}%</span>
+                    </label>
+                    <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={0.5}
+                        value={focalX}
+                        onChange={(e) => patch({ objectPosition: formatObjectPosition(parseFloat(e.target.value), focalY) })}
+                        className="w-full accent-blue-600"
+                    />
+                </div>
+                <div>
+                    <label className="mb-0.5 flex items-center justify-between text-[10px] font-semibold text-slate-500">
+                        <span>Vertical</span>
+                        <span className="tabular-nums">{focalY.toFixed(1)}%</span>
+                    </label>
+                    <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={0.5}
+                        value={focalY}
+                        onChange={(e) => patch({ objectPosition: formatObjectPosition(focalX, parseFloat(e.target.value)) })}
+                        className="w-full accent-blue-600"
+                    />
                 </div>
             </div>
 
