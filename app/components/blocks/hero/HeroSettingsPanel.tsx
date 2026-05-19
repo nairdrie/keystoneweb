@@ -4,7 +4,7 @@ import { createElement, useEffect, useMemo, useRef, useState } from 'react';
 import {
     AlignCenter, AlignLeft, AlignRight, Crown, Image as ImageIcon, MoveLeft, MoveRight,
     Plus, Trash2, Copy, ChevronUp, ChevronDown, Video, Palette as PaletteIcon, Sparkles,
-    Monitor, Tablet, Smartphone, LayoutGrid, RotateCcw,
+    Monitor, Tablet, Smartphone, LayoutGrid, RotateCcw, Upload as UploadIcon, Loader2,
 } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockSettingsPanel from '../BlockSettingsPanel';
@@ -67,6 +67,34 @@ import PexelsVideoPickerModal from '@/app/components/PexelsVideoPickerModal';
 const SECTION_IDS = ['cards', 'universal-layout', 'style', 'transition', 'content-layout', 'background', 'height', 'advanced'];
 const HERO_DRAFT_UPDATE_EVENT = 'ks:hero-draft-update';
 
+const MAX_HERO_VIDEO_MB = 10;
+const MAX_HERO_VIDEO_BYTES = MAX_HERO_VIDEO_MB * 1024 * 1024;
+const MAX_HERO_VIDEO_SECONDS = 60;
+const HERO_VIDEO_ACCEPT = 'video/mp4,video/webm,video/ogg,video/quicktime';
+
+function readVideoDuration(file: File): Promise<number> {
+    return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const el = document.createElement('video');
+        el.preload = 'metadata';
+        const cleanup = () => {
+            URL.revokeObjectURL(url);
+            el.removeAttribute('src');
+            el.load();
+        };
+        el.onloadedmetadata = () => {
+            const d = el.duration;
+            cleanup();
+            resolve(d);
+        };
+        el.onerror = () => {
+            cleanup();
+            reject(new Error('metadata-error'));
+        };
+        el.src = url;
+    });
+}
+
 const ALIGN_OPTIONS: { id: Align; label: string; Icon: typeof AlignLeft }[] = [
     { id: 'left', label: 'Left', Icon: AlignLeft },
     { id: 'center', label: 'Center', Icon: AlignCenter },
@@ -118,6 +146,8 @@ export default function HeroSettingsPanel({
 
     const [imageEditorOpen, setImageEditorOpen] = useState<null | 'foreground' | 'background'>(null);
     const [pexelsOpen, setPexelsOpen] = useState(false);
+    const [videoUploadState, setVideoUploadState] = useState<{ status: 'idle' | 'validating' | 'uploading'; error: string | null }>({ status: 'idle', error: null });
+    const videoFileInputRef = useRef<HTMLInputElement | null>(null);
 
     const sectionState = useInspectorSectionState(SECTION_IDS, true);
 
@@ -308,6 +338,61 @@ export default function HeroSettingsPanel({
             });
         }
         setImageEditorOpen(null);
+    };
+
+    const handleVideoFileSelected = async (file: File) => {
+        if (!siteId) {
+            setVideoUploadState({ status: 'idle', error: 'Site not loaded yet — try again in a moment.' });
+            return;
+        }
+        if (file.size > MAX_HERO_VIDEO_BYTES) {
+            setVideoUploadState({ status: 'idle', error: `Video is ${(file.size / (1024 * 1024)).toFixed(1)} MB. Max ${MAX_HERO_VIDEO_MB} MB.` });
+            return;
+        }
+        setVideoUploadState({ status: 'validating', error: null });
+        let duration: number;
+        try {
+            duration = await readVideoDuration(file);
+        } catch {
+            setVideoUploadState({ status: 'idle', error: 'Could not read this video. Try MP4, WebM, Ogg, or MOV.' });
+            return;
+        }
+        if (!Number.isFinite(duration) || duration <= 0) {
+            setVideoUploadState({ status: 'idle', error: 'Could not determine video length. Try a different file.' });
+            return;
+        }
+        if (duration > MAX_HERO_VIDEO_SECONDS + 0.5) {
+            setVideoUploadState({ status: 'idle', error: `Video is ${duration.toFixed(1)}s. Max ${MAX_HERO_VIDEO_SECONDS}s.` });
+            return;
+        }
+        setVideoUploadState({ status: 'uploading', error: null });
+        try {
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('siteId', siteId);
+            const res = await fetch('/api/sites/media', { method: 'POST', body: fd });
+            const json = await res.json().catch(() => ({} as { media?: { public_url?: string }; error?: string }));
+            if (!res.ok) {
+                setVideoUploadState({ status: 'idle', error: json.error || 'Upload failed.' });
+                return;
+            }
+            const url = json.media?.public_url;
+            if (!url) {
+                setVideoUploadState({ status: 'idle', error: 'Upload succeeded but no URL returned.' });
+                return;
+            }
+            const existing = activeCard.background.video;
+            updateBackground({
+                video: {
+                    ...(existing || {}),
+                    source: 'upload',
+                    url,
+                },
+            });
+            setVideoUploadState({ status: 'idle', error: null });
+        } catch (err) {
+            setVideoUploadState({ status: 'idle', error: err instanceof Error ? err.message : 'Upload failed.' });
+        }
     };
 
     return (
@@ -666,30 +751,40 @@ export default function HeroSettingsPanel({
                             </div>
                         )}
 
-                        {activeCard.background.type === 'video' && (
+                        {activeCard.background.type === 'video' && (() => {
+                            const currentSource: VideoSource = activeCard.background.video?.source || 'pexels';
+                            const SOURCE_BUTTONS: { id: VideoSource; label: string }[] = [
+                                { id: 'pexels', label: 'Pexels' },
+                                { id: 'upload', label: 'Upload' },
+                                { id: 'url', label: 'External URL' },
+                            ];
+                            return (
                             <div className="space-y-3">
                                 <div>
                                     <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Source</p>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {(['pexels', 'url'] as VideoSource[]).map((src) => {
-                                            const isActive = (activeCard.background.video?.source || 'pexels') === src;
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {SOURCE_BUTTONS.map(({ id: src, label }) => {
+                                            const isActive = currentSource === src;
                                             return (
                                                 <button
                                                     key={src}
                                                     type="button"
-                                                    onClick={() => updateBackground({ video: { source: src, url: activeCard.background.video?.url || '' } })}
+                                                    onClick={() => {
+                                                        setVideoUploadState({ status: 'idle', error: null });
+                                                        updateBackground({ video: { ...(activeCard.background.video || {}), source: src, url: activeCard.background.video?.url || '' } });
+                                                    }}
                                                     aria-pressed={isActive}
-                                                    className={`rounded-xl border px-3 py-2 text-sm font-bold capitalize transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                                    className={`rounded-xl border px-3 py-2 text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                                                         isActive ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
                                                     }`}
                                                 >
-                                                    {src === 'url' ? 'External URL' : 'Pexels'}
+                                                    {label}
                                                 </button>
                                             );
                                         })}
                                     </div>
                                 </div>
-                                {(activeCard.background.video?.source || 'pexels') === 'pexels' ? (
+                                {currentSource === 'pexels' && (
                                     <button
                                         type="button"
                                         onClick={() => setPexelsOpen(true)}
@@ -697,11 +792,45 @@ export default function HeroSettingsPanel({
                                     >
                                         {activeCard.background.video?.url ? 'Change Pexels Video' : 'Choose Pexels Video'}
                                     </button>
-                                ) : (
+                                )}
+                                {currentSource === 'upload' && (
+                                    <div className="space-y-2">
+                                        <input
+                                            ref={videoFileInputRef}
+                                            type="file"
+                                            accept={HERO_VIDEO_ACCEPT}
+                                            className="hidden"
+                                            onChange={(e) => {
+                                                const f = e.target.files?.[0];
+                                                e.target.value = '';
+                                                if (f) void handleVideoFileSelected(f);
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => videoFileInputRef.current?.click()}
+                                            disabled={videoUploadState.status !== 'idle'}
+                                            className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            {videoUploadState.status === 'validating' && (<><Loader2 className="h-4 w-4 animate-spin" /> Checking video…</>)}
+                                            {videoUploadState.status === 'uploading' && (<><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</>)}
+                                            {videoUploadState.status === 'idle' && (<><UploadIcon className="h-4 w-4" /> {activeCard.background.video?.url && activeCard.background.video?.source === 'upload' ? 'Replace Video' : 'Upload Video'}</>)}
+                                        </button>
+                                        <p className="text-xs text-slate-500">
+                                            MP4, WebM, Ogg, or MOV. Max {MAX_HERO_VIDEO_MB} MB and {MAX_HERO_VIDEO_SECONDS} seconds.
+                                        </p>
+                                        {videoUploadState.error && (
+                                            <p className="rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-700">
+                                                {videoUploadState.error}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                                {currentSource === 'url' && (
                                     <input
                                         type="url"
                                         value={activeCard.background.video?.url || ''}
-                                        onChange={(e) => updateBackground({ video: { source: 'url', url: e.target.value } })}
+                                        onChange={(e) => updateBackground({ video: { ...(activeCard.background.video || {}), source: 'url', url: e.target.value } })}
                                         placeholder="https://example.com/hero.mp4"
                                         className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                                     />
@@ -711,7 +840,8 @@ export default function HeroSettingsPanel({
                                 )}
                                 <OverlayControls bg={activeCard.background} onChange={updateBackground} />
                             </div>
-                        )}
+                            );
+                        })()}
 
                         {activeCard.background.type === 'gradient' && (
                             <GradientControls

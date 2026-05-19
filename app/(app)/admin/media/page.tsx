@@ -245,7 +245,7 @@ function UploadZone({
           Images (JPEG, PNG, WebP, GIF, AVIF) · PDFs · Videos (MP4, WebM, MOV)
         </p>
         <p className="text-xs text-slate-400">
-          Max: 10 MB images · 50 MB PDFs · 500 MB videos
+          Max: 10 MB images · 50 MB PDFs · 10 MB videos (60s max)
         </p>
       </div>
     </div>

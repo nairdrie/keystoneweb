@@ -8,7 +8,7 @@ import { getUserEffectiveLimits } from '@/lib/addons';
 
 const MAX_IMAGE_SIZE  = 10  * 1024 * 1024;  // 10 MB
 const MAX_PDF_SIZE    = 50  * 1024 * 1024;  // 50 MB
-const MAX_VIDEO_SIZE  = 500 * 1024 * 1024;  // 500 MB
+const MAX_VIDEO_SIZE  = 10  * 1024 * 1024;  // 10 MB
 
 const ALLOWED_IMAGE_MIME = new Set([
   'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif',
@@ -221,7 +221,7 @@ export async function POST(request: NextRequest) {
     if (file.size > sizeLimit) {
       const limitLabel = mediaType === 'image' ? '10 MB'
                        : mediaType === 'pdf'   ? '50 MB'
-                       : '500 MB';
+                       : '10 MB';
       return NextResponse.json(
         { error: `File is too large. Maximum size for ${mediaType}s is ${limitLabel}.` },
         { status: 400 }
