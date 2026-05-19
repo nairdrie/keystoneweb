@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
     Loader2, ChevronDown, ChevronRight, Clock,
-    CheckCircle2, Truck, XCircle, DollarSign, Mail, Phone, MapPin, AlertTriangle, Download
+    CheckCircle2, Truck, XCircle, DollarSign, Mail, Phone, MapPin, AlertTriangle, Download, Package
 } from 'lucide-react';
 
 interface Order {
@@ -22,6 +22,17 @@ interface Order {
     notes: string | null;
     tracking_number: string | null;
     tracking_carrier: string | null;
+    packing_plan: {
+        parcels: Array<{
+            box_id: string | null;
+            box_name: string;
+            length_mm: number;
+            width_mm: number;
+            height_mm: number;
+            weight_grams: number;
+            items: Array<{ productId: string; name: string; qty: number }>;
+        }>;
+    } | null;
     tax_cents: number | null;
     tax_label: string | null;
     created_at: string;
@@ -327,6 +338,34 @@ export default function OrdersPanel({ siteId }: OrdersPanelProps) {
                                                             <span className="text-slate-900 font-medium">${(order.tax_cents / 100).toFixed(2)}</span>
                                                         </div>
                                                     ) : null}
+
+                                                    {/* Packing instructions — only present for carrier-rate orders */}
+                                                    {order.packing_plan?.parcels && order.packing_plan.parcels.length > 0 && (
+                                                        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5">
+                                                            <p className="text-xs font-bold text-emerald-900 mb-1.5 flex items-center gap-1">
+                                                                <Package className="w-3.5 h-3.5" />
+                                                                Pack as {order.packing_plan.parcels.length} parcel{order.packing_plan.parcels.length === 1 ? '' : 's'}
+                                                            </p>
+                                                            <div className="space-y-1.5">
+                                                                {order.packing_plan.parcels.map((p, idx) => (
+                                                                    <div key={idx} className="text-[11px] bg-white rounded border border-emerald-200 px-2 py-1.5">
+                                                                        <p className="font-semibold text-slate-800">
+                                                                            Parcel {idx + 1} — {p.box_name}
+                                                                            <span className="font-normal text-slate-500"> ({p.length_mm}×{p.width_mm}×{p.height_mm} mm • {p.weight_grams} g)</span>
+                                                                        </p>
+                                                                        <ul className="mt-0.5 text-slate-600 list-disc list-inside">
+                                                                            {p.items.map((it, j) => (
+                                                                                <li key={j}>{it.qty}× {it.name}</li>
+                                                                            ))}
+                                                                        </ul>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                            <p className="text-[10px] text-emerald-700 mt-1.5">
+                                                                Customer was quoted shipping based on this packing. Charge applies whichever way you pack.
+                                                            </p>
+                                                        </div>
+                                                    )}
 
                                                     {/* Customer info */}
                                                     <div>

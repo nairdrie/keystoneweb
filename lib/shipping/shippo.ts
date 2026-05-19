@@ -132,38 +132,3 @@ export async function validateAddress(args: {
     return { valid, corrected, messages };
 }
 
-/**
- * Roll up cart items into a single parcel for rate quoting.
- *
- * v1 approximation: sum weights, take the max of each dimension. This
- * over-estimates for irregularly shaped multi-item carts (real packing
- * would stack them) but never under-quotes, which is the safer direction.
- * If any item is missing weight/dimensions we bail out — the merchant
- * needs to fill those in for live rates to work.
- */
-export function buildSingleParcel(items: Array<{
-    weight_grams: number | null;
-    length_mm: number | null;
-    width_mm: number | null;
-    height_mm: number | null;
-    qty: number;
-}>): ShippoParcel | null {
-    let totalGrams = 0;
-    let maxL = 0, maxW = 0, maxH = 0;
-    for (const it of items) {
-        if (!it.weight_grams || !it.length_mm || !it.width_mm || !it.height_mm) return null;
-        totalGrams += it.weight_grams * it.qty;
-        if (it.length_mm > maxL) maxL = it.length_mm;
-        if (it.width_mm > maxW) maxW = it.width_mm;
-        if (it.height_mm > maxH) maxH = it.height_mm;
-    }
-    if (totalGrams <= 0 || maxL <= 0 || maxW <= 0 || maxH <= 0) return null;
-    return {
-        length: (maxL / 10).toFixed(2),
-        width: (maxW / 10).toFixed(2),
-        height: (maxH / 10).toFixed(2),
-        distance_unit: 'cm',
-        weight: totalGrams.toFixed(0),
-        mass_unit: 'g',
-    };
-}
