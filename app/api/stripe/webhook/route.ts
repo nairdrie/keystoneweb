@@ -267,6 +267,45 @@ export async function POST(request: NextRequest) {
           break;
         }
 
+        // ── Marketing Wallet Top-up ─────────────────────────────────
+        if (session.metadata?.type === 'marketing_topup') {
+          const { siteId, userId, amountCents } = session.metadata;
+          if (!siteId || !amountCents) {
+            console.error('Missing marketing_topup metadata');
+            return NextResponse.json({ error: 'Invalid session metadata' }, { status: 400 });
+          }
+          try {
+            const { creditWallet } = await import('@/lib/marketing/wallet');
+            const piId = typeof session.payment_intent === 'string' ? session.payment_intent : null;
+            await creditWallet({
+              siteId,
+              amountCents: parseInt(amountCents),
+              stripePaymentIntentId: piId || undefined,
+              stripeCheckoutSessionId: session.id,
+              description: 'Marketing wallet top-up',
+              actor: userId ? `user:${userId}` : 'system',
+            });
+            await recordStripeTransaction({
+              stripe_event_id: event.id,
+              stripe_customer_id: typeof session.customer === 'string' ? session.customer : '',
+              stripe_payment_intent_id: piId,
+              user_id: userId || null,
+              event_type: 'checkout.session.completed',
+              transaction_type: 'marketing_topup',
+              description: `Marketing wallet top-up`,
+              amount_cents: session.amount_total ?? 0,
+              currency: session.currency ?? 'cad',
+              status: 'succeeded',
+              invoice_url: checkoutUrls.invoice_url,
+              invoice_pdf: checkoutUrls.invoice_pdf,
+              metadata: { siteId, amountCents },
+            });
+          } catch (err: any) {
+            console.error('Failed to credit marketing wallet:', err);
+          }
+          break;
+        }
+
         if (session.metadata?.type === 'ecommerce_order') {
           const orderId = session.metadata.orderId;
           const siteId = session.metadata.siteId;
