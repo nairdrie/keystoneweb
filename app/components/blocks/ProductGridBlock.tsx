@@ -55,6 +55,7 @@ interface Product {
     length_mm?: number | null;
     width_mm?: number | null;
     height_mm?: number | null;
+    ships_alone?: boolean;
 }
 
 interface ProductGridBlockProps {
@@ -1011,6 +1012,7 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
     const [lengthMm, setLengthMm] = useState(product?.length_mm ? String(product.length_mm) : '');
     const [widthMm, setWidthMm] = useState(product?.width_mm ? String(product.width_mm) : '');
     const [heightMm, setHeightMm] = useState(product?.height_mm ? String(product.height_mm) : '');
+    const [shipsAlone, setShipsAlone] = useState<boolean>(!!product?.ships_alone);
     const [category, setCategory] = useState(product?.category ?? '');
     const [subcategory, setSubcategory] = useState(product?.subcategory ?? '');
     const [tags, setTags] = useState((product?.tags ?? []).join(', '));
@@ -1252,6 +1254,7 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
             length_mm: lengthMm.trim() ? parseInt(lengthMm, 10) : null,
             width_mm: widthMm.trim() ? parseInt(widthMm, 10) : null,
             height_mm: heightMm.trim() ? parseInt(heightMm, 10) : null,
+            ships_alone: shipsAlone,
         };
 
         setSaving(true);
@@ -1401,6 +1404,20 @@ function ProductForm({ siteId, product, onSaved, onCancel }: {
                         />
                     </div>
                 </div>
+                <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        checked={shipsAlone}
+                        onChange={e => setShipsAlone(e.target.checked)}
+                        className="mt-0.5 rounded border-slate-300"
+                    />
+                    <span className="text-xs text-slate-700">
+                        <strong>Ships in its own box</strong>
+                        <span className="block text-[11px] text-slate-500">
+                            For oversized or fragile items (yoga mat, bike frame). Each unit gets its own parcel.
+                        </span>
+                    </span>
+                </label>
             </div>
 
             {/* External URL */}

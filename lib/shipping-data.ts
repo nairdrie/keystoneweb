@@ -124,6 +124,35 @@ export function siteHasCarrierZone(zones: Array<{ rate_type: string; is_archived
     return (zones || []).some(z => z.rate_type === 'carrier' && z.is_archived !== true);
 }
 
+/** A merchant-defined shipping box from ecommerce_settings.packaging_boxes. */
+export interface PackagingBox {
+    id: string;
+    name: string;
+    length_mm: number;
+    width_mm: number;
+    height_mm: number;
+    tare_grams: number;            // weight of the empty box
+    max_payload_grams: number;     // carrier-imposed or merchant-imposed cap
+}
+
+/**
+ * A single parcel in a finalized packing plan — what the merchant physically packs
+ * and what we send to Shippo as `parcels[]`.
+ */
+export interface PlanParcel {
+    box_id: string | null;         // null = item's own dims (ships_alone with no fitting box)
+    box_name: string;
+    length_mm: number;
+    width_mm: number;
+    height_mm: number;
+    weight_grams: number;          // includes box tare
+    items: Array<{ productId: string; name: string; qty: number }>;
+}
+
+export interface PackingPlan {
+    parcels: PlanParcel[];
+}
+
 /** Apply a zone's markup policy to a raw carrier rate. */
 export function applyMarkup(
     baseCents: number,

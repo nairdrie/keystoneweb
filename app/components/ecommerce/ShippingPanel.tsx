@@ -5,7 +5,7 @@ import {
     Loader2, Plus, Trash2, GripVertical,
     Package as PackageIcon, Globe, AlertCircle, Truck, Check
 } from 'lucide-react';
-import { COUNTRIES, REGIONS, getCountryName, type ShippingZone } from '@/lib/shipping-data';
+import { COUNTRIES, REGIONS, getCountryName, type ShippingZone, type PackagingBox } from '@/lib/shipping-data';
 
 interface ShippingPanelProps {
     siteId: string;
@@ -84,6 +84,16 @@ export default function ShippingPanel({ siteId, shippingRequired, onShippingRequ
     const [originSaving, setOriginSaving] = useState(false);
     const [originSaved, setOriginSaved] = useState(false);
 
+    // Box catalog. Merchant defines one or more boxes; the packer picks per
+    // cart and we send the cheapest plan to Shippo.
+    const [boxes, setBoxes] = useState<PackagingBox[]>([]);
+    const [boxesSaving, setBoxesSaving] = useState(false);
+    const [boxesSaved, setBoxesSaved] = useState(false);
+    const [newBox, setNewBox] = useState({
+        name: '', length_mm: '', width_mm: '', height_mm: '',
+        tare_grams: '0', max_payload_grams: '30000',
+    });
+
     useEffect(() => {
         loadZones();
         loadShippoSettings();
@@ -116,10 +126,52 @@ export default function ShippingPanel({ siteId, shippingRequired, onShippingRequ
                 origin_country: s.origin_country || 'US',
             });
             setShippoConfigured(!!s.shippo_configured);
+            setBoxes(Array.isArray(s.packaging_boxes) ? s.packaging_boxes : []);
         } catch (err) {
             console.error('Failed to load shipping settings:', err);
         }
     };
+
+    const saveBoxes = async (next: PackagingBox[]) => {
+        setBoxesSaving(true);
+        setBoxesSaved(false);
+        try {
+            const res = await fetch('/api/products/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ siteId, packaging_boxes: next }),
+            });
+            if (res.ok) {
+                setBoxes(next);
+                setBoxesSaved(true);
+                setTimeout(() => setBoxesSaved(false), 2000);
+            }
+        } catch (err) {
+            console.error('Failed to save boxes:', err);
+        } finally {
+            setBoxesSaving(false);
+        }
+    };
+
+    const addBox = () => {
+        const n = newBox.name.trim();
+        const l = parseInt(newBox.length_mm, 10);
+        const w = parseInt(newBox.width_mm, 10);
+        const h = parseInt(newBox.height_mm, 10);
+        const tare = parseInt(newBox.tare_grams || '0', 10) || 0;
+        const cap = parseInt(newBox.max_payload_grams || '30000', 10) || 30000;
+        if (!n || !l || !w || !h) return;
+        const next = [...boxes, {
+            id: crypto.randomUUID(),
+            name: n,
+            length_mm: l, width_mm: w, height_mm: h,
+            tare_grams: tare, max_payload_grams: cap,
+        }];
+        setNewBox({ name: '', length_mm: '', width_mm: '', height_mm: '', tare_grams: '0', max_payload_grams: '30000' });
+        saveBoxes(next);
+    };
+
+    const removeBox = (id: string) => saveBoxes(boxes.filter(b => b.id !== id));
 
     const saveOrigin = async () => {
         setOriginSaving(true);
@@ -371,6 +423,112 @@ export default function ShippingPanel({ siteId, shippingRequired, onShippingRequ
                                 {originSaving && <Loader2 className="w-3 h-3 animate-spin" />}
                                 {originSaved ? <><Check className="w-3 h-3" /> Saved</> : 'Save'}
                             </button>
+                        </div>
+
+                        {/* ── Box catalog ── */}
+                        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <PackageIcon className="w-4 h-4 text-slate-500" />
+                                    <h4 className="text-sm font-bold text-slate-800">Box Catalog</h4>
+                                </div>
+                                {boxesSaved && (
+                                    <span className="text-[11px] text-green-700 inline-flex items-center gap-1">
+                                        <Check className="w-3 h-3" /> Saved
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-xs text-slate-500">
+                                Boxes you keep in stock. At checkout we'll pick the cheapest combination that fits the order
+                                — multiple parcels if needed.
+                            </p>
+
+                            {boxes.length === 0 && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+                                    <p className="text-xs text-amber-700">
+                                        Add at least one box. Live carrier zones won't return rates until you do.
+                                    </p>
+                                </div>
+                            )}
+
+                            {boxes.length > 0 && (
+                                <div className="space-y-1.5">
+                                    {boxes.map(b => (
+                                        <div key={b.id} className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2">
+                                            <PackageIcon className="w-3.5 h-3.5 text-slate-400" />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-semibold text-slate-800 truncate">{b.name}</p>
+                                                <p className="text-[11px] text-slate-500">
+                                                    {b.length_mm}×{b.width_mm}×{b.height_mm} mm •
+                                                    tare {b.tare_grams} g • max {(b.max_payload_grams / 1000).toFixed(1)} kg
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={() => removeBox(b.id)}
+                                                disabled={boxesSaving}
+                                                className="p-1 text-red-400 hover:bg-red-50 rounded disabled:opacity-50"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-2">
+                                <p className="text-xs font-bold text-slate-700">Add a box</p>
+                                <input
+                                    type="text"
+                                    value={newBox.name}
+                                    onChange={e => setNewBox({ ...newBox, name: e.target.value })}
+                                    placeholder="Name (e.g. Small Mailer)"
+                                    className="w-full px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <div className="grid grid-cols-3 gap-2">
+                                    {(['length_mm', 'width_mm', 'height_mm'] as const).map(key => (
+                                        <div key={key}>
+                                            <label className="text-[11px] text-slate-500 block">{key.replace('_mm', '')} (mm)</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={newBox[key]}
+                                                onChange={e => setNewBox({ ...newBox, [key]: e.target.value })}
+                                                className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="text-[11px] text-slate-500 block">tare (g)</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={newBox.tare_grams}
+                                            onChange={e => setNewBox({ ...newBox, tare_grams: e.target.value })}
+                                            className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[11px] text-slate-500 block">max payload (g)</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            value={newBox.max_payload_grams}
+                                            onChange={e => setNewBox({ ...newBox, max_payload_grams: e.target.value })}
+                                            className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={addBox}
+                                    disabled={boxesSaving || !newBox.name.trim() || !newBox.length_mm || !newBox.width_mm || !newBox.height_mm}
+                                    className="w-full px-3 py-1.5 text-xs font-bold bg-slate-900 text-white rounded-lg hover:bg-slate-700 disabled:opacity-40 flex items-center justify-center gap-1.5"
+                                >
+                                    {boxesSaving && <Loader2 className="w-3 h-3 animate-spin" />}
+                                    <Plus className="w-3 h-3" /> Add box
+                                </button>
+                            </div>
                         </div>
 
                         {loading ? (

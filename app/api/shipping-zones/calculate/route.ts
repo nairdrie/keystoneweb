@@ -5,28 +5,20 @@ import {
     applyMarkup,
     type ShippingZone,
     type ShippingOption,
+    type PackagingBox,
 } from '@/lib/shipping-data';
-import { getRates, buildSingleParcel, type ShippoAddress } from '@/lib/shipping/shippo';
+import { getRates, type ShippoAddress, type ShippoRate } from '@/lib/shipping/shippo';
+import { generatePackingPlans, planToShippoParcels, type PackerItem } from '@/lib/shipping/packer';
 
 /**
  * POST /api/shipping-zones/calculate
  *
- * Input:
- *  {
- *    siteId, country, region, postal?, city?, line1?,
- *    subtotalCents,
- *    items?: [{ productId, qty }]   // required for carrier rate quotes
- *  }
+ * Carrier zones: generate candidate packing plans, quote each with Shippo, and
+ * for every service-level token across plans pick the cheapest plan. The
+ * customer sees one option per service at the best price we can find.
  *
- * Output:
- *  - Single zone matched:
- *      { options: [ShippingOption,...], default_id: string,
- *        zone: {id,name,is_local_pickup}, freeThresholdCents?: number }
- *  - No match / no zones / no rates returned:
- *      { error: 'no_zone' | 'no_zones' | 'no_rates', message: string }
- *
- * Legacy fields (shippingCents, shippingLabel) are also populated for backwards
- * compat with any caller still reading them — they mirror the first option.
+ * Non-carrier zones (flat / free / free_above / pickup) still return a single
+ * option as before.
  */
 export async function POST(request: NextRequest) {
     const body = await request.json();
@@ -45,12 +37,9 @@ export async function POST(request: NextRequest) {
         .eq('is_archived', false)
         .order('sort_order');
 
-    if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     if (!zones || zones.length === 0) {
-        return NextResponse.json({ error: 'no_zones', message: 'This store has not configured shipping yet.' }, { status: 200 });
+        return NextResponse.json({ error: 'no_zones', message: 'This store has not configured shipping yet.' });
     }
 
     const matched = findMatchingZone(
@@ -59,14 +48,13 @@ export async function POST(request: NextRequest) {
         region || '',
         subtotalCents || 0,
     );
-
     if (!matched) {
-        return NextResponse.json({ error: 'no_zone', message: "We don't currently ship to this area." }, { status: 200 });
+        return NextResponse.json({ error: 'no_zone', message: "We don't currently ship to this area." });
     }
 
     const zone = matched.zone;
 
-    // Non-carrier zone: legacy single-option response.
+    // Non-carrier zones: legacy single-option response.
     if (zone.rate_type !== 'carrier') {
         const option: ShippingOption = {
             id: `${zone.id}:default`,
@@ -84,52 +72,41 @@ export async function POST(request: NextRequest) {
         });
     }
 
-    // Carrier zone — need origin address + Keystone's platform Shippo key + item weights/dimensions.
+    // ── Carrier zone path ───────────────────────────────────────────────
     const shippoApiKey = process.env.SHIPPO_API_KEY;
     const { data: settings } = await supabase
         .from('ecommerce_settings')
-        .select('origin_line1, origin_line2, origin_city, origin_region, origin_postal, origin_country')
+        .select('origin_line1, origin_line2, origin_city, origin_region, origin_postal, origin_country, packaging_boxes')
         .eq('site_id', siteId)
         .single();
 
     if (!shippoApiKey || !settings?.origin_line1 || !settings?.origin_postal) {
-        return NextResponse.json({
-            error: 'no_rates',
-            message: 'Live shipping rates are not yet configured for this store.',
-        }, { status: 200 });
+        return NextResponse.json({ error: 'no_rates', message: 'Live shipping rates are not yet configured for this store.' });
+    }
+
+    const boxes: PackagingBox[] = Array.isArray(settings.packaging_boxes) ? settings.packaging_boxes : [];
+    if (boxes.length === 0) {
+        return NextResponse.json({ error: 'no_rates', message: 'Live shipping rates are not yet configured for this store.' });
     }
 
     if (!Array.isArray(items) || items.length === 0) {
-        return NextResponse.json({ error: 'no_rates', message: 'Cart is empty.' }, { status: 200 });
+        return NextResponse.json({ error: 'no_rates', message: 'Cart is empty.' });
     }
 
-    const productIds = Array.from(new Set(items.map((i: any) => i.productId).filter(Boolean)));
-    const { data: productRows } = await supabase
-        .from('products')
-        .select('id, weight_grams, length_mm, width_mm, height_mm')
-        .in('id', productIds as string[]);
-    const productById = new Map((productRows || []).map((p: any) => [p.id, p]));
-
-    const parcelItems = items.map((i: any) => {
-        const p = productById.get(i.productId);
-        return {
-            qty: Math.max(1, Math.floor(Number(i.qty) || 1)),
-            weight_grams: p?.weight_grams || null,
-            length_mm: p?.length_mm || null,
-            width_mm: p?.width_mm || null,
-            height_mm: p?.height_mm || null,
-        };
-    });
-
-    const parcel = buildSingleParcel(parcelItems);
-    if (!parcel) {
-        // Should never reach a customer — products without dims are gated as
-        // 'unavailable' upstream. This is the defense-in-depth message for
-        // stale carts after a merchant config change.
+    const packerItems = await loadPackerItems(supabase, items);
+    if (!packerItems) {
         return NextResponse.json({
             error: 'no_rates',
             message: "One or more items in your cart are currently unavailable for shipping.",
-        }, { status: 200 });
+        });
+    }
+
+    const plans = generatePackingPlans(packerItems, boxes);
+    if (plans.length === 0) {
+        return NextResponse.json({
+            error: 'no_rates',
+            message: 'Items in this cart don\'t fit any available box size.',
+        });
     }
 
     const addressFrom: ShippoAddress = {
@@ -140,7 +117,6 @@ export async function POST(request: NextRequest) {
         zip: settings.origin_postal,
         country: settings.origin_country || 'US',
     };
-
     const addressTo: ShippoAddress = {
         street1: line1 || '',
         city: city || '',
@@ -149,49 +125,60 @@ export async function POST(request: NextRequest) {
         country,
     };
 
-    let rates;
-    try {
-        rates = await getRates({
-            apiKey: shippoApiKey,
-            addressFrom,
-            addressTo,
-            parcels: [parcel],
-        });
-    } catch (err: any) {
-        console.error('Shippo rate error:', err?.message || err);
-        return NextResponse.json({
-            error: 'no_rates',
-            message: 'Could not retrieve live shipping rates. Please try again.',
-        }, { status: 200 });
+    // Quote each plan independently — Shippo returns rates per shipment, not
+    // per-parcel-option, so we have to ask once per candidate plan.
+    const quoted: Array<{ planIndex: number; rates: ShippoRate[] }> = [];
+    for (let i = 0; i < plans.length; i++) {
+        try {
+            const rates = await getRates({
+                apiKey: shippoApiKey,
+                addressFrom,
+                addressTo,
+                parcels: planToShippoParcels(plans[i]),
+            });
+            quoted.push({ planIndex: i, rates });
+        } catch (err: any) {
+            console.error(`Shippo plan ${i} error:`, err?.message || err);
+        }
+    }
+
+    if (quoted.length === 0) {
+        return NextResponse.json({ error: 'no_rates', message: 'Could not retrieve live shipping rates. Please try again.' });
     }
 
     const allowed = Array.isArray(zone.carrier_services) ? zone.carrier_services : [];
-    const filtered = allowed.length > 0
-        ? rates.filter(r => allowed.includes(r.servicelevel_token))
-        : rates;
 
-    if (filtered.length === 0) {
-        return NextResponse.json({
-            error: 'no_rates',
-            message: 'No shipping services are available for this address.',
-        }, { status: 200 });
+    // For each service token, find the cheapest plan that offers it.
+    type ServiceBest = { rate: ShippoRate; planIndex: number };
+    const bestByService = new Map<string, ServiceBest>();
+    for (const { planIndex, rates } of quoted) {
+        for (const r of rates) {
+            if (!r.servicelevel_token) continue;
+            if (allowed.length > 0 && !allowed.includes(r.servicelevel_token)) continue;
+            const prev = bestByService.get(r.servicelevel_token);
+            if (!prev || r.amount_cents < prev.rate.amount_cents) {
+                bestByService.set(r.servicelevel_token, { rate: r, planIndex });
+            }
+        }
     }
 
-    const options: ShippingOption[] = filtered
-        .map(r => {
-            const days = typeof r.estimated_days === 'number' && r.estimated_days > 0
-                ? ` (~${r.estimated_days} day${r.estimated_days === 1 ? '' : 's'})`
-                : '';
-            return {
-                id: `${zone.id}:${r.servicelevel_token || r.object_id}`,
-                label: `${r.provider} ${r.servicelevel_name}${days}`,
-                amount_cents: applyMarkup(r.amount_cents, zone.markup_type, zone.markup_cents),
-                carrier: r.provider.toLowerCase(),
-                service_token: r.servicelevel_token,
-                zone_id: zone.id,
-            };
-        })
-        .sort((a, b) => a.amount_cents - b.amount_cents);
+    if (bestByService.size === 0) {
+        return NextResponse.json({ error: 'no_rates', message: 'No shipping services are available for this address.' });
+    }
+
+    const options: ShippingOption[] = Array.from(bestByService.values()).map(({ rate }) => {
+        const days = typeof rate.estimated_days === 'number' && rate.estimated_days > 0
+            ? ` (~${rate.estimated_days} day${rate.estimated_days === 1 ? '' : 's'})`
+            : '';
+        return {
+            id: `${zone.id}:${rate.servicelevel_token || rate.object_id}`,
+            label: `${rate.provider} ${rate.servicelevel_name}${days}`,
+            amount_cents: applyMarkup(rate.amount_cents, zone.markup_type, zone.markup_cents),
+            carrier: rate.provider.toLowerCase(),
+            service_token: rate.servicelevel_token,
+            zone_id: zone.id,
+        };
+    }).sort((a, b) => a.amount_cents - b.amount_cents);
 
     return NextResponse.json({
         options,
@@ -201,4 +188,41 @@ export async function POST(request: NextRequest) {
         shippingLabel: options[0].label,
         freeThresholdCents: null,
     });
+}
+
+/**
+ * Fetch weight/dim/ships_alone for the cart's products and merge with qty.
+ * Returns null if any item is missing required dims — caller surfaces a
+ * generic "unavailable" error rather than leaking the config issue.
+ */
+async function loadPackerItems(
+    supabase: any,
+    items: Array<{ productId: string; qty: number }>,
+): Promise<PackerItem[] | null> {
+    const productIds = Array.from(new Set(items.map(i => i.productId).filter(Boolean)));
+    if (productIds.length === 0) return null;
+
+    const { data: rows } = await supabase
+        .from('products')
+        .select('id, name, weight_grams, length_mm, width_mm, height_mm, ships_alone')
+        .in('id', productIds);
+
+    const byId = new Map<string, any>((rows || []).map((r: any) => [r.id, r]));
+    const out: PackerItem[] = [];
+    for (const i of items) {
+        const p = byId.get(i.productId);
+        const qty = Math.max(1, Math.floor(Number(i.qty) || 1));
+        if (!p || !p.weight_grams || !p.length_mm || !p.width_mm || !p.height_mm) return null;
+        out.push({
+            productId: p.id,
+            name: p.name,
+            qty,
+            weight_grams: p.weight_grams,
+            length_mm: p.length_mm,
+            width_mm: p.width_mm,
+            height_mm: p.height_mm,
+            ships_alone: !!p.ships_alone,
+        });
+    }
+    return out;
 }
