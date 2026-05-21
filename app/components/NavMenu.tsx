@@ -84,12 +84,17 @@ function NavMenuView({ className = '', itemClassName = '', submenuClassName = ''
             return `${path}${buildItemQuery(item)}`;
         }
         if (item.linkType === 'section') {
+            const hashFromHref = item.href?.includes('#') ? item.href.slice(item.href.indexOf('#') + 1) : '';
+            const hashPart = hashFromHref ? `#${hashFromHref}` : (item.blockId ? `#${item.blockId}` : '');
             if (item.pageId) {
                 if (isEditor) {
-                    const hash = item.href?.includes('#') ? `#${item.href.split('#')[1]}` : '';
-                    return `/design?siteId=${context?.siteId}&pageId=${item.pageId}${hash}`;
+                    return `/design?siteId=${context?.siteId}&pageId=${item.pageId}${hashPart}`;
                 }
-                return item.href || `#${item.blockId}`;
+                const target = pages.find(p => p.id === item.pageId);
+                const slug = target?.slug || '';
+                const base = slug === 'home' ? '/' : `/${slug}`;
+                const path = langPrefix ? `${langPrefix}${base === '/' ? '' : base}` : base;
+                return `${path}${buildItemQuery(item)}${hashPart}`;
             }
             if (item.blockId) {
                 const idx = blocks.findIndex(b => b.id === item.blockId);
