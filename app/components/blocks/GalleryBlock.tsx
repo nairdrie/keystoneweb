@@ -7,7 +7,7 @@ import EditableButton from '../EditableButton';
 import BlockPretext from '../BlockPretext';
 import { useEditorContext } from '@/lib/editor-context';
 import { X, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react';
-import { resolvePaletteColor } from '@/lib/palette-colors';
+import { resolvePaletteColor, readableTextColorForBackground } from '@/lib/palette-colors';
 import Reveal, { useStaggerSec } from '@/app/components/Reveal';
 
 interface GalleryBlockProps {
@@ -337,8 +337,9 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                             defaultLabel="See More"
                             isEditMode={isEditMode}
                             onSave={(key, value) => updateContent(key, value)}
-                            className="px-6 py-3 rounded-lg font-semibold text-white transition-opacity hover:opacity-90"
-                            style={{ backgroundColor: pAccent }}
+                            className="px-6 py-3 rounded-lg font-semibold transition-opacity hover:opacity-90"
+                            style={{ backgroundColor: pAccent, color: readableTextColorForBackground(pAccent) }}
+                            defaultFill="filled"
                             palette={palette}
                         />
                     </div>
