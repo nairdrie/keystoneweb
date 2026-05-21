@@ -19,7 +19,7 @@ interface Props {
 const STATUS_LABEL: Record<string, string> = {
   not_sent: 'Not sent',
   sent: 'Onboarding link sent',
-  set_password: 'Client set their password',
+  account_claimed: 'Client claimed account',
   previewing: 'Previewing',
   editing: 'Editing in Keystone',
   changes_requested: 'Changes requested',
@@ -32,7 +32,7 @@ const STATUS_LABEL: Record<string, string> = {
 const STATUS_TONE: Record<string, string> = {
   not_sent: 'text-gray-400',
   sent: 'text-sky-400',
-  set_password: 'text-sky-400',
+  account_claimed: 'text-sky-400',
   previewing: 'text-violet-400',
   editing: 'text-violet-400',
   changes_requested: 'text-amber-400',

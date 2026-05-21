@@ -51,7 +51,7 @@ function stepFromStatus(status: string, skipPreview: boolean): StepId {
     case 'not_sent':
     case 'sent':
       return 'password';
-    case 'set_password':
+    case 'account_claimed':
       return skipPreview ? 'payment' : 'preview';
     case 'previewing':
     case 'editing':

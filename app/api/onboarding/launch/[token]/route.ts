@@ -87,7 +87,7 @@ export async function PATCH(
   }
 
   if (body.action === 'advance-to-payment') {
-    const allowedFrom = ['previewing', 'editing', 'set_password', 'changes_requested'];
+    const allowedFrom = ['previewing', 'editing', 'account_claimed', 'changes_requested'];
     if (!allowedFrom.includes(req.onboarding_status)) {
       return NextResponse.json(
         { error: 'Cannot advance from current state' },

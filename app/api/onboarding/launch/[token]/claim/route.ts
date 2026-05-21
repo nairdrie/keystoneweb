@@ -65,7 +65,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (
       req.onboarding_status === 'sent' ||
       req.onboarding_status === 'not_sent' ||
-      req.onboarding_status === 'set_password'
+      req.onboarding_status === 'account_claimed'
     ) {
       await db.from('launch_requests').update({ onboarding_status: nextStatus }).eq('id', req.id);
     }

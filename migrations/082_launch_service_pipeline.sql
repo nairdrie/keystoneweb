@@ -27,7 +27,7 @@ CREATE INDEX IF NOT EXISTS launch_requests_onboarding_status_idx
 -- onboarding_status values:
 --   'not_sent'           — operator hasn't sent the onboarding email yet
 --   'sent'               — email sent, client hasn't claimed the token
---   'set_password'       — token claimed, account auto-created, password not yet set
+--   'account_claimed'       — token claimed, account auto-created, password not yet set
 --   'previewing'         — password set, on the preview step
 --   'editing'            — client clicked "Edit it myself" into the editor
 --   'changes_requested'  — client submitted the change-request form; back to operator
@@ -40,7 +40,7 @@ ALTER TABLE public.launch_requests
 ALTER TABLE public.launch_requests
   ADD CONSTRAINT launch_requests_onboarding_status_check
   CHECK (onboarding_status IN (
-    'not_sent', 'sent', 'set_password', 'previewing', 'editing',
+    'not_sent', 'sent', 'account_claimed', 'previewing', 'editing',
     'changes_requested', 'awaiting_payment', 'launching', 'launched', 'failed'
   ));
 
