@@ -78,5 +78,19 @@ export default async function SiteLayout({
     notFound();
   }
 
-  return <>{children}</>;
+  // Surface UCP / native_commerce discovery to crawling agents as <link>
+  // rels in the document head. Agents that don't already fetch
+  // /.well-known/ucp.json can pick the protocol up just from a page hit.
+  const ucpHref = `/.well-known/ucp.json`;
+  const a2aHref = `/.well-known/agent.json`;
+  const feedHref = `/feeds/native-commerce.xml`;
+
+  return (
+    <>
+      <link rel="ucp-manifest" href={ucpHref} />
+      <link rel="a2a-agent-card" href={a2aHref} />
+      <link rel="alternate" type="application/xml" title="native_commerce feed" href={feedHref} />
+      {children}
+    </>
+  );
 }

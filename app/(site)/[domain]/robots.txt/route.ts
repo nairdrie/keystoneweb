@@ -27,14 +27,39 @@ export async function GET(
     return new NextResponse('Site not found', { status: 404 });
   }
 
+  // We explicitly allow well-known AI shopping agents to crawl + use the
+  // UCP discovery and native_commerce feed. They MUST be allowed on
+  // /.well-known/* and /feeds/* even though /api/* is blocked, otherwise
+  // Gemini's Universal Cart can't pick the listings up.
+  const aiAgents = [
+    'Google-Extended', 'GoogleOther', 'Storebot-Google',
+    'GPTBot', 'ChatGPT-User', 'OAI-SearchBot',
+    'ClaudeBot', 'Claude-Web', 'Anthropic-AI',
+    'PerplexityBot', 'Perplexity-User',
+    'Meta-ExternalAgent', 'CopilotBot',
+  ];
+
+  const agentRules = aiAgents.map(a => `User-agent: ${a}
+Allow: /
+Allow: /.well-known/
+Allow: /feeds/
+Disallow: /admin/
+Disallow: /design
+Disallow: /editor
+Disallow: /preview
+`).join('\n');
+
   const robotsTxt = `User-agent: *
 Allow: /
+Allow: /.well-known/
+Allow: /feeds/
 Disallow: /api/
 Disallow: /admin/
 Disallow: /design
 Disallow: /editor
 Disallow: /preview
 
+${agentRules}
 Sitemap: https://${cleanDomain}/sitemap.xml
 `;
 

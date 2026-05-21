@@ -8,16 +8,18 @@ import OrdersPanel from '@/app/components/ecommerce/OrdersPanel';
 import LowStockPanel from '@/app/components/ecommerce/LowStockPanel';
 import SalesAnalyticsPanel from '@/app/components/ecommerce/SalesAnalyticsPanel';
 import AutomatedEmailsPanel from '@/app/components/ecommerce/AutomatedEmailsPanel';
+import AICommercePanel from '@/app/components/ecommerce/AICommercePanel';
 import { ProductManager } from '@/app/components/blocks/ProductGridBlock';
-import { ShoppingBag, Package, ClipboardList, CreditCard, Truck, BarChart3, Mail } from 'lucide-react';
+import { ShoppingBag, Package, ClipboardList, CreditCard, Truck, BarChart3, Mail, Sparkles } from 'lucide-react';
 
-type TabId = 'analytics' | 'products' | 'orders' | 'payments' | 'shipping' | 'emails';
+type TabId = 'analytics' | 'products' | 'orders' | 'payments' | 'shipping' | 'emails' | 'ai-commerce';
 
 export default function AdminEcommercePage() {
   const { siteId, palette, siteBlockTypes } = useAdminContext();
   const [activeTab, setActiveTab] = useState<TabId>('products');
   const [shippingRequired, setShippingRequired] = useState(true);
   const [siteLogoUrl, setSiteLogoUrl] = useState<string | undefined>(undefined);
+  const [storefrontUrl, setStorefrontUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!siteId) return;
@@ -39,6 +41,8 @@ export default function AdminEcommercePage() {
         const designData = data?.designData || {};
         const logo = designData.headerLogo || designData.siteLogo;
         if (logo) setSiteLogoUrl(logo);
+        const domain = data?.customDomain || data?.custom_domain;
+        if (domain) setStorefrontUrl(`https://${String(domain).replace(/^www\./, '')}`);
       })
       .catch(() => {});
   }, [siteId]);
@@ -86,6 +90,7 @@ export default function AdminEcommercePage() {
     { id: 'payments', label: 'Payments', icon: CreditCard },
     { id: 'shipping', label: 'Shipping', icon: Truck },
     { id: 'emails', label: 'Emails', icon: Mail },
+    { id: 'ai-commerce', label: 'AI Commerce', icon: Sparkles },
   ];
 
   return (
@@ -139,6 +144,9 @@ export default function AdminEcommercePage() {
         )}
         {activeTab === 'emails' && (
           <AutomatedEmailsPanel siteId={siteId} logoUrl={siteLogoUrl} />
+        )}
+        {activeTab === 'ai-commerce' && (
+          <AICommercePanel siteId={siteId} storefrontUrl={storefrontUrl} />
         )}
       </div>
     </div>

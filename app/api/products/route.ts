@@ -334,6 +334,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Fire-and-forget AI enrichment so the new product is immediately
+    // legible to Gemini / Operator / Claude without the owner doing
+    // anything. Errors are swallowed — enrichment is best-effort.
+    if (data?.id) {
+        import('@/lib/ucp/enrich').then(({ enrichProductById }) =>
+            enrichProductById(data.id).catch(err => console.warn('[ucp] enrich failed:', err.message))
+        );
+    }
+
     return NextResponse.json({ product: data });
 }
 
@@ -601,6 +610,15 @@ export async function PUT(request: NextRequest) {
 
     if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Re-enrich if any AI-relevant fields changed. The enricher is keyed by
+    // a content hash so it no-ops when nothing material changed.
+    const enrichmentTriggers = ['name', 'description', 'brand', 'category', 'subcategory', 'images'];
+    if (data?.id && enrichmentTriggers.some(f => fields[f] !== undefined)) {
+        import('@/lib/ucp/enrich').then(({ enrichProductById }) =>
+            enrichProductById(data.id).catch(err => console.warn('[ucp] enrich failed:', err.message))
+        );
     }
 
     return NextResponse.json({ product: data });
