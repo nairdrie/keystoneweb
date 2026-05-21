@@ -42,6 +42,23 @@ export async function GET(request: NextRequest) {
     await ensureKswdInboxAddress(db, siteId, site.published_domain);
   }
 
+  // Backfill: any submissions inserted before the primary address row existed
+  // would have inbox_address_id=null and be hidden behind every address tab.
+  // Move them onto the current primary so they appear in the owner's inbox.
+  const { data: primaryForBackfill } = await db
+    .from('site_inbox_addresses')
+    .select('id')
+    .eq('site_id', siteId)
+    .eq('is_primary', true)
+    .maybeSingle();
+  if (primaryForBackfill?.id) {
+    await db
+      .from('contact_submissions')
+      .update({ inbox_address_id: primaryForBackfill.id })
+      .eq('site_id', siteId)
+      .is('inbox_address_id', null);
+  }
+
   // Pull every message for this site (capped to a sensible window) and
   // aggregate to threads in JS — keeps the SQL simple and avoids a custom view.
   // For higher-volume inboxes this should move to a materialised view.

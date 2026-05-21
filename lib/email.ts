@@ -1148,18 +1148,49 @@ export async function sendEstimateQuoteCustomerConfirmation(data: {
         const success = toEmailRecord(settings.success);
         const subject = readEmailString(notifications.customerEmailSubject, 'We received your quote request');
         const currency = readEmailString(result.currency, readEmailString(settings.currency, 'CAD'));
+        const isHiddenQuote = readEmailString(result.displayMode, '') === 'hidden';
         const displayText = readEmailString(
             data.metadata.quoteDisplayText,
-            readEmailString(result.displayMode, '') === 'hidden'
+            isHiddenQuote
                 ? 'Request quote'
                 : formatQuoteCentsForEmail(result.totalCents, currency),
         );
         const lineItems = Array.isArray(result.lineItems) ? result.lineItems.filter(isEmailRecord) : [];
         const disclaimer = readEmailString(display.disclaimer, readEmailString(display.quoteExpirationText, ''));
         const thankYou = readEmailString(success.message, 'Thank you. We received your quote request and will follow up shortly.');
+        const fieldRows = Array.isArray(data.metadata.fields) ? data.metadata.fields.filter(isEmailRecord) : [];
+
+        const summarySection = isHiddenQuote
+            ? (fieldRows.length ? `
+                <div style="background:#f9fafb;border-radius:10px;padding:18px;margin-bottom:16px;">
+                    <p style="margin:0 0 10px;font-size:12px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Your request</p>
+                    <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                        ${fieldRows.map((f) => `
+                        <tr>
+                            <td style="padding:6px 8px 6px 0;color:#6b7280;font-weight:500;border-bottom:1px solid #f3f4f6;width:40%;">${escapeEmailHtml(f.label)}</td>
+                            <td style="padding:6px 0;color:#111827;border-bottom:1px solid #f3f4f6;">${f.value != null ? escapeEmailHtml(String(f.value)) : '—'}${f.unit ? ` ${escapeEmailHtml(String(f.unit))}` : ''}</td>
+                        </tr>
+                        `).join('')}
+                    </table>
+                </div>` : '')
+            : `
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:18px;margin-bottom:16px;text-align:center;">
+                    <p style="margin:0 0 4px;font-size:12px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Quote summary</p>
+                    <p style="margin:0;font-size:28px;font-weight:800;color:#0f172a;">${escapeEmailHtml(displayText)}</p>
+                    ${numberEmailValue(result.depositCents) > 0 ? `<p style="margin:8px 0 0;font-size:14px;color:#047857;font-weight:700;">Deposit: ${formatQuoteCentsForEmail(result.depositCents, currency)}</p>` : ''}
+                </div>
+                ${display.showLineItems !== false && lineItems.length ? `
+                <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:14px;">
+                    ${lineItems.filter((item) => item.type !== 'deposit').map((item) => `
+                    <tr>
+                        <td style="padding:8px 8px 8px 0;border-bottom:1px solid #f1f5f9;color:#475569;">${escapeEmailHtml(item.label)}</td>
+                        <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#111827;font-weight:700;text-align:right;">${formatQuoteCentsForEmail(item.amountCents, currency)}</td>
+                    </tr>
+                    `).join('')}
+                </table>` : ''}`;
 
         await resend.emails.send({
-            from: 'Keystone Web Design <contact@keystoneweb.ca>',
+            from: `${data.siteName || 'Keystone Web Design'} <contact@keystoneweb.ca>`,
             to: data.customerEmail,
             subject,
             html: `
@@ -1168,20 +1199,7 @@ export async function sendEstimateQuoteCustomerConfirmation(data: {
                         <h1 style="margin:0 0 6px;font-size:22px;color:#111827;">${escapeEmailHtml(data.siteName)}</h1>
                         <p style="margin:0;color:#6b7280;font-size:14px;">${escapeEmailHtml(thankYou)}</p>
                     </div>
-                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:18px;margin-bottom:16px;text-align:center;">
-                        <p style="margin:0 0 4px;font-size:12px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Quote summary</p>
-                        <p style="margin:0;font-size:28px;font-weight:800;color:#0f172a;">${escapeEmailHtml(displayText)}</p>
-                        ${numberEmailValue(result.depositCents) > 0 ? `<p style="margin:8px 0 0;font-size:14px;color:#047857;font-weight:700;">Deposit: ${formatQuoteCentsForEmail(result.depositCents, currency)}</p>` : ''}
-                    </div>
-                    ${display.showLineItems !== false && lineItems.length ? `
-                    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:14px;">
-                        ${lineItems.filter((item) => item.type !== 'deposit').map((item) => `
-                        <tr>
-                            <td style="padding:8px 8px 8px 0;border-bottom:1px solid #f1f5f9;color:#475569;">${escapeEmailHtml(item.label)}</td>
-                            <td style="padding:8px 0;border-bottom:1px solid #f1f5f9;color:#111827;font-weight:700;text-align:right;">${formatQuoteCentsForEmail(item.amountCents, currency)}</td>
-                        </tr>
-                        `).join('')}
-                    </table>` : ''}
+                    ${summarySection}
                     ${disclaimer ? `<p style="margin:0 0 16px;font-size:12px;line-height:1.6;color:#64748b;">${escapeEmailHtml(disclaimer)}</p>` : ''}
                     <p style="margin:0;font-size:13px;color:#6b7280;text-align:center;">Questions? Reply to this email or contact ${escapeEmailHtml(data.siteName)} directly.</p>
                     ${data.submissionId ? `<p style="margin-top:18px;font-size:10px;color:#cbd5e1;text-align:center;">ref:${escapeEmailHtml(data.submissionId)}</p>` : ''}

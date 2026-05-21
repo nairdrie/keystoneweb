@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendContactFormNotification, sendEstimateQuoteCustomerConfirmation } from '@/lib/email';
 import { triageContactSubmission, isObviousSpam } from '@/lib/contact/triage';
 import { isContactRateLimited, getRateLimitResetSecs } from '@/lib/contact/rate-limit';
+import { ensureKswdInboxAddress } from '@/lib/email/inbox-addresses';
 import {
     calculateQuote,
     getFieldDisplayValue,
@@ -96,7 +97,18 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Message is too short.' }, { status: 400 });
         }
 
-        // Resolve the site's primary inbox address so notifications carry the right addressId
+        // Resolve the site's primary inbox address so notifications carry the right addressId.
+        // If the address row doesn't exist yet (site published but inbox never opened),
+        // create it now so the submission lands on the primary tab instead of being
+        // hidden behind every address filter.
+        const { data: siteForAddress } = await admin
+            .from('sites')
+            .select('published_domain')
+            .eq('id', siteId)
+            .maybeSingle();
+        if (siteForAddress?.published_domain) {
+            await ensureKswdInboxAddress(admin, siteId, siteForAddress.published_domain);
+        }
         const { data: primaryAddress } = await admin
             .from('site_inbox_addresses')
             .select('id')
