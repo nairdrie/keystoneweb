@@ -121,6 +121,7 @@ export default function FooterSettingsPanel({
             footerSocialX: siteContent.footerSocialX,
             footerSocialLinkedin: siteContent.footerSocialLinkedin,
             footerSocialYoutube: siteContent.footerSocialYoutube,
+            footerSocialWhatsapp: siteContent.footerSocialWhatsapp,
             showFooterContact: siteContent.showFooterContact,
             footerContactPhone: siteContent.footerContactPhone,
             footerContactEmail: siteContent.footerContactEmail,
@@ -554,6 +555,7 @@ export default function FooterSettingsPanel({
                                 { key: 'footerSocialX', label: 'X / Twitter' },
                                 { key: 'footerSocialLinkedin', label: 'LinkedIn' },
                                 { key: 'footerSocialYoutube', label: 'YouTube' },
+                                { key: 'footerSocialWhatsapp', label: 'WhatsApp' },
                             ]).map(({ key, label }) => (
                                 <div key={key} className="flex items-center gap-2">
                                     <span className="w-20 shrink-0 text-xs text-slate-600">{label}</span>
@@ -575,6 +577,7 @@ export default function FooterSettingsPanel({
                                     if (siteContent.headerSocialX) updateSiteContent('footerSocialX', siteContent.headerSocialX);
                                     if (siteContent.headerSocialLinkedin) updateSiteContent('footerSocialLinkedin', siteContent.headerSocialLinkedin);
                                     if (siteContent.headerSocialYoutube) updateSiteContent('footerSocialYoutube', siteContent.headerSocialYoutube);
+                                    if (siteContent.headerSocialWhatsapp) updateSiteContent('footerSocialWhatsapp', siteContent.headerSocialWhatsapp);
                                 }}
                                 className="mt-1 text-xs font-semibold text-blue-600 hover:text-blue-700"
                             >

@@ -153,6 +153,7 @@ export default function HeaderSettingsPanel({
             headerSocialX: siteContent.headerSocialX,
             headerSocialLinkedin: siteContent.headerSocialLinkedin,
             headerSocialYoutube: siteContent.headerSocialYoutube,
+            headerSocialWhatsapp: siteContent.headerSocialWhatsapp,
             headerBgType: siteContent.headerBgType,
             headerBgColor: siteContent.headerBgColor,
             headerSticky: siteContent.headerSticky,
@@ -633,6 +634,7 @@ export default function HeaderSettingsPanel({
                                     { key: 'headerSocialX', label: 'X / Twitter' },
                                     { key: 'headerSocialLinkedin', label: 'LinkedIn' },
                                     { key: 'headerSocialYoutube', label: 'YouTube' },
+                                    { key: 'headerSocialWhatsapp', label: 'WhatsApp' },
                                 ]).map(({ key, label }) => (
                                     <div key={key} className="flex items-center gap-2">
                                         <span className="w-20 shrink-0 text-xs text-slate-600">{label}</span>

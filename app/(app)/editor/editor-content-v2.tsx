@@ -1079,6 +1079,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
       socialX: 'headerSocialX',
       socialLinkedin: 'headerSocialLinkedin',
       socialYoutube: 'headerSocialYoutube',
+      socialWhatsapp: 'headerSocialWhatsapp',
       navFontSize: 'headerNavFontSize',
       navFontWeight: 'headerNavFontWeight',
       navColor: 'headerNavColor',
