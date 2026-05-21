@@ -1067,9 +1067,10 @@ function buildEstimateQuoteOwnerSummaryHtml(metadata: Record<string, unknown> | 
     if (Object.keys(result).length === 0) return '';
     const settings = toEmailRecord(metadata?.estimateQuoteSettings);
     const currency = readEmailString(result.currency, readEmailString(metadata?.estimate_currency, 'CAD'));
+    const isHiddenQuote = readEmailString(result.displayMode, '') === 'hidden';
     const displayText = readEmailString(
         metadata?.quoteDisplayText,
-        readEmailString(result.displayMode, '') === 'hidden'
+        isHiddenQuote
             ? 'Request quote'
             : formatQuoteCentsForEmail(result.totalCents, currency),
     );
@@ -1090,8 +1091,11 @@ function buildEstimateQuoteOwnerSummaryHtml(metadata: Record<string, unknown> | 
         ['Current page', tracking.currentPageUrl],
     ] as Array<[string, unknown]>).filter(([, value]) => value);
 
-    return `
-        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:16px;">
+    // Hidden-quote forms have no calculated price to show — the big "Request
+    // quote" headline + "Validated server-side" badge are noise. Drop the
+    // quote block entirely and keep only useful context (triggered rules,
+    // attribution). Forms with a real price keep the full summary.
+    const quoteBlock = isHiddenQuote ? '' : `
             <p style="margin:0 0 4px;font-size:12px;color:#475569;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Calculated quote</p>
             <p style="margin:0;font-size:26px;font-weight:800;color:#0f172a;">${escapeEmailHtml(displayText)}</p>
             ${metadata?.serverCalculated ? `<p style="margin:6px 0 0;font-size:12px;color:#047857;font-weight:600;">Validated server-side</p>` : ''}
@@ -1109,14 +1113,16 @@ function buildEstimateQuoteOwnerSummaryHtml(metadata: Record<string, unknown> | 
                     <td style="padding:6px 0;border-top:1px solid #e2e8f0;color:#047857;font-weight:700;text-align:right;">${formatQuoteCentsForEmail(result.depositCents, currency)}</td>
                 </tr>
                 ` : ''}
-            </table>` : ''}
-            ${triggeredRuleNames.length ? `
-            <div style="margin-top:14px;">
+            </table>` : ''}`;
+
+    const rulesBlock = triggeredRuleNames.length ? `
+            <div style="${quoteBlock ? 'margin-top:14px;' : ''}">
                 <p style="margin:0 0 6px;font-size:12px;color:#475569;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Triggered pricing rules</p>
                 <p style="margin:0;font-size:13px;color:#0f172a;">${triggeredRuleNames.map(escapeEmailHtml).join(', ')}</p>
-            </div>` : ''}
-            ${trackingRows.length ? `
-            <div style="margin-top:14px;">
+            </div>` : '';
+
+    const attributionBlock = trackingRows.length ? `
+            <div style="${quoteBlock || rulesBlock ? 'margin-top:14px;' : ''}">
                 <p style="margin:0 0 6px;font-size:12px;color:#475569;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">Attribution</p>
                 <table style="width:100%;border-collapse:collapse;font-size:12px;">
                     ${trackingRows.map(([label, value]) => `
@@ -1126,7 +1132,13 @@ function buildEstimateQuoteOwnerSummaryHtml(metadata: Record<string, unknown> | 
                     </tr>
                     `).join('')}
                 </table>
-            </div>` : ''}
+            </div>` : '';
+
+    if (!quoteBlock && !rulesBlock && !attributionBlock) return '';
+
+    return `
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:16px;">
+            ${quoteBlock}${rulesBlock}${attributionBlock}
         </div>
     `;
 }
