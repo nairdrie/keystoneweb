@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { createClient } from '@/lib/db/supabase-server';
 import { PLANS } from '@/lib/plans';
+import { checkExternalDomainDns } from '@/lib/domains/dns-check';
 
 function getStripeClient(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -53,6 +54,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       mode?: string;
       domainName?: string;
       billToClient?: boolean;
+      externalVerified?: boolean;
     };
     billDomainCents?: number;
   };
@@ -63,6 +65,27 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
   if (!plan) return NextResponse.json({ error: 'Invalid plan tier' }, { status: 500 });
   const priceId = billingInterval === 'monthly' ? plan.stripe.monthly : plan.stripe.yearly;
   if (!priceId) return NextResponse.json({ error: 'Stripe plan price is not configured' }, { status: 500 });
+
+  // Pre-launch DNS gate for external domains. We do NOT want to take the
+  // client's money and then fail to point their domain at the site, so we
+  // verify resolution before creating the Stripe session. The operator can
+  // override by ticking the externalVerified flag (set automatically by the
+  // ops DNS check button) — that path is for edge cases where DNS resolves
+  // from the user's region but our resolver hasn't caught up yet.
+  if (cfg.domain?.mode === 'external' && cfg.domain.domainName) {
+    const dns = await checkExternalDomainDns(cfg.domain.domainName, req.site_id);
+    if (!dns.verified && !cfg.domain.externalVerified) {
+      return NextResponse.json(
+        {
+          error:
+            'Your custom domain DNS is not set up yet. Add the DNS records we sent you, then try again — the records take a few minutes to propagate.',
+          dnsCheck: dns,
+          retryable: true,
+        },
+        { status: 409 },
+      );
+    }
+  }
 
   const launchServiceCents = req.launch_service_price_cents ?? 39900;
   const domainCents = cfg.domain?.billToClient ? (cfg.billDomainCents ?? 0) : 0;

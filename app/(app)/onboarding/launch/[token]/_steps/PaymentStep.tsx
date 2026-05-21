@@ -17,6 +17,7 @@ export default function PaymentStep({ state, token }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dnsBlocked, setDnsBlocked] = useState(false);
 
   const cfg = state.launchConfig ?? {};
   const planTier = cfg.planTier ?? (cfg.domain?.mode === 'subdomain' ? 'basic' : 'pro');
@@ -44,10 +45,17 @@ export default function PaymentStep({ state, token }: Props) {
 
   async function pay() {
     setError(null);
+    setDnsBlocked(false);
     setSubmitting(true);
     try {
       const res = await fetch(`/api/onboarding/launch/${token}/checkout`, { method: 'POST' });
       const data = await res.json();
+      if (res.status === 409 && data.retryable) {
+        setDnsBlocked(true);
+        setError(data.error);
+        setSubmitting(false);
+        return;
+      }
       if (!res.ok) throw new Error(data.error || 'Could not start checkout');
       if (!data.url) throw new Error('No checkout URL returned');
       window.location.href = data.url;
@@ -79,7 +87,19 @@ export default function PaymentStep({ state, token }: Props) {
           </div>
         </div>
 
-        {error && (
+        {dnsBlocked && (
+          <div className="mt-4 rounded-lg bg-amber-50 border border-amber-300 px-4 py-3 text-sm text-amber-900">
+            <div className="font-semibold mb-1">Your domain isn&apos;t ready yet</div>
+            <p className="leading-relaxed">
+              {error}
+            </p>
+            <p className="mt-2 text-[12px] text-amber-800">
+              Already added the records? They can take a few minutes to take effect — try again in 5 minutes.
+            </p>
+          </div>
+        )}
+
+        {error && !dnsBlocked && (
           <p className="mt-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
             {error}
           </p>

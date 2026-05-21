@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import ExternalDnsPanel from './ExternalDnsPanel';
 
 export type DomainMode = 'subdomain' | 'purchase' | 'external' | 'owned';
 
@@ -15,6 +16,7 @@ export interface LaunchConfig {
     billToClient?: boolean;
     ownedPurchaseId?: string;
     externalVerified?: boolean;
+    registrar?: string;
   };
   launchServicePriceCents?: number;
   billDomainCents?: number;
@@ -63,6 +65,7 @@ export default function LaunchConfigCard({
   );
   const [billToClient, setBillToClient] = useState(initial?.domain?.billToClient ?? true);
   const [externalVerified, setExternalVerified] = useState(initial?.domain?.externalVerified ?? false);
+  const [registrar, setRegistrar] = useState(initial?.domain?.registrar ?? 'other');
   const [ownedPurchaseId, setOwnedPurchaseId] = useState(initial?.domain?.ownedPurchaseId ?? '');
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>(
     initial?.billingInterval ?? 'yearly',
@@ -137,6 +140,7 @@ export default function LaunchConfigCard({
     } else if (mode === 'external') {
       config.domain!.domainName = domainName.trim().toLowerCase();
       config.domain!.externalVerified = externalVerified;
+      config.domain!.registrar = registrar;
     } else if (mode === 'owned') {
       const picked = ownedDomains.find((d) => d.id === ownedPurchaseId);
       config.domain!.ownedPurchaseId = ownedPurchaseId;
@@ -160,7 +164,9 @@ export default function LaunchConfigCard({
         return 'Enter the Vercel registration price (USD) so we know what to quote the client';
     } else if (mode === 'external') {
       if (!domainName.trim()) return 'Domain name is required';
-      if (!externalVerified) return 'Confirm DNS is verified before queueing this domain';
+      // externalVerified is set automatically by the DNS check button. We
+      // allow saving without it (so the operator can email the client
+      // instructions first), but the launch flow blocks until DNS resolves.
     } else if (mode === 'owned') {
       if (!ownedPurchaseId) return 'Select one of your owned domains';
     }
@@ -347,20 +353,19 @@ export default function LaunchConfigCard({
               disabled={disabled}
               className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-500"
             />
+            <p className="mt-1 text-[11px] text-gray-500">
+              Save the config first to enable DNS checking and the setup email.
+            </p>
           </div>
-          <label className="flex items-start gap-2 text-xs text-gray-300">
-            <input
-              type="checkbox"
-              checked={externalVerified}
-              onChange={(e) => setExternalVerified(e.target.checked)}
-              disabled={disabled}
-              className="mt-0.5 rounded"
-            />
-            <span>
-              DNS records confirmed pointing to Keystone (CNAME / A). The client&apos;s site will go live on this
-              domain when they pay.
-            </span>
-          </label>
+          <ExternalDnsPanel
+            launchRequestId={launchRequestId}
+            domainName={domainName}
+            registrar={registrar}
+            externalVerified={externalVerified}
+            onRegistrarChange={setRegistrar}
+            onVerifiedChange={setExternalVerified}
+            disabled={disabled}
+          />
         </div>
       )}
 

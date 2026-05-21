@@ -2621,3 +2621,110 @@ export async function sendLaunchOnboardingEmail(data: {
         return { success: false, error };
     }
 }
+
+export async function sendDomainSetupInstructionsEmail(data: {
+    recipientEmail: string;
+    recipientName: string | null;
+    businessName: string | null;
+    domain: string;
+    registrarName: string;
+    registrarSignInUrl?: string;
+    steps: string[];
+    records: { type: string; name: string; value: string; description: string }[];
+}) {
+    try {
+        const friendlyName = data.recipientName?.split(' ')[0] || 'there';
+        const siteLabel = data.businessName || 'your new site';
+
+        const recordsHtml = data.records
+            .map(
+                (rec, i) => `
+                <tr>
+                    <td style="padding: 10px 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px 6px 0 0; ${i > 0 ? 'border-top: none;' : ''}">
+                        <div style="font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em;">Record ${i + 1} — ${rec.type}</div>
+                        <div style="margin-top: 4px; font-size: 12px; color: #6b7280;">${rec.description}</div>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 12px; background: #ffffff; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 6px 6px; margin-bottom: 10px;">
+                        <div style="font-size: 12px; color: #6b7280; margin-bottom: 2px;"><strong>Name / Host:</strong> <code style="background: #f3f4f6; padding: 1px 5px; border-radius: 3px; font-family: ui-monospace, monospace; font-size: 12px;">${rec.name}</code></div>
+                        <div style="font-size: 12px; color: #6b7280;"><strong>Value:</strong> <code style="background: #f3f4f6; padding: 1px 5px; border-radius: 3px; font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all;">${rec.value}</code></div>
+                    </td>
+                </tr>
+                <tr><td style="height: 8px;"></td></tr>
+            `,
+            )
+            .join('');
+
+        const stepsHtml = data.steps
+            .map(
+                (s, i) => `
+                <li style="margin-bottom: 8px; color: #374151; font-size: 14px; line-height: 1.55;">
+                    ${escapeHtml(s)}
+                </li>
+            `,
+            )
+            .join('');
+
+        const registrarLink = data.registrarSignInUrl
+            ? `<div style="margin-top: 6px;"><a href="${data.registrarSignInUrl}" style="color: #10b981; text-decoration: none; font-weight: 500; font-size: 13px;">Open ${escapeHtml(data.registrarName)} →</a></div>`
+            : '';
+
+        await resend.emails.send({
+            from: 'Keystone Web Design <noreply@keystoneweb.ca>',
+            to: data.recipientEmail,
+            subject: `${siteLabel} is almost ready — set up your domain (${data.domain})`,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff;">
+                    <div style="background: #10b981; height: 4px; border-radius: 4px 4px 0 0;"></div>
+
+                    <div style="padding: 40px 32px;">
+                        <img style="width:180px; margin-bottom:32px;" src="https://www.keystoneweb.ca/assets/logo/keystone-logo.png" alt="Keystone Web" />
+
+                        <h1 style="margin: 0 0 8px; font-size: 22px; font-weight: 700; color: #171717; letter-spacing: -0.02em;">
+                            One more step before launch
+                        </h1>
+                        <p style="margin: 0 0 20px; font-size: 15px; color: #6b7280; line-height: 1.6;">
+                            Hi ${friendlyName}, ${siteLabel} is built and ready. To connect it to <strong style="color: #111827;">${data.domain}</strong>, we just need you to add three DNS records at your domain provider. It usually takes about 5 minutes.
+                        </p>
+
+                        <!-- Records -->
+                        <h2 style="margin: 24px 0 12px; font-size: 15px; font-weight: 700; color: #111827;">The three records to add</h2>
+                        <table style="width: 100%; border-collapse: separate; border-spacing: 0;">${recordsHtml}</table>
+
+                        <!-- Registrar-specific steps -->
+                        <h2 style="margin: 28px 0 12px; font-size: 15px; font-weight: 700; color: #111827;">How to add them at ${escapeHtml(data.registrarName)}</h2>
+                        ${registrarLink}
+                        <ol style="margin: 10px 0 0; padding-left: 22px;">${stepsHtml}</ol>
+
+                        <!-- Reassurance -->
+                        <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 16px; margin-top: 24px;">
+                            <p style="margin: 0; font-size: 13px; color: #065f46; line-height: 1.6;">
+                                <strong>What happens next?</strong> Once your DNS is set, click the link in your launch email to finish. We&apos;ll automatically detect when DNS is ready and your site goes live the moment you complete checkout.
+                            </p>
+                        </div>
+
+                        <div style="border-top: 1px solid #f3f4f6; margin: 28px 0 0;"></div>
+                        <p style="margin: 16px 0 0; font-size: 12px; color: #9ca3af; line-height: 1.6;">
+                            Stuck? Reply to this email and we&apos;ll help you get the records added.
+                        </p>
+                    </div>
+                </div>
+            `,
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error('[launch-service] Failed to send DNS setup email:', error);
+        return { success: false, error };
+    }
+}
+
+function escapeHtml(s: string): string {
+    return s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
