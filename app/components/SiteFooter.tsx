@@ -13,6 +13,7 @@ import {
     MapPin,
 } from 'lucide-react';
 import { useEditorContext, BlockDataProvider, NavItem } from '@/lib/editor-context';
+import { WhatsAppIcon, normalizeHref } from '@/app/components/blocks/contact/contact-config';
 import EditableText from '@/app/components/EditableText';
 import NavMenu from '@/app/components/NavMenu';
 import FooterSettingsPanel from '@/app/components/blocks/footer/FooterSettingsPanel';
@@ -341,6 +342,7 @@ export default function SiteFooter({
         { key: 'x', url: siteContent.footerSocialX || '', Icon: Twitter },
         { key: 'linkedin', url: siteContent.footerSocialLinkedin || '', Icon: Linkedin },
         { key: 'youtube', url: siteContent.footerSocialYoutube || '', Icon: Youtube },
+        { key: 'whatsapp', url: siteContent.footerSocialWhatsapp || '', Icon: WhatsAppIcon },
     ].filter((s) => s.url);
 
     const socialEl =
@@ -352,7 +354,7 @@ export default function SiteFooter({
                     socialLinks.map(({ key, url, Icon }) => (
                         <a
                             key={key}
-                            href={url}
+                            href={normalizeHref(url)}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => isEditMode && e.preventDefault()}

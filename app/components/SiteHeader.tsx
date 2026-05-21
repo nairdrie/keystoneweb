@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { Menu, X, Settings, Facebook, Instagram, Twitter, Linkedin, Youtube, Phone, User } from 'lucide-react';
+import { WhatsAppIcon, normalizeHref } from '@/app/components/blocks/contact/contact-config';
 import { useHeaderHeight } from '@/lib/hooks/useHeaderHeight';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -145,6 +146,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
         { key: 'x',         url: siteContent.headerSocialX         || '', Icon: Twitter },
         { key: 'linkedin',  url: siteContent.headerSocialLinkedin  || '', Icon: Linkedin },
         { key: 'youtube',   url: siteContent.headerSocialYoutube   || '', Icon: Youtube },
+        { key: 'whatsapp',  url: siteContent.headerSocialWhatsapp  || '', Icon: WhatsAppIcon },
     ].filter(s => s.url);
 
     const pPrimary   = palette.primary   || '#374151';
@@ -486,7 +488,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
                     {socialLinks.map(({ key, url, Icon }) => (
                         <a
                             key={key}
-                            href={url}
+                            href={normalizeHref(url)}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => isEditMode && e.preventDefault()}
@@ -720,7 +722,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
             {socialLinks.map(({ key, url, Icon }) => (
                 <a
                     key={key}
-                    href={url}
+                    href={normalizeHref(url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => isEditMode && e.preventDefault()}

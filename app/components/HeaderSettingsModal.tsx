@@ -89,6 +89,7 @@ export default function HeaderSettingsModal({
     const [socialX, setSocialX] = useState('');
     const [socialLinkedin, setSocialLinkedin] = useState('');
     const [socialYoutube, setSocialYoutube] = useState('');
+    const [socialWhatsapp, setSocialWhatsapp] = useState('');
     // Style
     const [bgType, setBgType] = useState<HeaderBgType>('white');
     const [bgColor, setBgColor] = useState('');
@@ -126,6 +127,7 @@ export default function HeaderSettingsModal({
         setSocialX(siteContent.headerSocialX || '');
         setSocialLinkedin(siteContent.headerSocialLinkedin || '');
         setSocialYoutube(siteContent.headerSocialYoutube || '');
+        setSocialWhatsapp(siteContent.headerSocialWhatsapp || '');
         setBgType(siteContent.headerBgType || defaults.bgType || 'white');
         setBgColor(siteContent.headerBgColor || '');
         setSticky(siteContent.headerSticky || (defaults.sticky === false ? 'none' : 'always'));
@@ -158,6 +160,7 @@ export default function HeaderSettingsModal({
         updateSiteContent('headerSocialX', socialX);
         updateSiteContent('headerSocialLinkedin', socialLinkedin);
         updateSiteContent('headerSocialYoutube', socialYoutube);
+        updateSiteContent('headerSocialWhatsapp', socialWhatsapp);
         updateSiteContent('headerBgType', bgType);
         updateSiteContent('headerBgColor', bgType === 'custom' ? bgColor : '');
         updateSiteContent('headerSticky', sticky);
@@ -366,6 +369,7 @@ export default function HeaderSettingsModal({
                                         { label: 'X / Twitter', value: socialX, set: setSocialX },
                                         { label: 'LinkedIn', value: socialLinkedin, set: setSocialLinkedin },
                                         { label: 'YouTube', value: socialYoutube, set: setSocialYoutube },
+                                        { label: 'WhatsApp', value: socialWhatsapp, set: setSocialWhatsapp },
                                     ].map(({ label, value, set }) => (
                                         <div key={label} className="flex items-center gap-3">
                                             <span className="text-sm text-slate-600 w-24 shrink-0">{label}</span>
