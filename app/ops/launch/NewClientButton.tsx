@@ -65,7 +65,7 @@ export default function NewClientButton() {
       }
       setOpen(false);
       reset();
-      router.push(`/ops/launch/${data.id}`);
+      router.push(`/launch/${data.id}`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Create failed');

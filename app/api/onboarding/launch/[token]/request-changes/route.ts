@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { createClient } from '@/lib/db/supabase-server';
 import { getOpsAdminEmailList } from '@/lib/ops/access';
+import { OPS_URL } from '@/lib/env/domain';
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
@@ -62,7 +63,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     if (recipients.length > 0) {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://keystoneweb.ca';
       await resend.emails.send({
         from: 'Keystone Web Design <noreply@keystoneweb.ca>',
         to: recipients,
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
               ${escapeHtml(text)}
             </div>
             <p style="font-size: 14px;">
-              <a href="${baseUrl}/ops/launch/${req.id}">Open in ops →</a>
+              <a href="${OPS_URL}/launch/${req.id}">Open in ops →</a>
             </p>
           </div>
         `,
