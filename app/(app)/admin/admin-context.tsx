@@ -14,6 +14,8 @@ export interface AdminSiteData {
   customDomain?: string;
   pendingCustomDomain?: string;
   inboxCustomEmail?: string;
+  marketingEnabled?: boolean;
+  googleAdsCustomerId?: string | null;
   siteSlug?: string;
   createdAt: string;
   updatedAt: string;

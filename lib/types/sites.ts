@@ -44,6 +44,10 @@ export interface SiteData {
   // Domain & URL
   customDomain?: string; // Custom domain if user purchases one
   siteSlug?: string; // Auto-generated slug (later: user-editable)
+
+  // Marketing
+  marketingEnabled?: boolean;
+  googleAdsCustomerId?: string | null;
 }
 
 export interface SiteDesignData {

@@ -31,6 +31,8 @@ interface SiteData {
   customDomain?: string;
   pendingCustomDomain?: string;
   inboxCustomEmail?: string;
+  marketingEnabled?: boolean;
+  googleAdsCustomerId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -51,6 +53,8 @@ function mapSupabaseToSiteData(row: any): SiteData {
     customDomain: row.custom_domain,
     pendingCustomDomain: row.pending_custom_domain,
     inboxCustomEmail: row.inbox_custom_email,
+    marketingEnabled: row.marketing_enabled || false,
+    googleAdsCustomerId: row.google_ads_customer_id || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

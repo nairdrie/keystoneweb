@@ -4,8 +4,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 import { sendOrderConfirmation, sendOrderNotification, sendOrderPaymentConfirmed, sendOrderCancellationToCustomer, sendOrderCancellationToOwner, sendOrderShipped, sendMixedOrderConfirmation, sendVendorOrderNotification, sendOwnerVendorOrderNotification } from '@/lib/email';
 import { buildSiteOrigin } from '@/lib/email/order-tracking-url';
-import { findMatchingZone, applyMarkup, productMissingShippingInfo, siteHasCarrierZone, type ShippingZone } from '@/lib/shipping-data';
-import { getRates, buildSingleParcel, type ShippoAddress } from '@/lib/shipping/shippo';
+import { findMatchingZone, applyMarkup, productMissingShippingInfo, siteHasCarrierZone, type ShippingZone, type PackagingBox, type PackingPlan } from '@/lib/shipping-data';
+import { getRates, type ShippoAddress } from '@/lib/shipping/shippo';
+import { generatePackingPlans, planToShippoParcels, type PackerItem } from '@/lib/shipping/packer';
 import { getCurrentMemberFromRequest } from '@/lib/membership/current-member';
 import { resolveProductAccess, parseProductOptions, resolveOptionPriceModifierCents } from '@/lib/ecommerce/resolve-price';
 import Stripe from 'stripe';
@@ -90,10 +91,11 @@ async function upsertGuestMember(
  */
 
 /**
- * Re-quote a carrier zone via Shippo and verify that the customer-selected
- * service token + price still match. Tolerance: ±$0.50 to absorb harmless
- * rounding drift between successive quotes. Returns the authoritative
- * amount/label/token to persist on the order.
+ * Re-run the packer against the cart, re-quote each plan via Shippo, and find
+ * the cheapest plan for the customer-selected service token. Verifies the
+ * price drift is within ±$0.50 of what the customer was quoted in the cart.
+ * Returns the authoritative amount/label/token AND the packing plan to
+ * persist on the order so the merchant knows how to physically pack it.
  */
 async function verifyCarrierRate(args: {
     zone: ShippingZone;
@@ -104,13 +106,14 @@ async function verifyCarrierRate(args: {
         origin_region: string | null;
         origin_postal: string | null;
         origin_country: string | null;
+        packaging_boxes?: PackagingBox[] | null;
     } | null;
     items: any[];
     shippingAddress: any;
     chosenToken: string | null;
     clientCents: number | null;
 }): Promise<
-    | { ok: true; amountCents: number; label: string; serviceToken: string; carrier: string }
+    | { ok: true; amountCents: number; label: string; serviceToken: string; carrier: string; packingPlan: PackingPlan }
     | { ok: false; error: string }
 > {
     const { zone, settings, items, shippingAddress, chosenToken, clientCents } = args;
@@ -120,16 +123,28 @@ async function verifyCarrierRate(args: {
         return { ok: false, error: 'Shipping is not configured for this store.' };
     }
 
-    const parcelItems = items.map(i => ({
+    const boxes: PackagingBox[] = Array.isArray(settings.packaging_boxes) ? settings.packaging_boxes : [];
+    if (boxes.length === 0) {
+        return { ok: false, error: 'Shipping is not configured for this store.' };
+    }
+
+    const packerItems: PackerItem[] = items.map(i => ({
+        productId: i.productId,
+        name: i.name,
         qty: Math.max(1, Math.floor(Number(i.qty) || 1)),
-        weight_grams: i.weight_grams || null,
-        length_mm: i.length_mm || null,
-        width_mm: i.width_mm || null,
-        height_mm: i.height_mm || null,
+        weight_grams: i.weight_grams || 0,
+        length_mm: i.length_mm || 0,
+        width_mm: i.width_mm || 0,
+        height_mm: i.height_mm || 0,
+        ships_alone: !!i.ships_alone,
     }));
-    const parcel = buildSingleParcel(parcelItems);
-    if (!parcel) {
+    if (packerItems.some(p => !p.weight_grams || !p.length_mm || !p.width_mm || !p.height_mm)) {
         return { ok: false, error: 'One or more items in your cart are currently unavailable for shipping.' };
+    }
+
+    const plans = generatePackingPlans(packerItems, boxes);
+    if (plans.length === 0) {
+        return { ok: false, error: 'Items in this cart don\'t fit any available box size.' };
     }
 
     const addressFrom: ShippoAddress = {
@@ -148,40 +163,46 @@ async function verifyCarrierRate(args: {
         country: shippingAddress?.country || '',
     };
 
-    let rates;
-    try {
-        rates = await getRates({
-            apiKey: shippoApiKey,
-            addressFrom,
-            addressTo,
-            parcels: [parcel],
-        });
-    } catch (err: any) {
-        console.error('Shippo re-quote failed:', err?.message || err);
-        return { ok: false, error: 'Could not verify shipping rate.' };
+    // Quote each plan; find the cheapest plan that offers the chosen service.
+    type Best = { amountCents: number; rate: any; plan: PackingPlan };
+    let best: Best | null = null;
+    for (const plan of plans) {
+        try {
+            const rates = await getRates({
+                apiKey: shippoApiKey,
+                addressFrom,
+                addressTo,
+                parcels: planToShippoParcels(plan),
+            });
+            const r = rates.find(x => x.servicelevel_token === chosenToken);
+            if (!r) continue;
+            const marked = applyMarkup(r.amount_cents, zone.markup_type, zone.markup_cents);
+            if (!best || marked < best.amountCents) {
+                best = { amountCents: marked, rate: r, plan };
+            }
+        } catch (err: any) {
+            console.error('Shippo verify plan failed:', err?.message || err);
+        }
     }
 
-    const allowed = Array.isArray(zone.carrier_services) ? zone.carrier_services : [];
-    const matched = rates.find(r => r.servicelevel_token === chosenToken
-        && (allowed.length === 0 || allowed.includes(r.servicelevel_token)));
-    if (!matched) {
+    if (!best) {
         return { ok: false, error: 'Selected shipping option is no longer available.' };
     }
 
-    const serverCents = applyMarkup(matched.amount_cents, zone.markup_type, zone.markup_cents);
-    if (clientCents !== null && Math.abs(serverCents - clientCents) > 50) {
+    if (clientCents !== null && Math.abs(best.amountCents - clientCents) > 50) {
         return { ok: false, error: 'Shipping price changed — please re-confirm at checkout.' };
     }
 
-    const days = typeof matched.estimated_days === 'number' && matched.estimated_days > 0
-        ? ` (~${matched.estimated_days} day${matched.estimated_days === 1 ? '' : 's'})`
+    const days = typeof best.rate.estimated_days === 'number' && best.rate.estimated_days > 0
+        ? ` (~${best.rate.estimated_days} day${best.rate.estimated_days === 1 ? '' : 's'})`
         : '';
     return {
         ok: true,
-        amountCents: serverCents,
-        label: `${matched.provider} ${matched.servicelevel_name}${days}`,
-        serviceToken: matched.servicelevel_token,
-        carrier: matched.provider.toLowerCase(),
+        amountCents: best.amountCents,
+        label: `${best.rate.provider} ${best.rate.servicelevel_name}${days}`,
+        serviceToken: best.rate.servicelevel_token,
+        carrier: best.rate.provider.toLowerCase(),
+        packingPlan: best.plan,
     };
 }
 
@@ -214,7 +235,7 @@ export async function POST(request: NextRequest) {
     const productIds = Array.from(new Set(items.map((i: any) => i.productId as string)));
     const { data: productRows, error: productFetchError } = await supabase
         .from('products')
-        .select('id, site_id, name, price_cents, currency, tier_prices, allowed_package_ids, options, is_active, vendor_id, weight_grams, length_mm, width_mm, height_mm')
+        .select('id, site_id, name, price_cents, currency, tier_prices, allowed_package_ids, options, is_active, vendor_id, weight_grams, length_mm, width_mm, height_mm, ships_alone')
         .in('id', productIds as string[]);
     if (productFetchError) {
         return NextResponse.json({ error: 'Failed to validate items' }, { status: 500 });
@@ -260,6 +281,7 @@ export async function POST(request: NextRequest) {
             length_mm: (product as any).length_mm ?? null,
             width_mm: (product as any).width_mm ?? null,
             height_mm: (product as any).height_mm ?? null,
+            ships_alone: !!(product as any).ships_alone,
         });
     }
 
@@ -286,10 +308,11 @@ export async function POST(request: NextRequest) {
     let validatedShippingMethod: string | null = null;
     let validatedShippingServiceToken: string | null = null;
     let validatedShippingCarrier: string | null = null;
+    let validatedPackingPlan: PackingPlan | null = null;
 
     const { data: ecomSettingsRow } = await supabase
         .from('ecommerce_settings')
-        .select('shipping_required, origin_line1, origin_line2, origin_city, origin_region, origin_postal, origin_country')
+        .select('shipping_required, origin_line1, origin_line2, origin_city, origin_region, origin_postal, origin_country, packaging_boxes')
         .eq('site_id', siteId)
         .single();
 
@@ -344,6 +367,7 @@ export async function POST(request: NextRequest) {
                     validatedShippingMethod = verified.label;
                     validatedShippingServiceToken = verified.serviceToken;
                     validatedShippingCarrier = verified.carrier;
+                    validatedPackingPlan = verified.packingPlan;
                 } else {
                     validatedShippingCents = result.shippingCents;
                     validatedShippingMethod = result.label;
@@ -388,7 +412,7 @@ export async function POST(request: NextRequest) {
         return await createSingleOrder(supabase, {
             siteId, items: resolvedItems, customerName, customerEmail, customerPhone,
             shippingAddress, validatedShippingCents, validatedShippingMethod,
-            validatedShippingServiceToken, validatedShippingCarrier,
+            validatedShippingServiceToken, validatedShippingCarrier, validatedPackingPlan,
             notes, paymentMethod, shippingRequired, memberId: attributedMemberId,
         });
     }
@@ -418,6 +442,7 @@ export async function POST(request: NextRequest) {
             shipping_method: validatedShippingMethod,
             shipping_service_token: validatedShippingServiceToken,
             shipping_carrier: validatedShippingCarrier,
+            packing_plan: validatedPackingPlan,
             customer_name: customerName,
             customer_email: customerEmail,
             customer_phone: customerPhone || null,
@@ -457,6 +482,7 @@ export async function POST(request: NextRequest) {
         const groupShippingMethod = bearsShipping ? validatedShippingMethod : null;
         const groupShippingServiceToken = bearsShipping ? validatedShippingServiceToken : null;
         const groupShippingCarrier = bearsShipping ? validatedShippingCarrier : null;
+        const groupPackingPlan = bearsShipping ? validatedPackingPlan : null;
 
         let orderPaymentMethod: string;
         let orderStatus: string;
@@ -496,6 +522,7 @@ export async function POST(request: NextRequest) {
                 shipping_method: groupShippingMethod,
                 shipping_service_token: groupShippingServiceToken,
                 shipping_carrier: groupShippingCarrier,
+                packing_plan: groupPackingPlan,
                 customer_name: customerName,
                 customer_email: customerEmail,
                 customer_phone: customerPhone || null,
@@ -753,13 +780,14 @@ async function createSingleOrder(supabase: any, params: {
     validatedShippingMethod: string | null;
     validatedShippingServiceToken?: string | null;
     validatedShippingCarrier?: string | null;
+    validatedPackingPlan?: PackingPlan | null;
     notes?: string; paymentMethod: string;
     shippingRequired: boolean; memberId?: string | null;
 }) {
     const {
         siteId, items, customerName, customerEmail, customerPhone,
         shippingAddress, validatedShippingCents, validatedShippingMethod,
-        validatedShippingServiceToken, validatedShippingCarrier,
+        validatedShippingServiceToken, validatedShippingCarrier, validatedPackingPlan,
         notes, paymentMethod, memberId,
     } = params;
 
@@ -794,6 +822,7 @@ async function createSingleOrder(supabase: any, params: {
             shipping_method: validatedShippingMethod,
             shipping_service_token: validatedShippingServiceToken || null,
             shipping_carrier: validatedShippingCarrier || null,
+            packing_plan: validatedPackingPlan || null,
             tax_cents: taxCents,
             tax_label: orderTaxLabel,
             customer_name: customerName,
