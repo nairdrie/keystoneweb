@@ -187,6 +187,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         </dl>
       </div>
 
+      <TargetingPanel campaign={campaign} />
+
       {campaign.ai_rationale && (
         <div className="bg-violet-50 border border-violet-200 rounded-xl p-4">
           <p className="text-xs font-bold uppercase tracking-wide text-violet-700">AI strategy</p>
@@ -207,6 +209,50 @@ function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; 
         <span className="text-[11px] font-bold uppercase text-slate-500 tracking-wide">{label}</span>
       </div>
       <p className="text-2xl font-black text-slate-900 leading-none">{value}</p>
+    </div>
+  );
+}
+
+function TargetingPanel({ campaign }: { campaign: Campaign }) {
+  const t = campaign.targeting || {};
+  const hasAnything = (t.locations?.length || t.radius || t.ageMin || t.ageMax || t.interests?.length || t.audienceType);
+  if (!hasAnything) return null;
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-3">
+      <h2 className="text-sm font-bold uppercase tracking-wide text-slate-600">Targeting</h2>
+      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+        {t.locations && t.locations.length > 0 && (
+          <div>
+            <dt className="text-xs text-slate-500">
+              {t.radius ? `Within ${t.radius.radiusKm} km of` : 'Locations'}
+            </dt>
+            <dd className="font-medium text-slate-900 mt-0.5">
+              {t.locations.join(', ')}
+            </dd>
+          </div>
+        )}
+        {t.audienceType && (
+          <div>
+            <dt className="text-xs text-slate-500">Audience</dt>
+            <dd className="font-medium text-slate-900 mt-0.5 capitalize">{t.audienceType}</dd>
+          </div>
+        )}
+        {(t.ageMin || t.ageMax) && (
+          <div>
+            <dt className="text-xs text-slate-500">Age range</dt>
+            <dd className="font-medium text-slate-900 mt-0.5">
+              {t.ageMin || '18'} – {t.ageMax || '65+'}
+            </dd>
+          </div>
+        )}
+        {t.interests && t.interests.length > 0 && (
+          <div>
+            <dt className="text-xs text-slate-500">Interests</dt>
+            <dd className="font-medium text-slate-900 mt-0.5">{t.interests.join(', ')}</dd>
+          </div>
+        )}
+      </dl>
     </div>
   );
 }

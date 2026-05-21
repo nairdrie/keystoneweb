@@ -15,6 +15,7 @@
 
 import type {
   Campaign,
+  CampaignTargeting,
   GoogleSearchContent,
   GoogleDisplayContent,
 } from './types';
@@ -67,6 +68,67 @@ async function getClient() {
     refresh_token: cfg.refreshToken,
     login_customer_id: cfg.managerCustomerId || undefined,
   });
+}
+
+// ── Location Targeting ──────────────────────────────────────────────────────
+//
+// Google Ads accepts geo targeting as references to `geoTargetConstants/<id>`
+// records. We resolve user-entered place names ("Toronto", "Ontario", "Canada")
+// to those IDs at submit time. Names that don't resolve are skipped — the
+// campaign still launches, just without that location constraint.
+
+/** Sanitize a value for inline use in a GAQL query literal. */
+function escapeGaql(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+async function resolveLocationResourceNames(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  customer: any,
+  names: string[],
+): Promise<string[]> {
+  const out: string[] = [];
+  for (const raw of names) {
+    const name = raw.trim();
+    if (!name) continue;
+    try {
+      const rows = await customer.query(`
+        SELECT geo_target_constant.id, geo_target_constant.name
+        FROM geo_target_constant
+        WHERE geo_target_constant.name = '${escapeGaql(name)}'
+          AND geo_target_constant.status = 'ENABLED'
+        LIMIT 1
+      `);
+      const id = rows?.[0]?.geo_target_constant?.id;
+      if (id) out.push(`geoTargetConstants/${id}`);
+    } catch (err) {
+      console.warn(`[google-ads] geo lookup failed for "${name}":`, err);
+    }
+  }
+  return out;
+}
+
+async function applyLocationTargeting(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  customer: any,
+  campaignResourceName: string,
+  targeting: CampaignTargeting | undefined,
+): Promise<void> {
+  if (!targeting?.locations?.length) return;
+
+  // Radius (proximity) targeting requires lat/lng — we don't have a geocoder
+  // wired up yet, so for now we fall back to geo-name resolution.
+  // TODO: when geocoding is available, emit a `proximity` criterion here.
+
+  const resourceNames = await resolveLocationResourceNames(customer, targeting.locations);
+  if (!resourceNames.length) return;
+
+  await customer.campaignCriteria.create(
+    resourceNames.map(rn => ({
+      campaign: campaignResourceName,
+      location: { geo_target_constant: rn },
+    })),
+  );
 }
 
 // ── Campaign Creation ────────────────────────────────────────────────────────
@@ -152,6 +214,8 @@ export async function createSearchCampaign(
   }]);
   const adId = adResult.results[0].resource_name.split('/').pop()!;
 
+  await applyLocationTargeting(customer, campaignResourceName, campaign.targeting);
+
   await customer.campaigns.update([{
     resource_name: campaignResourceName,
     status: 'ENABLED',
@@ -193,6 +257,9 @@ export async function createDisplayCampaign(
   const adGroupResourceName = adGroupResult.results[0].resource_name;
   const adGroupId = adGroupResourceName.split('/').pop()!;
 
+  // Upload images as Google Ads Image Assets, then reference them in the RDA.
+  const imageAssetResources = await uploadImageAssets(customer, content.images || []);
+
   const adResult = await customer.ads.create([{
     ad_group: adGroupResourceName,
     ad: {
@@ -201,6 +268,7 @@ export async function createDisplayCampaign(
         long_headline: { text: content.longHeadline || content.headlines[0] || '' },
         descriptions: content.descriptions.slice(0, 5).map(d => ({ text: d })),
         business_name: content.businessName,
+        marketing_images: imageAssetResources.map(asset => ({ asset })),
       },
       final_urls: [content.finalUrl || 'https://keystoneweb.ca'],
     },
@@ -208,7 +276,38 @@ export async function createDisplayCampaign(
   }]);
   const adId = adResult.results[0].resource_name.split('/').pop()!;
 
+  await applyLocationTargeting(customer, campaignResourceName, campaign.targeting);
+
   return { campaignId, adGroupId, adId };
+}
+
+/**
+ * Upload the supplied image URLs to Google Ads as `IMAGE` assets and return
+ * their resource names. Bad/unreachable URLs are skipped so the campaign can
+ * still launch even if one image fails.
+ */
+async function uploadImageAssets(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  customer: any,
+  urls: string[],
+): Promise<string[]> {
+  const resources: string[] = [];
+  for (const url of urls.slice(0, 15)) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const buf = Buffer.from(await res.arrayBuffer());
+      const result = await customer.assets.create([{
+        type: 'IMAGE',
+        image_asset: { data: buf.toString('base64') },
+      }]);
+      const rn = result?.results?.[0]?.resource_name;
+      if (rn) resources.push(rn);
+    } catch (err) {
+      console.warn(`[google-ads] image asset upload failed for ${url}:`, err);
+    }
+  }
+  return resources;
 }
 
 // ── Campaign Management ──────────────────────────────────────────────────────
