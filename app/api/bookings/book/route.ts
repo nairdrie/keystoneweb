@@ -28,7 +28,10 @@ export async function POST(request: NextRequest) {
         paymentMethod = 'none',
         selectedOptionName,
         totalPriceCents,
+        tracking,
     } = body;
+    const { getMarketingCampaignIdFromTracking } = await import('@/lib/marketing/utm-capture');
+    const marketingCampaignId = getMarketingCampaignIdFromTracking(tracking);
 
     // Validation
     if (!siteId || !serviceId || !date || !startTime || !customerName || !customerEmail) {
@@ -115,6 +118,7 @@ export async function POST(request: NextRequest) {
             notes: notes || null,
             selected_option_name: selectedOptionName || null,
             total_price_cents: totalPriceCents ?? null,
+            marketing_campaign_id: marketingCampaignId,
         })
         .select()
         .single();

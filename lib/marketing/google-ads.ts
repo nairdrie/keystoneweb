@@ -19,6 +19,7 @@ import type {
   GoogleSearchContent,
   GoogleDisplayContent,
 } from './types';
+import { buildCampaignFinalUrl } from './utm';
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
@@ -208,7 +209,7 @@ export async function createSearchCampaign(
         })),
         descriptions: content.descriptions.slice(0, 4).map(d => ({ text: d })),
       },
-      final_urls: [content.finalUrl || 'https://keystoneweb.ca'],
+      final_urls: [buildCampaignFinalUrl(content.finalUrl || 'https://keystoneweb.ca', campaign.id, 'google_ads', 'search')],
     },
     status: 'ENABLED',
   }]);
@@ -270,7 +271,7 @@ export async function createDisplayCampaign(
         business_name: content.businessName,
         marketing_images: imageAssetResources.map(asset => ({ asset })),
       },
-      final_urls: [content.finalUrl || 'https://keystoneweb.ca'],
+      final_urls: [buildCampaignFinalUrl(content.finalUrl || 'https://keystoneweb.ca', campaign.id, 'google_ads', 'display')],
     },
     status: 'ENABLED',
   }]);
@@ -387,4 +388,61 @@ export async function getCampaignPerformance(
 
 export function isGoogleAdsConfigured(): boolean {
   return isConfigured();
+}
+
+// ── Hourly geo + device segments (for the live activity feed) ───────────────
+
+export interface ActivitySegmentRow {
+  date: string;        // YYYY-MM-DD
+  hour: number;        // 0–23
+  city: string | null;
+  region: string | null;
+  country: string | null;
+  device: string | null;
+  impressions: number;
+  clicks: number;
+  costCents: number;
+}
+
+/**
+ * Pull hourly performance broken down by geo + device for the activity feed.
+ * Google's reporting API supports this in one query.
+ */
+export async function getCampaignActivitySegments(
+  externalCampaignId: string,
+  startDate: string,
+  endDate: string,
+): Promise<ActivitySegmentRow[]> {
+  const customer = await getClient();
+  const rows = await customer.query(`
+    SELECT
+      segments.date,
+      segments.hour,
+      segments.geo_target_city,
+      segments.geo_target_region,
+      segments.geo_target_country,
+      segments.device,
+      metrics.impressions,
+      metrics.clicks,
+      metrics.cost_micros
+    FROM campaign
+    WHERE campaign.id = ${externalCampaignId}
+      AND segments.date BETWEEN '${startDate}' AND '${endDate}'
+  `);
+
+  return (rows || []).map((r: Record<string, Record<string, unknown>>) => {
+    const seg = r.segments || {};
+    const m = r.metrics || {};
+    return {
+      date: String(seg.date || ''),
+      hour: Number(seg.hour || 0),
+      city: seg.geo_target_city ? String(seg.geo_target_city) : null,
+      region: seg.geo_target_region ? String(seg.geo_target_region) : null,
+      country: seg.geo_target_country ? String(seg.geo_target_country) : null,
+      device: seg.device ? String(seg.device) : null,
+      impressions: Number(m.impressions || 0),
+      clicks: Number(m.clicks || 0),
+      costCents: Math.round(Number(m.cost_micros || 0) / 10000),
+    };
+  });
 }

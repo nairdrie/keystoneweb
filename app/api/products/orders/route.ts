@@ -195,7 +195,10 @@ export async function POST(request: NextRequest) {
         shippingCarrier: clientShippingCarrier,
         notes, paymentMethod = 'none', stripeSessionId,
         saveProfile, marketingOptIn,
+        tracking,
     } = body;
+    const { getMarketingCampaignIdFromTracking } = await import('@/lib/marketing/utm-capture');
+    const marketingCampaignId = getMarketingCampaignIdFromTracking(tracking);
 
     if (!siteId || !items || !items.length || !customerName || !customerEmail) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -426,6 +429,7 @@ export async function POST(request: NextRequest) {
             payment_status: 'unpaid',
             notes: notes || null,
             member_id: attributedMemberId,
+            marketing_campaign_id: marketingCampaignId,
         })
         .select()
         .single();

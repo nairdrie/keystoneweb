@@ -118,6 +118,9 @@ export async function POST(request: NextRequest) {
                 source_type: sourceType || 'contact_form',
                 metadata: processedMetadata,
                 inbox_address_id: primaryAddress?.id ?? null,
+                marketing_campaign_id: (await import('@/lib/marketing/utm-capture')).getMarketingCampaignIdFromTracking(
+                    (processedMetadata as { tracking?: Record<string, string> } | null)?.tracking,
+                ),
             })
             .select('id')
             .single();
