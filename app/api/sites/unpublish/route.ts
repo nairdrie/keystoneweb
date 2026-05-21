@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { trackEvent } from '@/lib/analytics';
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 
 /**
  * POST /api/sites/unpublish
@@ -14,19 +14,16 @@ import { trackEvent } from '@/lib/analytics';
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const { siteId } = await request.json();
-    if (!siteId) {
-      return NextResponse.json({ error: 'siteId is required' }, { status: 400 });
-    }
 
-    // Fetch site and verify ownership
+    let access;
+    try {
+      access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+      return siteAccessErrorResponse(e);
+    }
+    const { supabase, targetUserId } = access;
+
     const { data: site, error: siteError } = await supabase
       .from('sites')
       .select('id, user_id, is_published, published_domain, custom_domain, design_data')
@@ -35,10 +32,6 @@ export async function POST(request: NextRequest) {
 
     if (siteError || !site) {
       return NextResponse.json({ error: 'Site not found' }, { status: 404 });
-    }
-
-    if (site.user_id !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     if (!site.is_published) {
@@ -82,7 +75,7 @@ export async function POST(request: NextRequest) {
 
       await supabase.from('site_history').insert({
         site_id: siteId,
-        user_id: user.id,
+        user_id: targetUserId,
         event_type: 'unpublish',
         site_design_data: site.design_data || {},
         pages_snapshot: pages || [],
@@ -93,7 +86,7 @@ export async function POST(request: NextRequest) {
       console.error('Failed to record unpublish history:', historyErr);
     }
 
-    trackEvent('site_unpublish', { userId: user.id, siteId });
+    trackEvent('site_unpublish', { userId: targetUserId, siteId });
 
     return NextResponse.json({
       success: true,

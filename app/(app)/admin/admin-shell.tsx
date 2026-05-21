@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
 import Link from 'next/link';
-import { ExternalLink, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, BookOpen, UtensilsCrossed, FileImage, Users, Minimize2, Paintbrush, ChevronDown, EyeOff, Plus } from 'lucide-react';
+import { ExternalLink, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, BookOpen, UtensilsCrossed, FileImage, Users, Minimize2, Paintbrush, ChevronDown, EyeOff, Plus, Stethoscope } from 'lucide-react';
 import AlertModal from '@/app/components/ui/AlertModal';
 import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 import WalkthroughModal, { WalkthroughStep } from '@/app/components/WalkthroughModal';
@@ -43,6 +43,7 @@ const ALL_TABS: TabDef[] = [
   { id: 'booking',   label: 'Booking',   icon: Calendar,  path: '/admin/booking',   requiresAnyBlock: ['booking'] },
   { id: 'ecommerce', label: 'Ecommerce', icon: ShoppingBag, path: '/admin/ecommerce', requiresAnyBlock: ['productGrid'] },
   { id: 'media',    label: 'Media',     icon: FileImage, path: '/admin/media', core: true },
+  { id: 'health',   label: 'Health',    icon: Stethoscope, path: '/admin/health', core: true },
   { id: 'marketing', label: 'Marketing', icon: TrendingUp, path: '/admin/marketing', requiresMarketing: true },
   // Coming soon — only appear when "show all" is on
   { id: 'events', label: 'Events', icon: CalendarDays, path: '/admin/events', requiresAnyBlock: ['events'] },
@@ -76,6 +77,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [focusMode, setFocusModeState] = useState(false);
   const [hasUnpublishedChanges, setHasUnpublishedChanges] = useState(false);
   const [showSiteSwitcher, setShowSiteSwitcher] = useState(false);
+  const [isAdminManageMode, setIsAdminManageMode] = useState(false);
+  const [adminManagedSiteId, setAdminManagedSiteId] = useState<string | null>(null);
+  const [manageModeChecked, setManageModeChecked] = useState(false);
 
   const FOCUS_MODE_KEY = 'ks_admin_focus_mode';
 
@@ -213,15 +217,31 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     if (siteId && hasFetchedRef.current !== siteId) {
       hasFetchedRef.current = siteId;
       fetchSite(siteId);
-    } else if (!siteId && !hasFetchedRef.current) {
+    } else if (!siteId && !hasFetchedRef.current && manageModeChecked) {
+      // Wait for manage-mode detection before redirecting — otherwise an admin
+      // in manage-mode without ?siteId would race to their own latest site.
       hasFetchedRef.current = '__redirecting__';
       redirectToLatest();
     }
-  }, [user, authLoading, siteId]);
+  }, [user, authLoading, siteId, manageModeChecked]);
 
-  // Fetch user sites for switcher
+  // Detect admin manage-mode — if active, the site switcher is hidden so the
+  // admin can't navigate into their own sites while managing someone else's.
   useEffect(() => {
     if (!user) return;
+    fetch('/api/ops/manage-site', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        setIsAdminManageMode(!!d?.active);
+        setAdminManagedSiteId(d?.active ? (d.siteId as string) : null);
+      })
+      .catch(() => { setIsAdminManageMode(false); setAdminManagedSiteId(null); })
+      .finally(() => setManageModeChecked(true));
+  }, [user]);
+
+  // Fetch user sites for switcher (skipped in manage-mode)
+  useEffect(() => {
+    if (!user || isAdminManageMode) return;
     fetch('/api/user/sites', { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
@@ -231,7 +251,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         })));
       })
       .catch(() => {});
-  }, [user]);
+  }, [user, isAdminManageMode]);
 
   // Subscription check
   useEffect(() => {
@@ -262,6 +282,13 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   }, [user]);
 
   async function redirectToLatest() {
+    // In admin manage-mode, never auto-route to the admin's own latest site —
+    // route back into the site they're actively managing.
+    if (adminManagedSiteId) {
+      const tab = ALL_TABS.find(t => pathname.startsWith(t.path))?.path ?? '/admin/analytics';
+      router.replace(`${tab}?siteId=${adminManagedSiteId}`);
+      return;
+    }
     try {
       const res = await fetch('/api/user/latest-site', { credentials: 'include' });
       if (res.ok) {
@@ -451,7 +478,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                 {siteTitle || 'Untitled Site'}
                 <span className="text-slate-400 font-light hidden sm:inline"> Dashboard</span>
               </h1>
-              <div className="relative mt-0.5">
+              <div className={`relative mt-0.5 ${isAdminManageMode ? 'hidden' : ''}`}>
                 <button
                   onClick={() => setShowSiteSwitcher(v => !v)}
                   className="text-[11px] text-slate-400 hover:text-slate-700 flex items-center gap-1 transition-colors"

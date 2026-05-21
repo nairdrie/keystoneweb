@@ -1,8 +1,9 @@
-import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { PLANS, getPlanByName } from '@/lib/plans';
 import { getUserEffectiveLimits } from '@/lib/addons';
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -94,7 +95,7 @@ function classifyMime(mime: string): 'image' | 'pdf' | 'video' | null {
 
 /** Sum storage used (bytes) across all media for a user. */
 async function getUserStorageUsed(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: SupabaseClient,
   userId: string
 ): Promise<number> {
   const { data, error } = await supabase
@@ -105,46 +106,25 @@ async function getUserStorageUsed(
   return data.reduce((sum, row) => sum + (row.size_bytes ?? 0), 0);
 }
 
-/** Verify the requesting user owns the given site. Returns null on success, response on failure. */
-async function verifySiteOwnership(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-  siteId: string
-): Promise<NextResponse | null> {
-  const { data: site, error } = await supabase
-    .from('sites')
-    .select('user_id')
-    .eq('id', siteId)
-    .single();
-  if (error || !site || site.user_id !== userId) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-  return null;
-}
-
 // ─── GET /api/sites/media?siteId=<id> ────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const siteId = request.nextUrl.searchParams.get('siteId');
-    if (!siteId) {
-      return NextResponse.json({ error: 'Missing siteId' }, { status: 400 });
-    }
 
-    const ownershipError = await verifySiteOwnership(supabase, user.id, siteId);
-    if (ownershipError) return ownershipError;
+    let access;
+    try {
+      access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+      return siteAccessErrorResponse(e);
+    }
+    const { supabase, targetUserId } = access;
 
     // Fetch media items for this site
     const { data: media, error: mediaError } = await supabase
       .from('site_media')
       .select('*')
-      .eq('site_id', siteId)
+      .eq('site_id', siteId!)
       .order('created_at', { ascending: false });
 
     if (mediaError) {
@@ -152,14 +132,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch media' }, { status: 500 });
     }
 
-    // Total storage used across ALL user's sites (for the storage gauge)
-    const totalStorageBytes = await getUserStorageUsed(supabase, user.id);
+    // Storage usage + plan limits scoped to the SITE OWNER, not the acting user.
+    const totalStorageBytes = await getUserStorageUsed(supabase, targetUserId);
 
-    // Fetch user plan limits
     const { data: sub } = await supabase
       .from('user_subscriptions')
       .select('subscription_plan, storage_limit_mb')
-      .eq('user_id', user.id)
+      .eq('user_id', targetUserId)
       .single();
 
     const planConfig = getPlanByName(sub?.subscription_plan);
@@ -182,12 +161,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const formData = await request.formData();
     const file   = formData.get('file')   as File | null;
     const siteId = formData.get('siteId') as string | null;
@@ -196,8 +169,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing file or siteId' }, { status: 400 });
     }
 
-    const ownershipError = await verifySiteOwnership(supabase, user.id, siteId);
-    if (ownershipError) return ownershipError;
+    let access;
+    try {
+      access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+      return siteAccessErrorResponse(e);
+    }
+    const { supabase, targetUserId } = access;
 
     // ── MIME type validation ──────────────────────────────────────────────────
     const declaredMime = file.type.toLowerCase();
@@ -228,11 +206,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Storage quota check ───────────────────────────────────────────────────
-    const effectiveLimits = await getUserEffectiveLimits(user.id, supabase);
+    // ── Storage quota check (against the OWNER's quota) ──────────────────────
+    const effectiveLimits = await getUserEffectiveLimits(targetUserId, supabase);
     const storageLimitMb = effectiveLimits.storageLimitMb;
     const storageLimitBytes = storageLimitMb * 1024 * 1024;
-    const currentUsageBytes = await getUserStorageUsed(supabase, user.id);
+    const currentUsageBytes = await getUserStorageUsed(supabase, targetUserId);
 
     if (currentUsageBytes + file.size > storageLimitBytes) {
       const usedMb = (currentUsageBytes / (1024 * 1024)).toFixed(1);
@@ -335,7 +313,7 @@ export async function POST(request: NextRequest) {
       .from('site_media')
       .insert({
         site_id:      siteId,
-        user_id:      user.id,
+        user_id:      targetUserId,
         storage_path: uploadData.path,
         public_url:   publicUrl,
         file_name:    displayName,
@@ -364,12 +342,6 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const { mediaId, siteId, force } = await request.json() as {
       mediaId: string;
       siteId:  string;
@@ -380,8 +352,13 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Missing mediaId or siteId' }, { status: 400 });
     }
 
-    const ownershipError = await verifySiteOwnership(supabase, user.id, siteId);
-    if (ownershipError) return ownershipError;
+    let access;
+    try {
+      access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+      return siteAccessErrorResponse(e);
+    }
+    const { supabase } = access;
 
     // Fetch the media record
     const { data: record, error: fetchError } = await supabase

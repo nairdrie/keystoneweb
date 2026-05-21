@@ -2548,3 +2548,76 @@ export async function sendModerationAlert(data: {
         return { success: false, error };
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Launch Service Onboarding
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function sendLaunchOnboardingEmail(data: {
+    recipientEmail: string;
+    recipientName: string | null;
+    businessName: string | null;
+    onboardingUrl: string;
+    isFollowUp?: boolean;
+}) {
+    try {
+        const friendlyName = data.recipientName?.split(' ')[0] || 'there';
+        const siteLabel = data.businessName || 'Your new site';
+
+        const subject = data.isFollowUp
+            ? `${siteLabel} — updates are ready to review`
+            : `${siteLabel} is ready to launch 🎉`;
+
+        const heading = data.isFollowUp
+            ? `Updates are ready`
+            : `${siteLabel} is ready`;
+
+        const intro = data.isFollowUp
+            ? `We've made the changes you requested. Take another look — when it looks right, you can launch.`
+            : `We've built your site. Take a quick look, then launch when you're happy. The whole thing should only take a couple of minutes.`;
+
+        await resend.emails.send({
+            from: 'Keystone Web Design <noreply@keystoneweb.ca>',
+            to: data.recipientEmail,
+            subject,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; background: #ffffff;">
+                    <div style="background: #10b981; height: 4px; border-radius: 4px 4px 0 0;"></div>
+
+                    <div style="padding: 40px 32px;">
+                        <img style="width:180px; margin-bottom:32px;" src="https://www.keystoneweb.ca/assets/logo/keystone-logo.png" alt="Keystone Web" />
+
+                        <h1 style="margin: 0 0 8px; font-size: 22px; font-weight: 700; color: #171717; letter-spacing: -0.02em;">
+                            ${heading}
+                        </h1>
+                        <p style="margin: 0 0 24px; font-size: 15px; color: #6b7280; line-height: 1.6;">
+                            Hi ${friendlyName}, ${intro}
+                        </p>
+
+                        <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+                            <p style="margin: 0; font-size: 13px; color: #065f46; line-height: 1.6;">
+                                <strong>What's next:</strong> Click the button below to set a password, preview your site, and launch. We'll handle the domain setup for you — you just review and approve.
+                            </p>
+                        </div>
+
+                        <div style="text-align: center; margin: 28px 0;">
+                            <a href="${data.onboardingUrl}" style="display: inline-block; background: #10b981; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 600; padding: 14px 32px; border-radius: 8px;">
+                                ${data.isFollowUp ? 'Review updates →' : 'Set up & launch →'}
+                            </a>
+                        </div>
+
+                        <div style="border-top: 1px solid #f3f4f6; margin: 28px 0 0;"></div>
+                        <p style="margin: 16px 0 0; font-size: 12px; color: #9ca3af; line-height: 1.6;">
+                            Questions? Just reply to this email and we'll help.
+                        </p>
+                    </div>
+                </div>
+            `,
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error('[launch-service] Failed to send onboarding email:', error);
+        return { success: false, error };
+    }
+}

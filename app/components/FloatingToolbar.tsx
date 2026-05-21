@@ -370,6 +370,15 @@ export default function FloatingToolbar({
     if (typeof window === 'undefined') return;
     if (walkthroughAutoOpenedRef.current) return;
 
+    // Suppress the designer walkthrough for launch-service clients. The flag is
+    // set on their profile when they claim the onboarding token; we expose it
+    // to the page via a body data attribute so this effect doesn't have to
+    // wait for an API roundtrip.
+    const suppressForLaunchClient =
+      document.body.dataset.suppressDesignerWalkthrough === '1' ||
+      new URLSearchParams(window.location.search).has('launchToken');
+    if (suppressForLaunchClient) return;
+
     if (ALWAYS_SHOW_DESIGNER_WALKTHROUGH || !localStorage.getItem(DESIGNER_WALKTHROUGH_KEY)) {
       walkthroughAutoOpenedRef.current = true;
       setShowWalkthrough(true);
@@ -507,6 +516,24 @@ export default function FloatingToolbar({
   };
 
   const executePublishRoute = async () => {
+    // Launch-service interception: if the user is mid-launch-onboarding, send
+    // them back to the payment step of the onboarding flow instead of through
+    // the normal subscription/domain selection path.
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const launchToken =
+        params.get('launchToken') ||
+        document.cookie
+          .split('; ')
+          .find((c) => c.startsWith('ks_launch_token='))
+          ?.split('=')[1];
+      if (launchToken) {
+        setIsPublishingUpdates(false);
+        router.push(`/onboarding/launch/${launchToken}?step=payment`);
+        return;
+      }
+    }
+
     try {
       setIsPublishingUpdates(true);
       // Check user subscription status

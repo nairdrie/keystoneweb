@@ -8,6 +8,7 @@ import { personalizeTemplateContentForCategory } from '@/lib/templates/template-
 import { seedTemplateAdminContent } from '@/lib/templates/admin-seed-data';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import { migratePaletteTokensInDesignData } from '@/lib/template-palette-migration';
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 
 interface CreateSiteRequest {
   selectedTemplateId: string;
@@ -286,33 +287,20 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const siteId = searchParams.get('id');
+    const siteId = request.nextUrl.searchParams.get('id');
 
-    if (!siteId) {
-      return NextResponse.json(
-        { error: 'Site ID is required' },
-        { status: 400 }
-      );
+    let access;
+    try {
+      access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+      return siteAccessErrorResponse(e);
     }
+    const { supabase } = access;
 
-    // Create server-side Supabase client
-    const supabase = await createClient();
-
-    // Authenticate the user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Fetch from Supabase
     const { data, error } = await supabase
       .from('sites')
       .select('*')
-      .eq('id', siteId)
+      .eq('id', siteId!)
       .single();
 
     if (error || !data) {
@@ -320,14 +308,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: 'Site not found' },
         { status: 404 }
-      );
-    }
-
-    // Verify ownership — only the site owner can access site data via this endpoint
-    if (data.user_id !== user.id) {
-      return NextResponse.json(
-        { error: 'Forbidden: You do not own this site' },
-        { status: 403 }
       );
     }
 
@@ -348,7 +328,7 @@ export async function GET(request: NextRequest) {
               design_data: migration.data,
               updated_at: new Date().toISOString(),
             })
-            .eq('id', siteId)
+            .eq('id', siteId!)
             .select()
             .single();
 
@@ -377,39 +357,16 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    // Create server-side Supabase client
-    const supabase = await createClient();
-
-    // ✅ Security: Always use getUser() for authorization checks
-    // This cryptographically verifies the JWT token with Supabase backend
-    // NEVER use getSession() which only reads local cookies unvalidated
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      console.log('Auth error in PATCH /api/sites:', authError?.message);
-      return NextResponse.json(
-        { error: 'Unauthorized: User authentication required' },
-        { status: 401 }
-      );
-    }
-
     const body = await request.json();
-    const { siteId, designData, userId, title, selectedTemplateId } = body;
+    const { siteId, designData, title, selectedTemplateId } = body;
 
-    if (!siteId) {
-      return NextResponse.json(
-        { error: 'Site ID is required' },
-        { status: 400 }
-      );
+    let access;
+    try {
+      access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+      return siteAccessErrorResponse(e);
     }
-
-    // ✅ Security: Verify ownership - userId from JWT must match site.user_id
-    if (userId && userId !== user.id) {
-      return NextResponse.json(
-        { error: 'Forbidden: You can only edit your own sites' },
-        { status: 403 }
-      );
-    }
+    const { supabase, user, isAdminMode, targetUserId } = access;
 
     // Fetch current site to merge design data
     const { data: currentSite, error: fetchError } = await supabase
@@ -425,28 +382,23 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // ✅ Security: If site already has an owner, verify it matches current user
-    if (currentSite.user_id && currentSite.user_id !== user.id) {
-      return NextResponse.json(
-        { error: 'Forbidden: This site is owned by another user' },
-        { status: 403 }
-      );
-    }
-
     // Merge design data
     const mergedDesignData = {
       ...(currentSite.design_data || {}),
       ...(designData || {}),
     };
 
-    // Update in Supabase - set userId if this is the first save
     const updatePayload: any = {
-      user_id: user.id, // Claim ownership on first save
       design_data: mergedDesignData,
       updated_at: new Date().toISOString(),
     };
 
-    // Map frontend 'title' to DB 'site_slug' column
+    // Claim ownership on first save (only when an owner is not yet set, and
+    // never in admin manage-mode — admins must not become the owner).
+    if (!currentSite.user_id && !isAdminMode) {
+      updatePayload.user_id = user.id;
+    }
+
     if (title) {
       updatePayload.site_slug = title;
     }
@@ -472,7 +424,9 @@ export async function PATCH(request: NextRequest) {
 
     const siteData = mapSupabaseToSiteData(updatedSite);
 
-    // Record history snapshot (save_draft event)
+    // Record history snapshot (save_draft event).
+    // Record against the owner's user_id so the owner can see the entry in
+    // their history list (RLS on site_history is user_id = auth.uid()).
     try {
       const { data: allPages } = await supabase
         .from('pages')
@@ -482,7 +436,7 @@ export async function PATCH(request: NextRequest) {
 
       await supabase.from('site_history').insert({
         site_id: siteId,
-        user_id: user.id,
+        user_id: targetUserId,
         event_type: 'save_draft',
         site_design_data: mergedDesignData,
         pages_snapshot: allPages || [],
@@ -490,11 +444,10 @@ export async function PATCH(request: NextRequest) {
         selected_palette: mergedDesignData.__selectedPalette,
       });
     } catch (historyErr) {
-      // Non-blocking: don't fail the save if history recording fails
       console.error('Failed to record site history:', historyErr);
     }
 
-    trackEvent('site_edit', { userId: user.id, siteId });
+    trackEvent('site_edit', { userId: targetUserId, siteId });
 
     return NextResponse.json({
       message: 'Site updated successfully',
@@ -511,19 +464,16 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const { siteId } = await request.json();
-    if (!siteId) {
-      return NextResponse.json({ error: 'Site ID is required' }, { status: 400 });
-    }
 
-    // Verify ownership
+    let access;
+    try {
+      access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+      return siteAccessErrorResponse(e);
+    }
+    const { supabase, targetUserId } = access;
+
     const { data: site, error: fetchError } = await supabase
       .from('sites')
       .select('id, user_id, published_domain, custom_domain')
@@ -534,11 +484,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Site not found' }, { status: 404 });
     }
 
-    if (site.user_id !== user.id) {
-      return NextResponse.json({ error: 'Forbidden: You can only delete your own sites' }, { status: 403 });
-    }
-
-    // Use admin client to bypass RLS for cascading deletes
+    // Use admin client to bypass RLS for cascading deletes (children's policies
+    // are owner-only; an admin in manage-mode needs the bypass).
     const admin = createAdminClient();
 
     // Unlink any purchased domains from this site (preserve domain ownership)
@@ -567,7 +514,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to delete site' }, { status: 500 });
     }
 
-    trackEvent('site_delete', { userId: user.id, siteId });
+    trackEvent('site_delete', { userId: targetUserId, siteId });
 
     // Return domain info so the frontend can show the ownership notice
     return NextResponse.json({

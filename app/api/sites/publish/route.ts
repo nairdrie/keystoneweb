@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/db/supabase-server';
 import { trackEvent } from '@/lib/analytics';
 import { getPlanByName } from '@/lib/plans';
 import { getUserEffectiveLimits } from '@/lib/addons';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import { migratePaletteTokensInDesignData } from '@/lib/template-palette-migration';
 import { submitIndexNow } from '@/lib/seo/indexnow';
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 
 interface PublishRequest {
   siteId: string;
@@ -63,17 +63,6 @@ function pageHasBlockType(page: PagePublishData, blockType: string): boolean {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-
-    // Verify authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     const body: PublishRequest = await request.json();
     const { siteId, publishedDomain, reattachCustomDomain } = body;
 
@@ -84,11 +73,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let access;
+    try {
+      access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+      return siteAccessErrorResponse(e);
+    }
+    const { supabase, targetUserId } = access;
+
     // Extract just the subdomain from the full domain
     // e.g., "akdesigns.kswd.ca" → "akdesigns"
     const subdomain = publishedDomain.split('.')[0];
 
-    // Fetch site and verify ownership
     const { data: site, error: siteError } = await supabase
       .from('sites')
       .select('id, user_id, published_domain, selected_template_id, design_data, translations_config, translations')
@@ -103,19 +99,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify user owns the site
-    if (site.user_id !== user.id) {
-      return NextResponse.json(
-        { error: 'Forbidden: You do not own this site' },
-        { status: 403 }
-      );
-    }
-
-    // Verify subscription is active
+    // Subscription is the OWNER's, not the acting admin's.
     const { data: subscription } = await supabase
       .from('user_subscriptions')
       .select('subscription_status, subscription_plan')
-      .eq('user_id', user.id)
+      .eq('user_id', targetUserId)
       .single();
 
     if (!subscription || subscription.subscription_status !== 'active') {
@@ -127,13 +115,13 @@ export async function POST(request: NextRequest) {
 
     // Enforce publish limit: count currently published sites (excluding this one)
     const plan = getPlanByName(subscription.subscription_plan);
-    const effectiveLimits = await getUserEffectiveLimits(user.id, supabase);
+    const effectiveLimits = await getUserEffectiveLimits(targetUserId, supabase);
     const publishLimit = effectiveLimits.publishLimit;
 
     const { count: publishedCount } = await supabase
       .from('sites')
       .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
+      .eq('user_id', targetUserId)
       .eq('is_published', true)
       .neq('id', siteId);
 
@@ -276,7 +264,7 @@ export async function POST(request: NextRequest) {
           .from('domain_purchases')
           .select('id, domain, status, transfer_status')
           .eq('site_id', siteId)
-          .eq('user_id', user.id)
+          .eq('user_id', targetUserId)
           .eq('domain', reattachCustomDomain)
           .single();
 
@@ -295,11 +283,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Record history snapshot (publish event)
+    // Record history snapshot (publish event) — recorded against the owner so
+    // it appears in their history list (site_history RLS is owner-only).
     try {
       await supabase.from('site_history').insert({
         site_id: siteId,
-        user_id: user.id,
+        user_id: targetUserId,
         event_type: 'publish',
         site_design_data: siteDesignDataForPublish,
         pages_snapshot: pagesForPublish,
@@ -314,7 +303,7 @@ export async function POST(request: NextRequest) {
     console.log(`✅ Site published: ${siteId} → ${fullPublishedDomain}`);
 
     trackEvent('site_publish', {
-      userId: user.id,
+      userId: targetUserId,
       siteId,
       metadata: { domain: fullPublishedDomain },
     });

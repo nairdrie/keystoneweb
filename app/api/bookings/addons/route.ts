@@ -1,40 +1,22 @@
-import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 import { NextRequest, NextResponse } from 'next/server';
-
-/**
- * GET /api/bookings/addons?siteId=...
- * Returns all reusable add-on variants for a site (owner only)
- *
- * POST /api/bookings/addons
- * Create a new reusable add-on variant (owner only)
- * Body: { siteId, name, price_cents }
- *
- * DELETE /api/bookings/addons?id=...
- * Delete a reusable add-on variant (owner only)
- */
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 
 export async function GET(request: NextRequest) {
     const siteId = request.nextUrl.searchParams.get('siteId');
-    if (!siteId) {
-        return NextResponse.json({ error: 'Missing siteId' }, { status: 400 });
-    }
 
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    let access;
+    try {
+        access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
     }
-
-    const { data: site } = await supabase.from('sites').select('user_id').eq('id', siteId).single();
-    if (!site || site.user_id !== user.id) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const { supabase } = access;
 
     const { data, error } = await supabase
         .from('booking_addons')
         .select('*')
-        .eq('site_id', siteId)
+        .eq('site_id', siteId!)
         .eq('is_archived', false)
         .order('created_at', { ascending: true });
 
@@ -46,13 +28,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body = await request.json();
     const { siteId, name, price_cents } = body;
 
@@ -60,10 +35,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Missing siteId or name' }, { status: 400 });
     }
 
-    const { data: site } = await supabase.from('sites').select('user_id').eq('id', siteId).single();
-    if (!site || site.user_id !== user.id) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    let access;
+    try {
+        access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
     }
+    const { supabase } = access;
 
     const { data, error } = await supabase
         .from('booking_addons')
@@ -84,28 +62,17 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: 'Missing addon id' }, { status: 400 });
     }
 
-    const supabase = await createClient();
+    const adminLookup = createAdminClient();
+    const { data: addon } = await adminLookup.from('booking_addons').select('site_id').eq('id', addonId).single();
+    if (!addon) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    let access;
+    try {
+        access = await requireSiteAccess(addon.site_id, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
     }
-
-    // Verify ownership via site
-    const { data: addon } = await supabase
-        .from('booking_addons')
-        .select('site_id, sites(user_id)')
-        .eq('id', addonId)
-        .single();
-
-    if (!addon) {
-        return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    }
-
-    const siteUserId = (addon.sites as any)?.user_id;
-    if (siteUserId !== user.id) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const { supabase } = access;
 
     const { error } = await supabase
         .from('booking_addons')

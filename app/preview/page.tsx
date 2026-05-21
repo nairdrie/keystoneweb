@@ -11,9 +11,10 @@ export const dynamic = 'force-dynamic';
 export default async function PreviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ siteId?: string; pageId?: string }>;
+  searchParams: Promise<{ siteId?: string; pageId?: string; launchToken?: string }>;
 }) {
-  const { siteId, pageId } = await searchParams;
+  const { siteId, pageId, launchToken } = await searchParams;
+  const isLaunchOnboarding = Boolean(launchToken);
 
   if (!siteId) {
     return (
@@ -109,25 +110,28 @@ export default async function PreviewPage({
 
     return (
       <div className="flex flex-col min-h-screen">
-        {/* Preview banner */}
-        <div className="sticky top-0 z-[9999] flex items-center justify-between gap-3 px-4 py-2 bg-slate-900 text-white text-sm shadow-md">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <Image src={KeystoneLogoImage} alt="Keystone" width={80} height={20} className="shrink-0 rounded" />
-            <span className="font-medium text-slate-100 shrink-0">Site Preview</span>
-            <span className="text-slate-400 hidden sm:block truncate">
-              This is a draft preview — not the published site.
-            </span>
+        {/* Preview banner — suppressed when embedded in the launch onboarding flow
+            because the outer wrapper there owns the chrome. */}
+        {!isLaunchOnboarding && (
+          <div className="sticky top-0 z-[9999] flex items-center justify-between gap-3 px-4 py-2 bg-slate-900 text-white text-sm shadow-md">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Image src={KeystoneLogoImage} alt="Keystone" width={80} height={20} className="shrink-0 rounded" />
+              <span className="font-medium text-slate-100 shrink-0">Site Preview</span>
+              <span className="text-slate-400 hidden sm:block truncate">
+                This is a draft preview — not the published site.
+              </span>
+            </div>
+            <a
+              href="https://keystoneweb.ca"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 shrink-0 text-slate-300 hover:text-white transition-colors text-xs font-medium"
+            >
+              Build your own
+              <ExternalLink className="w-3 h-3" />
+            </a>
           </div>
-          <a
-            href="https://keystoneweb.ca"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 shrink-0 text-slate-300 hover:text-white transition-colors text-xs font-medium"
-          >
-            Build your own
-            <ExternalLink className="w-3 h-3" />
-          </a>
-        </div>
+        )}
 
         {/* Site content rendered in read-only mode using draft data */}
         <div className="flex-1">

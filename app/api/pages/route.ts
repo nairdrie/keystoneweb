@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/db/supabase-server';
 import { trackEvent } from '@/lib/analytics';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import { migratePaletteTokensInDesignData } from '@/lib/template-palette-migration';
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 
 interface CreatePageRequest {
   siteId: string;
@@ -37,30 +37,25 @@ type PageRow = {
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const siteId = request.nextUrl.searchParams.get('siteId');
-    if (!siteId) {
-      return NextResponse.json(
-        { error: 'siteId query parameter required' },
-        { status: 400 }
-      );
-    }
 
-    // Verify user owns the site
+    let access;
+    try {
+      access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+      return siteAccessErrorResponse(e);
+    }
+    const { supabase } = access;
+
+    // Fetch site metadata for palette migration
     const { data: site } = await supabase
       .from('sites')
-      .select('user_id, selected_template_id, design_data')
-      .eq('id', siteId)
+      .select('selected_template_id, design_data')
+      .eq('id', siteId!)
       .single();
 
-    if (!site || site.user_id !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!site) {
+      return NextResponse.json({ error: 'Site not found' }, { status: 404 });
     }
 
     // Fetch all pages for this site
@@ -130,13 +125,6 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body: CreatePageRequest = await request.json();
     const { siteId, slug, title, displayName } = body;
 
@@ -147,16 +135,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify user owns the site AND get the selected template
-    const { data: site } = await supabase
-      .from('sites')
-      .select('user_id, selected_template_id')
-      .eq('id', siteId)
-      .single();
-
-    if (!site || site.user_id !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    let access;
+    try {
+      access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+      return siteAccessErrorResponse(e);
     }
+    const { supabase } = access;
 
     // Get next nav_order
     const { data: pages } = await supabase
@@ -210,15 +195,8 @@ export async function POST(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body: UpdatePageRequest = await request.json();
-    const { id, siteId, title, displayName, isVisibleInNav, navOrder, designData } = body;
+    const { id, siteId } = body;
 
     if (!id || !siteId) {
       return NextResponse.json(
@@ -227,16 +205,13 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Verify user owns the site
-    const { data: site } = await supabase
-      .from('sites')
-      .select('user_id')
-      .eq('id', siteId)
-      .single();
-
-    if (!site || site.user_id !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    let access;
+    try {
+      access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+      return siteAccessErrorResponse(e);
     }
+    const { supabase, targetUserId } = access;
 
     // Verify page belongs to site
     const { data: page } = await supabase
@@ -278,7 +253,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    trackEvent('site_edit', { userId: user.id, siteId });
+    trackEvent('site_edit', { userId: targetUserId, siteId });
 
     return NextResponse.json({ page: updatedPage });
   } catch (error) {
@@ -296,13 +271,6 @@ export async function PATCH(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const pageId = request.nextUrl.searchParams.get('id');
     const siteId = request.nextUrl.searchParams.get('siteId');
 
@@ -313,16 +281,13 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Verify user owns the site
-    const { data: site } = await supabase
-      .from('sites')
-      .select('user_id')
-      .eq('id', siteId)
-      .single();
-
-    if (!site || site.user_id !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    let access;
+    try {
+      access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+      return siteAccessErrorResponse(e);
     }
+    const { supabase } = access;
 
     // Delete page
     const { error } = await supabase

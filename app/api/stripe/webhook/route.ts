@@ -4,6 +4,7 @@ import { sendOrderConfirmation, sendOrderNotification, sendSubscriptionPurchaseE
 import { buildSiteOrigin } from '@/lib/email/order-tracking-url';
 import { completeDomainPurchase } from '@/app/api/domains/purchase/route';
 import { initiateVercelTransfer } from '@/app/api/domains/transfer/route';
+import { provisionLaunch } from '@/lib/launch-service/provision';
 import { getPlanByName } from '@/lib/plans';
 import Stripe from 'stripe';
 import { trackEvent } from '@/lib/analytics';
@@ -441,6 +442,28 @@ export async function POST(request: NextRequest) {
           });
 
           break;
+        }
+
+        // ── Launch Service Checkout (subscription + one-time launch fee + optional domain)
+        // This branch DOES NOT break — it falls through to the subscription handler
+        // below so user_subscriptions is upserted normally. We just additionally
+        // kick off domain provisioning + site publish, and mark the launch_request.
+        if (session.metadata?.type === 'launch_service') {
+          const launchRequestId = session.metadata?.launch_request_id;
+          if (launchRequestId) {
+            // Mark as launching so the polling loader sees progress.
+            await supabase
+              .from('launch_requests')
+              .update({ onboarding_status: 'launching' })
+              .eq('id', launchRequestId);
+
+            // Fire-and-forget so Stripe gets its 200 quickly. Provisioning
+            // updates onboarding_status to 'launched' or 'failed' on its own.
+            provisionLaunch(launchRequestId).catch((err) => {
+              console.error(`[launch-service] provisioning crashed for ${launchRequestId}:`, err);
+            });
+          }
+          // continue to subscription handling below
         }
 
         // ── Subscription Checkout ─────────────────────────────────

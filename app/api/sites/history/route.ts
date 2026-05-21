@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/db/supabase-server';
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 
 /**
  * GET /api/sites/history?siteId=xxx&limit=50&offset=0
@@ -7,36 +7,18 @@ import { createClient } from '@/lib/db/supabase-server';
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const searchParams = request.nextUrl.searchParams;
     const siteId = searchParams.get('siteId');
     const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
-    if (!siteId) {
-      return NextResponse.json({ error: 'siteId is required' }, { status: 400 });
+    let access;
+    try {
+      access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+      return siteAccessErrorResponse(e);
     }
-
-    // Verify ownership
-    const { data: site, error: siteError } = await supabase
-      .from('sites')
-      .select('id, user_id')
-      .eq('id', siteId)
-      .single();
-
-    if (siteError || !site) {
-      return NextResponse.json({ error: 'Site not found' }, { status: 404 });
-    }
-
-    if (site.user_id !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const { supabase } = access;
 
     // Fetch history entries (without full snapshots for the list view)
     const { data: history, error: historyError, count } = await supabase
@@ -70,33 +52,19 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const { siteId, historyId } = await request.json();
 
     if (!siteId || !historyId) {
       return NextResponse.json({ error: 'siteId and historyId are required' }, { status: 400 });
     }
 
-    // Verify ownership
-    const { data: site, error: siteError } = await supabase
-      .from('sites')
-      .select('id, user_id')
-      .eq('id', siteId)
-      .single();
-
-    if (siteError || !site) {
-      return NextResponse.json({ error: 'Site not found' }, { status: 404 });
+    let access;
+    try {
+      access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+      return siteAccessErrorResponse(e);
     }
-
-    if (site.user_id !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const { supabase, targetUserId } = access;
 
     // Fetch the full history snapshot
     const { data: snapshot, error: snapError } = await supabase
@@ -125,7 +93,7 @@ export async function POST(request: NextRequest) {
 
     await supabase.from('site_history').insert({
       site_id: siteId,
-      user_id: user.id,
+      user_id: targetUserId,
       event_type: 'save_draft',
       site_design_data: currentSite?.design_data || {},
       pages_snapshot: currentPages || [],

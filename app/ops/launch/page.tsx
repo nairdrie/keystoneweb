@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { getOpsAccessContext } from '@/lib/ops/access';
+import NewClientButton from './NewClientButton';
 
 const STATUS_STYLES: Record<string, string> = {
   new: 'text-amber-400 bg-amber-400/10',
@@ -129,14 +130,17 @@ export default async function OpsLaunchRequestsPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Launch Service Requests</h1>
           <p className="mt-1 text-sm text-gray-500">
             Done-for-you setup consultations from <code className="text-gray-400">/setup</code>.
           </p>
         </div>
-        <span className="text-sm text-gray-500">{count ?? 0} total</span>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-gray-500">{count ?? 0} total</span>
+          <NewClientButton />
+        </div>
       </div>
 
       {/* Search bar */}

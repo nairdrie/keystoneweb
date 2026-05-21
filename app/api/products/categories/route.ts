@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSiteAccess, SiteAccessDeniedError } from '@/lib/auth/site-access';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * GET    /api/products/categories?siteId=...      List categories + subcategories with product counts.
@@ -16,13 +18,19 @@ import { NextRequest, NextResponse } from 'next/server';
  * up in the product editor's pickers.
  */
 
-async function ensureOwner(siteId: string) {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) return { error: 'Unauthorized', status: 401 as const, supabase: null };
-    const { data: site } = await supabase.from('sites').select('user_id').eq('id', siteId).single();
-    if (!site || site.user_id !== user.id) return { error: 'Forbidden', status: 403 as const, supabase: null };
-    return { supabase, error: null, status: 200 as const };
+async function ensureOwner(siteId: string, request: NextRequest): Promise<
+    | { supabase: SupabaseClient; error: null; status: 200 }
+    | { supabase: null; error: string; status: 400 | 401 | 403 | 404 | 500 }
+> {
+    try {
+        const { supabase } = await requireSiteAccess(siteId, request);
+        return { supabase, error: null, status: 200 };
+    } catch (e) {
+        if (e instanceof SiteAccessDeniedError) {
+            return { supabase: null, error: e.message, status: e.status as 400 | 401 | 403 | 404 };
+        }
+        return { supabase: null, error: 'Internal error', status: 500 };
+    }
 }
 
 function normalizeName(input: unknown): string | null {
@@ -118,7 +126,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid parent_name' }, { status: 400 });
     }
 
-    const auth = await ensureOwner(siteId);
+    const auth = await ensureOwner(siteId, request);
     if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status });
     const supabase = auth.supabase!;
 
@@ -184,7 +192,7 @@ export async function PUT(request: NextRequest) {
     if (!oldName || !newName) return NextResponse.json({ error: 'Missing oldName or newName' }, { status: 400 });
     if (oldName === newName && parent === null) return NextResponse.json({ success: true });
 
-    const auth = await ensureOwner(siteId);
+    const auth = await ensureOwner(siteId, request);
     if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status });
     const supabase = auth.supabase!;
 
@@ -248,7 +256,7 @@ export async function DELETE(request: NextRequest) {
     if (!siteId) return NextResponse.json({ error: 'Missing siteId' }, { status: 400 });
     if (!name) return NextResponse.json({ error: 'Missing name' }, { status: 400 });
 
-    const auth = await ensureOwner(siteId);
+    const auth = await ensureOwner(siteId, request);
     if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status });
     const supabase = auth.supabase!;
 

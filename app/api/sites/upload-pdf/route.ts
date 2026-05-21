@@ -1,7 +1,7 @@
-import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
 import { scanText } from '@/lib/moderation/text-scan';
 import { handleModerationResult } from '@/lib/moderation/report';
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 
 const MAX_PDF_SIZE = 20 * 1024 * 1024; // 20MB
 
@@ -17,13 +17,6 @@ const MAX_PDF_SIZE = 20 * 1024 * 1024; // 20MB
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
     const siteId = formData.get('siteId') as string;
@@ -40,19 +33,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File is too large (max 20MB)' }, { status: 400 });
     }
 
-    // Verify user owns the site
-    const { data: site, error: siteError } = await supabase
-      .from('sites')
-      .select('user_id')
-      .eq('id', siteId)
-      .single();
-
-    if (siteError || !site || site.user_id !== user.id) {
-      return NextResponse.json(
-        { error: 'You do not have permission to upload files for this site' },
-        { status: 403 }
-      );
+    let access;
+    try {
+      access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+      return siteAccessErrorResponse(e);
     }
+    const { supabase, targetUserId } = access;
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
@@ -71,7 +58,7 @@ export async function POST(request: NextRequest) {
         { ...textScanResult, severity: 'review' as const },
         {
           siteId:      siteId,
-          userId:      user.id,
+          userId:      targetUserId,
           ipAddress:   ip,
           contentType: 'pdf',
           contentRef:  null,
@@ -109,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     await supabase.from('site_media').upsert({
       site_id:      siteId,
-      user_id:      user.id,
+      user_id:      targetUserId,
       storage_path: data.path,
       public_url:   publicUrl,
       file_name:    fileName,

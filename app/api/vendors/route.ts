@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 
@@ -11,11 +12,6 @@ import crypto from 'crypto';
  *   - external: no payment processed on-site; vendor contacts customer directly
  */
 
-async function verifyOwnership(supabase: any, siteId: string, userId: string) {
-    const { data: site } = await supabase.from('sites').select('user_id').eq('id', siteId).single();
-    return site && site.user_id === userId;
-}
-
 // Fields safe to return to the client — never return private credentials in plaintext
 function sanitizeVendor(v: any) {
     if (!v) return v;
@@ -27,21 +23,28 @@ function sanitizeVendor(v: any) {
     };
 }
 
-export async function GET(request: NextRequest) {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+// PUT/DELETE accept a vendor id; resolve its site_id via the admin client
+// (RLS would hide the row from an admin in manage-mode otherwise).
+async function lookupVendorSiteId(vendorId: string): Promise<string | null> {
+    const admin = createAdminClient();
+    const { data } = await admin.from('vendors').select('site_id').eq('id', vendorId).single();
+    return data?.site_id ?? null;
+}
 
+export async function GET(request: NextRequest) {
     const siteId = request.nextUrl.searchParams.get('siteId');
-    if (!siteId) return NextResponse.json({ error: 'Missing siteId' }, { status: 400 });
-    if (!(await verifyOwnership(supabase, siteId, user.id))) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    let access;
+    try {
+        access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
     }
+    const { supabase } = access;
 
     const { data, error } = await supabase
         .from('vendors')
         .select('*')
-        .eq('site_id', siteId)
+        .eq('site_id', siteId!)
         .eq('is_archived', false)
         .order('created_at', { ascending: true });
 
@@ -50,19 +53,20 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const body = await request.json();
     const { siteId, name, contactEmail, paymentMode, ccNotificationEmails, isDefault } = body;
 
     if (!siteId || !name || !contactEmail) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
-    if (!(await verifyOwnership(supabase, siteId, user.id))) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+    let access;
+    try {
+        access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
     }
+    const { supabase } = access;
 
     // If this vendor is being marked default, unset any existing default
     if (isDefault) {
@@ -96,10 +100,6 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const body = await request.json();
     const {
         id, name, contactEmail, paymentMode,
@@ -110,11 +110,16 @@ export async function PUT(request: NextRequest) {
 
     if (!id) return NextResponse.json({ error: 'Missing vendor id' }, { status: 400 });
 
-    const { data: vendor } = await supabase.from('vendors').select('site_id').eq('id', id).single();
-    if (!vendor) return NextResponse.json({ error: 'Vendor not found' }, { status: 404 });
-    if (!(await verifyOwnership(supabase, vendor.site_id, user.id))) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const siteId = await lookupVendorSiteId(id);
+    if (!siteId) return NextResponse.json({ error: 'Vendor not found' }, { status: 404 });
+
+    let access;
+    try {
+        access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
     }
+    const { supabase } = access;
 
     const updates: Record<string, any> = { updated_at: new Date().toISOString() };
     if (name !== undefined) updates.name = name;
@@ -124,7 +129,6 @@ export async function PUT(request: NextRequest) {
 
     if (convergeMerchantId !== undefined) updates.converge_merchant_id = convergeMerchantId || null;
     if (convergeUserId !== undefined) updates.converge_user_id = convergeUserId || null;
-    // Only overwrite PIN if a new one was provided (avoid the masked "••••••••" clobbering the real value)
     if (convergePin !== undefined && convergePin && !convergePin.startsWith('•')) updates.converge_pin = convergePin;
     if (convergeDemoMode !== undefined) updates.converge_demo_mode = !!convergeDemoMode;
 
@@ -135,7 +139,7 @@ export async function PUT(request: NextRequest) {
     if (cloverSandboxMode !== undefined) updates.clover_sandbox_mode = !!cloverSandboxMode;
 
     if (isDefault === true) {
-        await supabase.from('vendors').update({ is_default: false }).eq('site_id', vendor.site_id).eq('is_default', true).neq('id', id);
+        await supabase.from('vendors').update({ is_default: false }).eq('site_id', siteId).eq('is_default', true).neq('id', id);
         updates.is_default = true;
     } else if (isDefault === false) {
         updates.is_default = false;
@@ -147,18 +151,19 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
     const vendorId = request.nextUrl.searchParams.get('id');
     if (!vendorId) return NextResponse.json({ error: 'Missing vendor id' }, { status: 400 });
 
-    const { data: vendor } = await supabase.from('vendors').select('site_id').eq('id', vendorId).single();
-    if (!vendor) return NextResponse.json({ error: 'Vendor not found' }, { status: 404 });
-    if (!(await verifyOwnership(supabase, vendor.site_id, user.id))) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const siteId = await lookupVendorSiteId(vendorId);
+    if (!siteId) return NextResponse.json({ error: 'Vendor not found' }, { status: 404 });
+
+    let access;
+    try {
+        access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
     }
+    const { supabase } = access;
 
     const { error } = await supabase
         .from('vendors')
