@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import HealthCheckPanel from './HealthCheckPanel';
+import LaunchConfigCard, { type LaunchConfig } from './LaunchConfigCard';
+import SendToClientCard from './SendToClientCard';
 
 type LaunchRequest = {
   id: string;
@@ -30,6 +33,12 @@ type LaunchRequest = {
   site_id: string | null;
   stripe_checkout_url: string | null;
   stripe_setup_invoice_id: string | null;
+  launch_config: LaunchConfig | null;
+  launch_service_price_cents: number | null;
+  onboarding_token: string | null;
+  onboarding_status: string | null;
+  changes_requested_text: string | null;
+  launched_at: string | null;
   assignee?: { id: string; email: string | null; business_name: string | null } | null;
   site?: { id: string; site_slug: string | null } | null;
   assignee_options?: Array<{ id: string; email: string; business_name: string | null; is_admin: boolean }>;
@@ -198,6 +207,30 @@ export default function LaunchRequestDetailPage() {
               <p className="mt-3 text-xs text-gray-500">Heard about us via: {req.referral_source}</p>
             )}
           </Card>
+
+          {req.site_id && <HealthCheckPanel siteId={req.site_id} />}
+
+          {req.site_id && (
+            <LaunchConfigCard
+              launchRequestId={req.id}
+              initial={req.launch_config}
+              initialPriceCents={req.launch_service_price_cents ?? 39900}
+              onSaved={(config, priceCents) =>
+                setReq((prev) =>
+                  prev
+                    ? { ...prev, launch_config: config, launch_service_price_cents: priceCents }
+                    : prev,
+                )
+              }
+            />
+          )}
+
+          {req.site_id && req.launch_config && (
+            <SendToClientCard
+              launchRequest={req}
+              onUpdated={(next) => setReq((prev) => (prev ? { ...prev, ...next } : prev))}
+            />
+          )}
         </div>
 
         {/* Right: pipeline controls */}

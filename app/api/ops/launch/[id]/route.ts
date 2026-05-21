@@ -23,6 +23,10 @@ const ALLOWED_PATCH_FIELDS = new Set([
   'site_id',
   'stripe_checkout_url',
   'stripe_setup_invoice_id',
+  'launch_config',
+  'launch_service_price_cents',
+  'onboarding_status',
+  'changes_requested_text',
 ]);
 
 async function assertAdmin(): Promise<boolean> {
