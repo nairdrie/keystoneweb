@@ -19,6 +19,7 @@ import { createAdminClient } from '@/lib/db/supabase-admin';
 import { logAgentActivity, detectAgent } from '@/lib/ucp/agent-detect';
 import { verifyMandate, issueMandate } from '@/lib/ucp/mandate';
 import { loadCart, markConverted } from '@/lib/ucp/cart';
+import { chargeMandate } from '@/lib/ucp/charge';
 import type { UcpMandate } from '@/lib/ucp/types';
 
 interface SubmittedMandate {
@@ -84,8 +85,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }, { status: 409 });
   }
 
-  // Create the merchant order. Payment is captured async on our side;
-  // for now we mark `pending` and stash the tokenized payment in notes.
+  // Create the merchant order. Totals (tax, shipping) are written so the
+  // Stripe charge below has the full picture, and the order matches what
+  // the merchant sees in their dashboard.
   const detect = detectAgent(request.headers);
   const { data: order, error: orderError } = await admin
     .from('orders')
@@ -100,6 +102,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         options: i.options ?? {},
       })),
       subtotal_cents: cart.totals.subtotalCents,
+      shipping_cents: cart.totals.shippingCents,
+      tax_cents: cart.totals.taxCents,
       customer_name: body.customer.name,
       customer_email: body.customer.email,
       customer_phone: body.customer.phone || null,
@@ -112,6 +116,51 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .select()
     .single();
   if (orderError || !order) return NextResponse.json({ error: orderError?.message || 'Order creation failed' }, { status: 500 });
+
+  // Charge via Stripe Connect. The mandate id is the idempotency key so
+  // accidental resubmission of the same mandate never double-charges.
+  const charge = await chargeMandate({
+    siteId,
+    orderId: order.id,
+    amountCents: cart.totals.totalCents,
+    currency: cart.currency,
+    customerEmail: body.customer.email,
+    paymentToken: body.payment.token,
+    paymentType: body.payment.type,
+    agentId: detect.agentId,
+    mandateId: cartMandateRow.id,
+  });
+
+  await admin.from('orders').update({
+    payment_status: charge.status === 'paid' ? 'paid' : charge.status === 'pending' ? 'pending' : 'unpaid',
+    status: charge.status === 'paid' ? 'confirmed' : 'pending',
+    stripe_payment_id: charge.paymentIntentId ?? null,
+    notes: charge.failureMessage
+      ? `UCP/AP2 order via ${detect.agentId} — mandate ${cartMandateRow.id} — charge ${charge.status}: ${charge.failureMessage}`
+      : undefined,
+  }).eq('id', order.id);
+
+  // If the charge failed outright, refund the cart back to `open` so the
+  // agent can try again with a fresh token instead of being stranded.
+  if (charge.status === 'failed') {
+    await admin.from('ucp_carts').update({ status: 'open', updated_at: new Date().toISOString() }).eq('id', cart.id);
+    await logAgentActivity(request, {
+      siteId,
+      surface: 'checkout',
+      action: 'charge_failed',
+      cartId: cart.id,
+      orderId: order.id,
+      amountCents: cart.totals.totalCents,
+      httpStatus: 402,
+      requestMeta: { code: charge.failureCode, message: charge.failureMessage },
+    });
+    return NextResponse.json({
+      error: 'Charge failed',
+      reason: charge.failureCode,
+      message: charge.failureMessage,
+      orderId: order.id,
+    }, { status: 402 });
+  }
 
   // Issue + persist the matching payment mandate so the audit trail is
   // a chain: cart mandate → payment mandate → order.
@@ -145,28 +194,32 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     order_id: order.id,
   }).eq('id', cartMandateRow.id);
 
-  await markConverted(cart.id);
+  if (charge.status === 'paid') {
+    await markConverted(cart.id);
+  }
 
   await logAgentActivity(request, {
     siteId,
     surface: 'checkout',
-    action: 'mandate_verify',
+    action: charge.status === 'paid' ? 'mandate_verify' : 'charge_pending',
     cartId: cart.id,
     orderId: order.id,
     amountCents: cart.totals.totalCents,
-    httpStatus: 201,
+    httpStatus: charge.status === 'paid' ? 201 : 202,
+    requestMeta: charge.status === 'paid' ? undefined : { code: charge.failureCode },
   });
 
   return NextResponse.json({
     order: {
       id: order.id,
-      status: order.status,
-      paymentStatus: order.payment_status,
+      status: charge.status === 'paid' ? 'confirmed' : 'pending',
+      paymentStatus: charge.status,
+      paymentIntentId: charge.paymentIntentId,
       totals: cart.totals,
     },
     mandate: paymentMandate,
     merchantOfRecord: ctx.businessName,
-  }, { status: 201, headers: { 'X-UCP-Version': '0.1' } });
+  }, { status: charge.status === 'paid' ? 201 : 202, headers: { 'X-UCP-Version': '0.1' } });
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ siteId: string }> }) {
