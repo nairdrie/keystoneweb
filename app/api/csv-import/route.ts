@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
+import { downloadAndUploadImages, parseImageUrlsCell } from '@/lib/ecommerce/import-images';
 
 // ─── CSV Parser ──────────────────────────────────────────────────────────────
 
@@ -54,6 +55,7 @@ interface ColumnMapping {
     tags: string | null;
     member_prices: string | null;
     allowed_packages: string | null;
+    image_urls: string | null;
 }
 
 // ─── AI Column Mapping ────────────────────────────────────────────────────────
@@ -92,7 +94,8 @@ async function mapColumnsWithAI(
 - category: Product category name (e.g. "Skin Care", "Clothing")
 - tags: Comma-separated tags (e.g. "gift set, retinol, holiday")
 - member_prices: Per-membership-package prices in dollars (e.g. "Gold:28.00 | Silver:32.00")
-- allowed_packages: Pipe-separated package names restricting who can purchase (e.g. "Gold | Platinum"); blank means anyone`;
+- allowed_packages: Pipe-separated package names restricting who can purchase (e.g. "Gold | Platinum"); blank means anyone
+- image_urls: Pipe- or comma-separated absolute image URLs (e.g. "https://.../a.jpg | https://.../b.jpg") that will be downloaded and attached to the product`;
 
     const sampleText = sampleRows.slice(0, 3).map((row, i) =>
         `Row ${i + 1}: ${JSON.stringify(Object.fromEntries(headers.map((h, j) => [h, row[j] ?? ''])))}`
@@ -100,7 +103,7 @@ async function mapColumnsWithAI(
 
     const exampleFormat = importType === 'services'
         ? `{"name": "Service Name", "description": "Desc", "price": "Price", "compare_at_price": null, "currency": null, "status": null, "duration_minutes": null, "is_featured": null, "options": null, "options_required": null, "category": null, "variants": null, "inventory_count": null}`
-        : `{"name": "Product Name", "description": "Desc", "price": "Price", "compare_at_price": null, "currency": null, "status": null, "duration_minutes": null, "is_featured": null, "options": null, "options_required": null, "category": null, "variants": null, "inventory_count": null, "tags": null, "member_prices": null, "allowed_packages": null}`;
+        : `{"name": "Product Name", "description": "Desc", "price": "Price", "compare_at_price": null, "currency": null, "status": null, "duration_minutes": null, "is_featured": null, "options": null, "options_required": null, "category": null, "variants": null, "inventory_count": null, "tags": null, "member_prices": null, "allowed_packages": null, "image_urls": null}`;
 
     const prompt = `You are mapping CSV columns for a data import. The user is importing ${importType}.
 
@@ -164,6 +167,7 @@ Example: ${exampleFormat}`;
             tags:             pick(parsed.tags,             fallback.tags),
             member_prices:    pick(parsed.member_prices,    fallback.member_prices),
             allowed_packages: pick(parsed.allowed_packages, fallback.allowed_packages),
+            image_urls:       pick(parsed.image_urls,       fallback.image_urls),
         };
     } catch (err) {
         console.error('AI column mapping error, using fuzzy fallback:', err);
@@ -204,6 +208,7 @@ function fuzzyMapColumns(headers: string[], importType: ImportType): ColumnMappi
         tags:             importType === 'products' ? find('tags', 'tag', 'keywords', 'labels') : null,
         member_prices:    importType === 'products' ? find('member_prices', 'member prices', 'tier_prices', 'tier prices', 'membership_prices', 'membership prices') : null,
         allowed_packages: importType === 'products' ? find('allowed_packages', 'allowed packages', 'restricted_to', 'members_only', 'gated_packages') : null,
+        image_urls:       importType === 'products' ? find('image_urls', 'image urls', 'images', 'image', 'photo', 'photos', 'picture', 'pictures', 'image_url', 'image url') : null,
     };
 }
 
@@ -568,6 +573,7 @@ export async function POST(req: NextRequest) {
         const tagsIdx        = colIdx(mapping.tags);
         const memberPriceIdx = colIdx(mapping.member_prices);
         const allowedPkgIdx  = colIdx(mapping.allowed_packages);
+        const imageUrlsIdx   = colIdx(mapping.image_urls);
 
         // Load this site's membership packages once. Member-price / allowed-package
         // names in the CSV are matched against this list (case-insensitive); unknown
@@ -619,6 +625,9 @@ export async function POST(req: NextRequest) {
         const alreadyExists: { row: number; name: string }[] = [];
         const skipped:       { row: number; reason: string }[] = [];
         const errors:        { row: number; name: string; error: string }[] = [];
+        let totalImagesUploaded = 0;
+        let totalImageBytes = 0;
+        let imagesFailed = 0;
 
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
@@ -717,6 +726,19 @@ export async function POST(req: NextRequest) {
                         }
                     }
 
+                    // Download any image URLs in the row. Empty cell => keep existing
+                    // images on update, or start with [] on insert.
+                    const imageUrlsRaw = imageUrlsIdx >= 0 ? row[imageUrlsIdx] : '';
+                    const imageSources = parseImageUrlsCell(imageUrlsRaw);
+                    let downloadedImages: string[] | null = null;
+                    if (imageSources.length > 0) {
+                        const imgResult = await downloadAndUploadImages(imageSources, siteId, user.id, supabase);
+                        downloadedImages = imgResult.publicUrls;
+                        totalImagesUploaded += imgResult.uploaded;
+                        totalImageBytes += imgResult.totalBytes;
+                        imagesFailed += imgResult.failed;
+                    }
+
                     const incoming = {
                         description,
                         price_cents: priceCents,
@@ -733,13 +755,20 @@ export async function POST(req: NextRequest) {
                     };
 
                     if (existingItem) {
-                        if (productIsIdentical(existingItem, incoming)) {
+                        const imagesDiffer = downloadedImages !== null &&
+                            JSON.stringify(existingItem.images) !== JSON.stringify(downloadedImages);
+                        if (productIsIdentical(existingItem, incoming) && !imagesDiffer) {
                             alreadyExists.push({ row: rowNum, name });
                         } else {
                             const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
                             const { error } = await supabase
                                 .from('products')
-                                .update({ ...incoming, slug, updated_at: new Date().toISOString() })
+                                .update({
+                                    ...incoming,
+                                    ...(downloadedImages !== null ? { images: downloadedImages } : {}),
+                                    slug,
+                                    updated_at: new Date().toISOString(),
+                                })
                                 .eq('id', existingItem.id);
                             if (error) throw new Error(error.message);
                             modified.push({ row: rowNum, name });
@@ -752,7 +781,7 @@ export async function POST(req: NextRequest) {
                                 site_id: siteId,
                                 name,
                                 slug,
-                                images: [],
+                                images: downloadedImages ?? [],
                                 sort_order: nextSortOrder++,
                                 ...incoming,
                             });
@@ -773,6 +802,9 @@ export async function POST(req: NextRequest) {
             errors,
             mapping,
             total: rows.length,
+            ...(totalImagesUploaded > 0 || imagesFailed > 0
+                ? { images: { uploaded: totalImagesUploaded, failed: imagesFailed, totalBytes: totalImageBytes } }
+                : {}),
         });
     } catch (err: any) {
         console.error('CSV import error:', err);

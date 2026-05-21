@@ -77,11 +77,12 @@ const SERVICES_TEMPLATE_ROWS = [
 const PRODUCTS_TEMPLATE_HEADERS = [
     'name', 'description', 'price', 'compare_at_price',
     'currency', 'inventory_count', 'status', 'variants',
-    'member_prices', 'allowed_packages',
+    'member_prices', 'allowed_packages', 'image_urls',
 ];
 
 // member_prices format:    "Package Name:price | Other Package:price"   (price in dollars; clamped to <= public price)
 // allowed_packages format: "Package Name | Other Package"               (blank/empty = anyone can buy)
+// image_urls format:       "https://.../a.jpg | https://.../b.jpg"      (images are downloaded and uploaded into your media library)
 // Package names are matched case-insensitively against your existing membership packages.
 const PRODUCTS_TEMPLATE_ROWS = [
     [
@@ -91,6 +92,7 @@ const PRODUCTS_TEMPLATE_ROWS = [
         'Size:XS,S,M,L,XL,2XL | Color:Black,White,Navy',
         'Gold:28.00 | Silver:32.00',
         '',
+        'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=1200 | https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=1200',
     ],
     [
         'Branded Water Bottle',
@@ -99,6 +101,7 @@ const PRODUCTS_TEMPLATE_ROWS = [
         'Color:Black,Silver,Rose Gold',
         'Gold:22.00',
         '',
+        'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=1200',
     ],
     [
         'Members-only Hoodie',
@@ -107,11 +110,13 @@ const PRODUCTS_TEMPLATE_ROWS = [
         'Size:S,M,L,XL',
         'Gold:60.00',
         'Gold',
+        '',
     ],
     [
         'Gift Card',
         'Give the gift of choice. Redeemable in-store and online.',
         '50.00', '', 'CAD', '-1', 'draft',
+        '',
         '',
         '',
         '',
@@ -407,9 +412,14 @@ export default function CsvImportModal({ siteId, type, onClose, onImported }: Cs
                                 </div>
                             )}
                             {type === 'products' && (
-                                <p className="text-[10px] text-blue-600 mt-1.5">
-                                    <strong>variants:</strong> use <span className="font-mono">"Size:S,M,L | Color:Red,Blue"</span> or JSON array
-                                </p>
+                                <div className="mt-1.5 space-y-0.5">
+                                    <p className="text-[10px] text-blue-600">
+                                        <strong>variants:</strong> use <span className="font-mono">"Size:S,M,L | Color:Red,Blue"</span> or JSON array
+                                    </p>
+                                    <p className="text-[10px] text-blue-600">
+                                        <strong>image_urls:</strong> pipe- or comma-separated <span className="font-mono">https://...</span> links — images are downloaded and added automatically
+                                    </p>
+                                </div>
                             )}
                         </div>
                     </div>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
-import sharp from 'sharp';
+import { downloadAndUploadImages } from '@/lib/ecommerce/import-images';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -29,120 +29,6 @@ interface JsonImportFile {
     strategy?: string;
     warnings?: string[];
     products?: JsonProduct[];
-}
-
-// ─── Image Helpers ───────────────────────────────────────────────────────────
-
-const IMAGE_DOWNLOAD_TIMEOUT = 15_000; // 15s per image
-const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
-
-/**
- * Download an image from a URL, process with Sharp, upload to Supabase,
- * and track in site_media. Returns the public URL or null on failure.
- */
-async function downloadAndUploadImage(
-    imageUrl: string,
-    siteId: string,
-    userId: string,
-    supabase: any,
-): Promise<{ publicUrl: string; sizeBytes: number } | null> {
-    try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), IMAGE_DOWNLOAD_TIMEOUT);
-
-        const res = await fetch(imageUrl, {
-            signal: controller.signal,
-            headers: { 'User-Agent': 'KeystoneWeb/1.0 ProductImporter' },
-        });
-        clearTimeout(timeout);
-
-        if (!res.ok) return null;
-
-        const arrayBuffer = await res.arrayBuffer();
-        const inputBuffer = Buffer.from(arrayBuffer);
-
-        if (inputBuffer.length > MAX_IMAGE_SIZE) return null;
-        if (inputBuffer.length === 0) return null;
-
-        // Process with Sharp (resize + sanitize)
-        let finalBuffer: Buffer;
-        let contentType: string;
-        let ext: string;
-
-        try {
-            const image = sharp(inputBuffer);
-            const metadata = await image.metadata();
-            const isTransparent = metadata.format === 'png' || metadata.format === 'webp' || metadata.format === 'gif';
-
-            if (isTransparent) {
-                finalBuffer = await image
-                    .resize({ width: 2000, withoutEnlargement: true })
-                    .toBuffer();
-                contentType = `image/${metadata.format}`;
-                ext = metadata.format === 'png' ? 'png' : metadata.format === 'webp' ? 'webp' : 'gif';
-            } else {
-                finalBuffer = await image
-                    .resize({ width: 2000, withoutEnlargement: true })
-                    .jpeg({ quality: 85, mozjpeg: true })
-                    .toBuffer();
-                contentType = 'image/jpeg';
-                ext = 'jpg';
-            }
-        } catch {
-            return null; // Corrupted or unsupported image format
-        }
-
-        // Generate unique storage path
-        const timestamp = Date.now();
-        const randomStr = Math.random().toString(36).slice(2, 8);
-        const safeName = extractFileName(imageUrl);
-        const storagePath = `${siteId}/${timestamp}-${randomStr}-${safeName}.${ext}`;
-
-        // Upload to Supabase Storage
-        const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('site-assets')
-            .upload(storagePath, finalBuffer, {
-                contentType,
-                cacheControl: '31536000',
-                upsert: false,
-            });
-
-        if (uploadError) return null;
-
-        const { data: { publicUrl } } = supabase.storage
-            .from('site-assets')
-            .getPublicUrl(uploadData.path);
-
-        // Track in site_media (for media library + storage accounting)
-        await supabase.from('site_media').upsert({
-            site_id: siteId,
-            user_id: userId,
-            storage_path: uploadData.path,
-            public_url: publicUrl,
-            file_name: `${safeName}.${ext}`,
-            media_type: 'image',
-            mime_type: contentType,
-            size_bytes: finalBuffer.length,
-        }, { onConflict: 'storage_path', ignoreDuplicates: true });
-
-        return { publicUrl, sizeBytes: finalBuffer.length };
-    } catch {
-        return null; // Network error, timeout, etc.
-    }
-}
-
-function extractFileName(url: string): string {
-    try {
-        const pathname = new URL(url).pathname;
-        const basename = pathname.split('/').pop() || 'product-image';
-        return basename
-            .replace(/\.[^/.]+$/, '')
-            .toLowerCase()
-            .replace(/[^a-z0-9]/g, '-')
-            .slice(0, 60) || 'product-image';
-    } catch {
-        return 'product-image';
-    }
 }
 
 // ─── Value Parsers ───────────────────────────────────────────────────────────
@@ -284,30 +170,17 @@ export async function POST(req: NextRequest) {
                 const variants = parseVariants(jp.variants);
                 const isActive = jp.availability !== 'out_of_stock';
 
-                // Download and upload images (main + additional)
-                const imageUrls: string[] = [];
                 const allSourceUrls: string[] = [];
                 if (jp.mainImageUrl) allSourceUrls.push(jp.mainImageUrl);
                 if (jp.additionalImageUrls && Array.isArray(jp.additionalImageUrls)) {
                     allSourceUrls.push(...jp.additionalImageUrls);
                 }
 
-                // Process images in batches of 3 for concurrency
-                for (let batch = 0; batch < allSourceUrls.length; batch += 3) {
-                    const batchUrls = allSourceUrls.slice(batch, batch + 3);
-                    const results = await Promise.all(
-                        batchUrls.map(url => downloadAndUploadImage(url, siteId, user.id, supabase))
-                    );
-                    for (const result of results) {
-                        if (result) {
-                            imageUrls.push(result.publicUrl);
-                            totalImagesUploaded++;
-                            totalImageBytes += result.sizeBytes;
-                        } else {
-                            imagesFailed++;
-                        }
-                    }
-                }
+                const imgResult = await downloadAndUploadImages(allSourceUrls, siteId, user.id, supabase);
+                const imageUrls = imgResult.publicUrls;
+                totalImagesUploaded += imgResult.uploaded;
+                totalImageBytes += imgResult.totalBytes;
+                imagesFailed += imgResult.failed;
 
                 const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
