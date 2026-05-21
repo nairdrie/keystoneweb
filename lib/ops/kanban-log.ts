@@ -29,6 +29,7 @@ const TRACKED_UPDATE_FIELDS: OpsTicketLogField[] = [
   'status',
   'priority',
   'assignee',
+  'client',
 ];
 
 function normalizeText(value: string | null) {
@@ -166,6 +167,26 @@ export function buildUpdateTicketLogs(
       continue;
     }
 
+    if (field === 'client') {
+      const previousValue = normalizeText(previousTicket.client_tag);
+      const nextValue = normalizeText(nextTicket.client_tag);
+      if (previousValue === nextValue) continue;
+
+      logs.push({
+        ticket_id: nextTicket.id,
+        ticket_name: nextTicket.name,
+        actor_user_id: actor.userId,
+        actor_email: actor.userEmail,
+        action: 'update',
+        field_name: field,
+        old_value: previousValue,
+        new_value: nextValue,
+        old_label: previousValue,
+        new_label: nextValue,
+      });
+      continue;
+    }
+
     const previousValue = previousTicket.assignee_user_id;
     const nextValue = nextTicket.assignee_user_id;
     if (previousValue === nextValue) continue;
@@ -226,6 +247,10 @@ export function formatOpsTicketLogMessage(entry: OpsTicketLogEntry) {
 
   if (entry.field_name === 'description') {
     return 'updated the description';
+  }
+
+  if (entry.field_name === 'client') {
+    return `changed client from ${entry.old_label ?? 'None'} to ${entry.new_label ?? 'None'}`;
   }
 
   return 'updated the ticket';

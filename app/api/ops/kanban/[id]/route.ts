@@ -59,7 +59,7 @@ export async function PATCH(
   const db = createAdminClient();
   const { data: existingTicket, error: existingTicketError } = await db
     .from('ops_tickets')
-    .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, sort_order, created_at, updated_at')
+    .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, client_tag, sort_order, created_at, updated_at')
     .eq('id', id)
     .single();
 
@@ -97,6 +97,10 @@ export async function PATCH(
       : null;
   }
 
+  if ('client_tag' in body) {
+    update.client_tag = cleanOptionalText(body.client_tag);
+  }
+
   if ('sort_order' in body) {
     const parsedOrder = Number(body.sort_order);
     if (!Number.isFinite(parsedOrder) || parsedOrder < 0) {
@@ -116,7 +120,7 @@ export async function PATCH(
     if (!('sort_order' in body)) {
       const { data: existingTickets, error: loadError } = await db
         .from('ops_tickets')
-        .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, sort_order, created_at, updated_at')
+        .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, client_tag, sort_order, created_at, updated_at')
         .eq('status', nextStatus)
         .neq('id', id);
 
@@ -133,7 +137,7 @@ export async function PATCH(
     .from('ops_tickets')
     .update(update)
     .eq('id', id)
-    .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, sort_order, created_at, updated_at')
+    .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, client_tag, sort_order, created_at, updated_at')
     .single();
 
   if (error || !data) {
@@ -174,7 +178,7 @@ export async function DELETE(
   const db = createAdminClient();
   const { data: existingTicket, error: existingTicketError } = await db
     .from('ops_tickets')
-    .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, sort_order, created_at, updated_at')
+    .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, client_tag, sort_order, created_at, updated_at')
     .eq('id', id)
     .single();
 

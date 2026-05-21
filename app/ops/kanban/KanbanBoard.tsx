@@ -19,7 +19,7 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { ArrowDownUp, Filter, Flag, GripVertical, History, Plus, Search, Sparkles, Upload, UserRound, X } from 'lucide-react';
+import { ArrowDownUp, Building2, Filter, Flag, GripVertical, History, Plus, Search, Sparkles, Upload, UserRound, X } from 'lucide-react';
 import {
   getOpsTicketPriorityMeta,
   getOpsTicketStatusMeta,
@@ -41,6 +41,7 @@ type TicketDraft = {
   status: OpsTicketStatus;
   priority: OpsTicketPriority;
   assignee_user_id: string;
+  client_tag: string;
 };
 
 const DEFAULT_DRAFT: TicketDraft = {
@@ -49,7 +50,12 @@ const DEFAULT_DRAFT: TicketDraft = {
   status: 'backlog',
   priority: 'medium',
   assignee_user_id: '',
+  client_tag: '',
 };
+
+const CLIENT_FILTER_ALL = 'all';
+const CLIENT_FILTER_NONE = '__none__';
+const CLIENT_DATALIST_ID = 'ops-kanban-client-tags';
 
 const PRIORITY_RANK: Record<OpsTicketPriority, number> = {
   urgent: 0,
@@ -75,6 +81,7 @@ export type KanbanBoardProps = {
   initialTickets: OpsTicket[];
   statusCounts: StatusCounts;
   assignees: OpsAssigneeOption[];
+  clientTags: string[];
   currentUserId: string;
   canDelete: boolean;
 };
@@ -348,6 +355,7 @@ function buildDraft(ticket?: OpsTicket): TicketDraft {
     status: ticket.status,
     priority: ticket.priority,
     assignee_user_id: ticket.assignee_user_id ?? '',
+    client_tag: ticket.client_tag ?? '',
   };
 }
 
@@ -480,6 +488,12 @@ function TicketCard({
           </div>
           <div>
             <h3 className="text-sm font-semibold leading-6 text-white">{ticket.name}</h3>
+            {ticket.client_tag && (
+              <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[11px] font-medium text-cyan-200">
+                <Building2 className="h-3 w-3" />
+                {ticket.client_tag}
+              </div>
+            )}
             {ticket.description && (
               <p className="mt-2 line-clamp-3 text-sm leading-6 text-gray-400">{ticket.description}</p>
             )}
@@ -534,6 +548,12 @@ function TicketPreviewCard({
           </div>
           <div>
             <h3 className="text-sm font-semibold leading-6 text-white">{ticket.name}</h3>
+            {ticket.client_tag && (
+              <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[11px] font-medium text-cyan-200">
+                <Building2 className="h-3 w-3" />
+                {ticket.client_tag}
+              </div>
+            )}
             {ticket.description && (
               <p className="mt-2 line-clamp-3 text-sm leading-6 text-gray-400">{ticket.description}</p>
             )}
@@ -582,6 +602,7 @@ function TicketModal({
   draft,
   editingTicket,
   assignees,
+  clientTags,
   onClose,
   onDelete,
   onSubmit,
@@ -594,6 +615,7 @@ function TicketModal({
   draft: TicketDraft;
   editingTicket: OpsTicket | null;
   assignees: OpsAssigneeOption[];
+  clientTags: string[];
   onClose: () => void;
   onDelete: () => void;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
@@ -651,6 +673,30 @@ function TicketModal({
               placeholder="Add context, acceptance criteria, links, or reproduction steps."
               className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-gray-600 focus:border-emerald-400/60 focus:outline-none"
             />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-300" htmlFor="ticket-client-tag">
+              Client
+            </label>
+            <input
+              id="ticket-client-tag"
+              type="text"
+              list={CLIENT_DATALIST_ID}
+              value={draft.client_tag}
+              onChange={(event) => onDraftChange({ ...draft, client_tag: event.target.value })}
+              placeholder="Type a client name or pick a past tag"
+              autoComplete="off"
+              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-gray-600 focus:border-emerald-400/60 focus:outline-none"
+            />
+            <datalist id={CLIENT_DATALIST_ID}>
+              {clientTags.map((tag) => (
+                <option key={tag} value={tag} />
+              ))}
+            </datalist>
+            <p className="mt-1.5 text-xs text-gray-500">
+              Leave blank for internal work. Past tags appear as suggestions.
+            </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
@@ -769,6 +815,7 @@ export default function KanbanBoard({
   initialTickets,
   statusCounts,
   assignees,
+  clientTags,
   currentUserId,
   canDelete,
 }: KanbanBoardProps) {
@@ -788,6 +835,7 @@ export default function KanbanBoard({
   const [sortMode, setSortMode] = useState<SortMode>('priority');
   const [priorityFilter, setPriorityFilter] = useState<OpsTicketPriority[]>([]);
   const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
+  const [clientFilter, setClientFilter] = useState<string>(CLIENT_FILTER_ALL);
   const [searchQuery, setSearchQuery] = useState('');
   const [countsByStatus, setCountsByStatus] = useState<StatusCounts>(statusCounts);
   const [loadedByStatus, setLoadedByStatus] = useState<StatusCounts>(() =>
@@ -818,6 +866,26 @@ export default function KanbanBoard({
 
   const assigneeMap = new Map(assignees.map((assignee) => [assignee.id, assignee]));
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+  const knownClientTags = (() => {
+    const map = new Map<string, string>();
+    for (const tag of clientTags) {
+      const trimmed = tag.trim();
+      if (!trimmed) continue;
+      const key = trimmed.toLowerCase();
+      if (!map.has(key)) map.set(key, trimmed);
+    }
+    for (const ticket of tickets) {
+      const raw = ticket.client_tag?.trim();
+      if (!raw) continue;
+      const key = raw.toLowerCase();
+      if (!map.has(key)) map.set(key, raw);
+    }
+    return [...map.values()].sort((left, right) =>
+      left.localeCompare(right, undefined, { sensitivity: 'base' })
+    );
+  })();
+  const normalizedClientFilter = clientFilter.trim().toLowerCase();
   const editingTicket = editingTicketId
     ? tickets.find((ticket) => ticket.id === editingTicketId) ?? null
     : null;
@@ -846,6 +914,15 @@ export default function KanbanBoard({
       return false;
     }
 
+    if (clientFilter !== CLIENT_FILTER_ALL) {
+      const ticketClient = ticket.client_tag?.trim().toLowerCase() ?? '';
+      if (clientFilter === CLIENT_FILTER_NONE) {
+        if (ticketClient) return false;
+      } else if (ticketClient !== normalizedClientFilter) {
+        return false;
+      }
+    }
+
     if (normalizedSearchQuery) {
       const assigneeLabel = ticket.assignee_user_id
         ? formatAssigneeLabel(assigneeMap.get(ticket.assignee_user_id))
@@ -854,6 +931,7 @@ export default function KanbanBoard({
         ticket.name,
         ticket.description,
         assigneeLabel,
+        ticket.client_tag,
       ]
         .filter(Boolean)
         .join(' ')
@@ -867,7 +945,11 @@ export default function KanbanBoard({
     return true;
   });
 
-  const hasActiveFilters = priorityFilter.length > 0 || assigneeFilter !== 'all' || normalizedSearchQuery.length > 0;
+  const hasActiveFilters =
+    priorityFilter.length > 0 ||
+    assigneeFilter !== 'all' ||
+    clientFilter !== CLIENT_FILTER_ALL ||
+    normalizedSearchQuery.length > 0;
 
   function refreshServerState() {
     startTransition(() => router.refresh());
@@ -1116,6 +1198,7 @@ export default function KanbanBoard({
       status: draft.status,
       priority: draft.priority,
       assignee_user_id: draft.assignee_user_id,
+      client_tag: draft.client_tag.trim(),
     };
 
     try {
@@ -1507,7 +1590,7 @@ export default function KanbanBoard({
           </div>
         </div>
 
-        <div className="grid gap-3 px-4 sm:grid-cols-2 sm:px-6 xl:grid-cols-[auto_auto_1fr_auto] lg:px-8">
+        <div className="grid gap-3 px-4 sm:grid-cols-2 sm:px-6 xl:grid-cols-[auto_auto_auto_1fr_auto] lg:px-8">
           <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
             <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-gray-500">
               <ArrowDownUp className="h-3.5 w-3.5" />
@@ -1531,6 +1614,22 @@ export default function KanbanBoard({
               {assignees.map((assignee) => (
                 <option key={assignee.id} value={assignee.id} className="bg-gray-950 text-white">
                   {formatAssigneeLabel(assignee)}
+                </option>
+              ))}
+            </DarkSelect>
+          </div>
+
+          <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+            <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-gray-500">
+              <Building2 className="h-3.5 w-3.5" />
+              Client
+            </div>
+            <DarkSelect value={clientFilter} onChange={(event) => setClientFilter(event.target.value)}>
+              <option value={CLIENT_FILTER_ALL} className="bg-gray-950 text-white">All clients</option>
+              <option value={CLIENT_FILTER_NONE} className="bg-gray-950 text-white">No client</option>
+              {knownClientTags.map((tag) => (
+                <option key={tag} value={tag.toLowerCase()} className="bg-gray-950 text-white">
+                  {tag}
                 </option>
               ))}
             </DarkSelect>
@@ -1568,6 +1667,7 @@ export default function KanbanBoard({
               onClick={() => {
                 setPriorityFilter([]);
                 setAssigneeFilter('all');
+                setClientFilter(CLIENT_FILTER_ALL);
                 setSearchQuery('');
                 setSortMode('priority');
               }}
@@ -1685,6 +1785,7 @@ export default function KanbanBoard({
         draft={draft}
         editingTicket={editingTicket}
         assignees={assignees}
+        clientTags={knownClientTags}
         onClose={closeEditor}
         onDelete={deleteTicket}
         onSubmit={persistTicket}

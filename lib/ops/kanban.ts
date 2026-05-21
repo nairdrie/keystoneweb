@@ -84,6 +84,7 @@ export interface OpsTicket {
   priority: OpsTicketPriority;
   assignee_user_id: string | null;
   created_by_user_id: string | null;
+  client_tag: string | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -102,6 +103,7 @@ export const OPS_TICKET_LOG_FIELDS = [
   'status',
   'priority',
   'assignee',
+  'client',
 ] as const;
 
 export const OPS_TICKET_LOG_ACTIONS = [

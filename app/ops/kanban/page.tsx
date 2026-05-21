@@ -21,13 +21,18 @@ export default async function OpsKanbanPage() {
   const ticketBatchQueries = OPS_TICKET_STATUSES.map((status) =>
     db
       .from('ops_tickets')
-      .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, sort_order, created_at, updated_at')
+      .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, client_tag, sort_order, created_at, updated_at')
       .eq('status', status.value)
       .order('priority_rank' as unknown as 'priority', { ascending: true })
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true })
       .range(0, INITIAL_STATUS_PAGE_SIZE - 1)
   );
+
+  const distinctClientTagsQuery = db
+    .from('ops_tickets')
+    .select('client_tag')
+    .not('client_tag', 'is', null);
 
   const ticketCountQueries = OPS_TICKET_STATUSES.map((status) =>
     db
@@ -36,7 +41,7 @@ export default async function OpsKanbanPage() {
       .eq('status', status.value)
   );
 
-  const [ticketBatchResults, ticketCountResults, agentsResult, adminsResult] = await Promise.all([
+  const [ticketBatchResults, ticketCountResults, agentsResult, adminsResult, clientTagsResult] = await Promise.all([
     Promise.all(ticketBatchQueries),
     Promise.all(ticketCountQueries),
     db
@@ -49,6 +54,7 @@ export default async function OpsKanbanPage() {
       .select('id, email, business_name, is_agent, is_admin')
       .eq('is_admin', true)
       .order('email', { ascending: true }),
+    distinctClientTagsQuery,
   ]);
 
   for (const [index, result] of ticketBatchResults.entries()) {
@@ -67,6 +73,22 @@ export default async function OpsKanbanPage() {
   if (adminsResult.error) {
     console.error('[ops/kanban page admins]', adminsResult.error);
   }
+  if (clientTagsResult.error) {
+    console.error('[ops/kanban page client tags]', clientTagsResult.error);
+  }
+
+  const clientTagMap = new Map<string, string>();
+  for (const row of clientTagsResult.data ?? []) {
+    const raw = typeof row?.client_tag === 'string' ? row.client_tag.trim() : '';
+    if (!raw) continue;
+    const key = raw.toLowerCase();
+    if (!clientTagMap.has(key)) {
+      clientTagMap.set(key, raw);
+    }
+  }
+  const clientTags = [...clientTagMap.values()].sort((left, right) =>
+    left.localeCompare(right, undefined, { sensitivity: 'base' })
+  );
 
   const peopleById = new Map<string, {
     id: string;
@@ -121,6 +143,7 @@ export default async function OpsKanbanPage() {
       initialTickets={initialTickets}
       statusCounts={statusCounts}
       assignees={assignees}
+      clientTags={clientTags}
       currentUserId={access.userId}
       canDelete={access.isAdmin || access.isAgent}
     />
