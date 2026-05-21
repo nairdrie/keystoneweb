@@ -16,11 +16,12 @@ import {
   type GoogleDisplayContent,
 } from '@/lib/marketing/types';
 import { formatCents } from '@/lib/marketing/pricing';
+import { AdPreview } from '../../_components/AdPreview';
 
 type Step = 'goal' | 'generating' | 'review' | 'launch';
 
 export default function NewCampaignPage() {
-  const { siteId } = useAdminContext();
+  const { siteId, siteTitle } = useAdminContext();
   const router = useRouter();
 
   const [step, setStep] = useState<Step>('goal');
@@ -28,6 +29,7 @@ export default function NewCampaignPage() {
   const [channel, setChannel] = useState<MarketingChannel>('google_ads');
   const [campaignType, setCampaignType] = useState<CampaignType>('search');
   const [generated, setGenerated] = useState<CampaignGenerationResult | null>(null);
+  const [businessName, setBusinessName] = useState('');
   const [campaignName, setCampaignName] = useState('');
   const [dailyBudget, setDailyBudget] = useState(2000); // $20 default
   const [editedContent, setEditedContent] = useState<Record<string, unknown> | null>(null);
@@ -58,6 +60,7 @@ export default function NewCampaignPage() {
       setGenerated(data.result);
       setCampaignName(data.result.name);
       setEditedContent(data.result.content);
+      setBusinessName(data.context?.businessName || siteTitle || '');
       if (data.result.suggestedDailyBudgetCents) {
         setDailyBudget(data.result.suggestedDailyBudgetCents);
       }
@@ -225,6 +228,7 @@ export default function NewCampaignPage() {
           channel={channel}
           campaignType={campaignType}
           generated={generated}
+          businessName={businessName}
           campaignName={campaignName}
           setCampaignName={setCampaignName}
           editedContent={editedContent}
@@ -264,6 +268,7 @@ function ReviewForm(props: {
   channel: MarketingChannel;
   campaignType: CampaignType;
   generated: CampaignGenerationResult;
+  businessName: string;
   campaignName: string;
   setCampaignName: (v: string) => void;
   editedContent: Record<string, unknown> | null;
@@ -274,11 +279,18 @@ function ReviewForm(props: {
   onLaunch: () => void;
   onBack: () => void;
 }) {
-  const { channel, campaignType, generated, campaignName, setCampaignName,
+  const { channel, campaignType, generated, businessName, campaignName, setCampaignName,
     editedContent, setEditedContent, dailyBudget, setDailyBudget, submitting, onLaunch, onBack } = props;
 
   return (
     <div className="space-y-5">
+      <AdPreview
+        channel={channel}
+        campaignType={campaignType}
+        content={editedContent}
+        businessName={businessName}
+      />
+
       <div className="bg-violet-50 border border-violet-200 rounded-xl p-4">
         <p className="text-xs font-bold uppercase tracking-wide text-violet-700">AI rationale</p>
         <p className="text-sm text-violet-900 mt-1">{generated.rationale}</p>

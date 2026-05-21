@@ -11,10 +11,11 @@ import { useAdminContext } from '../../../admin-context';
 import { STATUS_LABELS, STATUS_COLORS, CHANNEL_LABELS, CAMPAIGN_TYPE_LABELS } from '@/lib/marketing/types';
 import type { Campaign } from '@/lib/marketing/types';
 import { formatCents } from '@/lib/marketing/pricing';
+import { AdPreview } from '../../_components/AdPreview';
 
 export default function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { siteId } = useAdminContext();
+  const { siteId, siteTitle } = useAdminContext();
   const router = useRouter();
   const searchParams = useSearchParams();
   const justLaunched = searchParams.get('just') === 'launched';
@@ -150,6 +151,15 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
 
       {err && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-800">{err}</div>
+      )}
+
+      {campaign.channel === 'google_ads' && (
+        <AdPreview
+          channel={campaign.channel}
+          campaignType={campaign.campaign_type}
+          content={campaign.content as unknown as Record<string, unknown>}
+          businessName={siteTitle}
+        />
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
