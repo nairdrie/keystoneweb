@@ -59,7 +59,7 @@ export async function GET(request: Request) {
   const limit = Math.min(100, Math.max(1, Number.parseInt(searchParams.get('limit') ?? '20', 10) || 20));
   const db = createAdminClient();
   const baseSelect =
-    'id, name, description, status, priority, assignee_user_id, created_by_user_id, sort_order, created_at, updated_at';
+    'id, name, description, status, priority, assignee_user_id, created_by_user_id, client_tag, sort_order, created_at, updated_at';
 
   if (statusParam && isOpsTicketStatus(statusParam)) {
     let ticketsQuery = db
@@ -146,7 +146,7 @@ export async function POST(request: Request) {
   const db = createAdminClient();
   const { data: existingTickets, error: loadError } = await db
     .from('ops_tickets')
-    .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, sort_order, created_at, updated_at')
+    .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, client_tag, sort_order, created_at, updated_at')
     .eq('status', status);
 
   if (loadError) {
@@ -166,11 +166,12 @@ export async function POST(request: Request) {
       assignee_user_id: typeof body.assignee_user_id === 'string' && body.assignee_user_id
         ? body.assignee_user_id
         : null,
+      client_tag: cleanOptionalText(body.client_tag),
       created_by_user_id: access.userId,
       sort_order: sortOrder,
       updated_at: new Date().toISOString(),
     })
-    .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, sort_order, created_at, updated_at')
+    .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, client_tag, sort_order, created_at, updated_at')
     .single();
 
   if (error || !data) {
@@ -242,7 +243,7 @@ export async function PATCH(request: Request) {
   const ids = [...new Set(validUpdates.map((entry) => entry.id))];
   const { data: existingTickets, error: loadError } = await db
     .from('ops_tickets')
-    .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, sort_order, created_at, updated_at')
+    .select('id, name, description, status, priority, assignee_user_id, created_by_user_id, client_tag, sort_order, created_at, updated_at')
     .in('id', ids);
 
   if (loadError) {

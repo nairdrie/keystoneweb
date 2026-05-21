@@ -13,6 +13,7 @@ function formatFieldLabel(fieldName: OpsTicketLogEntry['field_name']) {
   if (fieldName === 'status') return 'Status';
   if (fieldName === 'priority') return 'Priority';
   if (fieldName === 'assignee') return 'Assignee';
+  if (fieldName === 'client') return 'Client';
   return fieldName;
 }
 
