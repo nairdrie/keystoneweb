@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 
 /**
  * GET /api/bookings/services?siteId=...
@@ -38,13 +40,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body = await request.json();
     const { siteId, name, description, duration_minutes, price_cents, currency, category_id, is_featured, compare_at_price_cents, options, options_required } = body;
 
@@ -52,11 +47,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Missing siteId or name' }, { status: 400 });
     }
 
-    // Verify ownership
-    const { data: site } = await supabase.from('sites').select('user_id').eq('id', siteId).single();
-    if (!site || site.user_id !== user.id) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    let access;
+    try {
+        access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
     }
+    const { supabase } = access;
 
     // Get max sort_order
     const { data: existing } = await supabase
@@ -95,22 +92,18 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body = await request.json();
     const { id, name, description, duration_minutes, price_cents, currency, is_active, sort_order, category_id, is_featured, compare_at_price_cents, options, options_required, status, siteId: bodySiteId, publishAll } = body;
 
     // Bulk publish all drafts for a site
     if (bodySiteId && publishAll === true) {
-        const { data: site } = await supabase.from('sites').select('user_id').eq('id', bodySiteId).single();
-        if (!site || site.user_id !== user.id) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        let access;
+        try {
+            access = await requireSiteAccess(bodySiteId, request);
+        } catch (e) {
+            return siteAccessErrorResponse(e);
         }
+        const { supabase } = access;
         const { error: pubError } = await supabase
             .from('booking_services')
             .update({ status: 'published', updated_at: new Date().toISOString() })
@@ -124,6 +117,19 @@ export async function PUT(request: NextRequest) {
     if (!id) {
         return NextResponse.json({ error: 'Missing service id' }, { status: 400 });
     }
+
+    // Resolve site_id from the service for access check.
+    const adminLookup = createAdminClient();
+    const { data: svc } = await adminLookup.from('booking_services').select('site_id').eq('id', id).single();
+    if (!svc) return NextResponse.json({ error: 'Service not found' }, { status: 404 });
+
+    let access;
+    try {
+        access = await requireSiteAccess(svc.site_id, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
+    }
+    const { supabase } = access;
 
     const updates: Record<string, any> = { updated_at: new Date().toISOString() };
     if (name !== undefined) updates.name = name;
@@ -155,19 +161,23 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-    const siteId = request.nextUrl.searchParams.get('siteId');
     const serviceId = request.nextUrl.searchParams.get('id');
 
     if (!serviceId) {
         return NextResponse.json({ error: 'Missing service id' }, { status: 400 });
     }
 
-    const supabase = await createClient();
+    const adminLookup = createAdminClient();
+    const { data: svc } = await adminLookup.from('booking_services').select('site_id').eq('id', serviceId).single();
+    if (!svc) return NextResponse.json({ error: 'Service not found' }, { status: 404 });
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    let access;
+    try {
+        access = await requireSiteAccess(svc.site_id, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
     }
+    const { supabase } = access;
 
     const { error } = await supabase
         .from('booking_services')

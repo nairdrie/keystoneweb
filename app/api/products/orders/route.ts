@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 import { sendOrderConfirmation, sendOrderNotification, sendOrderPaymentConfirmed, sendOrderCancellationToCustomer, sendOrderCancellationToOwner, sendOrderShipped, sendMixedOrderConfirmation, sendVendorOrderNotification, sendOwnerVendorOrderNotification } from '@/lib/email';
 import { buildSiteOrigin } from '@/lib/email/order-tracking-url';
 import { findMatchingZone, applyMarkup, productMissingShippingInfo, siteHasCarrierZone, type ShippingZone } from '@/lib/shipping-data';
@@ -926,23 +927,15 @@ async function createSingleOrder(supabase: any, params: {
 }
 
 export async function GET(request: NextRequest) {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const siteId = request.nextUrl.searchParams.get('siteId');
-    if (!siteId) {
-        return NextResponse.json({ error: 'Missing siteId' }, { status: 400 });
-    }
 
-    // Verify ownership
-    const { data: site } = await supabase.from('sites').select('user_id').eq('id', siteId).single();
-    if (!site || site.user_id !== user.id) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    let access;
+    try {
+        access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
     }
+    const { supabase } = access;
 
     const status = request.nextUrl.searchParams.get('status');
     const includeChildren = request.nextUrl.searchParams.get('includeChildren') === 'true';
@@ -999,13 +992,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body = await request.json();
     const { orderId, status, payment_status, cancellationReason, tracking_number, tracking_carrier } = body;
 
@@ -1013,7 +999,19 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'Missing orderId' }, { status: 400 });
     }
 
-    // Fetch the existing order before updating
+    // Resolve order → site for the access check.
+    const adminLookup = createAdminClient();
+    const { data: orderSiteRow } = await adminLookup.from('orders').select('site_id').eq('id', orderId).single();
+    if (!orderSiteRow) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+
+    let access;
+    try {
+        access = await requireSiteAccess(orderSiteRow.site_id, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
+    }
+    const { supabase } = access;
+
     const { data: existingOrder, error: fetchError } = await supabase
         .from('orders')
         .select('*')

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 
 /**
  * GET /api/contact/inbox?siteId=...&status=...&page=...
@@ -9,12 +9,6 @@ import { createAdminClient } from '@/lib/db/supabase-admin';
  * Auth: must own the site.
  */
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   const { searchParams } = request.nextUrl;
   const siteId = searchParams.get('siteId');
   const statusFilter = searchParams.get('status') ?? 'all';
@@ -22,19 +16,10 @@ export async function GET(request: NextRequest) {
   const limit = 40;
   const offset = (page - 1) * limit;
 
-  if (!siteId) {
-    return NextResponse.json({ error: 'siteId is required' }, { status: 400 });
-  }
-
-  // Verify ownership
-  const { data: site } = await supabase
-    .from('sites')
-    .select('id, user_id')
-    .eq('id', siteId)
-    .single();
-
-  if (!site || site.user_id !== user.id) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  try {
+    await requireSiteAccess(siteId, request);
+  } catch (e) {
+    return siteAccessErrorResponse(e);
   }
 
   const db = createAdminClient();

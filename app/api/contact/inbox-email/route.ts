@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
-import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 
 const VERCEL_API_BASE = 'https://api.vercel.com';
 const VERCEL_API_TOKEN = process.env.VERCEL_API_TOKEN;
@@ -186,10 +186,6 @@ async function ensureResendDomain(domain: string): Promise<{
 // POST /api/contact/inbox-email  — activate custom domain inbox email
 // ---------------------------------------------------------------------------
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
   const body = await request.json();
   const { siteId, localPart } = body as { siteId: string; localPart: string };
 
@@ -202,27 +198,34 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid email local part' }, { status: 400 });
   }
 
-  // Verify site ownership and check for active custom domain
+  let access;
+  try {
+    access = await requireSiteAccess(siteId, request);
+  } catch (e) {
+    return siteAccessErrorResponse(e);
+  }
+  const { supabase, targetUserId } = access;
+
   const { data: site } = await supabase
     .from('sites')
-    .select('id, user_id, custom_domain, published_domain')
+    .select('id, custom_domain, published_domain')
     .eq('id', siteId)
     .single();
 
-  if (!site || site.user_id !== user.id) {
-    return NextResponse.json({ error: 'Site not found or access denied' }, { status: 403 });
+  if (!site) {
+    return NextResponse.json({ error: 'Site not found' }, { status: 404 });
   }
 
   if (!site.custom_domain) {
     return NextResponse.json({ error: 'This site has no active custom domain' }, { status: 400 });
   }
 
-  // Verify Pro subscription
+  // Verify Pro subscription (the OWNER's plan, not the acting admin's)
   const admin = createAdminClient();
   const { data: subscription } = await admin
     .from('user_subscriptions')
     .select('subscription_status, subscription_plan')
-    .eq('user_id', user.id)
+    .eq('user_id', targetUserId)
     .maybeSingle();
 
   const isPro =
@@ -331,22 +334,12 @@ export async function POST(request: NextRequest) {
 // DELETE /api/contact/inbox-email  — deactivate custom domain inbox email
 // ---------------------------------------------------------------------------
 export async function DELETE(request: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
   const siteId = request.nextUrl.searchParams.get('siteId');
-  if (!siteId) return NextResponse.json({ error: 'siteId is required' }, { status: 400 });
 
-  // Verify ownership
-  const { data: site } = await supabase
-    .from('sites')
-    .select('id, user_id, inbox_custom_email, inbox_resend_domain_id')
-    .eq('id', siteId)
-    .single();
-
-  if (!site || site.user_id !== user.id) {
-    return NextResponse.json({ error: 'Site not found or access denied' }, { status: 403 });
+  try {
+    await requireSiteAccess(siteId, request);
+  } catch (e) {
+    return siteAccessErrorResponse(e);
   }
 
   const admin = createAdminClient();

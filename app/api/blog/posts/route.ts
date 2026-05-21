@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 import { NextRequest, NextResponse } from 'next/server';
 import { scanText } from '@/lib/moderation/text-scan';
 import { handleModerationResult } from '@/lib/moderation/report';
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 
 /**
  * GET /api/blog/posts?siteId=...          — List all posts for a site
@@ -64,13 +66,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body = await request.json();
     const { siteId, title, excerpt, content, cover_image, author, tags, is_published, is_featured } = body;
 
@@ -78,11 +73,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Missing siteId or title' }, { status: 400 });
     }
 
-    // Verify ownership
-    const { data: site } = await supabase.from('sites').select('user_id').eq('id', siteId).single();
-    if (!site || site.user_id !== user.id) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    let access;
+    try {
+        access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
     }
+    const { supabase, targetUserId } = access;
 
     // Scan post text for illegal content before storing
     const textToScan = [title, excerpt, content].filter(Boolean).join('\n\n');
@@ -95,7 +92,7 @@ export async function POST(request: NextRequest) {
             { ...textScanResult, severity: 'review' as const },
             {
                 siteId:      siteId,
-                userId:      user.id,
+                userId:      targetUserId,
                 ipAddress:   ip,
                 contentType: 'text',
                 contentRef:  null,
@@ -169,13 +166,6 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body = await request.json();
     const { id, ...fields } = body;
 
@@ -183,7 +173,8 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'Missing post id' }, { status: 400 });
     }
 
-    const { data: current, error: currentError } = await supabase
+    const adminLookup = createAdminClient();
+    const { data: current, error: currentError } = await adminLookup
         .from('blog_posts')
         .select('site_id, published_at')
         .eq('id', id)
@@ -192,6 +183,14 @@ export async function PUT(request: NextRequest) {
     if (currentError || !current) {
         return NextResponse.json({ error: currentError?.message || 'Post not found' }, { status: 404 });
     }
+
+    let access;
+    try {
+        access = await requireSiteAccess(current.site_id, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
+    }
+    const { supabase } = access;
 
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     const allowedFields = ['title', 'excerpt', 'content', 'cover_image', 'author', 'tags', 'is_published', 'is_featured', 'sort_order'];
@@ -245,12 +244,17 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: 'Missing post id' }, { status: 400 });
     }
 
-    const supabase = await createClient();
+    const adminLookup = createAdminClient();
+    const { data: post } = await adminLookup.from('blog_posts').select('site_id').eq('id', postId).single();
+    if (!post) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    let access;
+    try {
+        access = await requireSiteAccess(post.site_id, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
     }
+    const { supabase } = access;
 
     const { error } = await supabase
         .from('blog_posts')

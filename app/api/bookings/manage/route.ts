@@ -1,6 +1,7 @@
-import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 import { NextRequest, NextResponse } from 'next/server';
 import { sendCustomerPaymentConfirmed, sendBookingCancellationToCustomer, sendBookingCancellationToOwner } from '@/lib/email';
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 
 /**
  * GET /api/bookings/manage?siteId=...&status=...&from=...&to=...
@@ -11,27 +12,18 @@ import { sendCustomerPaymentConfirmed, sendBookingCancellationToCustomer, sendBo
  */
 
 export async function GET(request: NextRequest) {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const siteId = request.nextUrl.searchParams.get('siteId');
     const status = request.nextUrl.searchParams.get('status');
     const from = request.nextUrl.searchParams.get('from');
     const to = request.nextUrl.searchParams.get('to');
 
-    if (!siteId) {
-        return NextResponse.json({ error: 'Missing siteId' }, { status: 400 });
+    let access;
+    try {
+        access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
     }
-
-    // Verify ownership
-    const { data: site } = await supabase.from('sites').select('user_id').eq('id', siteId).single();
-    if (!site || site.user_id !== user.id) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const { supabase } = access;
 
     let query = supabase
         .from('bookings')
@@ -63,19 +55,25 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body = await request.json();
     const { bookingId, status, payment_status, cancellationReason } = body;
 
     if (!bookingId) {
         return NextResponse.json({ error: 'Missing bookingId' }, { status: 400 });
     }
+
+    // Resolve booking → site for the access check.
+    const adminLookup = createAdminClient();
+    const { data: bookingSiteRow } = await adminLookup.from('bookings').select('site_id').eq('id', bookingId).single();
+    if (!bookingSiteRow) return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+
+    let access;
+    try {
+        access = await requireSiteAccess(bookingSiteRow.site_id, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
+    }
+    const { supabase } = access;
 
     // Fetch the current booking before updating so we know prior state
     const { data: existingBooking } = await supabase

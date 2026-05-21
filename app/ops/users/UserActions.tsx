@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { UserCircle, Ban, Unlock, CreditCard, ChevronDown, Mail, Puzzle } from 'lucide-react';
+import { UserCircle, Ban, Unlock, CreditCard, ChevronDown, Mail, Puzzle, Wrench } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 
@@ -11,6 +11,15 @@ interface UserActionsProps {
   isBanned: boolean;
   currentPlan: string;
   phone: string | null;
+}
+
+interface UserSiteRow {
+  id: string;
+  site_slug: string | null;
+  business_type: string | null;
+  is_published: boolean;
+  published_domain: string | null;
+  custom_domain: string | null;
 }
 
 const SENDER_OPTIONS = [
@@ -32,6 +41,13 @@ export default function UserActions({ userId, userEmail, isBanned, currentPlan, 
   const [contactSenderIndex, setContactSenderIndex] = useState(0);
   const [sending, setSending] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+
+  // Manage-site picker state
+  const [showManagePicker, setShowManagePicker] = useState(false);
+  const [managePickerCoords, setManagePickerCoords] = useState({ top: 0, left: 0 });
+  const [userSites, setUserSites] = useState<UserSiteRow[] | null>(null);
+  const [loadingSites, setLoadingSites] = useState(false);
+  const manageTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (showPlanMenu && triggerRef.current) {
@@ -56,6 +72,51 @@ export default function UserActions({ userId, userEmail, isBanned, currentPlan, 
       else alert('Failed to impersonate');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function openManagePicker() {
+    if (manageTriggerRef.current) {
+      const rect = manageTriggerRef.current.getBoundingClientRect();
+      setManagePickerCoords({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.right - 280 + window.scrollX,
+      });
+    }
+    setShowManagePicker(true);
+
+    if (userSites !== null) return;
+    setLoadingSites(true);
+    try {
+      const res = await fetch(`/api/ops/users/${userId}/sites`);
+      if (res.ok) {
+        const d = await res.json();
+        setUserSites(d.sites || []);
+      } else {
+        setUserSites([]);
+      }
+    } catch {
+      setUserSites([]);
+    } finally {
+      setLoadingSites(false);
+    }
+  }
+
+  async function startManagingSite(siteId: string) {
+    try {
+      const res = await fetch('/api/ops/manage-site', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteId }),
+      });
+      if (res.ok) {
+        window.location.href = `https://keystoneweb.ca/admin?siteId=${encodeURIComponent(siteId)}`;
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(`Failed to enter manage mode: ${err?.error || res.status}`);
+      }
+    } catch (e) {
+      alert(`Failed to enter manage mode: ${(e as Error).message}`);
     }
   }
 
@@ -153,6 +214,17 @@ export default function UserActions({ userId, userEmail, isBanned, currentPlan, 
           <Mail className="w-4 h-4" />
         </button>
 
+        {/* Manage Site (admin) — opens admin shell as the admin, no impersonation */}
+        <button
+          ref={manageTriggerRef}
+          onClick={openManagePicker}
+          disabled={loading}
+          className="p-1.5 rounded-md bg-indigo-600 text-white hover:bg-indigo-500 transition-colors disabled:opacity-50"
+          title="Manage Site"
+        >
+          <Wrench className="w-4 h-4" />
+        </button>
+
         {/* Impersonate */}
         <button
           onClick={handleImpersonate}
@@ -219,6 +291,51 @@ export default function UserActions({ userId, userEmail, isBanned, currentPlan, 
           )}
         </div>
       </div>
+
+      {/* Manage Site Picker */}
+      {showManagePicker && createPortal(
+        <>
+          <div
+            className="fixed inset-0 z-[60]"
+            onClick={() => setShowManagePicker(false)}
+          />
+          <div
+            className="absolute z-[70] w-[280px] rounded-md bg-gray-800 border border-gray-700 shadow-xl overflow-hidden"
+            style={{ top: managePickerCoords.top, left: managePickerCoords.left }}
+          >
+            <div className="px-3 py-2 border-b border-gray-700 text-xs text-gray-400 uppercase tracking-wider font-semibold flex items-center gap-2">
+              <Wrench className="w-3 h-3" />
+              Manage site for {userEmail.split('@')[0]}
+            </div>
+            <div className="max-h-72 overflow-y-auto">
+              {loadingSites && (
+                <div className="px-3 py-4 text-xs text-gray-500 text-center">Loading sites…</div>
+              )}
+              {!loadingSites && userSites !== null && userSites.length === 0 && (
+                <div className="px-3 py-4 text-xs text-gray-500 text-center">This user has no sites.</div>
+              )}
+              {!loadingSites && userSites && userSites.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => startManagingSite(s.id)}
+                  className="w-full text-left px-3 py-2 hover:bg-gray-700 transition-colors flex items-center justify-between gap-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm text-white truncate">{s.site_slug || '(untitled)'}</div>
+                    <div className="text-[11px] text-gray-500 truncate">
+                      {s.custom_domain || (s.published_domain ? `${s.published_domain}.kswd.ca` : 'draft')}
+                    </div>
+                  </div>
+                  {s.is_published && (
+                    <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-900/40 text-emerald-400">LIVE</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
 
       {/* Contact Modal */}
       {showContact && createPortal(

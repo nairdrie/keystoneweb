@@ -1,8 +1,8 @@
-import { createClient } from '@/lib/db/supabase-server';
 import { NextRequest, NextResponse } from 'next/server';
 import sharp from 'sharp';
 import { scanImage } from '@/lib/moderation/image-scan';
 import { handleModerationResult } from '@/lib/moderation/report';
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 
 /**
  * POST /api/sites/upload-image
@@ -16,17 +16,6 @@ import { handleModerationResult } from '@/lib/moderation/report';
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-
-    // Verify user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     // Parse FormData
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
@@ -40,19 +29,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify user owns the site
-    const { data: site, error: siteError } = await supabase
-      .from('sites')
-      .select('user_id')
-      .eq('id', siteId)
-      .single();
-
-    if (siteError || !site || site.user_id !== user.id) {
-      return NextResponse.json(
-        { error: 'You do not have permission to upload images for this site' },
-        { status: 403 }
-      );
+    let access;
+    try {
+      access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+      return siteAccessErrorResponse(e);
     }
+    const { supabase, targetUserId } = access;
 
     let buffer: Buffer;
     let contentType: string;
@@ -191,7 +174,7 @@ export async function POST(request: NextRequest) {
         ?? null;
       await handleModerationResult(scanResult, {
         siteId:      siteId,
-        userId:      user.id,
+        userId:      targetUserId,
         ipAddress:   ip,
         contentType: 'image',
         contentRef:  null,    // not yet stored
@@ -231,7 +214,7 @@ export async function POST(request: NextRequest) {
     // Use upsert to silently handle any duplicate path (e.g. retries).
     await supabase.from('site_media').upsert({
       site_id:      siteId,
-      user_id:      user.id,
+      user_id:      targetUserId,
       storage_path: data.path,
       public_url:   publicUrl,
       file_name:    originalName,
@@ -259,43 +242,20 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-
-    // Verify user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     const siteId = request.nextUrl.searchParams.get('siteId');
-    if (!siteId) {
-      return NextResponse.json(
-        { error: 'Missing siteId' },
-        { status: 400 }
-      );
-    }
 
-    // Verify user owns the site
-    const { data: site, error: siteError } = await supabase
-      .from('sites')
-      .select('user_id')
-      .eq('id', siteId)
-      .single();
-
-    if (siteError || !site || site.user_id !== user.id) {
-      return NextResponse.json(
-        { error: 'You do not have permission to access this site' },
-        { status: 403 }
-      );
+    let access;
+    try {
+      access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+      return siteAccessErrorResponse(e);
     }
+    const { supabase } = access;
 
     // List files in site's folder
     const { data: files, error: listError } = await supabase.storage
       .from('site-assets')
-      .list(siteId);
+      .list(siteId!);
 
     if (listError) {
       console.error('Supabase storage list error:', listError);

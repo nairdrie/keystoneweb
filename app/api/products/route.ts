@@ -6,6 +6,7 @@ import { handleModerationResult } from '@/lib/moderation/report';
 import { getCurrentMemberFromRequest } from '@/lib/membership/current-member';
 import { resolveProductAccess, parseProductOptions } from '@/lib/ecommerce/resolve-price';
 import { productMissingShippingInfo, siteHasCarrierZone } from '@/lib/shipping-data';
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 
 /**
  * GET /api/products?siteId=...
@@ -232,13 +233,6 @@ async function validateMembershipFields(
 }
 
 export async function POST(request: NextRequest) {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body = await request.json();
     const { siteId, name, brand, description, price_cents, compare_at_cents, currency, images, variants, options, inventory_count, vendor_id, category, subcategory, tags, tier_prices, allowed_package_ids, external_url, is_featured, weight_grams, length_mm, width_mm, height_mm } = body;
 
@@ -251,11 +245,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'External URL must start with http:// or https://' }, { status: 400 });
     }
 
-    // Verify ownership
-    const { data: site } = await supabase.from('sites').select('user_id').eq('id', siteId).single();
-    if (!site || site.user_id !== user.id) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    let access;
+    try {
+        access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
     }
+    const { supabase, targetUserId } = access;
 
     const membershipValidation = await validateMembershipFields(
         siteId,
@@ -278,7 +274,7 @@ export async function POST(request: NextRequest) {
             { ...textScanResult, severity: 'review' as const },
             {
                 siteId:      siteId,
-                userId:      user.id,
+                userId:      targetUserId,
                 ipAddress:   ip,
                 contentType: 'text',
                 contentRef:  null,
@@ -341,22 +337,18 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body = await request.json();
     const { id, ...fields } = body;
 
     // Bulk publish all drafts for a site (no id needed)
     if (fields.siteId && fields.publishAll === true) {
-        const { data: site } = await supabase.from('sites').select('user_id').eq('id', fields.siteId).single();
-        if (!site || site.user_id !== user.id) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        let access;
+        try {
+            access = await requireSiteAccess(fields.siteId, request);
+        } catch (e) {
+            return siteAccessErrorResponse(e);
         }
+        const { supabase } = access;
         const { error: pubError } = await supabase
             .from('products')
             .update({ status: 'published', updated_at: new Date().toISOString() })
@@ -366,6 +358,10 @@ export async function PUT(request: NextRequest) {
         if (pubError) return NextResponse.json({ error: pubError.message }, { status: 500 });
         return NextResponse.json({ success: true });
     }
+
+    // For single-product / bulk paths, we need a Supabase client. Resolve via
+    // the product → site lookup since the body only provides product id(s).
+    const adminLookup = createAdminClient();
 
     // Bulk edit — ids[] takes priority over single id
     const ids: string[] | undefined = Array.isArray(fields.ids) && fields.ids.length > 0 ? fields.ids : undefined;
@@ -403,7 +399,7 @@ export async function PUT(request: NextRequest) {
     // Validate and apply membership pricing / gating updates, if provided.
     // Not supported in bulk mode — bulk path skips this block.
     if (!ids && (fields.tier_prices !== undefined || fields.allowed_package_ids !== undefined)) {
-        const { data: existing, error: existingError } = await supabase
+        const { data: existing, error: existingError } = await adminLookup
             .from('products')
             .select('site_id, price_cents')
             .eq('id', id)
@@ -411,9 +407,10 @@ export async function PUT(request: NextRequest) {
         if (existingError || !existing) {
             return NextResponse.json({ error: 'Product not found' }, { status: 404 });
         }
-        const { data: siteOwner } = await supabase.from('sites').select('user_id').eq('id', existing.site_id).single();
-        if (!siteOwner || siteOwner.user_id !== user.id) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        try {
+            await requireSiteAccess(existing.site_id, request);
+        } catch (e) {
+            return siteAccessErrorResponse(e);
         }
         const publicPriceCents = updates.price_cents ?? existing.price_cents ?? 0;
         const membershipValidation = await validateMembershipFields(
@@ -431,9 +428,7 @@ export async function PUT(request: NextRequest) {
 
     // Bulk update path
     if (ids) {
-        // Load all selected rows in one shot — needed both for ownership verification
-        // and to compute per-row tier prices (which depend on each product's public price).
-        const { data: bulkRows, error: bulkRowsError } = await supabase
+        const { data: bulkRows, error: bulkRowsError } = await adminLookup
             .from('products')
             .select('id, site_id, price_cents, tier_prices')
             .in('id', ids);
@@ -445,14 +440,13 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({ error: 'All products must belong to the same site' }, { status: 400 });
         }
         const bulkSiteId = bulkRows[0].site_id;
-        const { data: siteOwner } = await supabase
-            .from('sites')
-            .select('user_id')
-            .eq('id', bulkSiteId)
-            .single();
-        if (!siteOwner || siteOwner.user_id !== user.id) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        let bulkAccess;
+        try {
+            bulkAccess = await requireSiteAccess(bulkSiteId, request);
+        } catch (e) {
+            return siteAccessErrorResponse(e);
         }
+        const supabase = bulkAccess.supabase;
 
         // Membership pricing bulk operation. Either { clear: true } or { tiers: [{ packageId, absoluteCents?, percentOff? }] }.
         // We compute per-row tier_prices because the clamp-to-public-price invariant
@@ -581,7 +575,23 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ success: true, updated: ids.length });
     }
 
-    const { data, error } = await supabase
+    // Single-product update path — resolve the product's site for access check.
+    const { data: existingProd } = await adminLookup
+        .from('products')
+        .select('site_id')
+        .eq('id', id)
+        .single();
+    if (!existingProd) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+
+    let singleAccess;
+    try {
+        singleAccess = await requireSiteAccess(existingProd.site_id, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
+    }
+    const supabaseSingle = singleAccess.supabase;
+
+    const { data, error } = await supabaseSingle
         .from('products')
         .update(updates)
         .eq('id', id)
@@ -601,12 +611,21 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: 'Missing product id' }, { status: 400 });
     }
 
-    const supabase = await createClient();
+    const adminLookup = createAdminClient();
+    const { data: prod } = await adminLookup
+        .from('products')
+        .select('site_id')
+        .eq('id', productId)
+        .single();
+    if (!prod) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    let access;
+    try {
+        access = await requireSiteAccess(prod.site_id, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
     }
+    const { supabase } = access;
 
     const { error } = await supabase
         .from('products')

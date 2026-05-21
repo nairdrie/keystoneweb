@@ -1,19 +1,20 @@
 import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 
 /**
  * GET /api/bookings/availability?siteId=...
  * Returns weekly availability + blocked dates for a site (public)
- * 
+ *
  * PUT /api/bookings/availability
  * Update availability rules (owner only)
- * Body: { siteId, availability: [{ day_of_week, start_time, end_time, is_active }] }
- * 
- * POST /api/bookings/availability/blocked
- * Add a blocked date — handled via query param ?action=block
- * 
- * DELETE /api/bookings/availability/blocked?id=...
- * Remove a blocked date — handled via query param ?action=unblock
+ *
+ * POST /api/bookings/availability
+ * Add a blocked date (owner only)
+ *
+ * DELETE /api/bookings/availability?id=...
+ * Remove a blocked date (owner only)
  */
 
 export async function GET(request: NextRequest) {
@@ -24,14 +25,12 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createClient();
 
-    // Get weekly availability
     const { data: availability, error: avError } = await supabase
         .from('booking_availability')
         .select('*')
         .eq('site_id', siteId)
         .order('day_of_week', { ascending: true });
 
-    // Get blocked dates (only future ones)
     const today = new Date().toISOString().split('T')[0];
     const { data: blockedDates, error: bdError } = await supabase
         .from('booking_blocked_dates')
@@ -49,13 +48,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body = await request.json();
     const { siteId, availability } = body;
 
@@ -63,13 +55,14 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'Missing siteId or availability' }, { status: 400 });
     }
 
-    // Verify ownership
-    const { data: site } = await supabase.from('sites').select('user_id').eq('id', siteId).single();
-    if (!site || site.user_id !== user.id) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    let access;
+    try {
+        access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
     }
+    const { supabase } = access;
 
-    // Upsert each day
     const results = [];
     for (const day of availability) {
         const { data, error } = await supabase
@@ -94,13 +87,6 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body = await request.json();
     const { siteId, blocked_date, reason } = body;
 
@@ -108,11 +94,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Missing siteId or blocked_date' }, { status: 400 });
     }
 
-    // Verify ownership
-    const { data: site } = await supabase.from('sites').select('user_id').eq('id', siteId).single();
-    if (!site || site.user_id !== user.id) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    let access;
+    try {
+        access = await requireSiteAccess(siteId, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
     }
+    const { supabase } = access;
 
     const { data, error } = await supabase
         .from('booking_blocked_dates')
@@ -136,12 +124,17 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: 'Missing id' }, { status: 400 });
     }
 
-    const supabase = await createClient();
+    const adminLookup = createAdminClient();
+    const { data: row } = await adminLookup.from('booking_blocked_dates').select('site_id').eq('id', id).single();
+    if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    let access;
+    try {
+        access = await requireSiteAccess(row.site_id, request);
+    } catch (e) {
+        return siteAccessErrorResponse(e);
     }
+    const { supabase } = access;
 
     const { error } = await supabase
         .from('booking_blocked_dates')

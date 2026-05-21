@@ -385,9 +385,12 @@ export async function middleware(request: NextRequest) {
       }
 
       // ============================================================
-      // STEP 3: Impersonation check
+      // STEP 3: Impersonation / Admin manage-site check
       // ============================================================
+      // Mutually exclusive: the POST endpoints for each clear the other's
+      // cookie. If both somehow exist, impersonation wins (broader scope).
       const impersonateId = request.cookies.get('ksw_impersonate')?.value;
+      const adminSiteId = request.cookies.get('ksw_admin_site')?.value;
 
       if (impersonateId && profile?.is_admin) {
         console.log(`[Middleware] Admin ${user.email} is impersonating: ${impersonateId}`);
@@ -401,6 +404,20 @@ export async function middleware(request: NextRequest) {
           impersonateResponse.cookies.set(name, value, options);
         });
         return impersonateResponse;
+      }
+
+      if (adminSiteId && profile?.is_admin) {
+        // Forward as a request header so server components can render the
+        // "Admin Mode" banner without re-reading the cookie + re-checking
+        // admin status. API endpoints don't rely on the header — they call
+        // requireSiteAccess() which reads the cookie directly.
+        const requestHeaders = new Headers(request.headers);
+        requestHeaders.set('x-admin-managed-site-id', adminSiteId);
+        const manageResponse = NextResponse.next({ request: { headers: requestHeaders } });
+        response.cookies.getAll().forEach(({ name, value, ...options }) => {
+          manageResponse.cookies.set(name, value, options);
+        });
+        return manageResponse;
       }
     }
   } catch (err) {

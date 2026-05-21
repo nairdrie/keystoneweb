@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { createClient } from '@/lib/db/supabase-server';
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 import { sendComposedEmail } from '@/lib/email';
 import {
   buildMessageId,
@@ -35,12 +35,6 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   const { id } = await params;
   const body = await request.json();
   const { replyText, replyHtml, siteId, addressId, ccEmails = [], bccEmails = [] } = body as {
@@ -57,13 +51,21 @@ export async function POST(
     return NextResponse.json({ error: 'reply body is required' }, { status: 400 });
   }
 
+  let access;
+  try {
+    access = await requireSiteAccess(siteId, request);
+  } catch (e) {
+    return siteAccessErrorResponse(e);
+  }
+  const { supabase, targetUserId } = access;
+
   const { data: site } = await supabase
     .from('sites')
-    .select('site_slug, user_id, published_domain')
+    .select('site_slug, published_domain')
     .eq('id', siteId)
     .single();
-  if (!site || site.user_id !== user.id) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (!site) {
+    return NextResponse.json({ error: 'Site not found' }, { status: 404 });
   }
 
   const db = createAdminClient();
@@ -94,7 +96,7 @@ export async function POST(
     try {
       processedHtml = await uploadInlineImagesInHtml(processedHtml, {
         siteId,
-        userId: user.id,
+        userId: targetUserId,
         supabase,
       });
     } catch (err) {

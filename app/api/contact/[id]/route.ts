@@ -1,67 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-import { createClient } from '@/lib/db/supabase-server';
-import { SupabaseClient } from '@supabase/supabase-js';
+import { requireSiteAccess, siteAccessErrorResponse, SiteAccessDeniedError } from '@/lib/auth/site-access';
 
 type Params = { params: Promise<{ id: string }> };
 
-async function getAuthorizedSubmission(id: string, userId: string, supabase: SupabaseClient) {
+async function getAuthorizedSubmission(id: string, request: NextRequest) {
   const db = createAdminClient();
 
-  // Fetch submission via admin client (bypasses RLS on contact_submissions)
   const { data: submission, error } = await db
     .from('contact_submissions')
     .select('*')
     .eq('id', id)
     .single();
 
-  if (error || !submission) return { submission: null, db, error: 'Submission not found' };
+  if (error || !submission) {
+    throw new SiteAccessDeniedError(404, 'Submission not found');
+  }
 
-  // Verify ownership via auth client (same pattern as working inbox route)
-  const { data: site } = await supabase
-    .from('sites')
-    .select('user_id')
-    .eq('id', submission.site_id)
-    .single();
+  // requireSiteAccess gates by the site owning the submission.
+  await requireSiteAccess(submission.site_id, request);
 
-  if (!site || site.user_id !== userId) return { submission: null, db, error: 'Forbidden' };
-
-  return { submission, db, error: null };
+  return { submission, db };
 }
 
 /**
  * GET /api/contact/[id]
- * Fetch a single contact submission. Auth: must own the site.
  */
-export async function GET(_req: NextRequest, { params }: Params) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
+export async function GET(req: NextRequest, { params }: Params) {
   const { id } = await params;
-  const { submission, error } = await getAuthorizedSubmission(id, user.id, supabase);
-
-  if (!submission) {
-    return NextResponse.json({ error }, { status: error === 'Forbidden' ? 403 : 404 });
+  let submission;
+  try {
+    ({ submission } = await getAuthorizedSubmission(id, req));
+  } catch (e) {
+    return siteAccessErrorResponse(e);
   }
-
   return NextResponse.json({ submission });
 }
 
 /**
  * PATCH /api/contact/[id]
- * Update submission status. Body: { status: 'spam' | 'needs_review' | 'new' }
  */
 export async function PATCH(request: NextRequest, { params }: Params) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
   const { id } = await params;
-  const { submission, db, error } = await getAuthorizedSubmission(id, user.id, supabase);
-
-  if (!submission) {
-    return NextResponse.json({ error }, { status: error === 'Forbidden' ? 403 : 404 });
+  let db;
+  try {
+    ({ db } = await getAuthorizedSubmission(id, request));
+  } catch (e) {
+    return siteAccessErrorResponse(e);
   }
 
   const body = await request.json();
@@ -92,18 +77,14 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
 /**
  * DELETE /api/contact/[id]
- * Permanently delete a submission. Auth: must own the site.
  */
-export async function DELETE(_req: NextRequest, { params }: Params) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
+export async function DELETE(req: NextRequest, { params }: Params) {
   const { id } = await params;
-  const { submission, db, error } = await getAuthorizedSubmission(id, user.id, supabase);
-
-  if (!submission) {
-    return NextResponse.json({ error }, { status: error === 'Forbidden' ? 403 : 404 });
+  let db;
+  try {
+    ({ db } = await getAuthorizedSubmission(id, req));
+  } catch (e) {
+    return siteAccessErrorResponse(e);
   }
 
   await db.from('contact_submissions').delete().eq('id', id);

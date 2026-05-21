@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
+import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
 
 /**
  * GET /api/sites/analytics?siteId=xxx&days=30
@@ -9,37 +9,16 @@ import { createAdminClient } from '@/lib/db/supabase-admin';
  */
 export async function GET(req: NextRequest) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const siteId = req.nextUrl.searchParams.get('siteId');
     const days = Math.min(
       parseInt(req.nextUrl.searchParams.get('days') || '30', 10),
       90
     );
 
-    if (!siteId) {
-      return NextResponse.json(
-        { error: 'siteId required' },
-        { status: 400 }
-      );
-    }
-
-    // Verify ownership
-    const { data: site } = await supabase
-      .from('sites')
-      .select('id, user_id')
-      .eq('id', siteId)
-      .single();
-
-    if (!site || site.user_id !== user.id) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    try {
+      await requireSiteAccess(siteId, req);
+    } catch (e) {
+      return siteAccessErrorResponse(e);
     }
 
     const admin = createAdminClient();

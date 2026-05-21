@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import { AuthProvider } from "@/lib/auth/context";
 import { createClient } from "@/lib/db/supabase-server";
+import { createAdminClient } from "@/lib/db/supabase-admin";
 import PlatformJsonLd from "@/app/components/PlatformJsonLd";
 import ImpersonationBanner from "./ImpersonationBanner";
+import AdminManageSiteBanner from "./AdminManageSiteBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -50,6 +53,37 @@ export default async function RootLayout({
   const { data: { user } } = await supabase.auth.getUser();
   const isImpersonated = user && (user as any).is_impersonated;
 
+  // Manage-site banner data — middleware set this header when an admin is
+  // actively managing a non-owned site. Resolve site title + owner email here
+  // (server-side) so the banner can render statically.
+  const headerList = await headers();
+  const managedSiteId = headerList.get('x-admin-managed-site-id');
+  let manageInfo: { siteId: string; siteSlug: string | null; ownerEmail: string | null } | null = null;
+  if (managedSiteId && !isImpersonated) {
+    try {
+      const db = createAdminClient();
+      const { data: site } = await db
+        .from('sites')
+        .select('id, site_slug, user_id')
+        .eq('id', managedSiteId)
+        .single();
+      if (site) {
+        const { data: owner } = await db
+          .from('users')
+          .select('email')
+          .eq('id', site.user_id)
+          .single();
+        manageInfo = {
+          siteId: site.id,
+          siteSlug: site.site_slug ?? null,
+          ownerEmail: owner?.email ?? null,
+        };
+      }
+    } catch (err) {
+      console.error('[layout] manage-site lookup failed:', err);
+    }
+  }
+
   return (
     <html lang="en">
       <body
@@ -58,6 +92,13 @@ export default async function RootLayout({
         <AuthProvider initialUser={user}>
           <PlatformJsonLd />
           {isImpersonated && <ImpersonationBanner userEmail={user.email || 'User'} />}
+          {!isImpersonated && manageInfo && (
+            <AdminManageSiteBanner
+              siteId={manageInfo.siteId}
+              siteSlug={manageInfo.siteSlug}
+              ownerEmail={manageInfo.ownerEmail}
+            />
+          )}
 
           {children}
         </AuthProvider>
