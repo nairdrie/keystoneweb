@@ -78,10 +78,24 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const enriched = (drafts ?? []).map(d => ({
-    ...d,
-    thread_info: d.thread_id ? (threadInfo[d.thread_id] ?? null) : null,
-  }));
+  // A reply draft whose thread has no surviving submissions is orphaned —
+  // the thread was deleted from under it. Clean it up so it stops appearing
+  // in the Drafts folder as an un-openable entry.
+  const orphanedThreadIds = replyThreadIds.filter(tid => !threadInfo[tid]);
+  if (orphanedThreadIds.length > 0) {
+    await db
+      .from('email_drafts')
+      .delete()
+      .eq('site_id', siteId)
+      .in('thread_id', orphanedThreadIds);
+  }
+
+  const enriched = (drafts ?? [])
+    .filter(d => !d.thread_id || threadInfo[d.thread_id])
+    .map(d => ({
+      ...d,
+      thread_info: d.thread_id ? (threadInfo[d.thread_id] ?? null) : null,
+    }));
 
   return NextResponse.json({ drafts: enriched });
 }

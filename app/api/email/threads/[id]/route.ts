@@ -96,5 +96,8 @@ export async function DELETE(request: NextRequest, { params }: Params) {
 
   const db = createAdminClient();
   await db.from('contact_submissions').delete().eq('thread_id', threadId).eq('site_id', siteId!);
+  // Drop any in-progress reply draft tied to this thread so it doesn't show
+  // up as an orphan in the Drafts folder with no thread to open.
+  await db.from('email_drafts').delete().eq('site_id', siteId!).eq('thread_id', threadId);
   return NextResponse.json({ success: true });
 }

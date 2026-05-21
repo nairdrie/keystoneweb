@@ -80,14 +80,32 @@ export async function PATCH(request: NextRequest, { params }: Params) {
  */
 export async function DELETE(req: NextRequest, { params }: Params) {
   const { id } = await params;
-  let db;
+  let db, submission;
   try {
-    ({ db } = await getAuthorizedSubmission(id, req));
+    ({ db, submission } = await getAuthorizedSubmission(id, req));
   } catch (e) {
     return siteAccessErrorResponse(e);
   }
 
   await db.from('contact_submissions').delete().eq('id', id);
+
+  // If this was the last submission in the thread, drop any in-progress
+  // reply draft so it doesn't show up as an orphan in the Drafts folder
+  // pointing at a thread that no longer exists.
+  if (submission.thread_id) {
+    const { count } = await db
+      .from('contact_submissions')
+      .select('id', { count: 'exact', head: true })
+      .eq('site_id', submission.site_id)
+      .eq('thread_id', submission.thread_id);
+    if (!count) {
+      await db
+        .from('email_drafts')
+        .delete()
+        .eq('site_id', submission.site_id)
+        .eq('thread_id', submission.thread_id);
+    }
+  }
 
   return NextResponse.json({ success: true });
 }
