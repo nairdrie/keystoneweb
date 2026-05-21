@@ -6,6 +6,7 @@ import { getTemplateMetadata } from '@/lib/db/template-queries';
 import { migratePaletteTokensInDesignData } from '@/lib/template-palette-migration';
 import { submitIndexNow } from '@/lib/seo/indexnow';
 import { requireSiteAccess, siteAccessErrorResponse } from '@/lib/auth/site-access';
+import { ensureKswdInboxAddress } from '@/lib/email/inbox-addresses';
 
 interface PublishRequest {
   siteId: string;
@@ -197,6 +198,16 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to publish site' },
         { status: 500 }
       );
+    }
+
+    // Provision the free <slug>@kswd.ca inbox row so contact-form submissions
+    // and inbound mail land on a real primary address from the first request,
+    // instead of orphaning with inbox_address_id=null until the owner opens
+    // the inbox for the first time.
+    try {
+      await ensureKswdInboxAddress(supabase, siteId, subdomain);
+    } catch (err) {
+      console.error('Failed to provision kswd inbox address on publish:', err);
     }
 
     // Publish all pages by copying their design_data to published_data
