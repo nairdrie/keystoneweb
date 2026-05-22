@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import Link from 'next/link';
 import { STATUS_COLORS, STATUS_LABELS, CHANNEL_LABELS } from '@/lib/marketing/types';
+import PendingLaunchActions from './PendingLaunchActions';
 
 function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
@@ -19,6 +20,7 @@ export default async function OpsMarketingPage() {
     { count: activeCampaignCount },
     { count: totalCampaignCount },
     { data: spendData },
+    { data: pendingLaunchCampaigns },
   ] = await Promise.all([
     db.from('marketing_campaigns')
       .select('*')
@@ -38,6 +40,10 @@ export default async function OpsMarketingPage() {
       .select('ad_spend_cents')
       .is('site_id', null)
       .gte('spend_date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]),
+    db.from('marketing_campaigns')
+      .select('id, name, channel, campaign_type, daily_budget_cents, approved_at, sites!inner(id, site_slug, design_data, google_ads_customer_id, google_ads_billing_ready, user_id)')
+      .eq('status', 'pending_launch')
+      .order('approved_at', { ascending: true }),
   ]);
 
   const allCampaigns = campaigns ?? [];
@@ -73,6 +79,70 @@ export default async function OpsMarketingPage() {
           + Create Campaign
         </Link>
       </div>
+
+      {/* Pending Launch Queue (customer campaigns awaiting ops billing setup) */}
+      {pendingLaunchCampaigns && pendingLaunchCampaigns.length > 0 && (
+        <div className="rounded-lg border border-amber-700/60 bg-amber-950/30 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <h2 className="text-base font-bold text-amber-200">
+              Pending launch — {pendingLaunchCampaigns.length} customer campaign{pendingLaunchCampaigns.length === 1 ? '' : 's'} awaiting billing setup
+            </h2>
+          </div>
+          <p className="text-xs text-amber-200/70 mb-4">
+            For each campaign below: click <em>Open billing</em> to add a payment method to the sub-account in Google Ads,
+            then click <em>Launch in Google</em>. Once a site has been launched once, subsequent campaigns from that site
+            auto-launch.
+          </p>
+          <div className="overflow-x-auto rounded-md border border-amber-800/50 bg-gray-950/50">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-amber-800/50 text-left text-xs text-amber-300/70 uppercase tracking-wider">
+                  <th className="px-4 py-2.5">Site</th>
+                  <th className="px-4 py-2.5">Campaign</th>
+                  <th className="px-4 py-2.5">Channel</th>
+                  <th className="px-4 py-2.5 text-right">Daily</th>
+                  <th className="px-4 py-2.5">Sub-account</th>
+                  <th className="px-4 py-2.5">Approved</th>
+                  <th className="px-4 py-2.5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-amber-900/40">
+                {pendingLaunchCampaigns.map((c: any) => {
+                  const site = Array.isArray(c.sites) ? c.sites[0] : c.sites;
+                  const siteName = (site?.design_data as { siteTitle?: string } | null)?.siteTitle
+                    || site?.site_slug
+                    || 'Untitled';
+                  return (
+                    <tr key={c.id} className="hover:bg-amber-950/30 transition-colors">
+                      <td className="px-4 py-3 text-white font-medium">{siteName}</td>
+                      <td className="px-4 py-3 text-gray-300">{c.name}</td>
+                      <td className="px-4 py-3 text-gray-400 text-xs">
+                        {CHANNEL_LABELS[c.channel as keyof typeof CHANNEL_LABELS] || c.channel}
+                        {c.campaign_type ? ` · ${c.campaign_type}` : ''}
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-300">{formatCents(c.daily_budget_cents || 0)}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-gray-400">
+                        {site?.google_ads_customer_id || <span className="text-red-400">missing</span>}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-500">
+                        {c.approved_at ? new Date(c.approved_at).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <PendingLaunchActions
+                          campaignId={c.id}
+                          googleAdsCustomerId={site?.google_ads_customer_id || null}
+                          billingReady={site?.google_ads_billing_ready === true}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

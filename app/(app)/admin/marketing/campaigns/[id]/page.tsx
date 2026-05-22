@@ -114,6 +114,19 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         </div>
       )}
 
+      {campaign.status === 'pending_launch' && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
+          <Loader2 className="w-5 h-5 text-amber-600 flex-shrink-0 animate-spin" />
+          <div className="text-sm">
+            <p className="font-bold text-amber-900">Your campaign is being set up</p>
+            <p className="text-amber-800 mt-0.5">
+              Our team is activating your campaign on Google. This usually takes a few hours.
+              You&apos;ll get an email as soon as your ads go live.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 flex-wrap">

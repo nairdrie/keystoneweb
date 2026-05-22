@@ -169,6 +169,106 @@ export async function sendMarketingDailyDigest(opts: {
   return { success: true };
 }
 
+/**
+ * Ping the ops team when a customer approves a campaign that needs manual
+ * billing setup on the Google Ads sub-account before it can launch.
+ */
+export async function sendMarketingOpsPendingNotification(opts: {
+  campaignId: string;
+  campaignName: string;
+  siteId: string;
+  siteName: string;
+  customerEmail: string;
+  dailyBudgetCents: number;
+  googleAdsCustomerId: string | null;
+  billingAlreadyReady: boolean;
+}) {
+  const opsEmail = process.env.MARKETING_OPS_EMAIL || 'hello@keystoneweb.ca';
+  const opsPanelUrl = `https://keystoneweb.ca/ops/marketing`;
+  const googleAdsUrl = opts.googleAdsCustomerId
+    ? `https://ads.google.com/aw/billing/summary?ocid=${opts.googleAdsCustomerId.replace(/-/g, '')}`
+    : `https://ads.google.com/aw/overview`;
+  const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
+
+  await resend.emails.send({
+    from: 'Keystone Marketing <hello@keystoneweb.ca>',
+    to: opsEmail,
+    subject: `[Marketing] Launch ready: ${opts.siteName} — ${opts.campaignName}`,
+    html: `
+      <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0f172a;">
+        <h2 style="margin:0 0 12px;">Campaign awaiting launch</h2>
+        <p style="margin:0 0 16px;color:#475569;line-height:1.5;">
+          <strong>${opts.customerEmail}</strong> just approved a campaign for
+          <strong>${opts.siteName}</strong>.
+        </p>
+
+        <table style="width:100%;border-collapse:collapse;font-size:13px;margin:16px 0;">
+          <tr><td style="padding:6px 0;color:#64748b;">Campaign</td><td style="padding:6px 0;font-weight:600;">${opts.campaignName}</td></tr>
+          <tr><td style="padding:6px 0;color:#64748b;">Daily budget</td><td style="padding:6px 0;font-weight:600;">${fmt(opts.dailyBudgetCents)}</td></tr>
+          <tr><td style="padding:6px 0;color:#64748b;">Google Ads sub-account</td><td style="padding:6px 0;font-weight:600;font-family:monospace;">${opts.googleAdsCustomerId || 'not provisioned'}</td></tr>
+          <tr><td style="padding:6px 0;color:#64748b;">Billing already configured</td><td style="padding:6px 0;font-weight:600;">${opts.billingAlreadyReady ? 'Yes — should auto-launch' : 'NO — set up billing first'}</td></tr>
+        </table>
+
+        ${opts.billingAlreadyReady ? '' : `
+          <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px;margin:16px 0;font-size:13px;color:#78350f;">
+            <strong>Action required:</strong> Open this sub-account in Google Ads, add a payment method,
+            then return to the ops panel and click <em>Launch in Google</em>.
+          </div>
+        `}
+
+        <div style="margin-top:20px;display:flex;gap:8px;">
+          <a href="${googleAdsUrl}" style="background:#1a73e8;color:white;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;font-size:13px;">
+            Open in Google Ads
+          </a>
+          <a href="${opsPanelUrl}" style="background:#10b981;color:white;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block;font-size:13px;">
+            Ops panel
+          </a>
+        </div>
+      </div>
+    `,
+    text: `Campaign awaiting launch: ${opts.campaignName} (${opts.siteName}). Sub-account: ${opts.googleAdsCustomerId}. Ops panel: ${opsPanelUrl}`,
+  });
+
+  return { success: true };
+}
+
+/**
+ * Notify the customer that their campaign just went live in Google.
+ */
+export async function sendMarketingCampaignLive(opts: {
+  siteId: string;
+  campaignId: string;
+  campaignName: string;
+}) {
+  const recipient = await resolveRecipient(opts.siteId);
+  if (!recipient) return { success: false };
+  const dashboardUrl = `https://keystoneweb.ca/admin/marketing/campaigns/${opts.campaignId}?siteId=${opts.siteId}`;
+
+  await resend.emails.send({
+    from: 'Keystone Web Design <hello@keystoneweb.ca>',
+    to: recipient.email,
+    subject: `Your campaign is live — ${opts.campaignName}`,
+    html: `
+      <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0f172a;">
+        <h2 style="margin:0 0 12px;">Your campaign is now live</h2>
+        <p style="color:#475569;line-height:1.5;">
+          <strong>${opts.campaignName}</strong> for <strong>${recipient.siteName}</strong> just started
+          running on Google. It may take a few hours for the first impressions to appear as Google
+          reviews your ad.
+        </p>
+        <p style="margin-top:24px;">
+          <a href="${dashboardUrl}" style="background:#10b981;color:white;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600;">
+            See live activity
+          </a>
+        </p>
+      </div>
+    `,
+    text: `Your campaign "${opts.campaignName}" for ${recipient.siteName} is now live. See activity: ${dashboardUrl}`,
+  });
+
+  return { success: true };
+}
+
 export async function sendMarketingWalletEmpty(opts: NotifyOpts) {
   const recipient = await resolveRecipient(opts.siteId);
   if (!recipient) return { success: false };
