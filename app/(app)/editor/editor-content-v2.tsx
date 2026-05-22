@@ -21,6 +21,7 @@ import DevicePreviewSelect, { type PreviewDevice } from '@/app/components/Device
 import PreviewIframe from '@/app/components/PreviewIframe';
 import { usePages } from '@/lib/hooks/usePages';
 import { useAIBuilder } from '@/lib/hooks/useAIBuilder';
+import { smoothScrollToTop } from '@/lib/smooth-scroll';
 import { CartProvider } from '@/app/components/ecommerce/CartProvider';
 import CartDrawer from '@/app/components/ecommerce/CartDrawer';
 import CartButton from '@/app/components/ecommerce/CartButton';
@@ -126,6 +127,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
               updateSiteContent: () => { },
               navItems: pubDesign.__navItems || [],
               updateNavItems: () => { },
+              currentPageId: pubDesign.__currentPageId,
               isEditMode: false,
               updateContent: () => { },
               palette: precomputedPalette || {},
@@ -411,6 +413,19 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
       router.replace(url.pathname + url.search, { scroll: false });
     }
   }, [currentPageId, siteId, site, pages, router]);
+
+  // The editor canvas is its own scroll container, so Next's route scroll
+  // handling won't reset it when pageId changes.
+  useEffect(() => {
+    if (!currentPageId || typeof window === 'undefined') return;
+    if (window.location.hash) return;
+
+    const frame = window.requestAnimationFrame(() => {
+      smoothScrollToTop({ behavior: 'auto', updateHash: false });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [currentPageId]);
 
   // Load page-specific content when page changes
   useEffect(() => {
@@ -1636,6 +1651,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
               navItems,
               updateNavItems: handleUpdateNavItems,
               pages: pages.map(p => ({ id: p.id, slug: p.slug, title: p.title })),
+              currentPageId: currentPageId || undefined,
               isEditMode: editMode,
               updateContent: handleUpdateContent,
               palette: paletteData,

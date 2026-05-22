@@ -75,6 +75,10 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.ks-block {
+  scroll-margin-top: calc(var(--ks-header-height, 0px) + 12px);
+}
+
 /* iOS safe area support for editor banner */
 @supports (padding-top: env(safe-area-inset-top)) {
   .safe-area-banner {

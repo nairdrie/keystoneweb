@@ -1210,6 +1210,7 @@ export default function HeaderSettingsPanel({
                     pages={context?.pages || []}
                     blocks={context?.blocks || []}
                     siteId={context?.siteId}
+                    currentPageId={context?.currentPageId}
                     onSave={handleSaveEditedItem}
                     onClose={() => { setEditingItem(null); setEditingParentId(null); }}
                 />

@@ -3,6 +3,7 @@ import type { HeroBgPatternId } from './HeroBgPatterns';
 
 export type Align = 'left' | 'center' | 'right';
 export type ImageSide = 'left' | 'right';
+export type HeroImageLayout = 'contained' | 'split';
 export type HeightMode = 'fitContent' | 'fitScreen' | 'manual';
 export type CardTransition = 'fade' | 'slide' | 'none';
 export type BgType = 'image' | 'video' | 'gradient' | 'animation' | 'pattern';
@@ -48,6 +49,7 @@ export interface HeroContent {
         enabled: boolean;
         url: string;
         side: ImageSide;
+        layout: HeroImageLayout;
         settings?: unknown;
         attribution?: unknown;
     };
@@ -189,7 +191,7 @@ export function makeDefaultCard(id: string): HeroCard {
                 secondary: { enabled: false, label: DEFAULT_CTA2_LABEL },
                 secondaryPlacement: 'beside',
             },
-            image: { enabled: false, url: '', side: 'right' },
+            image: { enabled: false, url: '', side: 'right', layout: 'contained' },
             social: { enabled: false, align: 'left', links: [] },
             elementOrder: [...DEFAULT_ELEMENT_ORDER],
         },
@@ -274,6 +276,7 @@ export function migrateLegacyHeroData(raw: unknown): HeroData {
             enabled: variant === 'split',
             url: variant === 'split' ? imageUrl : '',
             side: 'right',
+            layout: 'contained',
             settings: variant === 'split' ? data.image__settings : undefined,
             attribution: variant === 'split' ? data.image__attribution : undefined,
         },
@@ -442,7 +445,7 @@ function normalizeHeroData(data: Record<string, unknown> & { cards?: HeroCard[];
             title: withDefaults({ enabled: true, value: DEFAULT_TITLE, align: 'left' as Align }, c?.content?.title),
             subtitle: withDefaults({ enabled: true, value: DEFAULT_SUBTITLE, align: 'left' as Align }, c?.content?.subtitle),
             cta: normalizeCta(c?.content?.cta),
-            image: withDefaults({ enabled: false, url: '', side: 'right' as ImageSide }, c?.content?.image),
+            image: withDefaults({ enabled: false, url: '', side: 'right' as ImageSide, layout: 'contained' as HeroImageLayout }, c?.content?.image),
             social: normalizeSocial(c?.content?.social, c?.content?.title?.align),
             elementOrder: resolveElementOrder(c?.content?.elementOrder),
         },
@@ -491,7 +494,7 @@ export function legacyVariantClass(card: HeroCard): string {
     const bg = card.background;
     if (bg.type === 'video') return 'hero-video';
     if (bg.type === 'image' && (!c.image.enabled)) return 'hero-fullimage';
-    if (c.image.enabled) return 'hero-split';
+    if (c.image.enabled) return c.image.layout === 'split' ? 'hero-split hero-split-half' : 'hero-split';
     if (!c.cta.enabled && !c.image.enabled && bg.type === 'gradient') return 'hero-minimal';
     return 'hero-centered';
 }

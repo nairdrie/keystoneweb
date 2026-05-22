@@ -108,7 +108,7 @@ export default async function CustomDomainDynamicPage({
         // Fetch the specific page
         const { data: routePage, error: pageError } = await supabase
             .from('pages')
-            .select('published_data')
+            .select('id, published_data')
             .eq('site_id', site.id)
             .eq('slug', slug)
             .single();
@@ -135,6 +135,7 @@ export default async function CustomDomainDynamicPage({
             ...sitePublishData,
             ...pagePublishData,
             __pages: (allPages || []).map(({ id, slug, title }: any) => ({ id, slug, title })),
+            __currentPageId: routePage.id,
             __hasProductBlock: hasProductBlock,
             __hasMembershipBlock: hasMembershipBlock,
             __hasChatSupportBlock: hasChatSupportBlock,

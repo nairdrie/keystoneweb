@@ -94,6 +94,7 @@ const COLUMN_BLOCKS = new Set([
   'deliveryLinks',
   'events',
   'resources',
+  'carousel',
   'logoCloud',
   'socialFeed',
 ]);
@@ -139,7 +140,7 @@ export const BLOCK_LAYOUT_CAPABILITIES: Record<string, LayoutCapabilities> = {
   pdf: makeCapabilities(),
   resources: makeColumnCapabilities(),
   featuredQuote: makeGapCapabilities(),
-  carousel: makeGapCapabilities(),
+  carousel: makeColumnCapabilities(),
   video: makeCapabilities(),
   socialFeed: makeColumnCapabilities(),
   tabBar: makeCapabilities(),
@@ -437,6 +438,8 @@ function getColumnItemCount(blockType: string, blockData: unknown): number | und
       return arrayLengthOrDefault(data.links, 3);
     case 'resources':
       return arrayLengthOrDefault(data.items, 3);
+    case 'carousel':
+      return arrayLengthOrDefault(data.items, 4);
     case 'logoCloud':
       return arrayLength(data.logos, { filterEmptyStrings: true }) || 6;
     case 'socialFeed':

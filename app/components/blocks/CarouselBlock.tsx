@@ -109,6 +109,9 @@ interface SlideItem {
   text: string;
 }
 
+type CarouselBreakpoint = 'desktop' | 'tablet' | 'mobile';
+type CarouselColumnSettings = Partial<Record<CarouselBreakpoint, number>>;
+
 interface CarouselData {
   title?: string;
   subtitle?: string;
@@ -118,6 +121,11 @@ interface CarouselData {
   interval?: number;
   backgroundColor?: string;
   foregroundColor?: string;
+  sectionSettings?: {
+    layout?: {
+      columns?: CarouselColumnSettings;
+    };
+  };
   [key: string]: unknown;
 }
 
@@ -127,6 +135,46 @@ interface CarouselBlockProps {
   isEditMode: boolean;
   palette: Record<string, string>;
   updateContent: (key: string, value: unknown) => void;
+}
+
+function useResponsiveCarouselBreakpoint(): CarouselBreakpoint {
+  const [breakpoint, setBreakpoint] = useState<CarouselBreakpoint>('desktop');
+
+  useEffect(() => {
+    const updateBreakpoint = () => setBreakpoint(getCarouselBreakpoint());
+    updateBreakpoint();
+    window.addEventListener('resize', updateBreakpoint);
+    return () => window.removeEventListener('resize', updateBreakpoint);
+  }, []);
+
+  return breakpoint;
+}
+
+function getCarouselBreakpoint(): CarouselBreakpoint {
+  if (typeof window === 'undefined') return 'desktop';
+  if (window.innerWidth < 768) return 'mobile';
+  if (window.innerWidth < 1024) return 'tablet';
+  return 'desktop';
+}
+
+function getCarouselCardsPerPage(
+  data: CarouselData,
+  itemCount: number,
+  breakpoint: CarouselBreakpoint,
+): number {
+  const columns = data.sectionSettings?.layout?.columns;
+  const configuredColumns =
+    breakpoint === 'desktop'
+      ? columns?.desktop
+      : breakpoint === 'tablet'
+        ? columns?.tablet ?? columns?.desktop
+        : columns?.mobile ?? columns?.tablet ?? columns?.desktop;
+  const maxColumns = Math.max(1, itemCount);
+  const fallback = Math.min(3, maxColumns);
+  const numeric = Number(configuredColumns);
+
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.min(maxColumns, Math.max(1, Math.round(numeric)));
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -148,6 +196,8 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
   const [iconPickerIdx, setIconPickerIdx] = useState<number | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const carouselBreakpoint = useResponsiveCarouselBreakpoint();
+  const cardsPerPage = getCarouselCardsPerPage(data, items.length, carouselBreakpoint);
 
   // Reset on block change, clamp on items shrink
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -156,6 +206,12 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (current >= items.length) setCurrent(Math.max(0, items.length - 1));
   }, [items.length, current]);
+  useEffect(() => {
+    if (variant !== 'cards') return;
+    const maxCurrent = Math.max(0, items.length - cardsPerPage);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (current > maxCurrent) setCurrent(maxCurrent);
+  }, [cardsPerPage, current, items.length, variant]);
 
   // Auto-play (slides + minimal, not cards, not edit mode)
   useEffect(() => {
@@ -343,7 +399,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
   // ── VARIANT: cards ────────────────────────────────────────────────────────────
 
   if (variant === 'cards') {
-    const perPage    = 3;
+    const perPage    = cardsPerPage;
     const maxCurrent = Math.max(0, items.length - perPage);
     const showNav    = items.length > perPage;
     const renderViewCard = (item: SlideItem, idx: number) => (
@@ -398,7 +454,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
           {/* Edit mode → grid; View mode → carousel */}
           {isEditMode ? (
             <>
-              <div className="grid md:grid-cols-3 gap-6">
+              <div className="ks-layout-grid grid md:grid-cols-3 gap-6">
                 {items.map((item, idx) => {
                   const isDragging = draggedIndex === idx;
                   const isDragTarget = dragOverIndex === idx && draggedIndex !== idx;
@@ -457,7 +513,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                 ))}
               </div>
 
-              <div className="hidden overflow-hidden md:block">
+              <div className="-mx-3 hidden overflow-hidden px-3 py-3 md:block">
                 <div style={trackStyle(perPage)}>
                   {items.map((item, idx) => (
                     <div key={idx} style={itemWidthStyle()} className="px-3">

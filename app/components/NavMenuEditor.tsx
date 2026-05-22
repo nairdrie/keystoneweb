@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { Plus, X, Pencil, ChevronDown, GripVertical } from 'lucide-react';
 import { useEditorContext, NavItem } from '@/lib/editor-context';
 import { useLangPrefix } from '@/lib/hooks/useLangPrefix';
+import { getSectionIdsForNavItems, navItemMatchesActiveSection, useActiveSectionHash } from '@/lib/hooks/useActiveSectionHash';
 import NavItemEditModal from './NavItemEditModal';
 import { getBlockSlug } from '@/lib/block-utils';
 import {
@@ -51,6 +52,7 @@ export default function NavMenuEditor({ className = '', itemClassName = '', subm
     const blocks = context?.blocks || [];
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    const routeKey = `${pathname || ''}?${searchParams?.toString() || ''}`;
     const isEditor = pathname?.startsWith('/editor') || pathname?.startsWith('/design');
 
     // Language prefix for published multilingual sites
@@ -88,24 +90,47 @@ export default function NavMenuEditor({ className = '', itemClassName = '', subm
             const path = langPrefix ? `${langPrefix}${basePath === '/' ? '' : basePath}` : basePath;
             return `${path}${buildItemQuery(item)}`;
         } else if (item.linkType === 'section') {
+            const hashFromHref = item.href?.includes('#') ? item.href.slice(item.href.indexOf('#') + 1) : '';
+            const blockIndex = item.blockId ? blocks.findIndex(b => b.id === item.blockId) : -1;
+            const blockSlug = blockIndex !== -1 ? getBlockSlug(blocks[blockIndex], blockIndex, blocks) : '';
+            const hashPart = blockSlug ? `#${blockSlug}` : (hashFromHref ? `#${hashFromHref}` : (item.blockId ? `#${item.blockId}` : ''));
             if (item.pageId) {
                 if (isEditor) {
-                    const hash = item.href?.includes('#') ? `#${item.href.split('#')[1]}` : '';
-                    return `/design?siteId=${context?.siteId}&pageId=${item.pageId}${hash}`;
+                    return `/design?siteId=${context?.siteId}&pageId=${item.pageId}${hashPart}`;
                 }
                 return item.href || `#${item.blockId}`;
             }
-            const blockIndex = blocks.findIndex(b => b.id === item.blockId);
             if (blockIndex !== -1) {
                 return `#${getBlockSlug(blocks[blockIndex], blockIndex, blocks)}`;
             }
-            return `#${item.blockId}`;
+            if (item.href && !item.href.startsWith('#') && item.href.includes('#')) return item.href;
+            if (hashPart) {
+                const homePage = pages.find(p => p.slug === 'home');
+                if (homePage) {
+                    if (isEditor) {
+                        return `/design?siteId=${context?.siteId}&pageId=${homePage.id}${hashPart}`;
+                    }
+                    if (context?.previewSiteId) {
+                        return `/preview?siteId=${context.previewSiteId}&pageId=${homePage.id}${hashPart}`;
+                    }
+                    const basePath = langPrefix || '/';
+                    return `${basePath}${buildItemQuery(item)}${hashPart}`;
+                }
+            }
+            return '#';
         }
         return item.href;
     };
 
     const isActivePage = (item: NavItem): boolean => {
-        if (isEditMode || item.linkType !== 'page') return false;
+        if (item.linkType !== 'page') return false;
+        if (isEditor || pathname === '/preview') {
+            const currentPageId = searchParams?.get('pageId') || context?.currentPageId || '';
+            if (currentPageId) return item.pageId === currentPageId;
+            const targetPage = pages.find(p => p.id === item.pageId);
+            if (targetPage) return targetPage.slug === 'home';
+            return item.href === '/' || item.href === '';
+        }
         const targetPage = pages.find(p => p.id === item.pageId);
         const slug = targetPage?.slug || '';
         const basePath = slug === 'home' ? '/' : `/${slug}`;
@@ -117,6 +142,13 @@ export default function NavMenuEditor({ className = '', itemClassName = '', subm
         if ((item.categoryFilter || '') !== currentCategory) return false;
         if ((item.subcategoryFilter || '') !== currentSubcategory) return false;
         return true;
+    };
+
+    const activeSectionHash = useActiveSectionHash(getSectionIdsForNavItems(navItems, resolveHref, pathname), routeKey);
+
+    const isActiveItem = (item: NavItem): boolean => {
+        if (navItemMatchesActiveSection(item, activeSectionHash, resolveHref, pathname)) return true;
+        return !activeSectionHash && isActivePage(item);
     };
 
     const handleSaveItem = (updated: NavItem) => {
@@ -258,7 +290,7 @@ export default function NavMenuEditor({ className = '', itemClassName = '', subm
                                         isEditMode={isEditMode}
                                         itemClassName={itemClassName}
                                         resolveHref={resolveHref}
-                                        isActivePage={isActivePage}
+                                        isActivePage={isActiveItem}
                                         sensors={sensors}
                                         onToggleExpand={toggleMobileExpand}
                                         onEdit={(target, parentId) => { setEditingItem(target); setEditingParentId(parentId); }}
@@ -281,7 +313,7 @@ export default function NavMenuEditor({ className = '', itemClassName = '', subm
                                     isEditMode={isEditMode}
                                     sensors={sensors}
                                     resolveHref={resolveHref}
-                                    isActivePage={isActivePage}
+                                    isActivePage={isActiveItem}
                                     onEdit={(target, parentId) => { setEditingItem(target); setEditingParentId(parentId); }}
                                     onDelete={handleDeleteItem}
                                     onAddSubItem={handleAddSubItem}
@@ -310,6 +342,7 @@ export default function NavMenuEditor({ className = '', itemClassName = '', subm
                     pages={pages}
                     blocks={blocks}
                     siteId={context?.siteId}
+                    currentPageId={context?.currentPageId}
                     onSave={handleSaveItem}
                     onClose={() => { setEditingItem(null); setEditingParentId(null); }}
                 />
@@ -756,7 +789,11 @@ function DesktopNavItem({
             </Link>
 
             {isEditMode && (
-                <div className="absolute left-1/2 -translate-x-1/2 bottom-full pb-2 opacity-0 pointer-events-none group-hover/navitem:opacity-100 group-hover/navitem:pointer-events-auto transition-opacity z-[70]">
+                <div
+                    className={`absolute left-1/2 -translate-x-1/2 opacity-0 pointer-events-none group-hover/navitem:opacity-100 group-hover/navitem:pointer-events-auto transition-opacity z-[70] ${
+                        dropDirection === 'up' ? 'bottom-full pb-2' : 'top-full pt-2'
+                    }`}
+                >
                     <div className="flex items-center gap-0.5 bg-white rounded-lg shadow-md border border-gray-200 px-1.5 py-0.5">
                         <button
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(item, null); }}

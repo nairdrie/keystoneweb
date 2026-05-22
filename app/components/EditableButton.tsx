@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useRef, useEffect, useId } from 'react';
+import { useState, useRef, useEffect, useId, type ComponentType } from 'react';
 import { Pencil, Settings } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useEditorContext, NavItem } from '@/lib/editor-context';
 import { useLangPrefix } from '@/lib/hooks/useLangPrefix';
+import { getBlockSlug } from '@/lib/block-utils';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import { getSamePageHash, smoothScrollToId } from '@/lib/smooth-scroll';
 import NavItemEditModal from './NavItemEditModal';
@@ -62,7 +63,7 @@ interface EditableButtonProps {
     /** Whether we're in edit mode */
     isEditMode: boolean;
     /** Callback to save updates to block data */
-    onSave: (key: string, value: any) => void;
+    onSave: (key: string, value: unknown) => void;
     /** Button styling className */
     className?: string;
     /** Button inline styles */
@@ -129,16 +130,13 @@ export default function EditableButton({
 
     // Detect if we should show controls on the left based on screen position
     useEffect(() => {
-        if (isEditMode && containerRef.current) {
-            const rect = containerRef.current.getBoundingClientRect();
-            const spaceOnRight = window.innerWidth - rect.right;
-            // If less than 100px on right, flip controls to left
-            if (spaceOnRight < 100) {
-                setControlsOnLeft(true);
-            } else {
-                setControlsOnLeft(false);
-            }
-        }
+        if (!isEditMode || !containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        const spaceOnRight = window.innerWidth - rect.right;
+        const frame = window.requestAnimationFrame(() => {
+            setControlsOnLeft(spaceOnRight < 100);
+        });
+        return () => window.cancelAnimationFrame(frame);
     }, [isEditMode]);
 
     // Build the NavItem shape that NavItemEditModal expects
@@ -184,6 +182,10 @@ export default function EditableButton({
             }
         }
         if (currentLinkType === 'section' && currentBlockId) {
+            const blockIndex = blocks.findIndex(b => b.id === currentBlockId);
+            if (blockIndex !== -1 && (!currentPageId || currentHref.startsWith('#') || !currentHref.includes('#'))) {
+                return `#${getBlockSlug(blocks[blockIndex], blockIndex, blocks)}`;
+            }
             // Use the stored href if available (it's already been resolved to /page#section)
             if (currentHref && currentHref !== '#' && !currentHref.startsWith('http')) {
                 // Add language prefix for cross-page section links (e.g. /about#section)
@@ -200,7 +202,8 @@ export default function EditableButton({
     const isExternal = currentLinkType === 'custom' && currentHref.startsWith('http');
 
     // Render Icon if present
-    const IconComponent = currentIcon ? (Icons as any)[currentIcon] : null;
+    const iconMap = Icons as unknown as Record<string, ComponentType<{ className?: string }> | undefined>;
+    const IconComponent = currentIcon ? iconMap[currentIcon] : null;
 
     const renderButtonContent = () => {
         if (isIconOnly && IconComponent) {
@@ -274,6 +277,7 @@ export default function EditableButton({
                         pages={pages}
                         blocks={blocks}
                         siteId={context?.siteId}
+                        currentPageId={context?.currentPageId}
                         onSave={handleSave}
                         onClose={() => setIsEditing(false)}
                     />
