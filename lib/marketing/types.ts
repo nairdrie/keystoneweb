@@ -22,7 +22,8 @@ export type CampaignStatus =
   | 'draft'
   | 'suggested'
   | 'approved'
-  | 'pending_launch'  // Customer approved; awaiting ops billing setup before going to Google.
+  | 'awaiting_payment'  // Customer approved; we created a Stripe Checkout, waiting for them to pay.
+  | 'pending_launch'    // Paid; awaiting ops billing setup before going to Google.
   | 'submitting'
   | 'active'
   | 'paused'
@@ -32,16 +33,17 @@ export type CampaignStatus =
 
 /** Map of allowed next statuses for each status. */
 export const STATUS_TRANSITIONS: Record<CampaignStatus, CampaignStatus[]> = {
-  draft:          ['approved', 'pending_launch', 'cancelled'],
-  suggested:      ['draft', 'approved', 'pending_launch', 'cancelled'],
-  approved:       ['submitting', 'cancelled'],
-  pending_launch: ['submitting', 'cancelled'],
-  submitting:     ['active', 'failed', 'pending_launch'],
-  active:         ['paused', 'completed'],
-  paused:         ['active', 'cancelled', 'completed'],
-  completed:      [],
-  failed:         ['draft', 'cancelled'],
-  cancelled:      [],
+  draft:            ['approved', 'awaiting_payment', 'pending_launch', 'cancelled'],
+  suggested:        ['draft', 'approved', 'awaiting_payment', 'pending_launch', 'cancelled'],
+  approved:         ['submitting', 'cancelled'],
+  awaiting_payment: ['pending_launch', 'cancelled'],
+  pending_launch:   ['submitting', 'cancelled'],
+  submitting:       ['active', 'failed', 'pending_launch'],
+  active:           ['paused', 'completed'],
+  paused:           ['active', 'cancelled', 'completed'],
+  completed:        [],
+  failed:           ['draft', 'cancelled'],
+  cancelled:        [],
 };
 
 // ── Channel-specific Content Schemas ─────────────────────────────────────────
@@ -239,29 +241,31 @@ export const CAMPAIGN_TYPE_LABELS: Record<CampaignType, string> = {
 };
 
 export const STATUS_LABELS: Record<CampaignStatus, string> = {
-  draft:          'Draft',
-  suggested:      'Suggested',
-  approved:       'Approved',
-  pending_launch: 'Setting up',
-  submitting:     'Submitting',
-  active:         'Active',
-  paused:         'Paused',
-  completed:      'Completed',
-  failed:         'Failed',
-  cancelled:      'Cancelled',
+  draft:            'Draft',
+  suggested:        'Suggested',
+  approved:         'Approved',
+  awaiting_payment: 'Awaiting payment',
+  pending_launch:   'Setting up',
+  submitting:       'Submitting',
+  active:           'Active',
+  paused:           'Paused',
+  completed:        'Completed',
+  failed:           'Failed',
+  cancelled:        'Cancelled',
 };
 
 export const STATUS_COLORS: Record<CampaignStatus, string> = {
-  draft:          'text-gray-400 bg-gray-400/10',
-  suggested:      'text-violet-400 bg-violet-400/10',
-  approved:       'text-sky-400 bg-sky-400/10',
-  pending_launch: 'text-amber-400 bg-amber-400/10',
-  submitting:     'text-amber-400 bg-amber-400/10',
-  active:         'text-emerald-400 bg-emerald-400/10',
-  paused:         'text-amber-400 bg-amber-400/10',
-  completed:      'text-gray-500 bg-gray-800',
-  failed:         'text-red-400 bg-red-400/10',
-  cancelled:      'text-gray-500 bg-gray-800',
+  draft:            'text-gray-400 bg-gray-400/10',
+  suggested:        'text-violet-400 bg-violet-400/10',
+  approved:         'text-sky-400 bg-sky-400/10',
+  awaiting_payment: 'text-orange-400 bg-orange-400/10',
+  pending_launch:   'text-amber-400 bg-amber-400/10',
+  submitting:       'text-amber-400 bg-amber-400/10',
+  active:           'text-emerald-400 bg-emerald-400/10',
+  paused:           'text-amber-400 bg-amber-400/10',
+  completed:        'text-gray-500 bg-gray-800',
+  failed:           'text-red-400 bg-red-400/10',
+  cancelled:        'text-gray-500 bg-gray-800',
 };
 
 export const CHANNEL_CAMPAIGN_TYPES: Record<MarketingChannel, CampaignType[]> = {

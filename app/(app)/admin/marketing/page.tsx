@@ -2,35 +2,25 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, TrendingUp, Wallet, Megaphone, Activity, AlertCircle } from 'lucide-react';
+import { Plus, TrendingUp, DollarSign, Megaphone, Activity } from 'lucide-react';
 import { useAdminContext } from '../admin-context';
 import { STATUS_LABELS, STATUS_COLORS, CHANNEL_LABELS } from '@/lib/marketing/types';
 import type { Campaign } from '@/lib/marketing/types';
 import { formatCents } from '@/lib/marketing/pricing';
 
-interface WalletInfo {
-  balance_cents: number;
-  lifetime_credited_cents: number;
-  lifetime_debited_cents: number;
-}
-
 export default function MarketingOverviewPage() {
   const { siteId, site } = useAdminContext();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!siteId) return;
     let cancelled = false;
-    Promise.all([
-      fetch(`/api/admin/marketing/campaigns?siteId=${siteId}`, { credentials: 'include' }).then(r => r.ok ? r.json() : { campaigns: [] }),
-      fetch(`/api/admin/marketing/wallet?siteId=${siteId}`, { credentials: 'include' }).then(r => r.ok ? r.json() : { wallet: null }),
-    ])
-      .then(([c, w]) => {
+    fetch(`/api/admin/marketing/campaigns?siteId=${siteId}`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : { campaigns: [] })
+      .then(c => {
         if (cancelled) return;
         setCampaigns(c.campaigns || []);
-        setWallet(w.wallet || null);
         setLoading(false);
       });
     return () => { cancelled = true; };
@@ -50,20 +40,20 @@ export default function MarketingOverviewPage() {
 
   const activeCampaigns = campaigns.filter(c => c.status === 'active');
   const draftCampaigns = campaigns.filter(c => c.status === 'draft' || c.status === 'suggested');
-  const balance = wallet?.balance_cents ?? 0;
+  const otherCampaigns = campaigns.filter(c => !['draft', 'suggested'].includes(c.status));
   const totalImpressions = campaigns.reduce((s, c) => s + (c.impressions || 0), 0);
   const totalClicks = campaigns.reduce((s, c) => s + (c.clicks || 0), 0);
+  const totalSpent = campaigns.reduce((s, c) => s + (c.spent_cents || 0), 0);
   const overallCtr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0.00';
-
-  const lowBalance = balance > 0 && balance <= 500;
-  const emptyBalance = balance <= 0;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-900">Marketing</h1>
-          <p className="text-sm text-slate-500 mt-1">Run AI-built ad campaigns to grow your business.</p>
+          <p className="text-sm text-slate-500 mt-1">
+            Run AI-built ad campaigns to grow your business. Each campaign is paid for upfront with a 5% service fee.
+          </p>
         </div>
         <Link
           href={`/admin/marketing/campaigns/new?siteId=${siteId}`}
@@ -73,41 +63,16 @@ export default function MarketingOverviewPage() {
         </Link>
       </div>
 
-      {(emptyBalance || lowBalance) && (
-        <div className={`rounded-xl border p-4 flex items-start gap-3 ${emptyBalance ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
-          <AlertCircle className={`w-5 h-5 flex-shrink-0 ${emptyBalance ? 'text-red-600' : 'text-amber-600'}`} />
-          <div className="flex-1 text-sm">
-            <p className={`font-bold ${emptyBalance ? 'text-red-900' : 'text-amber-900'}`}>
-              {emptyBalance ? 'Wallet empty — campaigns paused' : `Low balance (${formatCents(balance)})`}
-            </p>
-            <p className={emptyBalance ? 'text-red-800 mt-0.5' : 'text-amber-800 mt-0.5'}>
-              {emptyBalance
-                ? 'Top up to resume your campaigns.'
-                : 'Top up to avoid your campaigns pausing.'}
-            </p>
-          </div>
-          <Link
-            href={`/admin/marketing/budget?siteId=${siteId}`}
-            className="text-sm font-bold underline hover:no-underline"
-            style={{ color: emptyBalance ? '#b91c1c' : '#92400e' }}
-          >
-            Top up
-          </Link>
-        </div>
-      )}
-
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          label="Wallet"
-          value={formatCents(balance)}
-          icon={<Wallet className="w-4 h-4 text-emerald-600" />}
-          link={`/admin/marketing/budget?siteId=${siteId}`}
-          linkLabel="Top up"
-        />
         <StatCard
           label="Active"
           value={String(activeCampaigns.length)}
-          icon={<Activity className="w-4 h-4 text-sky-600" />}
+          icon={<Activity className="w-4 h-4 text-emerald-600" />}
+        />
+        <StatCard
+          label="Total spent"
+          value={formatCents(totalSpent)}
+          icon={<DollarSign className="w-4 h-4 text-amber-600" />}
         />
         <StatCard
           label="Impressions"
@@ -117,7 +82,7 @@ export default function MarketingOverviewPage() {
         <StatCard
           label="Avg. CTR"
           value={`${overallCtr}%`}
-          icon={<TrendingUp className="w-4 h-4 text-amber-600" />}
+          icon={<TrendingUp className="w-4 h-4 text-sky-600" />}
         />
       </div>
 
@@ -129,14 +94,14 @@ export default function MarketingOverviewPage() {
         <>
           {draftCampaigns.length > 0 && (
             <CampaignSection
-              title="Drafts awaiting approval"
+              title="Drafts (not yet paid)"
               campaigns={draftCampaigns}
               siteId={siteId!}
             />
           )}
           <CampaignSection
             title={activeCampaigns.length > 0 ? 'Active campaigns' : 'Campaigns'}
-            campaigns={campaigns.filter(c => c.status !== 'draft' && c.status !== 'suggested')}
+            campaigns={otherCampaigns}
             siteId={siteId!}
           />
         </>
@@ -145,12 +110,10 @@ export default function MarketingOverviewPage() {
   );
 }
 
-function StatCard({ label, value, icon, link, linkLabel }: {
+function StatCard({ label, value, icon }: {
   label: string;
   value: string;
   icon: React.ReactNode;
-  link?: string;
-  linkLabel?: string;
 }) {
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4">
@@ -159,11 +122,6 @@ function StatCard({ label, value, icon, link, linkLabel }: {
         <span className="text-[11px] font-bold uppercase text-slate-500 tracking-wide">{label}</span>
       </div>
       <p className="text-2xl font-black text-slate-900 leading-none">{value}</p>
-      {link && linkLabel && (
-        <Link href={link} className="text-xs text-emerald-700 hover:text-emerald-600 font-bold mt-2 inline-block">
-          {linkLabel} →
-        </Link>
-      )}
     </div>
   );
 }

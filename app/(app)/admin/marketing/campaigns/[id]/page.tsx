@@ -13,6 +13,7 @@ import { STATUS_LABELS, STATUS_COLORS, CHANNEL_LABELS, CAMPAIGN_TYPE_LABELS } fr
 import type { Campaign } from '@/lib/marketing/types';
 import { formatCents } from '@/lib/marketing/pricing';
 import { AdPreview } from '../../_components/AdPreview';
+import CampaignBudgetPanel from '../../_components/CampaignBudgetPanel';
 
 export default function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -120,8 +121,21 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           <div className="text-sm">
             <p className="font-bold text-amber-900">Your campaign is being set up</p>
             <p className="text-amber-800 mt-0.5">
-              Our team is activating your campaign on Google. This usually takes a few hours.
+              Payment received. Our team is activating your campaign on Google. This usually takes a few hours.
               You&apos;ll get an email as soon as your ads go live.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {campaign.status === 'awaiting_payment' && (
+        <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 flex items-start gap-3">
+          <DollarSign className="w-5 h-5 text-orange-600 flex-shrink-0" />
+          <div className="text-sm">
+            <p className="font-bold text-orange-900">Payment required</p>
+            <p className="text-orange-800 mt-0.5">
+              Your Stripe checkout was started but not completed. Reapprove this campaign to restart payment,
+              or cancel it.
             </p>
           </div>
         </div>
@@ -160,7 +174,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
               {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />} Resume
             </button>
           )}
-          {(campaign.status === 'active' || campaign.status === 'paused' || campaign.status === 'draft') && (
+          {campaign.status === 'draft' && (
             <button
               type="button"
               disabled={acting}
@@ -193,23 +207,14 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         <Metric icon={<DollarSign className="w-4 h-4 text-amber-600" />} label="Spent" value={formatCents(campaign.spent_cents)} />
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-slate-600">Budget</h2>
-        <dl className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <dt className="text-xs text-slate-500">Daily budget</dt>
-            <dd className="font-bold text-slate-900 mt-0.5">{campaign.daily_budget_cents ? formatCents(campaign.daily_budget_cents) : '—'}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-slate-500">Launched</dt>
-            <dd className="font-bold text-slate-900 mt-0.5">
-              {campaign.launched_at
-                ? new Date(campaign.launched_at).toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' })
-                : '—'}
-            </dd>
-          </div>
-        </dl>
-      </div>
+      <CampaignBudgetPanel
+        campaignId={campaign.id}
+        dailyBudgetCents={campaign.daily_budget_cents || 0}
+        status={campaign.status}
+        canTopUp={['active', 'paused', 'pending_launch'].includes(campaign.status)}
+        canCancel={!['cancelled', 'completed', 'failed', 'awaiting_payment'].includes(campaign.status)}
+        onCancelled={() => router.push(`/admin/marketing?siteId=${siteId}`)}
+      />
 
       <ConversionsPanel conversions={conversions} />
 

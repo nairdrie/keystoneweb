@@ -3,17 +3,23 @@
  *
  * Pulls latest performance data from Google Ads and Meta APIs,
  * updates campaign metrics in the database, and records daily spend.
- * Platform credentials come from env vars (agency model).
+ *
+ * After spend is recorded, checks per-campaign budget (prepaid_cents vs
+ * spent × 1.05). When budget is depleted, auto-pauses the campaign and
+ * emails the customer to top up.
  */
 
 import type { Campaign } from './types';
 import { getCampaignPerformance as getGooglePerformance } from './google-ads';
 import { getCampaignPerformance as getMetaPerformance } from './meta-ads';
 import { recordSpend } from './spend';
-import { debitWalletForSpend, getWallet, shouldNotifyEmpty, shouldNotifyLowBalance, markEmptyNotified, markLowBalanceNotified } from './wallet';
-import { sendMarketingWalletEmpty, sendMarketingWalletLow } from './notifications';
+import { getCampaignBudget } from './campaign-budget';
+import { sendMarketingCampaignBudgetLow, sendMarketingCampaignBudgetDepleted } from './notifications';
 import { pauseCampaign as pauseGoogleCampaign } from './google-ads';
 import { syncActivityForCampaign } from './activity';
+
+// Notify customer when remaining budget drops below this many days of spend.
+const LOW_BUDGET_THRESHOLD_DAYS = 2;
 
 // ── Sync All Active Campaigns ────────────────────────────────────────────────
 
@@ -23,6 +29,7 @@ export interface SyncResult {
   errors: string[];
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function syncAllCampaigns(db: any): Promise<SyncResult> {
   const { data: campaigns, error } = await db
     .from('marketing_campaigns')
@@ -49,9 +56,9 @@ export async function syncAllCampaigns(db: any): Promise<SyncResult> {
         await syncMetaCampaign(campaign, weekAgo, today, db);
       }
 
-      // After spend is recorded, reconcile the wallet for site (customer) campaigns.
+      // Customer campaigns get their per-campaign budget reconciled (pause if depleted).
       if (campaign.site_id) {
-        await reconcileCampaignWallet(campaign, db);
+        await reconcileCampaignBudget(campaign, db);
         try {
           await syncActivityForCampaign(campaign);
         } catch (actErr) {
@@ -78,50 +85,22 @@ export async function syncAllCampaigns(db: any): Promise<SyncResult> {
 }
 
 /**
- * For each marketing_spend row on a customer campaign, ensure a corresponding
- * wallet debit txn exists. After applying debits, check if the wallet is empty
- * and pause active campaigns + email the customer.
- *
- * Idempotency is enforced by the unique index on (campaign_id, spend_date) for debit txns.
+ * Read the campaign's prepaid budget vs total bundled spend. If depleted, pause
+ * the campaign in Google + email the customer. If running low (<2 days at
+ * current burn), email a heads-up.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function reconcileCampaignWallet(campaign: Campaign, db: any): Promise<void> {
+async function reconcileCampaignBudget(campaign: Campaign, db: any): Promise<void> {
   if (!campaign.site_id) return;
 
-  const { data: spendRows } = await db
-    .from('marketing_spend')
-    .select('spend_date, ad_spend_cents')
-    .eq('campaign_id', campaign.id)
-    .order('spend_date', { ascending: true });
+  const budget = await getCampaignBudget(campaign.id);
+  if (budget.prepaidCents <= 0) return;  // No prepay yet (shouldn't be active anyway).
 
-  if (!spendRows?.length) return;
+  const dailyBundled = Math.round((campaign.daily_budget_cents || 0) * 1.05);
+  const daysRemaining = dailyBundled > 0 ? budget.remainingCents / dailyBundled : 999;
 
-  const { data: existingDebits } = await db
-    .from('marketing_wallet_transactions')
-    .select('spend_date')
-    .eq('campaign_id', campaign.id)
-    .eq('kind', 'debit');
-
-  const debited = new Set((existingDebits || []).map((r: { spend_date: string }) => r.spend_date));
-
-  let walletDepleted = false;
-  for (const row of spendRows) {
-    if (debited.has(row.spend_date) || row.ad_spend_cents <= 0) continue;
-    const result = await debitWalletForSpend({
-      siteId: campaign.site_id,
-      campaignId: campaign.id,
-      spendDate: row.spend_date,
-      rawAdSpendCents: row.ad_spend_cents,
-      actor: 'cron',
-    });
-    if (result.depleted) walletDepleted = true;
-  }
-
-  // Wallet-empty handling: pause this campaign + notify the customer (once).
-  if (walletDepleted) {
-    const wallet = await getWallet(campaign.site_id);
-    if (!wallet) return;
-
+  // Depleted: pause and notify (idempotent — only paused once).
+  if (budget.depleted) {
     if (campaign.status === 'active' && campaign.channel === 'google_ads' && campaign.external_campaign_id) {
       try {
         await pauseGoogleCampaign(campaign.external_campaign_id);
@@ -132,29 +111,55 @@ async function reconcileCampaignWallet(campaign: Campaign, db: any): Promise<voi
           campaign_id: campaign.id,
           action: 'paused',
           actor: 'system',
-          details: { reason: 'wallet_depleted' },
+          details: { reason: 'budget_depleted' },
+        });
+
+        try {
+          await sendMarketingCampaignBudgetDepleted({
+            siteId: campaign.site_id,
+            campaignId: campaign.id,
+            campaignName: campaign.name,
+          });
+        } catch (err) {
+          console.error('[performance] depleted notification failed:', err);
+        }
+      } catch (err) {
+        console.error('[performance] failed to auto-pause depleted campaign:', err);
+      }
+    }
+    return;
+  }
+
+  // Heads-up when remaining budget is below threshold.
+  if (daysRemaining <= LOW_BUDGET_THRESHOLD_DAYS) {
+    // Use a log entry as our idempotency guard — only one low-budget email per "low" period.
+    const { data: existingLog } = await db
+      .from('marketing_campaign_log')
+      .select('id')
+      .eq('campaign_id', campaign.id)
+      .eq('action', 'budget_low_notified')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    // Only notify if we haven't already notified for this low period (i.e. since last topup).
+    if (!existingLog) {
+      try {
+        await sendMarketingCampaignBudgetLow({
+          siteId: campaign.site_id,
+          campaignId: campaign.id,
+          campaignName: campaign.name,
+          remainingCents: budget.remainingCents,
+          dailyBundledCents: dailyBundled,
+        });
+        await db.from('marketing_campaign_log').insert({
+          campaign_id: campaign.id,
+          action: 'budget_low_notified',
+          actor: 'system',
+          details: { remaining_cents: budget.remainingCents },
         });
       } catch (err) {
-        console.error('[performance] Failed to auto-pause depleted campaign:', err);
-      }
-    }
-
-    if (shouldNotifyEmpty(wallet)) {
-      try {
-        await sendMarketingWalletEmpty({ siteId: campaign.site_id, balanceCents: wallet.balance_cents });
-        await markEmptyNotified(wallet.id);
-      } catch (err) {
-        console.error('[performance] Failed to send wallet-empty email:', err);
-      }
-    }
-  } else {
-    const wallet = await getWallet(campaign.site_id);
-    if (wallet && shouldNotifyLowBalance(wallet)) {
-      try {
-        await sendMarketingWalletLow({ siteId: campaign.site_id, balanceCents: wallet.balance_cents });
-        await markLowBalanceNotified(wallet.id);
-      } catch (err) {
-        console.error('[performance] Failed to send wallet-low email:', err);
+        console.error('[performance] low-budget notification failed:', err);
       }
     }
   }
@@ -166,6 +171,7 @@ async function syncGoogleCampaign(
   campaign: Campaign,
   startDate: string,
   endDate: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db: any,
 ): Promise<void> {
   const metrics = await getGooglePerformance(
@@ -206,6 +212,7 @@ async function syncMetaCampaign(
   campaign: Campaign,
   startDate: string,
   endDate: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db: any,
 ): Promise<void> {
   const metrics = await getMetaPerformance(

@@ -1,15 +1,10 @@
 /**
- * Marketing wallet email notifications (low balance, depleted).
+ * Marketing email notifications: per-campaign budget alerts, ops launch
+ * pending pings, customer "campaign is live" notifications, daily digest.
  */
 
 import { resend } from '@/lib/email/resend';
 import { createAdminClient } from '@/lib/db/supabase-admin';
-
-interface NotifyOpts {
-  siteId: string;
-  balanceCents: number;
-  pausedCampaignCount?: number;
-}
 
 async function resolveRecipient(siteId: string): Promise<{ email: string; siteName: string } | null> {
   const db = createAdminClient();
@@ -30,37 +25,6 @@ async function resolveRecipient(siteId: string): Promise<{ email: string; siteNa
   return { email, siteName };
 }
 
-export async function sendMarketingWalletLow(opts: NotifyOpts) {
-  const recipient = await resolveRecipient(opts.siteId);
-  if (!recipient) return { success: false };
-
-  const remaining = `$${(opts.balanceCents / 100).toFixed(2)}`;
-  const topupUrl = `https://keystoneweb.ca/admin/marketing/budget?siteId=${opts.siteId}`;
-
-  await resend.emails.send({
-    from: 'Keystone Web Design <hello@keystoneweb.ca>',
-    to: recipient.email,
-    subject: `Marketing balance low — ${remaining} left for ${recipient.siteName}`,
-    html: `
-      <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:24px;">
-        <h2 style="margin:0 0 12px;color:#111827;">Your marketing balance is running low</h2>
-        <p style="color:#374151;line-height:1.5;">
-          You have <strong>${remaining}</strong> remaining in your marketing wallet for
-          <strong>${recipient.siteName}</strong>. Top up now to avoid your ads pausing.
-        </p>
-        <p style="margin-top:24px;">
-          <a href="${topupUrl}" style="background:#10b981;color:white;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600;">
-            Top up balance
-          </a>
-        </p>
-      </div>
-    `,
-    text: `Your marketing balance for ${recipient.siteName} is at ${remaining}. Top up: ${topupUrl}`,
-  });
-
-  return { success: true };
-}
-
 export interface DailyDigestCampaignRow {
   name: string;
   channel: string;
@@ -69,7 +33,7 @@ export interface DailyDigestCampaignRow {
 
 export async function sendMarketingDailyDigest(opts: {
   siteId: string;
-  walletBalanceCents: number;
+  totalRemainingCents: number;
   campaigns: DailyDigestCampaignRow[];
 }) {
   const recipient = await resolveRecipient(opts.siteId);
@@ -143,7 +107,7 @@ export async function sendMarketingDailyDigest(opts: {
       </table>
 
       <p style="margin-top:20px;font-size:13px;color:#475569;">
-        Wallet balance: <strong>${fmt(opts.walletBalanceCents)}</strong>.
+        Remaining budget across active campaigns: <strong>${fmt(opts.totalRemainingCents)}</strong>.
       </p>
 
       <p style="margin-top:20px;">
@@ -233,6 +197,87 @@ export async function sendMarketingOpsPendingNotification(opts: {
 }
 
 /**
+ * Notify the customer that their campaign's prepaid budget is running low
+ * (under ~2 days of spend remaining).
+ */
+export async function sendMarketingCampaignBudgetLow(opts: {
+  siteId: string;
+  campaignId: string;
+  campaignName: string;
+  remainingCents: number;
+  dailyBundledCents: number;
+}) {
+  const recipient = await resolveRecipient(opts.siteId);
+  if (!recipient) return { success: false };
+  const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
+  const daysLeft = opts.dailyBundledCents > 0
+    ? Math.max(0, Math.floor(opts.remainingCents / opts.dailyBundledCents))
+    : 0;
+  const url = `https://keystoneweb.ca/admin/marketing/campaigns/${opts.campaignId}?siteId=${opts.siteId}`;
+
+  await resend.emails.send({
+    from: 'Keystone Web Design <hello@keystoneweb.ca>',
+    to: recipient.email,
+    subject: `Campaign budget running low — ${opts.campaignName}`,
+    html: `
+      <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0f172a;">
+        <h2 style="margin:0 0 12px;">Your campaign budget is running low</h2>
+        <p style="color:#475569;line-height:1.5;">
+          <strong>${opts.campaignName}</strong> has <strong>${fmt(opts.remainingCents)}</strong>
+          left in its prepaid budget &mdash; about <strong>${daysLeft} day${daysLeft === 1 ? '' : 's'}</strong> at the current spend rate.
+          Add more budget now to avoid pausing.
+        </p>
+        <p style="margin-top:24px;">
+          <a href="${url}" style="background:#10b981;color:white;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600;">
+            Add budget
+          </a>
+        </p>
+      </div>
+    `,
+    text: `Your campaign "${opts.campaignName}" has ${fmt(opts.remainingCents)} left (~${daysLeft} days). Add more: ${url}`,
+  });
+
+  return { success: true };
+}
+
+/**
+ * Notify the customer that their campaign was paused because the prepaid
+ * budget was fully spent.
+ */
+export async function sendMarketingCampaignBudgetDepleted(opts: {
+  siteId: string;
+  campaignId: string;
+  campaignName: string;
+}) {
+  const recipient = await resolveRecipient(opts.siteId);
+  if (!recipient) return { success: false };
+  const url = `https://keystoneweb.ca/admin/marketing/campaigns/${opts.campaignId}?siteId=${opts.siteId}`;
+
+  await resend.emails.send({
+    from: 'Keystone Web Design <hello@keystoneweb.ca>',
+    to: recipient.email,
+    subject: `Campaign paused — budget depleted (${opts.campaignName})`,
+    html: `
+      <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0f172a;">
+        <h2 style="margin:0 0 12px;">Your campaign is paused</h2>
+        <p style="color:#475569;line-height:1.5;">
+          <strong>${opts.campaignName}</strong> finished its prepaid budget and was paused.
+          Top up to resume serving ads.
+        </p>
+        <p style="margin-top:24px;">
+          <a href="${url}" style="background:#10b981;color:white;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600;">
+            Add budget &amp; resume
+          </a>
+        </p>
+      </div>
+    `,
+    text: `Your campaign "${opts.campaignName}" was paused — prepaid budget depleted. Top up: ${url}`,
+  });
+
+  return { success: true };
+}
+
+/**
  * Notify the customer that their campaign just went live in Google.
  */
 export async function sendMarketingCampaignLive(opts: {
@@ -269,36 +314,3 @@ export async function sendMarketingCampaignLive(opts: {
   return { success: true };
 }
 
-export async function sendMarketingWalletEmpty(opts: NotifyOpts) {
-  const recipient = await resolveRecipient(opts.siteId);
-  if (!recipient) return { success: false };
-
-  const pausedCount = opts.pausedCampaignCount ?? 0;
-  const topupUrl = `https://keystoneweb.ca/admin/marketing/budget?siteId=${opts.siteId}`;
-  const subject = `Marketing campaigns paused — top up to resume`;
-
-  await resend.emails.send({
-    from: 'Keystone Web Design <hello@keystoneweb.ca>',
-    to: recipient.email,
-    subject,
-    html: `
-      <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:24px;">
-        <h2 style="margin:0 0 12px;color:#111827;">Your marketing wallet is empty</h2>
-        <p style="color:#374151;line-height:1.5;">
-          ${pausedCount > 0
-            ? `We paused <strong>${pausedCount}</strong> active campaign${pausedCount === 1 ? '' : 's'} for <strong>${recipient.siteName}</strong>.`
-            : `Your campaigns for <strong>${recipient.siteName}</strong> have been paused.`}
-          Top up your balance to resume them.
-        </p>
-        <p style="margin-top:24px;">
-          <a href="${topupUrl}" style="background:#10b981;color:white;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600;">
-            Top up & resume
-          </a>
-        </p>
-      </div>
-    `,
-    text: `Your marketing wallet for ${recipient.siteName} is empty and your campaigns are paused. Top up: ${topupUrl}`,
-  });
-
-  return { success: true };
-}
