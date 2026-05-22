@@ -7,6 +7,7 @@ import {
   ArrowLeft, Pause, Play, Trash2, CheckCircle2,
   TrendingUp, MousePointerClick, Eye, DollarSign, Loader2,
   Activity, ExternalLink, ShoppingBag, Calendar, Mail, Users,
+  Sparkles, AlertCircle, Wallet,
 } from 'lucide-react';
 import { useAdminContext } from '../../../admin-context';
 import { STATUS_LABELS, STATUS_COLORS, CHANNEL_LABELS, CAMPAIGN_TYPE_LABELS } from '@/lib/marketing/types';
@@ -20,35 +21,56 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const router = useRouter();
   const searchParams = useSearchParams();
   const justLaunched = searchParams.get('just') === 'launched';
+  const arrivedNeedingFunds = searchParams.get('needsFunds') === '1';
 
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [conversions, setConversions] = useState<Conversions | null>(null);
+  const [walletBalanceCents, setWalletBalanceCents] = useState<number | null>(null);
+  const [needsFunds, setNeedsFunds] = useState<{ balanceCents: number; requiredCents: number } | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [campRes, actRes] = await Promise.all([
+      const [campRes, actRes, walletRes] = await Promise.all([
         fetch(`/api/admin/marketing/campaigns/${id}?siteId=${siteId}`, { credentials: 'include' }),
         fetch(`/api/admin/marketing/campaigns/${id}/activity?siteId=${siteId}`, { credentials: 'include' }),
+        fetch(`/api/admin/marketing/wallet?siteId=${siteId}`, { credentials: 'include' }),
       ]);
       if (cancelled) return;
+      let camp: Campaign | null = null;
       if (campRes.ok) {
         const d = await campRes.json();
-        setCampaign(d.campaign);
+        camp = d.campaign;
+        setCampaign(camp);
       }
       if (actRes.ok) {
         const a = await actRes.json();
         setActivity(a.activity || []);
         setConversions(a.conversions || null);
       }
+      let balance: number | null = null;
+      if (walletRes.ok) {
+        const w = await walletRes.json();
+        balance = w.wallet?.balance_cents ?? 0;
+        setWalletBalanceCents(balance);
+      }
+      // Surface a needs-funds banner if the user just arrived from a failed launch,
+      // or if they're sitting on a draft they can't approve at current balance.
+      if (camp && balance !== null) {
+        const required = camp.daily_budget_cents || 0;
+        const isApprovable = camp.status === 'draft' || camp.status === 'suggested' || camp.status === 'failed';
+        if (isApprovable && (arrivedNeedingFunds || balance < required)) {
+          setNeedsFunds({ balanceCents: balance, requiredCents: required });
+        }
+      }
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [id, siteId]);
+  }, [id, siteId, arrivedNeedingFunds]);
 
   async function doAction(action: 'pause' | 'resume') {
     setErr(null);
@@ -64,6 +86,33 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       return;
     }
     setCampaign(data.campaign);
+    setActing(false);
+  }
+
+  async function doApprove() {
+    setErr(null);
+    setNeedsFunds(null);
+    setActing(true);
+    const res = await fetch(`/api/admin/marketing/campaigns/${id}/approve`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      if (res.status === 402) {
+        setNeedsFunds({
+          balanceCents: typeof data.walletBalanceCents === 'number' ? data.walletBalanceCents : (walletBalanceCents ?? 0),
+          requiredCents: typeof data.requiredCents === 'number' ? data.requiredCents : (campaign?.daily_budget_cents ?? 0),
+        });
+      } else {
+        setErr(data.error || 'Failed to approve campaign');
+      }
+      setActing(false);
+      return;
+    }
+    if (data.campaign) {
+      setCampaign(data.campaign);
+    }
     setActing(false);
   }
 
@@ -114,6 +163,40 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
         </div>
       )}
 
+      {needsFunds && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+          <div className="flex-1 text-sm">
+            <p className="font-bold text-red-900">Not enough funds to launch</p>
+            <p className="text-red-800 mt-0.5">
+              Your draft is saved. Wallet balance is{' '}
+              <strong>{formatCents(needsFunds.balanceCents)}</strong>, but at least{' '}
+              <strong>{formatCents(needsFunds.requiredCents)}</strong>/day is required to launch this campaign.
+              Top up your wallet and come back here to approve & launch.
+            </p>
+          </div>
+          <Link
+            href={`/admin/marketing/budget?siteId=${siteId}`}
+            className="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-500 text-white px-3 py-2 rounded-lg text-sm font-bold flex-shrink-0"
+          >
+            <Wallet className="w-3.5 h-3.5" /> Top up wallet
+          </Link>
+        </div>
+      )}
+
+      {!needsFunds && (campaign.status === 'draft' || campaign.status === 'suggested') && walletBalanceCents !== null && (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 flex items-start gap-3">
+          <CheckCircle2 className="w-5 h-5 text-slate-500 flex-shrink-0" />
+          <div className="flex-1 text-sm">
+            <p className="font-bold text-slate-900">Draft saved</p>
+            <p className="text-slate-700 mt-0.5">
+              Review the details below, then approve & launch when you&apos;re ready. Your wallet balance is{' '}
+              <strong>{formatCents(walletBalanceCents)}</strong>.
+            </p>
+          </div>
+        </div>
+      )}
+
       {campaign.status === 'pending_launch' && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
           <Loader2 className="w-5 h-5 text-amber-600 flex-shrink-0 animate-spin" />
@@ -140,6 +223,16 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           <h1 className="text-2xl font-black text-slate-900 mt-2">{campaign.name}</h1>
         </div>
         <div className="flex items-center gap-2">
+          {(campaign.status === 'draft' || campaign.status === 'suggested' || campaign.status === 'failed') && (
+            <button
+              type="button"
+              disabled={acting}
+              onClick={doApprove}
+              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg text-sm font-bold disabled:opacity-50"
+            >
+              {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Approve & launch
+            </button>
+          )}
           {campaign.status === 'active' && (
             <button
               type="button"
@@ -160,7 +253,7 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
               {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />} Resume
             </button>
           )}
-          {(campaign.status === 'active' || campaign.status === 'paused' || campaign.status === 'draft') && (
+          {(campaign.status === 'active' || campaign.status === 'paused' || campaign.status === 'draft' || campaign.status === 'suggested' || campaign.status === 'failed') && (
             <button
               type="button"
               disabled={acting}

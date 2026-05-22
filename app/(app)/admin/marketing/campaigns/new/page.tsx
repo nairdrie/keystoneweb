@@ -142,8 +142,13 @@ export default function NewCampaignPage() {
       });
 
       if (!primaryResult.ok) {
-        if (primaryResult.status === 402) setError('Your wallet balance is too low to launch. Top up first.');
-        else setError(primaryResult.error || 'Failed to launch campaign');
+        // Insufficient funds: the draft was created but couldn't launch.
+        // Send the user to the draft detail page where they can top up and approve.
+        if (primaryResult.status === 402 && primaryResult.id) {
+          router.push(`/admin/marketing/campaigns/${primaryResult.id}?siteId=${siteId}&needsFunds=1`);
+          return;
+        }
+        setError(primaryResult.error || 'Failed to launch campaign');
         setSubmitting(false);
         return;
       }
