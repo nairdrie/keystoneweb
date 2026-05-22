@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { UserPlus, Eye, EyeOff, Loader2, Check, ChevronLeft } from 'lucide-react';
+import { getMarketingTracking } from '@/lib/marketing/utm-capture';
 
 interface FormField {
   key: string;
@@ -184,6 +185,7 @@ export default function MemberSignUpPage({ siteId, siteName, palette, branding }
           country: formData.country || null,
           province: formData.province || null,
           marketingOptIn,
+          tracking: getMarketingTracking(),
         }),
       });
 

@@ -21,6 +21,64 @@ import type {
 } from './types';
 import { buildCampaignFinalUrl } from './utm';
 
+// ── Mock mode ────────────────────────────────────────────────────────────────
+// Set GOOGLE_ADS_MOCK=true in .env.local to skip all real Google API calls.
+// Campaign IDs, metrics, and activity data are synthesised locally so the
+// full app flow (wallet, DB writes, wizard, metrics panel) can be exercised
+// without a Google Ads account or billing.
+
+function isMockMode(): boolean {
+  return process.env.GOOGLE_ADS_MOCK === 'true';
+}
+
+function mockCampaignResult(campaignId?: string): GoogleCampaignResult {
+  const id = campaignId || `mock-${Date.now()}`;
+  return { campaignId: id, adGroupId: `ag-${id}`, adId: `ad-${id}` };
+}
+
+// Generates metrics that slowly grow over time so the dashboard looks alive.
+function mockPerformance(externalCampaignId: string, startDate: string, endDate: string): GooglePerformanceMetrics {
+  const seed = externalCampaignId.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const days = Math.max(1, (Date.parse(endDate) - Date.parse(startDate)) / 86_400_000 + 1);
+  const impressions = Math.floor((seed % 300 + 100) * days);
+  const clicks = Math.floor(impressions * (0.03 + (seed % 5) * 0.005));
+  const costCents = clicks * (30 + seed % 40);
+  const costMicros = costCents * 10_000;
+  const ctr = impressions > 0 ? clicks / impressions : 0;
+  const cpcCents = clicks > 0 ? Math.round(costCents / clicks) : 0;
+  return { impressions, clicks, conversions: Math.floor(clicks * 0.08), costMicros, costCents, ctr, cpcCents };
+}
+
+function mockActivitySegments(externalCampaignId: string, startDate: string, endDate: string): ActivitySegmentRow[] {
+  const seed = externalCampaignId.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const cities = ['Toronto', 'Vancouver', 'Calgary', 'Ottawa', 'Montreal'];
+  const regions = ['Ontario', 'British Columbia', 'Alberta', 'Ontario', 'Quebec'];
+  const devices = ['MOBILE', 'DESKTOP', 'TABLET'];
+  const rows: ActivitySegmentRow[] = [];
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const date = d.toISOString().slice(0, 10);
+    for (let h = 8; h <= 20; h += 3) {
+      const i = (seed + h) % cities.length;
+      const impressions = Math.floor((seed % 20 + 5) * (1 + h / 24));
+      const clicks = Math.floor(impressions * 0.04);
+      rows.push({
+        date,
+        hour: h,
+        city: cities[i],
+        region: regions[i],
+        country: 'Canada',
+        device: devices[(seed + h) % devices.length],
+        impressions,
+        clicks,
+        costCents: clicks * (30 + seed % 20),
+      });
+    }
+  }
+  return rows;
+}
+
 // ── Config ───────────────────────────────────────────────────────────────────
 
 function getConfig() {
@@ -143,6 +201,10 @@ export interface GoogleCampaignResult {
 export async function createSearchCampaign(
   campaign: Campaign,
 ): Promise<GoogleCampaignResult> {
+  if (isMockMode()) {
+    console.log('[google-ads mock] createSearchCampaign', campaign.name);
+    return mockCampaignResult(`search-${campaign.id?.slice(0, 8)}`);
+  }
   const customer = await getClient();
   const content = campaign.content as GoogleSearchContent;
 
@@ -228,6 +290,10 @@ export async function createSearchCampaign(
 export async function createDisplayCampaign(
   campaign: Campaign,
 ): Promise<GoogleCampaignResult> {
+  if (isMockMode()) {
+    console.log('[google-ads mock] createDisplayCampaign', campaign.name);
+    return mockCampaignResult(`display-${campaign.id?.slice(0, 8)}`);
+  }
   const customer = await getClient();
   const content = campaign.content as GoogleDisplayContent;
 
@@ -316,6 +382,10 @@ async function uploadImageAssets(
 export async function pauseCampaign(
   externalCampaignId: string,
 ): Promise<void> {
+  if (isMockMode()) {
+    console.log('[google-ads mock] pauseCampaign', externalCampaignId);
+    return;
+  }
   const customer = await getClient();
   const customerId = getConfig().customerId;
   await customer.campaigns.update([{
@@ -327,6 +397,10 @@ export async function pauseCampaign(
 export async function resumeCampaign(
   externalCampaignId: string,
 ): Promise<void> {
+  if (isMockMode()) {
+    console.log('[google-ads mock] resumeCampaign', externalCampaignId);
+    return;
+  }
   const customer = await getClient();
   const customerId = getConfig().customerId;
   await customer.campaigns.update([{

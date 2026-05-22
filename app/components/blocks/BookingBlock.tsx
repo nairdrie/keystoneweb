@@ -9,6 +9,7 @@ import {
     Edit2, Search, X, CreditCard, Package, Star, Send, GripVertical, Upload
 } from 'lucide-react';
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
+import { getMarketingTracking } from '@/lib/marketing/utm-capture';
 import PayPalButton from '@/app/components/ecommerce/PayPalButton';
 import Reveal from '@/app/components/Reveal';
 import ConvergeLightbox from '@/app/components/ecommerce/ConvergeLightbox';
@@ -1732,6 +1733,7 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                 paymentMethod: chosenPaymentMethod,
                 selectedOptionName: selectedOption?.name || undefined,
                 totalPriceCents: effectivePriceCents,
+                tracking: getMarketingTracking(),
             }),
         });
 

@@ -10,6 +10,7 @@ import PayPalButton from './PayPalButton';
 import { COUNTRIES, REGIONS, getCountryName } from '@/lib/shipping-data';
 import ConvergeLightbox from './ConvergeLightbox';
 import CloverIframe from '../checkout/CloverIframe';
+import { getMarketingTracking } from '@/lib/marketing/utm-capture';
 
 interface PaymentMethods {
     etransfer?: boolean;
@@ -541,6 +542,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                     notes: form.notes.trim() || undefined,
                     saveProfile: !member ? saveProfile : undefined,
                     marketingOptIn: !member ? marketingOptIn : undefined,
+                    tracking: getMarketingTracking(),
                 }),
             });
 
@@ -875,6 +877,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                     notes: form.notes.trim() || undefined,
                     saveProfile: !member ? saveProfile : undefined,
                     marketingOptIn: !member ? marketingOptIn : undefined,
+                    tracking: getMarketingTracking(),
                 }),
             });
             const orderData = await orderRes.json();

@@ -41,6 +41,7 @@ export default function NewCampaignPage() {
   const [locationValue, setLocationValue] = useState<LocationValue>({ mode: 'auto' });
   const [alsoDisplay, setAlsoDisplay] = useState(true);
   const [displayImages, setDisplayImages] = useState<string[]>([]);
+  const [campaignDurationDays, setCampaignDurationDays] = useState<number | null>(30);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -77,7 +78,7 @@ export default function NewCampaignPage() {
       setGenerated(data.result);
       setCampaignName(data.result.name);
       setEditedContent(data.result.content);
-      setBusinessName(data.context?.businessName || siteTitle || '');
+      setBusinessName(stripHtml(data.context?.businessName || siteTitle || ''));
       setLocationValue(locationValueFromTargeting(data.result.targeting));
       if (data.result.suggestedDailyBudgetCents) {
         setDailyBudget(data.result.suggestedDailyBudgetCents);
@@ -119,6 +120,10 @@ export default function NewCampaignPage() {
     const includeDisplay = channel === 'google_ads' && alsoDisplay;
     const searchBudget = includeDisplay ? Math.round(dailyBudget * SEARCH_SPLIT) : dailyBudget;
     const displayBudget = dailyBudget - searchBudget;
+    const startDate = new Date().toISOString().slice(0, 10);
+    const endDate = campaignDurationDays
+      ? new Date(Date.now() + campaignDurationDays * 86_400_000).toISOString().slice(0, 10)
+      : undefined;
 
     try {
       // Primary campaign (Search for google_ads, the chosen format for other channels)
@@ -130,6 +135,8 @@ export default function NewCampaignPage() {
         content: editedContent,
         targeting,
         daily_budget_cents: searchBudget,
+        start_date: startDate,
+        ...(endDate && { end_date: endDate }),
         ai_generated: true,
         ai_rationale: generated.rationale,
       });
@@ -152,6 +159,8 @@ export default function NewCampaignPage() {
           content: displayContent,
           targeting,
           daily_budget_cents: displayBudget,
+          start_date: startDate,
+          ...(endDate && { end_date: endDate }),
           ai_generated: true,
           ai_rationale: 'Companion display campaign — visual reach across the Google Display Network.',
         });
@@ -296,6 +305,8 @@ export default function NewCampaignPage() {
           setAlsoDisplay={setAlsoDisplay}
           displayImages={displayImages}
           setDisplayImages={setDisplayImages}
+          campaignDurationDays={campaignDurationDays}
+          setCampaignDurationDays={setCampaignDurationDays}
           submitting={submitting}
           onLaunch={handleLaunch}
           onBack={() => setStep('goal')}
@@ -344,6 +355,8 @@ interface ReviewFormProps {
   setAlsoDisplay: (v: boolean) => void;
   displayImages: string[];
   setDisplayImages: (urls: string[]) => void;
+  campaignDurationDays: number | null;
+  setCampaignDurationDays: (v: number | null) => void;
   submitting: boolean;
   onLaunch: () => void;
   onBack: () => void;
@@ -452,7 +465,7 @@ function ReviewForm(p: ReviewFormProps) {
         />
       )}
 
-      <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+      <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
         <div>
           <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1">Daily budget (CAD)</label>
           <div className="relative">
@@ -469,14 +482,52 @@ function ReviewForm(p: ReviewFormProps) {
           {showDisplayCompanion ? (
             <p className="text-xs text-slate-500 mt-1.5">
               Split: <strong>{formatCents(searchBudget)}</strong>/day Search · <strong>{formatCents(displayBudget)}</strong>/day Display.
-              Total ceiling: <strong>{formatCents(p.dailyBudget)}</strong>/day.
             </p>
           ) : (
             <p className="text-xs text-slate-500 mt-1.5">
-              We&apos;ll spend up to <strong>{formatCents(p.dailyBudget)}</strong>/day. Your wallet is debited as ads run.
+              Up to <strong>{formatCents(p.dailyBudget)}</strong>/day. Wallet is debited as ads run.
             </p>
           )}
         </div>
+
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Campaign duration</label>
+          <div className="flex flex-wrap gap-2">
+            {([null, 7, 14, 30, 60] as (number | null)[]).map(d => (
+              <button
+                key={d ?? 'ongoing'}
+                type="button"
+                onClick={() => p.setCampaignDurationDays(d)}
+                className={`px-3 py-1.5 rounded-md border text-xs font-bold transition-colors ${
+                  p.campaignDurationDays === d
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-900'
+                    : 'border-slate-200 hover:border-slate-300 text-slate-700'
+                }`}
+              >
+                {d === null ? 'Ongoing' : `${d} days`}
+              </button>
+            ))}
+          </div>
+          {p.campaignDurationDays ? (
+            <p className="text-xs text-slate-500 mt-1.5">
+              Estimated total: <strong>{formatCents(p.dailyBudget * p.campaignDurationDays)}</strong> over {p.campaignDurationDays} days. Campaign pauses automatically when it ends.
+            </p>
+          ) : (
+            <p className="text-xs text-slate-500 mt-1.5">
+              Runs until you pause or cancel it. No automatic end.
+            </p>
+          )}
+        </div>
+
+        {p.campaignDurationDays && (
+          <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-600">Total wallet required</span>
+              <span className="font-black text-slate-900">{formatCents(p.dailyBudget * p.campaignDurationDays)}</span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">Actual spend depends on traffic. Unused balance stays in your wallet.</p>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between pt-2">
@@ -515,6 +566,17 @@ function PreviewTab({ active, onClick, icon, label }: {
       {icon} {label}
     </button>
   );
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function stripHtml(html: string): string {
+  if (typeof document !== 'undefined') {
+    const el = document.createElement('div');
+    el.innerHTML = html;
+    return (el.textContent || el.innerText || '').trim();
+  }
+  return html.replace(/<[^>]*>/g, '').trim();
 }
 
 // ── Display derivation ───────────────────────────────────────────────────────
