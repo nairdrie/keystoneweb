@@ -57,12 +57,15 @@ export default async function PreviewPage({
 
     // Determine which page to show: use pageId param if provided, else fall back to home
     let currentPageData: Record<string, any> = {};
+    let currentPageIdForContext: string | undefined;
     if (pageId && allPages) {
       const targetPage = allPages.find((p: any) => p.id === pageId);
       currentPageData = targetPage?.design_data || {};
+      currentPageIdForContext = targetPage?.id;
     } else if (allPages) {
       const homePage = allPages.find((p: any) => p.slug === 'home');
       currentPageData = homePage?.design_data || {};
+      currentPageIdForContext = homePage?.id;
     }
 
     const siteDesignData = site.design_data || {};
@@ -82,6 +85,7 @@ export default async function PreviewPage({
       ...siteDesignData,
       ...currentPageData,
       __pages: (allPages || []).map(({ id, slug, title }: any) => ({ id, slug, title })),
+      __currentPageId: currentPageIdForContext,
       __currentLanguage: translationsConfig?.defaultLanguage || 'en',
       __translationsConfig: translationsConfig || null,
       __hasProductBlock: hasProductBlock,

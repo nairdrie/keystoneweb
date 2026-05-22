@@ -37,7 +37,7 @@ export default async function CustomDomainPage({
     // Fetch the home page's published data which contains the actual blocks
     const { data: homePage } = await supabase
       .from('pages')
-      .select('published_data')
+      .select('id, published_data')
       .eq('site_id', site.id)
       .eq('slug', 'home')
       .single();
@@ -62,6 +62,7 @@ export default async function CustomDomainPage({
       ...sitePublishData,
       ...pagePublishData,
       __pages: (allPages || []).map(({ id, slug, title }: any) => ({ id, slug, title })),
+      __currentPageId: homePage?.id,
       __currentLanguage: translationsConfig?.defaultLanguage || 'en',
       __translationsConfig: translationsConfig || null,
       __hasProductBlock: hasProductBlock,

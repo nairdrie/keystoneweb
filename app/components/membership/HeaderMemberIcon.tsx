@@ -213,6 +213,7 @@ export default function HeaderMemberIcon({ color = '#475569' }: { color?: string
           pages={pages}
           blocks={blocks}
           siteId={siteId}
+          currentPageId={context?.currentPageId}
           onSave={saveLink}
           onClose={() => setEditingItem(null)}
         />

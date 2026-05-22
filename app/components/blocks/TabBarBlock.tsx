@@ -86,6 +86,7 @@ export default function TabBarBlock({ id, data, isEditMode, palette, updateConte
                 pages={pages}
                 blocks={blocks}
                 siteId={context?.siteId}
+                currentPageId={context?.currentPageId}
             />
         );
     }

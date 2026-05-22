@@ -154,7 +154,7 @@ async function renderHomePage(
     // Fetch home page
     const { data: homePage } = await supabase
         .from('pages')
-        .select('published_data, translations')
+        .select('id, published_data, translations')
         .eq('site_id', site.id)
         .eq('slug', 'home')
         .single();
@@ -191,6 +191,7 @@ async function renderHomePage(
         ...translatedSiteData,
         ...translatedPageData,
         __pages: (allPages || []).map(({ id, slug, title }: any) => ({ id, slug, title })),
+        __currentPageId: homePage?.id,
         __currentLanguage: language,
         __translationsConfig: config,
         __hasProductBlock: hasProductBlock,
@@ -256,7 +257,7 @@ async function renderPage(
 
     const { data: routePage, error: pageError } = await supabase
         .from('pages')
-        .select('published_data, translations')
+        .select('id, published_data, translations')
         .eq('site_id', site.id)
         .eq('slug', pageSlug)
         .single();
@@ -297,6 +298,7 @@ async function renderPage(
         ...translatedSiteData,
         ...translatedPageData,
         __pages: (allPages || []).map(({ id, slug, title }: any) => ({ id, slug, title })),
+        __currentPageId: routePage.id,
         __currentLanguage: language,
         __translationsConfig: config,
         __hasProductBlock: hasProductBlock,

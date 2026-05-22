@@ -923,6 +923,7 @@ export const blockDocs: BlockDoc[] = [
       { label: 'Item title', description: 'Sets the title for an item.' },
       { label: 'Item text', description: 'Adds supporting text for an item.' },
       { label: 'Layout', description: 'Changes the carousel style.', notes: 'Available layouts include Cards, Split Slides, and Minimal.' },
+      { label: 'Columns', description: 'Controls how many carousel cards appear at once.' },
       { label: 'Auto-scroll slides', description: 'Automatically advances carousel slides when enabled.' },
       { label: 'Interval', description: 'Controls how long each carousel slide stays visible before advancing.' },
     ],

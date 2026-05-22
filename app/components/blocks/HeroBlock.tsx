@@ -507,6 +507,8 @@ function HeroCardContent({
     const showText = card.content.pretext.enabled || card.content.title.enabled || card.content.subtitle.enabled || card.content.cta.enabled || hasSocial;
     const showForeground = card.content.image.enabled && (card.content.image.url || isEditMode);
     const imageOnRight = card.content.image.side !== 'left';
+    const imageLayout = card.content.image.layout === 'split' ? 'split' : 'contained';
+    const splitScreen = showForeground && imageLayout === 'split';
 
     // Default text color: white when on a media background, primary otherwise.
     const isMediaBg = card.background.type === 'image' || card.background.type === 'video' || card.background.type === 'animation';
@@ -554,7 +556,7 @@ function HeroCardContent({
                         defaultValue={DEFAULT_TITLE}
                         isEditMode={isEditMode}
                         onSave={onSave}
-                        className={`hero-title text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight ${TEXT_ALIGN_CLASS[card.content.title.align]}`}
+                        className={`hero-title ${splitScreen ? 'text-3xl sm:text-4xl lg:text-5xl' : 'text-3xl sm:text-4xl md:text-5xl lg:text-6xl'} font-extrabold leading-tight ${TEXT_ALIGN_CLASS[card.content.title.align]}`}
                         style={{ color: textColor }}
                     />
                 </Reveal>
@@ -572,7 +574,7 @@ function HeroCardContent({
                         defaultValue={DEFAULT_SUBTITLE}
                         isEditMode={isEditMode}
                         onSave={onSave}
-                        className={`hero-subtitle mt-6 text-base sm:text-lg md:text-xl ${TEXT_ALIGN_CLASS[card.content.subtitle.align]}`}
+                        className={`hero-subtitle ${splitScreen ? 'mt-5 text-sm sm:text-base' : 'mt-6 text-base sm:text-lg md:text-xl'} ${TEXT_ALIGN_CLASS[card.content.subtitle.align]}`}
                         style={{ color: isMediaBg ? 'rgba(255,255,255,0.85)' : 'rgba(15,23,42,0.7)' }}
                     />
                 </Reveal>
@@ -611,7 +613,9 @@ function HeroCardContent({
                                 defaultLabel={DEFAULT_CTA_LABEL}
                                 isEditMode={isEditMode}
                                 onSave={onSave}
-                                className="hero-button px-8 py-4 text-white font-bold rounded-lg shadow-lg hover:opacity-90 transition-opacity inline-block"
+                                className={splitScreen
+                                    ? 'hero-button px-6 py-3 text-sm text-white font-bold rounded-md hover:opacity-90 transition-opacity inline-block'
+                                    : 'hero-button px-8 py-4 text-white font-bold rounded-lg shadow-lg hover:opacity-90 transition-opacity inline-block'}
                                 style={{ backgroundColor: pSecondary, color: '#ffffff' }}
                                 palette={palette}
                             />
@@ -625,7 +629,9 @@ function HeroCardContent({
                                     isEditMode={isEditMode}
                                     onSave={onSave}
                                     defaultFill="ghost"
-                                    className="hero-button-secondary px-8 py-4 font-bold rounded-lg hover:opacity-70 transition-opacity inline-block"
+                                    className={splitScreen
+                                        ? 'hero-button-secondary px-6 py-3 text-sm font-bold rounded-md hover:opacity-70 transition-opacity inline-block'
+                                        : 'hero-button-secondary px-8 py-4 font-bold rounded-lg hover:opacity-70 transition-opacity inline-block'}
                                     style={{ color: textColor, backgroundColor: 'transparent' }}
                                     palette={palette}
                                 />
@@ -638,30 +644,58 @@ function HeroCardContent({
         return null;
     };
 
+    const containerClass = splitScreen
+        ? 'hero-container hero-container-split ks-layout-content relative z-10 mx-auto flex h-full w-full max-w-none items-stretch px-0 py-0'
+        : 'hero-container ks-layout-content relative z-10 mx-auto flex h-full w-full max-w-7xl items-center px-4 py-20 md:py-24';
+    const gridClass = splitScreen
+        ? `hero-split-grid grid h-full min-h-[560px] w-full grid-cols-1 items-stretch gap-0 md:min-h-[640px] ${showForeground && showText ? 'md:grid-cols-2' : ''}`
+        : `grid w-full gap-10 items-center ${showForeground && showText ? 'md:grid-cols-2' : 'grid-cols-1'}`;
+    const textColumnClass = splitScreen
+        ? `hero-content flex min-h-[360px] items-center px-6 py-16 sm:px-10 md:min-h-0 md:px-12 md:py-20 lg:px-20 ${imageOnRight || !showForeground ? 'order-1' : 'order-2'}`
+        : `hero-content ${imageOnRight || !showForeground ? 'order-1' : 'order-2'}`;
+    const imageColumnClass = splitScreen
+        ? `${imageOnRight ? 'order-2' : 'order-1'} h-full min-h-[360px] md:min-h-0`
+        : (imageOnRight ? 'order-2' : 'order-1');
+    const imageClass = splitScreen
+        ? 'hero-image h-full min-h-[360px] w-full object-cover'
+        : 'hero-image w-full h-96 object-cover shadow-xl';
+    const imagePreviewFrameClass = splitScreen
+        ? 'w-full h-full min-h-[360px]'
+        : 'w-full h-96';
+    const imageContent = (
+        <EditableImage
+            contentKey="image"
+            initialSettings={card.content.image.settings as ImageSettings | undefined}
+            initialAttribution={card.content.image.attribution as UnsplashAttribution | undefined}
+            imageUrl={card.content.image.url}
+            isEditMode={isEditMode}
+            onSave={onSave}
+            onUpload={uploadImage}
+            className={imageClass}
+            enableInlineCropControls
+            editorPreviewFrameClassName={imagePreviewFrameClass}
+            placeholder="Click to upload hero image"
+            priority
+        />
+    );
+
     return (
-        <div className="hero-container ks-layout-content relative z-10 mx-auto flex h-full w-full max-w-7xl items-center px-4 py-20 md:py-24">
-            <div className={`grid w-full gap-10 items-center ${showForeground && showText ? 'md:grid-cols-2' : 'grid-cols-1'}`}>
+        <div className={containerClass}>
+            <div className={gridClass}>
                 {showText && (
-                    <div className={`hero-content ${imageOnRight || !showForeground ? 'order-1' : 'order-2'}`}>
-                        {order.map(renderElement)}
+                    <div className={textColumnClass}>
+                        {splitScreen ? (
+                            <div className="hero-content-inner mx-auto w-full max-w-xl">
+                                {order.map(renderElement)}
+                            </div>
+                        ) : (
+                            order.map(renderElement)
+                        )}
                     </div>
                 )}
                 {showForeground && (
-                    <Reveal className={imageOnRight ? 'order-2' : 'order-1'}>
-                        <EditableImage
-                            contentKey="image"
-                            initialSettings={card.content.image.settings as ImageSettings | undefined}
-                            initialAttribution={card.content.image.attribution as UnsplashAttribution | undefined}
-                            imageUrl={card.content.image.url}
-                            isEditMode={isEditMode}
-                            onSave={onSave}
-                            onUpload={uploadImage}
-                            className="hero-image w-full h-96 object-cover shadow-xl"
-                            enableInlineCropControls
-                            editorPreviewFrameClassName="w-full h-96"
-                            placeholder="Click to upload hero image"
-                            priority
-                        />
+                    <Reveal className={imageColumnClass}>
+                        {imageContent}
                     </Reveal>
                 )}
             </div>

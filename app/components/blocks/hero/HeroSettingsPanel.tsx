@@ -34,6 +34,7 @@ import {
     HeroData,
     HeroHeight,
     HeroHeightConfig,
+    HeroImageLayout,
     HeroPretextStyle,
     HeroSocialLink,
     HeroTransition,
@@ -113,6 +114,11 @@ const HEIGHT_OPTIONS: { id: HeroHeightConfig['mode']; label: string }[] = [
     { id: 'fitContent', label: 'Fit content' },
     { id: 'fitScreen', label: 'Fit screen' },
     { id: 'manual', label: 'Manual' },
+];
+
+const IMAGE_LAYOUT_OPTIONS: { id: HeroImageLayout; label: string; Icon: typeof ImageIcon }[] = [
+    { id: 'contained', label: 'Contained', Icon: ImageIcon },
+    { id: 'split', label: 'Half', Icon: LayoutGrid },
 ];
 
 export default function HeroSettingsPanel({
@@ -325,8 +331,9 @@ export default function HeroSettingsPanel({
     const imagePickerInitialSettings = imageEditorOpen === 'foreground'
         ? activeCard.content.image.settings
         : activeCard.background.image?.settings;
+    const activeImageLayout = activeCard.content.image.layout === 'split' ? 'split' : 'contained';
     const imagePickerPreviewFrameClassName = imageEditorOpen === 'foreground'
-        ? 'w-full h-96'
+        ? (activeImageLayout === 'split' ? 'w-full h-[520px]' : 'w-full h-96')
         : 'w-full min-h-[360px]';
     const handleImagePickerSave = (url: string, settings: ImageSettings, attribution?: UnsplashAttribution) => {
         if (imageEditorOpen === 'foreground') {
@@ -664,6 +671,28 @@ export default function HeroSettingsPanel({
                             </div>
                             {activeCard.content.image.enabled && (
                                 <div className="mt-3 space-y-3">
+                                    <div>
+                                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Image layout</p>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {IMAGE_LAYOUT_OPTIONS.map(({ id, label, Icon }) => {
+                                                const isActive = activeImageLayout === id;
+                                                return (
+                                                    <button
+                                                        key={id}
+                                                        type="button"
+                                                        onClick={() => updateContent('image', { layout: id })}
+                                                        aria-pressed={isActive}
+                                                        className={`flex items-center justify-center gap-1 rounded-xl border px-3 py-2 text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                                            isActive ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600' : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                                                        }`}
+                                                    >
+                                                        <Icon className="h-3.5 w-3.5" />
+                                                        {label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
                                     <div>
                                         <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Image side</p>
                                         <div className="grid grid-cols-2 gap-2">

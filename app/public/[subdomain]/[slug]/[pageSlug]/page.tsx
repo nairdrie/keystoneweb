@@ -51,7 +51,7 @@ export default async function PublicSiteTranslatedPage({
         // Fetch the specific page
         const { data: routePage, error: pageError } = await supabase
             .from('pages')
-            .select('published_data, translations')
+            .select('id, published_data, translations')
             .eq('site_id', site.id)
             .eq('slug', pageSlug)
             .single();
@@ -86,6 +86,7 @@ export default async function PublicSiteTranslatedPage({
             ...translatedSiteData,
             ...translatedPageData,
             __pages: allPages || [],
+            __currentPageId: routePage.id,
             __currentLanguage: langCode,
             __translationsConfig: config,
         };

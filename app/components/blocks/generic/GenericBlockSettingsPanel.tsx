@@ -1262,6 +1262,9 @@ function shouldShowControl(control: DisplayControl, draft: DraftSettings): boole
 }
 
 function shouldShowColumnLayoutControl(blockType: string, draft: DraftSettings): boolean {
+    if (blockType === 'carousel') {
+        return String(draft.variant || 'cards') === 'cards';
+    }
     if (blockType === 'logoCloud') {
         return String(draft.variant || 'inline') === 'grid';
     }

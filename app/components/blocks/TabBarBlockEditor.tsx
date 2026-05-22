@@ -36,10 +36,11 @@ interface TabBarEditorProps {
     pages: Array<{ id: string; slug: string; title: string }>;
     blocks: any[];
     siteId?: string;
+    currentPageId?: string;
 }
 
 export default function TabBarEditor({
-    items, tabStyle, tabAlign, activeColor, bgColor, activeColorSource, bgColorSource, palette, updateContent, pages, blocks, siteId,
+    items, tabStyle, tabAlign, activeColor, bgColor, activeColorSource, bgColorSource, palette, updateContent, pages, blocks, siteId, currentPageId,
 }: TabBarEditorProps) {
     const [editingItem, setEditingItem] = useState<NavItem | null>(null);
 
@@ -187,6 +188,7 @@ export default function TabBarEditor({
                     pages={pages}
                     blocks={blocks}
                     siteId={siteId}
+                    currentPageId={currentPageId}
                     onSave={saveTab}
                     onClose={() => setEditingItem(null)}
                 />

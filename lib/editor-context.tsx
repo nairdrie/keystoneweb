@@ -58,6 +58,9 @@ export interface EditorContextType {
   /** Available pages for linking */
   pages?: Array<{ id: string; slug: string; title: string }>;
 
+  /** Current page id, used to resolve "Current page" section links */
+  currentPageId?: string;
+
   /** Ordered array of modular blocks for the page **/
   blocks?: BlockData[];
 

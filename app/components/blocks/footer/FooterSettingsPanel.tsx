@@ -892,6 +892,7 @@ export default function FooterSettingsPanel({
                     pages={context?.pages || []}
                     blocks={context?.blocks || []}
                     siteId={context?.siteId}
+                    currentPageId={context?.currentPageId}
                     onSave={handleSaveEditedItem}
                     onClose={() => setEditingItem(null)}
                 />

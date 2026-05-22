@@ -13,17 +13,63 @@ interface NavItemEditModalProps {
     blocks: BlockData[];
     /** Site ID, used to fetch blocks for other pages */
     siteId?: string;
+    /** Current editor/public page id; blank section-page selection persists this */
+    currentPageId?: string;
     onSave: (updated: NavItem) => void;
     onClose: () => void;
 }
 
 const PRODUCT_BLOCK_TYPE = 'productGrid';
 
+type PageBlocksResponse = {
+    pages?: Array<{
+        id: string;
+        design_data?: {
+            blocks?: BlockData[];
+            __blocks?: BlockData[];
+        };
+    }>;
+};
+
+function getHashFromHref(href: string | undefined): string {
+    if (!href) return '';
+    const hashIndex = href.indexOf('#');
+    if (hashIndex === -1) return '';
+    const hash = href.slice(hashIndex + 1);
+    try {
+        return decodeURIComponent(hash);
+    } catch {
+        return hash;
+    }
+}
+
+function findBlockIdFromHash(hash: string, blocks: BlockData[]): string {
+    if (!hash) return '';
+    const normalizedHash = hash.replace(/^#/, '');
+    const directMatch = blocks.find(block => block.id === normalizedHash);
+    if (directMatch) return directMatch.id;
+
+    const slugMatch = blocks.find((block, index) => getBlockSlug(block, index, blocks) === normalizedHash);
+    return slugMatch?.id || '';
+}
+
+function cleanBlockTitle(block: BlockData): string {
+    const rawTitle = block.data?.title || block.data?.heading || '';
+    return String(rawTitle).replace(/<[^>]*>?/gm, '').trim().toLowerCase();
+}
+
+function findBlockIdFromLabel(label: string, blocks: BlockData[]): string {
+    const normalizedLabel = label.trim().toLowerCase();
+    if (!normalizedLabel) return '';
+    return blocks.find(block => cleanBlockTitle(block) === normalizedLabel)?.id || '';
+}
+
 export default function NavItemEditModal({
     item,
     pages,
     blocks,
     siteId,
+    currentPageId,
     onSave,
     onClose,
 }: NavItemEditModalProps) {
@@ -34,9 +80,12 @@ export default function NavItemEditModal({
     const [pageId, setPageId] = useState(item.pageId || '');
     // For section links: which page the section lives on (stored as pageId on the nav item)
     const [sectionPageId, setSectionPageId] = useState(
-        item.linkType === 'section' ? (item.pageId || '') : ''
+        item.linkType === 'section' && item.pageId !== currentPageId ? (item.pageId || '') : ''
     );
-    const [blockId, setBlockId] = useState(item.blockId || '');
+    const initialHrefHash = getHashFromHref(item.href);
+    const [blockId, setBlockId] = useState(
+        item.blockId || findBlockIdFromHash(initialHrefHash, blocks) || findBlockIdFromLabel(item.label, blocks)
+    );
     const [customHref, setCustomHref] = useState(
         item.linkType === 'custom' ? item.href : ''
     );
@@ -57,6 +106,7 @@ export default function NavItemEditModal({
 
     // Track whether sectionPageId changed due to user interaction (not initial mount)
     const isInitialMount = useRef(true);
+    const userChangedSectionPage = useRef(false);
 
     // When sectionPageId changes, fetch that page's blocks if needed
     useEffect(() => {
@@ -83,8 +133,8 @@ export default function NavItemEditModal({
 
         fetch(`/api/pages?siteId=${siteId}`)
             .then(r => r.json())
-            .then(data => {
-                const page = (data.pages || []).find((p: any) => p.id === sectionPageId);
+            .then((data: PageBlocksResponse) => {
+                const page = (data.pages || []).find(p => p.id === sectionPageId);
                 const pageBlocks: BlockData[] = page?.design_data?.blocks || page?.design_data?.__blocks || [];
                 setTargetBlocks(pageBlocks);
             })
@@ -100,6 +150,13 @@ export default function NavItemEditModal({
         }
     }, [blocks, sectionPageId, linkType]);
 
+    useEffect(() => {
+        if (linkType !== 'section' || userChangedSectionPage.current) return;
+        if (blockId && targetBlocks.some(block => block.id === blockId)) return;
+        const restoredBlockId = findBlockIdFromHash(initialHrefHash, targetBlocks) || findBlockIdFromLabel(item.label, targetBlocks);
+        if (restoredBlockId) setBlockId(restoredBlockId);
+    }, [blockId, initialHrefHash, item.label, linkType, targetBlocks]);
+
     // For "page" linkType: fetch the selected page's blocks so we can detect a Products block.
     useEffect(() => {
         if (linkType !== 'page' || !pageId || !siteId) {
@@ -109,8 +166,8 @@ export default function NavItemEditModal({
         setIsFetchingPageBlocks(true);
         fetch(`/api/pages?siteId=${siteId}`)
             .then(r => r.json())
-            .then(data => {
-                const page = (data.pages || []).find((p: any) => p.id === pageId);
+            .then((data: PageBlocksResponse) => {
+                const page = (data.pages || []).find(p => p.id === pageId);
                 const blocks: BlockData[] = page?.design_data?.blocks || page?.design_data?.__blocks || [];
                 setPageBlocks(blocks);
             })
@@ -197,7 +254,7 @@ export default function NavItemEditModal({
             label,
             linkType,
             href: resolveHref(),
-            pageId: linkType === 'page' ? pageId : linkType === 'section' ? sectionPageId || undefined : undefined,
+            pageId: linkType === 'page' ? pageId : linkType === 'section' ? (sectionPageId || currentPageId || undefined) : undefined,
             blockId: linkType === 'section' ? blockId : undefined,
             categoryFilter: trimmedCategory || undefined,
             subcategoryFilter: trimmedCategory && trimmedSubcategory ? trimmedSubcategory : undefined,
@@ -223,7 +280,7 @@ export default function NavItemEditModal({
                 className="w-full px-3 py-2 text-sm text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
                 <option value="">Choose a section…</option>
-                {targetBlocks.map((b, i) => {
+                {targetBlocks.map((b) => {
                     const rawTitle = b.data?.title || b.data?.heading || '';
                     const cleanTitle = rawTitle.replace(/<[^>]*>?/gm, '').trim();
                     const typeName = b.type.charAt(0).toUpperCase() + b.type.slice(1);
@@ -364,7 +421,10 @@ export default function NavItemEditModal({
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Page</label>
                             <select
                                 value={sectionPageId}
-                                onChange={(e) => setSectionPageId(e.target.value)}
+                                onChange={(e) => {
+                                    userChangedSectionPage.current = true;
+                                    setSectionPageId(e.target.value);
+                                }}
                                 className="w-full px-3 py-2 text-sm text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
                             >
                                 <option value="">Current page</option>
