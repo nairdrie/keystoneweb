@@ -4,14 +4,18 @@ import { createClient } from '@/lib/db/supabase-server';
 import { getWallet } from '@/lib/marketing/wallet';
 import { ensureGoogleAdsSubAccount } from '@/lib/marketing/subaccount';
 import { createSearchCampaign, createDisplayCampaign } from '@/lib/marketing/google-ads';
+import { sendMarketingOpsPendingNotification } from '@/lib/marketing/notifications';
 import type { Campaign } from '@/lib/marketing/types';
 
 /**
  * POST /api/admin/marketing/campaigns/[id]/approve
  *
  * Customer's first launch approval. Verifies wallet has funds, provisions a
- * Google Ads sub-account if needed, submits the campaign to the ad platform,
- * and records the approval snapshot.
+ * Google Ads sub-account if needed, then either:
+ *   - If the sub-account already has billing configured (sites.google_ads_billing_ready),
+ *     submits the campaign to Google and goes active.
+ *   - Otherwise, parks it in 'pending_launch' and pings ops to set up billing
+ *     manually before launching via /api/admin/marketing/campaigns/[id]/launch.
  */
 export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -21,7 +25,7 @@ export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: s
 
   const { data: campaign } = await supabase
     .from('marketing_campaigns')
-    .select('*, sites!inner(id, user_id, marketing_enabled)')
+    .select('*, sites!inner(id, user_id, marketing_enabled, site_slug, design_data, google_ads_billing_ready)')
     .eq('id', id)
     .single();
 
@@ -67,6 +71,72 @@ export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: s
     },
   }, { onConflict: 'campaign_id' });
 
+  // Provision the sub-account up-front so ops can configure billing on it even
+  // before the campaign itself is created in Google.
+  let subAccountId: string | null = null;
+  if (campaign.channel === 'google_ads') {
+    try {
+      subAccountId = await ensureGoogleAdsSubAccount(campaign.site_id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[admin/marketing/approve] sub-account provision failed:', err);
+      await db.from('marketing_campaign_log').insert({
+        campaign_id: id,
+        action: 'failed',
+        actor: 'system',
+        details: { error: `sub-account provision failed: ${message}` },
+      });
+      return NextResponse.json({ error: 'Failed to provision Google Ads sub-account. Please contact support.' }, { status: 500 });
+    }
+  }
+
+  const billingReady = campaign.sites.google_ads_billing_ready === true;
+
+  // Gate launch on billing readiness. First campaign for a new sub-account
+  // sits in pending_launch until ops configures billing in Google.
+  if (campaign.channel === 'google_ads' && !billingReady) {
+    await db.from('marketing_campaigns')
+      .update({
+        status: 'pending_launch',
+        approved_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+
+    await db.from('marketing_campaign_log').insert({
+      campaign_id: id,
+      action: 'pending_launch',
+      actor: `user:${user.email || ''}`,
+      details: { reason: 'awaiting_billing_setup', sub_account: subAccountId },
+    });
+
+    const siteName = (campaign.sites.design_data as { siteTitle?: string } | null)?.siteTitle
+      || campaign.sites.site_slug
+      || 'Untitled site';
+
+    try {
+      await sendMarketingOpsPendingNotification({
+        campaignId: id,
+        campaignName: campaign.name,
+        siteId: campaign.site_id,
+        siteName,
+        customerEmail: user.email || 'unknown',
+        dailyBudgetCents: dailyBudget,
+        googleAdsCustomerId: subAccountId,
+        billingAlreadyReady: false,
+      });
+    } catch (err) {
+      console.error('[admin/marketing/approve] ops notification failed (non-fatal):', err);
+    }
+
+    return NextResponse.json({
+      campaign: { id, status: 'pending_launch' },
+      pendingReview: true,
+      message: 'Your campaign has been submitted. Our team activates it within a few hours and you\'ll get an email when it goes live.',
+    });
+  }
+
+  // Billing is ready — submit to Google immediately and go active.
   await db.from('marketing_campaigns')
     .update({ status: 'submitting', approved_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq('id', id);
@@ -77,10 +147,8 @@ export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: s
     actor: `user:${user.email || ''}`,
   });
 
-  // Provision sub-account + submit to ad platform (Google only for now).
   try {
     if (campaign.channel === 'google_ads') {
-      await ensureGoogleAdsSubAccount(campaign.site_id);
       const launched = campaign.campaign_type === 'display'
         ? await createDisplayCampaign(campaign as Campaign)
         : await createSearchCampaign(campaign as Campaign);
