@@ -13,7 +13,9 @@ import {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { siteId, email, password, name, packageId, customFields, marketingOptIn } = body;
+    const { siteId, email, password, name, packageId, customFields, marketingOptIn, tracking } = body;
+    const { getMarketingCampaignIdFromTracking } = await import('@/lib/marketing/utm-capture');
+    const marketingCampaignId = getMarketingCampaignIdFromTracking(tracking);
 
     if (!siteId || !email || !password) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -161,6 +163,7 @@ export async function POST(request: NextRequest) {
           : null,
         package_id: packageId || null,
         marketing_opt_in: !!marketingOptIn,
+        marketing_campaign_id: marketingCampaignId,
       })
       .select('id')
       .single();

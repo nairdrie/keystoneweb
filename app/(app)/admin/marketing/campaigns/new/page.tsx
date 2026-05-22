@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Sparkles, Loader2, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Sparkles, Loader2, ArrowRight, CheckCircle2, Search, Image as ImageIcon } from 'lucide-react';
 import { useAdminContext } from '../../../admin-context';
 import {
   CHANNEL_LABELS,
@@ -16,11 +16,17 @@ import {
   type GoogleDisplayContent,
 } from '@/lib/marketing/types';
 import { formatCents } from '@/lib/marketing/pricing';
+import { AdPreview } from '../../_components/AdPreview';
+import LocationPicker, { type LocationValue, targetingFromLocationValue, locationValueFromTargeting } from '../../_components/LocationPicker';
+import ImagePicker from '../../_components/ImagePicker';
 
 type Step = 'goal' | 'generating' | 'review' | 'launch';
 
+// 70% of the daily budget goes to Search (high-intent), 30% to Display (cheap reach).
+const SEARCH_SPLIT = 0.7;
+
 export default function NewCampaignPage() {
-  const { siteId } = useAdminContext();
+  const { siteId, siteTitle, site } = useAdminContext();
   const router = useRouter();
 
   const [step, setStep] = useState<Step>('goal');
@@ -28,11 +34,24 @@ export default function NewCampaignPage() {
   const [channel, setChannel] = useState<MarketingChannel>('google_ads');
   const [campaignType, setCampaignType] = useState<CampaignType>('search');
   const [generated, setGenerated] = useState<CampaignGenerationResult | null>(null);
+  const [businessName, setBusinessName] = useState('');
   const [campaignName, setCampaignName] = useState('');
   const [dailyBudget, setDailyBudget] = useState(2000); // $20 default
   const [editedContent, setEditedContent] = useState<Record<string, unknown> | null>(null);
+  const [locationValue, setLocationValue] = useState<LocationValue>({ mode: 'auto' });
+  const [alsoDisplay, setAlsoDisplay] = useState(true);
+  const [displayImages, setDisplayImages] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const businessAddress = useMemo<string | undefined>(() => {
+    const bp = (site?.designData as { businessProfile?: Record<string, string> } | undefined)?.businessProfile;
+    if (!bp) return undefined;
+    const parts = [bp.streetAddress, bp.addressLocality, bp.addressRegion, bp.postalCode]
+      .filter(Boolean)
+      .join(', ');
+    return parts || undefined;
+  }, [site]);
 
   async function handleGenerate() {
     setError(null);
@@ -58,6 +77,8 @@ export default function NewCampaignPage() {
       setGenerated(data.result);
       setCampaignName(data.result.name);
       setEditedContent(data.result.content);
+      setBusinessName(data.context?.businessName || siteTitle || '');
+      setLocationValue(locationValueFromTargeting(data.result.targeting));
       if (data.result.suggestedDailyBudgetCents) {
         setDailyBudget(data.result.suggestedDailyBudgetCents);
       }
@@ -68,53 +89,80 @@ export default function NewCampaignPage() {
     }
   }
 
+  async function createAndApprove(payload: Record<string, unknown>): Promise<{ ok: boolean; id?: string; error?: string; status?: number; }> {
+    const createRes = await fetch('/api/admin/marketing/campaigns', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+    const createData = await createRes.json();
+    if (!createRes.ok) return { ok: false, error: createData.error };
+
+    const id = createData.campaign.id;
+    const approveRes = await fetch(`/api/admin/marketing/campaigns/${id}/approve`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    const approveData = await approveRes.json();
+    if (!approveRes.ok) return { ok: false, error: approveData.error, status: approveRes.status, id };
+
+    return { ok: true, id };
+  }
+
   async function handleLaunch() {
-    if (!generated) return;
+    if (!generated || !editedContent) return;
     setError(null);
     setSubmitting(true);
+
+    const targeting = targetingFromLocationValue(locationValue, generated.targeting);
+    const includeDisplay = channel === 'google_ads' && alsoDisplay;
+    const searchBudget = includeDisplay ? Math.round(dailyBudget * SEARCH_SPLIT) : dailyBudget;
+    const displayBudget = dailyBudget - searchBudget;
+
     try {
-      // 1. Create draft
-      const createRes = await fetch('/api/admin/marketing/campaigns', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
+      // Primary campaign (Search for google_ads, the chosen format for other channels)
+      const primaryResult = await createAndApprove({
+        siteId,
+        name: includeDisplay ? `${campaignName} — Search` : campaignName,
+        channel,
+        campaign_type: campaignType,
+        content: editedContent,
+        targeting,
+        daily_budget_cents: searchBudget,
+        ai_generated: true,
+        ai_rationale: generated.rationale,
+      });
+
+      if (!primaryResult.ok) {
+        if (primaryResult.status === 402) setError('Your wallet balance is too low to launch. Top up first.');
+        else setError(primaryResult.error || 'Failed to launch campaign');
+        setSubmitting(false);
+        return;
+      }
+
+      // Optional Display companion (Google only)
+      if (includeDisplay) {
+        const displayContent = deriveDisplayContent(editedContent as unknown as GoogleSearchContent, businessName, displayImages);
+        const displayResult = await createAndApprove({
           siteId,
-          name: campaignName,
-          channel,
-          campaign_type: campaignType,
-          content: editedContent,
-          targeting: generated.targeting,
-          daily_budget_cents: dailyBudget,
+          name: `${campaignName} — Display`,
+          channel: 'google_ads',
+          campaign_type: 'display',
+          content: displayContent,
+          targeting,
+          daily_budget_cents: displayBudget,
           ai_generated: true,
-          ai_rationale: generated.rationale,
-        }),
-      });
-      const createData = await createRes.json();
-      if (!createRes.ok) {
-        setError(createData.error || 'Failed to create campaign');
-        setSubmitting(false);
-        return;
-      }
-      const campaignId = createData.campaign.id;
+          ai_rationale: 'Companion display campaign — visual reach across the Google Display Network.',
+        });
 
-      // 2. Approve + launch
-      const approveRes = await fetch(`/api/admin/marketing/campaigns/${campaignId}/approve`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      const approveData = await approveRes.json();
-      if (!approveRes.ok) {
-        if (approveRes.status === 402) {
-          setError('Your wallet balance is too low to launch. Top up first.');
-        } else {
-          setError(approveData.error || 'Failed to launch campaign');
+        if (!displayResult.ok) {
+          // Search succeeded; warn about Display but redirect to Search.
+          console.warn('Display companion failed:', displayResult.error);
         }
-        setSubmitting(false);
-        return;
       }
 
-      router.push(`/admin/marketing/campaigns/${campaignId}?siteId=${siteId}&just=launched`);
+      router.push(`/admin/marketing/campaigns/${primaryResult.id}?siteId=${siteId}&just=launched`);
     } catch {
       setError('Network error');
       setSubmitting(false);
@@ -167,27 +215,35 @@ export default function NewCampaignPage() {
                 </button>
               ))}
             </div>
+            {channel === 'google_ads' && (
+              <p className="text-xs text-slate-500 mt-2">
+                Runs on Google Search by default. You can add Display ads (banners on partner websites) in the next step.
+              </p>
+            )}
           </div>
 
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Format</label>
-            <div className="flex flex-wrap gap-2">
-              {CHANNEL_CAMPAIGN_TYPES[channel].map(t => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setCampaignType(t)}
-                  className={`px-3 py-1.5 rounded-md border text-xs font-bold transition-colors ${
-                    campaignType === t
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-900'
-                      : 'border-slate-200 hover:border-slate-300 text-slate-700'
-                  }`}
-                >
-                  {CAMPAIGN_TYPE_LABELS[t]}
-                </button>
-              ))}
+          {/* Format picker — hidden for google_ads (we always do Search + optional Display) */}
+          {channel !== 'google_ads' && CHANNEL_CAMPAIGN_TYPES[channel].length > 1 && (
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Format</label>
+              <div className="flex flex-wrap gap-2">
+                {CHANNEL_CAMPAIGN_TYPES[channel].map(t => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setCampaignType(t)}
+                    className={`px-3 py-1.5 rounded-md border text-xs font-bold transition-colors ${
+                      campaignType === t
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-900'
+                        : 'border-slate-200 hover:border-slate-300 text-slate-700'
+                    }`}
+                  >
+                    {CAMPAIGN_TYPE_LABELS[t]}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Your goal (optional)</label>
@@ -222,15 +278,24 @@ export default function NewCampaignPage() {
 
       {step === 'review' && generated && (
         <ReviewForm
+          siteId={siteId}
           channel={channel}
           campaignType={campaignType}
           generated={generated}
+          businessName={businessName}
+          businessAddress={businessAddress}
           campaignName={campaignName}
           setCampaignName={setCampaignName}
           editedContent={editedContent}
           setEditedContent={setEditedContent}
           dailyBudget={dailyBudget}
           setDailyBudget={setDailyBudget}
+          locationValue={locationValue}
+          setLocationValue={setLocationValue}
+          alsoDisplay={alsoDisplay}
+          setAlsoDisplay={setAlsoDisplay}
+          displayImages={displayImages}
+          setDisplayImages={setDisplayImages}
           submitting={submitting}
           onLaunch={handleLaunch}
           onBack={() => setStep('goal')}
@@ -260,28 +325,68 @@ function StepPills({ step }: { step: Step }) {
   );
 }
 
-function ReviewForm(props: {
+interface ReviewFormProps {
+  siteId: string | null;
   channel: MarketingChannel;
   campaignType: CampaignType;
   generated: CampaignGenerationResult;
+  businessName: string;
+  businessAddress?: string;
   campaignName: string;
   setCampaignName: (v: string) => void;
   editedContent: Record<string, unknown> | null;
   setEditedContent: (v: Record<string, unknown>) => void;
   dailyBudget: number;
   setDailyBudget: (v: number) => void;
+  locationValue: LocationValue;
+  setLocationValue: (v: LocationValue) => void;
+  alsoDisplay: boolean;
+  setAlsoDisplay: (v: boolean) => void;
+  displayImages: string[];
+  setDisplayImages: (urls: string[]) => void;
   submitting: boolean;
   onLaunch: () => void;
   onBack: () => void;
-}) {
-  const { channel, campaignType, generated, campaignName, setCampaignName,
-    editedContent, setEditedContent, dailyBudget, setDailyBudget, submitting, onLaunch, onBack } = props;
+}
+
+function ReviewForm(p: ReviewFormProps) {
+  const [previewTab, setPreviewTab] = useState<'search' | 'display'>('search');
+  const isGoogle = p.channel === 'google_ads';
+  const showDisplayCompanion = isGoogle && p.alsoDisplay;
+
+  const displayContent = useMemo(() => {
+    if (!showDisplayCompanion || !p.editedContent) return null;
+    return deriveDisplayContent(p.editedContent as unknown as GoogleSearchContent, p.businessName, p.displayImages);
+  }, [showDisplayCompanion, p.editedContent, p.businessName, p.displayImages]);
+
+  const searchBudget = showDisplayCompanion ? Math.round(p.dailyBudget * SEARCH_SPLIT) : p.dailyBudget;
+  const displayBudget = p.dailyBudget - searchBudget;
 
   return (
     <div className="space-y-5">
+      {/* Preview, with tab when Display is enabled */}
+      {isGoogle && (
+        <div className="space-y-2">
+          {showDisplayCompanion && (
+            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 w-fit">
+              <PreviewTab active={previewTab === 'search'} onClick={() => setPreviewTab('search')} icon={<Search className="w-3.5 h-3.5" />} label="Search preview" />
+              <PreviewTab active={previewTab === 'display'} onClick={() => setPreviewTab('display')} icon={<ImageIcon className="w-3.5 h-3.5" />} label="Display preview" />
+            </div>
+          )}
+          <AdPreview
+            channel="google_ads"
+            campaignType={previewTab === 'display' && showDisplayCompanion ? 'display' : 'search'}
+            content={previewTab === 'display' && displayContent
+              ? (displayContent as unknown as Record<string, unknown>)
+              : p.editedContent}
+            businessName={p.businessName}
+          />
+        </div>
+      )}
+
       <div className="bg-violet-50 border border-violet-200 rounded-xl p-4">
         <p className="text-xs font-bold uppercase tracking-wide text-violet-700">AI rationale</p>
-        <p className="text-sm text-violet-900 mt-1">{generated.rationale}</p>
+        <p className="text-sm text-violet-900 mt-1">{p.generated.rationale}</p>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
@@ -289,30 +394,62 @@ function ReviewForm(props: {
           <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1">Campaign name</label>
           <input
             type="text"
-            value={campaignName}
-            onChange={e => setCampaignName(e.target.value)}
+            value={p.campaignName}
+            onChange={e => p.setCampaignName(e.target.value)}
             className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500"
           />
         </div>
       </div>
 
-      {editedContent && channel === 'google_ads' && campaignType === 'search' && (
+      {/* Content editor */}
+      {p.editedContent && isGoogle && (
         <SearchContentEditor
-          content={editedContent as unknown as GoogleSearchContent}
-          onChange={(v) => setEditedContent(v as unknown as Record<string, unknown>)}
+          content={p.editedContent as unknown as GoogleSearchContent}
+          onChange={(v) => p.setEditedContent(v as unknown as Record<string, unknown>)}
         />
       )}
-      {editedContent && channel === 'google_ads' && campaignType === 'display' && (
-        <DisplayContentEditor
-          content={editedContent as unknown as GoogleDisplayContent}
-          onChange={(v) => setEditedContent(v as unknown as Record<string, unknown>)}
+      {p.editedContent && p.channel === 'meta_ads' && (
+        <MetaContentEditor content={p.editedContent} onChange={p.setEditedContent} />
+      )}
+      {p.editedContent && p.channel === 'email' && (
+        <EmailContentEditor content={p.editedContent} onChange={p.setEditedContent} />
+      )}
+
+      {/* Display companion toggle + image picker */}
+      {isGoogle && (
+        <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={p.alsoDisplay}
+              onChange={e => p.setAlsoDisplay(e.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-emerald-600"
+            />
+            <div className="flex-1">
+              <div className="text-sm font-bold text-slate-900">Also run on the Google Display Network</div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Banner ads on 2M+ partner websites, YouTube and Gmail. Cheaper clicks, broader reach.
+                Your daily budget splits {Math.round(SEARCH_SPLIT * 100)}% Search / {Math.round((1 - SEARCH_SPLIT) * 100)}% Display.
+              </p>
+            </div>
+            <span className="text-[10px] uppercase font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+              Recommended
+            </span>
+          </label>
+
+          {p.alsoDisplay && (
+            <ImagePicker siteId={p.siteId} selected={p.displayImages} onChange={p.setDisplayImages} />
+          )}
+        </div>
+      )}
+
+      {/* Location picker (Google + Meta) */}
+      {p.channel !== 'email' && (
+        <LocationPicker
+          value={p.locationValue}
+          onChange={p.setLocationValue}
+          defaultAddress={p.businessAddress}
         />
-      )}
-      {editedContent && channel === 'meta_ads' && (
-        <MetaContentEditor content={editedContent} onChange={setEditedContent} />
-      )}
-      {editedContent && channel === 'email' && (
-        <EmailContentEditor content={editedContent} onChange={setEditedContent} />
       )}
 
       <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
@@ -324,40 +461,83 @@ function ReviewForm(props: {
               type="number"
               min="5"
               step="1"
-              value={(dailyBudget / 100).toFixed(2)}
-              onChange={e => setDailyBudget(Math.round(parseFloat(e.target.value || '0') * 100))}
+              value={(p.dailyBudget / 100).toFixed(2)}
+              onChange={e => p.setDailyBudget(Math.round(parseFloat(e.target.value || '0') * 100))}
               className="w-full pl-7 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500"
             />
           </div>
-          <p className="text-xs text-slate-500 mt-1.5">
-            We&apos;ll spend up to <strong>{formatCents(dailyBudget)}</strong>/day. Your wallet is debited as ads run.
-          </p>
+          {showDisplayCompanion ? (
+            <p className="text-xs text-slate-500 mt-1.5">
+              Split: <strong>{formatCents(searchBudget)}</strong>/day Search · <strong>{formatCents(displayBudget)}</strong>/day Display.
+              Total ceiling: <strong>{formatCents(p.dailyBudget)}</strong>/day.
+            </p>
+          ) : (
+            <p className="text-xs text-slate-500 mt-1.5">
+              We&apos;ll spend up to <strong>{formatCents(p.dailyBudget)}</strong>/day. Your wallet is debited as ads run.
+            </p>
+          )}
         </div>
       </div>
 
       <div className="flex items-center justify-between pt-2">
         <button
           type="button"
-          onClick={onBack}
+          onClick={p.onBack}
           className="text-sm text-slate-500 hover:text-slate-900"
         >
           ← Start over
         </button>
         <button
           type="button"
-          onClick={onLaunch}
-          disabled={submitting || !campaignName}
+          onClick={p.onLaunch}
+          disabled={p.submitting || !p.campaignName}
           className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors"
         >
-          {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          {submitting ? 'Launching…' : 'Approve & launch'}
+          {p.submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+          {p.submitting ? 'Launching…' : 'Approve & launch'}
         </button>
       </div>
     </div>
   );
 }
 
-// ── Channel editors ─────────────────────────────────────────────────────────
+function PreviewTab({ active, onClick, icon, label }: {
+  active: boolean; onClick: () => void; icon: React.ReactNode; label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+        active ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+      }`}
+    >
+      {icon} {label}
+    </button>
+  );
+}
+
+// ── Display derivation ───────────────────────────────────────────────────────
+
+function deriveDisplayContent(
+  search: GoogleSearchContent,
+  businessName: string,
+  images: string[],
+): GoogleDisplayContent {
+  const headlines = (search.headlines || []).filter(Boolean).slice(0, 5);
+  const descriptions = (search.descriptions || []).filter(Boolean).slice(0, 5);
+  const longHeadline = headlines[0] ? headlines[0].slice(0, 90) : (descriptions[0] || '').slice(0, 90);
+  return {
+    headlines,
+    longHeadline,
+    descriptions,
+    businessName,
+    images,
+    finalUrl: search.finalUrl || '',
+  };
+}
+
+// ── Channel editors (unchanged below) ────────────────────────────────────────
 
 function FieldList({ label, items, onChange, max, charLimit, placeholder }: {
   label: string;
@@ -441,47 +621,6 @@ function SearchContentEditor({ content, onChange }: { content: GoogleSearchConte
         items={content.negativeKeywords || []}
         onChange={v => onChange({ ...content, negativeKeywords: v })}
         max={10}
-      />
-      <div>
-        <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1">Landing page URL</label>
-        <input
-          type="url"
-          value={content.finalUrl || ''}
-          onChange={e => onChange({ ...content, finalUrl: e.target.value })}
-          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500"
-        />
-      </div>
-    </div>
-  );
-}
-
-function DisplayContentEditor({ content, onChange }: { content: GoogleDisplayContent; onChange: (c: GoogleDisplayContent) => void }) {
-  return (
-    <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-5">
-      <h3 className="text-sm font-bold text-slate-900">Display ad</h3>
-      <FieldList
-        label="Headlines"
-        items={content.headlines || []}
-        onChange={v => onChange({ ...content, headlines: v })}
-        max={5}
-        charLimit={30}
-      />
-      <div>
-        <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1">Long headline (≤90 chars)</label>
-        <input
-          type="text"
-          value={content.longHeadline || ''}
-          maxLength={90}
-          onChange={e => onChange({ ...content, longHeadline: e.target.value })}
-          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500"
-        />
-      </div>
-      <FieldList
-        label="Descriptions"
-        items={content.descriptions || []}
-        onChange={v => onChange({ ...content, descriptions: v })}
-        max={5}
-        charLimit={90}
       />
       <div>
         <label className="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1">Landing page URL</label>

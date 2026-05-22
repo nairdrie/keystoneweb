@@ -13,6 +13,7 @@ import { recordSpend } from './spend';
 import { debitWalletForSpend, getWallet, shouldNotifyEmpty, shouldNotifyLowBalance, markEmptyNotified, markLowBalanceNotified } from './wallet';
 import { sendMarketingWalletEmpty, sendMarketingWalletLow } from './notifications';
 import { pauseCampaign as pauseGoogleCampaign } from './google-ads';
+import { syncActivityForCampaign } from './activity';
 
 // ── Sync All Active Campaigns ────────────────────────────────────────────────
 
@@ -51,6 +52,11 @@ export async function syncAllCampaigns(db: any): Promise<SyncResult> {
       // After spend is recorded, reconcile the wallet for site (customer) campaigns.
       if (campaign.site_id) {
         await reconcileCampaignWallet(campaign, db);
+        try {
+          await syncActivityForCampaign(campaign);
+        } catch (actErr) {
+          console.warn(`[performance] activity sync failed for ${campaign.id}:`, actErr);
+        }
       }
 
       await db.from('marketing_campaign_log').insert({
