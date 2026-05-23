@@ -268,41 +268,124 @@ export async function POST(request: NextRequest) {
           break;
         }
 
-        // ── Marketing Wallet Top-up ─────────────────────────────────
-        if (session.metadata?.type === 'marketing_topup') {
-          const { siteId, userId, amountCents } = session.metadata;
-          if (!siteId || !amountCents) {
-            console.error('Missing marketing_topup metadata');
+        // ── Marketing Campaign Prepay / Top-up ──────────────────────
+        if (
+          session.metadata?.type === 'marketing_campaign_prepay' ||
+          session.metadata?.type === 'marketing_campaign_topup'
+        ) {
+          const isTopup = session.metadata.type === 'marketing_campaign_topup';
+          const { campaignId, siteId, userId } = session.metadata;
+          if (!campaignId || !siteId) {
+            console.error('Missing marketing_campaign payment metadata');
             return NextResponse.json({ error: 'Invalid session metadata' }, { status: 400 });
           }
           try {
-            const { creditWallet } = await import('@/lib/marketing/wallet');
             const piId = typeof session.payment_intent === 'string' ? session.payment_intent : null;
-            await creditWallet({
+            const amountCents = session.amount_total ?? 0;
+            if (!piId || amountCents <= 0) {
+              console.error('Missing PI or amount on marketing campaign payment');
+              break;
+            }
+
+            const { recordCampaignPayment } = await import('@/lib/marketing/campaign-budget');
+            await recordCampaignPayment({
+              campaignId,
               siteId,
-              amountCents: parseInt(amountCents),
-              stripePaymentIntentId: piId || undefined,
+              kind: isTopup ? 'topup' : 'prepay',
+              amountCents,
+              stripePaymentIntentId: piId,
               stripeCheckoutSessionId: session.id,
-              description: 'Marketing wallet top-up',
               actor: userId ? `user:${userId}` : 'system',
+              description: isTopup ? 'Campaign budget top-up' : 'Initial campaign prepay',
             });
+
+            const supabaseAdmin = (await import('@/lib/db/supabase-admin')).createAdminClient();
+
+            if (isTopup) {
+              // Top-up: if campaign was paused due to depleted budget, resume it.
+              const { data: c } = await supabaseAdmin
+                .from('marketing_campaigns')
+                .select('status, channel, external_campaign_id')
+                .eq('id', campaignId)
+                .single();
+              if (c?.status === 'paused' && c.channel === 'google_ads' && c.external_campaign_id) {
+                try {
+                  const { resumeCampaign } = await import('@/lib/marketing/google-ads');
+                  await resumeCampaign(c.external_campaign_id);
+                  await supabaseAdmin.from('marketing_campaigns')
+                    .update({ status: 'active', updated_at: new Date().toISOString() })
+                    .eq('id', campaignId);
+                  await supabaseAdmin.from('marketing_campaign_log').insert({
+                    campaign_id: campaignId,
+                    action: 'resumed',
+                    actor: 'system',
+                    details: { reason: 'budget_topped_up' },
+                  });
+                } catch (resumeErr) {
+                  console.error('[stripe webhook] resume after topup failed:', resumeErr);
+                }
+              }
+            } else {
+              // Initial prepay: flip to pending_launch + notify ops.
+              const { data: c } = await supabaseAdmin
+                .from('marketing_campaigns')
+                .select('name, daily_budget_cents, sites!inner(id, site_slug, design_data, google_ads_customer_id, google_ads_billing_ready, user_id)')
+                .eq('id', campaignId)
+                .single();
+
+              await supabaseAdmin.from('marketing_campaigns')
+                .update({ status: 'pending_launch', updated_at: new Date().toISOString() })
+                .eq('id', campaignId);
+
+              await supabaseAdmin.from('marketing_campaign_log').insert({
+                campaign_id: campaignId,
+                action: 'pending_launch',
+                actor: 'system',
+                details: { reason: 'payment_received', stripe_payment_intent_id: piId },
+              });
+
+              try {
+                const site = Array.isArray(c?.sites) ? c.sites[0] : c?.sites;
+                if (site) {
+                  const { data: ownerUser } = await supabaseAdmin.auth.admin.getUserById(site.user_id);
+                  const customerEmail = ownerUser?.user?.email || 'unknown';
+                  const siteName = (site.design_data as { siteTitle?: string } | null)?.siteTitle
+                    || site.site_slug
+                    || 'Untitled site';
+                  const { sendMarketingOpsPendingNotification } = await import('@/lib/marketing/notifications');
+                  await sendMarketingOpsPendingNotification({
+                    campaignId,
+                    campaignName: c?.name || 'Untitled campaign',
+                    siteId,
+                    siteName,
+                    customerEmail,
+                    dailyBudgetCents: c?.daily_budget_cents || 0,
+                    googleAdsCustomerId: site.google_ads_customer_id,
+                    billingAlreadyReady: site.google_ads_billing_ready === true,
+                  });
+                }
+              } catch (notifyErr) {
+                console.error('[stripe webhook] ops notification failed (non-fatal):', notifyErr);
+              }
+            }
+
             await recordStripeTransaction({
               stripe_event_id: event.id,
               stripe_customer_id: typeof session.customer === 'string' ? session.customer : '',
               stripe_payment_intent_id: piId,
               user_id: userId || null,
               event_type: 'checkout.session.completed',
-              transaction_type: 'marketing_topup',
-              description: `Marketing wallet top-up`,
-              amount_cents: session.amount_total ?? 0,
+              transaction_type: isTopup ? 'marketing_campaign_topup' : 'marketing_campaign_prepay',
+              description: isTopup ? 'Marketing campaign top-up' : 'Marketing campaign prepay',
+              amount_cents: amountCents,
               currency: session.currency ?? 'cad',
               status: 'succeeded',
               invoice_url: checkoutUrls.invoice_url,
               invoice_pdf: checkoutUrls.invoice_pdf,
-              metadata: { siteId, amountCents },
+              metadata: { campaignId, siteId },
             });
           } catch (err: any) {
-            console.error('Failed to credit marketing wallet:', err);
+            console.error('Failed to record marketing campaign payment:', err);
           }
           break;
         }

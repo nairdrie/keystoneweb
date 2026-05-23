@@ -1,23 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
+import Stripe from 'stripe';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { createClient } from '@/lib/db/supabase-server';
-import { getWallet } from '@/lib/marketing/wallet';
 import { ensureGoogleAdsSubAccount } from '@/lib/marketing/subaccount';
-import { createSearchCampaign, createDisplayCampaign } from '@/lib/marketing/google-ads';
-import { sendMarketingOpsPendingNotification } from '@/lib/marketing/notifications';
-import type { Campaign } from '@/lib/marketing/types';
+import { computePrepayAmount } from '@/lib/marketing/campaign-budget';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  apiVersion: '2026-02-25.clover' as any,
+});
 
 /**
  * POST /api/admin/marketing/campaigns/[id]/approve
  *
- * Customer's first launch approval. Verifies wallet has funds, provisions a
- * Google Ads sub-account if needed, then either:
- *   - If the sub-account already has billing configured (sites.google_ads_billing_ready),
- *     submits the campaign to Google and goes active.
- *   - Otherwise, parks it in 'pending_launch' and pings ops to set up billing
- *     manually before launching via /api/admin/marketing/campaigns/[id]/launch.
+ * Customer's approval. Validates the campaign, provisions the Google Ads
+ * sub-account (so ops can set up billing on it), and creates a Stripe
+ * Checkout session for the prepaid amount (daily budget × duration × 1.05).
+ *
+ * Returns { checkoutUrl } — the wizard redirects the customer to Stripe.
+ *
+ * When Stripe payment succeeds, the webhook flips the campaign to
+ * 'pending_launch' and notifies ops to set up billing + launch.
  */
-export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function POST(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -25,7 +30,7 @@ export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: s
 
   const { data: campaign } = await supabase
     .from('marketing_campaigns')
-    .select('*, sites!inner(id, user_id, marketing_enabled, site_slug, design_data, google_ads_billing_ready)')
+    .select('*, sites!inner(id, user_id, marketing_enabled, site_slug, design_data)')
     .eq('id', id)
     .single();
 
@@ -35,24 +40,45 @@ export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: s
   if (!campaign.sites.marketing_enabled) {
     return NextResponse.json({ error: 'Marketing not enabled' }, { status: 403 });
   }
-  if (campaign.status !== 'draft' && campaign.status !== 'suggested' && campaign.status !== 'failed') {
+  if (campaign.status !== 'draft' && campaign.status !== 'suggested' && campaign.status !== 'failed' && campaign.status !== 'awaiting_payment') {
     return NextResponse.json({ error: `Cannot approve from status ${campaign.status}` }, { status: 400 });
   }
-
-  // Verify wallet has at least one day's bundled budget available.
-  const wallet = await getWallet(campaign.site_id);
-  const dailyBudget = campaign.daily_budget_cents || 0;
-  if (!wallet || wallet.balance_cents < dailyBudget) {
-    return NextResponse.json({
-      error: 'Insufficient wallet balance. Please top up before launching this campaign.',
-      walletBalanceCents: wallet?.balance_cents ?? 0,
-      requiredCents: dailyBudget,
-    }, { status: 402 });
+  if (!campaign.daily_budget_cents || campaign.daily_budget_cents <= 0) {
+    return NextResponse.json({ error: 'Campaign has no daily budget set' }, { status: 400 });
   }
+
+  // Compute campaign duration. If no end_date, default to 30 days from today.
+  const startDate = campaign.start_date ? new Date(campaign.start_date) : new Date();
+  const endDate = campaign.end_date ? new Date(campaign.end_date) : null;
+  const durationDays = endDate
+    ? Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 86_400_000) + 1)
+    : 30;
+
+  const prepay = computePrepayAmount({
+    dailyBudgetCents: campaign.daily_budget_cents,
+    durationDays,
+  });
 
   const db = createAdminClient();
 
-  // Snapshot what the user approved (in case it's edited later).
+  // Provision sub-account up-front so ops has it ready to add billing to.
+  if (campaign.channel === 'google_ads') {
+    try {
+      await ensureGoogleAdsSubAccount(campaign.site_id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[approve] sub-account provision failed:', err);
+      await db.from('marketing_campaign_log').insert({
+        campaign_id: id,
+        action: 'failed',
+        actor: 'system',
+        details: { error: `sub-account provision failed: ${message}` },
+      });
+      return NextResponse.json({ error: 'Failed to provision Google Ads sub-account. Please contact support.' }, { status: 500 });
+    }
+  }
+
+  // Snapshot what was approved.
   await db.from('marketing_approvals').upsert({
     campaign_id: id,
     site_id: campaign.site_id,
@@ -65,136 +91,81 @@ export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: s
       content: campaign.content,
       targeting: campaign.targeting,
       daily_budget_cents: campaign.daily_budget_cents,
-      total_budget_cents: campaign.total_budget_cents,
+      duration_days: durationDays,
       start_date: campaign.start_date,
       end_date: campaign.end_date,
+      prepay_total_cents: prepay.totalCents,
     },
   }, { onConflict: 'campaign_id' });
 
-  // Provision the sub-account up-front so ops can configure billing on it even
-  // before the campaign itself is created in Google.
-  let subAccountId: string | null = null;
-  if (campaign.channel === 'google_ads') {
-    try {
-      subAccountId = await ensureGoogleAdsSubAccount(campaign.site_id);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error('[admin/marketing/approve] sub-account provision failed:', err);
-      await db.from('marketing_campaign_log').insert({
-        campaign_id: id,
-        action: 'failed',
-        actor: 'system',
-        details: { error: `sub-account provision failed: ${message}` },
-      });
-      return NextResponse.json({ error: 'Failed to provision Google Ads sub-account. Please contact support.' }, { status: 500 });
-    }
-  }
-
-  const billingReady = campaign.sites.google_ads_billing_ready === true;
-
-  // Gate launch on billing readiness. First campaign for a new sub-account
-  // sits in pending_launch until ops configures billing in Google.
-  if (campaign.channel === 'google_ads' && !billingReady) {
-    await db.from('marketing_campaigns')
-      .update({
-        status: 'pending_launch',
-        approved_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id);
-
-    await db.from('marketing_campaign_log').insert({
-      campaign_id: id,
-      action: 'pending_launch',
-      actor: `user:${user.email || ''}`,
-      details: { reason: 'awaiting_billing_setup', sub_account: subAccountId },
-    });
-
-    const siteName = (campaign.sites.design_data as { siteTitle?: string } | null)?.siteTitle
-      || campaign.sites.site_slug
-      || 'Untitled site';
-
-    try {
-      await sendMarketingOpsPendingNotification({
-        campaignId: id,
-        campaignName: campaign.name,
-        siteId: campaign.site_id,
-        siteName,
-        customerEmail: user.email || 'unknown',
-        dailyBudgetCents: dailyBudget,
-        googleAdsCustomerId: subAccountId,
-        billingAlreadyReady: false,
-      });
-    } catch (err) {
-      console.error('[admin/marketing/approve] ops notification failed (non-fatal):', err);
-    }
-
-    return NextResponse.json({
-      campaign: { id, status: 'pending_launch' },
-      pendingReview: true,
-      message: 'Your campaign has been submitted. Our team activates it within a few hours and you\'ll get an email when it goes live.',
-    });
-  }
-
-  // Billing is ready — submit to Google immediately and go active.
   await db.from('marketing_campaigns')
-    .update({ status: 'submitting', approved_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .update({
+      status: 'awaiting_payment',
+      approved_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', id);
 
-  await db.from('marketing_campaign_log').insert({
-    campaign_id: id,
-    action: 'approved',
-    actor: `user:${user.email || ''}`,
-  });
+  // Create the Stripe Checkout session.
+  const origin = request.nextUrl.origin;
+  const siteName = (campaign.sites.design_data as { siteTitle?: string } | null)?.siteTitle
+    || campaign.sites.site_slug
+    || 'your site';
 
   try {
-    if (campaign.channel === 'google_ads') {
-      const launched = campaign.campaign_type === 'display'
-        ? await createDisplayCampaign(campaign as Campaign)
-        : await createSearchCampaign(campaign as Campaign);
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      payment_method_types: ['card'],
+      customer_email: user.email || undefined,
+      line_items: [{
+        price_data: {
+          currency: 'cad',
+          product_data: {
+            name: `${campaign.name} — ${durationDays} days`,
+            description: `$${(campaign.daily_budget_cents / 100).toFixed(2)}/day Google Ads for ${siteName}. Includes 5% service fee.`,
+          },
+          unit_amount: prepay.totalCents,
+        },
+        quantity: 1,
+      }],
+      success_url: `${origin}/admin/marketing/campaigns/${id}?siteId=${campaign.site_id}&paid=1`,
+      cancel_url: `${origin}/admin/marketing/campaigns/${id}?siteId=${campaign.site_id}&paid=0`,
+      metadata: {
+        type: 'marketing_campaign_prepay',
+        campaignId: id,
+        siteId: campaign.site_id,
+        userId: user.id,
+        durationDays: String(durationDays),
+      },
+      payment_intent_data: {
+        metadata: {
+          type: 'marketing_campaign_prepay',
+          campaignId: id,
+          siteId: campaign.site_id,
+          userId: user.id,
+        },
+      },
+    });
 
-      const { data: updated } = await db.from('marketing_campaigns')
-        .update({
-          status: 'active',
-          launched_at: new Date().toISOString(),
-          external_campaign_id: launched.campaignId,
-          external_ad_group_id: launched.adGroupId,
-          external_ad_id: launched.adId,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      await db.from('marketing_campaign_log').insert({
-        campaign_id: id,
-        action: 'launched',
-        actor: `user:${user.email || ''}`,
-        details: { external_campaign_id: launched.campaignId },
-      });
-
-      return NextResponse.json({ campaign: updated });
-    }
-
-    // Meta / email channels: mark active without external submission (out of scope here).
-    const { data: updated } = await db.from('marketing_campaigns')
-      .update({ status: 'active', launched_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
-    return NextResponse.json({ campaign: updated });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('[admin/marketing/approve] launch failed:', err);
-    await db.from('marketing_campaigns')
-      .update({ status: 'failed', updated_at: new Date().toISOString() })
-      .eq('id', id);
     await db.from('marketing_campaign_log').insert({
       campaign_id: id,
-      action: 'failed',
-      actor: 'system',
-      details: { error: message },
+      action: 'awaiting_payment',
+      actor: `user:${user.email || ''}`,
+      details: {
+        prepay_cents: prepay.totalCents,
+        duration_days: durationDays,
+        checkout_session_id: session.id,
+      },
     });
-    return NextResponse.json({ error: message || 'Failed to launch campaign' }, { status: 500 });
+
+    return NextResponse.json({
+      checkoutUrl: session.url,
+      prepayCents: prepay.totalCents,
+      durationDays,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[approve] Stripe checkout creation failed:', err);
+    return NextResponse.json({ error: 'Failed to create payment session. ' + message }, { status: 500 });
   }
 }

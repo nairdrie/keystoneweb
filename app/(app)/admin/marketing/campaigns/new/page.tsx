@@ -90,7 +90,7 @@ export default function NewCampaignPage() {
     }
   }
 
-  async function createAndApprove(payload: Record<string, unknown>): Promise<{ ok: boolean; id?: string; error?: string; status?: number; }> {
+  async function createDraft(payload: Record<string, unknown>): Promise<{ ok: boolean; id?: string; error?: string }> {
     const createRes = await fetch('/api/admin/marketing/campaigns', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -99,16 +99,18 @@ export default function NewCampaignPage() {
     });
     const createData = await createRes.json();
     if (!createRes.ok) return { ok: false, error: createData.error };
+    return { ok: true, id: createData.campaign.id };
+  }
 
-    const id = createData.campaign.id;
-    const approveRes = await fetch(`/api/admin/marketing/campaigns/${id}/approve`, {
+  async function approveAndGetCheckoutUrl(campaignId: string): Promise<{ ok: boolean; checkoutUrl?: string; error?: string }> {
+    const res = await fetch(`/api/admin/marketing/campaigns/${campaignId}/approve`, {
       method: 'POST',
       credentials: 'include',
     });
-    const approveData = await approveRes.json();
-    if (!approveRes.ok) return { ok: false, error: approveData.error, status: approveRes.status, id };
-
-    return { ok: true, id };
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.error };
+    if (!data.checkoutUrl) return { ok: false, error: 'No checkout URL returned' };
+    return { ok: true, checkoutUrl: data.checkoutUrl };
   }
 
   async function handleLaunch() {
@@ -117,66 +119,62 @@ export default function NewCampaignPage() {
     setSubmitting(true);
 
     const targeting = targetingFromLocationValue(locationValue, generated.targeting);
-    const includeDisplay = channel === 'google_ads' && alsoDisplay;
-    const searchBudget = includeDisplay ? Math.round(dailyBudget * SEARCH_SPLIT) : dailyBudget;
-    const displayBudget = dailyBudget - searchBudget;
     const startDate = new Date().toISOString().slice(0, 10);
     const endDate = campaignDurationDays
       ? new Date(Date.now() + campaignDurationDays * 86_400_000).toISOString().slice(0, 10)
       : undefined;
 
     try {
-      // Primary campaign (Search for google_ads, the chosen format for other channels)
-      const primaryResult = await createAndApprove({
+      // 1. Create the primary campaign as a draft.
+      const draft = await createDraft({
         siteId,
-        name: includeDisplay ? `${campaignName} — Search` : campaignName,
+        name: campaignName,
         channel,
         campaign_type: campaignType,
         content: editedContent,
         targeting,
-        daily_budget_cents: searchBudget,
+        daily_budget_cents: dailyBudget,
         start_date: startDate,
         ...(endDate && { end_date: endDate }),
         ai_generated: true,
         ai_rationale: generated.rationale,
       });
-
-      if (!primaryResult.ok) {
-        // Insufficient funds: the draft was created but couldn't launch.
-        // Send the user to the draft detail page where they can top up and approve.
-        if (primaryResult.status === 402 && primaryResult.id) {
-          router.push(`/admin/marketing/campaigns/${primaryResult.id}?siteId=${siteId}&needsFunds=1`);
-          return;
-        }
-        setError(primaryResult.error || 'Failed to launch campaign');
+      if (!draft.ok || !draft.id) {
+        setError(draft.error || 'Failed to create campaign');
         setSubmitting(false);
         return;
       }
 
-      // Optional Display companion (Google only)
-      if (includeDisplay) {
+      // 2. If alsoDisplay was selected, queue a Display companion as a DRAFT
+      //    that the user can approve + pay separately. We don't auto-launch it
+      //    because each campaign is paid for individually under the new model.
+      if (channel === 'google_ads' && alsoDisplay) {
         const displayContent = deriveDisplayContent(editedContent as unknown as GoogleSearchContent, businessName, displayImages);
-        const displayResult = await createAndApprove({
+        await createDraft({
           siteId,
           name: `${campaignName} — Display`,
           channel: 'google_ads',
           campaign_type: 'display',
           content: displayContent,
           targeting,
-          daily_budget_cents: displayBudget,
+          daily_budget_cents: Math.max(500, Math.round(dailyBudget * 0.5)),
           start_date: startDate,
           ...(endDate && { end_date: endDate }),
           ai_generated: true,
-          ai_rationale: 'Companion display campaign — visual reach across the Google Display Network.',
+          ai_rationale: 'Companion display campaign — visual reach across the Google Display Network. Pay for this separately after your Search campaign goes live.',
         });
-
-        if (!displayResult.ok) {
-          // Search succeeded; warn about Display but redirect to Search.
-          console.warn('Display companion failed:', displayResult.error);
-        }
       }
 
-      router.push(`/admin/marketing/campaigns/${primaryResult.id}?siteId=${siteId}&just=launched`);
+      // 3. Approve the primary campaign → returns a Stripe Checkout URL.
+      const approve = await approveAndGetCheckoutUrl(draft.id);
+      if (!approve.ok || !approve.checkoutUrl) {
+        setError(approve.error || 'Failed to start payment');
+        setSubmitting(false);
+        return;
+      }
+
+      // 4. Redirect to Stripe.
+      window.location.href = approve.checkoutUrl;
     } catch {
       setError('Network error');
       setSubmitting(false);
@@ -527,10 +525,18 @@ function ReviewForm(p: ReviewFormProps) {
         {p.campaignDurationDays && (
           <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-600">Total wallet required</span>
-              <span className="font-black text-slate-900">{formatCents(p.dailyBudget * p.campaignDurationDays)}</span>
+              <span className="text-slate-600">Ad spend ({p.campaignDurationDays} days × {formatCents(p.dailyBudget)})</span>
+              <span className="text-slate-900">{formatCents(p.dailyBudget * p.campaignDurationDays)}</span>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">Actual spend depends on traffic. Unused balance stays in your wallet.</p>
+            <div className="flex items-center justify-between text-sm mt-1">
+              <span className="text-slate-600">Service fee (5%)</span>
+              <span className="text-slate-900">{formatCents(Math.round(p.dailyBudget * p.campaignDurationDays * 0.05))}</span>
+            </div>
+            <div className="border-t border-slate-200 mt-2 pt-2 flex items-center justify-between">
+              <span className="text-sm font-bold text-slate-900">You pay today</span>
+              <span className="font-black text-lg text-slate-900">{formatCents(Math.round(p.dailyBudget * p.campaignDurationDays * 1.05))}</span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1.5">Charged upfront via Stripe. Any unused budget is refunded if you cancel.</p>
           </div>
         )}
       </div>
@@ -550,7 +556,7 @@ function ReviewForm(p: ReviewFormProps) {
           className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors"
         >
           {p.submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          {p.submitting ? 'Launching…' : 'Approve & launch'}
+          {p.submitting ? 'Redirecting to payment…' : `Approve & pay ${p.campaignDurationDays ? formatCents(Math.round(p.dailyBudget * p.campaignDurationDays * 1.05)) : ''}`}
         </button>
       </div>
     </div>

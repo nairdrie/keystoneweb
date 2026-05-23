@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { createClient } from '@/lib/db/supabase-server';
 import { resumeCampaign } from '@/lib/marketing/google-ads';
-import { getWallet } from '@/lib/marketing/wallet';
+import { getCampaignBudget } from '@/lib/marketing/campaign-budget';
 
 export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
@@ -23,13 +23,14 @@ export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: s
     return NextResponse.json({ error: `Cannot resume from status ${campaign.status}` }, { status: 400 });
   }
 
-  const wallet = await getWallet(campaign.site_id);
-  const dailyBudget = campaign.daily_budget_cents || 0;
-  if (!wallet || wallet.balance_cents < dailyBudget) {
+  // Check this campaign's prepaid budget — must have at least one day's worth left.
+  const budget = await getCampaignBudget(id);
+  const dailyBundled = Math.round((campaign.daily_budget_cents || 0) * 1.05);
+  if (budget.remainingCents < dailyBundled) {
     return NextResponse.json({
-      error: 'Insufficient wallet balance. Please top up before resuming this campaign.',
-      walletBalanceCents: wallet?.balance_cents ?? 0,
-      requiredCents: dailyBudget,
+      error: 'Campaign budget too low to resume. Add more budget first.',
+      remainingCents: budget.remainingCents,
+      requiredCents: dailyBundled,
     }, { status: 402 });
   }
 
