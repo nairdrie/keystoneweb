@@ -290,7 +290,7 @@ export function checkButtonsAndLinks(data: DiagnosticData): DiagnosticResult[] {
     }
 
     for (const key of Object.keys(obj)) {
-      if (key.endsWith('Link') || key.endsWith('Icon')) continue;
+      if (key.endsWith('Link') || key.endsWith('Icon') || key === 'linkType') continue;
       const linkKey = `${key}Link`;
       if (seenLinkKeys.has(linkKey) || !(linkKey in obj)) {
         if (
