@@ -204,8 +204,9 @@ export default function SeoRedirectsPanel({ siteId }: SeoRedirectsPanelProps) {
       >
         <h3 className="text-sm font-bold text-slate-900">Add a redirect</h3>
         <p className="text-xs text-slate-500">
-          When a visitor hits the &ldquo;from&rdquo; path on your site, they&rsquo;ll be 301-redirected to the &ldquo;to&rdquo; path.
-          Useful when you move a page or change its slug.
+          When a visitor hits the &ldquo;from&rdquo; path on your site, they&rsquo;ll be 301-redirected to the &ldquo;to&rdquo; destination.
+          The destination can be a path on this site (e.g. <code className="font-mono">/contact</code>) or a full URL on
+          another site (e.g. <code className="font-mono">https://kswd.ca</code>).
         </p>
         <div className="flex items-stretch gap-2 flex-wrap">
           <div className="flex-1 min-w-[180px]">
@@ -224,7 +225,7 @@ export default function SeoRedirectsPanel({ siteId }: SeoRedirectsPanelProps) {
               type="text"
               value={to}
               onChange={e => setTo(e.target.value)}
-              placeholder="/contact"
+              placeholder="/contact or https://example.com"
               list="ks-pages-datalist"
               className="w-full px-3 py-2 text-sm font-mono border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-900"
             />
