@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/context';
 import { useRouter } from 'next/navigation';
 import KeystoneLogo from '@/app/components/KeystoneLogo';
-import { ArrowLeft, CreditCard, ExternalLink, Loader2, User, History, Globe, Link2, AlertCircle, CheckCircle2, Lock, Puzzle, Zap, Receipt, Download, FileText } from 'lucide-react';
+import { ArrowLeft, CreditCard, ExternalLink, Loader2, User, History, Globe, Link2, AlertCircle, CheckCircle2, Lock, Puzzle, Zap, Receipt, FileText } from 'lucide-react';
 
 interface SubscriptionData {
     subscription_status: string;
@@ -714,30 +714,15 @@ export default function SettingsPage() {
                                                         {new Date(tx.created_at).toLocaleDateString()}
                                                     </p>
                                                     {(tx.invoice_url || tx.invoice_pdf) && (
-                                                        <div className="flex items-center gap-2">
-                                                            {tx.invoice_url && (
-                                                                <a
-                                                                    href={tx.invoice_url}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 transition-colors"
-                                                                >
-                                                                    <FileText className="w-3 h-3" />
-                                                                    Invoice
-                                                                </a>
-                                                            )}
-                                                            {tx.invoice_pdf && (
-                                                                <a
-                                                                    href={tx.invoice_pdf}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700 transition-colors"
-                                                                >
-                                                                    <Download className="w-3 h-3" />
-                                                                    PDF
-                                                                </a>
-                                                            )}
-                                                        </div>
+                                                        <a
+                                                            href={tx.invoice_url || tx.invoice_pdf!}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 transition-colors"
+                                                        >
+                                                            <FileText className="w-3.5 h-3.5" />
+                                                            View invoice
+                                                        </a>
                                                     )}
                                                 </div>
                                             </div>
