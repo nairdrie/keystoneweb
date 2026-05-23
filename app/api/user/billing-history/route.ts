@@ -14,10 +14,14 @@ export async function GET(request: NextRequest) {
             );
         }
 
+        // Exclude `subscription_status_change` rows — they're $0 status updates,
+        // not financial transactions. The matching `invoice.paid` row (created by
+        // the same renewal) carries the real amount and hosted invoice URL.
         const { data: transactions, error } = await supabase
             .from('stripe_transactions')
             .select('id, transaction_type, description, amount_cents, currency, status, invoice_url, invoice_pdf, period_start, period_end, created_at')
             .eq('user_id', user.id)
+            .neq('transaction_type', 'subscription_status_change')
             .order('created_at', { ascending: false })
             .limit(50);
 

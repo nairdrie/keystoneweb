@@ -69,17 +69,23 @@ async function recordStripeTransaction(data: {
 async function getCheckoutInvoiceUrls(session: Stripe.Checkout.Session): Promise<{
   invoice_url: string | null;
   invoice_pdf: string | null;
+  amount_paid_cents: number | null;
+  currency: string | null;
 }> {
   try {
     const stripe = getStripeClient();
 
-    // Subscription checkout — fetch the associated invoice
+    // Subscription checkout — fetch the associated invoice so we can record the
+    // post-tax amount actually paid (session.amount_total is pre-tax when Stripe
+    // Tax adjusts the total at finalization).
     if (session.invoice) {
       const invoiceId = typeof session.invoice === 'string' ? session.invoice : (session.invoice as any).id;
       const invoice = await stripe.invoices.retrieve(invoiceId) as any;
       return {
         invoice_url: invoice.hosted_invoice_url || null,
         invoice_pdf: invoice.invoice_pdf || null,
+        amount_paid_cents: typeof invoice.amount_paid === 'number' ? invoice.amount_paid : null,
+        currency: invoice.currency || null,
       };
     }
 
@@ -92,6 +98,8 @@ async function getCheckoutInvoiceUrls(session: Stripe.Checkout.Session): Promise
         return {
           invoice_url: charge.receipt_url,
           invoice_pdf: null,
+          amount_paid_cents: typeof charge.amount === 'number' ? charge.amount : null,
+          currency: charge.currency || null,
         };
       }
     }
@@ -99,7 +107,7 @@ async function getCheckoutInvoiceUrls(session: Stripe.Checkout.Session): Promise
     // Non-blocking — transaction still records, just without invoice links
     console.error('Failed to retrieve checkout invoice/receipt URLs:', err);
   }
-  return { invoice_url: null, invoice_pdf: null };
+  return { invoice_url: null, invoice_pdf: null, amount_paid_cents: null, currency: null };
 }
 
 /**
@@ -585,8 +593,10 @@ export async function POST(request: NextRequest) {
           transaction_type: 'subscription_created',
           description: `Subscription created: ${planName}`,
           plan_name: planName,
-          amount_cents: session.amount_total ?? 0,
-          currency: session.currency ?? 'cad',
+          // Prefer the invoice's actual paid amount (post-tax) over session.amount_total
+          // which is the pre-tax checkout subtotal when Stripe Tax is enabled.
+          amount_cents: checkoutUrls.amount_paid_cents ?? session.amount_total ?? 0,
+          currency: checkoutUrls.currency ?? session.currency ?? 'cad',
           status: 'succeeded',
           invoice_url: checkoutUrls.invoice_url,
           invoice_pdf: checkoutUrls.invoice_pdf,
