@@ -62,9 +62,18 @@ async function lookupSiteRedirect(
     // Fire-and-forget hit counter — don't await.
     supabase.rpc('bump_site_redirect_hit', { redirect_id: redirect.id }).then(() => {});
 
-    const destUrl = request.nextUrl.clone();
-    destUrl.pathname = redirect.to_path;
-    return NextResponse.redirect(destUrl, { status: redirect.status_code || 301 });
+    const to = redirect.to_path as string;
+    const isAbsolute = /^https?:\/\//i.test(to);
+    const destination: string | URL = isAbsolute
+      ? to
+      : (() => { const u = request.nextUrl.clone(); u.pathname = to; return u; })();
+
+    const response = NextResponse.redirect(destination, { status: redirect.status_code || 301 });
+    // Don't let the CDN/browser cache the redirect itself — otherwise editing
+    // or deleting it in the admin won't take effect until the cache TTL
+    // expires.
+    response.headers.set('Cache-Control', 'no-store, must-revalidate');
+    return response;
   } catch (err) {
     console.error('[Middleware] Redirect lookup failed:', err);
     return null;

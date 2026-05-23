@@ -9,6 +9,29 @@ function normalizePath(input: string): string {
   return p;
 }
 
+// True when the input is an absolute URL (http(s)://...) or a bare hostname
+// like "kswd.ca" or "example.com/path". Used for the redirect "to" field so
+// users can point a redirect at another site, not just another path on the
+// same site.
+function looksLikeExternalUrl(input: string): boolean {
+  const s = (input || '').trim();
+  if (!s) return false;
+  if (/^https?:\/\//i.test(s)) return true;
+  // Bare-hostname heuristic: starts with a label, has a dot followed by a TLD
+  // of at least 2 letters, no leading slash.
+  if (s.startsWith('/')) return false;
+  return /^[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}(\/.*)?$/i.test(s);
+}
+
+function normalizeDestination(input: string): string {
+  const s = (input || '').trim();
+  if (!s) return '';
+  if (looksLikeExternalUrl(s)) {
+    return /^https?:\/\//i.test(s) ? s : `https://${s}`;
+  }
+  return normalizePath(s);
+}
+
 async function assertSiteOwner(supabase: Awaited<ReturnType<typeof createClient>>, siteId: string) {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) return { error: 'Unauthorized', status: 401 as const };
@@ -56,7 +79,7 @@ export async function POST(request: NextRequest) {
   }
 
   const from = normalizePath(fromPath);
-  const to = normalizePath(toPath);
+  const to = normalizeDestination(toPath);
   if (!from || !to) return NextResponse.json({ error: 'fromPath and toPath cannot be empty' }, { status: 400 });
   if (from === to) return NextResponse.json({ error: 'Source and destination cannot be the same' }, { status: 400 });
 
