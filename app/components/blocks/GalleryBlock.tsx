@@ -152,7 +152,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
         const isDraggable = isEditMode && !isAddSlot;
 
         return (
-            <Reveal key={`tile-${index}`} delay={index * staggerSec}>
+            <Reveal key={`tile-${index}`} delay={(index % columns) * staggerSec}>
             <div
                 className={`relative group ${dragOverIndex === index && dragIndex !== null ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}
                 onDragOver={(e) => {
