@@ -34,6 +34,9 @@ export async function GET(request: NextRequest) {
     socialLinks: (site.design_data as any)?.socialLinks || null,
     seoTitle: (site.design_data as any)?.seoTitle || '',
     seoDescription: (site.design_data as any)?.seoDescription || '',
+    contactEmail: (site.design_data as any)?.contactEmail || '',
+    gbpSetupEmailSentAt: (site.design_data as any)?.gbpSetupEmailSentAt || null,
+    gbpSetupEmailSentTo: (site.design_data as any)?.gbpSetupEmailSentTo || null,
   });
 }
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, ExternalLink, CheckCircle2, AlertCircle, MapPin, Mic, Bot, Building2 } from 'lucide-react';
+import { Loader2, ExternalLink, CheckCircle2, AlertCircle, MapPin, Mic, Bot, Building2, Mail, Send } from 'lucide-react';
 
 type DiffSeverity = 'critical' | 'warning' | 'info';
 
@@ -112,6 +112,11 @@ export default function SeoProfilesPanel({ siteId }: SeoProfilesPanelProps) {
   const [profiles, setProfiles] = useState<Record<string, { claimed?: boolean; profileUrl?: string }>>({});
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [openSteps, setOpenSteps] = useState<Record<string, boolean>>({});
+  const [gbpEmailTo, setGbpEmailTo] = useState('');
+  const [gbpEmailName, setGbpEmailName] = useState('');
+  const [gbpEmailSending, setGbpEmailSending] = useState(false);
+  const [gbpEmailStatus, setGbpEmailStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [showGbpEmail, setShowGbpEmail] = useState(false);
 
   useEffect(() => {
     if (!siteId) return;
@@ -143,6 +148,31 @@ export default function SeoProfilesPanel({ siteId }: SeoProfilesPanelProps) {
     }
   };
 
+  const handleSendGbpEmail = async () => {
+    if (!siteId || !gbpEmailTo.trim()) return;
+    setGbpEmailSending(true);
+    setGbpEmailStatus('idle');
+    try {
+      const res = await fetch('/api/seo/gbp-setup-email', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteId, recipientEmail: gbpEmailTo.trim(), recipientName: gbpEmailName.trim() || undefined }),
+      });
+      if (res.ok) {
+        setGbpEmailStatus('success');
+        setShowGbpEmail(false);
+        setTimeout(() => setGbpEmailStatus('idle'), 6000);
+      } else {
+        setGbpEmailStatus('error');
+      }
+    } catch {
+      setGbpEmailStatus('error');
+    } finally {
+      setGbpEmailSending(false);
+    }
+  };
+
   if (!siteId) {
     return <div className="bg-white border border-slate-200 rounded-xl p-6 text-sm text-slate-500">Select a site to manage off-platform profiles.</div>;
   }
@@ -170,6 +200,70 @@ export default function SeoProfilesPanel({ siteId }: SeoProfilesPanelProps) {
             {gbp.diffs.map(diff => (
               <DiffItem key={diff.id} diff={diff} />
             ))}
+            {gbp.diffs.some(d => d.id === 'no-gbp') && (
+              <div className="border border-blue-200 bg-blue-50 rounded-lg p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <Mail className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                  <div className="text-xs text-slate-700 leading-relaxed">
+                    <strong className="text-slate-900">Send your client a setup guide</strong> — a step-by-step email with their business info pre-filled, a direct link to create their profile, and verification instructions.
+                  </div>
+                </div>
+                {!showGbpEmail ? (
+                  <button
+                    onClick={() => setShowGbpEmail(true)}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    Email Setup Guide to Client
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={gbpEmailName}
+                      onChange={(e) => setGbpEmailName(e.target.value)}
+                      placeholder="Client name (optional)"
+                      className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-md focus:border-blue-400 focus:ring-1 focus:ring-blue-400 focus:outline-none"
+                    />
+                    <input
+                      type="email"
+                      value={gbpEmailTo}
+                      onChange={(e) => setGbpEmailTo(e.target.value)}
+                      placeholder="client@example.com"
+                      className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-md focus:border-blue-400 focus:ring-1 focus:ring-blue-400 focus:outline-none"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleSendGbpEmail}
+                        disabled={gbpEmailSending || !gbpEmailTo.trim()}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                      >
+                        {gbpEmailSending ? (
+                          <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...</>
+                        ) : (
+                          <><Send className="w-3.5 h-3.5" /> Send</>
+                        )}
+                      </button>
+                      <button onClick={() => setShowGbpEmail(false)} className="px-3 py-1.5 text-sm text-slate-500 hover:text-slate-700">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {gbpEmailStatus === 'success' && (
+                  <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    Setup guide sent!
+                  </div>
+                )}
+                {gbpEmailStatus === 'error' && (
+                  <div className="flex items-center gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    Failed to send. Try again.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </section>

@@ -2738,6 +2738,211 @@ export async function sendDomainSetupInstructionsEmail(data: {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Google Business Profile Setup Guide Email
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function sendGbpSetupGuideEmail(data: {
+    recipientEmail: string;
+    recipientName?: string;
+    businessName: string;
+    streetAddress: string;
+    city: string;
+    region: string;
+    postalCode: string;
+    country: string;
+    phone: string;
+    siteUrl: string;
+    adminDashboardUrl: string;
+}) {
+    try {
+        const esc = escapeHtml;
+        const addressLine = [data.streetAddress, data.city, data.region, data.postalCode]
+            .filter(Boolean).join(', ');
+
+        await resend.emails.send({
+            from: 'Keystone Web Design <noreply@keystoneweb.ca>',
+            to: data.recipientEmail,
+            subject: `Set up your Google Business Profile — ${data.businessName}`,
+            html: `
+                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; background: #ffffff;">
+                    <!-- Header bar -->
+                    <div style="background: #fe4545; height: 4px; border-radius: 4px 4px 0 0;"></div>
+
+                    <div style="padding: 40px 32px;">
+                        <!-- Logo -->
+                        <img style="width:180px; margin-bottom:28px;" src="https://www.keystoneweb.ca/assets/logo/keystone-logo.png" alt="Keystone Web" />
+
+                        <h1 style="margin: 0 0 8px; font-size: 22px; font-weight: 700; color: #171717; letter-spacing: -0.02em;">
+                            Get your business on Google Maps
+                        </h1>
+                        <p style="margin: 0 0 24px; font-size: 15px; color: #6b7280; line-height: 1.6;">
+                            Hi${data.recipientName ? ` ${esc(data.recipientName)}` : ''},
+                            your website is looking great! The next step to getting found locally is creating a
+                            <strong style="color: #111827;">Google Business Profile</strong> — it&rsquo;s free and puts your
+                            business on Google Maps, in the Local Pack (the map results at the top of search), and in the
+                            Knowledge Panel that appears when someone searches your name.
+                        </p>
+
+                        <!-- Business info card -->
+                        <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 20px; margin-bottom: 24px;">
+                            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #9ca3af; margin-bottom: 12px;">
+                                Your Business Details
+                            </div>
+                            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                                <tr>
+                                    <td style="padding: 6px 0; color: #6b7280; width: 100px;">Name</td>
+                                    <td style="padding: 6px 0; color: #111827; font-weight: 600;">${esc(data.businessName)}</td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 6px 0; color: #6b7280;">Address</td>
+                                    <td style="padding: 6px 0; color: #111827;">${esc(addressLine)}</td>
+                                </tr>
+                                ${data.phone ? `<tr>
+                                    <td style="padding: 6px 0; color: #6b7280;">Phone</td>
+                                    <td style="padding: 6px 0; color: #111827;">${esc(data.phone)}</td>
+                                </tr>` : ''}
+                                <tr>
+                                    <td style="padding: 6px 0; color: #6b7280;">Website</td>
+                                    <td style="padding: 6px 0; color: #111827;">${esc(data.siteUrl)}</td>
+                                </tr>
+                            </table>
+                            <p style="margin: 12px 0 0; font-size: 12px; color: #9ca3af; line-height: 1.5;">
+                                Use these exact details when filling out the Google form so your website and Google listing match perfectly.
+                            </p>
+                        </div>
+
+                        <!-- CTA Button -->
+                        <div style="text-align: center; margin: 28px 0;">
+                            <a href="https://business.google.com/create" style="display: inline-block; background: #4285F4; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 600; padding: 14px 32px; border-radius: 8px; letter-spacing: 0.01em;">
+                                Create Your Google Business Profile &rarr;
+                            </a>
+                        </div>
+
+                        <!-- Steps -->
+                        <div style="margin: 28px 0;">
+                            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #9ca3af; margin-bottom: 16px;">
+                                Step-by-step guide
+                            </div>
+
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td style="padding: 10px 12px 10px 0; vertical-align: top; width: 32px;">
+                                        <div style="width: 28px; height: 28px; background: #4285F4; border-radius: 50%; color: #fff; font-size: 13px; font-weight: 700; text-align: center; line-height: 28px;">1</div>
+                                    </td>
+                                    <td style="padding: 10px 0; font-size: 14px; color: #374151; line-height: 1.5; border-bottom: 1px solid #f3f4f6;">
+                                        <strong style="color: #111827;">Sign in to Google</strong><br>
+                                        Click the blue button above and sign in with any Google account (Gmail). If you don&rsquo;t have one, you can create a free account in 2 minutes.
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px 12px 10px 0; vertical-align: top;">
+                                        <div style="width: 28px; height: 28px; background: #4285F4; border-radius: 50%; color: #fff; font-size: 13px; font-weight: 700; text-align: center; line-height: 28px;">2</div>
+                                    </td>
+                                    <td style="padding: 10px 0; font-size: 14px; color: #374151; line-height: 1.5; border-bottom: 1px solid #f3f4f6;">
+                                        <strong style="color: #111827;">Enter your business name</strong><br>
+                                        Type <strong>&ldquo;${esc(data.businessName)}&rdquo;</strong> exactly as shown. If Google suggests an existing listing, select it and claim it instead.
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px 12px 10px 0; vertical-align: top;">
+                                        <div style="width: 28px; height: 28px; background: #4285F4; border-radius: 50%; color: #fff; font-size: 13px; font-weight: 700; text-align: center; line-height: 28px;">3</div>
+                                    </td>
+                                    <td style="padding: 10px 0; font-size: 14px; color: #374151; line-height: 1.5; border-bottom: 1px solid #f3f4f6;">
+                                        <strong style="color: #111827;">Choose a category</strong><br>
+                                        Pick the one that best describes what you do (e.g. &ldquo;Plumber&rdquo;, &ldquo;Hair Salon&rdquo;, &ldquo;Restaurant&rdquo;). You can add more later.
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px 12px 10px 0; vertical-align: top;">
+                                        <div style="width: 28px; height: 28px; background: #4285F4; border-radius: 50%; color: #fff; font-size: 13px; font-weight: 700; text-align: center; line-height: 28px;">4</div>
+                                    </td>
+                                    <td style="padding: 10px 0; font-size: 14px; color: #374151; line-height: 1.5; border-bottom: 1px solid #f3f4f6;">
+                                        <strong style="color: #111827;">Add your address &amp; phone</strong><br>
+                                        Copy the details from the card above so everything matches your website exactly. Consistency across the web is a major ranking factor.
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px 12px 10px 0; vertical-align: top;">
+                                        <div style="width: 28px; height: 28px; background: #4285F4; border-radius: 50%; color: #fff; font-size: 13px; font-weight: 700; text-align: center; line-height: 28px;">5</div>
+                                    </td>
+                                    <td style="padding: 10px 0; font-size: 14px; color: #374151; line-height: 1.5; border-bottom: 1px solid #f3f4f6;">
+                                        <strong style="color: #111827;">Set your website</strong><br>
+                                        When asked for a website URL, enter: <strong>${esc(data.siteUrl)}</strong>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 10px 12px 10px 0; vertical-align: top;">
+                                        <div style="width: 28px; height: 28px; background: #4285F4; border-radius: 50%; color: #fff; font-size: 13px; font-weight: 700; text-align: center; line-height: 28px;">6</div>
+                                    </td>
+                                    <td style="padding: 10px 0; font-size: 14px; color: #374151; line-height: 1.5;">
+                                        <strong style="color: #111827;">Verify your business</strong><br>
+                                        Google needs to confirm you&rsquo;re the real owner. The most common method is a <strong>short video</strong> recorded on your phone — just walk through your business
+                                        showing the address and signage. Other options include a phone call or postcard. This usually takes 1&ndash;5 business days.
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- After verification box -->
+                        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 16px; margin: 24px 0;">
+                            <h3 style="margin: 0 0 6px; color: #166534; font-size: 14px; font-weight: 700;">After you&rsquo;re verified</h3>
+                            <p style="margin: 0; color: #166534; font-size: 13px; line-height: 1.6;">
+                                Once Google approves your listing, let us know and we&rsquo;ll link it to your website automatically.
+                                This enables real-time sync between your site and Google — keeping your local SEO in perfect shape.
+                            </p>
+                        </div>
+
+                        <!-- Why it matters -->
+                        <div style="border-top: 1px solid #f3f4f6; margin: 24px 0; padding-top: 20px;">
+                            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #9ca3af; margin-bottom: 12px;">
+                                Why this matters
+                            </div>
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td style="padding: 8px 16px 8px 0; vertical-align: top; font-size: 20px;">&#x1F4CD;</td>
+                                    <td style="padding: 8px 0; font-size: 13px; color: #4b5563; line-height: 1.5;">
+                                        <strong style="color: #111827;">Google Maps &amp; Local Pack</strong> — appear in the map results when locals search for what you do
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 16px 8px 0; vertical-align: top; font-size: 20px;">&#x2B50;</td>
+                                    <td style="padding: 8px 0; font-size: 13px; color: #4b5563; line-height: 1.5;">
+                                        <strong style="color: #111827;">Reviews &amp; stars</strong> — collect Google reviews that show up right in search results
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 8px 16px 8px 0; vertical-align: top; font-size: 20px;">&#x1F50D;</td>
+                                    <td style="padding: 8px 0; font-size: 13px; color: #4b5563; line-height: 1.5;">
+                                        <strong style="color: #111827;">Knowledge Panel</strong> — a branded info box with your hours, phone, and photos when someone searches your name
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <div style="border-top: 1px solid #f3f4f6; margin: 20px 0 0;"></div>
+                        <p style="margin: 16px 0 0; font-size: 12px; color: #9ca3af; line-height: 1.6;">
+                            Need help? Just reply to this email and our team will walk you through it.
+                        </p>
+                    </div>
+
+                    <!-- Footer -->
+                    <div style="padding: 16px 32px; background: #f9fafb; border-top: 1px solid #f3f4f6; border-radius: 0 0 4px 4px;">
+                        <p style="margin: 0; font-size: 12px; color: #9ca3af; text-align: center;">
+                            Powered by <strong style="color: #6b7280;">Keystone Web Design</strong>
+                        </p>
+                    </div>
+                </div>
+            `,
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to send GBP setup guide email:', error);
+        return { success: false, error };
+    }
+}
+
 function escapeHtml(s: string): string {
     return s
         .replace(/&/g, '&amp;')

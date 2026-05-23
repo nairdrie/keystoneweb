@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, MapPin, Phone, CheckCircle, AlertCircle, Loader2, PlusCircle, Globe } from 'lucide-react';
+import { Search, MapPin, Phone, CheckCircle, AlertCircle, Loader2, PlusCircle, Globe, Mail, Send, ExternalLink } from 'lucide-react';
 
 export interface BusinessProfile {
   legalName: string;
@@ -84,6 +84,15 @@ export default function SEOPanel({ siteId }: SEOPanelProps) {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // GBP setup email state
+  const [gbpEmailTo, setGbpEmailTo] = useState('');
+  const [gbpEmailName, setGbpEmailName] = useState('');
+  const [gbpEmailSending, setGbpEmailSending] = useState(false);
+  const [gbpEmailStatus, setGbpEmailStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [gbpEmailSentAt, setGbpEmailSentAt] = useState<string | null>(null);
+  const [gbpEmailSentTo, setGbpEmailSentTo] = useState<string | null>(null);
+  const [showGbpEmailForm, setShowGbpEmailForm] = useState(false);
+
   // Load existing profile on mount
   useEffect(() => {
     if (!siteId) return;
@@ -101,6 +110,13 @@ export default function SEOPanel({ siteId }: SEOPanelProps) {
         }
         if (data?.seoTitle || data?.seoDescription) {
           setSeoMeta({ seoTitle: data.seoTitle || '', seoDescription: data.seoDescription || '' });
+        }
+        if (data?.gbpSetupEmailSentAt) {
+          setGbpEmailSentAt(data.gbpSetupEmailSentAt);
+          setGbpEmailSentTo(data.gbpSetupEmailSentTo || null);
+        }
+        if (data?.contactEmail) {
+          setGbpEmailTo(data.contactEmail);
         }
       })
       .catch(() => { })
@@ -164,6 +180,33 @@ export default function SEOPanel({ siteId }: SEOPanelProps) {
 
   const handleSocialChange = (field: keyof SocialLinks, value: string) => {
     setSocialLinks(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSendGbpEmail = async () => {
+    if (!siteId || !gbpEmailTo.trim()) return;
+    setGbpEmailSending(true);
+    setGbpEmailStatus('idle');
+    try {
+      const res = await fetch('/api/seo/gbp-setup-email', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteId, recipientEmail: gbpEmailTo.trim(), recipientName: gbpEmailName.trim() || undefined }),
+      });
+      if (res.ok) {
+        setGbpEmailStatus('success');
+        setGbpEmailSentAt(new Date().toISOString());
+        setGbpEmailSentTo(gbpEmailTo.trim());
+        setShowGbpEmailForm(false);
+        setTimeout(() => setGbpEmailStatus('idle'), 6000);
+      } else {
+        setGbpEmailStatus('error');
+      }
+    } catch {
+      setGbpEmailStatus('error');
+    } finally {
+      setGbpEmailSending(false);
+    }
   };
 
   const handleSave = async () => {
@@ -484,6 +527,113 @@ export default function SEOPanel({ siteId }: SEOPanelProps) {
             <div className="flex items-center gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
               Failed to save. Please try again.
+            </div>
+          )}
+
+          {/* GBP Setup Guide — shown when business info exists but no placeId */}
+          {profile.legalName.trim() && !profile.placeId && (
+            <div className="pt-2">
+              <div className="text-[10px] font-bold uppercase text-slate-400 tracking-widest border-b border-slate-100 pb-1 mb-3">
+                Google Business Profile
+              </div>
+
+              <div className="border border-blue-200 bg-blue-50 rounded-lg p-3 space-y-3">
+                <div className="flex items-start gap-2">
+                  <MapPin className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900">Not on Google Maps yet</div>
+                    <div className="text-xs text-slate-600 mt-1 leading-relaxed">
+                      This business doesn&apos;t have a Google Business Profile linked. Send your client a step-by-step setup guide — they&apos;ll
+                      be on Google Maps in minutes.
+                    </div>
+                  </div>
+                </div>
+
+                {gbpEmailSentAt && (
+                  <div className="flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
+                    <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>
+                      Setup guide sent to <strong>{gbpEmailSentTo}</strong> on {new Date(gbpEmailSentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </div>
+                )}
+
+                {!showGbpEmailForm ? (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowGbpEmailForm(true)}
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      {gbpEmailSentAt ? 'Resend Guide' : 'Send Setup Guide to Client'}
+                    </button>
+                    <a
+                      href="https://business.google.com/create"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-slate-200 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Create yourself
+                    </a>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-1">Client&apos;s Name</label>
+                      <input
+                        type="text"
+                        value={gbpEmailName}
+                        onChange={(e) => setGbpEmailName(e.target.value)}
+                        placeholder="Jane Smith (optional)"
+                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-blue-400 focus:ring-1 focus:ring-blue-400 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-1">Client&apos;s Email</label>
+                      <input
+                        type="email"
+                        value={gbpEmailTo}
+                        onChange={(e) => setGbpEmailTo(e.target.value)}
+                        placeholder="client@example.com"
+                        className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-blue-400 focus:ring-1 focus:ring-blue-400 focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleSendGbpEmail}
+                        disabled={gbpEmailSending || !gbpEmailTo.trim()}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                      >
+                        {gbpEmailSending ? (
+                          <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending...</>
+                        ) : (
+                          <><Send className="w-3.5 h-3.5" /> Send Guide</>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setShowGbpEmailForm(false)}
+                        className="px-3 py-2 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {gbpEmailStatus === 'success' && (
+                  <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+                    <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                    Setup guide sent! Your client will get step-by-step instructions to create their profile.
+                  </div>
+                )}
+                {gbpEmailStatus === 'error' && (
+                  <div className="flex items-center gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    Failed to send. Please try again.
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
