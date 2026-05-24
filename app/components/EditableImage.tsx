@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { Image as ImageIcon, Pencil } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import ImageEditorModal, { type ImageFrameSize, type ImageSettings, type UnsplashAttribution } from './ImageEditorModal';
@@ -136,10 +136,16 @@ export default function EditableImage({
     : 'absolute left-1/2 top-1/2 z-30 inline-flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 text-slate-900 opacity-0 shadow-lg transition-opacity hover:bg-white focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 group-hover/editable-image:opacity-100 [@media(hover:none)]:opacity-100';
   const inlineEditIconClassName = editOverlayStyle === 'icon' ? 'h-3.5 w-3.5' : 'h-4 w-4';
 
+  const imgRef = useRef<HTMLImageElement>(null);
   const [imgLoaded, setImgLoaded] = useState(priority);
   useEffect(() => {
     if (!priority) setImgLoaded(false);
   }, [imageUrl, priority]);
+  useEffect(() => {
+    if (!priority && imgRef.current?.complete && imgRef.current.naturalWidth > 0) {
+      setImgLoaded(true);
+    }
+  });
 
   // Preview mode: just show the image
   if (!isEditMode) {
@@ -156,6 +162,7 @@ export default function EditableImage({
     return (
       <div className={`relative w-full h-full overflow-hidden bg-gray-100 ${imageRadiusClassName} ${ksFieldClass}`} style={{ borderRadius: imageBorderRadius }} {...ksMarkerProps}>
         <img
+          ref={imgRef}
           src={previewUrl}
           alt={imageSettings.altText || contentKey}
           className={`${imageClassName} duration-500`}
