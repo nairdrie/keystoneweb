@@ -5,6 +5,8 @@ import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
 import BlogPostPageClient from './BlogPostPageClient';
 import SiteAnalyticsTracker from '@/app/components/SiteAnalyticsTracker';
+import BlogJsonLdScript from '@/app/components/BlogJsonLdScript';
+import { BusinessProfile } from '@/lib/types/sites';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +23,7 @@ export default async function BlogPostPage({
         // Fetch the published site by custom domain
         const { data: site, error: siteError } = await supabase
             .from('sites')
-            .select('id, selected_template_id, published_data, site_slug')
+            .select('id, selected_template_id, published_data, site_slug, business_profile')
             .eq('custom_domain', domain)
             .eq('is_published', true)
             .single();
@@ -97,9 +99,25 @@ export default async function BlogPostPage({
             }
         }
 
+        const siteUrl = `https://${domain}`;
+        const blogPageUrl = `${siteUrl}/blog/${slug}`;
+
         return (
             <>
             <SiteAnalyticsTracker siteId={site.id} />
+            <BlogJsonLdScript
+                siteUrl={siteUrl}
+                pageUrl={blogPageUrl}
+                title={post.title}
+                excerpt={post.excerpt}
+                content={post.content}
+                coverImage={post.cover_image}
+                author={post.author}
+                datePublished={post.published_at || post.created_at}
+                dateModified={post.updated_at || post.published_at}
+                tags={post.tags}
+                businessProfile={site.business_profile as BusinessProfile | null}
+            />
             <EditorContent
                 isPublicView={true}
                 publicSiteData={{

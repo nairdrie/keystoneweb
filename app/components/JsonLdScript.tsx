@@ -14,12 +14,14 @@ interface JsonLdScriptProps {
   pageTitle?: string;
   pageDescription?: string;
   isHomePage?: boolean;
+  datePublished?: string | null;
+  dateModified?: string | null;
+  language?: string | null;
 }
 
 /**
- * Emits one <script type="application/ld+json"> per detected schema entry
- * (LocalBusiness, BreadcrumbList, FAQPage, Service, WebPage). Google's docs
- * explicitly recommend separate script tags over a single @graph blob.
+ * Emits one <script type="application/ld+json"> per detected schema entry.
+ * Google's docs explicitly recommend separate script tags over a single @graph blob.
  */
 export default function JsonLdScript({
   businessProfile,
@@ -32,6 +34,9 @@ export default function JsonLdScript({
   pageTitle,
   pageDescription,
   isHomePage,
+  datePublished,
+  dateModified,
+  language,
 }: JsonLdScriptProps) {
   const entries = buildJsonLd({
     businessProfile,
@@ -44,6 +49,9 @@ export default function JsonLdScript({
     pageTitle,
     pageDescription,
     isHomePage,
+    datePublished,
+    dateModified,
+    language,
   });
 
   if (entries.length === 0) return null;

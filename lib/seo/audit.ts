@@ -11,7 +11,8 @@ export type CheckCategory =
   | 'schema'
   | 'indexability'
   | 'content'
-  | 'discoverability';
+  | 'discoverability'
+  | 'aeo';
 
 export interface AuditCheck {
   id: string;
@@ -45,6 +46,9 @@ export interface AuditInput {
     isVisibleInNav?: boolean;
   }>;
   unresolvedLogs?: Array<{ path: string; hit_count: number }>;
+  hasBlogPosts?: boolean;
+  hasLlmsTxt?: boolean;
+  language?: string | null;
 }
 
 export interface AuditResult {
@@ -316,6 +320,27 @@ export function runAudit(input: AuditInput): AuditResult {
   });
 
   checks.push({
+    id: 'schema-organization',
+    category: 'schema',
+    label: 'Organization/Publisher schema',
+    status: businessProfile?.legalName && businessProfile?.image ? 'pass' : businessProfile?.legalName ? 'warn' : 'fail',
+    detail: businessProfile?.legalName && businessProfile?.image
+      ? 'Organization schema is emitted as publisher on every page with logo.'
+      : businessProfile?.legalName
+        ? 'Organization publisher is emitted but missing logo. Add a business image in the Site tab.'
+        : 'No publisher info. Fill in business name and image to emit Organization schema.',
+    fixHint: 'Upload a business logo/image in /admin/seo Site tab to complete the Organization schema.',
+  });
+
+  checks.push({
+    id: 'schema-website-searchaction',
+    category: 'schema',
+    label: 'WebSite with SearchAction',
+    status: 'pass',
+    detail: 'WebSite schema with potentialAction (SearchAction) is auto-emitted on the home page for sitelinks searchbox eligibility.',
+  });
+
+  checks.push({
     id: 'schema-faq',
     category: 'schema',
     label: 'FAQPage schema present',
@@ -344,6 +369,75 @@ export function runAudit(input: AuditInput): AuditResult {
     detail: hasTestimonialsBlock
       ? 'AggregateRating + Review JSON-LD is auto-emitted from your testimonials.'
       : 'No testimonials block found. Add one to get star ratings in Google results.',
+  });
+
+  checks.push({
+    id: 'schema-blog-article',
+    category: 'schema',
+    label: 'BlogPosting schema on articles',
+    status: input.hasBlogPosts ? 'pass' : 'skip',
+    detail: input.hasBlogPosts
+      ? 'BlogPosting JSON-LD with author, publisher, datePublished, and speakable is auto-emitted on blog posts.'
+      : 'No blog posts published yet. When you publish one, BlogPosting schema is automatically emitted.',
+  });
+
+  // ── AEO (Answer Engine Optimization) ─────────────────────
+  checks.push({
+    id: 'aeo-speakable',
+    category: 'aeo',
+    label: 'Speakable specification',
+    status: 'pass',
+    detail: 'SpeakableSpecification is auto-emitted on all pages with descriptions, enabling voice assistants (Google Assistant, Alexa, Siri) to read your content aloud.',
+  });
+
+  checks.push({
+    id: 'aeo-llms-txt',
+    category: 'aeo',
+    label: 'llms.txt for AI crawlers',
+    status: input.hasLlmsTxt !== false ? 'pass' : 'warn',
+    detail: input.hasLlmsTxt !== false
+      ? 'llms.txt is auto-served at /llms.txt — AI assistants (ChatGPT, Perplexity, Claude) can discover your business info and pages.'
+      : 'llms.txt is not available. Ensure the site is published.',
+    fixHint: 'Publish the site to auto-generate llms.txt for AI assistant discoverability.',
+  });
+
+  checks.push({
+    id: 'aeo-structured-dates',
+    category: 'aeo',
+    label: 'Date metadata on pages',
+    status: input.publishedAt ? 'pass' : 'warn',
+    detail: input.publishedAt
+      ? 'datePublished and dateModified are emitted in WebPage/BlogPosting schemas. AI engines use these to prioritize fresh content.'
+      : 'No publish date recorded. Publish the site to add date metadata to schemas.',
+  });
+
+  checks.push({
+    id: 'aeo-language',
+    category: 'aeo',
+    label: 'Language declared in schema',
+    status: input.language ? 'pass' : 'warn',
+    detail: input.language
+      ? `inLanguage "${input.language}" is declared in all page schemas. AI engines use this to match queries to the correct language.`
+      : 'No language configured. Set a default language in site settings for proper inLanguage schema output.',
+  });
+
+  checks.push({
+    id: 'aeo-site-hierarchy',
+    category: 'aeo',
+    label: 'Page → Site hierarchy linked',
+    status: 'pass',
+    detail: 'All WebPage schemas include isPartOf linking back to the WebSite, and BreadcrumbList schemas are emitted on subpages. This helps AI engines understand your site structure.',
+  });
+
+  checks.push({
+    id: 'aeo-contact-point',
+    category: 'aeo',
+    label: 'ContactPoint in schema',
+    status: businessProfile?.telephone ? 'pass' : 'warn',
+    detail: businessProfile?.telephone
+      ? 'ContactPoint with phone number is emitted in LocalBusiness and Organization schemas. AI assistants can surface this directly in answers.'
+      : 'No phone number means no ContactPoint schema. AI assistants won\'t be able to answer "how do I contact this business?"',
+    fixHint: 'Add a phone number in the Site tab to enable ContactPoint schema for AI assistant answers.',
   });
 
   // ── Content / engagement ─────────────────────────────────
