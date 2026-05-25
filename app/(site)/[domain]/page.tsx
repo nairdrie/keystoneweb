@@ -25,7 +25,7 @@ export default async function CustomDomainPage({
     // We assume there's a custom_domain column in the sites table
     const { data: site, error } = await supabase
       .from('sites')
-      .select('id, selected_template_id, published_data, business_profile, translations_config')
+      .select('id, selected_template_id, published_data, business_profile, translations_config, published_at, updated_at')
       .eq('custom_domain', domain)
       .eq('is_published', true)
       .single();
@@ -110,6 +110,9 @@ export default async function CustomDomainPage({
           pageTitle={(mergedPublishData as { seoTitle?: string; siteTitle?: string }).seoTitle || (mergedPublishData as { siteTitle?: string }).siteTitle}
           pageDescription={(mergedPublishData as { seoDescription?: string }).seoDescription}
           isHomePage
+          datePublished={(site as any).published_at}
+          dateModified={(site as any).updated_at}
+          language={translationsConfig?.defaultLanguage || 'en'}
         />
 
         <EditorContent

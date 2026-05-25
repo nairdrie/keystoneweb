@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   if (!site) return NextResponse.json({ error: 'Site not found' }, { status: 404 });
   if (site.user_id && site.user_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  const [{ data: pagesData }, { data: logs }] = await Promise.all([
+  const [{ data: pagesData }, { data: logs }, { count: blogCount }] = await Promise.all([
     supabase
       .from('pages')
       .select('id, slug, title, display_name, design_data, is_visible_in_nav')
@@ -34,6 +34,11 @@ export async function GET(req: NextRequest) {
       .eq('resolved', false)
       .order('hit_count', { ascending: false })
       .limit(50),
+    supabase
+      .from('blog_posts')
+      .select('id', { count: 'exact', head: true })
+      .eq('site_id', siteId)
+      .eq('is_published', true),
   ]);
 
   const siteDesign = (site.design_data as Record<string, unknown>) || {};
@@ -59,6 +64,8 @@ export async function GET(req: NextRequest) {
     };
   });
 
+  const translationsConfig = (siteDesign.translationsConfig || sitePublished.__translationsConfig) as { defaultLanguage?: string } | undefined;
+
   const audit = runAudit({
     siteUrl,
     isPublished: !!site.is_published,
@@ -68,6 +75,9 @@ export async function GET(req: NextRequest) {
     socialLinks,
     pages,
     unresolvedLogs: logs || [],
+    hasBlogPosts: (blogCount ?? 0) > 0,
+    hasLlmsTxt: !!site.is_published,
+    language: translationsConfig?.defaultLanguage || null,
   });
 
   return NextResponse.json(audit);

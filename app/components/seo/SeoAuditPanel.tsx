@@ -33,6 +33,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   indexability: 'Indexability',
   content: 'Content',
   discoverability: 'Discoverability',
+  aeo: 'AI / Answer Engine',
 };
 
 interface SeoAuditPanelProps { siteId: string | undefined }

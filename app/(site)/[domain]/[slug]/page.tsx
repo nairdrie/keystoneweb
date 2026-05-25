@@ -85,7 +85,7 @@ export default async function CustomDomainDynamicPage({
         // Fetch the published site by custom domain
         const { data: site, error } = await supabase
             .from('sites')
-            .select('id, selected_template_id, published_data, business_profile')
+            .select('id, selected_template_id, published_data, business_profile, translations_config, published_at, updated_at')
             .eq('custom_domain', domain)
             .eq('is_published', true)
             .single();
@@ -187,6 +187,9 @@ export default async function CustomDomainDynamicPage({
                     breadcrumbs={subBreadcrumbs}
                     pageTitle={(pagePublishData as { seoTitle?: string }).seoTitle || subPageDisplayName}
                     pageDescription={(pagePublishData as { seoDescription?: string }).seoDescription}
+                    datePublished={(site as any).published_at}
+                    dateModified={(site as any).updated_at}
+                    language={((site as any).translations_config as any)?.defaultLanguage || 'en'}
                 />
 
                 <EditorContent

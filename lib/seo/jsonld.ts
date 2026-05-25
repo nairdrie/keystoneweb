@@ -22,7 +22,7 @@ export type SchemaEntry = {
   data: Record<string, unknown>;
 };
 
-interface BuildJsonLdInput {
+export interface BuildJsonLdInput {
   businessProfile?: BusinessProfile | null;
   socialLinks?: SocialLinks | null;
   testimonials?: Testimonial[];
@@ -33,6 +33,52 @@ interface BuildJsonLdInput {
   pageTitle?: string;
   pageDescription?: string;
   isHomePage?: boolean;
+  /** ISO-8601 date when page/site was first published */
+  datePublished?: string | null;
+  /** ISO-8601 date when page/site was last modified */
+  dateModified?: string | null;
+  /** Language code (e.g. "en", "fr") */
+  language?: string | null;
+}
+
+export interface BuildBlogJsonLdInput {
+  siteUrl: string;
+  pageUrl: string;
+  title: string;
+  excerpt?: string | null;
+  content?: string | null;
+  coverImage?: string | null;
+  author?: string | null;
+  datePublished?: string | null;
+  dateModified?: string | null;
+  tags?: string[];
+  businessProfile?: BusinessProfile | null;
+  language?: string | null;
+}
+
+function organizationData(
+  businessProfile: BusinessProfile,
+  siteUrl: string,
+  socialLinks?: SocialLinks | null,
+): Record<string, unknown> {
+  const org: Record<string, unknown> = {
+    '@type': 'Organization',
+    name: businessProfile.legalName,
+    url: siteUrl,
+  };
+  if (businessProfile.image) org.logo = businessProfile.image;
+  if (businessProfile.telephone) {
+    org.contactPoint = {
+      '@type': 'ContactPoint',
+      telephone: businessProfile.telephone,
+      contactType: 'customer service',
+    };
+  }
+  if (socialLinks) {
+    const sameAs = Object.values(socialLinks).filter((v): v is string => !!v && typeof v === 'string');
+    if (sameAs.length) org.sameAs = sameAs;
+  }
+  return org;
 }
 
 function localBusiness(
@@ -57,7 +103,14 @@ function localBusiness(
       addressCountry: businessProfile.addressCountry,
     },
   };
-  if (businessProfile.telephone) data.telephone = businessProfile.telephone;
+  if (businessProfile.telephone) {
+    data.telephone = businessProfile.telephone;
+    data.contactPoint = {
+      '@type': 'ContactPoint',
+      telephone: businessProfile.telephone,
+      contactType: 'customer service',
+    };
+  }
   if (businessProfile.latitude != null && businessProfile.longitude != null) {
     data.geo = {
       '@type': 'GeoCoordinates',
@@ -67,7 +120,10 @@ function localBusiness(
   }
   if (businessProfile.priceRange) data.priceRange = businessProfile.priceRange;
   if (businessProfile.openingHours?.length) data.openingHours = businessProfile.openingHours;
-  if (businessProfile.image) data.image = businessProfile.image;
+  if (businessProfile.image) {
+    data.image = businessProfile.image;
+    data.logo = businessProfile.image;
+  }
 
   if (testimonials?.length) {
     const ratings = testimonials.map(t => t.rating ?? 5);
@@ -180,23 +236,83 @@ function serviceFromBlocks(blocks: Block[], businessName?: string, businessUrl?:
   return out;
 }
 
-function webPage(
-  pageUrl: string,
+function webSite(
+  siteUrl: string,
   title: string | undefined,
   description: string | undefined,
-  isHomePage: boolean,
+  businessProfile?: BusinessProfile | null,
+  socialLinks?: SocialLinks | null,
+  language?: string | null,
 ): SchemaEntry {
   const data: Record<string, unknown> = {
     '@context': 'https://schema.org',
-    '@type': isHomePage ? 'WebSite' : 'WebPage',
-    url: pageUrl,
+    '@type': 'WebSite',
+    url: siteUrl,
   };
   if (title) data.name = title;
   if (description) data.description = description;
+  if (language) data.inLanguage = language;
+
+  // SearchAction enables Google Sitelinks Searchbox
+  data.potentialAction = {
+    '@type': 'SearchAction',
+    target: {
+      '@type': 'EntryPoint',
+      urlTemplate: `${siteUrl}/?q={search_term_string}`,
+    },
+    'query-input': 'required name=search_term_string',
+  };
+
+  if (businessProfile?.legalName) {
+    data.publisher = organizationData(businessProfile, siteUrl, socialLinks);
+  }
+
   return {
-    key: isHomePage ? 'website' : 'webpage',
-    type: isHomePage ? 'WebSite' : 'WebPage',
-    source: 'Auto-generated page wrapper',
+    key: 'website',
+    type: 'WebSite',
+    source: 'Auto-generated site wrapper with SearchAction',
+    data,
+  };
+}
+
+function webPage(
+  pageUrl: string,
+  siteUrl: string,
+  title: string | undefined,
+  description: string | undefined,
+  datePublished?: string | null,
+  dateModified?: string | null,
+  businessProfile?: BusinessProfile | null,
+  socialLinks?: SocialLinks | null,
+  language?: string | null,
+): SchemaEntry {
+  const data: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    url: pageUrl,
+    isPartOf: { '@type': 'WebSite', url: siteUrl },
+  };
+  if (title) data.name = title;
+  if (description) data.description = description;
+  if (language) data.inLanguage = language;
+  if (datePublished) data.datePublished = datePublished;
+  if (dateModified) data.dateModified = dateModified;
+
+  if (description) {
+    data.speakable = {
+      '@type': 'SpeakableSpecification',
+      cssSelector: ['[data-speakable="true"]', '.hero-heading', '.hero-subtitle', 'h1', 'meta[name="description"]'],
+    };
+  }
+
+  if (businessProfile?.legalName) {
+    data.publisher = organizationData(businessProfile, siteUrl, socialLinks);
+  }
+
+  return {
+    key: 'webpage',
+    type: 'WebPage',
+    source: 'Auto-generated page wrapper with speakable + publisher',
     data,
   };
 }
@@ -218,11 +334,18 @@ export function buildJsonLd(input: BuildJsonLdInput): SchemaEntry[] {
     pageTitle,
     pageDescription,
     isHomePage = false,
+    datePublished,
+    dateModified,
+    language,
   } = input;
 
   const entries: SchemaEntry[] = [];
 
-  entries.push(webPage(pageUrl, pageTitle, pageDescription, isHomePage));
+  if (isHomePage) {
+    entries.push(webSite(siteUrl, pageTitle, pageDescription, businessProfile, socialLinks, language));
+  } else {
+    entries.push(webPage(pageUrl, siteUrl, pageTitle, pageDescription, datePublished, dateModified, businessProfile, socialLinks, language));
+  }
 
   if (businessProfile) {
     const lb = localBusiness(businessProfile, siteUrl, socialLinks, testimonials);
@@ -234,6 +357,98 @@ export function buildJsonLd(input: BuildJsonLdInput): SchemaEntry[] {
 
   entries.push(...faqFromBlocks(blocks));
   entries.push(...serviceFromBlocks(blocks, businessProfile?.legalName, siteUrl));
+
+  return entries;
+}
+
+/**
+ * Builds Article/BlogPosting JSON-LD for blog post pages.
+ * AI answer engines heavily weight structured article metadata.
+ */
+export function buildBlogJsonLd(input: BuildBlogJsonLdInput): SchemaEntry[] {
+  const {
+    siteUrl,
+    pageUrl,
+    title,
+    excerpt,
+    content,
+    coverImage,
+    author,
+    datePublished,
+    dateModified,
+    tags,
+    businessProfile,
+    language,
+  } = input;
+
+  const entries: SchemaEntry[] = [];
+
+  const articleData: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: title,
+    url: pageUrl,
+    mainEntityOfPage: { '@type': 'WebPage', '@id': pageUrl },
+    isPartOf: { '@type': 'WebSite', url: siteUrl },
+  };
+
+  if (excerpt) articleData.description = excerpt;
+  if (coverImage) articleData.image = coverImage;
+  if (language) articleData.inLanguage = language;
+  if (datePublished) articleData.datePublished = datePublished;
+  if (dateModified) articleData.dateModified = dateModified;
+  if (tags?.length) articleData.keywords = tags.join(', ');
+
+  // Word count from content for engagement signals
+  if (content) {
+    const plainText = content.replace(/<[^>]+>/g, '').trim();
+    const wordCount = plainText.split(/\s+/).filter(Boolean).length;
+    if (wordCount > 0) articleData.wordCount = wordCount;
+  }
+
+  articleData.author = {
+    '@type': 'Person',
+    name: author || businessProfile?.legalName || 'Staff Writer',
+  };
+
+  if (businessProfile?.legalName) {
+    articleData.publisher = {
+      '@type': 'Organization',
+      name: businessProfile.legalName,
+      url: siteUrl,
+      ...(businessProfile.image ? { logo: { '@type': 'ImageObject', url: businessProfile.image } } : {}),
+    };
+  }
+
+  if (excerpt || title) {
+    articleData.speakable = {
+      '@type': 'SpeakableSpecification',
+      cssSelector: ['[data-speakable="true"]', '.blog-post-title', '.blog-post-excerpt', 'h1', 'article > p:first-of-type'],
+    };
+  }
+
+  entries.push({
+    key: 'blog-posting',
+    type: 'BlogPosting',
+    source: 'Auto-generated from blog post metadata',
+    data: articleData,
+  });
+
+  // BreadcrumbList: Home > Blog > Post Title
+  entries.push({
+    key: 'blog-breadcrumbs',
+    type: 'BreadcrumbList',
+    source: 'Auto-generated blog breadcrumb trail',
+    data: {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: siteUrl },
+        { '@type': 'ListItem', position: 2, name: 'Blog', item: `${siteUrl}/blog` },
+        { '@type': 'ListItem', position: 3, name: title, item: pageUrl },
+      ],
+    },
+  });
 
   return entries;
 }

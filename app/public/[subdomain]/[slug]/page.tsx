@@ -93,7 +93,7 @@ export default async function PublicSiteDynamicPage({
         // Fetch the published site by subdomain
         const { data: site, error } = await supabase
             .from('sites')
-            .select('id, selected_template_id, published_data, business_profile, translations_config, translations')
+            .select('id, selected_template_id, published_data, business_profile, translations_config, translations, published_at, updated_at')
             .eq('published_domain', subdomain)
             .eq('is_published', true)
             .single();
@@ -220,6 +220,9 @@ async function renderHomePage(
                 pageTitle={(mergedPublishData as { seoTitle?: string; siteTitle?: string }).seoTitle || (mergedPublishData as { siteTitle?: string }).siteTitle}
                 pageDescription={(mergedPublishData as { seoDescription?: string }).seoDescription}
                 isHomePage
+                datePublished={site.published_at}
+                dateModified={site.updated_at}
+                language={language}
             />
             <EditorContent
                 isPublicView={true}
@@ -338,6 +341,9 @@ async function renderPage(
                 breadcrumbs={breadcrumbs}
                 pageTitle={(translatedPageData as { seoTitle?: string }).seoTitle || pageDisplayName}
                 pageDescription={(translatedPageData as { seoDescription?: string }).seoDescription}
+                datePublished={site.published_at}
+                dateModified={site.updated_at}
+                language={language}
             />
 
             <EditorContent
