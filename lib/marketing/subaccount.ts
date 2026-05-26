@@ -84,7 +84,7 @@ export async function ensureGoogleAdsSubAccount(siteId: string): Promise<string>
   const mcc = await getMccCustomer();
   const cfg = getConfig();
 
-  const result = await mcc.createCustomerClient({
+  const result = await mcc.customers.createCustomerClient({
     customer_id: cfg.managerCustomerId,
     customer_client: {
       descriptive_name: descriptiveName,
