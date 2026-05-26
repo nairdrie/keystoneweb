@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BlockData, useEditorContext } from '@/lib/editor-context';
 import EditableText from '@/app/components/EditableText';
 import EditableImage from '@/app/components/EditableImage';
@@ -98,14 +98,22 @@ export default function HeroBlock({
         if (editorActiveIndex !== null) setEditIndex(editorActiveIndex);
     }, [editorActiveIndex]);
 
+    const manualPauseUntil = useRef(0);
+
     useEffect(() => {
         if (isEditMode) return;
         if (cardCount <= 1 || pauseRotation || transition.type === 'none') return;
         const id = setInterval(() => {
+            if (Date.now() < manualPauseUntil.current) return;
             setAutoIndex((i) => (i + 1) % cardCount);
         }, Math.max(2, transition.intervalSec) * 1000);
         return () => clearInterval(id);
     }, [cardCount, pauseRotation, transition.intervalSec, transition.type, isEditMode]);
+
+    const goToCard = useCallback((i: number) => {
+        manualPauseUntil.current = Date.now() + 30_000;
+        setAutoIndex(i);
+    }, []);
 
     const setActiveCardForEditing = (i: number) => {
         setEditIndex(i);
@@ -326,7 +334,7 @@ export default function HeroBlock({
                         <button
                             key={i}
                             type="button"
-                            onClick={() => setAutoIndex(i)}
+                            onClick={() => goToCard(i)}
                             aria-label={`Go to card ${i + 1}`}
                             className={`h-2 w-2 rounded-full transition-all ${i === activeIndex ? 'bg-white w-6' : 'bg-white/50 hover:bg-white/70'}`}
                         />
