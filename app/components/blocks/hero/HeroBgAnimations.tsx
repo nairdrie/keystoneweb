@@ -867,14 +867,18 @@ function Snowfall({ colors, speed = 1 }: AnimComponentProps) {
             const layer = i % 3;
             const size = layer === 0 ? 2 + (i % 3) : layer === 1 ? 3 + (i % 3) : 5 + (i % 4);
             const baseDuration = layer === 0 ? 18 + (i % 6) * 2 : layer === 1 ? 14 + (i % 5) * 2 : 10 + (i % 4) * 2;
+            const duration = baseDuration * multiplier;
+            const swayDuration = (6 + (i % 5) * 2) * multiplier;
             return {
                 left: `${(i * 61 + 13) % 100}%`,
                 size,
                 opacity: layer === 0 ? 0.3 : layer === 1 ? 0.5 : 0.8,
                 blur: layer === 0 ? 2 : layer === 1 ? 1 : 0,
-                duration: baseDuration * multiplier,
-                swayDuration: (6 + (i % 5) * 2) * multiplier,
-                delay: (i % 20) * 0.7,
+                duration,
+                swayDuration,
+                // Negative delay starts each flake mid-cycle so nothing waits visibly at the top
+                fallDelay: -((i * 3.7) % duration),
+                swayDelay: -((i * 2.3) % swayDuration),
             };
         }),
     [multiplier]);
@@ -894,7 +898,7 @@ function Snowfall({ colors, speed = 1 }: AnimComponentProps) {
                         boxShadow: `0 0 ${f.size + 2}px ${mix(glow, 40)}`,
                         opacity: f.opacity,
                         filter: f.blur ? `blur(${f.blur}px)` : undefined,
-                        animation: `ksSnowfall ${f.duration}s linear ${f.delay}s infinite, ksSnowSway ${f.swayDuration}s ease-in-out ${f.delay}s infinite`,
+                        animation: `ksSnowfall ${f.duration}s linear ${f.fallDelay}s infinite, ksSnowSway ${f.swayDuration}s ease-in-out ${f.swayDelay}s infinite`,
                     }}
                 />
             ))}
