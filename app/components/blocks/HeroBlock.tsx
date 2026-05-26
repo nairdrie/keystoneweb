@@ -781,7 +781,7 @@ function BackgroundLayer({ bg, palette }: { bg: HeroBackground; palette: Record<
         const meta = HERO_BG_ANIMATION_META[bg.animation.id];
         if (meta) {
             const colors = resolveSlotColors(meta.colorSlots, bg.animation.colors, palette, resolvePaletteColor);
-            mediaLayer = <HeroBgAnimation id={bg.animation.id} colors={colors} />;
+            mediaLayer = <HeroBgAnimation id={bg.animation.id} colors={colors} speed={bg.animation.speed} />;
         }
     } else if (bg.type === 'pattern' && bg.pattern) {
         const meta = HERO_BG_PATTERN_META[bg.pattern.id];
