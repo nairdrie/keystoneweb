@@ -82,19 +82,18 @@ export async function ensureGoogleAdsSubAccount(siteId: string): Promise<string>
   const descriptiveName = `${businessName} — Keystone Web`.slice(0, 80);
 
   const mcc = await getMccCustomer();
+  const cfg = getConfig();
 
-  // `createCustomerClient` is an MCC-level operation on the google-ads-api SDK.
-  // The "customer" wrapper exposes it through the customerClient.create path.
-  const result = await mcc.customerClient.create({
-    descriptive_name: descriptiveName,
-    currency_code: 'USD',
-    time_zone: 'America/New_York',
+  const result = await mcc.createCustomerClient({
+    customer_id: cfg.managerCustomerId,
+    customer_client: {
+      descriptive_name: descriptiveName,
+      currency_code: 'CAD',
+      time_zone: 'America/Toronto',
+    },
   });
 
-  const resourceName: string =
-    result?.resource_name ||
-    result?.results?.[0]?.resource_name ||
-    '';
+  const resourceName: string = result?.resource_name || '';
   const customerId = resourceName.split('/').pop();
 
   if (!customerId) {
