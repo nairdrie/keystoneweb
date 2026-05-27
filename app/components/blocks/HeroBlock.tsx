@@ -662,11 +662,11 @@ function HeroCardContent({
         ? `hero-split-grid grid h-full min-h-[560px] w-full grid-cols-1 items-stretch gap-0 md:min-h-[640px] ${showForeground && showText ? 'md:grid-cols-2' : ''}`
         : `grid w-full gap-10 items-center ${showForeground && showText ? 'md:grid-cols-2' : 'grid-cols-1'}`;
     const textColumnClass = splitScreen
-        ? `hero-content flex min-h-[360px] items-center px-6 py-16 sm:px-10 md:min-h-0 md:px-12 md:py-20 lg:px-20 ${imageOnRight || !showForeground ? 'order-1' : 'order-2'}`
+        ? `hero-content flex items-center px-6 py-16 sm:px-10 md:px-12 md:py-20 lg:px-20 ${imageOnRight || !showForeground ? 'order-1' : 'order-2'}`
         : `hero-content ${imageOnRight || !showForeground ? 'order-1' : 'order-2'}`;
     const imageColumnClass = splitScreen
-        ? `${imageOnRight ? 'order-2' : 'order-1'} h-full min-h-[360px] md:min-h-0`
-        : (imageOnRight ? 'order-2' : 'order-1');
+        ? `${imageOnRight ? 'order-2' : 'order-1'} hidden md:block h-full min-h-[360px] md:min-h-0`
+        : `${imageOnRight ? 'order-2' : 'order-1'} hidden md:block`;
     const imageClass = splitScreen
         ? 'hero-image h-full min-h-[360px] w-full object-cover'
         : 'hero-image w-full h-96 object-cover shadow-xl';
