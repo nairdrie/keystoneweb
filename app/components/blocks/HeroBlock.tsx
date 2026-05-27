@@ -176,12 +176,10 @@ export default function HeroBlock({
         if (updateContent) updateContent('cards', next);
         else context?.updateBlockData?.(block.id, 'cards', next);
 
-        // Style metadata (font/color) is still keyed off the old `__styles`
-        // properties — pass through unchanged so existing element-level
-        // settings keep working.
         if (key.endsWith('__styles')) {
-            if (updateContent) updateContent(key, value);
-            else context?.updateBlockData?.(block.id, key, value);
+            const scopedKey = `${key}__${cardIndex}`;
+            if (updateContent) updateContent(scopedKey, value);
+            else context?.updateBlockData?.(block.id, scopedKey, value);
         }
     };
 
@@ -300,6 +298,7 @@ export default function HeroBlock({
                     >
                         <HeroCardRenderer
                             card={card}
+                            cardIndex={i}
                             palette={palette}
                             isEditMode={isEditMode && isActive}
                             onSave={updateData(i)}
@@ -318,6 +317,7 @@ export default function HeroBlock({
                 <div className="invisible relative z-0 pointer-events-none" aria-hidden>
                     <HeroCardContent
                         card={activeCard}
+                        cardIndex={activeIndex}
                         palette={palette}
                         isEditMode={false}
                         onSave={() => {}}
@@ -472,6 +472,7 @@ function computeCardTransition(
 
 function HeroCardRenderer(props: {
     card: HeroCard;
+    cardIndex: number;
     palette: Record<string, string>;
     isEditMode: boolean;
     onSave: (key: string, value: unknown) => void;
@@ -489,6 +490,7 @@ function HeroCardRenderer(props: {
 
 function HeroCardContent({
     card,
+    cardIndex,
     palette,
     isEditMode,
     onSave,
@@ -496,6 +498,7 @@ function HeroCardContent({
     blockData,
 }: {
     card: HeroCard;
+    cardIndex: number;
     palette: Record<string, string>;
     isEditMode: boolean;
     onSave: (key: string, value: unknown) => void;
@@ -559,7 +562,7 @@ function HeroCardContent({
                     <EditableText
                         as="h1"
                         contentKey="title"
-                        styleData={blockData?.['title__styles'] as string | Record<string, unknown> | undefined}
+                        styleData={(blockData?.[`title__styles__${cardIndex}`] ?? blockData?.['title__styles']) as string | Record<string, unknown> | undefined}
                         content={card.content.title.value}
                         defaultValue={DEFAULT_TITLE}
                         isEditMode={isEditMode}
@@ -577,7 +580,7 @@ function HeroCardContent({
                     <EditableText
                         as="p"
                         contentKey="subtitle"
-                        styleData={blockData?.['subtitle__styles'] as string | Record<string, unknown> | undefined}
+                        styleData={(blockData?.[`subtitle__styles__${cardIndex}`] ?? blockData?.['subtitle__styles']) as string | Record<string, unknown> | undefined}
                         content={card.content.subtitle.value}
                         defaultValue={DEFAULT_SUBTITLE}
                         isEditMode={isEditMode}
