@@ -65,6 +65,13 @@ export interface AdminContextValue {
   refreshInboxUnread: () => void;
   focusMode: boolean;
   setFocusMode: (v: boolean) => void;
+  /** Register whether the current tab has unsaved edits (drives nav guards). */
+  setHasUnsavedChanges: (v: boolean) => void;
+  /**
+   * Run `action` only after confirming the user is OK losing unsaved changes.
+   * If nothing is dirty, the action runs immediately.
+   */
+  confirmNavigation: (action: () => void) => void;
 }
 
 export const AdminContext = createContext<AdminContextValue>({
@@ -81,6 +88,8 @@ export const AdminContext = createContext<AdminContextValue>({
   refreshInboxUnread: () => {},
   focusMode: false,
   setFocusMode: () => {},
+  setHasUnsavedChanges: () => {},
+  confirmNavigation: (action) => action(),
 });
 
 export function useAdminContext() {

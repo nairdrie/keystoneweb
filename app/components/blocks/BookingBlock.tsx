@@ -1118,23 +1118,17 @@ function SettingsEditor({ siteId, settings, setSettings }: {
     const [stripeConnected, setStripeConnected] = useState(false);
     const [connectingStripe, setConnectingStripe] = useState(false);
     const [paypalConnected, setPaypalConnected] = useState(false);
-    const [connectingPaypal, setConnectingPaypal] = useState(false);
 
     // Check if Stripe / PayPal is already connected for this site
     useEffect(() => {
         fetch(`/api/bookings/settings?siteId=${siteId}`)
-            .then(r => r.json())
-            .then(() => {
-                // We'll check stripe via site endpoint
-                fetch(`/api/stripe/connect-status?siteId=${siteId}`)
-                    .then(r => r.ok ? r.json() : { connected: false })
-                    .then(d => setStripeConnected(d.connected || false))
-                    .catch(() => setStripeConnected(false));
-                fetch(`/api/paypal/connect?siteId=${siteId}`)
-                    .then(r => r.ok ? r.json() : { connected: false })
-                    .then(d => setPaypalConnected(d.connected || false))
-                    .catch(() => setPaypalConnected(false));
-            });
+            .then(r => r.ok ? r.json() : null)
+            .then(d => setPaypalConnected(!!d?.paypalConnected))
+            .catch(() => setPaypalConnected(false));
+        fetch(`/api/stripe/connect-status?siteId=${siteId}`)
+            .then(r => r.ok ? r.json() : { connected: false })
+            .then(d => setStripeConnected(d.connected || false))
+            .catch(() => setStripeConnected(false));
     }, [siteId]);
 
     const handleSave = async () => {
@@ -1160,19 +1154,6 @@ function SettingsEditor({ siteId, settings, setSettings }: {
         const data = await res.json();
         if (data.url) window.location.href = data.url;
         else setConnectingStripe(false);
-    };
-
-    const handleConnectPaypal = async () => {
-        setConnectingPaypal(true);
-        const returnUrl = window.location.href;
-        const res = await fetch('/api/paypal/connect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ siteId, returnUrl }),
-        });
-        const data = await res.json();
-        if (data.url) window.open(data.url, '_blank');
-        setConnectingPaypal(false);
     };
 
     return (
@@ -1295,14 +1276,9 @@ function SettingsEditor({ siteId, settings, setSettings }: {
                             <span className="text-slate-500">— customers can pay with PayPal or card at booking time</span>
                         </div>
                     ) : (
-                        <>
-                            <p className="text-xs text-slate-500 mb-2">Connect your PayPal business account to accept PayPal and guest card payments.</p>
-                            <button onClick={handleConnectPaypal} disabled={connectingPaypal}
-                                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg disabled:opacity-50 transition-colors">
-                                {connectingPaypal ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-                                Connect with PayPal
-                            </button>
-                        </>
+                        <p className="text-xs text-slate-500">
+                            Add your PayPal API credentials under <strong>Dashboard → Ecommerce → Payments</strong> to accept PayPal and guest card payments. PayPal connects once per site and applies to both bookings and store orders.
+                        </p>
                     )}
                 </div>
             )}
@@ -1387,7 +1363,7 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
 
     // Payment method selection (shown in form step)
     const [chosenPaymentMethod, setChosenPaymentMethod] = useState<'none' | 'etransfer' | 'stripe' | 'paypal' | 'converge' | 'clover'>('none');
-    const [paypalMerchantId, setPaypalMerchantId] = useState<string | null>(null);
+    const [paypalClientId, setPaypalClientId] = useState<string | null>(null);
     const [pendingPaypalOrderId, setPendingPaypalOrderId] = useState<string | null>(null);
     const [paypalError, setPaypalError] = useState<string | null>(null);
     const [convergeConnected, setConvergeConnected] = useState(false);
@@ -1450,14 +1426,14 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
         else if (settings.payment_methods?.clover) setChosenPaymentMethod('clover');
     }, [settings]);
 
-    // Fetch the site's PayPal merchant id (only needed when we'll render the button).
+    // Fetch the site's PayPal client id (only needed when we'll render the button).
     useEffect(() => {
         if (!settings?.payment_methods?.paypal) return;
         fetch(`/api/bookings/settings?siteId=${siteId}`)
             .then(r => r.ok ? r.json() : null)
             .then(d => {
-                if (d?.paypalConnected && d.paypalMerchantId) {
-                    setPaypalMerchantId(d.paypalMerchantId);
+                if (d?.paypalConnected && d.paypalClientId) {
+                    setPaypalClientId(d.paypalClientId);
                 }
             })
             .catch(() => {});
@@ -2073,7 +2049,7 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                             if (pm?.none !== false) methods.push({ key: 'none', label: 'Pay Later' });
                             if (pm?.etransfer) methods.push({ key: 'etransfer', label: 'Interac e-Transfer' });
                             if (pm?.stripe) methods.push({ key: 'stripe', label: 'Credit Card (Stripe)' });
-                            if (pm?.paypal && paypalMerchantId) methods.push({ key: 'paypal', label: 'PayPal' });
+                            if (pm?.paypal && paypalClientId) methods.push({ key: 'paypal', label: 'PayPal' });
                             if (pm?.converge && convergeConnected) methods.push({ key: 'converge', label: 'Credit Card (Converge)' });
                             if (pm?.clover && cloverConnected) methods.push({ key: 'clover', label: 'Credit Card (Clover)' });
                             if (methods.length <= 1) return null;
@@ -2130,11 +2106,11 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                                     ← Back
                                 </button>
                             </div>
-                        ) : chosenPaymentMethod === 'paypal' && paypalMerchantId ? (
+                        ) : chosenPaymentMethod === 'paypal' && paypalClientId ? (
                             <div className="mt-6">
                                 {form.name.trim() && validateEmail(form.email) ? (
                                     <PayPalButton
-                                        merchantId={paypalMerchantId}
+                                        clientId={paypalClientId}
                                         currency={selectedService?.currency || 'USD'}
                                         createOrder={handlePaypalCreateOrder}
                                         onApprove={handlePaypalApprove}

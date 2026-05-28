@@ -10,7 +10,7 @@ declare global {
 }
 
 type Props = {
-  merchantId: string;
+  clientId: string;
   currency: string;
   createOrder: () => Promise<string>;
   onApprove: (paypalOrderId: string) => Promise<void>;
@@ -19,19 +19,19 @@ type Props = {
   disabled?: boolean;
 };
 
-// Cache SDK loads per (clientId, merchantId, currency) tuple so multiple
-// mounts on the same page don't fight.
+// Cache SDK loads per (clientId, currency) tuple so multiple mounts on the
+// same page don't fight.
 const sdkLoads: Record<string, Promise<void> | undefined> = {};
 
-function loadPaypalSdk(clientId: string, merchantId: string, currency: string) {
-  const key = `${clientId}|${merchantId}|${currency}`;
+function loadPaypalSdk(clientId: string, currency: string) {
+  const key = `${clientId}|${currency}`;
   const existing = sdkLoads[key];
   if (existing) return existing;
 
   const p = new Promise<void>((resolve, reject) => {
     if (typeof window === 'undefined') return reject(new Error('No window'));
 
-    // If an SDK with the same clientId/merchant/currency is already loaded, use it.
+    // If an SDK with the same clientId/currency is already loaded, use it.
     const existing = document.querySelector<HTMLScriptElement>(
       `script[data-paypal-key="${key}"]`
     );
@@ -43,7 +43,6 @@ function loadPaypalSdk(clientId: string, merchantId: string, currency: string) {
     const script = document.createElement('script');
     const params = new URLSearchParams({
       'client-id': clientId,
-      'merchant-id': merchantId,
       currency: currency.toUpperCase(),
       intent: 'capture',
       components: 'buttons',
@@ -66,7 +65,7 @@ function loadPaypalSdk(clientId: string, merchantId: string, currency: string) {
 }
 
 export default function PayPalButton({
-  merchantId,
+  clientId,
   currency,
   createOrder,
   onApprove,
@@ -79,15 +78,8 @@ export default function PayPalButton({
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
 
-  const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || '';
-
   useEffect(() => {
     if (!clientId) {
-      setError('PayPal is not configured.');
-      setLoading(false);
-      return;
-    }
-    if (!merchantId) {
       setError('This store has not finished connecting PayPal.');
       setLoading(false);
       return;
@@ -96,7 +88,7 @@ export default function PayPalButton({
     let cancelled = false;
     (async () => {
       try {
-        await loadPaypalSdk(clientId, merchantId, currency);
+        await loadPaypalSdk(clientId, currency);
         if (cancelled || !containerRef.current || !window.paypal) return;
 
         // Clear any previous render
@@ -158,7 +150,7 @@ export default function PayPalButton({
     // every parent render; the latest closure references are captured by
     // PayPal's own callback bridge.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId, merchantId, currency]);
+  }, [clientId, currency]);
 
   return (
     <div>

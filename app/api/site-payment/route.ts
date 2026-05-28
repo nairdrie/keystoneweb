@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     const { data: site } = await supabase
         .from('sites')
-        .select('user_id, site_slug, custom_domain, published_domain, converge_merchant_id, converge_user_id, converge_pin, converge_demo_mode, clover_merchant_id, clover_public_key, clover_private_token, clover_webhook_secret, clover_sandbox_mode')
+        .select('user_id, site_slug, custom_domain, published_domain, paypal_client_id, paypal_secret, paypal_sandbox_mode, converge_merchant_id, converge_user_id, converge_pin, converge_demo_mode, clover_merchant_id, clover_public_key, clover_private_token, clover_webhook_secret, clover_sandbox_mode')
         .eq('id', siteId)
         .single();
 
@@ -43,6 +43,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
         siteUrl: resolveSiteUrl(site),
+        paypal: {
+            client_id: site.paypal_client_id || '',
+            secret: site.paypal_secret ? MASKED : '',
+            sandbox_mode: !!site.paypal_sandbox_mode,
+            connected: !!(site.paypal_client_id && site.paypal_secret),
+        },
         converge: {
             merchant_id: site.converge_merchant_id || '',
             user_id: site.converge_user_id || '',
@@ -87,7 +93,11 @@ export async function PUT(request: NextRequest) {
 
     const updates: Record<string, any> = {};
 
-    if (processor === 'converge') {
+    if (processor === 'paypal') {
+        if (fields.client_id !== undefined) updates.paypal_client_id = fields.client_id || null;
+        if (fields.secret !== undefined && fields.secret !== MASKED) updates.paypal_secret = fields.secret || null;
+        if (fields.sandbox_mode !== undefined) updates.paypal_sandbox_mode = !!fields.sandbox_mode;
+    } else if (processor === 'converge') {
         if (fields.merchant_id !== undefined) updates.converge_merchant_id = fields.merchant_id || null;
         if (fields.user_id !== undefined) updates.converge_user_id = fields.user_id || null;
         if (fields.pin !== undefined && fields.pin !== MASKED) updates.converge_pin = fields.pin || null;

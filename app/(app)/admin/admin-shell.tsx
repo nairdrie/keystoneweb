@@ -77,6 +77,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [focusMode, setFocusModeState] = useState(false);
   const [hasUnpublishedChanges, setHasUnpublishedChanges] = useState(false);
   const [showSiteSwitcher, setShowSiteSwitcher] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [navGuard, setNavGuard] = useState<{ open: boolean; action: (() => void) | null }>({ open: false, action: null });
   const [isAdminManageMode, setIsAdminManageMode] = useState(false);
   const [adminManagedSiteId, setAdminManagedSiteId] = useState<string | null>(null);
   const [manageModeChecked, setManageModeChecked] = useState(false);
@@ -367,13 +369,33 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     }
   }
 
+  // Run a navigation action, prompting first if the active tab has unsaved edits.
+  function confirmNavigation(action: () => void) {
+    if (hasUnsavedChanges) {
+      setNavGuard({ open: true, action });
+    } else {
+      action();
+    }
+  }
+
+  // Warn before a full page unload (refresh / closing the tab / leaving the site).
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hasUnsavedChanges]);
+
   function navigateTab(path: string) {
-    router.push(`${path}${siteId ? `?siteId=${siteId}` : ''}`);
+    confirmNavigation(() => router.push(`${path}${siteId ? `?siteId=${siteId}` : ''}`));
   }
 
   function navigateSite(newSiteId: string) {
     const tab = ALL_TABS.find(t => pathname.startsWith(t.path))?.path ?? '/admin/analytics';
-    router.push(`${tab}?siteId=${newSiteId}`);
+    confirmNavigation(() => router.push(`${tab}?siteId=${newSiteId}`));
   }
 
   async function unpublishSite(targetSiteId: string) {
@@ -407,7 +429,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const displayDomain = site.customDomain || (site.publishedDomain ? `${site.publishedDomain}.kswd.ca` : null);
 
   return (
-    <AdminContext.Provider value={{ siteId, site, siteTitle, setSiteTitle, isProUser, palette, usage, usagePlan, siteBreakdown, siteBlockTypes, refreshInboxUnread, focusMode, setFocusMode }}>
+    <AdminContext.Provider value={{ siteId, site, siteTitle, setSiteTitle, isProUser, palette, usage, usagePlan, siteBreakdown, siteBlockTypes, refreshInboxUnread, focusMode, setFocusMode, setHasUnsavedChanges, confirmNavigation }}>
       <div className="fixed inset-0 overflow-hidden bg-slate-50">
 
         {/* Persistent admin sidebar (desktop rail + mobile drawer) */}
@@ -642,6 +664,22 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           message={alertConfig.message}
           type={alertConfig.type}
           onClose={() => setAlertConfig(p => ({ ...p, isOpen: false }))}
+        />
+
+        <AlertModal
+          isOpen={navGuard.open}
+          title="Unsaved Changes"
+          message="You have unsaved changes that will be lost if you leave. Are you sure?"
+          type="warning"
+          confirmLabel="Leave"
+          cancelLabel="Stay"
+          onClose={() => setNavGuard({ open: false, action: null })}
+          onConfirm={() => {
+            const action = navGuard.action;
+            setHasUnsavedChanges(false);
+            setNavGuard({ open: false, action: null });
+            action?.();
+          }}
         />
 
         <WalkthroughModal

@@ -3,7 +3,7 @@ import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import {
   captureOrder,
-  isPaypalConfigured,
+  getSitePaypalCreds,
   recordPaypalTransaction,
 } from '@/lib/paypal';
 import { sendCustomerConfirmation, sendOwnerNotification } from '@/lib/email';
@@ -21,13 +21,6 @@ import { sendCustomerConfirmation, sendOwnerNotification } from '@/lib/email';
  */
 export async function POST(request: NextRequest) {
   try {
-    if (!isPaypalConfigured()) {
-      return NextResponse.json(
-        { error: 'PayPal is not configured on this platform' },
-        { status: 500 }
-      );
-    }
-
     const supabase = await createClient();
     const body = await request.json();
     const {
@@ -62,11 +55,12 @@ export async function POST(request: NextRequest) {
 
     const { data: site } = await admin
       .from('sites')
-      .select('paypal_merchant_id, site_slug, published_domain, user_id, design_data')
+      .select('site_slug, published_domain, user_id, design_data')
       .eq('id', siteId)
       .single();
 
-    if (!site?.paypal_merchant_id) {
+    const creds = await getSitePaypalCreds(siteId);
+    if (!creds) {
       return NextResponse.json(
         { error: 'Site is not connected to PayPal' },
         { status: 400 }
@@ -128,7 +122,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const capture = await captureOrder(paypalOrderId, site.paypal_merchant_id);
+    const capture = await captureOrder(creds, paypalOrderId);
 
     const isCompleted =
       capture.status === 'COMPLETED' || capture.status === 'APPROVED';
@@ -174,11 +168,10 @@ export async function POST(request: NextRequest) {
     if (capture.captureId) {
       await recordPaypalTransaction({
         paypal_event_id: `capture:${capture.captureId}`,
-        paypal_merchant_id: site.paypal_merchant_id,
         paypal_order_id: paypalOrderId,
         paypal_capture_id: capture.captureId,
         site_id: siteId,
-        user_id: site.user_id || null,
+        user_id: site?.user_id || null,
         event_type: 'capture.synchronous',
         transaction_type: 'booking',
         description: `Booking ${booking.id}`,
@@ -221,7 +214,7 @@ export async function POST(request: NextRequest) {
       paymentMethod: 'paypal' as const,
       etransferEmail: undefined,
       confirmationMessage: settings?.confirmation_message,
-      siteName: site.site_slug || undefined,
+      siteName: site?.site_slug || undefined,
       logoUrl: ppBookingLogoUrl,
       overrides: ppBookingOverrides,
     };

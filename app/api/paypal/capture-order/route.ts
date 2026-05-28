@@ -3,7 +3,7 @@ import { createClient } from '@/lib/db/supabase-server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import {
   captureOrder,
-  isPaypalConfigured,
+  getSitePaypalCreds,
   recordPaypalTransaction,
 } from '@/lib/paypal';
 import { sendOrderConfirmation, sendOrderNotification } from '@/lib/email';
@@ -19,13 +19,6 @@ import { buildSiteOrigin } from '@/lib/email/order-tracking-url';
  */
 export async function POST(request: NextRequest) {
   try {
-    if (!isPaypalConfigured()) {
-      return NextResponse.json(
-        { error: 'PayPal is not configured on this platform' },
-        { status: 500 }
-      );
-    }
-
     const supabase = await createClient();
     const { orderId, paypalOrderId } = await request.json();
 
@@ -39,7 +32,7 @@ export async function POST(request: NextRequest) {
     const { data: order, error } = await supabase
       .from('orders')
       .select(
-        '*, sites!inner(paypal_merchant_id, id, site_slug, user_id, design_data, published_domain, custom_domain)'
+        '*, sites!inner(id, site_slug, user_id, design_data, published_domain, custom_domain)'
       )
       .eq('id', orderId)
       .single();
@@ -56,8 +49,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const merchantId = order.sites?.paypal_merchant_id;
-    if (!merchantId) {
+    const creds = await getSitePaypalCreds(order.site_id);
+    if (!creds) {
       return NextResponse.json(
         { error: 'Site is not connected to PayPal' },
         { status: 400 }
@@ -73,7 +66,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const capture = await captureOrder(paypalOrderId, merchantId);
+    const capture = await captureOrder(creds, paypalOrderId);
 
     const isCompleted =
       capture.status === 'COMPLETED' || capture.status === 'APPROVED';
@@ -154,7 +147,6 @@ export async function POST(request: NextRequest) {
     if (capture.captureId) {
       await recordPaypalTransaction({
         paypal_event_id: `capture:${capture.captureId}`,
-        paypal_merchant_id: merchantId,
         paypal_order_id: paypalOrderId,
         paypal_capture_id: capture.captureId,
         site_id: order.site_id,
