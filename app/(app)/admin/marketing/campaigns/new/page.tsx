@@ -44,6 +44,7 @@ export default function NewCampaignPage() {
   const [campaignDurationDays, setCampaignDurationDays] = useState<number | null>(30);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
 
   const businessAddress = useMemo<string | undefined>(() => {
     const bp = (site?.designData as { businessProfile?: Record<string, string> } | undefined)?.businessProfile;
@@ -173,7 +174,9 @@ export default function NewCampaignPage() {
         return;
       }
 
-      // 4. Redirect to Stripe.
+      // 4. Redirect to Stripe. Also surface a visible fallback link so the user
+      //    can proceed even if the programmatic redirect doesn't fire.
+      setCheckoutUrl(approve.checkoutUrl);
       window.location.href = approve.checkoutUrl;
     } catch {
       setError('Network error');
@@ -202,6 +205,19 @@ export default function NewCampaignPage() {
 
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-800">{error}</div>
+      )}
+
+      {checkoutUrl && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 flex items-center justify-between gap-3">
+          <span>Redirecting you to secure payment…</span>
+          <a
+            href={checkoutUrl}
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-md font-bold whitespace-nowrap"
+          >
+            Continue to payment →
+          </a>
+        </div>
       )}
 
       {step === 'goal' && (
