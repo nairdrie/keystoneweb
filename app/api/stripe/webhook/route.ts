@@ -341,9 +341,20 @@ export async function POST(request: NextRequest) {
                 .eq('id', campaignId)
                 .single();
 
-              await supabaseAdmin.from('marketing_campaigns')
+              const { error: statusErr } = await supabaseAdmin.from('marketing_campaigns')
                 .update({ status: 'pending_launch', updated_at: new Date().toISOString() })
                 .eq('id', campaignId);
+              if (statusErr) {
+                // The payment succeeded and is recorded, but we couldn't advance
+                // the campaign out of its current status. Don't swallow this —
+                // return 500 so Stripe retries the webhook (recordCampaignPayment
+                // is idempotent), rather than stranding a paid campaign in draft.
+                console.error('[stripe webhook] failed to flip campaign to pending_launch after payment:', statusErr);
+                return NextResponse.json(
+                  { error: `Campaign status update to pending_launch failed: ${statusErr.message}` },
+                  { status: 500 },
+                );
+              }
 
               await supabaseAdmin.from('marketing_campaign_log').insert({
                 campaign_id: campaignId,

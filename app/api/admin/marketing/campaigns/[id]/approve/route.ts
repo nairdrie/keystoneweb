@@ -85,13 +85,22 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     },
   }, { onConflict: 'campaign_id' });
 
-  await db.from('marketing_campaigns')
+  const { error: statusErr } = await db.from('marketing_campaigns')
     .update({
       status: 'awaiting_payment',
       approved_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);
+  if (statusErr) {
+    // Bail before sending the customer to Stripe — otherwise they could pay for
+    // a campaign whose status never advances out of 'draft'.
+    console.error('[approve] failed to set campaign to awaiting_payment:', statusErr);
+    return NextResponse.json(
+      { error: 'Could not start payment for this campaign. ' + statusErr.message },
+      { status: 500 },
+    );
+  }
 
   // Create the Stripe Checkout session.
   const origin = request.nextUrl.origin;
