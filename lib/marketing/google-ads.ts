@@ -101,7 +101,7 @@ function isConfigured(): boolean {
 
 let _GoogleAdsApi: any = null;
 
-async function getClient() {
+async function getClient(customerIdOverride?: string) {
   const cfg = getConfig();
   if (!isConfigured()) {
     throw new Error('Google Ads API is not configured. Set GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET, GOOGLE_ADS_CUSTOMER_ID, and GOOGLE_ADS_REFRESH_TOKEN.');
@@ -123,9 +123,9 @@ async function getClient() {
   });
 
   return api.Customer({
-    customer_id: cfg.customerId,
+    customer_id: (customerIdOverride || cfg.customerId).replace(/-/g, ''),
     refresh_token: cfg.refreshToken,
-    login_customer_id: cfg.managerCustomerId || undefined,
+    login_customer_id: cfg.managerCustomerId ? cfg.managerCustomerId.replace(/-/g, '') : undefined,
   });
 }
 
@@ -200,12 +200,13 @@ export interface GoogleCampaignResult {
 
 export async function createSearchCampaign(
   campaign: Campaign,
+  customerId?: string,
 ): Promise<GoogleCampaignResult> {
   if (isMockMode()) {
     console.log('[google-ads mock] createSearchCampaign', campaign.name);
     return mockCampaignResult(`search-${campaign.id?.slice(0, 8)}`);
   }
-  const customer = await getClient();
+  const customer = await getClient(customerId);
   const content = campaign.content as GoogleSearchContent;
 
   const budgetResult = await customer.campaignBudgets.create([{
@@ -289,12 +290,13 @@ export async function createSearchCampaign(
 
 export async function createDisplayCampaign(
   campaign: Campaign,
+  customerId?: string,
 ): Promise<GoogleCampaignResult> {
   if (isMockMode()) {
     console.log('[google-ads mock] createDisplayCampaign', campaign.name);
     return mockCampaignResult(`display-${campaign.id?.slice(0, 8)}`);
   }
-  const customer = await getClient();
+  const customer = await getClient(customerId);
   const content = campaign.content as GoogleDisplayContent;
 
   const budgetResult = await customer.campaignBudgets.create([{
@@ -381,30 +383,32 @@ async function uploadImageAssets(
 
 export async function pauseCampaign(
   externalCampaignId: string,
+  customerId?: string,
 ): Promise<void> {
   if (isMockMode()) {
     console.log('[google-ads mock] pauseCampaign', externalCampaignId);
     return;
   }
-  const customer = await getClient();
-  const customerId = getConfig().customerId;
+  const customer = await getClient(customerId);
+  const acctId = (customerId || getConfig().customerId).replace(/-/g, '');
   await customer.campaigns.update([{
-    resource_name: `customers/${customerId}/campaigns/${externalCampaignId}`,
+    resource_name: `customers/${acctId}/campaigns/${externalCampaignId}`,
     status: 'PAUSED',
   }]);
 }
 
 export async function resumeCampaign(
   externalCampaignId: string,
+  customerId?: string,
 ): Promise<void> {
   if (isMockMode()) {
     console.log('[google-ads mock] resumeCampaign', externalCampaignId);
     return;
   }
-  const customer = await getClient();
-  const customerId = getConfig().customerId;
+  const customer = await getClient(customerId);
+  const acctId = (customerId || getConfig().customerId).replace(/-/g, '');
   await customer.campaigns.update([{
-    resource_name: `customers/${customerId}/campaigns/${externalCampaignId}`,
+    resource_name: `customers/${acctId}/campaigns/${externalCampaignId}`,
     status: 'ENABLED',
   }]);
 }
@@ -425,8 +429,9 @@ export async function getCampaignPerformance(
   externalCampaignId: string,
   startDate: string,
   endDate: string,
+  customerId?: string,
 ): Promise<GooglePerformanceMetrics> {
-  const customer = await getClient();
+  const customer = await getClient(customerId);
 
   const results = await customer.query(`
     SELECT
@@ -486,8 +491,9 @@ export async function getCampaignActivitySegments(
   externalCampaignId: string,
   startDate: string,
   endDate: string,
+  customerId?: string,
 ): Promise<ActivitySegmentRow[]> {
-  const customer = await getClient();
+  const customer = await getClient(customerId);
   const rows = await customer.query(`
     SELECT
       segments.date,
