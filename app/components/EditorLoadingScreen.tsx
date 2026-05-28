@@ -106,21 +106,21 @@ export default function EditorLoadingScreen({ message, liveMessage, variant = 'f
         : 'w-full min-h-screen relative';
 
     return (
-        <div className={`${sizingClass} flex flex-col items-center justify-center bg-red-600 overflow-hidden`}>
+        <div className={`${sizingClass} flex flex-col items-center justify-center bg-white overflow-hidden`}>
             {/* Background glow behind arch */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-red-500 rounded-full blur-[100px] opacity-50 pointer-events-none" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-red-300 rounded-full blur-[100px] opacity-40 pointer-events-none" />
 
             <div className="relative z-10 flex flex-col items-center">
                 {/* Perfect fitted SVG Archway Container — key change forces re-mount to replay animation */}
                 <svg key={archKey} viewBox="0 0 200 200" className="w-64 h-64 relative mb-12 overflow-visible drop-shadow-2xl">
                     <defs>
                         <linearGradient id="stoneGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor="#ffffff" />
-                            <stop offset="100%" stopColor="#f8fafc" />
+                            <stop offset="0%" stopColor="#dc2626" />
+                            <stop offset="100%" stopColor="#b91c1c" />
                         </linearGradient>
                         <linearGradient id="keystoneGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor="#ffffff" />
-                            <stop offset="100%" stopColor="#fef3c7" />
+                            <stop offset="0%" stopColor="#ef4444" />
+                            <stop offset="100%" stopColor="#dc2626" />
                         </linearGradient>
                     </defs>
 
@@ -161,7 +161,7 @@ export default function EditorLoadingScreen({ message, liveMessage, variant = 'f
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -8 }}
                                 transition={{ duration: 0.4 }}
-                                className="text-white/90 text-lg font-semibold text-center"
+                                className="text-red-600/90 text-lg font-semibold text-center"
                             >
                                 {displayMessage}
                             </motion.p>
@@ -175,9 +175,9 @@ export default function EditorLoadingScreen({ message, liveMessage, variant = 'f
                     transition={{ delay: 1.5, duration: 1 }}
                     className="flex justify-center items-center gap-2 mt-4"
                 >
-                    <span className="w-2.5 h-2.5 rounded-full bg-white/70 animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-2.5 h-2.5 rounded-full bg-white/70 animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-2.5 h-2.5 rounded-full bg-white/70 animate-bounce" style={{ animationDelay: "300ms" }} />
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-600/70 animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-600/70 animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-600/70 animate-bounce" style={{ animationDelay: "300ms" }} />
                 </motion.div>
             </div>
         </div>
