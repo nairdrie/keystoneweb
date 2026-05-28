@@ -12,7 +12,7 @@ export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: s
 
   const { data: campaign } = await supabase
     .from('marketing_campaigns')
-    .select('*, sites!inner(user_id, marketing_enabled)')
+    .select('*, sites!inner(user_id, marketing_enabled, google_ads_customer_id)')
     .eq('id', id)
     .single();
 
@@ -36,7 +36,7 @@ export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: s
 
   if (campaign.channel === 'google_ads' && campaign.external_campaign_id) {
     try {
-      await resumeCampaign(campaign.external_campaign_id);
+      await resumeCampaign(campaign.external_campaign_id, campaign.sites.google_ads_customer_id || undefined);
     } catch (err) {
       console.error('[admin/marketing/resume] Google resume failed:', err);
       return NextResponse.json({ error: 'Failed to resume campaign on Google Ads' }, { status: 500 });

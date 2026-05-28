@@ -7,13 +7,15 @@ import type { Campaign } from '@/lib/marketing/types';
 
 /**
  * POST /api/admin/marketing/campaigns/[id]/launch
+ * Body (optional): { customerId }  — the linked + funded Google Ads account ID
  *
- * Ops-only. Called once Keystone staff has configured a payment method on the
- * Google Ads sub-account. Creates the campaign in Google, flips
- * sites.google_ads_billing_ready so future approvals from this site skip the
- * ops gate, and notifies the customer.
+ * Ops-only. Called once Keystone staff has manually created/linked a Google
+ * Ads account for this customer and funded it. If a customerId is supplied (or
+ * one is already saved on the site), the campaign is created in THAT account.
+ * Flips sites.google_ads_billing_ready so future campaigns from this site skip
+ * the ops gate, and notifies the customer.
  */
-export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function POST(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const access = await requireOpsAccess();
   if (!access || !access.isAdmin) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -22,9 +24,20 @@ export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: s
   const { id } = await ctx.params;
   const db = createAdminClient();
 
+  // Optional customer ID from the ops panel (the manually linked + funded account).
+  let bodyCustomerId: string | undefined;
+  try {
+    const body = await request.json();
+    if (typeof body?.customerId === 'string' && body.customerId.trim()) {
+      bodyCustomerId = body.customerId.replace(/[^0-9]/g, '');
+    }
+  } catch {
+    // no body — fine, we'll use the saved one
+  }
+
   const { data: campaign } = await db
     .from('marketing_campaigns')
-    .select('*, sites!inner(id, site_slug, design_data)')
+    .select('*, sites!inner(id, site_slug, design_data, google_ads_customer_id)')
     .eq('id', id)
     .single();
 
@@ -36,14 +49,28 @@ export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: s
     return NextResponse.json({ error: 'Only google_ads campaigns use the ops launch flow' }, { status: 400 });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const site = (campaign as any).sites;
+  const customerId = bodyCustomerId || site?.google_ads_customer_id || undefined;
+  if (!customerId) {
+    return NextResponse.json({
+      error: 'No Google Ads account ID for this site. Create + link + fund an account, then enter its customer ID.',
+    }, { status: 400 });
+  }
+
+  // Persist the account ID on the site if it was just provided.
+  if (bodyCustomerId && bodyCustomerId !== site?.google_ads_customer_id) {
+    await db.from('sites').update({ google_ads_customer_id: bodyCustomerId }).eq('id', campaign.site_id);
+  }
+
   await db.from('marketing_campaigns')
     .update({ status: 'submitting', updated_at: new Date().toISOString() })
     .eq('id', id);
 
   try {
     const launched = campaign.campaign_type === 'display'
-      ? await createDisplayCampaign(campaign as Campaign)
-      : await createSearchCampaign(campaign as Campaign);
+      ? await createDisplayCampaign(campaign as Campaign, customerId)
+      : await createSearchCampaign(campaign as Campaign, customerId);
 
     const { data: updated } = await db.from('marketing_campaigns')
       .update({

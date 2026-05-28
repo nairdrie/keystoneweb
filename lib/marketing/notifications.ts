@@ -166,17 +166,23 @@ export async function sendMarketingOpsPendingNotification(opts: {
           <strong>${opts.siteName}</strong>.
         </p>
 
+        <p style="margin:0 0 16px;color:#16a34a;font-weight:600;font-size:13px;">✓ Payment received — ready to launch.</p>
+
         <table style="width:100%;border-collapse:collapse;font-size:13px;margin:16px 0;">
           <tr><td style="padding:6px 0;color:#64748b;">Campaign</td><td style="padding:6px 0;font-weight:600;">${opts.campaignName}</td></tr>
           <tr><td style="padding:6px 0;color:#64748b;">Daily budget</td><td style="padding:6px 0;font-weight:600;">${fmt(opts.dailyBudgetCents)}</td></tr>
-          <tr><td style="padding:6px 0;color:#64748b;">Google Ads sub-account</td><td style="padding:6px 0;font-weight:600;font-family:monospace;">${opts.googleAdsCustomerId || 'not provisioned'}</td></tr>
-          <tr><td style="padding:6px 0;color:#64748b;">Billing already configured</td><td style="padding:6px 0;font-weight:600;">${opts.billingAlreadyReady ? 'Yes — should auto-launch' : 'NO — set up billing first'}</td></tr>
+          <tr><td style="padding:6px 0;color:#64748b;">Linked Google Ads account</td><td style="padding:6px 0;font-weight:600;font-family:monospace;">${opts.googleAdsCustomerId || 'NOT LINKED YET'}</td></tr>
         </table>
 
-        ${opts.billingAlreadyReady ? '' : `
+        ${opts.googleAdsCustomerId && opts.billingAlreadyReady ? `
+          <div style="background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:12px;margin:16px 0;font-size:13px;color:#166534;">
+            This site already has a funded account. Just open the ops panel and click <em>Launch</em>.
+          </div>
+        ` : `
           <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px;margin:16px 0;font-size:13px;color:#78350f;">
-            <strong>Action required:</strong> Open this sub-account in Google Ads, add a payment method,
-            then return to the ops panel and click <em>Launch in Google</em>.
+            <strong>Action required:</strong> Create a Google Ads account for this customer (or use their existing one),
+            <strong>link it to the Keystone MCC</strong>, add a payment method &amp; fund it. Then open the ops panel,
+            paste the account&rsquo;s customer ID, and click <em>Launch</em>.
           </div>
         `}
 
