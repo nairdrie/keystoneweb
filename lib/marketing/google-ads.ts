@@ -202,6 +202,17 @@ export interface GoogleCampaignResult {
   adId: string;
 }
 
+/**
+ * Build a campaign-budget name that's unique within the account. Budget names
+ * must be unique, so a fixed `${name} Budget` collides with budgets left behind
+ * by earlier failed launch attempts ("A campaign budget with this name already
+ * exists."). Appending the campaign id + a timestamp keeps retries clean.
+ */
+function uniqueBudgetName(campaign: Campaign): string {
+  const suffix = `${(campaign.id || '').slice(0, 8)}-${Date.now().toString(36)}`;
+  return `${campaign.name} Budget ${suffix}`.slice(0, 250);
+}
+
 export async function createSearchCampaign(
   campaign: Campaign,
   customerId?: string,
@@ -214,7 +225,7 @@ export async function createSearchCampaign(
   const content = campaign.content as GoogleSearchContent;
 
   const budgetResult = await customer.campaignBudgets.create([{
-    name: `${campaign.name} Budget`,
+    name: uniqueBudgetName(campaign),
     amount_micros: (campaign.daily_budget_cents || 1000) * 10000,
     delivery_method: 'STANDARD',
   }]);
@@ -224,6 +235,11 @@ export async function createSearchCampaign(
     name: campaign.name,
     campaign_budget: budgetResourceName,
     advertising_channel_type: 'SEARCH',
+    // A campaign requires a bidding strategy or the API rejects the create with
+    // "The required field was not present." Manual CPC matches the per-ad-group
+    // cpc_bid_micros below and doesn't depend on conversion tracking (which a
+    // fresh sub-account won't have configured yet).
+    manual_cpc: {},
     status: 'PAUSED',
     start_date: campaign.start_date?.replace(/-/g, '') || undefined,
     end_date: campaign.end_date?.replace(/-/g, '') || undefined,
@@ -304,7 +320,7 @@ export async function createDisplayCampaign(
   const content = campaign.content as GoogleDisplayContent;
 
   const budgetResult = await customer.campaignBudgets.create([{
-    name: `${campaign.name} Budget`,
+    name: uniqueBudgetName(campaign),
     amount_micros: (campaign.daily_budget_cents || 1000) * 10000,
     delivery_method: 'STANDARD',
   }]);
@@ -314,6 +330,9 @@ export async function createDisplayCampaign(
     name: campaign.name,
     campaign_budget: budgetResourceName,
     advertising_channel_type: 'DISPLAY',
+    // Bidding strategy is required (see createSearchCampaign). Manual CPC pairs
+    // with the cpc_bid_micros set on the ad group below.
+    manual_cpc: {},
     status: 'ENABLED',
     start_date: campaign.start_date?.replace(/-/g, '') || undefined,
     end_date: campaign.end_date?.replace(/-/g, '') || undefined,
@@ -326,6 +345,7 @@ export async function createDisplayCampaign(
     name: `${campaign.name} — Ad Group`,
     type: 'DISPLAY_STANDARD',
     status: 'ENABLED',
+    cpc_bid_micros: 1_000_000,
   }]);
   const adGroupResourceName = adGroupResult.results[0].resource_name;
   const adGroupId = adGroupResourceName.split('/').pop()!;
