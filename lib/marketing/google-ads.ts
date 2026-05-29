@@ -94,7 +94,11 @@ function getConfig() {
 
 function isConfigured(): boolean {
   const cfg = getConfig();
-  return !!(cfg.developerToken && cfg.clientId && cfg.clientSecret && cfg.customerId && cfg.refreshToken);
+  // customerId is intentionally NOT required: the operating account is supplied
+  // per-launch from the campaign's site (site.google_ads_customer_id / the ops
+  // launch box) and passed through as a customerId override. The env
+  // GOOGLE_ADS_CUSTOMER_ID is only a fallback for callers that don't pass one.
+  return !!(cfg.developerToken && cfg.clientId && cfg.clientSecret && cfg.refreshToken);
 }
 
 // ── Lazy client factory ──────────────────────────────────────────────────────
@@ -104,7 +108,7 @@ let _GoogleAdsApi: any = null;
 async function getClient(customerIdOverride?: string) {
   const cfg = getConfig();
   if (!isConfigured()) {
-    throw new Error('Google Ads API is not configured. Set GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET, GOOGLE_ADS_CUSTOMER_ID, and GOOGLE_ADS_REFRESH_TOKEN.');
+    throw new Error('Google Ads API is not configured. Set GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET, and GOOGLE_ADS_REFRESH_TOKEN (plus GOOGLE_ADS_MANAGER_CUSTOMER_ID when operating sub-accounts).');
   }
 
   if (!_GoogleAdsApi) {
