@@ -6,6 +6,38 @@ import { sendMarketingCampaignLive } from '@/lib/marketing/notifications';
 import type { Campaign } from '@/lib/marketing/types';
 
 /**
+ * Unpack a google-ads-api GoogleAdsFailure into readable detail. The thrown
+ * object has an `errors` array; the useful part — which field triggered the
+ * error — lives in `location.field_path_elements`, which console.error collapses
+ * to a minified class ref ("location: [pW]"). Flatten it so logs + the API
+ * response actually say what Google rejected.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function describeGoogleAdsFailure(err: any): { summary: string; errors: Array<Record<string, unknown>> } | null {
+  const list = Array.isArray(err?.errors) ? err.errors : null;
+  if (!list) return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const errors = list.map((e: any) => {
+    const fieldPath = Array.isArray(e?.location?.field_path_elements)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? e.location.field_path_elements.map((p: any) =>
+          `${p.field_name}${typeof p.index === 'number' ? `[${p.index}]` : ''}`).join('.')
+      : undefined;
+    return {
+      errorCode: e?.error_code,   // e.g. { required_field_error: 'REQUIRED' }
+      message: e?.message,
+      field: fieldPath,
+      trigger: e?.trigger,
+    };
+  });
+  const summary = errors
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((e: any) => `${e.message}${e.field ? ` (field: ${e.field})` : ''}`)
+    .join('; ');
+  return { summary, errors };
+}
+
+/**
  * POST /api/admin/marketing/campaigns/[id]/launch
  * Body (optional): { customerId }  — the linked + funded Google Ads account ID
  *
@@ -110,8 +142,14 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
 
     return NextResponse.json({ campaign: updated });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('[ops/launch] launch failed:', err);
+    const gaFailure = describeGoogleAdsFailure(err);
+    if (gaFailure) {
+      // Full Google Ads detail — including which field_path triggered it.
+      console.error('[ops/launch] Google Ads API failure:', JSON.stringify(gaFailure.errors, null, 2));
+    } else {
+      console.error('[ops/launch] launch failed:', err);
+    }
+    const message = gaFailure?.summary || (err instanceof Error ? err.message : String(err));
     await db.from('marketing_campaigns')
       .update({ status: 'pending_launch', updated_at: new Date().toISOString() })
       .eq('id', id);
@@ -119,8 +157,11 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
       campaign_id: id,
       action: 'failed',
       actor: `ops:${access.userEmail || access.userId}`,
-      details: { error: message },
+      details: { error: message, googleAdsErrors: gaFailure?.errors },
     });
-    return NextResponse.json({ error: message || 'Failed to launch campaign' }, { status: 500 });
+    return NextResponse.json({
+      error: message || 'Failed to launch campaign',
+      googleAdsErrors: gaFailure?.errors,
+    }, { status: 500 });
   }
 }
