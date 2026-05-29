@@ -240,6 +240,9 @@ export async function createSearchCampaign(
     // cpc_bid_micros below and doesn't depend on conversion tracking (which a
     // fresh sub-account won't have configured yet).
     manual_cpc: {},
+    // Required since the EU political advertising transparency rules (TTPA).
+    // Keystone runs ads for small businesses, not political advertising.
+    contains_eu_political_advertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
     status: 'PAUSED',
     start_date: campaign.start_date?.replace(/-/g, '') || undefined,
     end_date: campaign.end_date?.replace(/-/g, '') || undefined,
@@ -333,6 +336,8 @@ export async function createDisplayCampaign(
     // Bidding strategy is required (see createSearchCampaign). Manual CPC pairs
     // with the cpc_bid_micros set on the ad group below.
     manual_cpc: {},
+    // Required since the EU political advertising transparency rules (TTPA).
+    contains_eu_political_advertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
     status: 'ENABLED',
     start_date: campaign.start_date?.replace(/-/g, '') || undefined,
     end_date: campaign.end_date?.replace(/-/g, '') || undefined,
