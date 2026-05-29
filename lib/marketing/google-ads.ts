@@ -285,7 +285,7 @@ export async function createSearchCampaign(
     );
   }
 
-  const adResult = await customer.ads.create([{
+  const adResult = await customer.adGroupAds.create([{
     ad_group: adGroupResourceName,
     ad: {
       responsive_search_ad: {
@@ -299,7 +299,8 @@ export async function createSearchCampaign(
     },
     status: 'ENABLED',
   }]);
-  const adId = adResult.results[0].resource_name.split('/').pop()!;
+  // AdGroupAd resource name is "customers/X/adGroupAds/{adGroupId}~{adId}".
+  const adId = adResult.results[0].resource_name.split('~').pop()!;
 
   await applyLocationTargeting(customer, campaignResourceName, campaign.targeting);
 
@@ -358,7 +359,7 @@ export async function createDisplayCampaign(
   // Upload images as Google Ads Image Assets, then reference them in the RDA.
   const imageAssetResources = await uploadImageAssets(customer, content.images || []);
 
-  const adResult = await customer.ads.create([{
+  const adResult = await customer.adGroupAds.create([{
     ad_group: adGroupResourceName,
     ad: {
       responsive_display_ad: {
@@ -372,7 +373,8 @@ export async function createDisplayCampaign(
     },
     status: 'ENABLED',
   }]);
-  const adId = adResult.results[0].resource_name.split('/').pop()!;
+  // AdGroupAd resource name is "customers/X/adGroupAds/{adGroupId}~{adId}".
+  const adId = adResult.results[0].resource_name.split('~').pop()!;
 
   await applyLocationTargeting(customer, campaignResourceName, campaign.targeting);
 
