@@ -44,11 +44,24 @@ requireSnippets('lib/builder/layout-settings.ts', [
   'Math.min(normalizeColumnLimit(maxColumns), Math.max(1, Math.round(value)))',
 ]);
 
+requireSnippets('lib/site-layout.ts', [
+  'SITE_LAYOUT_CONTAINER_WIDTH_KEY',
+  'SITE_LAYOUT_CONTAINER_WIDTH_OPTIONS',
+  'DEFAULT_SITE_LAYOUT_CONTAINER_WIDTH',
+  'export function normalizeSiteLayoutContainerWidth',
+  'export function buildSiteLayoutCss',
+  'max-w-5xl',
+  'max-w-6xl',
+  'max-w-7xl',
+]);
+
 requireSnippets('app/components/blocks/layout/LayoutTab.tsx', [
   'export function LayoutTab',
   'export function ContainerWidthControl',
   'LAYOUT_GUIDE_PREVIEW_EVENT',
-  'onPreview={(containerWidth, active) => dispatchLayoutGuidePreview',
+  'SPACING_GUIDE_PREVIEW_EVENT',
+  'CONTAINER_WIDTH_SLIDER_MAX',
+  'containerWidthFromSliderValue',
   'export function AlignmentControl',
   'export function ResponsiveColumnsControl',
   'export function ResponsiveGapControl',
@@ -60,7 +73,9 @@ requireSnippets('app/components/blocks/layout/LayoutTab.tsx', [
   'Reset all',
   'aria-label={`Reset ${title.toLowerCase()} to default`}',
   'handleSummaryButtonClick',
-  'Advanced layout',
+  'Spacing',
+  'ResponsivePixelSliderGroup',
+  'dispatchSpacingGuidePreview',
   'getLayoutCapabilities(blockType)',
   'maxColumns = COLUMN_SLIDER_MAX',
   'Limited to {effectiveMaxColumns}',
@@ -170,19 +185,36 @@ if (read('lib/builder/layout-settings.ts').includes('text-align:')) {
 
 requireSnippets('app/components/blocks/BlockWrapper.tsx', [
   "import { buildLayoutCss, buildSectionStyleCss } from '@/lib/builder/layout-settings';",
+  "import { buildSiteLayoutCss } from '@/lib/site-layout';",
+  'const siteLayoutCss = buildSiteLayoutCss(id, context?.siteContent);',
   'const layoutCss = buildLayoutCss(id, type, props.data?.sectionSettings, props.data);',
   'const sectionStyleCss = buildSectionStyleCss(id, props.data, palette || {});',
-  "const combinedCss = [scopedCss, layoutCss, sectionStyleCss].filter(Boolean).join('\\n');",
+  "const combinedCss = [scopedCss, siteLayoutCss, layoutCss, sectionStyleCss].filter(Boolean).join('\\n');",
 ]);
 
 requireSnippets('app/components/blocks/BlockWrapperEditor.tsx', [
   'buildLayoutCss',
   'buildSectionStyleCss',
+  'siteLayoutCss',
   'const previewLayoutCss = buildLayoutCss(id, type, previewData?.sectionSettings, previewData);',
   'const previewSectionStyleCss = buildSectionStyleCss(id, previewData, palette || {});',
   'LAYOUT_GUIDE_PREVIEW_EVENT',
+  'SPACING_GUIDE_PREVIEW_EVENT',
   'handleLayoutGuidePreview',
+  'handleSpacingGuidePreview',
+  'SpacingGuideOverlay',
   'ks-container-width-guide',
+]);
+
+requireSnippets('app/components/FloatingToolbar.tsx', [
+  'SITE_LAYOUT_CONTAINER_WIDTH_OPTIONS',
+  'SITE_LAYOUT_CONTAINER_WIDTH_KEY',
+  'normalizeSiteLayoutContainerWidth',
+  'ContainerWidthPreview',
+]);
+
+requireSnippets('app/(app)/editor/editor-content-v2.tsx', [
+  'Layout: Container width',
 ]);
 
 requireSnippets('app/components/blocks/HeroBlock.tsx', [

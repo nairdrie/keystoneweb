@@ -179,6 +179,26 @@ button:disabled {
   animation: fadeIn 0.4s ease-out;
 }
 
+@keyframes ksCarouselSlideEnter {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+.ks-carousel-slide-enter {
+  animation: ksCarouselSlideEnter 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ks-carousel-slide-enter {
+    animation: none;
+  }
+}
+
 /* ── Tiptap / rich-text prose styles ──────────────────────────────────────── */
 .prose h1 { font-size: 2.25em; font-weight: 700; line-height: 1.2; margin: 0.67em 0; }
 .prose h2 { font-size: 1.75em; font-weight: 700; line-height: 1.3; margin: 0.75em 0; }

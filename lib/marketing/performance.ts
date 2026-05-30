@@ -33,7 +33,7 @@ export interface SyncResult {
 export async function syncAllCampaigns(db: any): Promise<SyncResult> {
   const { data: campaigns, error } = await db
     .from('marketing_campaigns')
-    .select('*')
+    .select('*, sites(google_ads_customer_id)')
     .eq('status', 'active')
     .not('external_campaign_id', 'is', null);
 
@@ -48,19 +48,23 @@ export async function syncAllCampaigns(db: any): Promise<SyncResult> {
   const today = new Date().toISOString().split('T')[0];
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  for (const campaign of campaigns as Campaign[]) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const campaign of campaigns as any[]) {
     try {
+      const site = Array.isArray(campaign.sites) ? campaign.sites[0] : campaign.sites;
+      const customerId: string | undefined = site?.google_ads_customer_id || undefined;
+
       if (campaign.channel === 'google_ads') {
-        await syncGoogleCampaign(campaign, weekAgo, today, db);
+        await syncGoogleCampaign(campaign, weekAgo, today, db, customerId);
       } else if (campaign.channel === 'meta_ads') {
         await syncMetaCampaign(campaign, weekAgo, today, db);
       }
 
       // Customer campaigns get their per-campaign budget reconciled (pause if depleted).
       if (campaign.site_id) {
-        await reconcileCampaignBudget(campaign, db);
+        await reconcileCampaignBudget(campaign, db, customerId);
         try {
-          await syncActivityForCampaign(campaign);
+          await syncActivityForCampaign(campaign, customerId);
         } catch (actErr) {
           console.warn(`[performance] activity sync failed for ${campaign.id}:`, actErr);
         }
@@ -90,7 +94,7 @@ export async function syncAllCampaigns(db: any): Promise<SyncResult> {
  * current burn), email a heads-up.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function reconcileCampaignBudget(campaign: Campaign, db: any): Promise<void> {
+async function reconcileCampaignBudget(campaign: Campaign, db: any, customerId?: string): Promise<void> {
   if (!campaign.site_id) return;
 
   const budget = await getCampaignBudget(campaign.id);
@@ -103,7 +107,7 @@ async function reconcileCampaignBudget(campaign: Campaign, db: any): Promise<voi
   if (budget.depleted) {
     if (campaign.status === 'active' && campaign.channel === 'google_ads' && campaign.external_campaign_id) {
       try {
-        await pauseGoogleCampaign(campaign.external_campaign_id);
+        await pauseGoogleCampaign(campaign.external_campaign_id, customerId);
         await db.from('marketing_campaigns')
           .update({ status: 'paused', updated_at: new Date().toISOString() })
           .eq('id', campaign.id);
@@ -173,11 +177,13 @@ async function syncGoogleCampaign(
   endDate: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db: any,
+  customerId?: string,
 ): Promise<void> {
   const metrics = await getGooglePerformance(
     campaign.external_campaign_id!,
     startDate,
     endDate,
+    customerId,
   );
 
   await db

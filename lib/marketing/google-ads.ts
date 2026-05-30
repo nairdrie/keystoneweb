@@ -94,17 +94,21 @@ function getConfig() {
 
 function isConfigured(): boolean {
   const cfg = getConfig();
-  return !!(cfg.developerToken && cfg.clientId && cfg.clientSecret && cfg.customerId && cfg.refreshToken);
+  // customerId is intentionally NOT required: the operating account is supplied
+  // per-launch from the campaign's site (site.google_ads_customer_id / the ops
+  // launch box) and passed through as a customerId override. The env
+  // GOOGLE_ADS_CUSTOMER_ID is only a fallback for callers that don't pass one.
+  return !!(cfg.developerToken && cfg.clientId && cfg.clientSecret && cfg.refreshToken);
 }
 
 // ── Lazy client factory ──────────────────────────────────────────────────────
 
 let _GoogleAdsApi: any = null;
 
-async function getClient() {
+async function getClient(customerIdOverride?: string) {
   const cfg = getConfig();
   if (!isConfigured()) {
-    throw new Error('Google Ads API is not configured. Set GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET, GOOGLE_ADS_CUSTOMER_ID, and GOOGLE_ADS_REFRESH_TOKEN.');
+    throw new Error('Google Ads API is not configured. Set GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET, and GOOGLE_ADS_REFRESH_TOKEN (plus GOOGLE_ADS_MANAGER_CUSTOMER_ID when operating sub-accounts).');
   }
 
   if (!_GoogleAdsApi) {
@@ -123,9 +127,9 @@ async function getClient() {
   });
 
   return api.Customer({
-    customer_id: cfg.customerId,
+    customer_id: (customerIdOverride || cfg.customerId).replace(/-/g, ''),
     refresh_token: cfg.refreshToken,
-    login_customer_id: cfg.managerCustomerId || undefined,
+    login_customer_id: cfg.managerCustomerId ? cfg.managerCustomerId.replace(/-/g, '') : undefined,
   });
 }
 
@@ -198,18 +202,30 @@ export interface GoogleCampaignResult {
   adId: string;
 }
 
+/**
+ * Build a campaign-budget name that's unique within the account. Budget names
+ * must be unique, so a fixed `${name} Budget` collides with budgets left behind
+ * by earlier failed launch attempts ("A campaign budget with this name already
+ * exists."). Appending the campaign id + a timestamp keeps retries clean.
+ */
+function uniqueBudgetName(campaign: Campaign): string {
+  const suffix = `${(campaign.id || '').slice(0, 8)}-${Date.now().toString(36)}`;
+  return `${campaign.name} Budget ${suffix}`.slice(0, 250);
+}
+
 export async function createSearchCampaign(
   campaign: Campaign,
+  customerId?: string,
 ): Promise<GoogleCampaignResult> {
   if (isMockMode()) {
     console.log('[google-ads mock] createSearchCampaign', campaign.name);
     return mockCampaignResult(`search-${campaign.id?.slice(0, 8)}`);
   }
-  const customer = await getClient();
+  const customer = await getClient(customerId);
   const content = campaign.content as GoogleSearchContent;
 
   const budgetResult = await customer.campaignBudgets.create([{
-    name: `${campaign.name} Budget`,
+    name: uniqueBudgetName(campaign),
     amount_micros: (campaign.daily_budget_cents || 1000) * 10000,
     delivery_method: 'STANDARD',
   }]);
@@ -219,6 +235,14 @@ export async function createSearchCampaign(
     name: campaign.name,
     campaign_budget: budgetResourceName,
     advertising_channel_type: 'SEARCH',
+    // A campaign requires a bidding strategy or the API rejects the create with
+    // "The required field was not present." Manual CPC matches the per-ad-group
+    // cpc_bid_micros below and doesn't depend on conversion tracking (which a
+    // fresh sub-account won't have configured yet).
+    manual_cpc: {},
+    // Required since the EU political advertising transparency rules (TTPA).
+    // Keystone runs ads for small businesses, not political advertising.
+    contains_eu_political_advertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
     status: 'PAUSED',
     start_date: campaign.start_date?.replace(/-/g, '') || undefined,
     end_date: campaign.end_date?.replace(/-/g, '') || undefined,
@@ -261,7 +285,7 @@ export async function createSearchCampaign(
     );
   }
 
-  const adResult = await customer.ads.create([{
+  const adResult = await customer.adGroupAds.create([{
     ad_group: adGroupResourceName,
     ad: {
       responsive_search_ad: {
@@ -275,7 +299,8 @@ export async function createSearchCampaign(
     },
     status: 'ENABLED',
   }]);
-  const adId = adResult.results[0].resource_name.split('/').pop()!;
+  // AdGroupAd resource name is "customers/X/adGroupAds/{adGroupId}~{adId}".
+  const adId = adResult.results[0].resource_name.split('~').pop()!;
 
   await applyLocationTargeting(customer, campaignResourceName, campaign.targeting);
 
@@ -289,16 +314,17 @@ export async function createSearchCampaign(
 
 export async function createDisplayCampaign(
   campaign: Campaign,
+  customerId?: string,
 ): Promise<GoogleCampaignResult> {
   if (isMockMode()) {
     console.log('[google-ads mock] createDisplayCampaign', campaign.name);
     return mockCampaignResult(`display-${campaign.id?.slice(0, 8)}`);
   }
-  const customer = await getClient();
+  const customer = await getClient(customerId);
   const content = campaign.content as GoogleDisplayContent;
 
   const budgetResult = await customer.campaignBudgets.create([{
-    name: `${campaign.name} Budget`,
+    name: uniqueBudgetName(campaign),
     amount_micros: (campaign.daily_budget_cents || 1000) * 10000,
     delivery_method: 'STANDARD',
   }]);
@@ -308,6 +334,11 @@ export async function createDisplayCampaign(
     name: campaign.name,
     campaign_budget: budgetResourceName,
     advertising_channel_type: 'DISPLAY',
+    // Bidding strategy is required (see createSearchCampaign). Manual CPC pairs
+    // with the cpc_bid_micros set on the ad group below.
+    manual_cpc: {},
+    // Required since the EU political advertising transparency rules (TTPA).
+    contains_eu_political_advertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
     status: 'ENABLED',
     start_date: campaign.start_date?.replace(/-/g, '') || undefined,
     end_date: campaign.end_date?.replace(/-/g, '') || undefined,
@@ -320,6 +351,7 @@ export async function createDisplayCampaign(
     name: `${campaign.name} — Ad Group`,
     type: 'DISPLAY_STANDARD',
     status: 'ENABLED',
+    cpc_bid_micros: 1_000_000,
   }]);
   const adGroupResourceName = adGroupResult.results[0].resource_name;
   const adGroupId = adGroupResourceName.split('/').pop()!;
@@ -327,7 +359,7 @@ export async function createDisplayCampaign(
   // Upload images as Google Ads Image Assets, then reference them in the RDA.
   const imageAssetResources = await uploadImageAssets(customer, content.images || []);
 
-  const adResult = await customer.ads.create([{
+  const adResult = await customer.adGroupAds.create([{
     ad_group: adGroupResourceName,
     ad: {
       responsive_display_ad: {
@@ -341,7 +373,8 @@ export async function createDisplayCampaign(
     },
     status: 'ENABLED',
   }]);
-  const adId = adResult.results[0].resource_name.split('/').pop()!;
+  // AdGroupAd resource name is "customers/X/adGroupAds/{adGroupId}~{adId}".
+  const adId = adResult.results[0].resource_name.split('~').pop()!;
 
   await applyLocationTargeting(customer, campaignResourceName, campaign.targeting);
 
@@ -381,30 +414,32 @@ async function uploadImageAssets(
 
 export async function pauseCampaign(
   externalCampaignId: string,
+  customerId?: string,
 ): Promise<void> {
   if (isMockMode()) {
     console.log('[google-ads mock] pauseCampaign', externalCampaignId);
     return;
   }
-  const customer = await getClient();
-  const customerId = getConfig().customerId;
+  const customer = await getClient(customerId);
+  const acctId = (customerId || getConfig().customerId).replace(/-/g, '');
   await customer.campaigns.update([{
-    resource_name: `customers/${customerId}/campaigns/${externalCampaignId}`,
+    resource_name: `customers/${acctId}/campaigns/${externalCampaignId}`,
     status: 'PAUSED',
   }]);
 }
 
 export async function resumeCampaign(
   externalCampaignId: string,
+  customerId?: string,
 ): Promise<void> {
   if (isMockMode()) {
     console.log('[google-ads mock] resumeCampaign', externalCampaignId);
     return;
   }
-  const customer = await getClient();
-  const customerId = getConfig().customerId;
+  const customer = await getClient(customerId);
+  const acctId = (customerId || getConfig().customerId).replace(/-/g, '');
   await customer.campaigns.update([{
-    resource_name: `customers/${customerId}/campaigns/${externalCampaignId}`,
+    resource_name: `customers/${acctId}/campaigns/${externalCampaignId}`,
     status: 'ENABLED',
   }]);
 }
@@ -425,8 +460,9 @@ export async function getCampaignPerformance(
   externalCampaignId: string,
   startDate: string,
   endDate: string,
+  customerId?: string,
 ): Promise<GooglePerformanceMetrics> {
-  const customer = await getClient();
+  const customer = await getClient(customerId);
 
   const results = await customer.query(`
     SELECT
@@ -486,8 +522,9 @@ export async function getCampaignActivitySegments(
   externalCampaignId: string,
   startDate: string,
   endDate: string,
+  customerId?: string,
 ): Promise<ActivitySegmentRow[]> {
-  const customer = await getClient();
+  const customer = await getClient(customerId);
   const rows = await customer.query(`
     SELECT
       segments.date,

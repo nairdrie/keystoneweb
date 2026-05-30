@@ -31,7 +31,7 @@ export interface ActivityEvent {
   created_at: string;
 }
 
-export async function syncActivityForCampaign(campaign: Campaign): Promise<void> {
+export async function syncActivityForCampaign(campaign: Campaign, customerId?: string): Promise<void> {
   if (!campaign.external_campaign_id || campaign.channel !== 'google_ads') return;
   if (!campaign.site_id) return; // platform campaigns don't need activity feed
 
@@ -40,7 +40,7 @@ export async function syncActivityForCampaign(campaign: Campaign): Promise<void>
 
   let segments: ActivitySegmentRow[];
   try {
-    segments = await getCampaignActivitySegments(campaign.external_campaign_id, sevenDaysAgo, today);
+    segments = await getCampaignActivitySegments(campaign.external_campaign_id, sevenDaysAgo, today, customerId);
   } catch (err) {
     console.warn(`[activity] segment fetch failed for ${campaign.id}:`, err);
     return;

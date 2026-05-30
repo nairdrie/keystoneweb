@@ -6,6 +6,8 @@ import {
   type ArchitecturePage,
 } from '@/lib/ai/site-architecture';
 
+// Template payloads are intentionally loose JSON objects from DB/code metadata.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyRecord = Record<string, any>;
 
 interface CategoryCopy {
@@ -604,15 +606,15 @@ function buildCategoryCopy(category: string | null | undefined, businessType: st
 
 const TEMPLATE_STYLE_FIELDS: Record<string, string[]> = {
   hero: ['transition', 'height', 'cards'],
-  servicesGrid: ['variant', 'layout', 'columns', 'backgroundColor', 'ctaEnabled'],
+  servicesGrid: ['variant', 'layout', 'columns', 'backgroundColor', 'foregroundColor', 'ctaEnabled', 'cardStyle', 'cardSettings', 'surfaceStyle', 'markerStyle', 'spacingDensity', 'textAlign'],
   featuresList: ['variant', 'layout', 'backgroundColor'],
-  stats: ['variant', 'backgroundColor'],
-  testimonials: ['variant', 'backgroundColor'],
-  aboutImageText: ['variant', 'imagePosition', 'backgroundColor'],
+  stats: ['variant', 'backgroundColor', 'foregroundColor', 'cardStyle', 'cardSettings', 'surfaceStyle', 'spacingDensity', 'textAlign'],
+  testimonials: ['variant', 'backgroundColor', 'foregroundColor', 'cardStyle', 'cardSettings', 'surfaceStyle', 'spacingDensity'],
+  aboutImageText: ['variant', 'imagePosition', 'splitRatio', 'mobileStackOrder', 'backgroundColor', 'foregroundColor', 'mediaTreatment', 'textAlign'],
   featuredQuote: ['variant', 'imagePosition', 'backgroundColor'],
   cta: ['showPattern', 'backgroundColor', 'buttonTextIcon'],
-  gallery: ['columns', 'showLightboxNav', 'showLightboxThumbs', 'showSeeMore', 'seeMore', 'seeMoreLink', 'seeMoreIcon', 'autoScroll', 'autoScrollRows', 'backgroundColor'],
-  carousel: ['variant', 'autoPlay', 'interval', 'backgroundColor'],
+  gallery: ['columns', 'showLightboxNav', 'showLightboxThumbs', 'showSeeMore', 'seeMore', 'seeMoreLink', 'seeMoreIcon', 'autoScroll', 'autoScrollRows', 'backgroundColor', 'foregroundColor', 'frameStyle', 'mediaAspect'],
+  carousel: ['variant', 'autoPlay', 'interval', 'backgroundColor', 'foregroundColor', 'cardStyle', 'cardSettings', 'surfaceStyle', 'mediaAspect', 'mediaTreatment', 'iconStyle', 'spacingDensity', 'textAlign'],
   pricing: ['variant', 'backgroundColor'],
   team: ['variant', 'columns', 'showBio', 'backgroundColor'],
   blog: ['layout', 'showAuthor', 'showDate', 'showTags', 'showExcerpt', 'postsPerPage'],

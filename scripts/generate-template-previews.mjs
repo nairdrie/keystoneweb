@@ -7,14 +7,6 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import WebSocket from 'ws';
 
 const DEFAULT_TEMPLATE_IDS = [
-  'luxe',
-  'vivid',
-  'airy',
-  'edge',
-  'classic',
-  'organic',
-  'sleek',
-  'vibrant',
   'atlas',
   'editorial',
   'booked',

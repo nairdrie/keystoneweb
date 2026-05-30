@@ -26,7 +26,7 @@ export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: s
 
   const { data: campaign } = await supabase
     .from('marketing_campaigns')
-    .select('*, sites!inner(id, user_id, marketing_enabled)')
+    .select('*, sites!inner(id, user_id, marketing_enabled, google_ads_customer_id)')
     .eq('id', id)
     .single();
 
@@ -44,7 +44,7 @@ export async function POST(_request: NextRequest, ctx: { params: Promise<{ id: s
   // 1. Pause in Google first so further spend stops.
   if (campaign.status === 'active' && campaign.channel === 'google_ads' && campaign.external_campaign_id) {
     try {
-      await pauseGoogleCampaign(campaign.external_campaign_id);
+      await pauseGoogleCampaign(campaign.external_campaign_id, site?.google_ads_customer_id || undefined);
     } catch (err) {
       console.error('[cancel] failed to pause in Google (continuing to refund):', err);
     }

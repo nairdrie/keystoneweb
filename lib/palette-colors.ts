@@ -52,8 +52,8 @@ export function readableAccentColorForBackground(
 }
 
 export function contrastRatio(colorA: string, colorB: string): number | null {
-  const rgbA = hexToRgb(colorA);
-  const rgbB = hexToRgb(colorB);
+  const rgbA = cssColorToRgb(colorA);
+  const rgbB = cssColorToRgb(colorB);
   if (!rgbA || !rgbB) return null;
 
   const lumA = relativeLuminance(rgbA.r, rgbA.g, rgbA.b);
@@ -63,7 +63,7 @@ export function contrastRatio(colorA: string, colorB: string): number | null {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-function hexToRgb(value: string): { r: number; g: number; b: number } | null {
+function cssColorToRgb(value: string): { r: number; g: number; b: number } | null {
   const normalized = value.trim();
   const short = normalized.match(/^#([0-9a-f]{3})$/i);
   if (short) {
@@ -81,7 +81,33 @@ function hexToRgb(value: string): { r: number; g: number; b: number } | null {
     };
   }
 
+  const rgba = normalized.match(/^rgba?\(\s*([+-]?\d*\.?\d+)\s*,\s*([+-]?\d*\.?\d+)\s*,\s*([+-]?\d*\.?\d+)\s*(?:,\s*([+-]?\d*\.?\d+)\s*)?\)$/i);
+  if (rgba) {
+    const rgb = {
+      r: clampColorChannel(Number(rgba[1])),
+      g: clampColorChannel(Number(rgba[2])),
+      b: clampColorChannel(Number(rgba[3])),
+    };
+    const alpha = rgba[4] === undefined ? 1 : clampAlpha(Number(rgba[4]));
+    if (alpha >= 1) return rgb;
+    return {
+      r: Math.round(rgb.r * alpha + 255 * (1 - alpha)),
+      g: Math.round(rgb.g * alpha + 255 * (1 - alpha)),
+      b: Math.round(rgb.b * alpha + 255 * (1 - alpha)),
+    };
+  }
+
   return null;
+}
+
+function clampColorChannel(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(255, Math.max(0, Math.round(value)));
+}
+
+function clampAlpha(value: number): number {
+  if (!Number.isFinite(value)) return 1;
+  return Math.min(1, Math.max(0, value));
 }
 
 function relativeLuminance(r: number, g: number, b: number): number {

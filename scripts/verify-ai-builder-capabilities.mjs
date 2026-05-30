@@ -64,6 +64,14 @@ const requiredCapabilitySnippets = [
   'SAFE_LIGHT_SECTION_BACKGROUND',
   'AI_DISALLOWED_CUSTOM_CSS_KEYS',
   'AI-generated block/header Custom CSS is disabled',
+  'cardStyle',
+  'surfaceStyle',
+  'spacingDensity',
+  'iconStyle',
+  'splitMedia',
+  'mediaAspect',
+  'mediaTreatment',
+  'frameStyle',
   'stripAiHtmlCss',
   'delete obj[key]',
   'return !key || !AI_DISALLOWED_CUSTOM_CSS_KEYS.has(key)',
@@ -111,6 +119,8 @@ const requiredStructuralTemplateSnippets = [
   'desktop: { mode, valuePx, revealNext }',
   "itemDetailPhotoVisibility: 'menu'",
   "showMenuIconLegend: true",
+  "cardStyle: 'offset'",
+  "frameStyle: 'gapless'",
 ];
 const missingStructuralTemplateSnippets = requiredStructuralTemplateSnippets.filter((snippet) => !structuralTemplateSource.includes(snippet));
 const requiredExistingBlockSnippets = [
@@ -184,6 +194,8 @@ const forbiddenBuilderPromptSnippets = [
   'CSS treatment family:',
   'CSS treatment:',
   '"headerCustomCss": "<header-only CSS>"',
+  'customCss:',
+  "__customCss: '",
 ];
 const presentForbiddenBuilderPromptSnippets = forbiddenBuilderPromptSnippets.filter((snippet) => builderSchemaAndOrchestratorSource.includes(snippet) || capabilitySource.includes(snippet) || templateProfileSource.includes(snippet));
 

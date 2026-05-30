@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockSettingsPanel from '../BlockSettingsPanel';
+import { CardSettingsControls } from '../CardSettingsControls';
 import KeyframeEditor, { inferFieldNames } from '../KeyframeEditor';
 import { InspectorSection, InspectorToggle, useInspectorSectionState } from '../panel-shared';
 import { LayoutTab } from '../layout/LayoutTab';
@@ -37,17 +38,24 @@ import {
     type PricingConditionOperator,
     type PricingRule,
 } from '@/lib/estimate-quote';
+import {
+    buildCardSettingsForPreset,
+    readCardSettings,
+    type CardSettings,
+} from '@/lib/block-style-options';
 
 type EditorMode = 'simple' | 'advanced';
 
 type EstimateQuoteDraft = {
     settings: EstimateQuoteSettings;
     sectionSettings: SectionSettings;
+    cardStyle: string;
+    cardSettings?: CardSettings;
     __customCss: string;
     __customScript: string;
 };
 
-const SECTION_IDS = ['mode', 'guided', 'fields', 'steps', 'display', 'advanced-pricing', 'integrations', 'preview', 'universal-layout', 'advanced'];
+const SECTION_IDS = ['mode', 'guided', 'fields', 'steps', 'display', 'advanced-pricing', 'integrations', 'preview', 'universal-layout', 'style', 'advanced'];
 
 const FIELD_TYPE_OPTIONS: Array<{ value: EstimateFieldType; label: string }> = [
     { value: 'text', label: 'Text' },
@@ -100,6 +108,7 @@ export default function EstimateQuoteSettingsPanel({
     blockType = 'estimateForm',
     blockData,
     isProUser,
+    palette,
     customCss,
     onClose,
     onDraftBlockDataChange,
@@ -124,6 +133,14 @@ export default function EstimateQuoteSettingsPanel({
 
     const updateNestedSettings = <K extends keyof EstimateQuoteSettings>(key: K, value: EstimateQuoteSettings[K]) => {
         setDraft((current) => ({ ...current, settings: { ...current.settings, [key]: value } }));
+    };
+
+    const updateCardSettings = (value: CardSettings) => {
+        setDraft((current) => ({
+            ...current,
+            cardSettings: value,
+            cardStyle: value.presetId && value.presetId !== 'custom' ? value.presetId : current.cardStyle,
+        }));
     };
 
     const updateField = (fieldId: string, updates: Partial<EstimateField>) => {
@@ -202,7 +219,7 @@ export default function EstimateQuoteSettingsPanel({
         >
             <InspectorSection
                 id="mode"
-                title="Editing Mode"
+                title="Display: Editing Mode"
                 isCollapsed={sectionState.isCollapsed('mode')}
                 onToggle={() => sectionState.toggle('mode')}
             >
@@ -217,7 +234,7 @@ export default function EstimateQuoteSettingsPanel({
 
             <InspectorSection
                 id="guided"
-                title="Guided Setup"
+                title="Content: Guided Setup"
                 isCollapsed={sectionState.isCollapsed('guided')}
                 onToggle={() => sectionState.toggle('guided')}
             >
@@ -294,7 +311,7 @@ export default function EstimateQuoteSettingsPanel({
 
             <InspectorSection
                 id="fields"
-                title="Fields"
+                title="Content: Fields"
                 isCollapsed={sectionState.isCollapsed('fields')}
                 onToggle={() => sectionState.toggle('fields')}
             >
@@ -328,7 +345,7 @@ export default function EstimateQuoteSettingsPanel({
 
             <InspectorSection
                 id="steps"
-                title="Pages / Steps"
+                title="Content: Pages / Steps"
                 isCollapsed={sectionState.isCollapsed('steps')}
                 onToggle={() => sectionState.toggle('steps')}
             >
@@ -364,7 +381,7 @@ export default function EstimateQuoteSettingsPanel({
 
             <InspectorSection
                 id="display"
-                title="Quote Display"
+                title="Display: Quote"
                 isCollapsed={sectionState.isCollapsed('display')}
                 onToggle={() => sectionState.toggle('display')}
             >
@@ -412,7 +429,7 @@ export default function EstimateQuoteSettingsPanel({
             {mode === 'advanced' && (
                 <InspectorSection
                     id="advanced-pricing"
-                    title="Advanced Pricing"
+                    title="Content: Advanced Pricing"
                     isCollapsed={sectionState.isCollapsed('advanced-pricing')}
                     onToggle={() => sectionState.toggle('advanced-pricing')}
                 >
@@ -462,7 +479,7 @@ export default function EstimateQuoteSettingsPanel({
 
             <InspectorSection
                 id="integrations"
-                title="Deposits, CRM, Tracking"
+                title="Integrations: Deposits, CRM, Tracking"
                 isCollapsed={sectionState.isCollapsed('integrations')}
                 onToggle={() => sectionState.toggle('integrations')}
             >
@@ -525,7 +542,7 @@ export default function EstimateQuoteSettingsPanel({
 
             <InspectorSection
                 id="preview"
-                title="Live Quote Preview"
+                title="Display: Live Quote Preview"
                 isCollapsed={sectionState.isCollapsed('preview')}
                 onToggle={() => sectionState.toggle('preview')}
             >
@@ -580,6 +597,21 @@ export default function EstimateQuoteSettingsPanel({
                     blockType={blockType}
                     value={draft.sectionSettings}
                     onChange={(sectionSettings) => setDraft((current) => ({ ...current, sectionSettings }))}
+                />
+            </InspectorSection>
+
+            <InspectorSection
+                id="style"
+                title="Style: Form"
+                isCollapsed={sectionState.isCollapsed('style')}
+                onToggle={() => sectionState.toggle('style')}
+            >
+                <CardSettingsControls
+                    value={draft.cardSettings || buildCardSettingsForPreset(draft.cardStyle)}
+                    currentPresetId={draft.cardStyle}
+                    palette={palette}
+                    supportsTextAlign={false}
+                    onChange={updateCardSettings}
                 />
             </InspectorSection>
 
@@ -871,9 +903,18 @@ function SelectField({ label, value, options, onChange }: { label: string; value
 }
 
 function buildInitialDraft(blockData: Record<string, unknown>, customCss: string): EstimateQuoteDraft {
+    const cardSettings = readCardSettings(blockData.cardSettings);
+    const cardStyle = typeof blockData.cardStyle === 'string' && blockData.cardStyle.trim()
+        ? blockData.cardStyle
+        : cardSettings?.presetId && cardSettings.presetId !== 'custom'
+            ? cardSettings.presetId
+            : 'soft';
+
     return {
         settings: normalizeEstimateQuoteSettings(blockData),
         sectionSettings: normalizeSectionSettings(blockData.sectionSettings),
+        cardStyle,
+        cardSettings,
         __customCss: customCss,
         __customScript: typeof blockData.__customScript === 'string' ? blockData.__customScript : '',
     };
@@ -885,6 +926,8 @@ function buildPreviewBlockData(blockData: Record<string, unknown>, draft: Estima
         ...legacyMirror(draft.settings),
         estimateQuoteSettings: draft.settings,
         sectionSettings: draft.sectionSettings,
+        cardStyle: draft.cardStyle,
+        cardSettings: draft.cardSettings || buildCardSettingsForPreset(draft.cardStyle),
         __customCss: draft.__customCss,
         __customScript: draft.__customScript,
     };
@@ -897,6 +940,12 @@ function buildSaveUpdates(blockData: Record<string, unknown>, draft: EstimateQuo
         __customCss: draft.__customCss,
         __customScript: draft.__customScript,
     };
+    const hasExistingCardSettings = Boolean(blockData.cardSettings && typeof blockData.cardSettings === 'object' && !Array.isArray(blockData.cardSettings));
+    const persistedCardStyle = typeof blockData.cardStyle === 'string' && blockData.cardStyle.trim() ? blockData.cardStyle : 'soft';
+    if (draft.cardSettings || hasExistingCardSettings || draft.cardStyle !== persistedCardStyle) {
+        updates.cardStyle = draft.cardStyle;
+        updates.cardSettings = draft.cardSettings || buildCardSettingsForPreset(draft.cardStyle);
+    }
     const initialSectionSettings = normalizeSectionSettings(blockData.sectionSettings);
     if (!areSectionSettingsEqual(draft.sectionSettings, initialSectionSettings)) {
         updates.sectionSettings = normalizeSectionSettings(draft.sectionSettings);

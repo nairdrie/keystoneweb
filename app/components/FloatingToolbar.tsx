@@ -1,22 +1,29 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, BookOpen, Eye, EyeOff, Image as ImageIcon, Tablet, Smartphone, Monitor, Layout, Lock } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, BookOpen, Eye, EyeOff, Image as ImageIcon, Tablet, Smartphone, Monitor, Layout, LayoutTemplate, Lock, Rocket } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
 import AlertModal from './ui/AlertModal';
 import FontPickerModal from './FontPickerModal';
 import AIBuilderPanel from './AIBuilderPanel';
+import ArchieAIIcon from './ArchieAIIcon';
 import TranslationsPanel from './TranslationsPanel';
 import ImageEditorModal from './ImageEditorModal';
 import EditHistoryModal from './EditHistoryModal';
-import DoctorPanel from './DoctorPanel';
 import SiteAnimationControls from './SiteAnimationControls';
+import {
+  DEFAULT_SITE_LAYOUT_CONTAINER_WIDTH,
+  SITE_LAYOUT_CONTAINER_WIDTH_KEY,
+  SITE_LAYOUT_CONTAINER_WIDTH_OPTIONS,
+  normalizeSiteLayoutContainerWidth,
+  type SiteLayoutContainerWidth,
+} from '@/lib/site-layout';
 import { AIMessage, UsageRemaining } from '@/lib/hooks/useAIBuilder';
-import { Type, User, Languages, Stethoscope } from 'lucide-react';
+import { Type, User, Languages } from 'lucide-react';
 import ProfileDropdown from './ProfileDropdown';
 import WalkthroughModal, { WalkthroughStep } from './WalkthroughModal';
 import SiteLimitModal from './SiteLimitModal';
@@ -111,6 +118,12 @@ function getFreeAiBadgeLabel(remaining: UsageRemaining | null | undefined) {
 const LG_BREAKPOINT = 1024;
 const WALKTHROUGH_RESET_EVENT = 'ks:walkthrough-reset-ui';
 
+// Rail measurement constants — mirrors the admin sidebar so the
+// design rail expands to fit logo + Design/Admin switcher + profile.
+const DESIGN_RAIL_WIDTH_PX = 56;
+const DESIGN_RAIL_EXPANDED_FALLBACK_PX = 280;
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
 function useIsLargeScreen() {
   const [isLarge, setIsLarge] = useState(false);
 
@@ -204,9 +217,24 @@ export default function FloatingToolbar({
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' | 'warning', onConfirm?: () => void, confirmLabel?: string, cancelLabel?: string }>({ isOpen: false, message: '' });
   const [isPublishingUpdates, setIsPublishingUpdates] = useState(false);
   const isFullyDeployed = isSynced && changes.length === 0;
+  const selectedContainerWidth = normalizeSiteLayoutContainerWidth(siteContent?.[SITE_LAYOUT_CONTAINER_WIDTH_KEY]);
 
   const [openSections, setOpenSections] = useState<string[]>([]);
   const openSectionsRef = useRef<string[]>([]);
+  const [railExpanded, setRailExpanded] = useState(false);
+  const [railExpandedWidth, setRailExpandedWidth] = useState<number>(DESIGN_RAIL_EXPANDED_FALLBACK_PX);
+  const railHeaderMeasureRef = useRef<HTMLDivElement | null>(null);
+
+  // Measure the natural width of the rail header's left group (logo + Design/Admin
+  // switcher) and add the avatar + padding budget so the expanded rail can never
+  // truncate the switcher pill. Matches admin-sidebar.tsx's approach.
+  useIsoLayoutEffect(() => {
+    if (!railHeaderMeasureRef.current) return;
+    const leftGroup = Math.ceil(railHeaderMeasureRef.current.getBoundingClientRect().width);
+    // 12 (left pad) + leftGroup + 16 (min gap) + 32 (avatar w-8) + 12 (right pad)
+    const total = 12 + leftGroup + 16 + 32 + 12;
+    if (total > DESIGN_RAIL_WIDTH_PX) setRailExpandedWidth(total);
+  }, []);
   const [fontPickerState, setFontPickerState] = useState<{ isOpen: boolean, type: 'title' | 'body' }>({ isOpen: false, type: 'title' });
   const aiBuilderSectionRef = useRef<HTMLDivElement>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -688,11 +716,126 @@ export default function FloatingToolbar({
 
   // ─── Shared panel content (used in both sidebar and drawer) ─────────
 
+  // Publish / save / view-live actions — surfaced inline at the bottom of the
+  // rail when expanded (desktop) and at the bottom of the panel/drawer on
+  // mobile. Same JSX both places so we don't drift between them.
+  const publishActionsContent = (
+    <>
+      {/* Unsaved Changes Section */}
+      {changes && (changes.length > 0 || canRedo) && (
+        <div>
+          <button
+            onClick={() => setShowChanges(!showChanges)}
+            className={`w-full flex items-center justify-between px-3 py-2 border rounded-lg transition-colors ${changes.length > 0 ? 'bg-amber-50 border-amber-200 hover:bg-amber-100' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}
+          >
+            <div className="flex items-center gap-2">
+              <div className={`w-4 h-4 rounded-full text-white flex items-center justify-center text-[10px] font-bold ${changes.length > 0 ? 'bg-amber-400' : 'bg-slate-400'}`}>
+                {changes.length}
+              </div>
+              <span className={`text-xs font-semibold ${changes.length > 0 ? 'text-amber-900' : 'text-slate-700'}`}>
+                {changes.length > 0
+                  ? `${changes.length} unsaved change${changes.length !== 1 ? 's' : ''}`
+                  : 'No unsaved changes'}
+              </span>
+            </div>
+            <ChevronDown className={`w-4 h-4 transition-transform ${changes.length > 0 ? 'text-amber-700' : 'text-slate-500'} ${showChanges ? 'rotate-180' : ''}`} />
+          </button>
+
+          <div className="flex gap-2 mt-2">
+            <button onClick={onUndo} disabled={!canUndo} className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 font-semibold text-xs rounded transition-colors">
+              <RotateCcw className="w-3 h-3" />
+              Undo
+            </button>
+            <button onClick={onRedo} disabled={!canRedo} className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 font-semibold text-xs rounded transition-colors">
+              <RotateCw className="w-3 h-3" />
+              Redo
+            </button>
+          </div>
+
+          {showChanges && (
+            <div className="mt-2 p-3 space-y-2 max-h-28 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-inner">
+              {changes.length > 0 ? changes.map((change) => (
+                <div key={change.id} className="text-[10px] text-slate-700 pb-2 border-b border-slate-100 last:border-b-0">
+                  <div className="font-bold text-slate-900 mb-0.5">{change.label}</div>
+                  <div className="text-slate-600 flex flex-col gap-0.5">
+                    <span className="line-through text-red-500 break-all">{change.from || '(empty)'}</span>
+                    <span className="text-green-600 break-all">{change.to || '(empty)'}</span>
+                  </div>
+                </div>
+              )) : (
+                <div className="text-[10px] font-semibold text-slate-500">No unsaved changes</div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Save Draft & Publish / Live Site Actions */}
+      <div className="flex flex-col gap-2">
+        {isPublished && publishedDomain ? (
+          <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isFullyDeployed ? 'bg-green-400' : 'bg-amber-400'}`}></span>
+                  <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isFullyDeployed ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+                </span>
+                <span className={`text-[10px] font-bold uppercase tracking-wide ${isFullyDeployed ? 'text-slate-700' : 'text-amber-700'}`}>
+                  {isFullyDeployed ? 'Live' : 'Unpublished'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                {customDomain ? (
+                  <a href={`https://${customDomain}`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-slate-500 hover:text-slate-900 border-b border-slate-300 transition-colors truncate max-w-[120px]">{customDomain}</a>
+                ) : (
+                  <a href={`https://${publishedDomain}.kswd.ca`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-slate-500 hover:text-slate-900 border-b border-slate-300 transition-colors truncate max-w-[120px]">{publishedDomain}.kswd.ca</a>
+                )}
+                {pendingCustomDomain && (
+                  <span className="text-[9px] text-amber-600 font-medium" title={`${pendingCustomDomain} — pending verification`}>⏳</span>
+                )}
+                <button onClick={() => router.push(`/publish/domain-select?session_id=existing&siteId=${currentSiteId}`)} className="p-1 hover:bg-slate-100 rounded text-slate-400" title="Domain settings"><Pencil className="w-3 h-3" /></button>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={handleSave} disabled={saving || changes.length === 0} className="flex-[0.8] py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 font-semibold text-xs rounded transition-colors">Save</button>
+              {!isFullyDeployed ? (
+                <button onClick={handlePublish} disabled={publishing || isPublishingUpdates} className="flex-[1.2] py-1.5 text-white font-semibold text-xs rounded transition-colors hover:brightness-110" style={{ backgroundColor: 'var(--brand-primary)' }}>{(publishing || isPublishingUpdates) ? 'Publishing...' : 'Publish'}</button>
+              ) : (
+                <a href={customDomain ? `https://${customDomain}` : `https://${publishedDomain}.kswd.ca`} target="_blank" rel="noopener noreferrer" className="flex-[1.2] flex items-center justify-center py-1.5 text-white font-semibold text-xs rounded transition-colors hover:brightness-110" style={{ backgroundColor: 'var(--brand-primary)' }}>View Live</a>
+              )}
+              <button
+                onClick={() => setShowPreviewModal(true)}
+                disabled={!currentSiteId}
+                className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-600 rounded transition-colors"
+                title="Share draft preview"
+              >
+                <Eye className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <button onClick={handleSave} disabled={saving || changes.length === 0} className="flex-1 py-2 text-white font-bold text-sm rounded-lg hover:brightness-110 disabled:opacity-60 bg-slate-600">{saving ? 'Saving...' : user ? 'Save Draft' : 'Sign Up to Save'}</button>
+            <button onClick={handlePublish} disabled={publishing || !user || isSynced} className="flex-1 py-2 text-white font-bold text-sm rounded-lg hover:brightness-110 disabled:opacity-60" style={{ backgroundColor: isSynced ? '#94a3b8' : 'var(--brand-primary)' }}>{publishing ? 'Publishing...' : isSynced ? 'Published' : 'Publish'}</button>
+            <button
+              onClick={() => setShowPreviewModal(true)}
+              disabled={!currentSiteId}
+              className="px-3 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-lg transition-colors"
+              title="Share draft preview"
+            >
+              <Eye className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+      </div>
+    </>
+  );
+
   const panelContent = (
     <div className="flex flex-col h-full max-h-full">
 
-      {/* ── Site Info Header (non-scrollable) ── */}
-      <div className="shrink-0 px-4 py-3 border-b border-slate-200 bg-slate-50 space-y-3" style={{ overflow: 'visible' }}>
+      {/* ── Site Info Header (non-scrollable) — hidden in rail mode since the editor banner already owns site name + switcher. */}
+      <div data-rail-hide="true" className="shrink-0 px-4 py-3 border-b border-slate-200 bg-slate-50 space-y-3" style={{ overflow: 'visible' }}>
 
         {/* Currently Editing + Rename + Site Switcher */}
         <div style={{ overflow: 'visible' }}>
@@ -834,10 +977,10 @@ export default function FloatingToolbar({
       </div>
 
       {/* Scrollable Accordions */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div data-rail-scrollable="true" className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
 
         {/* Template Section */}
-        <div className="border border-slate-200 rounded-lg bg-white shadow-sm">
+        <div data-section-id="template" className="border border-slate-200 rounded-lg bg-white shadow-sm">
           <button
             onClick={() => toggleSection('template')}
             className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors rounded-t-lg"
@@ -913,7 +1056,7 @@ export default function FloatingToolbar({
         </div>
 
         {/* Logos Section */}
-        <div className="border border-slate-200 rounded-lg bg-white shadow-sm" style={{ overflow: 'visible' }}>
+        <div data-section-id="general" className="border border-slate-200 rounded-lg bg-white shadow-sm" style={{ overflow: 'visible' }}>
           <button
             onClick={() => toggleSection('general')}
             className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors rounded-t-lg"
@@ -1296,10 +1439,68 @@ export default function FloatingToolbar({
           )}
         </div>
 
+        {/* Layout Section */}
+        <div data-section-id="layout" className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+          <button
+            onClick={() => toggleSection('layout')}
+            className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
+          >
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+              <Layout className="w-3.5 h-3.5" />
+              Layout
+            </span>
+            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('layout') ? 'rotate-180' : ''}`} />
+          </button>
+
+          {openSections.includes('layout') && (
+            <div className="p-4 border-t border-slate-200 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide">Container Width</h3>
+                <span className="text-[10px] font-mono font-semibold text-slate-500">
+                  {SITE_LAYOUT_CONTAINER_WIDTH_OPTIONS.find((option) => option.value === selectedContainerWidth)?.maxWidthPx}px
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {SITE_LAYOUT_CONTAINER_WIDTH_OPTIONS.map((option) => {
+                  const active = selectedContainerWidth === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => onUpdateSiteContent(SITE_LAYOUT_CONTAINER_WIDTH_KEY, option.value)}
+                      aria-pressed={active}
+                      className={`rounded-xl border p-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        active
+                          ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <ContainerWidthPreview value={option.value} active={active} />
+                      <span className="mt-2 flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold">{option.label}</span>
+                        <span className="text-[10px] font-mono font-semibold opacity-70">{option.maxWidthPx}px</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedContainerWidth !== DEFAULT_SITE_LAYOUT_CONTAINER_WIDTH && (
+                <button
+                  type="button"
+                  onClick={() => onUpdateSiteContent(SITE_LAYOUT_CONTAINER_WIDTH_KEY, DEFAULT_SITE_LAYOUT_CONTAINER_WIDTH)}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50"
+                >
+                  Reset to default
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
         <div data-tour="builder-design-panel" className="space-y-3">
         {/* Colors Section */}
         {templatePalettes && templatePalettes.length > 0 && (
-          <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+          <div data-section-id="colors" className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
             <button
               onClick={() => toggleSection('colors')}
               className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
@@ -1363,7 +1564,7 @@ export default function FloatingToolbar({
         )}
 
         {/* Typography Section */}
-        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+        <div data-section-id="typography" className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
           <button
             onClick={() => toggleSection('typography')}
             className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
@@ -1402,7 +1603,7 @@ export default function FloatingToolbar({
         </div>
 
         {/* Animation Section */}
-        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+        <div data-section-id="animation" className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
           <button
             onClick={() => toggleSection('animation')}
             className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
@@ -1426,7 +1627,7 @@ export default function FloatingToolbar({
         </div>
 
         {/* AI Builder Section */}
-        <div ref={aiBuilderSectionRef} data-tour="builder-ai-builder" className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+        <div ref={aiBuilderSectionRef} data-section-id="ai-builder" className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
           <div className="flex items-center gap-2 bg-gradient-to-r from-violet-50 to-purple-50 px-4 py-3 transition-colors hover:from-violet-100 hover:to-purple-100">
             <button
               type="button"
@@ -1434,7 +1635,7 @@ export default function FloatingToolbar({
               className="flex min-w-0 flex-1 items-center justify-between"
             >
               <span className="flex min-w-0 items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-violet-700">
-                <img src="/assets/archie.png" alt="" className="w-4 h-auto" aria-hidden="true" />
+                <ArchieAIIcon className="w-4 h-4" />
                 AI Builder
                 {!isProUser && !isBasicUser && !isFreeUser && <span className="ml-1 rounded-full bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold text-white">PRO</span>}
                 {isFreeUser && freeAiPromptsLeft !== 0 && (
@@ -1478,7 +1679,7 @@ export default function FloatingToolbar({
         </div>
 
         {/* Translations Section */}
-        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+        <div data-section-id="translations" className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
           <button
             onClick={() => toggleSection('translations')}
             className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-colors"
@@ -1497,29 +1698,9 @@ export default function FloatingToolbar({
           )}
         </div>
 
-        {/* Health Check Section */}
-        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
-          <button
-            onClick={() => toggleSection('doctor')}
-            className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-rose-50 to-orange-50 hover:from-rose-100 hover:to-orange-100 transition-colors"
-          >
-            <span className="text-xs font-bold text-rose-700 uppercase tracking-wide flex items-center gap-1.5">
-              <Stethoscope className="w-3.5 h-3.5" />
-              Health Check
-            </span>
-            <ChevronDown className={`w-4 h-4 text-rose-500 transition-transform ${openSections.includes('doctor') ? 'rotate-180' : ''}`} />
-          </button>
-
-          {openSections.includes('doctor') && (
-            <div className="border-t border-slate-200">
-              <DoctorPanel siteId={currentSiteId} />
-            </div>
-          )}
-        </div>
-
         {/* Other Settings Section */}
         {user && currentSiteId && (
-          <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+          <div data-section-id="other-settings" className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
             <button
               onClick={() => toggleSection('other-settings')}
               className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
@@ -1668,117 +1849,11 @@ export default function FloatingToolbar({
         )}
       </div>
 
-      {/* Fixed Bottom Section (Actions) */}
-      <div data-tour="builder-save-actions" className="shrink-0 p-4 bg-slate-50 border-t border-slate-200 space-y-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
-
-        {/* Unsaved Changes Section */}
-        {changes && (changes.length > 0 || canRedo) && (
-          <div>
-            <button
-              onClick={() => setShowChanges(!showChanges)}
-              className={`w-full flex items-center justify-between px-3 py-2 border rounded-lg transition-colors ${changes.length > 0 ? 'bg-amber-50 border-amber-200 hover:bg-amber-100' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}
-            >
-              <div className="flex items-center gap-2">
-                <div className={`w-4 h-4 rounded-full text-white flex items-center justify-center text-[10px] font-bold ${changes.length > 0 ? 'bg-amber-400' : 'bg-slate-400'}`}>
-                  {changes.length}
-                </div>
-                <span className={`text-xs font-semibold ${changes.length > 0 ? 'text-amber-900' : 'text-slate-700'}`}>
-                  {changes.length > 0
-                    ? `${changes.length} unsaved change${changes.length !== 1 ? 's' : ''}`
-                    : 'No unsaved changes'}
-                </span>
-              </div>
-              <ChevronDown className={`w-4 h-4 transition-transform ${changes.length > 0 ? 'text-amber-700' : 'text-slate-500'} ${showChanges ? 'rotate-180' : ''}`} />
-            </button>
-
-            <div className="flex gap-2 mt-2">
-              <button onClick={onUndo} disabled={!canUndo} className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 font-semibold text-xs rounded transition-colors">
-                <RotateCcw className="w-3 h-3" />
-                Undo
-              </button>
-              <button onClick={onRedo} disabled={!canRedo} className="flex-1 flex items-center justify-center gap-1 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 text-slate-700 font-semibold text-xs rounded transition-colors">
-                <RotateCw className="w-3 h-3" />
-                Redo
-              </button>
-            </div>
-
-            {showChanges && (
-              <div className="mt-2 p-3 space-y-2 max-h-28 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-inner">
-                {changes.length > 0 ? changes.map((change) => (
-                  <div key={change.id} className="text-[10px] text-slate-700 pb-2 border-b border-slate-100 last:border-b-0">
-                    <div className="font-bold text-slate-900 mb-0.5">{change.label}</div>
-                    <div className="text-slate-600 flex flex-col gap-0.5">
-                      <span className="line-through text-red-500 break-all">{change.from || '(empty)'}</span>
-                      <span className="text-green-600 break-all">{change.to || '(empty)'}</span>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="text-[10px] font-semibold text-slate-500">No unsaved changes</div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Save Draft & Publish / Live Site Actions */}
-        <div className="flex flex-col gap-2">
-          {isPublished && publishedDomain ? (
-            <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isFullyDeployed ? 'bg-green-400' : 'bg-amber-400'}`}></span>
-                    <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isFullyDeployed ? 'bg-green-500' : 'bg-amber-500'}`}></span>
-                  </span>
-                  <span className={`text-[10px] font-bold uppercase tracking-wide ${isFullyDeployed ? 'text-slate-700' : 'text-amber-700'}`}>
-                    {isFullyDeployed ? 'Live' : 'Unpublished'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  {customDomain ? (
-                    <a href={`https://${customDomain}`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-slate-500 hover:text-slate-900 border-b border-slate-300 transition-colors truncate max-w-[120px]">{customDomain}</a>
-                  ) : (
-                    <a href={`https://${publishedDomain}.kswd.ca`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-slate-500 hover:text-slate-900 border-b border-slate-300 transition-colors truncate max-w-[120px]">{publishedDomain}.kswd.ca</a>
-                  )}
-                  {pendingCustomDomain && (
-                    <span className="text-[9px] text-amber-600 font-medium" title={`${pendingCustomDomain} — pending verification`}>⏳</span>
-                  )}
-                  <button onClick={() => router.push(`/publish/domain-select?session_id=existing&siteId=${currentSiteId}`)} className="p-1 hover:bg-slate-100 rounded text-slate-400" title="Domain settings"><Pencil className="w-3 h-3" /></button>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={handleSave} disabled={saving || changes.length === 0} className="flex-[0.8] py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 font-semibold text-xs rounded transition-colors">Save</button>
-                {!isFullyDeployed ? (
-                  <button onClick={handlePublish} disabled={publishing || isPublishingUpdates} className="flex-[1.2] py-1.5 text-white font-semibold text-xs rounded transition-colors hover:brightness-110" style={{ backgroundColor: 'var(--brand-primary)' }}>{(publishing || isPublishingUpdates) ? 'Publishing...' : 'Publish'}</button>
-                ) : (
-                  <a href={customDomain ? `https://${customDomain}` : `https://${publishedDomain}.kswd.ca`} target="_blank" rel="noopener noreferrer" className="flex-[1.2] flex items-center justify-center py-1.5 text-white font-semibold text-xs rounded transition-colors hover:brightness-110" style={{ backgroundColor: 'var(--brand-primary)' }}>View Live</a>
-                )}
-                <button
-                  onClick={() => setShowPreviewModal(true)}
-                  disabled={!currentSiteId}
-                  className="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-600 rounded transition-colors"
-                  title="Share draft preview"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <button onClick={handleSave} disabled={saving || changes.length === 0} className="flex-1 py-2 text-white font-bold text-sm rounded-lg hover:brightness-110 disabled:opacity-60 bg-slate-600">{saving ? 'Saving...' : user ? 'Save Draft' : 'Sign Up to Save'}</button>
-              <button onClick={handlePublish} disabled={publishing || !user || isSynced} className="flex-1 py-2 text-white font-bold text-sm rounded-lg hover:brightness-110 disabled:opacity-60" style={{ backgroundColor: isSynced ? '#94a3b8' : 'var(--brand-primary)' }}>{publishing ? 'Publishing...' : isSynced ? 'Published' : 'Publish'}</button>
-              <button
-                onClick={() => setShowPreviewModal(true)}
-                disabled={!currentSiteId}
-                className="px-3 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 text-white rounded-lg transition-colors"
-                title="Share draft preview"
-              >
-                <Eye className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-        </div>
-
+      {/* Fixed Bottom Section (Actions) — hidden in desktop rail mode (the
+          rail's expanded footer surfaces the same content inline) and shown
+          pinned at the bottom of the mobile drawer where there's no rail. */}
+      <div data-rail-hide="true" data-tour="builder-save-actions" className="shrink-0 p-4 bg-slate-50 border-t border-slate-200 space-y-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
+        {publishActionsContent}
       </div>
 
       <FontPickerModal
@@ -1803,111 +1878,316 @@ export default function FloatingToolbar({
 
   return (
     <>
+      {/* Off-screen mirror: measures the natural width of (logo + Design/Admin
+          switcher) so the rail expands wide enough to fit them next to the
+          profile avatar. Always rendered (invisible/-9999px) so the layout
+          effect can read its width on mount. Matches admin-sidebar's pattern. */}
+      <div
+        ref={railHeaderMeasureRef}
+        aria-hidden
+        className="invisible pointer-events-none fixed -left-[9999px] top-0 inline-flex items-center gap-2 whitespace-nowrap"
+      >
+        <KeystoneLogo href={undefined} size="md" showText={false} />
+        <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-full">
+          <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold">
+            <Paintbrush className="w-3 h-3" />
+            Design
+          </span>
+          <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold">
+            <LayoutDashboard className="w-3 h-3" />
+            Admin
+          </span>
+        </div>
+      </div>
+
       {/* ═══════════════════════════════════════════════════════════════
-          LARGE SCREEN: Left Sidebar
+          LARGE SCREEN: Hover-expanding rail + persistent panel
          ═══════════════════════════════════════════════════════════════ */}
-      {isLargeScreen && (
-        <>
-          {/* Sidebar Panel */}
-          <div
-            ref={drawerRef}
-            className={`fixed top-[var(--impersonation-height,0px)] left-0 bottom-0 z-[9999] bg-white shadow-2xl border-r border-slate-200 flex flex-col transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
-            style={{ width: '22rem' }}
-          >
-            {/* Sidebar Header */}
-            <div className="sticky top-0 bg-white border-b border-slate-200 px-3 h-12 flex items-center justify-between z-10 shrink-0">
-              <div className="flex items-center gap-2">
+      {isLargeScreen && (() => {
+        const RAIL_W = DESIGN_RAIL_WIDTH_PX;
+        const RAIL_EXPANDED_W = railExpandedWidth;
+
+        const railTabs: Array<{ id: string; label: string; icon: React.ComponentType<{ className?: string }>; ai?: boolean }> = [
+          { id: 'template',       label: 'Template',     icon: LayoutTemplate },
+          { id: 'general',        label: 'Logo',         icon: ImageIcon },
+          { id: 'layout',         label: 'Layout',       icon: Layout },
+          { id: 'colors',         label: 'Colors',       icon: Paintbrush },
+          { id: 'typography',     label: 'Fonts',        icon: Type },
+          { id: 'animation',      label: 'Animation',    icon: Sparkles },
+          { id: 'translations',   label: 'Translations', icon: Languages },
+          { id: 'other-settings', label: 'Settings',     icon: Settings },
+          { id: 'ai-builder',     label: 'AI Builder',   icon: ArchieAIIcon as React.ComponentType<{ className?: string }>, ai: true },
+        ];
+
+        const activeTabId = openSections[0] ?? null;
+        const hasUnsaved = changes.length > 0;
+        const activeTab = railTabs.find(t => t.id === activeTabId) ?? null;
+
+        const openTabPanel = (id: string) => {
+          setOpenSections([id]);
+          onOpenChange(true);
+        };
+
+        const navigateAway = (dest: string) => {
+          if (changes.length > 0) {
+            setAlertConfig({
+              isOpen: true,
+              title: 'Unsaved Changes',
+              message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
+              type: 'warning',
+              onConfirm: () => router.push(dest),
+              confirmLabel: 'Leave',
+              cancelLabel: 'Stay',
+            });
+          } else {
+            router.push(dest);
+          }
+        };
+
+        const railShowLabels = railExpanded;
+
+        return (
+          <>
+            {/* ── Thin icon rail — always visible, hover-expands ── */}
+            <aside
+              onMouseEnter={() => setRailExpanded(true)}
+              onMouseLeave={() => setRailExpanded(false)}
+              className={`fixed top-[var(--impersonation-height,0px)] left-0 bottom-0 z-[10000] bg-white border-r border-slate-200 flex flex-col transition-[width,box-shadow] duration-200 ease-out ${railExpanded ? 'shadow-2xl' : ''}`}
+              style={{ width: railExpanded ? RAIL_EXPANDED_W : RAIL_W }}
+              aria-label="Design navigation"
+            >
+              {/* Header (matches admin sidebar): logo + switcher (left, when expanded) + profile avatar pinned right */}
+              <div className="relative h-12 shrink-0 border-b border-slate-100">
+                {/* Expanded: logo + Design/Admin switcher */}
                 <div
-                  onClick={(e) => {
-                    if (changes.length > 0) {
-                      e.preventDefault();
-                      setAlertConfig({
-                        isOpen: true,
-                        title: 'Unsaved Changes',
-                        message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
-                        type: 'warning',
-                        onConfirm: () => router.push('/'),
-                        confirmLabel: 'Leave',
-                        cancelLabel: 'Stay'
-                      });
-                    } else {
-                      router.push('/');
-                    }
-                  }}
-                  className="cursor-pointer shrink-0"
+                  className={`absolute inset-y-0 left-3 flex items-center gap-2 transition-opacity duration-200 ${
+                    railShowLabels ? 'opacity-100 delay-75' : 'opacity-0 pointer-events-none'
+                  }`}
                 >
-                  <KeystoneLogo href={undefined} size="md" showText={false} />
+                  <button
+                    onClick={() => navigateAway('/')}
+                    className="shrink-0"
+                    aria-label="Keystone home"
+                  >
+                    <KeystoneLogo href={undefined} size="md" showText={false} />
+                  </button>
+                  <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-full">
+                    <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white shadow-sm text-slate-800 select-none whitespace-nowrap">
+                      <Paintbrush className="w-3 h-3" />
+                      Design
+                    </span>
+                    <a
+                      href={`/admin/analytics${currentSiteId ? `?siteId=${currentSiteId}` : ''}`}
+                      onClick={(e) => {
+                        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
+                        e.preventDefault();
+                        navigateAway(`/admin/analytics${currentSiteId ? `?siteId=${currentSiteId}` : ''}`);
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold text-slate-500 hover:text-slate-800 hover:bg-white/70 transition-colors whitespace-nowrap"
+                    >
+                      <LayoutDashboard className="w-3 h-3" />
+                      Admin
+                    </a>
+                  </div>
                 </div>
 
-                {/* Design / Admin switcher */}
-                <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-full">
-                  <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white shadow-sm text-slate-800 select-none">
-                    <Paintbrush className="w-3 h-3" />
-                    Design
-                  </span>
-                  <a
-                    href={`/admin/analytics${currentSiteId ? `?siteId=${currentSiteId}` : ''}`}
-                    onClick={(e) => {
-                      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
-                      e.preventDefault();
-                      const dest = `/admin/analytics${currentSiteId ? `?siteId=${currentSiteId}` : ''}`;
+                {/* Profile avatar pinned to right edge — anchors at right:12px so the
+                    32px avatar is centered when the 56px rail is collapsed, and slides
+                    out to the right when the rail expands. Matches admin sidebar. */}
+                <div className="absolute top-1/2 -translate-y-1/2" style={{ right: 12 }}>
+                  <ProfileDropdown
+                    buttonClassName="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-full transition-colors flex-shrink-0 overflow-hidden ring-2 ring-white shadow-sm"
+                    onSettingsClick={(e) => {
                       if (changes.length > 0) {
+                        e.preventDefault();
                         setAlertConfig({
                           isOpen: true,
                           title: 'Unsaved Changes',
                           message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
                           type: 'warning',
-                          onConfirm: () => router.push(dest),
+                          onConfirm: () => router.push('/settings'),
                           confirmLabel: 'Leave',
                           cancelLabel: 'Stay',
                         });
-                      } else {
-                        router.push(dest);
                       }
                     }}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold text-slate-500 hover:text-slate-800 hover:bg-white/70 transition-colors"
-                  >
-                    <LayoutDashboard className="w-3 h-3" />
-                    Admin
-                  </a>
+                  />
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={openWalkthrough}
-                  className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                  title="Show walkthrough"
-                  aria-label="Show walkthrough"
-                >
-                  <HelpCircle className="w-4 h-4" />
-                </button>
-                <ProfileDropdown
-                  buttonClassName="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-full transition-colors flex-shrink-0 overflow-hidden"
-                  onSettingsClick={(e) => {
-                  if (changes.length > 0) {
-                    e.preventDefault();
-                    setAlertConfig({
-                      isOpen: true,
-                      title: 'Unsaved Changes',
-                      message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
-                      type: 'warning',
-                      onConfirm: () => router.push('/settings'),
-                      confirmLabel: 'Leave',
-                      cancelLabel: 'Stay'
-                    });
+              {/* Tab list — AI Builder is the last item (with gradient styling) */}
+              <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-2 space-y-0.5">
+                {railTabs.map(tab => {
+                  const Icon = tab.icon;
+                  const isActive = isOpen && activeTabId === tab.id;
+
+                  if (tab.ai) {
+                    return (
+                      <button
+                        key={tab.id}
+                        data-tour="builder-ai-builder"
+                        onClick={() => openTabPanel(tab.id)}
+                        title={railShowLabels ? undefined : tab.label}
+                        className={`group relative w-full flex items-center overflow-hidden ${railShowLabels ? 'gap-2.5 px-2.5' : 'justify-center px-0'} py-2 rounded-lg text-xs font-bold text-white shadow-sm transition-all hover:brightness-110 ${
+                          isActive ? 'ring-2 ring-violet-400 ring-offset-1 ring-offset-white' : ''
+                        }`}
+                        style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #ec4899 100%)' }}
+                      >
+                        <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.35)_0%,transparent_55%)]" />
+                        {railShowLabels ? (
+                          <>
+                            <span className="relative font-black tracking-wider text-[11px]">AI</span>
+                            <span className="relative truncate flex-1 text-left">{tab.label}</span>
+                            {!isProUser && !isBasicUser && !isFreeUser && (
+                              <span className="relative rounded-full bg-white/25 px-1.5 py-0.5 text-[9px] font-bold tracking-wide">PRO</span>
+                            )}
+                            {isFreeUser && freeAiPromptsLeft !== 0 && (
+                              <span className="relative rounded-full bg-white/25 px-1.5 py-0.5 text-[9px] font-bold tracking-wide">
+                                {freeAiBadgeLabel}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="relative font-black tracking-wider text-[13px] leading-none">AI</span>
+                        )}
+                      </button>
+                    );
                   }
+
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => openTabPanel(tab.id)}
+                      title={railShowLabels ? undefined : tab.label}
+                      className={`group relative w-full flex items-center ${railShowLabels ? 'gap-2.5 px-2.5' : 'justify-center px-0'} py-2 rounded-lg text-xs font-bold transition-colors ${
+                        isActive
+                          ? 'bg-red-50 text-red-700'
+                          : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                      }`}
+                    >
+                      {isActive && (
+                        <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-red-600" />
+                      )}
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {railShowLabels && (
+                        <span className="truncate flex-1 text-left">{tab.label}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
+
+              {/* Footer: Publish/Live status — collapsed shows just the icon
+                  (with unsaved-changes pulse), expanded reveals the full
+                  save / publish / view-live / domain controls inline. No
+                  click needed; hovering the rail shows everything. */}
+              <div className="flex-none border-t border-slate-100">
+                {railShowLabels ? (
+                  <div
+                    data-tour="builder-save-actions"
+                    className="p-3 space-y-3 bg-slate-50/70 border-b border-slate-100"
+                  >
+                    {publishActionsContent}
+                  </div>
+                ) : (
+                  <div className="p-2">
+                    <div
+                      title={
+                        hasUnsaved
+                          ? `${changes.length} unsaved change${changes.length !== 1 ? 's' : ''} — hover sidebar to save/publish`
+                          : (isPublished ? 'Site is live — hover sidebar to manage' : 'Hover sidebar to publish')
+                      }
+                      className={`group relative w-full flex items-center justify-center py-2 rounded-lg text-xs font-bold transition-all ${
+                        hasUnsaved
+                          ? 'text-white shadow-sm'
+                          : 'text-red-600'
+                      }`}
+                      style={hasUnsaved ? { backgroundColor: 'var(--brand-primary, #dc2626)' } : undefined}
+                    >
+                      <span className="relative flex items-center justify-center shrink-0">
+                        <Rocket className="w-4 h-4" />
+                        {hasUnsaved && (
+                          <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-400 ring-2 ring-white"></span>
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-2">
+                  <button
+                    onClick={openWalkthrough}
+                    title={railShowLabels ? undefined : 'Help / walkthrough'}
+                    className={`w-full flex items-center ${railShowLabels ? 'gap-2.5 px-2.5' : 'justify-center px-0'} py-2 rounded-lg text-xs font-bold text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors`}
+                  >
+                    <HelpCircle className="w-4 h-4 shrink-0" />
+                    {railShowLabels && <span className="truncate text-left">Help</span>}
+                  </button>
+                </div>
+              </div>
+            </aside>
+
+            {/* ── Persistent panel — slides in beside rail, has its own X close ── */}
+            <div
+              ref={drawerRef}
+              className={`fixed top-[var(--impersonation-height,0px)] bottom-0 z-[9999] bg-white shadow-2xl border-r border-slate-200 flex flex-col transition-transform duration-300 ease-out ${
+                isOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'
+              }`}
+              style={{ width: '22rem', left: RAIL_W }}
+            >
+              {/* Panel header with active tab + X close */}
+              <div className="sticky top-0 bg-white border-b border-slate-200 px-4 h-12 flex items-center justify-between z-10 shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  {activeTab ? (() => {
+                    const ActiveIcon = activeTab.icon;
+                    return (
+                      <>
+                        <ActiveIcon className="w-4 h-4 text-slate-600 shrink-0" />
+                        <span className="text-sm font-bold text-slate-900 truncate">
+                          {activeTab.label}
+                        </span>
+                      </>
+                    );
+                  })() : (
+                    <span className="text-sm font-bold text-slate-900 truncate">Design</span>
+                  )}
+                </div>
+                <button
+                  onClick={() => onOpenChange(false)}
+                  className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                  title="Close panel"
+                  aria-label="Close panel"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Panel body — reuses shared panelContent but the wrapper below
+                  hides the site-info header, the non-active sections, and the
+                  accordion headers inside the active section so only its content
+                  shows. The rail itself is now the section selector. */}
+              <div
+                className="flex-1 min-h-0 rail-panel-body"
+                data-active-section={activeTabId ?? ''}
+              >
+                <style dangerouslySetInnerHTML={{
+                  __html: `
+                    .rail-panel-body [data-rail-hide="true"] { display: none !important; }
+                    .rail-panel-body [data-section-id] { display: none !important; }
+                    .rail-panel-body [data-section-id="${activeTabId ?? ''}"] { display: block !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; background: transparent !important; }
+                    .rail-panel-body [data-section-id="${activeTabId ?? ''}"] > *:first-child { display: none !important; }
+                    .rail-panel-body [data-section-id="${activeTabId ?? ''}"] > *:nth-child(2) { border-top: 0 !important; }
+                  `
                 }} />
+                {panelContent}
               </div>
             </div>
-
-            {/* Sidebar Body */}
-            <div className="flex-1 min-h-0">
-              {panelContent}
-            </div>
-          </div>
-        </>
-      )}
+          </>
+        );
+      })()}
 
       {/* ═══════════════════════════════════════════════════════════════
           SMALL SCREEN: Bottom Drawer (original behavior)
@@ -2278,6 +2558,36 @@ export default function FloatingToolbar({
         nextButtonLabel={walkthroughStep === 0 ? 'Start Tour' : undefined}
       />
     </>
+  );
+}
+
+function ContainerWidthPreview({
+  value,
+  active,
+}: {
+  value: SiteLayoutContainerWidth;
+  active: boolean;
+}) {
+  const widthByOption: Record<SiteLayoutContainerWidth, string> = {
+    small: '58%',
+    medium: '68%',
+    large: '78%',
+    wide: '90%',
+  };
+
+  return (
+    <span className={`block rounded-lg border px-2 py-2 ${active ? 'border-blue-200 bg-white' : 'border-slate-200 bg-slate-50'}`}>
+      <span className="block h-1.5 rounded-full bg-slate-200" />
+      <span
+        className={`mx-auto mt-2 block h-5 rounded-md ${active ? 'bg-blue-500' : 'bg-slate-400'}`}
+        style={{ width: widthByOption[value] }}
+      />
+      <span className="mt-2 grid grid-cols-3 gap-1">
+        <span className="h-1 rounded-full bg-slate-200" />
+        <span className="h-1 rounded-full bg-slate-200" />
+        <span className="h-1 rounded-full bg-slate-200" />
+      </span>
+    </span>
   );
 }
 

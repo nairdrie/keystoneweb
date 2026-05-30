@@ -111,6 +111,13 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
       setActing(false);
       return;
     }
+    // The approve endpoint creates a Stripe Checkout session and returns its
+    // URL — send the customer there to pay. (Without this redirect the campaign
+    // is left in 'awaiting_payment' and the customer never reaches Stripe.)
+    if (data.checkoutUrl) {
+      window.location.href = data.checkoutUrl;
+      return;
+    }
     if (data.campaign) {
       setCampaign(data.campaign);
     }
@@ -237,14 +244,14 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
           <h1 className="text-2xl font-black text-slate-900 mt-2">{campaign.name}</h1>
         </div>
         <div className="flex items-center gap-2">
-          {(campaign.status === 'draft' || campaign.status === 'suggested' || campaign.status === 'failed') && (
+          {(campaign.status === 'draft' || campaign.status === 'suggested' || campaign.status === 'failed' || campaign.status === 'awaiting_payment') && (
             <button
               type="button"
               disabled={acting}
               onClick={doApprove}
               className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg text-sm font-bold disabled:opacity-50"
             >
-              {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Approve & launch
+              {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} {campaign.status === 'awaiting_payment' ? 'Resume payment' : 'Approve & launch'}
             </button>
           )}
           {campaign.status === 'active' && (

@@ -184,8 +184,9 @@ requireSnippets('app/components/blocks/AboutImageTextBlock.tsx', [
   'isImagePositionPercentToken(x)',
   'roundImagePositionPercent(Number(x.slice(0, -1)))',
   'enableInlineCropControls',
-  'editorPreviewFrameClassName={`w-full ${aspectClass}`}',
-  'handleReorderItem(draggedIndex, index);',
+  'editorPreviewFrameClassName={`w-full ${aspectClass} ${mediaTreatmentClass}`}',
+  'handleReorderItem(draggedIndex, sourceIndex);',
+  'getActiveItemEntries(data, items)',
   'dragTitle="Drag to reorder about item"',
   'removeTitle="Delete about item"',
 ], failures);
@@ -195,11 +196,12 @@ requireSnippets('app/components/blocks/generic/GenericBlockSettingsPanel.tsx', [
   'const DEFAULT_ABOUT_ITEMS = [',
   "const hasAboutItemsControl = blockType === 'aboutImageText';",
   "const ids: string[] = hasAboutItemsControl ? ['items', 'universal-layout'] : ['universal-layout'];",
-  'title="Items"',
+  'title="Content: Items"',
   'function AboutItemsControl',
   'Drag to reorder about item',
   'Delete about item',
-  "draft.items = normalizeAboutItems(blockData.items);",
+  "draft.items = normalizeAboutItems(blockData.items, blockData);",
+  'getClearedAboutItemRemovedFlags(blockData || {})',
 ], failures);
 
 requireSnippets('app/components/EditableImage.tsx', [
@@ -255,9 +257,9 @@ if (imageEditorModalSource.includes('rounded-lg border border-slate-200 bg-slate
 
 requireSnippets('app/components/blocks/CarouselBlock.tsx', [
   'enableInlineCropControls',
-  'editorPreviewFrameClassName="w-full h-44"',
-  'editorPreviewFrameClassName="w-full h-80"',
-  'editorPreviewFrameClassName="w-48 h-48 mx-auto"',
+  "editorPreviewFrameClassName={`w-full ${isCircleMediaCard ? 'aspect-square' : isSplitMediaCard ? 'min-h-56 md:min-h-full' : mediaAspectClass}`}",
+  "editorPreviewFrameClassName={isFullBleedMediaCard ? 'h-full min-h-[280px] w-full md:min-h-[420px]' : `w-full ${isCircleMediaCard ? 'aspect-square' : mediaAspectClass}`}",
+  'editorPreviewFrameClassName={minimalMediaFrameClass}',
 ], failures);
 
 requireSnippets('app/components/blocks/FeaturedQuoteBlock.tsx', [
@@ -273,13 +275,13 @@ requireSnippets('app/components/blocks/FeaturedQuoteBlock.tsx', [
 
 requireSnippets('app/components/blocks/GalleryBlock.tsx', [
   'enableInlineCropControls',
-  'editorPreviewFrameClassName="w-full aspect-square"',
+  'editorPreviewFrameClassName={`w-full ${imageAspectClass}`}',
   'e.dataTransfer.setData(\'text/plain\', `gallery-image-${index}`)',
 ], failures);
 
 requireSnippets('app/components/blocks/HeroBlock.tsx', [
   'enableInlineCropControls',
-  'editorPreviewFrameClassName="w-full h-96"',
+  'editorPreviewFrameClassName={imagePreviewFrameClass}',
 ], failures);
 
 requireSnippets('app/components/blocks/ImageBlock.tsx', [
@@ -403,7 +405,7 @@ requireSnippets('app/components/blocks/HeroBlock.tsx', [
   "const nextUrl = String(value ?? '');",
   'nc.content.image.enabled = true;',
   "hero-content ${imageOnRight || !showForeground ? 'order-1' : 'order-2'}",
-  "className={imageOnRight ? 'order-2' : 'order-1'}",
+  "const imageColumnClass = splitScreen",
 ], failures);
 
 requireSnippets('app/components/blocks/BlockWrapperEditor.tsx', [

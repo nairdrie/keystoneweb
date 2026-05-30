@@ -71,12 +71,11 @@ const hHeight = (mode: HHeightMode = 'fitContent', valuePx = 600, revealNext = 0
 });
 const heroBlockData = (
   cards: unknown[],
-  opts: { customCss?: string; height?: HHeightMode; transition?: 'fade' | 'slide' | 'none'; intervalSec?: number; valuePx?: number; revealNext?: number } = {},
+  opts: { height?: HHeightMode; transition?: 'fade' | 'slide' | 'none'; intervalSec?: number; valuePx?: number; revealNext?: number } = {},
 ) => ({
   cards,
   transition: { type: opts.transition || 'fade', intervalSec: opts.intervalSec || 5, pauseOnHover: true },
   height: hHeight(opts.height || 'fitContent', opts.valuePx || 600, opts.revealNext || 0),
-  ...(opts.customCss ? { __customCss: opts.customCss } : {}),
 });
 
 const navItem = (label: string, pageSlug: string) => ({
@@ -88,15 +87,16 @@ const navItem = (label: string, pageSlug: string) => ({
 const customizables = {
   hero: ['title', 'subtitle', 'buttonText', 'variant', 'image', 'background'],
   cta: ['title', 'subtitle', 'buttonText'],
-  servicesGrid: ['title', 'subtitle', 'items', 'ctaText'],
-  testimonials: ['title', 'subtitle', 'variant', 'items'],
-  stats: ['title', 'variant', 'items'],
-  aboutImageText: ['title', 'description', 'image', 'items'],
+  servicesGrid: ['title', 'subtitle', 'items', 'ctaText', 'cardStyle', 'cardSettings', 'surfaceStyle', 'markerStyle', 'spacingDensity', 'textAlign'],
+  testimonials: ['title', 'subtitle', 'variant', 'items', 'cardStyle', 'cardSettings', 'surfaceStyle', 'spacingDensity'],
+  stats: ['title', 'variant', 'items', 'cardStyle', 'cardSettings', 'surfaceStyle', 'spacingDensity', 'textAlign'],
+  aboutImageText: ['title', 'description', 'image', 'items', 'mediaTreatment', 'textAlign'],
   featuredQuote: ['variant', 'quote', 'personName', 'personTitle', 'people'],
+  carousel: ['title', 'subtitle', 'variant', 'items', 'cardStyle', 'cardSettings', 'surfaceStyle', 'mediaAspect', 'mediaTreatment', 'iconStyle', 'spacingDensity', 'textAlign'],
   menu: ['menuTitle', 'menuSubtitle', 'variant'],
   booking: ['services', 'availability'],
   blog: ['title', 'subtitle', 'layout'],
-  gallery: ['title', 'subtitle', 'images', 'columns'],
+  gallery: ['title', 'subtitle', 'images', 'columns', 'frameStyle', 'mediaAspect'],
   estimateForm: ['title', 'description', 'variant', 'fields'],
   contact: ['title', 'subtitle', 'phone', 'email', 'address', 'hours'],
 };
@@ -152,7 +152,17 @@ export const STRUCTURAL_TEMPLATE_STYLES = [
   'retro',
   'proof',
   'gallery',
+  'builder',
+  'commerce',
+  'foundation',
+  'wellness',
+  'estate',
+  'studio',
+  'learn',
+  'occasion',
 ] as const;
+
+export const PUBLIC_TEMPLATE_STYLES = STRUCTURAL_TEMPLATE_STYLES;
 
 export const ALL_TEMPLATE_STYLES = [
   'luxe',
@@ -166,7 +176,7 @@ export const ALL_TEMPLATE_STYLES = [
   ...STRUCTURAL_TEMPLATE_STYLES,
 ] as const;
 
-export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
+const BASE_STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
   {
     id: 'structural-atlas-general',
     template_id: 'atlas_general',
@@ -212,7 +222,6 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
             { ctaLink, image: { url: image('photo-1497366811353-6870744d04b2'), side: 'right' } },
           ),
         ], {
-          customCss: '.hero-split { background: linear-gradient(180deg, var(--accent) 0%, #ffffff 100%) !important; } .hero-content { border-left: 6px solid var(--secondary); padding-left: 2rem; } .hero-title { letter-spacing: 0; } .hero-image { border-radius: 8px !important; box-shadow: 24px 24px 0 color-mix(in srgb, var(--secondary) 18%, white) !important; }',
         })),
         block('logoCloud', {
           title: 'Trusted by growth-stage teams, operators, and boards',
@@ -222,6 +231,10 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
         block('stats', {
           title: 'Measured momentum',
           variant: 'cards',
+          cardStyle: 'accent',
+          surfaceStyle: 'white',
+          spacingDensity: 'compact',
+          textAlign: 'center',
           backgroundColor: 'palette:accent',
           items: [
             { value: '37%', label: 'Faster reporting cycles' },
@@ -233,6 +246,11 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
         block('servicesGrid', {
           title: 'Advisory lanes',
           subtitle: 'Clear engagements with defined outcomes, owners, and operating cadence.',
+          cardStyle: 'bordered',
+          surfaceStyle: 'white',
+          markerStyle: 'accentLine',
+          spacingDensity: 'standard',
+          textAlign: 'left',
           backgroundColor: '#ffffff',
           ctaText: 'View full scope',
           items: [
@@ -247,6 +265,7 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
           variant: 'slides',
           autoPlay: true,
           interval: 6,
+          iconStyle: 'framed',
           backgroundColor: 'palette:accent',
           items: [
             { mediaType: 'icon', icon: 'Search', title: 'Diagnose the operating drag', text: 'We map the decisions, systems, and handoffs that slow teams down.' },
@@ -265,7 +284,6 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
           imagePosition: 'right',
           personImage: image('photo-1556761175-b413da4baf72'),
           backgroundColor: 'palette:primary',
-          __customCss: 'section { color: white; } h2, p { color: white !important; }',
         }),
         block('cta', {
           title: 'Ready to make the next quarter less ambiguous?',
@@ -369,7 +387,6 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
             { ctaEnabled: false },
           ),
         ], {
-          customCss: 'section { border-bottom: 1px solid var(--primary); } .hero-container { max-width: 72rem !important; } .hero-title { text-transform: uppercase; font-weight: 900; } .hero-footer { border-top: 1px solid var(--primary); padding-top: 2rem; }',
         })),
         block('resources', {
           title: 'Featured desk',
@@ -388,7 +405,6 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
           personName: 'Elena Morris',
           personTitle: 'Editor in Chief',
           backgroundColor: 'palette:primary',
-          __customCss: 'section { color: var(--accent); } p { color: var(--accent) !important; }',
         }),
         block('blog', {
           title: 'Latest essays',
@@ -492,12 +508,16 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
             { ctaLink: bookingLink },
           ),
         ], {
-          customCss: 'section { border-bottom: 1px solid color-mix(in srgb, var(--secondary) 18%, white); } .hero-title { color: var(--primary) !important; } .hero-subtitle { color: color-mix(in srgb, var(--primary) 76%, white) !important; } .hero-button { background: var(--secondary) !important; color: white !important; border-radius: 14px !important; } .hero-decoration { display: none; }',
         })),
         block('booking', {}),
         block('servicesGrid', {
           title: 'Choose your visit',
           subtitle: 'Clear service paths help visitors know exactly what to book.',
+          cardStyle: 'elevated',
+          surfaceStyle: 'accent',
+          markerStyle: 'badge',
+          spacingDensity: 'spacious',
+          textAlign: 'center',
           backgroundColor: '#ffffff',
           items: [
             { title: 'Initial Consultation', description: 'A focused first appointment to understand goals, timing, and fit.' },
@@ -508,6 +528,7 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
         block('carousel', {
           title: 'What happens next',
           variant: 'minimal',
+          iconStyle: 'plain',
           backgroundColor: 'palette:accent',
           items: [
             { mediaType: 'icon', icon: 'Calendar', title: 'Pick a time', text: 'Choose a service and availability that works with your schedule.' },
@@ -615,7 +636,6 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
           ),
         ], {
           height: 'fitScreen',
-          customCss: '.hero-container { text-align: left !important; margin-left: max(1rem, calc((100vw - 72rem) / 2)) !important; margin-right: auto !important; } .hero-title, .hero-subtitle { max-width: 42rem; } .hero-button { border-radius: 8px !important; } .hero-overlay { background: linear-gradient(90deg, rgba(0,0,0,.72), rgba(0,0,0,.2)) !important; }',
         })),
         block('menu', {
           menuTitle: 'Menu highlights',
@@ -646,6 +666,8 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
           title: 'From the kitchen',
           subtitle: 'Food, light, and a little Friday-night energy.',
           columns: 4,
+          frameStyle: 'rounded',
+          mediaAspect: 'landscape',
           backgroundColor: '#ffffff',
           images: [
             image('photo-1504674900247-0877df9cc836'),
@@ -772,12 +794,13 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
             { image: { url: image('photo-1452860606245-08befc0ff44b'), side: 'right' } },
           ),
         ], {
-          customCss: '.hero-split { background: var(--accent) !important; overflow: hidden; } .hero-container { position: relative; } .hero-container:before { content: ""; position: absolute; width: 240px; height: 240px; border-radius: 999px; background: color-mix(in srgb, var(--secondary) 24%, white); left: -80px; top: -40px; z-index: 0; } .hero-content, .hero-container > div { position: relative; z-index: 1; } .hero-image { border-radius: 44% 56% 54% 46% !important; box-shadow: -18px 18px 0 color-mix(in srgb, var(--secondary) 42%, white) !important; } .hero-button { border-radius: 999px !important; }',
         })),
         block('carousel', {
           title: 'Made in small runs',
           subtitle: 'A showcase that feels closer to a market table than a product grid.',
           variant: 'slides',
+          cardStyle: 'poster',
+          mediaTreatment: 'fullBleed',
           backgroundColor: '#ffffff',
           items: [
             { mediaType: 'image', image: image('photo-1528756514091-dee5ecaa3278'), title: 'Ceramic tableware', text: 'Hand-thrown forms with subtle glaze variation.' },
@@ -790,10 +813,10 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
           description: 'Craft is built for founders, makers, growers, and local shops that need the person behind the work to matter.',
           imagePosition: 'right',
           variant: 'tall',
+          mediaTreatment: 'framed',
           image: image('photo-1528756514091-dee5ecaa3278'),
           backgroundColor: 'palette:accent',
           items: ['Made locally', 'Limited batches', 'Natural materials', 'Custom orders welcome'],
-          __customCss: 'img { border-radius: 28px !important; }',
         }),
         block('featuredQuote', {
           variant: 'essay',
@@ -805,12 +828,13 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
           personContext: 'Working from a neighborhood studio',
           personImage: image('photo-1508214751196-bcfd4ca60f91'),
           backgroundColor: 'palette:primary',
-          __customCss: 'section, h2, p { color: var(--accent) !important; } img { border-radius: 28px !important; }',
         }),
         block('gallery', {
           title: 'Studio fragments',
           subtitle: 'Materials, shelves, finished work, and market days.',
           columns: 3,
+          frameStyle: 'rounded',
+          mediaAspect: 'square',
           backgroundColor: '#ffffff',
           images: [
             image('photo-1528756514091-dee5ecaa3278'),
@@ -825,6 +849,8 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
           title: 'From the community',
           subtitle: 'Kind words from customers, neighbors, and repeat gift-givers.',
           variant: 'cards',
+          cardStyle: 'soft',
+          surfaceStyle: 'white',
           backgroundColor: 'palette:accent',
           items: [
             { name: 'Leah W.', role: 'Local Customer', quote: 'It feels special without feeling precious. Exactly what I wanted for our home.', rating: 5 },
@@ -916,7 +942,6 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
             hBgGradient('palette:accent', 'palette:accent', 0, 0),
           ),
         ], {
-          customCss: 'section { border-top: 4px solid var(--primary); border-bottom: 4px solid var(--primary); } .hero-title { color: var(--primary) !important; text-shadow: 4px 4px 0 var(--secondary); } .hero-subtitle { color: var(--primary) !important; font-weight: 800; } .hero-button { background: var(--primary) !important; color: var(--accent) !important; border: 3px solid var(--primary); border-radius: 4px !important; box-shadow: 6px 6px 0 var(--secondary) !important; } .hero-decoration { display: none; }',
         })),
         block('tabBar', {
           tabStyle: 'buttons',
@@ -933,6 +958,12 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
           title: 'What we make',
           subtitle: 'Chunky cards, clear offers, and motion without losing the plot.',
           variant: 'cards',
+          cardStyle: 'offset',
+          surfaceStyle: 'accent',
+          mediaAspect: 'square',
+          iconStyle: 'numbered',
+          spacingDensity: 'compact',
+          textAlign: 'center',
           backgroundColor: '#ffffff',
           items: [
             { mediaType: 'icon', icon: 'Zap', title: 'Launch pages', text: 'Fast, loud pages for launches, drops, and campaigns.' },
@@ -940,7 +971,6 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
             { mediaType: 'icon', icon: 'Palette', title: 'Brand play', text: 'A visual system that feels expressive while staying usable.' },
             { mediaType: 'icon', icon: 'Heart', title: 'Community hooks', text: 'Badges, quotes, and CTAs that invite people in.' },
           ],
-          __customCss: 'section { border-bottom: 4px solid var(--primary); } .rounded-2xl { border-radius: 6px !important; border: 3px solid var(--primary) !important; box-shadow: 8px 8px 0 var(--accent) !important; }',
         }),
         block('featuredQuote', {
           variant: 'multiGrid',
@@ -951,7 +981,6 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
             { name: 'Sam', title: 'Creator', quote: 'Loud in the right way, and still simple to navigate.' },
             { name: 'Mina', title: 'Studio lead', quote: 'The sections made campaign updates painless.' },
           ],
-          __customCss: 'section { border-bottom: 4px solid var(--primary); }',
         }),
         block('events', {
           title: 'Upcoming moments',
@@ -966,7 +995,6 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
           buttonText: 'Start Something',
           backgroundColor: 'palette:secondary',
           showPattern: false,
-          __customCss: 'section { border-top: 4px solid var(--primary); border-bottom: 4px solid var(--primary); } a, button { border-radius: 4px !important; box-shadow: 6px 6px 0 var(--primary) !important; }',
         }),
       ],
       extra_pages: [
@@ -981,6 +1009,8 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
               title: 'Past drops',
               subtitle: 'A punchy archive for launches and campaign shots.',
               columns: 4,
+              frameStyle: 'poster',
+              mediaAspect: 'square',
               images: [
                 image('photo-1518005020951-eccb494ad742'),
                 image('photo-1520453803296-c39eabe2dab4'),
@@ -1055,7 +1085,6 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
           ),
         ], {
           height: 'fitScreen',
-          customCss: '.hero-overlay { background: color-mix(in srgb, var(--primary) 72%, transparent) !important; } .hero-button { border-radius: 8px !important; }',
         })),
         block('logoCloud', {
           title: 'Certifications, partners, and local recognition',
@@ -1065,6 +1094,9 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
         block('stats', {
           title: 'Results visitors can scan',
           variant: 'banner',
+          cardStyle: 'solid',
+          surfaceStyle: 'primary',
+          spacingDensity: 'compact',
           backgroundColor: 'palette:primary',
           items: [
             { value: '4.9/5', label: 'Average rating' },
@@ -1088,6 +1120,7 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
           description: 'Use this section to explain licensing, insurance, warranties, certifications, and what happens if something is not right.',
           imagePosition: 'left',
           variant: 'square',
+          mediaTreatment: 'contained',
           image: image('photo-1554224155-6726b3ff858f'),
           backgroundColor: 'palette:accent',
           items: ['Licensed and insured', 'Written scope before work begins', 'Documented process', 'Satisfaction follow-up'],
@@ -1243,17 +1276,17 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
         ], {
           height: 'fitScreen',
           intervalSec: 6,
-          customCss: '.hero-centered { min-height: 86vh; display: flex; align-items: flex-end; padding-bottom: 6rem; } .hero-container { text-align: left !important; max-width: 72rem !important; } .hero-title, .hero-subtitle { max-width: 44rem; } .hero-button { display: none !important; } .hero-overlay { background: linear-gradient(180deg, rgba(0,0,0,.08), rgba(0,0,0,.68)) !important; }',
         })),
         block('image', {
           image: image('photo-1516035069371-29a1b244cc32'),
           image__settings: { altText: 'Large featured portfolio image' },
-          __customCss: 'section { padding-top: 0 !important; padding-bottom: 0 !important; background: var(--primary) !important; } div { max-width: none !important; padding: 0 !important; } img { min-height: 70vh !important; border-radius: 0 !important; box-shadow: none !important; }',
         }),
         block('gallery', {
           title: 'Selected work',
           subtitle: 'A visual index for recent projects.',
           columns: 4,
+          frameStyle: 'gapless',
+          mediaAspect: 'square',
           backgroundColor: 'palette:accent',
           images: [
             image('photo-1492691527719-9d1e07e534b4'),
@@ -1265,11 +1298,12 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
             image('photo-1518005020951-eccb494ad742'),
             image('photo-1513519245088-0e12902e5a38'),
           ],
-          __customCss: '.grid { gap: 2px !important; } img { border-radius: 0 !important; } h2 { text-align: left !important; } p { text-align: left !important; margin-left: 0 !important; }',
         }),
         block('carousel', {
           title: 'Project spotlights',
           variant: 'slides',
+          cardStyle: 'poster',
+          mediaTreatment: 'fullBleed',
           backgroundColor: '#ffffff',
           items: [
             { mediaType: 'image', image: image('photo-1500530855697-b586d89ba3ee'), title: 'Residential interiors', text: 'A quiet visual story for a warm, light-filled renovation.' },
@@ -1283,7 +1317,6 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
           personName: 'Northlight Studio',
           personTitle: 'Portfolio note',
           backgroundColor: 'palette:primary',
-          __customCss: 'section, p { color: #ffffff !important; }',
         }),
         block('cta', {
           title: 'Have a project in mind?',
@@ -1304,6 +1337,8 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
               title: 'Portfolio archive',
               subtitle: 'Upload and arrange complete project sets here.',
               columns: 4,
+              frameStyle: 'gapless',
+              mediaAspect: 'square',
               images: [
                 image('photo-1492691527719-9d1e07e534b4'),
                 image('photo-1516035069371-29a1b244cc32'),
@@ -1330,6 +1365,185 @@ export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
       ],
     },
   },
+];
+
+const DERIVED_STRUCTURAL_TEMPLATE_SOURCES: Array<{
+  style: typeof STRUCTURAL_TEMPLATE_STYLES[number];
+  sourceStyle: typeof STRUCTURAL_TEMPLATE_STYLES[number];
+  name: string;
+  description: string;
+  businessType: string;
+  category?: string;
+  siteTitle: string;
+  titleFont: string;
+  bodyFont: string;
+  navButtonText: string;
+  palettes: Record<string, Record<string, string>>;
+}> = [
+  {
+    style: 'builder',
+    sourceStyle: 'proof',
+    name: 'Builder',
+    description: 'A sturdy field-service layout for trades, contractors, service areas, proof, and estimates.',
+    businessType: 'services',
+    siteTitle: 'Builder Services',
+    titleFont: 'Merriweather',
+    bodyFont: 'Inter',
+    navButtonText: 'Request Estimate',
+    palettes: {
+      Worksite: { primary: '#1f2937', secondary: '#f59e0b', accent: '#f8fafc' },
+      Blueprint: { primary: '#14365d', secondary: '#2563eb', accent: '#eff6ff' },
+      Utility: { primary: '#172033', secondary: '#16a34a', accent: '#f3f6f4' },
+    },
+  },
+  {
+    style: 'commerce',
+    sourceStyle: 'craft',
+    name: 'Commerce',
+    description: 'A product-first shop layout for catalogs, featured items, subscriptions, and conversion sections.',
+    businessType: 'products',
+    siteTitle: 'Commerce Shop',
+    titleFont: 'Space Grotesk',
+    bodyFont: 'Inter',
+    navButtonText: 'Shop Now',
+    palettes: {
+      Market: { primary: '#111827', secondary: '#2563eb', accent: '#eff6ff' },
+      Drop: { primary: '#261447', secondary: '#f97316', accent: '#fff7ed' },
+      Clean: { primary: '#172033', secondary: '#0f766e', accent: '#ecfeff' },
+    },
+  },
+  {
+    style: 'foundation',
+    sourceStyle: 'craft',
+    name: 'Foundation',
+    description: 'A community-minded layout for nonprofits, churches, charities, associations, and missions.',
+    businessType: 'both',
+    siteTitle: 'Foundation Community',
+    titleFont: 'Fraunces',
+    bodyFont: 'Karla',
+    navButtonText: 'Get Involved',
+    palettes: {
+      Mission: { primary: '#26413c', secondary: '#c2410c', accent: '#f7f4ed' },
+      Hope: { primary: '#1f3a5f', secondary: '#0f766e', accent: '#ecfeff' },
+      Grounded: { primary: '#3f3a2f', secondary: '#7c3aed', accent: '#faf7ed' },
+    },
+  },
+  {
+    style: 'wellness',
+    sourceStyle: 'booked',
+    name: 'Wellness',
+    description: 'A calm care-centered layout for health, therapy, spa, fitness, and coaching businesses.',
+    businessType: 'services',
+    siteTitle: 'Wellness Studio',
+    titleFont: 'Nunito',
+    bodyFont: 'Inter',
+    navButtonText: 'Book Visit',
+    palettes: {
+      Calm: { primary: '#243b3b', secondary: '#0f766e', accent: '#ecfdf5' },
+      Rose: { primary: '#3f2a3d', secondary: '#be123c', accent: '#fff1f2' },
+      Fresh: { primary: '#1f2937', secondary: '#65a30d', accent: '#f7fee7' },
+    },
+  },
+  {
+    style: 'estate',
+    sourceStyle: 'gallery',
+    name: 'Estate',
+    description: 'A visual, premium layout for real estate, properties, interiors, and spaces.',
+    businessType: 'both',
+    siteTitle: 'Estate Group',
+    titleFont: 'Sora',
+    bodyFont: 'Inter',
+    navButtonText: 'View Listings',
+    palettes: {
+      Gallery: { primary: '#171717', secondary: '#a16207', accent: '#fafaf9' },
+      Slate: { primary: '#1e293b', secondary: '#0f766e', accent: '#f8fafc' },
+      Stone: { primary: '#292524', secondary: '#57534e', accent: '#f5f5f4' },
+    },
+  },
+  {
+    style: 'studio',
+    sourceStyle: 'gallery',
+    name: 'Studio',
+    description: 'A portfolio-meets-services layout for agencies, studios, freelancers, and brand teams.',
+    businessType: 'both',
+    siteTitle: 'Studio Collective',
+    titleFont: 'Space Grotesk',
+    bodyFont: 'Inter',
+    navButtonText: 'Start Project',
+    palettes: {
+      Ink: { primary: '#111827', secondary: '#db2777', accent: '#fdf2f8' },
+      Signal: { primary: '#18181b', secondary: '#2563eb', accent: '#eff6ff' },
+      Mono: { primary: '#171717', secondary: '#737373', accent: '#fafafa' },
+    },
+  },
+  {
+    style: 'learn',
+    sourceStyle: 'editorial',
+    name: 'Learn',
+    description: 'A structured education layout for courses, tutoring, workshops, and learning programs.',
+    businessType: 'both',
+    siteTitle: 'Learn Program',
+    titleFont: 'Libre Baskerville',
+    bodyFont: 'Source Sans 3',
+    navButtonText: 'Start Learning',
+    palettes: {
+      Notebook: { primary: '#1f2937', secondary: '#2563eb', accent: '#eff6ff' },
+      Campus: { primary: '#1e3a5f', secondary: '#16a34a', accent: '#f0fdf4' },
+      Chalk: { primary: '#27272a', secondary: '#ca8a04', accent: '#fefce8' },
+    },
+  },
+  {
+    style: 'occasion',
+    sourceStyle: 'retro',
+    name: 'Occasion',
+    description: 'A celebratory layout for events, weddings, venues, pop-ups, planners, and special moments.',
+    businessType: 'both',
+    siteTitle: 'Occasion Studio',
+    titleFont: 'Space Grotesk',
+    bodyFont: 'DM Sans',
+    navButtonText: 'Plan Event',
+    palettes: {
+      Confetti: { primary: '#261447', secondary: '#f97316', accent: '#fff7ed' },
+      Toast: { primary: '#3b2434', secondary: '#db2777', accent: '#fdf2f8' },
+      Night: { primary: '#111827', secondary: '#a855f7', accent: '#faf5ff' },
+    },
+  },
+];
+
+function deriveStructuralTemplate(definition: typeof DERIVED_STRUCTURAL_TEMPLATE_SOURCES[number]): StructuralTemplateMetadata {
+  const source = BASE_STRUCTURAL_TEMPLATE_METADATA.find((template) => template.template_id === `${definition.sourceStyle}_general`)
+    || BASE_STRUCTURAL_TEMPLATE_METADATA.find((template) => template.template_id.startsWith(`${definition.sourceStyle}_`));
+  if (!source) {
+    throw new Error(`Missing source structural template for ${definition.style}`);
+  }
+  const defaultContent = cloneRecord(source.default_content);
+  return {
+    ...source,
+    id: `structural-${definition.style}-general`,
+    template_id: `${definition.style}_general`,
+    name: definition.name,
+    description: definition.description,
+    category: definition.category || 'general',
+    business_type: definition.businessType,
+    palettes: definition.palettes,
+    thumbnail_url: source.thumbnail_url,
+    default_content: {
+      ...defaultContent,
+      siteTitle: definition.siteTitle,
+      titleFont: definition.titleFont,
+      bodyFont: definition.bodyFont,
+      navButtonText: definition.navButtonText,
+    },
+  };
+}
+
+function cloneRecord(value: Record<string, unknown>): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
+}
+
+export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
+  ...BASE_STRUCTURAL_TEMPLATE_METADATA,
+  ...DERIVED_STRUCTURAL_TEMPLATE_SOURCES.map(deriveStructuralTemplate),
 ];
 
 export function isStructuralTemplateId(templateId: string): boolean {

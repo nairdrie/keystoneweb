@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/context';
 import Link from 'next/link';
-import { ExternalLink, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, BookOpen, UtensilsCrossed, FileImage, Users, Minimize2, Paintbrush, ChevronDown, EyeOff, Plus, Stethoscope } from 'lucide-react';
+import { ExternalLink, X, BarChart3, Globe, ShoppingBag, Calendar, Loader2, Menu, Mail, TrendingUp, Search, Package, CalendarDays, MessageSquare, Link2, BookOpen, UtensilsCrossed, FileImage, Users, Minimize2, Paintbrush, ChevronDown, EyeOff, Plus, Stethoscope, LayoutDashboard } from 'lucide-react';
 import AlertModal from '@/app/components/ui/AlertModal';
 import EditorLoadingScreen from '@/app/components/EditorLoadingScreen';
 import WalkthroughModal, { WalkthroughStep } from '@/app/components/WalkthroughModal';
@@ -22,6 +22,18 @@ interface Site {
   isPublished?: boolean;
 }
 
+interface AdminPageBlock {
+  type?: string;
+}
+
+interface AdminPageRecord {
+  design_data?: (Record<string, unknown> & {
+    blocks?: AdminPageBlock[];
+    __blocks?: AdminPageBlock[];
+  });
+  published_data?: unknown;
+}
+
 interface TabDef {
   id: string;
   label: string;
@@ -35,6 +47,7 @@ interface TabDef {
 
 const ALL_TABS: TabDef[] = [
   // Core — always visible
+  { id: 'home',      label: 'Home',      icon: LayoutDashboard, path: '/admin',           core: true },
   { id: 'analytics', label: 'Analytics', icon: BarChart3, path: '/admin/analytics', core: true },
   { id: 'seo',       label: 'SEO',       icon: Globe,     path: '/admin/seo',       core: true },
   { id: 'domains',   label: 'Domains',   icon: Link2,     path: '/admin/domains',   core: true },
@@ -56,6 +69,13 @@ const ALL_TABS: TabDef[] = [
 ];
 
 const SHOW_ALL_KEY = 'ks_admin_show_all_features';
+
+function getAdminTabForPath(pathname: string): TabDef | undefined {
+  if (pathname === '/admin') return ALL_TABS.find(t => t.id === 'home');
+  return ALL_TABS
+    .filter(t => t.id !== 'home')
+    .find(t => pathname === t.path || pathname.startsWith(`${t.path}/`));
+}
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -246,8 +266,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     if (!user || isAdminManageMode) return;
     fetch('/api/user/sites', { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (d?.sites) setUserSites(d.sites.map((s: any) => ({
+      .then((d: { sites?: Site[] } | null) => {
+        if (d?.sites) setUserSites(d.sites.map((s) => ({
           ...s,
           isPublished: s.isPublished ?? false,
         })));
@@ -287,7 +307,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     // In admin manage-mode, never auto-route to the admin's own latest site —
     // route back into the site they're actively managing.
     if (adminManagedSiteId) {
-      const tab = ALL_TABS.find(t => pathname.startsWith(t.path))?.path ?? '/admin/analytics';
+      const tab = getAdminTabForPath(pathname)?.path ?? '/admin';
       router.replace(`${tab}?siteId=${adminManagedSiteId}`);
       return;
     }
@@ -296,7 +316,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       if (res.ok) {
         const { site: data } = await res.json();
         if (data?.id) {
-          const tab = ALL_TABS.find(t => pathname.startsWith(t.path))?.path ?? '/admin/analytics';
+          const tab = getAdminTabForPath(pathname)?.path ?? '/admin';
           router.replace(`${tab}?siteId=${data.id}`);
           return;
         }
@@ -314,17 +334,17 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         fetch(`/api/pages?siteId=${id}`, { credentials: 'include' }),
       ]);
       if (!siteRes.ok) { router.push('/onboarding'); return; }
-      const data = await siteRes.json();
+      const data = await siteRes.json() as AdminSiteData;
       setSite(data);
       setSiteTitle(data.siteSlug || 'My Website');
 
       // Detect which block types exist in this site's pages + whether there are unpublished changes
       if (pagesRes.ok) {
-        const pagesData = await pagesRes.json();
-        const pages: any[] = pagesData.pages || pagesData || [];
+        const pagesData = await pagesRes.json() as { pages?: AdminPageRecord[] } | AdminPageRecord[];
+        const pages: AdminPageRecord[] = Array.isArray(pagesData) ? pagesData : pagesData.pages ?? [];
         const blockTypes = new Set<string>();
         for (const page of pages) {
-          const blocks: any[] = page.design_data?.blocks ?? page.design_data?.__blocks ?? [];
+          const blocks = page.design_data?.blocks ?? page.design_data?.__blocks ?? [];
           for (const block of blocks) {
             if (block?.type) blockTypes.add(block.type);
           }
@@ -394,7 +414,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   }
 
   function navigateSite(newSiteId: string) {
-    const tab = ALL_TABS.find(t => pathname.startsWith(t.path))?.path ?? '/admin/analytics';
+    const tab = getAdminTabForPath(pathname)?.path ?? '/admin';
     confirmNavigation(() => router.push(`${tab}?siteId=${newSiteId}`));
   }
 
@@ -420,7 +440,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     return false; // coming-soon tabs without a block: only visible with showAllFeatures
   });
 
-  const activeTabId = ALL_TABS.find(t => pathname.startsWith(t.path))?.id ?? 'analytics';
+  const activeTabId = getAdminTabForPath(pathname)?.id ?? 'home';
   const liveUrl = site.customDomain
     ? `https://${site.customDomain}`
     : site.publishedDomain

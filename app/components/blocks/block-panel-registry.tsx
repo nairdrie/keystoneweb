@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { CalendarDays, ExternalLink, Inbox, Newspaper, Package, Settings, UtensilsCrossed } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { EditorContextType } from '@/lib/editor-context';
+import { isSchemaMigratedBlock } from './settings/registry';
 
 export interface BlockPanelProps {
     blockId: string;
@@ -49,6 +50,7 @@ const MenuSettingsPanel = dynamic(() => import('./menu/MenuSettingsPanel'), { ss
 const HeroSettingsPanel = dynamic(() => import('./hero/HeroSettingsPanel'), { ssr: false });
 const ProductSettingsPanel = dynamic(() => import('./product/ProductSettingsPanel'), { ssr: false });
 const GenericBlockSettingsPanel = dynamic(() => import('./generic/GenericBlockSettingsPanel'), { ssr: false });
+const SchemaBlockSettingsPanel = dynamic(() => import('./settings/SchemaBlockSettingsPanel'), { ssr: false });
 const ContactSettingsPanel = dynamic(() => import('./contact/ContactSettingsPanel'), { ssr: false });
 const EstimateQuoteSettingsPanel = dynamic(() => import('./estimate/EstimateQuoteSettingsPanel'), { ssr: false });
 const MapSettingsPanel = dynamic(() => import('./map/MapSettingsPanel'), { ssr: false });
@@ -98,7 +100,7 @@ function makeGenericPanelEntries(): Record<string, PanelEntry> {
             type,
             {
                 title,
-                component: GenericBlockSettingsPanel,
+                component: isSchemaMigratedBlock(type) ? SchemaBlockSettingsPanel : GenericBlockSettingsPanel,
             } satisfies PanelEntry,
         ]),
     );
@@ -131,6 +133,10 @@ export const BLOCK_PANEL_REGISTRY: Record<string, PanelEntry> = {
     hero: {
         title: 'Hero Section Settings',
         component: HeroSettingsPanel,
+    },
+    carousel: {
+        title: 'Content Carousel Settings',
+        component: SchemaBlockSettingsPanel,
     },
     servicesGrid: {
         title: 'Services Grid Settings',
@@ -168,7 +174,7 @@ export const BLOCK_PANEL_REGISTRY: Record<string, PanelEntry> = {
     },
     booking: {
         title: 'Booking / Appointments Settings',
-        component: GenericBlockSettingsPanel,
+        component: SchemaBlockSettingsPanel,
         primaryButton: { label: 'Settings', icon: Settings },
         secondaryActions: [
             {
@@ -182,7 +188,7 @@ export const BLOCK_PANEL_REGISTRY: Record<string, PanelEntry> = {
     },
     blog: {
         title: 'Blog / News Settings',
-        component: GenericBlockSettingsPanel,
+        component: SchemaBlockSettingsPanel,
         primaryButton: { label: 'Settings', icon: Settings },
         secondaryActions: [
             {
@@ -196,7 +202,7 @@ export const BLOCK_PANEL_REGISTRY: Record<string, PanelEntry> = {
     },
     events: {
         title: 'Events Settings',
-        component: GenericBlockSettingsPanel,
+        component: SchemaBlockSettingsPanel,
         primaryButton: { label: 'Settings', icon: Settings },
         secondaryActions: [
             {
@@ -210,7 +216,7 @@ export const BLOCK_PANEL_REGISTRY: Record<string, PanelEntry> = {
     },
     contact_form: {
         title: 'Contact Form Settings',
-        component: GenericBlockSettingsPanel,
+        component: SchemaBlockSettingsPanel,
         primaryButton: { label: 'Settings', icon: Settings },
         secondaryActions: [
             {
@@ -238,7 +244,7 @@ export const BLOCK_PANEL_REGISTRY: Record<string, PanelEntry> = {
     },
     membershipGate: {
         title: 'Membership Gate Settings',
-        component: GenericBlockSettingsPanel,
+        component: SchemaBlockSettingsPanel,
         primaryButton: { label: 'Settings', icon: Settings },
     },
     sideBySide: {

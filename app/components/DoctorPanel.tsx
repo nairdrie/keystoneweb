@@ -3,8 +3,6 @@
 import { useState, useCallback } from 'react';
 import { CheckCircle2, XCircle, AlertTriangle, Loader2, RefreshCw, ChevronDown, ExternalLink } from 'lucide-react';
 import {
-    runAllChecks,
-    type DiagnosticData,
     type DiagnosticResult,
     type Severity,
 } from '@/lib/health-checks';
@@ -37,10 +35,22 @@ export default function DoctorPanel({ siteId }: DoctorPanelProps) {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`/api/doctor?siteId=${siteId}`, { credentials: 'include' });
-            if (!res.ok) throw new Error('Failed to fetch diagnostic data');
-            const data: DiagnosticData = await res.json();
-            const diagnostics = runAllChecks(data, 'designer');
+            const res = await fetch('/api/doctor', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    siteId,
+                    context: 'designer',
+                    includeReachability: true,
+                }),
+            });
+            if (!res.ok) {
+                const data = await res.json().catch(() => null);
+                throw new Error(data?.details || data?.error || 'Failed to run diagnostics');
+            }
+            const data: { results?: DiagnosticResult[] } = await res.json();
+            const diagnostics = data.results ?? [];
             diagnostics.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
             setResults(diagnostics);
 
@@ -48,8 +58,9 @@ export default function DoctorPanel({ siteId }: DoctorPanelProps) {
                 diagnostics.filter(d => d.severity !== 'pass').map(d => d.category)
             );
             setExpandedCategories(issueCategories);
-        } catch {
-            setError('Failed to run diagnostics. Please try again.');
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Please try again.';
+            setError(`Failed to run diagnostics. ${message}`);
         } finally {
             setLoading(false);
         }

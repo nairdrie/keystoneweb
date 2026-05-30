@@ -7,13 +7,33 @@ import Reveal, { useStaggerSec } from '@/app/components/Reveal';
 import { ChevronDown, Plus } from 'lucide-react';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import InlineCardControls from './InlineCardControls';
+import {
+    SPACING_DENSITY_OPTIONS,
+    getCardInlineStyle,
+    getCardPaddingClass,
+    getCardPresetShadowPaintBuffer,
+    getCardShadowPaintBuffer,
+    getCardShadowSafeContainerStyle,
+    getCardStyleClass,
+    getSurfaceStyle,
+    getSurfaceTextColor,
+    getUniversalCardClassName,
+    getUniversalCardInlineStyle,
+    getUniversalCardPaddingClass,
+    getUniversalCardTextColor,
+    getUniversalCardTextPaddingStyle,
+    readStyleOption,
+    resolveCardPresetId,
+    resolveUniversalCardSettings,
+    shouldLockCardTextToSurface,
+} from '@/lib/block-style-options';
 
 interface FAQItem {
     question: string;
     answer: string;
 }
 
-interface FAQBlockData {
+interface FAQBlockData extends Record<string, unknown> {
     title?: string;
     subtitle?: string;
     backgroundColor?: string;
@@ -43,6 +63,44 @@ export default function FAQBlock({ data, isEditMode, palette, updateContent }: F
     const [openIndex, setOpenIndex] = useState<number | null>(0);
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+    const hasCardDesignOverride = hasFaqCardDesignOverride(data);
+    const universalCardSettings = hasCardDesignOverride
+        ? resolveUniversalCardSettings(data, {
+            fallbackPreset: 'soft',
+            fallbackTextAlign: 'left',
+        })
+        : null;
+    const cardStyle = resolveCardPresetId(data, 'soft');
+    const surfaceStyle = getSurfaceStyle(data.surfaceStyle, cardStyle);
+    const spacingDensity = readStyleOption(data.spacingDensity, SPACING_DENSITY_OPTIONS, 'standard');
+    const activeSurfaceStyle = universalCardSettings?.surface || surfaceStyle;
+    const surfaceCardTextColor = universalCardSettings ? getUniversalCardTextColor(universalCardSettings, palette) : getSurfaceTextColor(surfaceStyle, palette);
+    const lockCardTextToSurface = shouldLockCardTextToSurface(activeSurfaceStyle);
+    const faqQuestionColor = hasCardDesignOverride
+        ? lockCardTextToSurface ? surfaceCardTextColor : fgOverride || surfaceCardTextColor
+        : pPrimary;
+    const faqAnswerColor = hasCardDesignOverride
+        ? lockCardTextToSurface ? surfaceCardTextColor : fgOverride || pPrimary
+        : pPrimary;
+    const cardClassName = hasCardDesignOverride
+        ? universalCardSettings
+            ? `${getUniversalCardClassName(universalCardSettings)} ${getUniversalCardPaddingClass(universalCardSettings)} relative group/card transition-[border-color,box-shadow,opacity,transform]`
+            : `${getCardStyleClass(cardStyle)} ${getCardPaddingClass(cardStyle, spacingDensity)} relative group/card transition-[border-color,box-shadow,opacity,transform]`
+        : '';
+    const cardInlineStyle = hasCardDesignOverride
+        ? universalCardSettings
+            ? {
+                ...getUniversalCardInlineStyle(universalCardSettings, palette),
+                ...(getUniversalCardTextPaddingStyle(universalCardSettings) || {}),
+            }
+            : getCardInlineStyle(cardStyle, surfaceStyle, palette)
+        : undefined;
+    const cardShadowBuffer = hasCardDesignOverride
+        ? universalCardSettings
+            ? getCardShadowPaintBuffer(universalCardSettings)
+            : getCardPresetShadowPaintBuffer(cardStyle)
+        : 0;
+    const cardShadowSafeStyle = hasCardDesignOverride ? getCardShadowSafeContainerStyle(cardShadowBuffer) : undefined;
 
     const items = Array.isArray(data.items) ? data.items : DEFAULT_FAQ_ITEMS;
     const staggerSec = useStaggerSec();
@@ -109,6 +167,7 @@ export default function FAQBlock({ data, isEditMode, palette, updateContent }: F
                     style={{ color: fgOverride || pPrimary, opacity: 0.6 }}
                 />
 
+                <div style={cardShadowSafeStyle}>
                 <div className="space-y-3">
                     {items.map((item, index) => {
                         const isOpen = openIndex === index;
@@ -117,9 +176,10 @@ export default function FAQBlock({ data, isEditMode, palette, updateContent }: F
                         return (
                             <Reveal key={index} delay={index * staggerSec}>
                             <div
-                                className={`faq-item group/card relative border rounded-xl bg-white transition-[border-color,box-shadow,opacity,transform] ${
+                                className={`${hasCardDesignOverride ? cardClassName : 'faq-item group/card relative rounded-xl border bg-white'} ${
                                     isDragTarget ? 'border-blue-300 shadow-md ring-2 ring-blue-100' : 'border-gray-200'
                                 } ${isDragging ? 'scale-[0.99] opacity-60' : ''} ${isEditMode ? 'overflow-visible' : 'overflow-hidden'}`}
+                                style={cardInlineStyle}
                                 onDragOver={(event) => {
                                     if (!isEditMode) return;
                                     event.preventDefault();
@@ -153,7 +213,7 @@ export default function FAQBlock({ data, isEditMode, palette, updateContent }: F
                                 <div className="relative z-10 flex items-stretch overflow-visible">
                                     <button
                                         onClick={() => setOpenIndex(isOpen ? null : index)}
-                                        className={`flex-1 flex items-center justify-between overflow-visible p-5 text-left hover:bg-gray-50 transition-colors ${isEditMode ? 'pr-20' : ''}`}
+                                        className={`flex-1 flex items-center justify-between overflow-visible text-left transition-colors ${hasCardDesignOverride ? 'p-0' : 'p-5'} ${lockCardTextToSurface ? 'hover:bg-white/10' : 'hover:bg-gray-50'} ${isEditMode ? 'pr-20' : ''}`}
                                     >
                                         <EditableText
                                             as="span"
@@ -163,17 +223,18 @@ export default function FAQBlock({ data, isEditMode, palette, updateContent }: F
                                             isEditMode={isEditMode}
                                             onSave={(_key, value) => handleUpdateItem(index, 'question', value)}
                                             className="font-semibold text-left pr-4 flex-1"
-                                            style={{ color: pPrimary }}
+                                            style={{ color: faqQuestionColor }}
                                         />
                                         <ChevronDown
-                                            className={`w-5 h-5 text-gray-400 flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                                            className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                                            style={{ color: faqQuestionColor, opacity: 0.45 }}
                                         />
                                     </button>
                                 </div>
                                 <div
                                     className={`transition-all duration-200 ${isOpen ? `max-h-96 ${isEditMode ? 'overflow-visible' : 'overflow-hidden'}` : 'max-h-0 overflow-hidden'}`}
                                 >
-                                    <div className="relative z-20 px-5 pb-5 pt-0">
+                                    <div className={hasCardDesignOverride ? 'relative z-20 pt-4' : 'relative z-20 px-5 pb-5 pt-0'}>
                                         <EditableText
                                             as="p"
                                             contentKey={`faq_${index}_answer`}
@@ -182,7 +243,7 @@ export default function FAQBlock({ data, isEditMode, palette, updateContent }: F
                                             isEditMode={isEditMode}
                                             onSave={(_key, value) => handleUpdateItem(index, 'answer', value)}
                                             className="leading-relaxed"
-                                            style={{ color: pPrimary, opacity: 0.7 }}
+                                            style={{ color: faqAnswerColor, opacity: 0.7 }}
                                         />
                                     </div>
                                 </div>
@@ -190,6 +251,7 @@ export default function FAQBlock({ data, isEditMode, palette, updateContent }: F
                             </Reveal>
                         );
                     })}
+                </div>
                 </div>
                 {isEditMode && (
                     <button
@@ -203,6 +265,13 @@ export default function FAQBlock({ data, isEditMode, palette, updateContent }: F
             </div>
         </section>
     );
+}
+
+function hasFaqCardDesignOverride(data: Record<string, unknown>): boolean {
+    if (data.cardSettings && typeof data.cardSettings === 'object' && !Array.isArray(data.cardSettings)) {
+        return Object.keys(data.cardSettings).length > 0;
+    }
+    return typeof data.cardStyle === 'string' && data.cardStyle.trim() !== '';
 }
 
 function getNextQuestionNumber(items: Array<{ question?: string }>): number {

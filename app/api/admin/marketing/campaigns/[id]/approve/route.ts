@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { createClient } from '@/lib/db/supabase-server';
-import { ensureGoogleAdsSubAccount } from '@/lib/marketing/subaccount';
 import { computePrepayAmount } from '@/lib/marketing/campaign-budget';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -61,22 +60,10 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
 
   const db = createAdminClient();
 
-  // Provision sub-account up-front so ops has it ready to add billing to.
-  if (campaign.channel === 'google_ads') {
-    try {
-      await ensureGoogleAdsSubAccount(campaign.site_id);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error('[approve] sub-account provision failed:', err);
-      await db.from('marketing_campaign_log').insert({
-        campaign_id: id,
-        action: 'failed',
-        actor: 'system',
-        details: { error: `sub-account provision failed: ${message}` },
-      });
-      return NextResponse.json({ error: 'Failed to provision Google Ads sub-account. Please contact support.' }, { status: 500 });
-    }
-  }
+  // Note: we no longer auto-provision a Google Ads sub-account here. Payment
+  // comes first; ops links/funds the customer's ad account after payment (see
+  // the ops launch flow). This avoids the "manager account can't create new
+  // accounts" gate on fresh MCCs.
 
   // Snapshot what was approved.
   await db.from('marketing_approvals').upsert({
@@ -98,13 +85,22 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ id: st
     },
   }, { onConflict: 'campaign_id' });
 
-  await db.from('marketing_campaigns')
+  const { error: statusErr } = await db.from('marketing_campaigns')
     .update({
       status: 'awaiting_payment',
       approved_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);
+  if (statusErr) {
+    // Bail before sending the customer to Stripe — otherwise they could pay for
+    // a campaign whose status never advances out of 'draft'.
+    console.error('[approve] failed to set campaign to awaiting_payment:', statusErr);
+    return NextResponse.json(
+      { error: 'Could not start payment for this campaign. ' + statusErr.message },
+      { status: 500 },
+    );
+  }
 
   // Create the Stripe Checkout session.
   const origin = request.nextUrl.origin;
