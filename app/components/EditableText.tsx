@@ -21,6 +21,7 @@ interface EditableTextProps {
   as?: 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p' | 'span' | 'div';
   style?: React.CSSProperties;
   styleData?: string | Record<string, unknown>;
+  allowRemove?: boolean;
   /** Optional index for indexed fields (e.g. cards in a list). Emits data-ks-index for Keyframe selectors. */
   index?: number;
 }
@@ -35,6 +36,7 @@ export default function EditableText({
   as: Component = 'span',
   style = {},
   styleData,
+  allowRemove = true,
   index,
 }: EditableTextProps) {
   const ksFieldClass = `ks-field ks-field--${sanitizeFieldName(contentKey)}`;
@@ -50,7 +52,7 @@ export default function EditableText({
   // styleData prop wins; otherwise look it up in the surrounding block's data
   // via context. Blocks wrap their render in <BlockDataProvider value={data}>.
   const resolvedStyleData = styleData ?? (blockData?.[`${contentKey}__styles`] as string | Record<string, unknown> | undefined);
-  const removed = Boolean(blockData?.[`${contentKey}__removed`]);
+  const removed = allowRemove && Boolean(blockData?.[`${contentKey}__removed`]);
 
   const setRemoved = useCallback((next: boolean) => {
     if (saveMeta) saveMeta(`${contentKey}__removed`, next);
@@ -185,7 +187,7 @@ export default function EditableText({
       return;
     }
     const rawHtml = normalizeEditorHtml(editorEl.innerHTML);
-    const initial = initialEditorHtml(displayTextRef.current);
+    const initial = normalizeEditorHtml(initialEditorHtml(displayTextRef.current));
     if (rawHtml !== initial) {
       onSave(contentKey, rawHtml);
     }
@@ -474,7 +476,7 @@ export default function EditableText({
             >
               <Edit2 className="w-3 h-3" />
             </button>
-            {saveMeta && (
+            {allowRemove && saveMeta && (
               <button
                 type="button"
                 onClick={(e) => {
@@ -576,8 +578,9 @@ function legacyTextToHtml(text: string): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+  const decodedText = decodePlainTextEntities(text);
   // Split by \n or literal \\n
-  const lines = text.split(/\n|\\n/g);
+  const lines = decodedText.split(/\n|\\n/g);
   const html = lines.map(line => {
     const parts = line.split(/(\{\{.*?\}\})/g);
     return parts.map(p => {
@@ -603,7 +606,7 @@ function normalizeEditorHtml(html: string): string {
   // Convert browser-inserted block wrappers (Chrome/Edge wrap each Enter-press
   // in a <div>) into inline <br> separators so the saved HTML renders the same
   // inside an inline display container as it does inside the contenteditable.
-  let normalized = html
+  const normalized = html
     .replace(/<div>\s*<br\s*\/?>\s*<\/div>/gi, '<br>')
     .replace(/<p>\s*<br\s*\/?>\s*<\/p>/gi, '<br>')
     .replace(/<\/(?:div|p)>\s*<(?:div|p)(\s[^>]*)?>/gi, '<br>')
@@ -613,6 +616,7 @@ function normalizeEditorHtml(html: string): string {
     .replace(/^(\s|&nbsp;|<br\s*\/?>)+/i, '')
     .replace(/(\s|&nbsp;|<br\s*\/?>)+$/i, '');
   if (!trimmed || /^<br\s*\/?>$/i.test(trimmed.trim())) return '';
+  if (!isHtmlContent(trimmed)) return decodePlainTextEntities(trimmed);
   return trimmed;
 }
 
@@ -659,12 +663,12 @@ function renderFormattedText(text: string): React.ReactNode {
     const parts = line.split(/(\{\{.*?\}\})/g);
     const formattedLine = parts.map((part, partIdx) => {
       if (part.startsWith('{{') && part.endsWith('}}')) {
-        const inner = part.slice(2, -2);
+        const inner = decodePlainTextEntities(part.slice(2, -2));
         return (
           <span key={`${lineIdx}-${partIdx}`} className="ksw-highlight">{inner}</span>
         );
       }
-      return part;
+      return decodePlainTextEntities(part);
     });
     return (
       <span key={lineIdx}>
@@ -678,13 +682,23 @@ function renderFormattedText(text: string): React.ReactNode {
 function textPreviewFromHtml(text: string): string {
   if (!text) return '';
   if (!isHtmlContent(text)) {
-    return text.replace(/\{\{(.*?)\}\}/g, '$1');
+    return decodePlainTextEntities(text.replace(/\{\{(.*?)\}\}/g, '$1'));
   }
   // Strip tags for the preview shown in toolbar popovers
   if (typeof document === 'undefined') return text.replace(/<[^>]+>/g, '');
   const tmp = document.createElement('div');
   tmp.innerHTML = sanitizeRichHtml(text);
   return tmp.textContent || '';
+}
+
+function decodePlainTextEntities(text: string): string {
+  return text
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#34;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&nbsp;/gi, ' ');
 }
 
 // Wrap the current selection in a span with a single inline style. When the

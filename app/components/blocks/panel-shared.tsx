@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type InputHTMLAttributes } from 'react';
 import { AlertTriangle, ChevronDown } from 'lucide-react';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import { useEditorContext } from '@/lib/editor-context';
@@ -211,6 +211,10 @@ export function InspectorSection({
     onToggle: () => void;
 }) {
     const contentId = `${id}-inspector-content`;
+    const parsedTitle = parseInspectorSectionTitle(title);
+    const content = parsedTitle.subsectionTitle
+        ? <InspectorSubsection title={parsedTitle.subsectionTitle}>{children}</InspectorSubsection>
+        : children;
 
     return (
         <section className="border-b border-slate-100 pb-5 last:border-b-0 last:pb-0">
@@ -221,15 +225,46 @@ export function InspectorSection({
                 aria-controls={contentId}
                 className="flex w-full items-center justify-between gap-3 rounded-lg py-1 text-left transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-                <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">{title}</h3>
+                <span>
+                    <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">{parsedTitle.sectionTitle}</h3>
+                    {parsedTitle.subsectionTitle && (
+                        <span className="mt-0.5 block text-xs font-semibold text-slate-700">{parsedTitle.subsectionTitle}</span>
+                    )}
+                </span>
                 <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${isCollapsed ? '-rotate-90' : 'rotate-0'}`} />
             </button>
             {!isCollapsed && (
                 <div id={contentId} className="mt-3">
-                    {children}
+                    {content}
                 </div>
             )}
         </section>
+    );
+}
+
+export function parseInspectorSectionTitle(title: string): { sectionTitle: string; subsectionTitle?: string } {
+    const match = title.match(/^(Content|Layout|Display|Style|Integrations|Advanced):\s+(.+)$/);
+    if (!match) return { sectionTitle: title };
+    return { sectionTitle: match[1], subsectionTitle: match[2] };
+}
+
+export function InspectorSubsection({
+    title,
+    description,
+    children,
+}: {
+    title: string;
+    description?: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="space-y-3">
+            <div>
+                <h4 className="text-xs font-bold uppercase tracking-wide text-slate-700">{title}</h4>
+                {description && <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>}
+            </div>
+            {children}
+        </div>
     );
 }
 
@@ -293,6 +328,73 @@ export function PaletteTokenButtons({ selected, palette, onSelect }: {
                 );
             })}
         </div>
+    );
+}
+
+export function DeferredColorInput({
+    value,
+    onChange,
+    delayMs = 180,
+    onBlur,
+    onKeyDown,
+    ...inputProps
+}: {
+    value: string;
+    onChange: (value: string) => void;
+    delayMs?: number;
+} & Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'value' | 'onChange'>) {
+    const [draftValue, setDraftValue] = useState(value);
+    const pendingValueRef = useRef<string | null>(null);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const onChangeRef = useRef(onChange);
+
+    useEffect(() => {
+        onChangeRef.current = onChange;
+    }, [onChange]);
+
+    const flush = useCallback(() => {
+        if (timerRef.current) {
+            clearTimeout(timerRef.current);
+            timerRef.current = null;
+        }
+        if (pendingValueRef.current === null) return;
+        const next = pendingValueRef.current;
+        pendingValueRef.current = null;
+        onChangeRef.current(next);
+    }, []);
+
+    useEffect(() => {
+        if (pendingValueRef.current === null) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setDraftValue(value);
+        }
+    }, [value]);
+
+    useEffect(() => {
+        return () => flush();
+    }, [flush]);
+
+    return (
+        <input
+            {...inputProps}
+            type="color"
+            value={draftValue}
+            onChange={(event) => {
+                const next = event.target.value;
+                setDraftValue(next);
+                pendingValueRef.current = next;
+                if (timerRef.current) clearTimeout(timerRef.current);
+                timerRef.current = setTimeout(flush, delayMs);
+            }}
+            onBlur={(event) => {
+                flush();
+                onBlur?.(event);
+            }}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter') flush();
+                onKeyDown?.(event);
+            }}
+        />
     );
 }
 

@@ -4,9 +4,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Crown, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockSettingsPanel from './BlockSettingsPanel';
+import { CardSettingsControls } from './CardSettingsControls';
+import LayoutOptionTiles from './LayoutOptionTiles';
 import KeyframeEditor, { inferFieldNames } from './KeyframeEditor';
 import {
     InspectorSection,
+    DeferredColorInput,
     PaletteTokenButtons,
     PRETEXT_BLOCKS,
     PretextControls,
@@ -23,6 +26,12 @@ import {
     normalizeSectionSettings,
     type SectionSettings,
 } from '@/lib/builder/layout-settings';
+import {
+    CARD_STYLE_DEFINITIONS,
+    buildCardSettingsForPreset,
+    readCardSettings,
+    type CardSettings,
+} from '@/lib/block-style-options';
 
 const REPEATABLE_ITEMS_DRAFT_UPDATE_EVENT = 'ks:repeatable-items-draft-update';
 
@@ -35,6 +44,48 @@ const STATS_SEPARATOR_OPTIONS: ReadonlyArray<{ id: StatsSeparator; label: string
     { id: 'none', label: 'None' },
     { id: 'line', label: 'Line' },
     { id: 'dot', label: 'Dot' },
+];
+
+type BuiltInStyleKey = 'cardStyle' | 'surfaceStyle' | 'markerStyle' | 'textAlign' | 'spacingDensity';
+type BuiltInStyleSettings = Record<BuiltInStyleKey, string>;
+type StyleChoiceOption = {
+    id: string;
+    label: string;
+    description?: string;
+};
+
+const CARD_STYLE_CHOICES: StyleChoiceOption[] = CARD_STYLE_DEFINITIONS.map(({ id, label, description }) => ({
+    id,
+    label,
+    description,
+}));
+
+const SURFACE_STYLE_CHOICES: StyleChoiceOption[] = [
+    { id: 'white', label: 'White' },
+    { id: 'accent', label: 'Tinted' },
+    { id: 'transparent', label: 'Transparent' },
+    { id: 'primary', label: 'Primary' },
+    { id: 'secondary', label: 'Secondary' },
+];
+
+const MARKER_STYLE_CHOICES: StyleChoiceOption[] = [
+    { id: 'plain', label: 'Plain' },
+    { id: 'badge', label: 'Badge' },
+    { id: 'numbered', label: 'Numbered' },
+    { id: 'framed', label: 'Framed' },
+    { id: 'accentLine', label: 'Accent line' },
+    { id: 'none', label: 'None' },
+];
+
+const TEXT_ALIGN_CHOICES: StyleChoiceOption[] = [
+    { id: 'left', label: 'Left' },
+    { id: 'center', label: 'Center' },
+];
+
+const SPACING_DENSITY_CHOICES: StyleChoiceOption[] = [
+    { id: 'compact', label: 'Compact' },
+    { id: 'standard', label: 'Standard' },
+    { id: 'spacious', label: 'Spacious' },
 ];
 
 function normalizeStatsSeparator(value: unknown): StatsSeparator {
@@ -52,6 +103,63 @@ function SeparatorPreview({ kind, active }: { kind: StatsSeparator; active: bool
             <span>9+</span>
         </span>
     );
+}
+
+function hasBuiltInStyleControls(blockType: ManagedBlockType): boolean {
+    return blockType === 'servicesGrid'
+        || blockType === 'stats'
+        || blockType === 'testimonials'
+        || blockType === 'faq'
+        || blockType === 'timeline';
+}
+
+function readBuiltInStyleSettings(
+    blockData: Record<string, unknown> | undefined,
+    blockType: ManagedBlockType,
+): BuiltInStyleSettings {
+    const defaults = getDefaultBuiltInStyleSettings(blockType);
+    return {
+        cardStyle: readStringOption(blockData?.cardStyle, CARD_STYLE_CHOICES, defaults.cardStyle),
+        surfaceStyle: readStringOption(blockData?.surfaceStyle, SURFACE_STYLE_CHOICES, defaults.surfaceStyle),
+        markerStyle: readStringOption(blockData?.markerStyle, MARKER_STYLE_CHOICES, defaults.markerStyle),
+        textAlign: readStringOption(blockData?.textAlign, TEXT_ALIGN_CHOICES, defaults.textAlign),
+        spacingDensity: readStringOption(blockData?.spacingDensity, SPACING_DENSITY_CHOICES, defaults.spacingDensity),
+    };
+}
+
+function getDefaultBuiltInStyleSettings(blockType: ManagedBlockType): BuiltInStyleSettings {
+    return {
+        cardStyle: 'soft',
+        surfaceStyle: 'white',
+        markerStyle: 'numbered',
+        textAlign: blockType === 'stats' ? 'center' : 'left',
+        spacingDensity: 'standard',
+    };
+}
+
+function getBuiltInStylePayload(
+    blockType: ManagedBlockType,
+    settings: BuiltInStyleSettings,
+): Record<string, string> {
+    const payload: Record<string, string> = {
+        cardStyle: settings.cardStyle,
+        surfaceStyle: settings.surfaceStyle,
+        spacingDensity: settings.spacingDensity,
+    };
+
+    if (blockType === 'servicesGrid') {
+        payload.markerStyle = settings.markerStyle;
+        payload.textAlign = settings.textAlign;
+    }
+    if (blockType === 'stats') {
+        payload.textAlign = settings.textAlign;
+    }
+
+    return payload;
+}
+
+function readStringOption(value: unknown, options: StyleChoiceOption[], fallback: string): string {
+    return typeof value === 'string' && options.some((option) => option.id === value) ? value : fallback;
 }
 type TestimonialDisplaySettings = {
     showMoreEnabled: boolean;
@@ -101,7 +209,7 @@ const CONFIGS: Record<ManagedBlockType, ManagedBlockConfig> = {
     servicesGrid: {
         blockType: 'servicesGrid',
         title: 'Services Grid Settings',
-        subtitle: 'Manage service cards, section styling, and advanced CSS.',
+        subtitle: 'Manage service cards, built-in card styles, and section styling.',
         itemsTitle: 'Service Cards',
         addLabel: 'Add Service',
         emptyLabel: 'No services yet.',
@@ -128,7 +236,7 @@ const CONFIGS: Record<ManagedBlockType, ManagedBlockConfig> = {
     stats: {
         blockType: 'stats',
         title: 'Stats / Numbers Settings',
-        subtitle: 'Manage number cards, layout, section styling, and advanced CSS.',
+        subtitle: 'Manage number cards, layout, built-in styles, and section styling.',
         itemsTitle: 'Stat Items',
         addLabel: 'Add Stat',
         emptyLabel: 'No stats yet.',
@@ -162,7 +270,7 @@ const CONFIGS: Record<ManagedBlockType, ManagedBlockConfig> = {
     testimonials: {
         blockType: 'testimonials',
         title: 'Testimonials Settings',
-        subtitle: 'Manage testimonial cards, layout, section styling, and advanced CSS.',
+        subtitle: 'Manage testimonial cards, layout, built-in styles, and section styling.',
         itemsTitle: 'Testimonial Cards',
         addLabel: 'Add Testimonial',
         emptyLabel: 'No testimonials yet.',
@@ -335,6 +443,7 @@ export default function RepeatableItemsSettingsPanel({
     const managedType: ManagedBlockType = isManagedBlockType(blockType) ? blockType : 'servicesGrid';
     const config = CONFIGS[managedType];
     const hasTestimonialDisplayControls = managedType === 'testimonials';
+    const supportsBuiltInStyleControls = hasBuiltInStyleControls(managedType);
     const layoutCapabilities = useMemo(
         () => getLayoutCapabilities(config.blockType),
         [config.blockType],
@@ -373,6 +482,14 @@ export default function RepeatableItemsSettingsPanel({
         blockData?.infiniteScroll,
         blockData?.loopScroll,
     ]);
+    const persistedBuiltInStyles = useMemo(
+        () => readBuiltInStyleSettings(blockData, managedType),
+        [blockData, managedType],
+    );
+    const persistedCardSettings = useMemo(
+        () => supportsBuiltInStyleControls ? readCardSettings(blockData?.cardSettings) : undefined,
+        [blockData?.cardSettings, supportsBuiltInStyleControls],
+    );
 
     const supportsPretext = PRETEXT_BLOCKS.has(config.blockType);
     const persistedPretext = useMemo(
@@ -389,11 +506,12 @@ export default function RepeatableItemsSettingsPanel({
                 ...(hasTestimonialDisplayControls ? ['display'] : []),
                 ...(supportsPretext ? ['pretext'] : []),
                 'style',
+                ...(supportsBuiltInStyleControls ? ['card-advanced'] : []),
                 'advanced',
             ];
             return [...baseLayout, ...tail];
         },
-        [config.variants, hasColumnLayoutControl, hasTestimonialDisplayControls, supportsPretext],
+        [config.variants, hasColumnLayoutControl, hasTestimonialDisplayControls, supportsBuiltInStyleControls, supportsPretext],
     );
     const sectionState = useInspectorSectionState(sectionIds, true);
 
@@ -401,6 +519,8 @@ export default function RepeatableItemsSettingsPanel({
     const [variant, setVariant] = useState<string>(persistedVariant);
     const [separator, setSeparator] = useState<StatsSeparator>(persistedSeparator);
     const [displaySettings, setDisplaySettings] = useState<TestimonialDisplaySettings>(persistedDisplaySettings);
+    const [builtInStyles, setBuiltInStyles] = useState<BuiltInStyleSettings>(persistedBuiltInStyles);
+    const [cardSettings, setCardSettings] = useState<CardSettings | undefined>(persistedCardSettings);
     const [backgroundColor, setBackgroundColor] = useState<string>(persistedBackgroundColor);
     const [foregroundColor, setForegroundColor] = useState<string>(persistedForegroundColor);
     const [sectionSettings, setSectionSettings] = useState<SectionSettings>(persistedSectionSettings);
@@ -458,6 +578,8 @@ export default function RepeatableItemsSettingsPanel({
             ...(config.variants ? { variant } : {}),
             ...(supportsSeparator ? { separator } : {}),
             ...(hasTestimonialDisplayControls ? displaySettings : {}),
+            ...(supportsBuiltInStyleControls ? getBuiltInStylePayload(managedType, builtInStyles) : {}),
+            ...(supportsBuiltInStyleControls ? { cardSettings: cardSettings || buildCardSettingsForPreset(builtInStyles.cardStyle) } : {}),
             ...(supportsPretext ? pretext : {}),
             backgroundColor,
             foregroundColor,
@@ -465,7 +587,7 @@ export default function RepeatableItemsSettingsPanel({
             __customCss: localCss,
             __customScript: localScript,
         });
-    }, [blockData, items, variant, separator, supportsSeparator, displaySettings, pretext, supportsPretext, backgroundColor, foregroundColor, sectionSettings, localCss, localScript, config.variants, hasTestimonialDisplayControls, onDraftBlockDataChange]);
+    }, [blockData, items, variant, separator, supportsSeparator, displaySettings, builtInStyles, cardSettings, supportsBuiltInStyleControls, managedType, pretext, supportsPretext, backgroundColor, foregroundColor, sectionSettings, localCss, localScript, config.variants, hasTestimonialDisplayControls, onDraftBlockDataChange]);
 
     const backgroundFallback = getRepeatableBackgroundFallback(managedType, variant, config.backgroundFallback);
     const bgInputValue = getColorInputValue(backgroundColor, palette, backgroundFallback);
@@ -478,6 +600,14 @@ export default function RepeatableItemsSettingsPanel({
                 ...patch,
             },
         }));
+    };
+
+    const updateCardSettings = (value: CardSettings) => {
+        setCardSettings(value);
+        const presetId = value.presetId;
+        if (presetId && presetId !== 'custom') {
+            setBuiltInStyles((current) => ({ ...current, cardStyle: presetId }));
+        }
     };
 
     useEffect(() => {
@@ -509,6 +639,16 @@ export default function RepeatableItemsSettingsPanel({
                 if (displaySettings[key] !== persistedDisplaySettings[key]) updates[key] = displaySettings[key];
             }
         }
+        if (supportsBuiltInStyleControls) {
+            const nextStylePayload = getBuiltInStylePayload(managedType, builtInStyles);
+            const persistedStylePayload = getBuiltInStylePayload(managedType, persistedBuiltInStyles);
+            for (const [key, value] of Object.entries(nextStylePayload)) {
+                if (value !== persistedStylePayload[key]) updates[key] = value;
+            }
+            if (JSON.stringify(cardSettings) !== JSON.stringify(persistedCardSettings)) {
+                updates.cardSettings = cardSettings || buildCardSettingsForPreset(builtInStyles.cardStyle);
+            }
+        }
         if (localCss !== customCss) updates.__customCss = localCss;
         if (localScript !== persistedScript) updates.__customScript = localScript;
         if (supportsPretext) {
@@ -529,6 +669,10 @@ export default function RepeatableItemsSettingsPanel({
         persistedSeparator,
         displaySettings,
         persistedDisplaySettings,
+        builtInStyles,
+        persistedBuiltInStyles,
+        cardSettings,
+        persistedCardSettings,
         backgroundColor,
         persistedBackgroundColor,
         foregroundColor,
@@ -543,8 +687,10 @@ export default function RepeatableItemsSettingsPanel({
         persistedPretext,
         supportsPretext,
         supportsSeparator,
+        supportsBuiltInStyleControls,
         hasTestimonialDisplayControls,
         config.variants,
+        managedType,
         blockId,
         context,
     ]);
@@ -602,7 +748,7 @@ export default function RepeatableItemsSettingsPanel({
         >
             <InspectorSection
                 id="items"
-                title={config.itemsTitle}
+                title="Content"
                 isCollapsed={sectionState.isCollapsed('items')}
                 onToggle={() => sectionState.toggle('items')}
             >
@@ -672,33 +818,18 @@ export default function RepeatableItemsSettingsPanel({
             {(config.variants || hasColumnLayoutControl) && (
                 <InspectorSection
                     id="block-layout"
-                    title="Block Layout"
+                    title={managedType === 'testimonials' ? 'Layout: Testimonials Layout' : 'Layout: Block'}
                     isCollapsed={sectionState.isCollapsed('block-layout')}
                     onToggle={() => sectionState.toggle('block-layout')}
                 >
                     <div className="space-y-5">
                         {config.variants && (
-                            <div className="grid grid-cols-2 gap-2">
-                                {config.variants.map((option) => {
-                                    const active = variant === option.id;
-                                    return (
-                                        <button
-                                            key={option.id}
-                                            type="button"
-                                            onClick={() => setVariant(option.id)}
-                                            aria-pressed={active}
-                                            className={`rounded-xl border px-3 py-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                                active
-                                                    ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
-                                                    : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                                            }`}
-                                        >
-                                            <span className="block text-sm font-bold">{option.label}</span>
-                                            <span className="mt-1 block text-[11px] leading-snug text-slate-500">{option.description}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                            <LayoutOptionTiles
+                                blockType={config.blockType}
+                                value={variant}
+                                options={config.variants}
+                                onChange={setVariant}
+                            />
                         )}
 
                         {hasColumnLayoutControl && (
@@ -759,7 +890,7 @@ export default function RepeatableItemsSettingsPanel({
             {supportsPretext && (
                 <InspectorSection
                     id="pretext"
-                    title="Label"
+                    title="Style: Label"
                     isCollapsed={sectionState.isCollapsed('pretext')}
                     onToggle={() => sectionState.toggle('pretext')}
                 >
@@ -773,7 +904,7 @@ export default function RepeatableItemsSettingsPanel({
 
             <InspectorSection
                 id="style"
-                title="Style"
+                title="Style: Section"
                 isCollapsed={sectionState.isCollapsed('style')}
                 onToggle={() => sectionState.toggle('style')}
             >
@@ -785,11 +916,10 @@ export default function RepeatableItemsSettingsPanel({
                 </label>
                 <SideBySideBackgroundOverrideNotice />
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <input
+                    <DeferredColorInput
                         id={`${blockId}-${config.blockType}-bg`}
-                        type="color"
                         value={bgInputValue}
-                        onChange={(event) => setBackgroundColor(event.target.value)}
+                        onChange={setBackgroundColor}
                         className="h-10 w-10 cursor-pointer rounded border border-slate-200 bg-white"
                     />
                     <PaletteTokenButtons
@@ -822,11 +952,10 @@ export default function RepeatableItemsSettingsPanel({
                     Section text color
                 </label>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <input
+                    <DeferredColorInput
                         id={`${blockId}-${config.blockType}-fg`}
-                        type="color"
                         value={fgInputValue}
-                        onChange={(event) => setForegroundColor(event.target.value)}
+                        onChange={setForegroundColor}
                         className="h-10 w-10 cursor-pointer rounded border border-slate-200 bg-white"
                     />
                     <PaletteTokenButtons
@@ -852,6 +981,24 @@ export default function RepeatableItemsSettingsPanel({
                     </button>
                 </div>
             </InspectorSection>
+
+            {supportsBuiltInStyleControls && (
+                <InspectorSection
+                    id="card-advanced"
+                    title="Style: Cards"
+                    isCollapsed={sectionState.isCollapsed('card-advanced')}
+                    onToggle={() => sectionState.toggle('card-advanced')}
+                >
+                    <CardSettingsControls
+                        value={cardSettings || buildCardSettingsForPreset(builtInStyles.cardStyle)}
+                        currentPresetId={builtInStyles.cardStyle}
+                        palette={palette}
+                        supportsMarker={managedType === 'servicesGrid'}
+                        supportsTextAlign={managedType === 'servicesGrid' || managedType === 'stats'}
+                        onChange={updateCardSettings}
+                    />
+                </InspectorSection>
+            )}
 
             <InspectorSection
                 id="advanced"

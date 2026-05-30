@@ -10,19 +10,43 @@ import { resolvePaletteColor } from '@/lib/palette-colors';
 import { useEditorContext } from '@/lib/editor-context';
 import { resolveAnimation, speedToMs } from '@/lib/animations';
 import InlineCardControls, { reorderItems } from './InlineCardControls';
+import {
+    SPACING_DENSITY_OPTIONS,
+    getCardInlineStyle,
+    getCardPaddingClass,
+    getCardPresetShadowPaintBuffer,
+    getCardShadowPaintBuffer,
+    getCardShadowSafeContainerStyle,
+    getCardStyleClass,
+    getSurfaceStyle,
+    getSurfaceTextColor,
+    getTextAlignClass,
+    getUniversalCardClassName,
+    getUniversalCardInlineStyle,
+    getUniversalCardPaddingClass,
+    getUniversalCardTextColor,
+    readStyleOption,
+    resolveCardPresetId,
+    resolveUniversalCardSettings,
+    shouldLockCardTextToSurface,
+} from '@/lib/block-style-options';
 
 interface StatsBlockProps {
     id: string;
-    data: any;
+    data: Record<string, unknown>;
     isEditMode: boolean;
     palette: Record<string, string>;
-    updateContent: (key: string, value: any) => void;
+    updateContent: (key: string, value: unknown) => void;
 }
 
-export default function StatsBlock({ id, data, isEditMode, palette, updateContent }: StatsBlockProps) {
+type StatItem = {
+    value: string;
+    label: string;
+};
+
+export default function StatsBlock({ data, isEditMode, palette, updateContent }: StatsBlockProps) {
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
-    const pAccent = palette.accent || '#f3f4f6';
     const configuredBackgroundColor = resolvePaletteColor(data.backgroundColor, palette, '');
     const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
     const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
@@ -32,7 +56,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
     const staggerSec = useStaggerSec();
     const durationSec = Math.max(0, speedToMs(animationConfig) / 1000);
 
-    const items = data.items || [
+    const items = normalizeStatItems(data.items) || [
         { value: '500+', label: 'Happy Clients' },
         { value: '15+', label: 'Years Experience' },
         { value: '24/7', label: 'Emergency Support' },
@@ -42,6 +66,31 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
     const variant = data.variant || 'banner'; // 'banner' | 'cards' | 'progress'
     const separator: 'none' | 'line' | 'dot' =
         data.separator === 'line' || data.separator === 'dot' ? data.separator : 'none';
+    const universalCardSettings = resolveUniversalCardSettings(data, {
+        fallbackPreset: 'soft',
+        fallbackTextAlign: 'center',
+    });
+    const cardStyle = resolveCardPresetId(data, 'soft');
+    const surfaceStyle = getSurfaceStyle(data.surfaceStyle, cardStyle);
+    const activeSurfaceStyle = universalCardSettings?.surface || surfaceStyle;
+    const spacingDensity = readStyleOption(data.spacingDensity, SPACING_DENSITY_OPTIONS, 'standard');
+    const cardTextColor = universalCardSettings ? getUniversalCardTextColor(universalCardSettings, palette) : getSurfaceTextColor(surfaceStyle, palette);
+    const lockCardTextToSurface = shouldLockCardTextToSurface(activeSurfaceStyle);
+    const statValueColor = lockCardTextToSurface
+        ? cardTextColor
+        : fgOverride || (activeSurfaceStyle === 'primary' || activeSurfaceStyle === 'secondary' ? cardTextColor : pSecondary);
+    const statLabelColor = lockCardTextToSurface ? cardTextColor : fgOverride || cardTextColor;
+    const textAlignClass = universalCardSettings ? getTextAlignClass(universalCardSettings.textAlign) : getTextAlignClass(data.textAlign || 'center');
+    const cardClassName = universalCardSettings
+        ? `${getUniversalCardClassName(universalCardSettings)} ${getUniversalCardPaddingClass(universalCardSettings)} ${textAlignClass} transition-[border-color,box-shadow,opacity,transform] relative group/card`
+        : `${getCardStyleClass(cardStyle)} ${getCardPaddingClass(cardStyle, spacingDensity)} ${textAlignClass} transition-[border-color,box-shadow,opacity,transform] relative group/card`;
+    const cardInlineStyle = universalCardSettings
+        ? getUniversalCardInlineStyle(universalCardSettings, palette)
+        : getCardInlineStyle(cardStyle, surfaceStyle, palette);
+    const cardShadowBuffer = universalCardSettings
+        ? getCardShadowPaintBuffer(universalCardSettings)
+        : getCardPresetShadowPaintBuffer(cardStyle);
+    const cardShadowSafeStyle = getCardShadowSafeContainerStyle(cardShadowBuffer);
 
     const handleAddItem = () => {
         updateContent('items', [
@@ -52,11 +101,11 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
 
     const handleRemoveItem = (index: number) => {
         if (items.length <= 1) return;
-        updateContent('items', items.filter((_: any, i: number) => i !== index));
+        updateContent('items', items.filter((_, i) => i !== index));
     };
 
     const handleUpdateItem = (index: number, field: string, value: string) => {
-        const newItems = items.map((item: any, i: number) =>
+        const newItems = items.map((item, i) =>
             i === index ? { ...item, [field]: value } : item
         );
         updateContent('items', newItems);
@@ -117,7 +166,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                             <EditableText
                                 as="h2"
                                 contentKey="title"
-                                content={data.title}
+                                content={readString(data.title)}
                                 defaultValue="Technical Skills"
                                 isEditMode={isEditMode}
                                 onSave={(key, value) => updateContent(key, value)}
@@ -126,7 +175,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                             />
                         )}
                         <div className="space-y-6">
-                            {items.map((item: any, index: number) => {
+                            {items.map((item, index) => {
                                 const isDragging = draggedIndex === index;
                                 const isDragTarget = dragOverIndex === index && draggedIndex !== index;
                                 const percent = parsePercent(item.value);
@@ -207,7 +256,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                         <EditableText
                             as="h2"
                             contentKey="title"
-                            content={data.title}
+                            content={readString(data.title)}
                             defaultValue="Our Track Record"
                             isEditMode={isEditMode}
                             onSave={(key, value) => updateContent(key, value)}
@@ -215,42 +264,44 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
                             style={{ color: fgOverride || pPrimary }}
                         />
                     )}
-                    <div className={`grid gap-6 ${items.length <= 3 ? 'md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
-                        {items.map((item: any, index: number) => {
-                            const isDragging = draggedIndex === index;
-                            const isDragTarget = dragOverIndex === index && draggedIndex !== index;
-                            return (
-                            <Reveal key={index} delay={index * staggerSec} className={`relative group/card text-center p-8 md:p-6 xl:p-8 rounded-2xl border bg-white shadow-sm hover:shadow-md transition-[border-color,box-shadow,opacity,transform] ${
-                                    isDragTarget ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-100'
-                                } ${isDragging ? 'scale-[0.99] opacity-60' : ''}`}>
-                            <div
-                                {...getDragHandlers(index)}
-                            >
-                                {renderStatControls(index)}
-                                <EditableText
-                                    as="div"
-                                    contentKey={`stat_${index}_value`}
-                                    content={item.value}
-                                    defaultValue="100+"
-                                    isEditMode={isEditMode}
-                                    onSave={(_key, value) => handleUpdateItem(index, 'value', value)}
-                                    className="text-4xl xl:text-5xl font-black mb-2"
-                                    style={{ color: fgOverride || pSecondary }}
-                                />
-                                <EditableText
-                                    as="p"
-                                    contentKey={`stat_${index}_label`}
-                                    content={item.label}
-                                    defaultValue="Metric"
-                                    isEditMode={isEditMode}
-                                    onSave={(_key, value) => handleUpdateItem(index, 'label', value)}
-                                    className="font-medium text-sm uppercase tracking-wider"
-                                    style={{ color: fgOverride || pPrimary, opacity: 0.7 }}
-                                />
-                            </div>
-                            </Reveal>
-                            );
-                        })}
+                    <div style={cardShadowSafeStyle}>
+                        <div className={`ks-layout-grid grid gap-6 ${items.length <= 3 ? 'md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
+                            {items.map((item, index) => {
+                                const isDragging = draggedIndex === index;
+                                const isDragTarget = dragOverIndex === index && draggedIndex !== index;
+                                return (
+                                <Reveal key={index} delay={index * staggerSec} className={`${cardClassName} ${
+                                        isDragTarget ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-100'
+                                    } ${isDragging ? 'scale-[0.99] opacity-60' : ''}`} style={cardInlineStyle}>
+                                <div
+                                    {...getDragHandlers(index)}
+                                >
+                                    {renderStatControls(index)}
+                                    <EditableText
+                                        as="div"
+                                        contentKey={`stat_${index}_value`}
+                                        content={item.value}
+                                        defaultValue="100+"
+                                        isEditMode={isEditMode}
+                                        onSave={(_key, value) => handleUpdateItem(index, 'value', value)}
+                                        className="text-4xl xl:text-5xl font-black mb-2"
+                                        style={{ color: statValueColor }}
+                                    />
+                                    <EditableText
+                                        as="p"
+                                        contentKey={`stat_${index}_label`}
+                                        content={item.label}
+                                        defaultValue="Metric"
+                                        isEditMode={isEditMode}
+                                        onSave={(_key, value) => handleUpdateItem(index, 'label', value)}
+                                        className="font-medium text-sm uppercase tracking-wider"
+                                        style={{ color: statLabelColor, opacity: 0.7 }}
+                                    />
+                                </div>
+                                </Reveal>
+                                );
+                            })}
+                        </div>
                     </div>
                     {isEditMode && (
                         <div className="flex justify-center mt-6">
@@ -275,7 +326,7 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
         <section className="py-16 md:py-10 xl:py-16" style={{ backgroundColor: configuredBackgroundColor || pPrimary }}>
             <div className="max-w-7xl mx-auto px-4">
                 <div className={`grid gap-8 ${items.length <= 3 ? 'md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'}`}>
-                    {items.map((item: any, index: number) => {
+                    {items.map((item, index) => {
                         const isDragging = draggedIndex === index;
                         const isDragTarget = dragOverIndex === index && draggedIndex !== index;
                         const inMdColumn = index > 0 && index % bannerMdCols !== 0;
@@ -359,6 +410,25 @@ export default function StatsBlock({ id, data, isEditMode, palette, updateConten
             </div>
         </section>
     );
+}
+
+function normalizeStatItems(value: unknown): StatItem[] | null {
+    if (!Array.isArray(value)) return null;
+    const items = value
+        .map((item) => {
+            if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+            const record = item as Record<string, unknown>;
+            return {
+                value: typeof record.value === 'string' ? record.value : '100+',
+                label: typeof record.label === 'string' ? record.label : 'Metric',
+            };
+        })
+        .filter((item): item is StatItem => Boolean(item));
+    return items.length ? items : null;
+}
+
+function readString(value: unknown, fallback = ''): string {
+    return typeof value === 'string' ? value : fallback;
 }
 
 interface ProgressBarFillProps {

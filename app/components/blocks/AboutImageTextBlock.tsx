@@ -9,10 +9,12 @@ import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import { Plus } from 'lucide-react';
 import InlineCardControls, { reorderItems } from './InlineCardControls';
+import { getMediaTreatmentClass, getTextAlignClass } from '@/lib/block-style-options';
 
 type AboutImageTextData = Record<string, unknown>;
 type UpdateContent = (key: string, value: unknown) => void;
 type UploadImage = (file: File, contentKey: string) => Promise<string>;
+type AboutItemEntry = { item: string; sourceIndex: number };
 
 interface AboutImageTextBlockProps {
     id: string;
@@ -41,15 +43,17 @@ export default function AboutImageTextBlock({ data, isEditMode, palette, updateC
     const gridColumnsClass = getGridColumnsClass(splitRatio, imagePosition);
     const imageOrderClass = mobileStackOrder === 'text-first' ? 'order-2 md:order-none' : 'order-1 md:order-none';
     const textOrderClass = mobileStackOrder === 'text-first' ? 'order-1 md:order-none' : 'order-2 md:order-none';
+    const textAlignClass = getTextAlignClass(data.textAlign);
 
     const items = normalizeItems(data.items);
 
     const handleAddItem = () => {
-        updateContent('items', [...items, `New Benefit ${getNextBenefitNumber(items)}`]);
+        const activeItems = getActiveItemEntries(data, items).map(({ item }) => item);
+        clearAboutItemRemovedFlags(data, updateContent);
+        updateContent('items', [...activeItems, `New Benefit ${getNextBenefitNumber(activeItems)}`]);
     };
 
     const handleRemoveItem = (index: number) => {
-        if (items.length <= 1) return;
         updateContent('items', items.filter((_: string, i: number) => i !== index));
     };
 
@@ -65,13 +69,13 @@ export default function AboutImageTextBlock({ data, isEditMode, palette, updateC
             <div className={`ks-layout-content max-w-7xl mx-auto px-4 grid grid-cols-1 ${gridColumnsClass} gap-16 items-center`}>
                 {imagePosition === 'right' ? (
                     <>
-                        <TextContent className={textOrderClass} data={data} items={items} isEditMode={isEditMode} palette={palette} updateContent={updateContent} handleAddItem={handleAddItem} handleRemoveItem={handleRemoveItem} handleUpdateItem={handleUpdateItem} pPrimary={pPrimary} pSecondary={pSecondary} fgOverride={fgOverride} />
+                        <TextContent className={`${textOrderClass} ${textAlignClass}`} data={data} items={items} isEditMode={isEditMode} palette={palette} updateContent={updateContent} handleAddItem={handleAddItem} handleRemoveItem={handleRemoveItem} handleUpdateItem={handleUpdateItem} pPrimary={pPrimary} pSecondary={pSecondary} fgOverride={fgOverride} />
                         <ImageContent className={imageOrderClass} data={data} isEditMode={isEditMode} updateContent={updateContent} uploadImage={context?.uploadImage} pPrimary={pPrimary} fgOverride={fgOverride} />
                     </>
                 ) : (
                     <>
                         <ImageContent className={imageOrderClass} data={data} isEditMode={isEditMode} updateContent={updateContent} uploadImage={context?.uploadImage} pPrimary={pPrimary} fgOverride={fgOverride} />
-                        <TextContent className={textOrderClass} data={data} items={items} isEditMode={isEditMode} palette={palette} updateContent={updateContent} handleAddItem={handleAddItem} handleRemoveItem={handleRemoveItem} handleUpdateItem={handleUpdateItem} pPrimary={pPrimary} pSecondary={pSecondary} fgOverride={fgOverride} />
+                        <TextContent className={`${textOrderClass} ${textAlignClass}`} data={data} items={items} isEditMode={isEditMode} palette={palette} updateContent={updateContent} handleAddItem={handleAddItem} handleRemoveItem={handleRemoveItem} handleUpdateItem={handleUpdateItem} pPrimary={pPrimary} pSecondary={pSecondary} fgOverride={fgOverride} />
                     </>
                 )}
             </div>
@@ -88,8 +92,26 @@ function normalizeMobileStackOrder(value: unknown): 'image-first' | 'text-first'
 }
 
 function normalizeItems(value: unknown): string[] {
-    if (!Array.isArray(value) || value.length === 0) return DEFAULT_ITEMS;
+    if (!Array.isArray(value)) return DEFAULT_ITEMS;
     return value.map((item) => String(item)).filter(Boolean);
+}
+
+function getActiveItemEntries(data: AboutImageTextData, items: string[]): AboutItemEntry[] {
+    return items
+        .map((item, sourceIndex) => ({ item, sourceIndex }))
+        .filter(({ item, sourceIndex }) => item.trim() && !isAboutItemRemoved(data, sourceIndex));
+}
+
+function isAboutItemRemoved(data: AboutImageTextData, index: number): boolean {
+    return data[`about_item_${index}__removed`] === true;
+}
+
+function clearAboutItemRemovedFlags(data: AboutImageTextData, updateContent: UpdateContent) {
+    Object.keys(data).forEach((key) => {
+        if (/^about_item_\d+__removed$/.test(key) && data[key] === true) {
+            updateContent(key, false);
+        }
+    });
 }
 
 function getGridColumnsClass(splitRatio: '40-60' | '50-50' | '60-40', imagePosition: 'left' | 'right'): string {
@@ -135,6 +157,7 @@ function ImageContent({
 }) {
     const variant = readString(data.variant, 'landscape');
     const aspectClass = variant === 'tall' ? 'aspect-[3/4]' : variant === 'square' ? 'aspect-square' : 'aspect-[4/3]';
+    const mediaTreatmentClass = getMediaTreatmentClass(data.mediaTreatment, 'contained');
     const persistedImageSettings = React.useMemo(() => (
         readImageSettings(data.image__settings)
     ), [data.image__settings]);
@@ -156,11 +179,11 @@ function ImageContent({
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
                     onUpload={uploadImage}
-                    className={`w-full ${aspectClass} shadow-xl object-cover`}
+                    className={`w-full ${aspectClass} ${mediaTreatmentClass} shadow-xl object-cover`}
                     emptyBackgroundClassName="bg-transparent"
                     placeholder="Click to upload about image"
                     enableInlineCropControls
-                    editorPreviewFrameClassName={`w-full ${aspectClass}`}
+                    editorPreviewFrameClassName={`w-full ${aspectClass} ${mediaTreatmentClass}`}
                 />
                 {(caption || isEditMode) && (
                     <figcaption className="mt-3 text-center text-sm leading-relaxed">
@@ -280,6 +303,7 @@ function TextContent({
 }) {
     const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
+    const activeItemEntries = getActiveItemEntries(data, items);
 
     const handleReorderItem = (fromIndex: number, toIndex: number) => {
         updateContent('items', reorderItems(items, fromIndex, toIndex));
@@ -320,12 +344,12 @@ function TextContent({
                     />
                 </Reveal>
             )}
-            <ul className="space-y-4 text-lg">
-                {items.map((item: string, index: number) => {
-                    const isDragging = draggedIndex === index;
-                    const isDragTarget = dragOverIndex === index && draggedIndex !== index;
+            {activeItemEntries.length > 0 && <ul className="space-y-4 text-lg">
+                {activeItemEntries.map(({ item, sourceIndex }) => {
+                    const isDragging = draggedIndex === sourceIndex;
+                    const isDragTarget = dragOverIndex === sourceIndex && draggedIndex !== sourceIndex;
                     return (
-                    <Reveal key={index}>
+                    <Reveal key={sourceIndex}>
                         <li
                             className={`relative group/card flex items-center gap-3 rounded-lg py-2 pl-2 pr-16 transition-[border-color,box-shadow,opacity,transform] ${
                                 isEditMode
@@ -337,42 +361,43 @@ function TextContent({
                             onDragOver={(event) => {
                                 if (!isEditMode || draggedIndex === null) return;
                                 event.preventDefault();
-                                setDragOverIndex(index);
+                                setDragOverIndex(sourceIndex);
                             }}
                             onDrop={(event) => {
                                 if (!isEditMode || draggedIndex === null) return;
                                 event.preventDefault();
-                                handleReorderItem(draggedIndex, index);
+                                handleReorderItem(draggedIndex, sourceIndex);
                                 setDraggedIndex(null);
                                 setDragOverIndex(null);
                             }}
                         >
                             {isEditMode && (
                                 <InlineCardControls
-                                    canRemove={items.length > 1}
-                                    dragData={`about-item-${index}`}
+                                    canRemove
+                                    dragData={`about-item-${sourceIndex}`}
                                     dragTitle="Drag to reorder about item"
                                     removeTitle="Delete about item"
                                     onDragStart={() => {
-                                        setDraggedIndex(index);
+                                        setDraggedIndex(sourceIndex);
                                         setDragOverIndex(null);
                                     }}
                                     onDragEnd={() => {
                                         setDraggedIndex(null);
                                         setDragOverIndex(null);
                                     }}
-                                    onRemove={() => handleRemoveItem(index)}
+                                    onRemove={() => handleRemoveItem(sourceIndex)}
                                 />
                             )}
                             <span className="font-bold flex-shrink-0" style={{ color: pSecondary }}>✓</span>
                             <div className="flex-1 w-full">
                                 <EditableText
                                     as="span"
-                                    contentKey={`about_item_${index}`}
+                                    contentKey={`about_item_${sourceIndex}`}
                                     content={item}
                                     defaultValue={item}
                                     isEditMode={isEditMode}
-                                    onSave={(_key, value) => handleUpdateItem(index, value)}
+                                    onSave={(_key, value) => handleUpdateItem(sourceIndex, value)}
+                                    allowRemove={false}
                                     style={{ color: fgOverride || pPrimary }}
                                 />
                             </div>
@@ -380,7 +405,7 @@ function TextContent({
                     </Reveal>
                     );
                 })}
-            </ul>
+            </ul>}
             {isEditMode && (
                 <div className="flex justify-start mt-5">
                     <button

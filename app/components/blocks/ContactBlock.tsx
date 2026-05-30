@@ -7,6 +7,28 @@ import { AlertTriangle, GripVertical, Plus, Settings, Trash2, X } from 'lucide-r
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import Reveal, { useStaggerSec } from '@/app/components/Reveal';
 import {
+    SPACING_DENSITY_OPTIONS,
+    getCardInlineStyle,
+    getCardPaddingClass,
+    getCardPresetShadowPaintBuffer,
+    getCardShadowPaintBuffer,
+    getCardShadowSafeContainerStyle,
+    getCardStyleClass,
+    getSurfaceStyle,
+    getSurfaceTextColor,
+    getTextAlignClass,
+    getUniversalCardClassName,
+    getUniversalCardInlineStyle,
+    getUniversalCardPaddingClass,
+    getUniversalCardTextColor,
+    getUniversalCardTextPaddingStyle,
+    readStyleOption,
+    resolveCardPresetId,
+    resolveUniversalCardSettings,
+    shouldLockCardTextToSurface,
+    type IconStyle,
+} from '@/lib/block-style-options';
+import {
     CONTACT_ICON_OPTIONS,
     ContactItem,
     SOCIAL_PLATFORM_OPTIONS,
@@ -24,10 +46,10 @@ import {
 
 interface ContactBlockProps {
     id: string;
-    data: any;
+    data: Record<string, unknown>;
     isEditMode: boolean;
     palette: Record<string, string>;
-    updateContent: (key: string, value: any) => void;
+    updateContent: (key: string, value: unknown) => void;
 }
 
 export default function ContactBlock({ data, isEditMode, palette, updateContent }: ContactBlockProps) {
@@ -54,6 +76,44 @@ export default function ContactBlock({ data, isEditMode, palette, updateContent 
     const showSocialHeading = data.showSocialHeading !== false;
     const socialHeading = typeof data.socialHeading === 'string' && data.socialHeading.trim() ? data.socialHeading : 'Follow Us';
     const visibleSocialLinks = socialLinks.filter((link) => isEditMode || link.url.trim());
+    const hasCardDesignOverride = hasContactCardDesignOverride(data);
+    const universalCardSettings = hasCardDesignOverride
+        ? resolveUniversalCardSettings(data, {
+            fallbackPreset: 'soft',
+            fallbackIconStyle: 'badge',
+            fallbackTextAlign: 'left',
+        })
+        : null;
+    const cardStyle = resolveCardPresetId(data, 'soft');
+    const surfaceStyle = getSurfaceStyle(data.surfaceStyle, cardStyle);
+    const spacingDensity = readStyleOption(data.spacingDensity, SPACING_DENSITY_OPTIONS, 'standard');
+    const activeSurfaceStyle = universalCardSettings?.surface || surfaceStyle;
+    const surfaceCardTextColor = universalCardSettings ? getUniversalCardTextColor(universalCardSettings, palette) : getSurfaceTextColor(surfaceStyle, palette);
+    const lockCardTextToSurface = shouldLockCardTextToSurface(activeSurfaceStyle);
+    const cardTextColor = lockCardTextToSurface ? surfaceCardTextColor : fgOverride || surfaceCardTextColor;
+    const cardMutedTextColor = lockCardTextToSurface ? surfaceCardTextColor : fgOverride || pPrimary;
+    const contactCardIconColor = lockCardTextToSurface ? surfaceCardTextColor : contactIconColor;
+    const textAlignClass = universalCardSettings ? getTextAlignClass(universalCardSettings.textAlign) : getTextAlignClass(data.textAlign);
+    const iconStyle = universalCardSettings?.iconStyle || 'badge';
+    const cardClassName = hasCardDesignOverride
+        ? universalCardSettings
+            ? `${getUniversalCardClassName(universalCardSettings)} ${getUniversalCardPaddingClass(universalCardSettings)} ${textAlignClass} relative group/card transition-[border-color,box-shadow,opacity,transform]`
+            : `${getCardStyleClass(cardStyle)} ${getCardPaddingClass(cardStyle, spacingDensity)} ${textAlignClass} relative group/card transition-[border-color,box-shadow,opacity,transform]`
+        : '';
+    const cardInlineStyle = hasCardDesignOverride
+        ? universalCardSettings
+            ? {
+                ...getUniversalCardInlineStyle(universalCardSettings, palette),
+                ...(getUniversalCardTextPaddingStyle(universalCardSettings) || {}),
+            }
+            : getCardInlineStyle(cardStyle, surfaceStyle, palette)
+        : undefined;
+    const cardShadowBuffer = hasCardDesignOverride
+        ? universalCardSettings
+            ? getCardShadowPaintBuffer(universalCardSettings)
+            : getCardPresetShadowPaintBuffer(cardStyle)
+        : 0;
+    const cardShadowSafeStyle = hasCardDesignOverride ? getCardShadowSafeContainerStyle(cardShadowBuffer) : undefined;
 
     const updateContactItems = (items: ContactItem[]) => updateContent('contactItems', items);
     const updateSocialLinks = (links: SocialLinkItem[]) => updateContent('socialLinks', links);
@@ -114,7 +174,7 @@ export default function ContactBlock({ data, isEditMode, palette, updateContent 
                             <EditableText
                                 as="h2"
                                 contentKey="title"
-                                content={data.title}
+                                content={readString(data.title)}
                                 defaultValue="Get In Touch"
                                 isEditMode={isEditMode}
                                 onSave={(key, value) => updateContent(key, value)}
@@ -126,7 +186,7 @@ export default function ContactBlock({ data, isEditMode, palette, updateContent 
                             <EditableText
                                 as="p"
                                 contentKey="subtitle"
-                                content={data.subtitle}
+                                content={readString(data.subtitle)}
                                 defaultValue="We'd love to hear from you. Reach out anytime."
                                 isEditMode={isEditMode}
                                 onSave={(key, value) => updateContent(key, value)}
@@ -138,38 +198,44 @@ export default function ContactBlock({ data, isEditMode, palette, updateContent 
                 )}
 
                 {contactItems.length > 0 ? (
-                    <div className={`grid gap-6 ${cardColumns === 1 ? 'max-w-2xl mx-auto' : 'md:grid-cols-2'}`}>
-                        {contactItems.map((item, index) => (
-                            <Reveal key={item.id} delay={index * staggerSec}>
-                            <ContactInfoCard
-                                item={item}
-                                index={index}
-                                isEditMode={isEditMode}
-                                primaryColor={pPrimary}
-                                secondaryColor={contactIconColor}
-                                isPanelOpen={editingContactId === item.id}
-                                isDragging={draggedContactId === item.id}
-                                isDragTarget={dragOverContactId === item.id && draggedContactId !== item.id}
-                                onDragStart={(itemId) => {
-                                    setDraggedContactId(itemId);
-                                    setDragOverContactId(null);
-                                }}
-                                onDragOver={(itemId) => setDragOverContactId(itemId)}
-                                onDrop={(targetId) => {
-                                    if (draggedContactId) reorderContactItem(draggedContactId, targetId);
-                                    setDraggedContactId(null);
-                                    setDragOverContactId(null);
-                                }}
-                                onDragEnd={() => {
-                                    setDraggedContactId(null);
-                                    setDragOverContactId(null);
-                                }}
-                                onRemove={removeContactItem}
-                                onUpdate={updateContactItem}
-                                onTogglePanel={() => setEditingContactId(editingContactId === item.id ? null : item.id)}
-                            />
-                            </Reveal>
-                        ))}
+                    <div style={cardShadowSafeStyle}>
+                        <div className={`grid gap-6 ${cardColumns === 1 ? 'max-w-2xl mx-auto' : 'md:grid-cols-2'}`}>
+                            {contactItems.map((item, index) => (
+                                <Reveal key={item.id} delay={index * staggerSec}>
+                                <ContactInfoCard
+                                    item={item}
+                                    isEditMode={isEditMode}
+                                    primaryColor={cardTextColor}
+                                    mutedColor={cardMutedTextColor}
+                                    secondaryColor={contactCardIconColor}
+                                    iconStyle={iconStyle}
+                                    lockCardTextToSurface={lockCardTextToSurface}
+                                    cardClassName={cardClassName}
+                                    cardInlineStyle={cardInlineStyle}
+                                    isPanelOpen={editingContactId === item.id}
+                                    isDragging={draggedContactId === item.id}
+                                    isDragTarget={dragOverContactId === item.id && draggedContactId !== item.id}
+                                    onDragStart={(itemId) => {
+                                        setDraggedContactId(itemId);
+                                        setDragOverContactId(null);
+                                    }}
+                                    onDragOver={(itemId) => setDragOverContactId(itemId)}
+                                    onDrop={(targetId) => {
+                                        if (draggedContactId) reorderContactItem(draggedContactId, targetId);
+                                        setDraggedContactId(null);
+                                        setDragOverContactId(null);
+                                    }}
+                                    onDragEnd={() => {
+                                        setDraggedContactId(null);
+                                        setDragOverContactId(null);
+                                    }}
+                                    onRemove={removeContactItem}
+                                    onUpdate={updateContactItem}
+                                    onTogglePanel={() => setEditingContactId(editingContactId === item.id ? null : item.id)}
+                                />
+                                </Reveal>
+                            ))}
+                        </div>
                     </div>
                 ) : isEditMode ? (
                     <div className="rounded-xl border border-dashed border-blue-300 bg-white/70 p-8 text-center shadow-sm">
@@ -204,7 +270,7 @@ export default function ContactBlock({ data, isEditMode, palette, updateContent 
                             <EditableText
                                 as="p"
                                 contentKey="socialHeading"
-                                content={data.socialHeading}
+                                content={readString(data.socialHeading)}
                                 defaultValue={socialHeading}
                                 isEditMode={isEditMode}
                                 onSave={(key, value) => updateContent(key, value)}
@@ -268,10 +334,14 @@ export default function ContactBlock({ data, isEditMode, palette, updateContent 
 
 function ContactInfoCard({
     item,
-    index,
     isEditMode,
     primaryColor,
+    mutedColor,
     secondaryColor,
+    iconStyle,
+    lockCardTextToSurface,
+    cardClassName,
+    cardInlineStyle,
     isPanelOpen,
     isDragging,
     isDragTarget,
@@ -284,10 +354,14 @@ function ContactInfoCard({
     onTogglePanel,
 }: {
     item: ContactItem;
-    index: number;
     isEditMode: boolean;
     primaryColor: string;
+    mutedColor: string;
     secondaryColor: string;
+    iconStyle: IconStyle;
+    lockCardTextToSurface: boolean;
+    cardClassName: string;
+    cardInlineStyle?: React.CSSProperties;
     isPanelOpen: boolean;
     isDragging: boolean;
     isDragTarget: boolean;
@@ -304,10 +378,10 @@ function ContactInfoCard({
     const content = (
         <div className="flex items-start gap-4">
             <div
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl"
-                style={{ backgroundColor: `${secondaryColor}15`, color: secondaryColor }}
+                className={getContactIconClassName(iconStyle)}
+                style={getContactIconStyle(iconStyle, secondaryColor, lockCardTextToSurface)}
             >
-                <Icon className="h-5 w-5" />
+                {React.createElement(Icon, { className: 'h-5 w-5' })}
             </div>
             <div className="min-w-0 flex-1">
                 <EditableText
@@ -317,7 +391,8 @@ function ContactInfoCard({
                     defaultValue="Contact"
                     isEditMode={isEditMode}
                     onSave={(_key, value) => onUpdate(item.id, { label: value })}
-                    className="mb-1 text-sm font-semibold uppercase tracking-wider text-gray-400"
+                    className="mb-1 text-sm font-semibold uppercase tracking-wider"
+                    style={{ color: mutedColor, opacity: 0.55 }}
                 />
                 <EditableText
                     as="p"
@@ -326,16 +401,19 @@ function ContactInfoCard({
                     defaultValue="Add contact details"
                     isEditMode={isEditMode}
                     onSave={(_key, value) => onUpdate(item.id, { value })}
-                    className="font-medium text-gray-800"
+                    className="font-medium"
+                    style={{ color: primaryColor }}
                 />
             </div>
         </div>
     );
-    const className = `group/card relative rounded-xl border bg-white p-6 shadow-sm transition-[border-color,box-shadow,opacity,transform] hover:shadow-md ${isDragTarget ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-100'} ${isDragging ? 'opacity-50 scale-[0.99]' : ''}`;
+    const legacyClassName = 'group/card relative rounded-xl border bg-white p-6 shadow-sm transition-[border-color,box-shadow,opacity,transform] hover:shadow-md';
+    const className = `${cardClassName || legacyClassName} ${isDragTarget ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-100'} ${isDragging ? 'opacity-50 scale-[0.99]' : ''}`;
 
     return (
         <div
             className={className}
+            style={cardInlineStyle}
             onDragOver={(event) => {
                 if (!isEditMode) return;
                 event.preventDefault();
@@ -403,6 +481,43 @@ function ContactInfoCard({
             )}
         </div>
     );
+}
+
+function hasContactCardDesignOverride(data: Record<string, unknown>): boolean {
+    if (data.cardSettings && typeof data.cardSettings === 'object' && !Array.isArray(data.cardSettings)) {
+        return Object.keys(data.cardSettings).length > 0;
+    }
+    return typeof data.cardStyle === 'string' && data.cardStyle.trim() !== '';
+}
+
+function readString(value: unknown, fallback = ''): string {
+    return typeof value === 'string' ? value : fallback;
+}
+
+function getContactIconClassName(iconStyle: IconStyle): string {
+    if (iconStyle === 'plain') return 'flex h-12 w-12 shrink-0 items-center justify-center rounded-none';
+    if (iconStyle === 'framed') return 'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border bg-white';
+    if (iconStyle === 'numbered') return 'flex h-12 w-12 shrink-0 items-center justify-center rounded-full';
+    return 'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl';
+}
+
+function getContactIconStyle(
+    iconStyle: IconStyle,
+    color: string,
+    lockToSurface: boolean,
+): React.CSSProperties {
+    if (iconStyle === 'plain') return { color };
+    if (iconStyle === 'framed') {
+        return {
+            color,
+            backgroundColor: lockToSurface ? 'rgba(255,255,255,0.12)' : '#ffffff',
+            borderColor: lockToSurface ? 'rgba(255,255,255,0.24)' : `${color}33`,
+        };
+    }
+    return {
+        backgroundColor: lockToSurface ? 'rgba(255,255,255,0.16)' : `${color}15`,
+        color,
+    };
 }
 
 function ContactInlinePanel({
@@ -535,12 +650,12 @@ function SocialIconControl({
         label,
     });
 
-    useEffect(() => {
+    const resetDraft = () => {
         setDraft({
             ...link,
             label: getSocialPlatformLabel(link.platform),
         });
-    }, [link]);
+    };
 
     const updateDraft = (updates: Partial<SocialLinkItem>) => {
         setDraft((current) => {
@@ -553,10 +668,12 @@ function SocialIconControl({
     };
 
     const discardDraft = () => {
-        setDraft({
-            ...link,
-            label: getSocialPlatformLabel(link.platform),
-        });
+        resetDraft();
+        onTogglePanel();
+    };
+
+    const openPanel = () => {
+        resetDraft();
         onTogglePanel();
     };
 
@@ -580,7 +697,7 @@ function SocialIconControl({
                 className="flex h-10 w-10 items-center justify-center rounded-full transition-all hover:scale-110 hover:opacity-80"
                 style={{ backgroundColor: `${secondaryColor}15`, color: secondaryColor }}
             >
-                <Icon className="h-4 w-4" />
+                {React.createElement(Icon, { className: 'h-4 w-4' })}
             </a>
         );
     }
@@ -602,11 +719,11 @@ function SocialIconControl({
             <button
                 type="button"
                 title={url ? `Edit ${label}` : `${label} has no URL yet`}
-                onClick={isPanelOpen ? discardDraft : onTogglePanel}
+                onClick={isPanelOpen ? discardDraft : openPanel}
                 className={`flex h-10 w-10 items-center justify-center rounded-full transition-all hover:scale-110 ${isPanelOpen ? 'ring-2 ring-blue-500 ring-offset-2' : url ? 'ring-2 ring-offset-1' : 'opacity-40 hover:opacity-75'}`}
                 style={{ backgroundColor: `${secondaryColor}15`, color: secondaryColor }}
             >
-                <Icon className="h-4 w-4" />
+                {React.createElement(Icon, { className: 'h-4 w-4' })}
             </button>
             {shouldWarn && (
                 <span className="pointer-events-none absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-700 shadow-sm">
@@ -630,7 +747,7 @@ function SocialIconControl({
                 </button>
                 <button
                     type="button"
-                    onClick={isPanelOpen ? discardDraft : onTogglePanel}
+                    onClick={isPanelOpen ? discardDraft : openPanel}
                     className={`border-l border-slate-100 p-1.5 transition-colors hover:bg-slate-50 ${isPanelOpen ? 'bg-blue-50 text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}
                     title={`Edit ${label}`}
                 >

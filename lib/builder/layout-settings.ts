@@ -21,10 +21,13 @@ export type ResponsiveBoxSides = {
   left?: string;
 };
 
-export type LayoutContainerWidth = 'default' | 'narrow' | 'wide' | 'full';
+export type LayoutContainerWidth = 'default' | 'narrow' | 'wide' | 'full' | `${number}%`;
 export type LayoutHorizontalAlign = 'left' | 'center' | 'right';
 export type LayoutVerticalAlign = 'top' | 'middle' | 'bottom';
 export type LayoutContentOrder = 'default' | 'text-first' | 'media-first' | 'reverse';
+
+export const LAYOUT_CONTAINER_WIDTH_PERCENT_MIN = 30;
+export const LAYOUT_CONTAINER_WIDTH_PERCENT_MAX = 100;
 
 export type SectionLayoutSettings = {
   containerWidth: LayoutContainerWidth;
@@ -175,7 +178,7 @@ export function normalizeSectionSettings(value: unknown): SectionSettings {
 
   return {
     layout: {
-      containerWidth: readEnum(sourceLayout.containerWidth, ['default', 'narrow', 'wide', 'full'], DEFAULT_SECTION_LAYOUT.containerWidth),
+      containerWidth: normalizeContainerWidth(sourceLayout.containerWidth),
       horizontalAlign: readEnum(sourceLayout.horizontalAlign, ['left', 'center', 'right'], DEFAULT_SECTION_LAYOUT.horizontalAlign),
       verticalAlign: DEFAULT_SECTION_LAYOUT.verticalAlign,
       minHeight: undefined,
@@ -194,8 +197,6 @@ export function areSectionSettingsEqual(a: unknown, b: unknown): boolean {
 
 export function hasLayoutOverrides(value: unknown): boolean {
   const settings = normalizeSectionSettings(value).layout;
-  if (settings.containerWidth !== DEFAULT_SECTION_LAYOUT.containerWidth) return true;
-  if (settings.horizontalAlign !== DEFAULT_SECTION_LAYOUT.horizontalAlign) return true;
   return Boolean(
     hasResponsiveValues(settings.columns) ||
     hasResponsiveValues(settings.gap) ||
@@ -234,12 +235,6 @@ export function buildLayoutCss(blockId: string, blockType: string, sectionSettin
   const baseContent: string[] = [];
   const baseGrid: string[] = [];
   const baseStackGap: string[] = [];
-
-  if (capabilities.supportsContainerWidth && layout.containerWidth !== 'default') {
-    baseContent.push(...containerWidthDeclarations(layout.containerWidth, layout.horizontalAlign));
-  } else if (capabilities.supportsHorizontalAlign && layout.horizontalAlign !== 'left') {
-    baseContent.push(...horizontalAlignDeclarations(layout.horizontalAlign));
-  }
 
   if (capabilities.supportsPadding) pushBox(baseSection, 'padding', layout.padding?.desktop);
   if (capabilities.supportsMargin) pushBox(baseSection, 'margin', layout.margin?.desktop);
@@ -349,6 +344,13 @@ function normalizeResponsiveBox(value: unknown): ResponsiveBoxValue | undefined 
 
 function readEnum<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
   return typeof value === 'string' && (allowed as readonly string[]).includes(value) ? value as T : fallback;
+}
+
+function normalizeContainerWidth(value: unknown): LayoutContainerWidth {
+  if (typeof value !== 'string') return DEFAULT_SECTION_LAYOUT.containerWidth;
+  if (['default', 'narrow', 'wide', 'full'].includes(value)) return value as LayoutContainerWidth;
+  const percent = getLayoutContainerWidthPercent(value);
+  return percent ? `${percent}%` : DEFAULT_SECTION_LAYOUT.containerWidth;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -463,17 +465,21 @@ function normalizeColumnLimit(value: number): number {
   return Math.max(1, Math.min(DEFAULT_LAYOUT_COLUMN_MAX, Math.floor(value)));
 }
 
-function containerWidthDeclarations(width: LayoutContainerWidth, align: LayoutHorizontalAlign): string[] {
-  if (width === 'full') {
-    return ['max-width: none', 'width: 100%', ...horizontalAlignDeclarations(align)];
-  }
-
-  const maxWidth = width === 'narrow' ? '56rem' : '90rem';
-  return [`max-width: ${maxWidth}`, 'width: 100%', ...horizontalAlignDeclarations(align)];
+export function isFullLayoutContainerWidth(width: LayoutContainerWidth): boolean {
+  return width === 'full' || getLayoutContainerWidthPercent(width) === LAYOUT_CONTAINER_WIDTH_PERCENT_MAX;
 }
 
-function horizontalAlignDeclarations(align: LayoutHorizontalAlign): string[] {
-  if (align === 'center') return ['margin-left: auto', 'margin-right: auto'];
-  if (align === 'right') return ['margin-left: auto', 'margin-right: 0'];
-  return ['margin-left: 0', 'margin-right: auto'];
+export function getLayoutContainerWidthPercent(width: unknown): number | undefined {
+  if (typeof width !== 'string') return undefined;
+  const match = width.trim().match(/^(\d{1,3})%$/);
+  if (!match) return undefined;
+  const percent = Number(match[1]);
+  if (
+    !Number.isFinite(percent) ||
+    percent < LAYOUT_CONTAINER_WIDTH_PERCENT_MIN ||
+    percent > LAYOUT_CONTAINER_WIDTH_PERCENT_MAX
+  ) {
+    return undefined;
+  }
+  return Math.round(percent);
 }

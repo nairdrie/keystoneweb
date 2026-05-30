@@ -15,6 +15,14 @@ export const TEMPLATE_PREVIEW_STYLES = [
   'retro',
   'proof',
   'gallery',
+  'builder',
+  'commerce',
+  'foundation',
+  'wellness',
+  'estate',
+  'studio',
+  'learn',
+  'occasion',
 ] as const;
 
 export type TemplatePreviewStyle = typeof TEMPLATE_PREVIEW_STYLES[number];
@@ -40,6 +48,17 @@ export const TEMPLATE_PREVIEW_IMAGES: Record<TemplatePreviewStyle, string> =
       : `/templates/${style}.png`,
   ])) as Record<TemplatePreviewStyle, string>;
 
+const TEMPLATE_PREVIEW_ALIASES: Partial<Record<TemplatePreviewStyle, TemplatePreviewStyle>> = {
+  builder: 'proof',
+  commerce: 'craft',
+  foundation: 'craft',
+  wellness: 'booked',
+  estate: 'gallery',
+  studio: 'gallery',
+  learn: 'editorial',
+  occasion: 'retro',
+};
+
 export function getTemplatePreviewStyle(templateId: string): TemplatePreviewStyle | undefined {
   const normalized = templateId.toLowerCase().replace(/-/g, '_');
   return TEMPLATE_PREVIEW_STYLES.find((style) => normalized.includes(style));
@@ -47,5 +66,6 @@ export function getTemplatePreviewStyle(templateId: string): TemplatePreviewStyl
 
 export function getTemplatePreviewImage(templateId: string): string | undefined {
   const style = getTemplatePreviewStyle(templateId);
-  return style ? TEMPLATE_PREVIEW_IMAGES[style] : undefined;
+  const resolvedStyle = style ? TEMPLATE_PREVIEW_ALIASES[style] || style : undefined;
+  return resolvedStyle ? TEMPLATE_PREVIEW_IMAGES[resolvedStyle] : undefined;
 }

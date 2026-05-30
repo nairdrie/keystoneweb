@@ -10,6 +10,7 @@ import { useEditorContext } from '@/lib/editor-context';
 import BlockSettingsPanel from '../BlockSettingsPanel';
 import {
     InspectorSection,
+    InspectorSubsection,
     InspectorToggle,
     PaletteTokenButtons,
     SideBySideBackgroundOverrideNotice,
@@ -65,7 +66,7 @@ import { resolvePaletteColor } from '@/lib/palette-colors';
 import ImageEditorModal, { type ImageSettings, type UnsplashAttribution } from '@/app/components/ImageEditorModal';
 import PexelsVideoPickerModal from '@/app/components/PexelsVideoPickerModal';
 
-const SECTION_IDS = ['cards', 'universal-layout', 'style', 'transition', 'content-layout', 'background', 'height', 'advanced'];
+const SECTION_IDS = ['content', 'universal-layout', 'style', 'transition', 'content-layout', 'background', 'height', 'advanced'];
 const HERO_DRAFT_UPDATE_EVENT = 'ks:hero-draft-update';
 
 const MAX_HERO_VIDEO_MB = 10;
@@ -417,59 +418,61 @@ export default function HeroSettingsPanel({
             >
                 {/* CARDS */}
                 <InspectorSection
-                    id="cards"
-                    title="Cards"
-                    isCollapsed={sectionState.isCollapsed('cards')}
-                    onToggle={() => sectionState.toggle('cards')}
+                    id="content"
+                    title="Content"
+                    isCollapsed={sectionState.isCollapsed('content')}
+                    onToggle={() => sectionState.toggle('content')}
                 >
-                    <div className="space-y-2">
-                        {cards.map((card, i) => {
-                            const isActive = i === activeIndex;
-                            const label = card.content.title.value?.trim() || `Card ${i + 1}`;
-                            return (
-                                <div
-                                    key={card.id}
-                                    className={`flex items-center gap-1 rounded-xl border px-2 py-1.5 transition-colors ${
-                                        isActive ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300'
-                                    }`}
-                                >
-                                    <button
-                                        type="button"
-                                        onClick={() => setActiveIndex(i)}
-                                        aria-pressed={isActive}
-                                        className="flex flex-1 items-center gap-2 truncate rounded-lg px-2 py-1 text-left focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    <InspectorSubsection title="Cards">
+                        <div className="space-y-2">
+                            {cards.map((card, i) => {
+                                const isActive = i === activeIndex;
+                                const label = card.content.title.value?.trim() || `Card ${i + 1}`;
+                                return (
+                                    <div
+                                        key={card.id}
+                                        className={`flex items-center gap-1 rounded-xl border px-2 py-1.5 transition-colors ${
+                                            isActive ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300'
+                                        }`}
                                     >
-                                        <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold ${isActive ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                                            {i + 1}
-                                        </span>
-                                        <span className="truncate text-sm font-medium text-slate-700">{label}</span>
-                                    </button>
-                                    <div className="flex items-center">
-                                        <button type="button" onClick={() => moveCard(i, -1)} disabled={i === 0} className="rounded p-1 text-slate-400 hover:bg-white hover:text-slate-700 disabled:opacity-30" title="Move up">
-                                            <ChevronUp className="h-3.5 w-3.5" />
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveIndex(i)}
+                                            aria-pressed={isActive}
+                                            className="flex flex-1 items-center gap-2 truncate rounded-lg px-2 py-1 text-left focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                            <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold ${isActive ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                                                {i + 1}
+                                            </span>
+                                            <span className="truncate text-sm font-medium text-slate-700">{label}</span>
                                         </button>
-                                        <button type="button" onClick={() => moveCard(i, 1)} disabled={i === cards.length - 1} className="rounded p-1 text-slate-400 hover:bg-white hover:text-slate-700 disabled:opacity-30" title="Move down">
-                                            <ChevronDown className="h-3.5 w-3.5" />
-                                        </button>
-                                        <button type="button" onClick={() => duplicateCard(i)} className="rounded p-1 text-slate-400 hover:bg-white hover:text-slate-700" title="Duplicate">
-                                            <Copy className="h-3.5 w-3.5" />
-                                        </button>
-                                        <button type="button" onClick={() => deleteCard(i)} disabled={cards.length <= 1} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-30" title="Delete">
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                        </button>
+                                        <div className="flex items-center">
+                                            <button type="button" onClick={() => moveCard(i, -1)} disabled={i === 0} className="rounded p-1 text-slate-400 hover:bg-white hover:text-slate-700 disabled:opacity-30" title="Move up">
+                                                <ChevronUp className="h-3.5 w-3.5" />
+                                            </button>
+                                            <button type="button" onClick={() => moveCard(i, 1)} disabled={i === cards.length - 1} className="rounded p-1 text-slate-400 hover:bg-white hover:text-slate-700 disabled:opacity-30" title="Move down">
+                                                <ChevronDown className="h-3.5 w-3.5" />
+                                            </button>
+                                            <button type="button" onClick={() => duplicateCard(i)} className="rounded p-1 text-slate-400 hover:bg-white hover:text-slate-700" title="Duplicate">
+                                                <Copy className="h-3.5 w-3.5" />
+                                            </button>
+                                            <button type="button" onClick={() => deleteCard(i)} disabled={cards.length <= 1} className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-30" title="Delete">
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })}
-                        <button
-                            type="button"
-                            onClick={addCard}
-                            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm font-bold text-slate-600 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <Plus className="h-4 w-4" />
-                            Add Card
-                        </button>
-                    </div>
+                                );
+                            })}
+                            <button
+                                type="button"
+                                onClick={addCard}
+                                className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 px-3 py-2 text-sm font-bold text-slate-600 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <Plus className="h-4 w-4" />
+                                Add Card
+                            </button>
+                        </div>
+                    </InspectorSubsection>
                 </InspectorSection>
 
                 <InspectorSection
@@ -504,7 +507,7 @@ export default function HeroSettingsPanel({
                 {cards.length > 1 && (
                     <InspectorSection
                         id="transition"
-                        title="Card Transition"
+                        title="Display: Card Transition"
                         isCollapsed={sectionState.isCollapsed('transition')}
                         onToggle={() => sectionState.toggle('transition')}
                     >
@@ -737,7 +740,7 @@ export default function HeroSettingsPanel({
                 {/* BACKGROUND — per active card */}
                 <InspectorSection
                     id="background"
-                    title={`Background — Card ${activeIndex + 1}`}
+                    title={`Style: Card ${activeIndex + 1} Background`}
                     isCollapsed={sectionState.isCollapsed('background')}
                     onToggle={() => sectionState.toggle('background')}
                 >

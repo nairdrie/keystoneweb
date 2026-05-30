@@ -85,6 +85,34 @@ export async function getTemplateComponent(templateId: string): Promise<Template
       const templateModule = await import('./master/SleekTemplate');
       return templateModule.SleekTemplate;
     }
+    if (n.includes('builder')) {
+      const templateModule = await import('./master/ClassicTemplate');
+      return templateModule.ClassicTemplate;
+    }
+    if (n.includes('commerce')) {
+      const templateModule = await import('./master/VividTemplate');
+      return templateModule.VividTemplate;
+    }
+    if (n.includes('foundation')) {
+      const templateModule = await import('./master/OrganicTemplate');
+      return templateModule.OrganicTemplate;
+    }
+    if (n.includes('wellness')) {
+      const templateModule = await import('./master/AiryTemplate');
+      return templateModule.AiryTemplate;
+    }
+    if (n.includes('estate') || n.includes('studio')) {
+      const templateModule = await import('./master/SleekTemplate');
+      return templateModule.SleekTemplate;
+    }
+    if (n.includes('learn')) {
+      const templateModule = await import('./master/LuxeTemplate');
+      return templateModule.LuxeTemplate;
+    }
+    if (n.includes('occasion')) {
+      const templateModule = await import('./master/VibrantTemplate');
+      return templateModule.VibrantTemplate;
+    }
 
     if (n.includes('bold') || n.includes('pro')) {
       const templateModule = await import('./master/ClassicProTemplate');
@@ -115,6 +143,8 @@ export function isTemplateRegistered(templateId: string): boolean {
     n.includes('classic') || n.includes('organic') || n.includes('sleek') || n.includes('vibrant') ||
     n.includes('atlas') || n.includes('editorial') || n.includes('booked') || n.includes('menu') ||
     n.includes('craft') || n.includes('retro') || n.includes('proof') || n.includes('gallery') ||
+    n.includes('builder') || n.includes('commerce') || n.includes('foundation') || n.includes('wellness') ||
+    n.includes('estate') || n.includes('studio') || n.includes('learn') || n.includes('occasion') ||
     n.includes('bold') || n.includes('pro') ||
     n.includes('elegant') || n.includes('modern') || n.includes('blue') ||
     n.includes('starter') || n.includes('minimal') || n.includes('white') || n.includes('clean')
@@ -123,14 +153,6 @@ export function isTemplateRegistered(templateId: string): boolean {
 
 export function getRegisteredTemplates(): string[] {
   return [
-    'luxe',
-    'vivid',
-    'airy',
-    'edge',
-    'classic',
-    'organic',
-    'sleek',
-    'vibrant',
     'atlas',
     'editorial',
     'booked',
@@ -139,5 +161,13 @@ export function getRegisteredTemplates(): string[] {
     'retro',
     'proof',
     'gallery',
+    'builder',
+    'commerce',
+    'foundation',
+    'wellness',
+    'estate',
+    'studio',
+    'learn',
+    'occasion',
   ];
 }

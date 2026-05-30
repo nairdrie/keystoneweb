@@ -3,19 +3,26 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import EditableImage from '../EditableImage';
 import EditableText from '../EditableText';
-import EditableButton from '../EditableButton';
+import EditableButton, { type ButtonIconData, type ButtonLinkData } from '../EditableButton';
 import BlockPretext from '../BlockPretext';
+import type { ImageSettings, UnsplashAttribution } from '../ImageEditorModal';
 import { useEditorContext } from '@/lib/editor-context';
 import { X, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react';
 import { resolvePaletteColor, readableTextColorForBackground } from '@/lib/palette-colors';
 import Reveal, { useStaggerSec } from '@/app/components/Reveal';
+import {
+    getGalleryFrameStyle,
+    getGalleryGapClass,
+    getGalleryTileClass,
+    getMediaAspectClass,
+} from '@/lib/block-style-options';
 
 interface GalleryBlockProps {
     id: string;
-    data: any;
+    data: Record<string, unknown>;
     isEditMode: boolean;
     palette: Record<string, string>;
-    updateContent: (key: string, value: any) => void;
+    updateContent: (key: string, value: unknown) => void;
 }
 
 export default function GalleryBlock({ id, data, isEditMode, palette, updateContent }: GalleryBlockProps) {
@@ -27,22 +34,26 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
     const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
 
     // Pack images: drop any falsy entries so removed slots don't leave gaps.
-    const rawImages: string[] = Array.isArray(data.images) ? data.images : [];
+    const rawImages: string[] = Array.isArray(data.images) ? data.images.filter((item): item is string => typeof item === 'string') : [];
     const images: string[] = rawImages.filter(Boolean);
 
-    const columns: number = data.columns || 3;
+    const columns = readNumber(data.columns, 3);
     const showLightboxNav: boolean = data.showLightboxNav !== false;
     const showLightboxThumbs: boolean = data.showLightboxThumbs !== false;
     const showSeeMore: boolean = data.showSeeMore === true;
     const autoScroll: boolean = data.autoScroll === true;
-    const autoScrollRows: number = Math.max(1, data.autoScrollRows || 2);
+    const autoScrollRows = Math.max(1, readNumber(data.autoScrollRows, 2));
+    const frameStyle = getGalleryFrameStyle(data.frameStyle);
+    const gapClass = getGalleryGapClass(frameStyle);
+    const tileFrameClass = getGalleryTileClass(frameStyle);
+    const imageAspectClass = getMediaAspectClass(data.mediaAspect, 'square');
 
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
     const [dragIndex, setDragIndex] = useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
     // Apply a set of updates as a batch when possible; otherwise fall back to per-key writes.
-    const applyUpdates = useCallback((updates: Record<string, any>) => {
+    const applyUpdates = useCallback((updates: Record<string, unknown>) => {
         if (context?.updateBlockDataBatch) {
             context.updateBlockDataBatch(id, updates);
             return;
@@ -53,7 +64,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
     // Build an updates map that reorders __settings / __attribution keys to follow
     // a new image ordering (so settings stay attached to the right image).
     const remapMetaUpdates = useCallback((newImagesLength: number, oldIndexFor: (newIndex: number) => number | null) => {
-        const updates: Record<string, any> = {};
+        const updates: Record<string, unknown> = {};
         const suffixes = ['__settings', '__attribution'];
         for (let newIdx = 0; newIdx < newImagesLength; newIdx++) {
             const oldIdx = oldIndexFor(newIdx);
@@ -78,7 +89,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
     // - URL key writes/replaces images[index]; empty string removes the slot entirely
     //   AND shifts all per-index __settings/__attribution data to follow.
     // - Settings/attribution writes are stored under their own qualified keys verbatim.
-    const handleImageSave = useCallback((index: number, key: string, value: any) => {
+    const handleImageSave = useCallback((index: number, key: string, value: unknown) => {
         const isUrlKey = key === `gallery_image_${index}`;
         if (!isUrlKey) {
             updateContent(key, value);
@@ -154,7 +165,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
         return (
             <Reveal key={`tile-${index}`} delay={(index % columns) * staggerSec}>
             <div
-                className={`relative group ${dragOverIndex === index && dragIndex !== null ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}
+                className={`relative group ${tileFrameClass} ${dragOverIndex === index && dragIndex !== null ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}
                 onDragOver={(e) => {
                     if (!isEditMode || dragIndex === null || isAddSlot) return;
                     e.preventDefault();
@@ -172,15 +183,15 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
             >
                 <EditableImage
                     contentKey={`gallery_image_${index}`}
-                    initialSettings={data[`gallery_image_${index}__settings`]}
-                    initialAttribution={data[`gallery_image_${index}__attribution`]}
+                    initialSettings={readImageSettings(data[`gallery_image_${index}__settings`])}
+                    initialAttribution={readUnsplashAttribution(data[`gallery_image_${index}__attribution`])}
                     imageUrl={imageUrl}
                     isEditMode={isEditMode}
                     onSave={(key, value) => handleImageSave(index, key, value)}
                     onUpload={context?.uploadImage}
-                    className="w-full aspect-square object-cover bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity"
+                    className={`w-full ${imageAspectClass} object-cover bg-gray-100 cursor-pointer hover:opacity-90 transition-opacity`}
                     enableInlineCropControls
-                    editorPreviewFrameClassName="w-full aspect-square"
+                    editorPreviewFrameClassName={`w-full ${imageAspectClass}`}
                     placeholder="+ Add image"
                 />
                 {isDraggable && imageUrl && (
@@ -246,7 +257,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                 <EditableText
                     as="h2"
                     contentKey="title"
-                    content={data.title}
+                    content={readString(data.title)}
                     defaultValue="Our Work"
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
@@ -256,7 +267,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                 <EditableText
                     as="p"
                     contentKey="subtitle"
-                    content={data.subtitle}
+                    content={readString(data.subtitle)}
                     defaultValue="Browse our portfolio of recent projects."
                     isEditMode={isEditMode}
                     onSave={(key, value) => updateContent(key, value)}
@@ -265,7 +276,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                 />
 
                 {autoScrollPreview ? (
-                    <div className="overflow-hidden flex flex-col gap-4">
+                    <div className={`overflow-hidden flex flex-col ${gapClass}`}>
                         <style>{`
                             @keyframes ks-gallery-scroll-${safeId} {
                                 from { transform: translateX(0); }
@@ -287,7 +298,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                             return (
                                 <div key={rIdx} className="overflow-hidden">
                                     <div
-                                        className={`flex gap-4 ks-gallery-row-${safeId}`}
+                                        className={`flex ${gapClass} ks-gallery-row-${safeId}`}
                                         style={{
                                             width: 'max-content',
                                             animationDuration: `${duration}s`,
@@ -301,7 +312,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                                                 <button
                                                     type="button"
                                                     key={`${rIdx}-${i}`}
-                                                    className="relative group w-56 h-56 sm:w-64 sm:h-64 shrink-0 cursor-pointer appearance-none border-0 bg-transparent p-0 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-900"
+                                                    className={`relative group w-56 sm:w-64 shrink-0 cursor-pointer appearance-none border-0 bg-transparent p-0 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-900 ${imageAspectClass} ${tileFrameClass}`}
                                                     onClick={() => setLightboxIndex(originalIdx >= 0 ? originalIdx : 0)}
                                                     aria-label={`Open gallery image ${(originalIdx >= 0 ? originalIdx : 0) + 1}`}
                                                 >
@@ -319,7 +330,7 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                         })}
                     </div>
                 ) : (
-                    <div className={`grid gap-4 ${colsClass}`}>
+                    <div className={`grid ${gapClass} ${colsClass}`}>
                         {isEditMode
                             ? Array.from({ length: editSlotCount }).map((_, index) => renderImageTile(index, { lightbox: false }))
                             : images.map((_, index) => renderImageTile(index, { lightbox: true }))
@@ -331,9 +342,9 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
                     <div className="flex justify-center mt-10">
                         <EditableButton
                             contentKey="seeMore"
-                            label={data.seeMore}
-                            linkData={data.seeMoreLink}
-                            iconData={data.seeMoreIcon}
+                            label={readString(data.seeMore)}
+                            linkData={readButtonLink(data.seeMoreLink)}
+                            iconData={readButtonIcon(data.seeMoreIcon)}
                             defaultLabel="See More"
                             isEditMode={isEditMode}
                             onSave={(key, value) => updateContent(key, value)}
@@ -413,4 +424,45 @@ export default function GalleryBlock({ id, data, isEditMode, palette, updateCont
             )}
         </section>
     );
+}
+
+function readImageSettings(value: unknown): ImageSettings | undefined {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+    return value as ImageSettings;
+}
+
+function readUnsplashAttribution(value: unknown): UnsplashAttribution | undefined {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+    const record = value as Record<string, unknown>;
+    if (
+        typeof record.photographerName === 'string' &&
+        typeof record.photographerUrl === 'string' &&
+        typeof record.unsplashUrl === 'string'
+    ) {
+        return {
+            photographerName: record.photographerName,
+            photographerUrl: record.photographerUrl,
+            unsplashUrl: record.unsplashUrl,
+        };
+    }
+    return undefined;
+}
+
+function readString(value: unknown, fallback = ''): string {
+    return typeof value === 'string' ? value : fallback;
+}
+
+function readNumber(value: unknown, fallback: number): number {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function readButtonLink(value: unknown): Partial<ButtonLinkData> | undefined {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+    return value as Partial<ButtonLinkData>;
+}
+
+function readButtonIcon(value: unknown): ButtonIconData | undefined {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+    return value as ButtonIconData;
 }

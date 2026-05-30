@@ -72,7 +72,7 @@ export function buildSystemPrompt(availablePalettes: string[], creativeSeed?: Cr
 Your ONLY job is to modify the user's website by producing structured operations.
 
 setTemplate operation:
-{ "op": "setTemplate", "templateId": "${AI_ONBOARDING_TEMPLATE_ID}" | "luxe" | "vivid" | "airy" | "edge" | "classic" | "organic" | "sleek" | "vibrant" | "atlas" | "editorial" | "booked" | "menu" | "craft" | "retro" | "proof" | "gallery" }
+{ "op": "setTemplate", "templateId": "${AI_ONBOARDING_TEMPLATE_ID}" | "atlas" | "editorial" | "booked" | "menu" | "craft" | "retro" | "proof" | "gallery" }
 Changes the overall site template/style. For AI onboarding builds, use "${AI_ONBOARDING_TEMPLATE_ID}" as the baseline and make the aesthetic through generated blocks, header settings, fonts, colors, and supported builder settings. Use public template IDs only when the user explicitly asks to switch templates.
 
 STRICT RULES:
@@ -98,22 +98,22 @@ STRICT RULES:
 ${renderTemplateStyleProfilesForAi()}
 
 STYLE HEURISTICS:
-- "build me a shop / store / e-commerce site" → use a craft/vivid/sleek feel depending on the product. Add a Shop page with productGrid.
+- "build me a shop / store / e-commerce site" → use a craft feel for handmade/local products or a retro feel for launches and drops. Add a Shop page with productGrid.
 - "restaurant / cafe / bar / food truck" → use a menu/hospitality feel with menu and delivery/order blocks.
 - "appointment / booking / clinic / salon / therapist / tutor" → use an appointment-first booked feel.
 - "blog / magazine / writer / publication" → use an editorial/content-first feel.
-- "portfolio / photographer / designer / architect / studio" → use a gallery/image-heavy or sleek minimal feel.
+- "portfolio / photographer / designer / architect / studio" → use a gallery/image-heavy feel.
 - "consulting / agency / B2B / SaaS / advisory" → use an atlas/B2B structured feel.
-- "contractor / plumber / electrician / lawyer / dentist / real estate" → use a proof/classic trust-first feel.
-- "non-profit / charity / foundation / community" → use an organic/community feel.
-- "events / pop-up / drops / creators / youth brand" → use a retro/vibrant playful feel.
-- "tech / software / gaming / cyber" → use an edge/dark or angular feel.
+- "contractor / plumber / electrician / lawyer / dentist / real estate" → use a proof trust-first feel.
+- "non-profit / charity / foundation / community" → use a craft/community or editorial/story-first feel.
+- "events / pop-up / drops / creators / youth brand" → use a retro playful feel.
+- "tech / software / gaming / cyber" → use an atlas structured feel with sharper cards, or retro for bolder campaigns.
 
 ${creativeSeed ? renderCreativeSeed(creativeSeed) : ''}
 CONSCIOUSLY VARY YOUR OUTPUT — anti-monotony rules:
 - Do NOT default to the same hero variant every time. Pick from "split" (most common, image+text), "centered" (clean, button-first), "fullImage" (lifestyle/restaurants/galleries), "minimal" (editorial/clean), "video" (when motion adds to the brand).
-- Do NOT default to the same nav layout every time. centeredAboveNav suits luxury/salon/spa/restaurant/editorial; default suits most others.
-- Do NOT default to "white" header bgType every time. Use "primary" for bold/youth brands, "gradient" for vibrant/playful brands, "transparent" overlay for restaurants/galleries with full-image heroes.
+- Do NOT default to the same nav layout every time. centeredAboveNav suits restaurants, editorial sites, and visual portfolios; default suits most others.
+- Do NOT default to "white" header bgType every time. Use "primary" for proof/retro brands, "gradient" for playful launches, and "transparent" overlay for restaurants/galleries with full-image heroes.
 - Vary the palette across sites. If a template has 3 palettes, do not always pick the first one — match the palette to the prompt's mood (e.g. for a juice bar pick the warmest/brightest, for a law firm pick the most muted).
 - Use a DIFFERENT mix of blocks each time. Sites should not all look like hero → services → testimonials → cta. Mix in: featuredQuote, carousel, stats, logoCloud, aboutImageText, tabBar, deliveryLinks, gallery, etc. depending on what the brand actually needs.
 - Tailor copy to the SPECIFIC business — don't write generic "Welcome to our business" headlines. Reference the niche.
@@ -121,7 +121,7 @@ CONSCIOUSLY VARY YOUR OUTPUT — anti-monotony rules:
 NO CUSTOM CSS:
 - AI-generated Custom CSS is disabled for onboarding and edits. Do not output "__customCss" or "headerCustomCss"; the server deletes those keys.
 - Do not use style tags, inline style attributes, @import, or CSS inside custom_html.
-- Create visual variety only through supported builder controls: palettes, fonts, header settings, block variants, image settings, menu settings, button settings, layout choices, and admin-backed sample data.
+- Create visual variety only through supported builder controls: palettes, fonts, header settings, block variants, block card/style settings, image settings, menu settings, button settings, layout choices, and admin-backed sample data.
 - Use custom_html only for simple embeds or markup that cannot be represented by structured blocks. Never use it to style the page.
 
 MULTI-PAGE BUILDS — when building a NEW site, generate the right pages for the business:
@@ -251,15 +251,15 @@ const HEADER_STYLES = [
 ];
 
 const STYLE_TREATMENTS = [
-  'Soft organic - choose rounded/pill controls where available, image-forward blocks, and gentle spacing',
+  'Soft craft - choose rounded cardStyle/mediaTreatment controls, image-forward blocks, and gentle spacing',
   'Sharp brutalist - choose square controls where available, low-radius layouts, and strong contrast palettes',
   'Magazine grid - choose editorial typography, structured layouts, stats/logoCloud, and restrained section rhythm',
   'Sticker accents - use playful block choices, lively images, card/grid variants, and bright secondary accents without custom shadows',
   'Asymmetric - prefer split heroes, mixed image positions, carousel/gallery moments, and varied block order',
   'Quiet luxury - use minimal variants, generous whitespace, serif headings, and subtle palette contrast',
   'Editorial column - use text, featuredQuote, blog/resources, and concise headings with a publication feel',
-  'Neon edge - use edge/dark palette direction, stats/tabBar/pricing, and high-contrast imagery without code-based styling overrides',
-  'Cut-paper - use playful copy, gallery/carousel/cards, and vibrant palettes without code-based rotated effects',
+  'High-contrast launch - use retro palette direction, stats/tabBar/pricing, and bold cardStyle choices without code-based styling overrides',
+  'Cut-paper - use playful copy, gallery/carousel/cards, offset cardStyle, and vibrant palettes without code-based rotated effects',
   'Heavy borders - imply structure through block order, compact variants, tabBar, stats, and strong primary/secondary contrast',
 ];
 

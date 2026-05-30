@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllTemplateMetadata, type TemplateMetadata } from '@/lib/db/template-queries';
 import {
-  ALL_TEMPLATE_STYLES,
+  PUBLIC_TEMPLATE_STYLES,
   getStructuralTemplatesForSelection,
   getTemplateStyleTag,
   isStructuralTemplateId,
@@ -32,24 +31,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch from database and append universal structural templates so every
-    // onboarding category can start from a layout-specific option.
-    const dbTemplates = await getAllTemplateMetadata({
-      category,
-      business_type: businessType,
+    // New template selection is code-first so the public catalog is the
+    // refreshed editable 16-template set. Legacy DB-backed rows remain readable
+    // by exact ID for existing sites, but are not promoted to new users here.
+    const structuralTemplates = getStructuralTemplatesForSelection().filter((template) => {
+      const categoryMatches = template.category === category || template.category === 'general';
+      // Public structural templates are all selectable for any business. The
+      // business_type tag describes the best fit, not a hard filter.
+      void businessType;
+      return categoryMatches;
     });
-    const structuralTemplates = getStructuralTemplatesForSelection();
     const structuralTemplateIds = new Set(structuralTemplates.map((template) => template.template_id));
 
-    const mergedById = new Map<string, TemplateMetadata>();
-    for (const template of [...dbTemplates, ...structuralTemplates]) {
-      mergedById.set(template.template_id, template);
-    }
-
-    const styleOrder = new Map<string, number>(ALL_TEMPLATE_STYLES.map((style, index) => [style, index]));
-    const templatesForSelection = Array.from(mergedById.values()).sort((a, b) => {
-      const aStyle = ALL_TEMPLATE_STYLES.find((style) => a.template_id.toLowerCase().includes(style));
-      const bStyle = ALL_TEMPLATE_STYLES.find((style) => b.template_id.toLowerCase().includes(style));
+    const styleOrder = new Map<string, number>(PUBLIC_TEMPLATE_STYLES.map((style, index) => [style, index]));
+    const templatesForSelection = structuralTemplates.sort((a, b) => {
+      const aStyle = PUBLIC_TEMPLATE_STYLES.find((style) => a.template_id.toLowerCase().includes(style));
+      const bStyle = PUBLIC_TEMPLATE_STYLES.find((style) => b.template_id.toLowerCase().includes(style));
       return (styleOrder.get(aStyle || '') ?? 999) - (styleOrder.get(bStyle || '') ?? 999);
     });
 
@@ -70,7 +67,7 @@ export async function GET(request: NextRequest) {
         name: shouldUseCategoryName ? formatTemplateNameForCategory(t.name, category) : t.name,
         category: t.category,
         tags,
-        imageUrl: getTemplatePreviewImage(t.template_id) || t.thumbnail_url || `/templates/luxe.png`,
+        imageUrl: getTemplatePreviewImage(t.template_id) || t.thumbnail_url || `/templates/atlas.png`,
       };
     });
 

@@ -14,6 +14,21 @@ import {
     type EstimateQuoteSettings,
     type QuoteCalculationResult,
 } from '@/lib/estimate-quote';
+import {
+    getCardInlineStyle,
+    getCardPaddingClass,
+    getCardStyleClass,
+    getSurfaceStyle,
+    getSurfaceTextColor,
+    getUniversalCardClassName,
+    getUniversalCardInlineStyle,
+    getUniversalCardPaddingClass,
+    getUniversalCardTextColor,
+    resolveCardPresetId,
+    resolveUniversalCardSettings,
+    shouldLockCardTextToSurface,
+    type ResolvedCardSettings,
+} from '@/lib/block-style-options';
 
 interface EstimateFormBlockProps {
     id: string;
@@ -63,6 +78,12 @@ export default function EstimateFormBlock({ id, data, isEditMode, palette }: Est
 
     const pPrimary = palette.primary || '#0f172a';
     const pSecondary = palette.secondary || '#2563eb';
+    const formCard = resolveFormCardStyle(
+        data,
+        palette,
+        pPrimary,
+        'rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-7',
+    );
     const steps = useMemo(
         () => settings.layoutMode === 'multi-step' ? (settings.steps || []).slice().sort((a, b) => a.order - b.order) : [],
         [settings],
@@ -247,7 +268,7 @@ export default function EstimateFormBlock({ id, data, isEditMode, palette }: Est
 
                 <div className={`mt-10 grid gap-6 ${showLiveEstimate ? 'lg:grid-cols-[minmax(0,1fr)_360px]' : 'mx-auto max-w-3xl'}`}>
                     <Reveal>
-                    <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-7">
+                    <form onSubmit={handleSubmit} className={formCard.className} style={formCard.style}>
                         <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }}>
                             <label htmlFor={`_hp_${id}`}>Leave this field blank</label>
                             <input
@@ -262,7 +283,12 @@ export default function EstimateFormBlock({ id, data, isEditMode, palette }: Est
                         </div>
 
                         {isMultiStep && (
-                            <StepHeader steps={steps} activeIndex={stepIndex} />
+                            <StepHeader
+                                steps={steps}
+                                activeIndex={stepIndex}
+                                textColor={formCard.textColor}
+                                mutedTextColor={formCard.mutedTextColor}
+                            />
                         )}
 
                         {error && (
@@ -287,6 +313,8 @@ export default function EstimateFormBlock({ id, data, isEditMode, palette }: Est
                                         key={field.id}
                                         field={field}
                                         value={quoteValues[field.id] ?? ''}
+                                        labelColor={formCard.textColor}
+                                        mutedTextColor={formCard.mutedTextColor}
                                         onChange={(value) => updateFieldValue(field, value)}
                                     />
                                 ))}
@@ -345,10 +373,22 @@ export default function EstimateFormBlock({ id, data, isEditMode, palette }: Est
     );
 }
 
-function FieldControl({ field, value, onChange }: { field: EstimateField; value: unknown; onChange: (value: unknown) => void }) {
+function FieldControl({
+    field,
+    value,
+    labelColor,
+    mutedTextColor,
+    onChange,
+}: {
+    field: EstimateField;
+    value: unknown;
+    labelColor: string;
+    mutedTextColor: string;
+    onChange: (value: unknown) => void;
+}) {
     const commonClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100';
     const label = (
-        <label className="block text-sm font-bold text-slate-800" htmlFor={field.id}>
+        <label className="block text-sm font-bold" htmlFor={field.id} style={{ color: labelColor }}>
             {field.label}{field.required ? <span className="text-red-500"> *</span> : null}
             {field.unit ? <span className="font-normal text-slate-400"> ({field.unit})</span> : null}
         </label>
@@ -358,7 +398,7 @@ function FieldControl({ field, value, onChange }: { field: EstimateField; value:
         return (
             <div className="space-y-1.5">
                 {label}
-                {field.description && <p className="text-xs leading-5 text-slate-500">{field.description}</p>}
+                {field.description && <p className="text-xs leading-5" style={{ color: mutedTextColor }}>{field.description}</p>}
                 <textarea
                     id={field.id}
                     value={String(value ?? '')}
@@ -376,7 +416,7 @@ function FieldControl({ field, value, onChange }: { field: EstimateField; value:
         return (
             <div className="space-y-1.5">
                 {label}
-                {field.description && <p className="text-xs leading-5 text-slate-500">{field.description}</p>}
+                {field.description && <p className="text-xs leading-5" style={{ color: mutedTextColor }}>{field.description}</p>}
                 <select
                     id={field.id}
                     value={String(value ?? '')}
@@ -396,7 +436,7 @@ function FieldControl({ field, value, onChange }: { field: EstimateField; value:
     if (field.type === 'radio') {
         return (
             <fieldset className="space-y-2">
-                <legend className="text-sm font-bold text-slate-800">
+                <legend className="text-sm font-bold" style={{ color: labelColor }}>
                     {field.label}{field.required ? <span className="text-red-500"> *</span> : null}
                 </legend>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -424,7 +464,7 @@ function FieldControl({ field, value, onChange }: { field: EstimateField; value:
             const values = Array.isArray(value) ? value.map(String) : [];
             return (
                 <fieldset className="space-y-2">
-                    <legend className="text-sm font-bold text-slate-800">
+                <legend className="text-sm font-bold" style={{ color: labelColor }}>
                         {field.label}{field.required ? <span className="text-red-500"> *</span> : null}
                     </legend>
                     <div className="grid gap-2 sm:grid-cols-2">
@@ -489,7 +529,7 @@ function FieldControl({ field, value, onChange }: { field: EstimateField; value:
     return (
         <div className="space-y-1.5">
             {label}
-            {field.description && <p className="text-xs leading-5 text-slate-500">{field.description}</p>}
+            {field.description && <p className="text-xs leading-5" style={{ color: mutedTextColor }}>{field.description}</p>}
             <input
                 id={field.id}
                 type={inputType}
@@ -505,7 +545,17 @@ function FieldControl({ field, value, onChange }: { field: EstimateField; value:
     );
 }
 
-function StepHeader({ steps, activeIndex }: { steps: NonNullable<EstimateQuoteSettings['steps']>; activeIndex: number }) {
+function StepHeader({
+    steps,
+    activeIndex,
+    textColor,
+    mutedTextColor,
+}: {
+    steps: NonNullable<EstimateQuoteSettings['steps']>;
+    activeIndex: number;
+    textColor: string;
+    mutedTextColor: string;
+}) {
     const active = steps[activeIndex];
     return (
         <div className="mb-6 border-b border-slate-100 pb-5">
@@ -514,9 +564,9 @@ function StepHeader({ steps, activeIndex }: { steps: NonNullable<EstimateQuoteSe
                     <div key={step.id} className={`h-2 flex-1 rounded-full ${index <= activeIndex ? 'bg-slate-900' : 'bg-slate-200'}`} />
                 ))}
             </div>
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Step {activeIndex + 1} of {steps.length}</p>
-            <h3 className="mt-1 text-xl font-bold text-slate-950">{active?.title}</h3>
-            {active?.description && <p className="mt-1 text-sm leading-6 text-slate-500">{active.description}</p>}
+            <p className="text-xs font-bold uppercase tracking-wide" style={{ color: mutedTextColor }}>Step {activeIndex + 1} of {steps.length}</p>
+            <h3 className="mt-1 text-xl font-bold" style={{ color: textColor }}>{active?.title}</h3>
+            {active?.description && <p className="mt-1 text-sm leading-6" style={{ color: mutedTextColor }}>{active.description}</p>}
         </div>
     );
 }
@@ -618,6 +668,59 @@ function ReviewPanel({ settings, values, result }: { settings: EstimateQuoteSett
             </div>
         </div>
     );
+}
+
+function resolveFormCardStyle(
+    data: Record<string, unknown>,
+    palette: Record<string, string>,
+    fallbackTextColor: string,
+    defaultClassName: string,
+) {
+    const hasOverride = hasFormCardDesignOverride(data);
+    if (!hasOverride) {
+        return {
+            className: defaultClassName,
+            style: undefined,
+            textColor: fallbackTextColor,
+            mutedTextColor: '#64748b',
+        };
+    }
+
+    const universalSettings = resolveUniversalCardSettings(data, { fallbackPreset: 'soft' });
+    if (universalSettings) {
+        const settings = normalizeFormCardSettings(universalSettings);
+        const textColor = getUniversalCardTextColor(settings, palette);
+        const mutedTextColor = shouldLockCardTextToSurface(settings.surface) ? textColor : '#64748b';
+        return {
+            className: `${getUniversalCardClassName(settings)} ${getUniversalCardPaddingClass(settings)}`,
+            style: getUniversalCardInlineStyle(settings, palette),
+            textColor,
+            mutedTextColor,
+        };
+    }
+
+    const cardStyle = resolveCardPresetId(data, 'soft');
+    const surfaceStyle = getSurfaceStyle(data.surfaceStyle, cardStyle);
+    const textColor = getSurfaceTextColor(surfaceStyle, palette);
+    const mutedTextColor = shouldLockCardTextToSurface(surfaceStyle) ? textColor : '#64748b';
+    return {
+        className: `${getCardStyleClass(cardStyle)} ${getCardPaddingClass(cardStyle)}`,
+        style: getCardInlineStyle(cardStyle, surfaceStyle, palette),
+        textColor,
+        mutedTextColor,
+    };
+}
+
+function normalizeFormCardSettings(settings: ResolvedCardSettings): ResolvedCardSettings {
+    if (settings.mediaLayout !== 'split' && settings.mediaLayout !== 'fullBleed') return settings;
+    return { ...settings, mediaLayout: 'stacked' };
+}
+
+function hasFormCardDesignOverride(data: Record<string, unknown>): boolean {
+    if (data.cardSettings && typeof data.cardSettings === 'object' && !Array.isArray(data.cardSettings)) {
+        return Object.keys(data.cardSettings).length > 0;
+    }
+    return typeof data.cardStyle === 'string' && data.cardStyle.trim() !== '';
 }
 
 function buildInitialValues(settings: EstimateQuoteSettings): Record<string, unknown> {

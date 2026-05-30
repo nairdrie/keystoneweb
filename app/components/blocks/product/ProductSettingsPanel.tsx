@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Crown, LayoutGrid, Rows, Columns, ListOrdered } from 'lucide-react';
 import { useEditorContext } from '@/lib/editor-context';
 import BlockSettingsPanel from '../BlockSettingsPanel';
+import LayoutOptionTiles from '../LayoutOptionTiles';
 import KeyframeEditor, { inferFieldNames } from '../KeyframeEditor';
 import {
     InspectorSection,
@@ -282,29 +283,12 @@ export default function ProductSettingsPanel({
                 onToggle={() => sectionState.toggle('block-layout')}
             >
                 <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-2">
-                        {VARIANTS.map(({ id, label, Icon, description }) => {
-                            const isActive = variant === id;
-                            return (
-                                <button
-                                    key={id}
-                                    type="button"
-                                    onClick={() => setVariant(id)}
-                                    aria-pressed={isActive}
-                                    className={`flex flex-col items-start gap-1 rounded-xl border px-3 py-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                        isActive
-                                            ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
-                                            : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                                    }`}
-                                    title={description}
-                                >
-                                    <Icon className="h-4 w-4" />
-                                    <span className="text-sm font-bold">{label}</span>
-                                    <span className="text-[11px] leading-snug text-slate-500">{description}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
+                    <LayoutOptionTiles
+                        blockType="productGrid"
+                        value={variant}
+                        options={VARIANTS}
+                        onChange={setVariant}
+                    />
 
                     <ResponsiveColumnsControl
                         value={sectionSettings.layout.columns}

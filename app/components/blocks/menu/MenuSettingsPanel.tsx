@@ -486,7 +486,7 @@ export default function MenuSettingsPanel({
         >
             <InspectorSection
                 id="content-source"
-                title="Content Source"
+                title="Content: Source"
                 isCollapsed={sectionState.isCollapsed('content-source')}
                 onToggle={() => sectionState.toggle('content-source')}
             >
@@ -567,7 +567,7 @@ export default function MenuSettingsPanel({
 
             <InspectorSection
                 id="preview"
-                title="Preview"
+                title="Display: Preview"
                 isCollapsed={sectionState.isCollapsed('preview')}
                 onToggle={() => sectionState.toggle('preview')}
             >
@@ -607,7 +607,7 @@ export default function MenuSettingsPanel({
 
             <InspectorSection
                 id="menu-icons"
-                title="Menu Icons"
+                title="Style: Menu Icons"
                 isCollapsed={sectionState.isCollapsed('menu-icons')}
                 onToggle={() => sectionState.toggle('menu-icons')}
             >
@@ -730,7 +730,7 @@ export default function MenuSettingsPanel({
 
             <InspectorSection
                 id="item-detail-popup"
-                title="Item Detail Popup"
+                title="Display: Item Detail Popup"
                 isCollapsed={sectionState.isCollapsed('item-detail-popup')}
                 onToggle={() => sectionState.toggle('item-detail-popup')}
             >
@@ -855,7 +855,7 @@ export default function MenuSettingsPanel({
 
             <InspectorSection
                 id="category-style"
-                title="Category Style"
+                title="Style: Categories"
                 isCollapsed={sectionState.isCollapsed('category-style')}
                 onToggle={() => sectionState.toggle('category-style')}
             >

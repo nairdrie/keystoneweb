@@ -548,7 +548,7 @@ export default function HeaderSettingsPanel({
                 {/* ── MENU ITEMS ── */}
                 <InspectorSection
                     id="menu-items"
-                    title="Menu Items"
+                    title="Content: Menu Items"
                     isCollapsed={sectionState.isCollapsed('menu-items')}
                     onToggle={() => sectionState.toggle('menu-items')}
                 >
@@ -596,7 +596,7 @@ export default function HeaderSettingsPanel({
                 {/* ── RIGHT-SIDE ELEMENT ── */}
                 <InspectorSection
                     id="right-element"
-                    title="Right-Side Element"
+                    title="Content: Right-Side Element"
                     isCollapsed={sectionState.isCollapsed('right-element')}
                     onToggle={() => sectionState.toggle('right-element')}
                 >
@@ -656,7 +656,7 @@ export default function HeaderSettingsPanel({
                 {hasMembershipBlock && (
                     <InspectorSection
                         id="membership"
-                        title="Membership"
+                        title="Integrations: Membership"
                         isCollapsed={sectionState.isCollapsed('membership')}
                         onToggle={() => sectionState.toggle('membership')}
                     >
@@ -694,7 +694,7 @@ export default function HeaderSettingsPanel({
                 {hasProductBlock && (
                     <InspectorSection
                         id="product-search"
-                        title="Product Search"
+                        title="Integrations: Product Search"
                         isCollapsed={sectionState.isCollapsed('product-search')}
                         onToggle={() => sectionState.toggle('product-search')}
                     >
@@ -739,7 +739,7 @@ export default function HeaderSettingsPanel({
                 {/* ── ELEMENT ORDER ── */}
                 <InspectorSection
                     id="element-order"
-                    title="Element Order"
+                    title="Layout: Element Order"
                     isCollapsed={sectionState.isCollapsed('element-order')}
                     onToggle={() => sectionState.toggle('element-order')}
                 >
@@ -771,7 +771,7 @@ export default function HeaderSettingsPanel({
                 {/* ── SECONDARY NAV BAR ── */}
                 <InspectorSection
                     id="secondary-bar"
-                    title="Secondary Nav Bar"
+                    title="Display: Secondary Nav Bar"
                     isCollapsed={sectionState.isCollapsed('secondary-bar')}
                     onToggle={() => sectionState.toggle('secondary-bar')}
                 >
@@ -838,7 +838,7 @@ export default function HeaderSettingsPanel({
                 {/* ── ANNOUNCEMENT BANNER ── */}
                 <InspectorSection
                     id="banner"
-                    title="Announcement Banner"
+                    title="Content: Announcement Banner"
                     isCollapsed={sectionState.isCollapsed('banner')}
                     onToggle={() => sectionState.toggle('banner')}
                 >
@@ -908,7 +908,7 @@ export default function HeaderSettingsPanel({
                 {/* ── BACKGROUND ── */}
                 <InspectorSection
                     id="background"
-                    title="Background"
+                    title="Style: Background"
                     isCollapsed={sectionState.isCollapsed('background')}
                     onToggle={() => sectionState.toggle('background')}
                 >
@@ -1061,7 +1061,7 @@ export default function HeaderSettingsPanel({
                 {/* ── TYPOGRAPHY ── */}
                 <InspectorSection
                     id="typography"
-                    title="Typography"
+                    title="Style: Typography"
                     isCollapsed={sectionState.isCollapsed('typography')}
                     onToggle={() => sectionState.toggle('typography')}
                 >

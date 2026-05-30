@@ -7,13 +7,32 @@ import { ChevronLeft, ChevronRight, Plus, Star } from 'lucide-react';
 import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import InlineCardControls, { reorderItems } from './InlineCardControls';
+import {
+    SPACING_DENSITY_OPTIONS,
+    getCardInlineStyle,
+    getCardPaddingClass,
+    getCardPresetShadowPaintBuffer,
+    getCardShadowPaintBuffer,
+    getCardShadowSafeContainerStyle,
+    getCardStyleClass,
+    getSurfaceStyle,
+    getSurfaceTextColor,
+    getUniversalCardClassName,
+    getUniversalCardInlineStyle,
+    getUniversalCardPaddingClass,
+    getUniversalCardTextColor,
+    getUniversalCardTextPaddingStyle,
+    readStyleOption,
+    resolveCardPresetId,
+    resolveUniversalCardSettings,
+} from '@/lib/block-style-options';
 
 interface TestimonialsBlockProps {
     id: string;
-    data: any;
+    data: Record<string, unknown>;
     isEditMode: boolean;
     palette: Record<string, string>;
-    updateContent: (key: string, value: any) => void;
+    updateContent: (key: string, value: unknown) => void;
 }
 
 interface TestimonialItem {
@@ -31,6 +50,23 @@ const DEFAULT_TESTIMONIALS: TestimonialItem[] = [
 
 const TESTIMONIAL_CAROUSEL_PER_PAGE = 3;
 
+function normalizeTestimonialItems(value: unknown): TestimonialItem[] | null {
+    if (!Array.isArray(value)) return null;
+    const items = value
+        .map((item): TestimonialItem | null => {
+            if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+            const record = item as Record<string, unknown>;
+            return {
+                name: typeof record.name === 'string' ? record.name : 'Client',
+                role: typeof record.role === 'string' ? record.role : 'Customer',
+                quote: typeof record.quote === 'string' ? record.quote : 'Great service and outstanding results!',
+                rating: Number.isFinite(Number(record.rating)) ? Math.max(1, Math.min(5, Number(record.rating))) : 5,
+            };
+        })
+        .filter((item): item is TestimonialItem => Boolean(item));
+    return items.length ? items : null;
+}
+
 export default function TestimonialsBlock({ id, data, isEditMode, palette, updateContent }: TestimonialsBlockProps) {
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#dc2626';
@@ -39,7 +75,34 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
     const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
 
     const variant = data.variant || 'cards'; // 'cards' | 'scroll' | 'single'
-    const items: TestimonialItem[] = Array.isArray(data.items) && data.items.length ? data.items : DEFAULT_TESTIMONIALS;
+    const items: TestimonialItem[] = normalizeTestimonialItems(data.items) || DEFAULT_TESTIMONIALS;
+    const universalCardSettings = resolveUniversalCardSettings(data, {
+        fallbackPreset: 'soft',
+        fallbackTextAlign: 'left',
+    });
+    const cardStyle = resolveCardPresetId(data, 'soft');
+    const surfaceStyle = getSurfaceStyle(data.surfaceStyle, cardStyle);
+    const spacingDensity = readStyleOption(data.spacingDensity, SPACING_DENSITY_OPTIONS, 'standard');
+    const activeSurfaceStyle = universalCardSettings?.surface || surfaceStyle;
+    const cardTextColor = universalCardSettings ? getUniversalCardTextColor(universalCardSettings, palette) : getSurfaceTextColor(surfaceStyle, palette);
+    const isFilledCardSurface = activeSurfaceStyle === 'primary' || activeSurfaceStyle === 'secondary' || activeSurfaceStyle === 'gradient';
+    const cardMutedTextColor = cardTextColor;
+    const quoteMarkColor = isFilledCardSurface ? cardTextColor : pSecondary;
+    const quoteMarkOpacity = isFilledCardSurface ? 0.38 : 0.2;
+    const cardClassName = universalCardSettings
+        ? `${getUniversalCardClassName(universalCardSettings)} ${getUniversalCardPaddingClass(universalCardSettings)} transition-[border-color,box-shadow,opacity,transform] relative group/card`
+        : `${getCardStyleClass(cardStyle)} ${getCardPaddingClass(cardStyle, spacingDensity)} transition-[border-color,box-shadow,opacity,transform] relative group/card`;
+    const cardInlineStyle = universalCardSettings
+        ? {
+            ...getUniversalCardInlineStyle(universalCardSettings, palette),
+            ...(getUniversalCardTextPaddingStyle(universalCardSettings) || {}),
+        }
+        : getCardInlineStyle(cardStyle, surfaceStyle, palette);
+    const cardShadowBuffer = universalCardSettings
+        ? getCardShadowPaintBuffer(universalCardSettings)
+        : getCardPresetShadowPaintBuffer(cardStyle);
+    const cardShadowSafeStyle = getCardShadowSafeContainerStyle(cardShadowBuffer);
+    const clippedCardShadowSafeStyle = getCardShadowSafeContainerStyle(cardShadowBuffer, 'hidden');
     const [showAllTestimonials, setShowAllTestimonials] = React.useState(false);
     const [testimonialScrollIndex, setTestimonialScrollIndex] = React.useState(0);
     const [isLoopResetting, setIsLoopResetting] = React.useState(false);
@@ -141,13 +204,13 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
 
     const handleRemoveItem = (index: number) => {
         if (items.length <= 1) return;
-        const nextItems = items.filter((_: any, i: number) => i !== index);
+        const nextItems = items.filter((_, i) => i !== index);
         updateContent('items', nextItems);
         setTestimonialScrollIndex((current) => Math.min(current, Math.max(0, nextItems.length - carouselPerPage)));
     };
 
     const handleUpdateItem = (index: number, field: string, value: string) => {
-        const newItems = items.map((item, i: number) =>
+        const newItems = items.map((item, i) =>
             i === index ? { ...item, [field]: value } : item
         );
         updateContent('items', newItems);
@@ -224,9 +287,10 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
         return (
         <Reveal
             key={index}
-            className={`bg-white rounded-2xl p-8 shadow-sm border hover:shadow-lg transition-[border-color,box-shadow,opacity,transform] relative group/card ${
+            className={`${cardClassName} ${
                 isDragTarget ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-100'
             } ${isDragging && !isClone ? 'scale-[0.99] opacity-60' : ''} ${extraClassName}`}
+            style={cardInlineStyle}
             onDragOver={(event) => {
                 if (!isEditMode || isClone || draggedIndex === null) return;
                 event.preventDefault();
@@ -257,10 +321,10 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                     onRemove={() => handleRemoveItem(index)}
                 />
             )}
-            <div className="text-4xl leading-none mb-3 opacity-20" style={{ color: pSecondary }}>"</div>
+            <div className="text-4xl leading-none mb-3" style={{ color: quoteMarkColor, opacity: quoteMarkOpacity }}>&ldquo;</div>
             {renderStars(item.rating || 5)}
             {isClone ? (
-                <p className="leading-relaxed mb-6" style={{ color: pPrimary, opacity: 0.7 }}>{quote}</p>
+                <p className="leading-relaxed mb-6" style={{ color: cardMutedTextColor, opacity: 0.7 }}>{quote}</p>
             ) : (
                 <EditableText
                     as="p"
@@ -270,14 +334,14 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                     isEditMode={isEditMode}
                     onSave={(_key, value) => handleUpdateItem(index, 'quote', value)}
                     className="leading-relaxed mb-6"
-                    style={{ color: pPrimary, opacity: 0.7 }}
+                    style={{ color: cardMutedTextColor, opacity: 0.7 }}
                 />
             )}
-            <div className="border-t border-gray-100 pt-4">
+            <div className="border-t pt-4" style={{ borderColor: isFilledCardSurface ? 'rgba(255,255,255,0.22)' : '#f3f4f6' }}>
                 {isClone ? (
                     <>
-                        <p className="font-bold" style={{ color: pPrimary }}>{name}</p>
-                        <p className="text-sm" style={{ color: pPrimary, opacity: 0.6 }}>{role}</p>
+                        <p className="font-bold" style={{ color: cardTextColor }}>{name}</p>
+                        <p className="text-sm" style={{ color: cardMutedTextColor, opacity: 0.6 }}>{role}</p>
                     </>
                 ) : (
                     <>
@@ -289,7 +353,7 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                             isEditMode={isEditMode}
                             onSave={(_key, value) => handleUpdateItem(index, 'name', value)}
                             className="font-bold"
-                            style={{ color: pPrimary }}
+                            style={{ color: cardTextColor }}
                         />
                         <EditableText
                             as="p"
@@ -299,7 +363,7 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                             isEditMode={isEditMode}
                             onSave={(_key, value) => handleUpdateItem(index, 'role', value)}
                             className="text-sm"
-                            style={{ color: pPrimary, opacity: 0.6 }}
+                            style={{ color: cardMutedTextColor, opacity: 0.6 }}
                         />
                     </>
                 )}
@@ -324,7 +388,7 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                         <EditableText
                             as="h2"
                             contentKey="title"
-                            content={data.title}
+                            content={readString(data.title)}
                             defaultValue="What Our Clients Say"
                             isEditMode={isEditMode}
                             onSave={(key, value) => updateContent(key, value)}
@@ -334,7 +398,7 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                     </Reveal>
                     <div className="relative">
                         <Reveal>
-                            <div className="text-6xl leading-none mb-4" style={{ color: pSecondary }}>"</div>
+                            <div className="text-6xl leading-none mb-4" style={{ color: pSecondary }}>&ldquo;</div>
                         </Reveal>
                         <Reveal>
                             <EditableText
@@ -397,7 +461,7 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                     <EditableText
                         as="h2"
                         contentKey="title"
-                        content={data.title}
+                        content={readString(data.title)}
                         defaultValue="What Our Clients Say"
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
@@ -409,7 +473,7 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                     <EditableText
                         as="p"
                         contentKey="subtitle"
-                        content={data.subtitle}
+                        content={readString(data.subtitle)}
                         defaultValue="Don't just take our word for it — hear from our satisfied customers."
                         isEditMode={isEditMode}
                         onSave={(key, value) => updateContent(key, value)}
@@ -420,11 +484,11 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
 
                 {isScrollLayout ? (
                     <>
-                        <div className="space-y-6 md:hidden">
+                        <div className="space-y-6 md:hidden" style={cardShadowSafeStyle}>
                             {testimonialEntries.map(({ item, index }) => renderTestimonialCard(item, index))}
                         </div>
 
-                        <div className="hidden overflow-hidden md:block">
+                        <div className="hidden md:block" style={clippedCardShadowSafeStyle}>
                             {useInfiniteScroll ? (
                                 <>
                                     <style>{`
@@ -489,8 +553,10 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
                         )}
                     </>
                 ) : (
-                    <div className={`grid gap-8 ${visibleEntries.length <= 2 ? 'md:grid-cols-2 max-w-4xl mx-auto' : 'md:grid-cols-3'}`}>
-                        {visibleEntries.map(({ item, index }) => renderTestimonialCard(item, index))}
+                    <div style={cardShadowSafeStyle}>
+                        <div className={`ks-layout-grid grid gap-8 ${visibleEntries.length <= 2 ? 'md:grid-cols-2 max-w-4xl mx-auto' : 'md:grid-cols-3'}`}>
+                            {visibleEntries.map(({ item, index }) => renderTestimonialCard(item, index))}
+                        </div>
                     </div>
                 )}
 
@@ -519,4 +585,8 @@ export default function TestimonialsBlock({ id, data, isEditMode, palette, updat
             </div>
         </section>
     );
+}
+
+function readString(value: unknown, fallback = ''): string {
+    return typeof value === 'string' ? value : fallback;
 }

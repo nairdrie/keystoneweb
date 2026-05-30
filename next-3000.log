@@ -1,0 +1,965 @@
+
+> keystoneweb@0.2.0 dev
+> next dev
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://10.5.0.2:3000
+- Environments: .env.local
+
+✓ Starting...
+Creating turbopack project { dir: 'C:\\Users\\Lugia\\DEV\\keystoneweb', testMode: true }
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+✓ Ready in 2s
+[Middleware] Incoming: localhost:3000/onboarding
+[Middleware] Incoming: localhost:3000/design
+ GET /onboarding?businessType=services 200 in 3.1s (compile: 2.0s, proxy.ts: 431ms, render: 710ms)
+ GET /design?siteId=9111e22f-6746-43c2-884e-927acabd340a&pageId=b4b0a404-bb6a-425f-8104-86c6863b075a 200 in 3.0s (compile: 2.4s, proxy.ts: 327ms, render: 352ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/ai/builder
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/user/subscription 200 in 610ms (compile: 128ms, proxy.ts: 106ms, render: 376ms)
+ GET /api/user/sites 200 in 363ms (compile: 37ms, proxy.ts: 150ms, render: 176ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/ai/builder 200 in 709ms (compile: 105ms, proxy.ts: 246ms, render: 359ms)
+ GET /api/user/subscription 200 in 182ms (compile: 4ms, proxy.ts: 90ms, render: 88ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/sites?id=9111e22f-6746-43c2-884e-927acabd340a 200 in 545ms (compile: 94ms, proxy.ts: 228ms, render: 223ms)
+[Middleware] Incoming: localhost:3000/api/pages
+ GET /api/user/subscription 200 in 203ms (compile: 4ms, proxy.ts: 79ms, render: 121ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/pages?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 342ms (compile: 39ms, proxy.ts: 78ms, render: 224ms)
+ GET /api/user/subscription 200 in 191ms (compile: 3ms, proxy.ts: 85ms, render: 102ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/membership/me
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/user/sites 200 in 166ms (compile: 4ms, proxy.ts: 75ms, render: 87ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/membership/me 200 in 219ms (compile: 64ms, proxy.ts: 150ms, render: 5ms)
+[Middleware] Incoming: localhost:3000/api/membership/me
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 356ms (compile: 151ms, proxy.ts: 148ms, render: 57ms)
+ GET /api/membership/me 200 in 210ms (compile: 5ms, proxy.ts: 201ms, render: 4ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/user/sites 200 in 344ms (compile: 10ms, proxy.ts: 230ms, render: 104ms)
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 141ms (compile: 10ms, proxy.ts: 75ms, render: 56ms)
+[Middleware] Incoming: localhost:3000/card-style-lab
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /card-style-lab 200 in 148ms (compile: 53ms, proxy.ts: 4ms, render: 91ms)
+[Middleware] Incoming: localhost:3000/api/templates
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/templates?businessType=services&category=general&limit=30 200 in 56ms (compile: 43ms, proxy.ts: 6ms, render: 6ms)
+[Middleware] Incoming: localhost:3000/api/templates
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/templates?businessType=products&category=general&limit=30 200 in 11ms (compile: 3ms, proxy.ts: 4ms, render: 4ms)
+[Middleware] Incoming: localhost:3000/api/templates
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/templates?businessType=portfolio&category=general&limit=30 200 in 10ms (compile: 2ms, proxy.ts: 4ms, render: 4ms)
+[Middleware] Incoming: localhost:3000/api/templates
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/templates?businessType=nonprofit&category=general&limit=30 200 in 9ms (compile: 2ms, proxy.ts: 3ms, render: 4ms)
+[Middleware] Incoming: localhost:3000/api/templates
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/templates?businessType=other&category=general&limit=30 200 in 10ms (compile: 2ms, proxy.ts: 4ms, render: 4ms)
+[Middleware] Incoming: localhost:3000/api/templates
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/templates?businessType=services&category=general&limit=30 200 in 79ms (compile: 65ms, proxy.ts: 4ms, render: 10ms)
+[Middleware] Incoming: localhost:3000/api/templates
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/templates?businessType=products&category=general&limit=30 200 in 14ms (compile: 3ms, proxy.ts: 6ms, render: 5ms)
+[Middleware] Incoming: localhost:3000/api/templates
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/templates?businessType=portfolio&category=general&limit=30 200 in 11ms (compile: 3ms, proxy.ts: 5ms, render: 4ms)
+[Middleware] Incoming: localhost:3000/api/templates
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/templates?businessType=nonprofit&category=general&limit=30 200 in 10ms (compile: 2ms, proxy.ts: 4ms, render: 5ms)
+[Middleware] Incoming: localhost:3000/api/templates
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /api/templates?businessType=other&category=general&limit=30 200 in 10ms (compile: 2ms, proxy.ts: 4ms, render: 3ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/subscription 200 in 462ms (compile: 5ms, proxy.ts: 322ms, render: 135ms)
+ GET /api/user/sites 200 in 470ms (compile: 9ms, proxy.ts: 326ms, render: 135ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 159ms (compile: 9ms, proxy.ts: 94ms, render: 57ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 180ms (compile: 9ms, proxy.ts: 89ms, render: 82ms)
+✓ Compiled in 594ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[Middleware] Incoming: localhost:3000/design
+✓ Compiled in 561ms
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/ai/builder
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/user/subscription 200 in 908ms (compile: 435ms, proxy.ts: 288ms, render: 185ms)
+ GET /api/ai/builder 200 in 910ms (compile: 4ms, proxy.ts: 259ms, render: 648ms)
+ GET /api/sites?id=9111e22f-6746-43c2-884e-927acabd340a 200 in 705ms (compile: 3ms, proxy.ts: 555ms, render: 147ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /design?siteId=9111e22f-6746-43c2-884e-927acabd340a&pageId=b4b0a404-bb6a-425f-8104-86c6863b075a 200 in 937ms (compile: 205ms, proxy.ts: 298ms, render: 434ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/ai/builder
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/user/subscription 200 in 269ms (compile: 3ms, proxy.ts: 150ms, render: 115ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/ai/builder 200 in 405ms (compile: 3ms, proxy.ts: 87ms, render: 316ms)
+ GET /api/user/subscription 200 in 203ms (compile: 2ms, proxy.ts: 97ms, render: 103ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/sites?id=9111e22f-6746-43c2-884e-927acabd340a 200 in 418ms (compile: 3ms, proxy.ts: 81ms, render: 334ms)
+[Middleware] Incoming: localhost:3000/api/pages
+ GET /api/user/subscription 200 in 171ms (compile: 6ms, proxy.ts: 78ms, render: 87ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/pages?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 311ms (compile: 3ms, proxy.ts: 92ms, render: 216ms)
+ GET /api/user/subscription 200 in 186ms (compile: 3ms, proxy.ts: 89ms, render: 94ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/membership/me
+ GET /api/membership/me 200 in 74ms (compile: 2ms, proxy.ts: 69ms, render: 3ms)
+[Middleware] Incoming: localhost:3000/api/membership/me
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/membership/me 200 in 98ms (compile: 2ms, proxy.ts: 93ms, render: 4ms)
+ GET /api/user/sites 200 in 190ms (compile: 3ms, proxy.ts: 94ms, render: 92ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 148ms (compile: 9ms, proxy.ts: 87ms, render: 52ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 157ms (compile: 10ms, proxy.ts: 82ms, render: 65ms)
+ GET /api/user/sites 200 in 213ms (compile: 2ms, proxy.ts: 99ms, render: 111ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/subscription 200 in 332ms (compile: 4ms, proxy.ts: 207ms, render: 121ms)
+ GET /api/user/sites 200 in 347ms (compile: 6ms, proxy.ts: 217ms, render: 124ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 262ms (compile: 12ms, proxy.ts: 163ms, render: 87ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 193ms (compile: 9ms, proxy.ts: 96ms, render: 88ms)
+✓ Compiled in 572ms
+✓ Compiled in 565ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[Middleware] Incoming: localhost:3000/design
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/ai/builder
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/user/subscription 200 in 847ms (compile: 8ms, proxy.ts: 212ms, render: 628ms)
+ GET /api/ai/builder 200 in 847ms (compile: 3ms, proxy.ts: 191ms, render: 653ms)
+ GET /api/sites?id=9111e22f-6746-43c2-884e-927acabd340a 200 in 692ms (compile: 11ms, proxy.ts: 567ms, render: 114ms)
+ GET /design?siteId=9111e22f-6746-43c2-884e-927acabd340a&pageId=b4b0a404-bb6a-425f-8104-86c6863b075a 200 in 863ms (compile: 216ms, proxy.ts: 223ms, render: 424ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/ai/builder
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/user/subscription 200 in 264ms (compile: 3ms, proxy.ts: 146ms, render: 114ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/sites?id=9111e22f-6746-43c2-884e-927acabd340a 200 in 260ms (compile: 3ms, proxy.ts: 80ms, render: 177ms)
+[Middleware] Incoming: localhost:3000/api/pages
+ GET /api/ai/builder 200 in 437ms (compile: 2ms, proxy.ts: 87ms, render: 348ms)
+ GET /api/user/subscription 200 in 177ms (compile: 4ms, proxy.ts: 92ms, render: 82ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/subscription 200 in 172ms (compile: 3ms, proxy.ts: 83ms, render: 86ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/pages?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 336ms (compile: 3ms, proxy.ts: 84ms, render: 249ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/membership/me
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/membership/me 200 in 93ms (compile: 4ms, proxy.ts: 87ms, render: 3ms)
+ GET /api/user/subscription 200 in 193ms (compile: 4ms, proxy.ts: 89ms, render: 99ms)
+[Middleware] Incoming: localhost:3000/api/membership/me
+ GET /api/user/sites 200 in 165ms (compile: 4ms, proxy.ts: 76ms, render: 85ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/membership/me 200 in 84ms (compile: 5ms, proxy.ts: 76ms, render: 3ms)
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 156ms (compile: 15ms, proxy.ts: 94ms, render: 47ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/user/sites 200 in 195ms (compile: 2ms, proxy.ts: 92ms, render: 100ms)
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 143ms (compile: 7ms, proxy.ts: 78ms, render: 59ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 155ms (compile: 7ms, proxy.ts: 78ms, render: 70ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 141ms (compile: 7ms, proxy.ts: 77ms, render: 57ms)
+✓ Compiled in 612ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[Middleware] Incoming: localhost:3000/design
+[Middleware] Incoming: localhost:3000/api/user/subscription
+✓ Compiled in 555ms
+[Middleware] Incoming: localhost:3000/api/ai/builder
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/ai/builder 200 in 277ms (compile: 20ms, proxy.ts: 179ms, render: 79ms)
+ GET /api/user/subscription 200 in 295ms (compile: 23ms, proxy.ts: 197ms, render: 75ms)
+ GET /api/sites?id=9111e22f-6746-43c2-884e-927acabd340a 200 in 238ms (compile: 19ms, proxy.ts: 203ms, render: 16ms)
+ GET /design?siteId=9111e22f-6746-43c2-884e-927acabd340a&pageId=b4b0a404-bb6a-425f-8104-86c6863b075a 200 in 309ms (compile: 6ms, proxy.ts: 153ms, render: 150ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/ai/builder
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/user/subscription 200 in 174ms (compile: 3ms, proxy.ts: 80ms, render: 91ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/sites?id=9111e22f-6746-43c2-884e-927acabd340a 200 in 316ms (compile: 3ms, proxy.ts: 87ms, render: 227ms)
+[Middleware] Incoming: localhost:3000/api/pages
+ GET /api/user/subscription 200 in 211ms (compile: 3ms, proxy.ts: 109ms, render: 99ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/ai/builder 200 in 456ms (compile: 4ms, proxy.ts: 151ms, render: 302ms)
+ GET /api/user/subscription 200 in 170ms (compile: 5ms, proxy.ts: 82ms, render: 83ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/pages?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 316ms (compile: 3ms, proxy.ts: 86ms, render: 228ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/user/subscription 200 in 172ms (compile: 2ms, proxy.ts: 81ms, render: 88ms)
+[Middleware] Incoming: localhost:3000/api/membership/me
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/membership/me 200 in 91ms (compile: 7ms, proxy.ts: 80ms, render: 4ms)
+[Middleware] Incoming: localhost:3000/api/membership/me
+ GET /api/user/sites 200 in 172ms (compile: 3ms, proxy.ts: 84ms, render: 86ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 146ms (compile: 7ms, proxy.ts: 92ms, render: 46ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/membership/me 200 in 126ms (compile: 7ms, proxy.ts: 117ms, render: 3ms)
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 161ms (compile: 10ms, proxy.ts: 84ms, render: 67ms)
+ GET /api/user/sites 200 in 201ms (compile: 4ms, proxy.ts: 88ms, render: 109ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 213ms (compile: 14ms, proxy.ts: 123ms, render: 77ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 154ms (compile: 7ms, proxy.ts: 82ms, render: 66ms)
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[Middleware] Incoming: localhost:3000/design
+✓ Compiled in 586ms
+ GET /design?siteId=9111e22f-6746-43c2-884e-927acabd340a&pageId=b4b0a404-bb6a-425f-8104-86c6863b075a 200 in 252ms (compile: 5ms, proxy.ts: 136ms, render: 111ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/ai/builder
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/user/subscription 200 in 180ms (compile: 2ms, proxy.ts: 98ms, render: 80ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/subscription 200 in 146ms (compile: 3ms, proxy.ts: 67ms, render: 77ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/sites?id=9111e22f-6746-43c2-884e-927acabd340a 200 in 327ms (compile: 3ms, proxy.ts: 138ms, render: 187ms)
+[Middleware] Incoming: localhost:3000/api/pages
+ GET /api/ai/builder 200 in 527ms (compile: 3ms, proxy.ts: 149ms, render: 375ms)
+ GET /api/user/subscription 200 in 243ms (compile: 9ms, proxy.ts: 72ms, render: 161ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/subscription 200 in 188ms (compile: 3ms, proxy.ts: 80ms, render: 106ms)
+ GET /api/pages?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 387ms (compile: 4ms, proxy.ts: 94ms, render: 289ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/membership/me
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/membership/me 200 in 87ms (compile: 3ms, proxy.ts: 81ms, render: 3ms)
+[Middleware] Incoming: localhost:3000/api/membership/me
+ GET /api/membership/me 200 in 84ms (compile: 1974µs, proxy.ts: 79ms, render: 3ms)
+ GET /api/user/sites 200 in 185ms (compile: 3ms, proxy.ts: 76ms, render: 106ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 122ms (compile: 10ms, proxy.ts: 71ms, render: 40ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 144ms (compile: 9ms, proxy.ts: 77ms, render: 58ms)
+ GET /api/user/sites 200 in 172ms (compile: 3ms, proxy.ts: 77ms, render: 93ms)
+[Middleware] Incoming: localhost:3000/card-style-lab
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /card-style-lab 200 in 360ms (compile: 148ms, proxy.ts: 5ms, render: 207ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 286ms (compile: 3ms, proxy.ts: 162ms, render: 121ms)
+ GET /api/user/subscription 200 in 313ms (compile: 7ms, proxy.ts: 171ms, render: 135ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 165ms (compile: 3ms, proxy.ts: 83ms, render: 80ms)
+ GET /api/user/subscription 200 in 200ms (compile: 4ms, proxy.ts: 88ms, render: 109ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 150ms (compile: 5ms, proxy.ts: 83ms, render: 61ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 139ms (compile: 7ms, proxy.ts: 84ms, render: 49ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 243ms (compile: 6ms, proxy.ts: 159ms, render: 78ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 155ms (compile: 10ms, proxy.ts: 97ms, render: 48ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 170ms (compile: 10ms, proxy.ts: 99ms, render: 61ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 167ms (compile: 10ms, proxy.ts: 89ms, render: 67ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 228ms (compile: 10ms, proxy.ts: 152ms, render: 66ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 176ms (compile: 9ms, proxy.ts: 88ms, render: 79ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 161ms (compile: 10ms, proxy.ts: 98ms, render: 53ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 171ms (compile: 8ms, proxy.ts: 88ms, render: 75ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 187ms (compile: 8ms, proxy.ts: 105ms, render: 74ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 149ms (compile: 9ms, proxy.ts: 85ms, render: 54ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 159ms (compile: 8ms, proxy.ts: 88ms, render: 63ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 152ms (compile: 7ms, proxy.ts: 84ms, render: 61ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 222ms (compile: 9ms, proxy.ts: 134ms, render: 80ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 134ms (compile: 7ms, proxy.ts: 79ms, render: 48ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 141ms (compile: 8ms, proxy.ts: 80ms, render: 53ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 141ms (compile: 9ms, proxy.ts: 71ms, render: 62ms)
+✓ Compiled in 592ms
+✓ Compiled in 605ms
+✓ Compiled in 595ms
+✓ Compiled in 576ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[Middleware] Incoming: localhost:3000/design
+[Middleware] Incoming: localhost:3000/api/user/subscription
+✓ Compiled in 564ms
+[Middleware] Incoming: localhost:3000/api/ai/builder
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/ai/builder 200 in 906ms (compile: 34ms, proxy.ts: 704ms, render: 168ms)
+ GET /api/user/subscription 200 in 908ms (compile: 31ms, proxy.ts: 703ms, render: 173ms)
+ GET /api/sites?id=9111e22f-6746-43c2-884e-927acabd340a 200 in 670ms (compile: 17ms, proxy.ts: 647ms, render: 6ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /design?siteId=9111e22f-6746-43c2-884e-927acabd340a&pageId=b4b0a404-bb6a-425f-8104-86c6863b075a 200 in 923ms (compile: 186ms, proxy.ts: 317ms, render: 420ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/ai/builder
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/user/subscription 200 in 222ms (compile: 3ms, proxy.ts: 144ms, render: 75ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/ai/builder 200 in 370ms (compile: 2ms, proxy.ts: 84ms, render: 284ms)
+ GET /api/user/subscription 200 in 166ms (compile: 2ms, proxy.ts: 72ms, render: 92ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/sites?id=9111e22f-6746-43c2-884e-927acabd340a 200 in 335ms (compile: 2ms, proxy.ts: 142ms, render: 191ms)
+[Middleware] Incoming: localhost:3000/api/pages
+ GET /api/user/subscription 200 in 163ms (compile: 3ms, proxy.ts: 78ms, render: 82ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/pages?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 297ms (compile: 4ms, proxy.ts: 80ms, render: 213ms)
+ GET /api/user/subscription 200 in 153ms (compile: 3ms, proxy.ts: 66ms, render: 85ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/membership/me
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/membership/me 200 in 92ms (compile: 2ms, proxy.ts: 87ms, render: 3ms)
+[Middleware] Incoming: localhost:3000/api/membership/me
+ GET /api/user/sites 200 in 187ms (compile: 4ms, proxy.ts: 83ms, render: 101ms)
+ GET /api/membership/me 200 in 88ms (compile: 6ms, proxy.ts: 79ms, render: 3ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 136ms (compile: 10ms, proxy.ts: 78ms, render: 48ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/user/sites 200 in 152ms (compile: 2ms, proxy.ts: 72ms, render: 78ms)
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 146ms (compile: 6ms, proxy.ts: 85ms, render: 54ms)
+[Middleware] Incoming: localhost:3000/card-style-lab
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /card-style-lab 200 in 362ms (compile: 153ms, proxy.ts: 5ms, render: 204ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 374ms (compile: 9ms, proxy.ts: 263ms, render: 102ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 183ms (compile: 12ms, proxy.ts: 96ms, render: 76ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 313ms (compile: 4ms, proxy.ts: 193ms, render: 117ms)
+ GET /api/user/subscription 200 in 344ms (compile: 5ms, proxy.ts: 192ms, render: 147ms)
+✓ Compiled in 561ms
+[Middleware] Incoming: localhost:3000/design
+ GET /design?siteId=9111e22f-6746-43c2-884e-927acabd340a&pageId=b4b0a404-bb6a-425f-8104-86c6863b075a 200 in 821ms (compile: 221ms, proxy.ts: 201ms, render: 398ms)
+[Middleware] Incoming: localhost:3000/design
+ GET /design?siteId=9111e22f-6746-43c2-884e-927acabd340a&pageId=b4b0a404-bb6a-425f-8104-86c6863b075a 200 in 228ms (compile: 5ms, proxy.ts: 113ms, render: 109ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/ai/builder
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/user/subscription 200 in 201ms (compile: 2ms, proxy.ts: 100ms, render: 98ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/subscription 200 in 292ms (compile: 3ms, proxy.ts: 198ms, render: 90ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/sites?id=9111e22f-6746-43c2-884e-927acabd340a 200 in 485ms (compile: 6ms, proxy.ts: 270ms, render: 208ms)
+[Middleware] Incoming: localhost:3000/api/pages
+ GET /api/ai/builder 200 in 679ms (compile: 137ms, proxy.ts: 192ms, render: 349ms)
+ GET /api/user/subscription 200 in 233ms (compile: 5ms, proxy.ts: 78ms, render: 150ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/subscription 200 in 179ms (compile: 2ms, proxy.ts: 94ms, render: 83ms)
+ GET /api/pages?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 300ms (compile: 4ms, proxy.ts: 87ms, render: 209ms)
+✓ Compiled in 563ms
+[Middleware] Incoming: localhost:3000/design
+ GET /design?siteId=9111e22f-6746-43c2-884e-927acabd340a&pageId=b4b0a404-bb6a-425f-8104-86c6863b075a 200 in 743ms (compile: 209ms, proxy.ts: 158ms, render: 376ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/ai/builder
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/user/subscription 200 in 195ms (compile: 3ms, proxy.ts: 91ms, render: 101ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/subscription 200 in 176ms (compile: 3ms, proxy.ts: 89ms, render: 84ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/sites?id=9111e22f-6746-43c2-884e-927acabd340a 200 in 323ms (compile: 6ms, proxy.ts: 137ms, render: 181ms)
+[Middleware] Incoming: localhost:3000/api/pages
+ GET /api/user/subscription 200 in 173ms (compile: 11ms, proxy.ts: 77ms, render: 85ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/ai/builder 200 in 557ms (compile: 7ms, proxy.ts: 191ms, render: 359ms)
+ GET /api/user/subscription 200 in 207ms (compile: 2ms, proxy.ts: 88ms, render: 117ms)
+ GET /api/pages?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 368ms (compile: 3ms, proxy.ts: 82ms, render: 283ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/membership/me
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/membership/me 200 in 103ms (compile: 5ms, proxy.ts: 95ms, render: 4ms)
+[Middleware] Incoming: localhost:3000/api/membership/me
+ GET /api/user/sites 200 in 197ms (compile: 3ms, proxy.ts: 96ms, render: 98ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/membership/me 200 in 93ms (compile: 8ms, proxy.ts: 82ms, render: 3ms)
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 152ms (compile: 7ms, proxy.ts: 80ms, render: 65ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/user/sites 200 in 179ms (compile: 2ms, proxy.ts: 85ms, render: 91ms)
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 143ms (compile: 10ms, proxy.ts: 88ms, render: 44ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 153ms (compile: 6ms, proxy.ts: 85ms, render: 62ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 172ms (compile: 10ms, proxy.ts: 90ms, render: 73ms)
+✓ Compiled in 604ms
+✓ Compiled in 542ms
+✓ Compiled in 558ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[Middleware] Incoming: localhost:3000/design
+[Middleware] Incoming: localhost:3000/api/user/subscription
+✓ Compiled in 567ms
+[Middleware] Incoming: localhost:3000/api/ai/builder
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/user/subscription 200 in 309ms (compile: 15ms, proxy.ts: 196ms, render: 99ms)
+ GET /api/ai/builder 200 in 301ms (compile: 18ms, proxy.ts: 188ms, render: 95ms)
+ GET /design?siteId=9111e22f-6746-43c2-884e-927acabd340a&pageId=b4b0a404-bb6a-425f-8104-86c6863b075a 200 in 330ms (compile: 6ms, proxy.ts: 164ms, render: 160ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/ai/builder
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/user/subscription 200 in 163ms (compile: 3ms, proxy.ts: 79ms, render: 81ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/subscription 200 in 179ms (compile: 2ms, proxy.ts: 94ms, render: 82ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/sites?id=9111e22f-6746-43c2-884e-927acabd340a 200 in 305ms (compile: 2ms, proxy.ts: 75ms, render: 227ms)
+[Middleware] Incoming: localhost:3000/api/pages
+ GET /api/ai/builder 200 in 416ms (compile: 2ms, proxy.ts: 153ms, render: 261ms)
+ GET /api/user/subscription 200 in 191ms (compile: 3ms, proxy.ts: 77ms, render: 111ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/subscription 200 in 177ms (compile: 3ms, proxy.ts: 80ms, render: 94ms)
+ GET /api/pages?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 384ms (compile: 5ms, proxy.ts: 84ms, render: 295ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/membership/me
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/membership/me 200 in 102ms (compile: 13ms, proxy.ts: 86ms, render: 3ms)
+[Middleware] Incoming: localhost:3000/api/membership/me
+ GET /api/user/sites 200 in 177ms (compile: 2ms, proxy.ts: 79ms, render: 95ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/membership/me 200 in 102ms (compile: 2ms, proxy.ts: 97ms, render: 3ms)
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 141ms (compile: 10ms, proxy.ts: 77ms, render: 54ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/user/sites 200 in 185ms (compile: 2ms, proxy.ts: 92ms, render: 91ms)
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 151ms (compile: 5ms, proxy.ts: 81ms, render: 64ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 155ms (compile: 7ms, proxy.ts: 83ms, render: 66ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 139ms (compile: 6ms, proxy.ts: 82ms, render: 51ms)
+[Middleware] Incoming: localhost:3000/card-style-lab
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /card-style-lab 200 in 341ms (compile: 147ms, proxy.ts: 4ms, render: 190ms)
+[Middleware] Incoming: localhost:3000/design
+ GET /design?siteId=9111e22f-6746-43c2-884e-927acabd340a&pageId=b4b0a404-bb6a-425f-8104-86c6863b075a 200 in 313ms (compile: 8ms, proxy.ts: 182ms, render: 124ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/ai/builder
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/user/subscription 200 in 275ms (compile: 5ms, proxy.ts: 103ms, render: 167ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/sites?id=9111e22f-6746-43c2-884e-927acabd340a 200 in 341ms (compile: 2ms, proxy.ts: 119ms, render: 219ms)
+[Middleware] Incoming: localhost:3000/api/pages
+ GET /api/user/subscription 200 in 218ms (compile: 3ms, proxy.ts: 90ms, render: 126ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/ai/builder 200 in 555ms (compile: 7ms, proxy.ts: 168ms, render: 380ms)
+ GET /api/user/subscription 200 in 190ms (compile: 3ms, proxy.ts: 89ms, render: 97ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/pages?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 290ms (compile: 4ms, proxy.ts: 79ms, render: 207ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/membership/me
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/user/subscription 200 in 203ms (compile: 4ms, proxy.ts: 108ms, render: 92ms)
+ GET /api/membership/me 200 in 95ms (compile: 3ms, proxy.ts: 89ms, render: 3ms)
+[Middleware] Incoming: localhost:3000/api/membership/me
+ GET /api/membership/me 200 in 117ms (compile: 4ms, proxy.ts: 109ms, render: 3ms)
+ GET /api/user/sites 200 in 235ms (compile: 3ms, proxy.ts: 80ms, render: 151ms)
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 149ms (compile: 7ms, proxy.ts: 72ms, render: 71ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 156ms (compile: 10ms, proxy.ts: 87ms, render: 59ms)
+ GET /api/user/sites 200 in 197ms (compile: 3ms, proxy.ts: 87ms, render: 106ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 161ms (compile: 7ms, proxy.ts: 86ms, render: 68ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 147ms (compile: 6ms, proxy.ts: 80ms, render: 61ms)
+[Middleware] Incoming: localhost:3000/design
+ GET /design?siteId=9111e22f-6746-43c2-884e-927acabd340a&pageId=b4b0a404-bb6a-425f-8104-86c6863b075a 200 in 393ms (compile: 6ms, proxy.ts: 259ms, render: 128ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/ai/builder
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/user/subscription 200 in 232ms (compile: 3ms, proxy.ts: 124ms, render: 105ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/subscription 200 in 181ms (compile: 3ms, proxy.ts: 91ms, render: 87ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/sites?id=9111e22f-6746-43c2-884e-927acabd340a 200 in 343ms (compile: 3ms, proxy.ts: 160ms, render: 180ms)
+[Middleware] Incoming: localhost:3000/api/pages
+ GET /api/ai/builder 200 in 573ms (compile: 5ms, proxy.ts: 169ms, render: 398ms)
+ GET /api/user/subscription 200 in 174ms (compile: 3ms, proxy.ts: 82ms, render: 89ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/pages?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 302ms (compile: 3ms, proxy.ts: 80ms, render: 218ms)
+ GET /api/user/subscription 200 in 197ms (compile: 4ms, proxy.ts: 89ms, render: 104ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/membership/me
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/membership/me 200 in 97ms (compile: 2ms, proxy.ts: 92ms, render: 3ms)
+[Middleware] Incoming: localhost:3000/api/membership/me
+ GET /api/user/sites 200 in 202ms (compile: 2ms, proxy.ts: 90ms, render: 110ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/membership/me 200 in 113ms (compile: 2ms, proxy.ts: 107ms, render: 3ms)
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 162ms (compile: 9ms, proxy.ts: 94ms, render: 59ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 157ms (compile: 8ms, proxy.ts: 85ms, render: 65ms)
+ GET /api/user/sites 200 in 211ms (compile: 3ms, proxy.ts: 89ms, render: 119ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 331ms (compile: 12ms, proxy.ts: 238ms, render: 82ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 174ms (compile: 11ms, proxy.ts: 96ms, render: 68ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 277ms (compile: 11ms, proxy.ts: 172ms, render: 95ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 190ms (compile: 10ms, proxy.ts: 97ms, render: 83ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 210ms (compile: 11ms, proxy.ts: 126ms, render: 74ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 174ms (compile: 8ms, proxy.ts: 91ms, render: 75ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 162ms (compile: 8ms, proxy.ts: 70ms, render: 84ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 149ms (compile: 8ms, proxy.ts: 78ms, render: 63ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 150ms (compile: 8ms, proxy.ts: 90ms, render: 52ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 143ms (compile: 7ms, proxy.ts: 73ms, render: 63ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 156ms (compile: 8ms, proxy.ts: 84ms, render: 64ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 151ms (compile: 7ms, proxy.ts: 88ms, render: 55ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 161ms (compile: 7ms, proxy.ts: 83ms, render: 70ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 139ms (compile: 7ms, proxy.ts: 79ms, render: 53ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 139ms (compile: 9ms, proxy.ts: 83ms, render: 48ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 172ms (compile: 7ms, proxy.ts: 86ms, render: 80ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 148ms (compile: 6ms, proxy.ts: 79ms, render: 62ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 142ms (compile: 8ms, proxy.ts: 80ms, render: 54ms)
+✓ Compiled in 541ms
+✓ Compiled in 601ms
+✓ Compiled in 568ms
+✓ Compiled in 568ms
+[Middleware] Incoming: localhost:3000/card-style-lab
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /card-style-lab 200 in 414ms (compile: 160ms, proxy.ts: 4ms, render: 250ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 383ms (compile: 10ms, proxy.ts: 263ms, render: 110ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 176ms (compile: 10ms, proxy.ts: 104ms, render: 61ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 230ms (compile: 10ms, proxy.ts: 147ms, render: 73ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 161ms (compile: 9ms, proxy.ts: 88ms, render: 64ms)
+[Middleware] Incoming: localhost:3000/design
+ GET /design?siteId=9111e22f-6746-43c2-884e-927acabd340a&pageId=b4b0a404-bb6a-425f-8104-86c6863b075a 200 in 705ms (compile: 182ms, proxy.ts: 160ms, render: 363ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/ai/builder
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/user/subscription 200 in 288ms (compile: 13ms, proxy.ts: 114ms, render: 161ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/sites?id=9111e22f-6746-43c2-884e-927acabd340a 200 in 260ms (compile: 2ms, proxy.ts: 96ms, render: 162ms)
+[Middleware] Incoming: localhost:3000/api/pages
+ GET /api/user/subscription 200 in 170ms (compile: 3ms, proxy.ts: 78ms, render: 89ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/ai/builder 200 in 480ms (compile: 2ms, proxy.ts: 165ms, render: 313ms)
+ GET /api/user/subscription 200 in 185ms (compile: 4ms, proxy.ts: 80ms, render: 101ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/pages?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 361ms (compile: 3ms, proxy.ts: 139ms, render: 219ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/membership/me
+ GET /api/user/subscription 200 in 185ms (compile: 3ms, proxy.ts: 78ms, render: 105ms)
+ GET /api/membership/me 200 in 77ms (compile: 3ms, proxy.ts: 70ms, render: 4ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+[Middleware] Incoming: localhost:3000/api/membership/me
+ GET /api/membership/me 200 in 83ms (compile: 3ms, proxy.ts: 77ms, render: 3ms)
+ GET /api/user/sites 200 in 195ms (compile: 10ms, proxy.ts: 95ms, render: 90ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 150ms (compile: 5ms, proxy.ts: 93ms, render: 52ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/user/sites 200 in 163ms (compile: 2ms, proxy.ts: 75ms, render: 86ms)
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 148ms (compile: 7ms, proxy.ts: 79ms, render: 62ms)
+✓ Compiled in 784ms
+✓ Compiled in 567ms
+✓ Compiled in 569ms
+✓ Compiled in 588ms
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 358ms (compile: 12ms, proxy.ts: 246ms, render: 101ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 202ms (compile: 11ms, proxy.ts: 114ms, render: 77ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 243ms (compile: 9ms, proxy.ts: 151ms, render: 83ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 210ms (compile: 9ms, proxy.ts: 115ms, render: 86ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 207ms (compile: 11ms, proxy.ts: 133ms, render: 63ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 133ms (compile: 10ms, proxy.ts: 76ms, render: 47ms)
+✓ Compiled in 529ms
+✓ Compiled in 632ms
+✓ Compiled in 627ms
+✓ Compiled in 663ms
+✓ Compiled in 603ms
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 352ms (compile: 3ms, proxy.ts: 230ms, render: 119ms)
+ GET /api/user/subscription 200 in 372ms (compile: 3ms, proxy.ts: 230ms, render: 138ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 212ms (compile: 10ms, proxy.ts: 133ms, render: 69ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 160ms (compile: 8ms, proxy.ts: 95ms, render: 58ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 148ms (compile: 9ms, proxy.ts: 78ms, render: 61ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 146ms (compile: 8ms, proxy.ts: 72ms, render: 66ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 247ms (compile: 10ms, proxy.ts: 164ms, render: 73ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 157ms (compile: 8ms, proxy.ts: 86ms, render: 63ms)
+✓ Compiled in 580ms
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 129ms (compile: 7ms, proxy.ts: 76ms, render: 46ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 149ms (compile: 8ms, proxy.ts: 80ms, render: 61ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 194ms (compile: 7ms, proxy.ts: 111ms, render: 76ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 129ms (compile: 7ms, proxy.ts: 77ms, render: 45ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 139ms (compile: 6ms, proxy.ts: 78ms, render: 55ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 138ms (compile: 8ms, proxy.ts: 69ms, render: 61ms)
+✓ Compiled in 556ms
+✓ Compiled in 549ms
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 237ms (compile: 11ms, proxy.ts: 146ms, render: 80ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 170ms (compile: 8ms, proxy.ts: 91ms, render: 71ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 267ms (compile: 3ms, proxy.ts: 153ms, render: 111ms)
+ GET /api/user/subscription 200 in 292ms (compile: 5ms, proxy.ts: 166ms, render: 121ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 154ms (compile: 10ms, proxy.ts: 83ms, render: 61ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 422ms (compile: 8ms, proxy.ts: 73ms, render: 341ms)
+✓ Compiled in 567ms
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 282ms (compile: 2ms, proxy.ts: 151ms, render: 128ms)
+ GET /api/user/subscription 200 in 314ms (compile: 3ms, proxy.ts: 179ms, render: 132ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 336ms (compile: 3ms, proxy.ts: 194ms, render: 139ms)
+ GET /api/user/subscription 200 in 361ms (compile: 6ms, proxy.ts: 204ms, render: 152ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/subscription 200 in 169ms (compile: 3ms, proxy.ts: 89ms, render: 77ms)
+ GET /api/user/sites 200 in 198ms (compile: 4ms, proxy.ts: 99ms, render: 95ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/subscription 200 in 229ms (compile: 3ms, proxy.ts: 137ms, render: 88ms)
+ GET /api/user/sites 200 in 262ms (compile: 5ms, proxy.ts: 146ms, render: 111ms)
+[Middleware] Incoming: localhost:3000/onboarding
+ GET /onboarding 200 in 117ms (compile: 5ms, proxy.ts: 82ms, render: 30ms)
+[Middleware] Incoming: localhost:3000/onboarding
+ GET /onboarding?businessType=services 200 in 98ms (compile: 4ms, proxy.ts: 76ms, render: 18ms)
+[Middleware] Incoming: localhost:3000/onboarding
+[Middleware] Incoming: localhost:3000/api/templates
+ GET /onboarding?businessType=services&category=plumber&page=1 200 in 121ms (compile: 4ms, proxy.ts: 96ms, render: 21ms)
+ GET /api/templates?businessType=services&category=plumber&page=1&limit=16 200 in 157ms (compile: 3ms, proxy.ts: 149ms, render: 6ms)
+[Middleware] Incoming: localhost:3000/api/sites
+ POST /api/sites 201 in 477ms (compile: 3ms, proxy.ts: 132ms, render: 343ms)
+[Middleware] Incoming: localhost:3000/design
+ GET /design?siteId=c5a0fd57-4edd-40a4-ac4c-f9c6fc43de4e 200 in 340ms (compile: 216ms, proxy.ts: 74ms, render: 50ms)
+[Middleware] Incoming: localhost:3000/api/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/ai/builder
+ GET /api/user/subscription 200 in 181ms (compile: 2ms, proxy.ts: 89ms, render: 89ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/sites?id=c5a0fd57-4edd-40a4-ac4c-f9c6fc43de4e 200 in 327ms (compile: 2ms, proxy.ts: 81ms, render: 244ms)
+[Middleware] Incoming: localhost:3000/api/pages
+ GET /api/user/subscription 200 in 182ms (compile: 3ms, proxy.ts: 95ms, render: 84ms)
+ GET /api/ai/builder 200 in 436ms (compile: 3ms, proxy.ts: 155ms, render: 278ms)
+[Middleware] Incoming: localhost:3000/api/ai/builder
+ GET /api/pages?siteId=c5a0fd57-4edd-40a4-ac4c-f9c6fc43de4e 200 in 356ms (compile: 4ms, proxy.ts: 77ms, render: 276ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/membership/me
+[Middleware] Incoming: localhost:3000/design
+ GET /api/ai/builder 200 in 332ms (compile: 3ms, proxy.ts: 75ms, render: 254ms)
+ GET /api/membership/me 200 in 148ms (compile: 4ms, proxy.ts: 142ms, render: 3ms)
+[Middleware] Incoming: localhost:3000/api/membership/me
+ GET /api/membership/me 200 in 88ms (compile: 2ms, proxy.ts: 82ms, render: 3ms)
+ GET /design?siteId=c5a0fd57-4edd-40a4-ac4c-f9c6fc43de4e&pageId=75a599c4-ef3d-4312-91f4-168ed4f33fb5 200 in 227ms (compile: 4ms, proxy.ts: 195ms, render: 27ms)
+ GET /api/user/sites 200 in 255ms (compile: 2ms, proxy.ts: 136ms, render: 117ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/user/sites 200 in 188ms (compile: 2ms, proxy.ts: 93ms, render: 92ms)
+[Middleware] Incoming: localhost:3000/design
+ GET /design?siteId=c5a0fd57-4edd-40a4-ac4c-f9c6fc43de4e&pageId=3425fcc7-f70b-49af-8d45-e1704d90bf28 200 in 187ms (compile: 4ms, proxy.ts: 166ms, render: 17ms)
+[Middleware] Incoming: localhost:3000/design
+ GET /design?siteId=c5a0fd57-4edd-40a4-ac4c-f9c6fc43de4e&pageId=75a599c4-ef3d-4312-91f4-168ed4f33fb5 200 in 119ms (compile: 5ms, proxy.ts: 92ms, render: 22ms)
+[Middleware] Incoming: localhost:3000/api/products
+[Middleware] Incoming: localhost:3000/api/pages
+ GET /api/pages?siteId=c5a0fd57-4edd-40a4-ac4c-f9c6fc43de4e 200 in 621ms (compile: 7ms, proxy.ts: 244ms, render: 370ms)
+[Middleware] Incoming: localhost:3000/api/pages
+ GET /api/products?siteId=c5a0fd57-4edd-40a4-ac4c-f9c6fc43de4e&limit=1 200 in 688ms (compile: 179ms, proxy.ts: 248ms, render: 261ms)
+[Middleware] Incoming: localhost:3000/api/products
+ GET /api/pages?siteId=c5a0fd57-4edd-40a4-ac4c-f9c6fc43de4e 200 in 329ms (compile: 2ms, proxy.ts: 83ms, render: 244ms)
+ GET /api/products?siteId=c5a0fd57-4edd-40a4-ac4c-f9c6fc43de4e&limit=1 200 in 280ms (compile: 11ms, proxy.ts: 76ms, render: 193ms)
+[Middleware] Incoming: localhost:3000/design
+ GET /design?siteId=c5a0fd57-4edd-40a4-ac4c-f9c6fc43de4e&pageId=3425fcc7-f70b-49af-8d45-e1704d90bf28 200 in 99ms (compile: 4ms, proxy.ts: 79ms, render: 17ms)
+[Middleware] Incoming: localhost:3000/design
+ GET /design?siteId=c5a0fd57-4edd-40a4-ac4c-f9c6fc43de4e&pageId=70b9f42c-d9bf-413c-845b-1a0f8134bd34 200 in 115ms (compile: 4ms, proxy.ts: 95ms, render: 17ms)
+[Middleware] Incoming: localhost:3000/design
+ GET /design?siteId=c5a0fd57-4edd-40a4-ac4c-f9c6fc43de4e&pageId=8ab10302-2a7b-4618-9461-586ee3cc3619 200 in 178ms (compile: 5ms, proxy.ts: 152ms, render: 21ms)
+[Middleware] Incoming: localhost:3000/design
+ GET /design?siteId=c5a0fd57-4edd-40a4-ac4c-f9c6fc43de4e&pageId=75a599c4-ef3d-4312-91f4-168ed4f33fb5 200 in 127ms (compile: 6ms, proxy.ts: 99ms, render: 22ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 242ms (compile: 3ms, proxy.ts: 144ms, render: 95ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/user/subscription 200 in 249ms (compile: 2ms, proxy.ts: 141ms, render: 106ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 174ms (compile: 2ms, proxy.ts: 77ms, render: 95ms)
+ GET /api/user/subscription 200 in 188ms (compile: 2ms, proxy.ts: 85ms, render: 101ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/subscription 200 in 252ms (compile: 2ms, proxy.ts: 149ms, render: 100ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 295ms (compile: 2ms, proxy.ts: 164ms, render: 129ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/user/subscription 200 in 174ms (compile: 2ms, proxy.ts: 85ms, render: 87ms)
+ GET /api/user/sites 200 in 171ms (compile: 2ms, proxy.ts: 88ms, render: 81ms)
+[Middleware] Incoming: localhost:3000/
+ GET / 200 in 173ms (compile: 72ms, proxy.ts: 83ms, render: 19ms)
+[Middleware] Incoming: localhost:3000/onboarding
+ GET /onboarding 200 in 111ms (compile: 4ms, proxy.ts: 86ms, render: 21ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/user/sites 200 in 195ms (compile: 3ms, proxy.ts: 85ms, render: 108ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/user/sites 200 in 196ms (compile: 2ms, proxy.ts: 85ms, render: 109ms)
+[Middleware] Incoming: localhost:3000/onboarding
+ GET /onboarding 200 in 104ms (compile: 4ms, proxy.ts: 80ms, render: 20ms)
+[Middleware] Incoming: localhost:3000/onboarding
+ GET /onboarding?businessType=products 200 in 165ms (compile: 3ms, proxy.ts: 143ms, render: 18ms)
+[Middleware] Incoming: localhost:3000/onboarding
+[Middleware] Incoming: localhost:3000/api/templates
+ GET /onboarding?businessType=products&category=handmade&page=1 200 in 113ms (compile: 3ms, proxy.ts: 90ms, render: 19ms)
+ GET /api/templates?businessType=products&category=handmade&page=1&limit=16 200 in 144ms (compile: 3ms, proxy.ts: 137ms, render: 4ms)
+[Middleware] Incoming: localhost:3000/onboarding
+ GET /onboarding 200 in 172ms (compile: 4ms, proxy.ts: 149ms, render: 19ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/user/sites 200 in 190ms (compile: 3ms, proxy.ts: 89ms, render: 98ms)
+[Middleware] Incoming: localhost:3000/design
+ GET /design 200 in 106ms (compile: 5ms, proxy.ts: 79ms, render: 22ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/user/latest-site
+[Middleware] Incoming: localhost:3000/api/ai/builder
+ GET /api/user/subscription 200 in 161ms (compile: 3ms, proxy.ts: 78ms, render: 79ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/latest-site 200 in 283ms (compile: 38ms, proxy.ts: 166ms, render: 80ms)
+[Middleware] Incoming: localhost:3000/design
+ GET /design?siteId=c5a0fd57-4edd-40a4-ac4c-f9c6fc43de4e 200 in 119ms (compile: 5ms, proxy.ts: 92ms, render: 22ms)
+ GET /api/user/subscription 200 in 250ms (compile: 2ms, proxy.ts: 98ms, render: 150ms)
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/ai/builder 200 in 546ms (compile: 9ms, proxy.ts: 196ms, render: 341ms)
+[Middleware] Incoming: localhost:3000/api/ai/builder
+ GET /api/sites?id=c5a0fd57-4edd-40a4-ac4c-f9c6fc43de4e 200 in 327ms (compile: 3ms, proxy.ts: 75ms, render: 250ms)
+[Middleware] Incoming: localhost:3000/api/pages
+ GET /api/ai/builder 200 in 442ms (compile: 2ms, proxy.ts: 115ms, render: 325ms)
+ GET /api/pages?siteId=c5a0fd57-4edd-40a4-ac4c-f9c6fc43de4e 200 in 318ms (compile: 2ms, proxy.ts: 86ms, render: 230ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/membership/me
+[Middleware] Incoming: localhost:3000/design
+ GET /api/membership/me 200 in 93ms (compile: 6ms, proxy.ts: 82ms, render: 5ms)
+[Middleware] Incoming: localhost:3000/api/membership/me
+ GET /design?siteId=c5a0fd57-4edd-40a4-ac4c-f9c6fc43de4e&pageId=75a599c4-ef3d-4312-91f4-168ed4f33fb5 200 in 197ms (compile: 6ms, proxy.ts: 170ms, render: 20ms)
+ GET /api/membership/me 200 in 109ms (compile: 2ms, proxy.ts: 103ms, render: 4ms)
+ GET /api/user/sites 200 in 240ms (compile: 38ms, proxy.ts: 90ms, render: 112ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/user/sites 200 in 191ms (compile: 2ms, proxy.ts: 77ms, render: 111ms)
+[Middleware] Incoming: localhost:3000/design
+ GET /design?siteId=02fabc0b-d060-48fe-921e-8708d4c64bd5 200 in 155ms (compile: 4ms, proxy.ts: 134ms, render: 17ms)
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/sites?id=02fabc0b-d060-48fe-921e-8708d4c64bd5 200 in 351ms (compile: 2ms, proxy.ts: 89ms, render: 260ms)
+[Middleware] Incoming: localhost:3000/api/pages
+ GET /api/pages?siteId=02fabc0b-d060-48fe-921e-8708d4c64bd5 200 in 307ms (compile: 3ms, proxy.ts: 71ms, render: 232ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/design
+[Middleware] Incoming: localhost:3000/api/membership/me
+[Middleware] Incoming: localhost:3000/api/events
+ GET /design?siteId=02fabc0b-d060-48fe-921e-8708d4c64bd5&pageId=77e0fb5f-3a99-4e23-b185-b8eed0ed4bd4 200 in 114ms (compile: 4ms, proxy.ts: 93ms, render: 17ms)
+ GET /api/user/sites 200 in 156ms (compile: 2ms, proxy.ts: 73ms, render: 80ms)
+ GET /api/membership/me 200 in 157ms (compile: 5ms, proxy.ts: 149ms, render: 3ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/membership/me
+ GET /api/membership/me 200 in 91ms (compile: 6ms, proxy.ts: 82ms, render: 3ms)
+ GET /api/user/sites 200 in 167ms (compile: 4ms, proxy.ts: 82ms, render: 81ms)
+ GET /api/events?siteId=02fabc0b-d060-48fe-921e-8708d4c64bd5&includePast=false&sortOrder=asc 200 in 485ms (compile: 274ms, proxy.ts: 161ms, render: 51ms)
+[Middleware] Incoming: localhost:3000/api/events
+ GET /api/events?siteId=02fabc0b-d060-48fe-921e-8708d4c64bd5&includePast=false&sortOrder=asc 200 in 143ms (compile: 8ms, proxy.ts: 72ms, render: 64ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 301ms (compile: 4ms, proxy.ts: 164ms, render: 133ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/user/subscription 200 in 324ms (compile: 6ms, proxy.ts: 182ms, render: 136ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 211ms (compile: 6ms, proxy.ts: 97ms, render: 108ms)
+ GET /api/user/subscription 200 in 190ms (compile: 3ms, proxy.ts: 107ms, render: 80ms)
+[Middleware] Incoming: localhost:3000/api/events
+ GET /api/events?siteId=02fabc0b-d060-48fe-921e-8708d4c64bd5&includePast=false&sortOrder=asc 200 in 264ms (compile: 12ms, proxy.ts: 170ms, render: 83ms)
+[Middleware] Incoming: localhost:3000/api/events
+ GET /api/events?siteId=02fabc0b-d060-48fe-921e-8708d4c64bd5&includePast=false&sortOrder=asc 200 in 225ms (compile: 12ms, proxy.ts: 120ms, render: 94ms)
+[Middleware] Incoming: localhost:3000/
+ GET / 200 in 152ms (compile: 6ms, proxy.ts: 125ms, render: 21ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 213ms (compile: 4ms, proxy.ts: 113ms, render: 97ms)
+ GET /api/user/subscription 200 in 261ms (compile: 4ms, proxy.ts: 135ms, render: 122ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 179ms (compile: 3ms, proxy.ts: 79ms, render: 97ms)
+ GET /api/user/subscription 200 in 193ms (compile: 3ms, proxy.ts: 102ms, render: 89ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 346ms (compile: 2ms, proxy.ts: 230ms, render: 114ms)
+ GET /api/user/subscription 200 in 365ms (compile: 4ms, proxy.ts: 227ms, render: 134ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 222ms (compile: 11ms, proxy.ts: 138ms, render: 73ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 143ms (compile: 10ms, proxy.ts: 84ms, render: 50ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 231ms (compile: 9ms, proxy.ts: 142ms, render: 80ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 177ms (compile: 10ms, proxy.ts: 90ms, render: 77ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 159ms (compile: 8ms, proxy.ts: 92ms, render: 59ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 155ms (compile: 9ms, proxy.ts: 84ms, render: 61ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 164ms (compile: 9ms, proxy.ts: 85ms, render: 70ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 150ms (compile: 8ms, proxy.ts: 80ms, render: 62ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 204ms (compile: 8ms, proxy.ts: 133ms, render: 63ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 148ms (compile: 11ms, proxy.ts: 88ms, render: 49ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 153ms (compile: 8ms, proxy.ts: 75ms, render: 70ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 150ms (compile: 11ms, proxy.ts: 76ms, render: 62ms)
+✓ Compiled in 607ms
+✓ Compiled in 571ms
+✓ Compiled in 637ms
+✓ Compiled in 596ms
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/subscription 200 in 375ms (compile: 4ms, proxy.ts: 253ms, render: 117ms)
+ GET /api/user/sites 200 in 388ms (compile: 5ms, proxy.ts: 265ms, render: 118ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 192ms (compile: 2ms, proxy.ts: 94ms, render: 96ms)
+ GET /api/user/subscription 200 in 210ms (compile: 5ms, proxy.ts: 98ms, render: 106ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 287ms (compile: 13ms, proxy.ts: 182ms, render: 92ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 189ms (compile: 9ms, proxy.ts: 102ms, render: 78ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 231ms (compile: 9ms, proxy.ts: 149ms, render: 73ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 143ms (compile: 8ms, proxy.ts: 81ms, render: 53ms)
+✓ Compiled in 642ms
+[Middleware] Incoming: localhost:3000/design
+ GET /design?siteId=9111e22f-6746-43c2-884e-927acabd340a&pageId=b4b0a404-bb6a-425f-8104-86c6863b075a 200 in 810ms (compile: 247ms, proxy.ts: 169ms, render: 394ms)
+[Middleware] Incoming: localhost:3000/design
+[Middleware] Incoming: localhost:3000/
+[Middleware] Incoming: localhost:3000/
+ GET /design?siteId=9111e22f-6746-43c2-884e-927acabd340a&pageId=b4b0a404-bb6a-425f-8104-86c6863b075a 200 in 355ms (compile: 5ms, proxy.ts: 111ms, render: 239ms)
+ GET / 200 in 474ms (compile: 9ms, proxy.ts: 189ms, render: 276ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/ai/builder
+ GET /api/user/subscription 200 in 187ms (compile: 4ms, proxy.ts: 83ms, render: 101ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/user/subscription 200 in 164ms (compile: 3ms, proxy.ts: 79ms, render: 82ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/ai/builder 200 in 422ms (compile: 6ms, proxy.ts: 94ms, render: 322ms)
+ GET /api/sites?id=9111e22f-6746-43c2-884e-927acabd340a 200 in 308ms (compile: 3ms, proxy.ts: 80ms, render: 225ms)
+ GET /api/user/subscription 200 in 188ms (compile: 2ms, proxy.ts: 79ms, render: 107ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/pages
+ GET /api/user/subscription 200 in 174ms (compile: 5ms, proxy.ts: 85ms, render: 85ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/pages?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 285ms (compile: 7ms, proxy.ts: 77ms, render: 200ms)
+ GET /api/user/subscription 200 in 168ms (compile: 3ms, proxy.ts: 77ms, render: 88ms)
+[Middleware] Incoming: localhost:3000/design
+ GET /design?siteId=9111e22f-6746-43c2-884e-927acabd340a&pageId=b4b0a404-bb6a-425f-8104-86c6863b075a 200 in 204ms (compile: 4ms, proxy.ts: 78ms, render: 122ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/ai/builder
+[Middleware] Incoming: localhost:3000/api/sites
+ GET /api/user/subscription 200 in 167ms (compile: 3ms, proxy.ts: 83ms, render: 81ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/sites?id=9111e22f-6746-43c2-884e-927acabd340a 200 in 278ms (compile: 5ms, proxy.ts: 97ms, render: 176ms)
+ GET /api/user/subscription 200 in 175ms (compile: 3ms, proxy.ts: 77ms, render: 95ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+[Middleware] Incoming: localhost:3000/api/pages
+ GET /api/ai/builder 200 in 428ms (compile: 5ms, proxy.ts: 88ms, render: 335ms)
+ GET /api/user/subscription 200 in 180ms (compile: 4ms, proxy.ts: 83ms, render: 93ms)
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/pages?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 280ms (compile: 8ms, proxy.ts: 75ms, render: 197ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/membership/me
+ GET /api/user/subscription 200 in 181ms (compile: 3ms, proxy.ts: 77ms, render: 101ms)
+ GET /api/membership/me 200 in 83ms (compile: 3ms, proxy.ts: 76ms, render: 4ms)
+[Middleware] Incoming: localhost:3000/api/membership/me
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/membership/me 200 in 82ms (compile: 2ms, proxy.ts: 77ms, render: 3ms)
+ GET /api/user/sites 200 in 187ms (compile: 11ms, proxy.ts: 95ms, render: 82ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 150ms (compile: 9ms, proxy.ts: 82ms, render: 59ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/user/sites 200 in 169ms (compile: 2ms, proxy.ts: 77ms, render: 90ms)
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 133ms (compile: 5ms, proxy.ts: 74ms, render: 53ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 148ms (compile: 8ms, proxy.ts: 83ms, render: 57ms)
+[Middleware] Incoming: localhost:3000/api/blog/posts
+ GET /api/blog/posts?siteId=9111e22f-6746-43c2-884e-927acabd340a 200 in 152ms (compile: 6ms, proxy.ts: 72ms, render: 74ms)
+✓ Compiled in 633ms
+✓ Compiled in 596ms
+✓ Compiled in 549ms
+✓ Compiled in 541ms
+✓ Compiled in 600ms
+✓ Compiled in 555ms
+✓ Compiled in 584ms
+✓ Compiled in 522ms
+✓ Compiled in 625ms
+✓ Compiled in 656ms
+✓ Compiled in 924ms
+✓ Compiled in 862ms
+[Middleware] Incoming: localhost:3000/card-style-lab
+[Middleware] Auth error or session expired: Auth session missing!
+ GET /card-style-lab 200 in 375ms (compile: 166ms, proxy.ts: 4ms, render: 205ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 362ms (compile: 3ms, proxy.ts: 252ms, render: 107ms)
+ GET /api/user/subscription 200 in 371ms (compile: 8ms, proxy.ts: 250ms, render: 112ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 288ms (compile: 4ms, proxy.ts: 191ms, render: 94ms)
+ GET /api/user/subscription 200 in 308ms (compile: 3ms, proxy.ts: 195ms, render: 109ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 170ms (compile: 3ms, proxy.ts: 77ms, render: 90ms)
+ GET /api/user/subscription 200 in 196ms (compile: 6ms, proxy.ts: 80ms, render: 110ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/sites 200 in 390ms (compile: 4ms, proxy.ts: 269ms, render: 117ms)
+ GET /api/user/subscription 200 in 394ms (compile: 6ms, proxy.ts: 276ms, render: 112ms)
+[Middleware] Incoming: localhost:3000/api/user/sites
+[Middleware] Incoming: localhost:3000/api/user/subscription
+ GET /api/user/subscription 200 in 172ms (compile: 4ms, proxy.ts: 91ms, render: 78ms)
+ GET /api/user/sites 200 in 195ms (compile: 5ms, proxy.ts: 100ms, render: 90ms)
+✓ Compiled in 717ms
+✓ Compiled in 576ms
+✓ Compiled in 557ms
+✓ Compiled in 523ms
+✓ Compiled in 581ms
+[Middleware] Incoming: localhost:3000/api/user/subscription
