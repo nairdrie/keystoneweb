@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, BookOpen, Eye, EyeOff, Image as ImageIcon, Tablet, Smartphone, Monitor, Layout, LayoutTemplate, Lock } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, BookOpen, Eye, EyeOff, Image as ImageIcon, Tablet, Smartphone, Monitor, Layout, LayoutTemplate, Lock, Rocket } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
@@ -862,7 +862,7 @@ export default function FloatingToolbar({
       </div>
 
       {/* Scrollable Accordions */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div data-rail-scrollable="true" className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
 
         {/* Template Section */}
         <div data-section-id="template" className="border border-slate-200 rounded-lg bg-white shadow-sm">
@@ -1734,8 +1734,10 @@ export default function FloatingToolbar({
         )}
       </div>
 
-      {/* Fixed Bottom Section (Actions) */}
-      <div data-tour="builder-save-actions" className="shrink-0 p-4 bg-slate-50 border-t border-slate-200 space-y-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
+      {/* Fixed Bottom Section (Actions) — surfaces as the "Publish" rail tab
+          in desktop rail mode; remains pinned at the bottom of the mobile
+          drawer where there's no rail. */}
+      <div data-section-id="publish" data-tour="builder-save-actions" className="shrink-0 p-4 bg-slate-50 border-t border-slate-200 space-y-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
 
         {/* Unsaved Changes Section */}
         {changes && (changes.length > 0 || canRedo) && (
@@ -1911,7 +1913,14 @@ export default function FloatingToolbar({
         ];
 
         const activeTabId = openSections[0] ?? null;
-        const activeTab = railTabs.find(t => t.id === activeTabId) ?? null;
+        const hasUnsaved = changes.length > 0;
+        const publishTabDef = {
+          id: 'publish',
+          label: hasUnsaved ? `${changes.length} unsaved` : (isPublished ? 'Live' : 'Publish'),
+          icon: Rocket as React.ComponentType<{ className?: string }>,
+        };
+        const activeTab = railTabs.find(t => t.id === activeTabId)
+          ?? (activeTabId === 'publish' ? publishTabDef : null);
 
         const openTabPanel = (id: string) => {
           setOpenSections([id]);
@@ -2024,17 +2033,21 @@ export default function FloatingToolbar({
                         style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #ec4899 100%)' }}
                       >
                         <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.35)_0%,transparent_55%)]" />
-                        <Icon className="w-4 h-4 shrink-0 relative" />
-                        {railShowLabels && (
-                          <span className="relative truncate flex-1 text-left">{tab.label}</span>
-                        )}
-                        {railShowLabels && !isProUser && !isBasicUser && !isFreeUser && (
-                          <span className="relative rounded-full bg-white/25 px-1.5 py-0.5 text-[9px] font-bold tracking-wide">PRO</span>
-                        )}
-                        {railShowLabels && isFreeUser && freeAiPromptsLeft !== 0 && (
-                          <span className="relative rounded-full bg-white/25 px-1.5 py-0.5 text-[9px] font-bold tracking-wide">
-                            {freeAiBadgeLabel}
-                          </span>
+                        {railShowLabels ? (
+                          <>
+                            <span className="relative font-black tracking-wider text-[11px]">AI</span>
+                            <span className="relative truncate flex-1 text-left">{tab.label}</span>
+                            {!isProUser && !isBasicUser && !isFreeUser && (
+                              <span className="relative rounded-full bg-white/25 px-1.5 py-0.5 text-[9px] font-bold tracking-wide">PRO</span>
+                            )}
+                            {isFreeUser && freeAiPromptsLeft !== 0 && (
+                              <span className="relative rounded-full bg-white/25 px-1.5 py-0.5 text-[9px] font-bold tracking-wide">
+                                {freeAiBadgeLabel}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="relative font-black tracking-wider text-[13px] leading-none">AI</span>
                         )}
                       </button>
                     );
@@ -2063,8 +2076,51 @@ export default function FloatingToolbar({
                 })}
               </nav>
 
-              {/* Footer: just Help (matches admin's bottom row) */}
-              <div className="flex-none border-t border-slate-100 p-2">
+              {/* Footer: Publish (live/save status, changes color with unsaved changes) + Help */}
+              <div className="flex-none border-t border-slate-100 p-2 space-y-0.5">
+                <button
+                  onClick={() => openTabPanel('publish')}
+                  title={
+                    railShowLabels
+                      ? undefined
+                      : hasUnsaved
+                        ? `${changes.length} unsaved change${changes.length !== 1 ? 's' : ''} — click to save/publish`
+                        : (isPublished ? 'Site is live — open publish controls' : 'Publish your site')
+                  }
+                  className={`group relative w-full flex items-center overflow-visible ${railShowLabels ? 'gap-2.5 px-2.5' : 'justify-center px-0'} py-2 rounded-lg text-xs font-bold transition-all ${
+                    hasUnsaved
+                      ? 'text-white shadow-sm hover:brightness-110'
+                      : (isOpen && activeTabId === 'publish'
+                          ? 'bg-red-50 text-red-700'
+                          : 'text-red-600 hover:bg-red-50')
+                  }`}
+                  style={hasUnsaved ? { backgroundColor: 'var(--brand-primary, #dc2626)' } : undefined}
+                >
+                  {!hasUnsaved && isOpen && activeTabId === 'publish' && (
+                    <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-red-600" />
+                  )}
+                  <span className="relative flex items-center justify-center shrink-0">
+                    <Rocket className="w-4 h-4" />
+                    {hasUnsaved && !railShowLabels && (
+                      <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-300 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-400 ring-2 ring-white"></span>
+                      </span>
+                    )}
+                  </span>
+                  {railShowLabels && (
+                    <span className="truncate flex-1 text-left">
+                      {hasUnsaved
+                        ? `${changes.length} unsaved`
+                        : (isPublished ? 'Live' : 'Publish')}
+                    </span>
+                  )}
+                  {railShowLabels && hasUnsaved && (
+                    <span className="relative min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-white/25 text-white text-[10px] font-black px-1">
+                      {changes.length > 99 ? '99+' : changes.length}
+                    </span>
+                  )}
+                </button>
                 <button
                   onClick={openWalkthrough}
                   title={railShowLabels ? undefined : 'Help / walkthrough'}
@@ -2123,10 +2179,15 @@ export default function FloatingToolbar({
                   __html: `
                     .rail-panel-body [data-rail-hide="true"] { display: none !important; }
                     .rail-panel-body [data-section-id] { display: none !important; }
-                    .rail-panel-body [data-section-id="${activeTabId ?? ''}"] { display: block !important; }
-                    .rail-panel-body [data-section-id="${activeTabId ?? ''}"] > *:first-child { display: none !important; }
-                    .rail-panel-body [data-section-id="${activeTabId ?? ''}"] { border: 0 !important; box-shadow: none !important; border-radius: 0 !important; background: transparent !important; }
-                    .rail-panel-body [data-section-id="${activeTabId ?? ''}"] > *:nth-child(2) { border-top: 0 !important; }
+                    .rail-panel-body [data-section-id="${activeTabId ?? ''}"] { display: block !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; background: transparent !important; }
+                    ${activeTabId && activeTabId !== 'publish' ? `
+                      .rail-panel-body [data-section-id="${activeTabId}"] > *:first-child { display: none !important; }
+                      .rail-panel-body [data-section-id="${activeTabId}"] > *:nth-child(2) { border-top: 0 !important; }
+                    ` : ''}
+                    ${activeTabId === 'publish' ? `
+                      .rail-panel-body[data-active-section="publish"] [data-rail-scrollable="true"] { display: none !important; }
+                      .rail-panel-body[data-active-section="publish"] [data-section-id="publish"] { box-shadow: none !important; border-top: 0 !important; flex: 1 1 0 !important; }
+                    ` : ''}
                   `
                 }} />
                 {panelContent}
