@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { CheckCircle2, XCircle, AlertTriangle, Loader2, RefreshCw, ChevronDown, ExternalLink } from 'lucide-react';
 import {
     type DiagnosticResult,
@@ -26,9 +26,39 @@ function SeverityIcon({ severity }: { severity: Severity }) {
 
 export default function DoctorPanel({ siteId }: DoctorPanelProps) {
     const [results, setResults] = useState<DiagnosticResult[] | null>(null);
+    const [checkedAt, setCheckedAt] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [loadingLatest, setLoadingLatest] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        if (!siteId) return;
+        let cancelled = false;
+        setLoadingLatest(true);
+        (async () => {
+            try {
+                const res = await fetch(`/api/doctor/latest?siteId=${encodeURIComponent(siteId)}`, {
+                    credentials: 'include',
+                });
+                if (!res.ok) return;
+                const data: { run?: { results?: DiagnosticResult[]; checkedAt?: string } | null } = await res.json();
+                if (cancelled || !data.run) return;
+                const diagnostics = (data.run.results ?? []).slice();
+                diagnostics.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+                setResults(diagnostics);
+                setCheckedAt(data.run.checkedAt ?? null);
+                setExpandedCategories(new Set(
+                    diagnostics.filter(d => d.severity !== 'pass').map(d => d.category)
+                ));
+            } catch {
+                // Silent — the user can still run a fresh check.
+            } finally {
+                if (!cancelled) setLoadingLatest(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [siteId]);
 
     const runDiagnostics = useCallback(async () => {
         if (!siteId) return;
@@ -49,10 +79,11 @@ export default function DoctorPanel({ siteId }: DoctorPanelProps) {
                 const data = await res.json().catch(() => null);
                 throw new Error(data?.details || data?.error || 'Failed to run diagnostics');
             }
-            const data: { results?: DiagnosticResult[] } = await res.json();
+            const data: { results?: DiagnosticResult[]; checkedAt?: string } = await res.json();
             const diagnostics = data.results ?? [];
             diagnostics.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
             setResults(diagnostics);
+            setCheckedAt(data.checkedAt ?? new Date().toISOString());
 
             const issueCategories = new Set(
                 diagnostics.filter(d => d.severity !== 'pass').map(d => d.category)
@@ -65,6 +96,13 @@ export default function DoctorPanel({ siteId }: DoctorPanelProps) {
             setLoading(false);
         }
     }, [siteId]);
+
+    const formattedCheckedAt = checkedAt
+        ? new Date(checkedAt).toLocaleString(undefined, {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+        })
+        : null;
 
     const toggleCategory = (cat: string) => {
         setExpandedCategories(prev => {
@@ -115,6 +153,12 @@ export default function DoctorPanel({ siteId }: DoctorPanelProps) {
             {error && (
                 <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
                     {error}
+                </div>
+            )}
+
+            {formattedCheckedAt && !loading && (
+                <div className="text-xs text-slate-500">
+                    Last ran {formattedCheckedAt}
                 </div>
             )}
 
@@ -225,7 +269,9 @@ export default function DoctorPanel({ siteId }: DoctorPanelProps) {
 
             {!results && !loading && !error && (
                 <div className="text-center text-xs text-slate-400 py-4">
-                    Click &ldquo;Run Diagnostics&rdquo; to scan your site.
+                    {loadingLatest
+                        ? 'Loading last health check…'
+                        : 'Click “Run Health Check” to scan your site.'}
                 </div>
             )}
         </div>
