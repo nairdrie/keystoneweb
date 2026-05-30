@@ -14,7 +14,7 @@ import { ShoppingBag, Package, ClipboardList, CreditCard, Truck, BarChart3, Mail
 type TabId = 'analytics' | 'products' | 'orders' | 'payments' | 'shipping' | 'emails';
 
 export default function AdminEcommercePage() {
-  const { siteId, palette, siteBlockTypes } = useAdminContext();
+  const { siteId, palette, siteBlockTypes, confirmNavigation } = useAdminContext();
   const [activeTab, setActiveTab] = useState<TabId>('products');
   const [shippingRequired, setShippingRequired] = useState(true);
   const [siteLogoUrl, setSiteLogoUrl] = useState<string | undefined>(undefined);
@@ -96,7 +96,7 @@ export default function AdminEcommercePage() {
         {tabs.map(tab => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => confirmNavigation(() => setActiveTab(tab.id))}
             className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === tab.id
                 ? 'border-slate-900 text-slate-900'

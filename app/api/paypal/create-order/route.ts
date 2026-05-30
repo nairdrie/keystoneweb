@@ -1,26 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
-import { createOrder, isPaypalConfigured, type PaypalItem } from '@/lib/paypal';
+import { createOrder, getSitePaypalCreds, type PaypalItem } from '@/lib/paypal';
 
 /**
  * POST /api/paypal/create-order
  *
- * Creates a PayPal Order that funds route directly to the site owner's
- * PayPal merchant account via payee.merchant_id (mirrors the Stripe
- * destination charge pattern in app/api/stripe/checkout/route.ts).
+ * Creates a PayPal Order with the site owner's own PayPal credentials, so funds
+ * settle directly to their account (owner = merchant of record). Mirrors the
+ * Stripe checkout flow in app/api/stripe/checkout/route.ts.
  *
  * Called from the Smart Buttons `createOrder` callback. Returns the PayPal
  * order id so the JS SDK can hand it off to PayPal's popup.
  */
 export async function POST(request: NextRequest) {
   try {
-    if (!isPaypalConfigured()) {
-      return NextResponse.json(
-        { error: 'PayPal is not configured on this platform' },
-        { status: 500 }
-      );
-    }
-
     const supabase = await createClient();
     const { orderId } = await request.json();
 
@@ -30,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     const { data: order, error } = await supabase
       .from('orders')
-      .select('*, sites!inner(paypal_merchant_id, paypal_onboarding_status, id)')
+      .select('*')
       .eq('id', orderId)
       .single();
 
@@ -38,12 +31,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    const merchantId = order.sites?.paypal_merchant_id;
-    const onboardingStatus = order.sites?.paypal_onboarding_status;
-
-    if (!merchantId || onboardingStatus !== 'active') {
+    const creds = await getSitePaypalCreds(order.site_id);
+    if (!creds) {
       return NextResponse.json(
-        { error: 'This site is not fully connected to PayPal yet' },
+        { error: 'This site has not connected PayPal yet' },
         { status: 400 }
       );
     }
@@ -69,8 +60,7 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    const pp = await createOrder({
-      merchantId,
+    const pp = await createOrder(creds, {
       currency,
       items,
       shippingCents: order.shipping_cents || 0,

@@ -97,7 +97,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
     const [ecomSettings, setEcomSettings] = useState<EcommerceSettings | null>(null);
     const [stripeConnected, setStripeConnected] = useState(false);
     const [paypalConnected, setPaypalConnected] = useState(false);
-    const [paypalMerchantId, setPaypalMerchantId] = useState<string | null>(null);
+    const [paypalClientId, setPaypalClientId] = useState<string | null>(null);
     const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
     const [paypalError, setPaypalError] = useState<string | null>(null);
     const [convergeConnected, setConvergeConnected] = useState(false);
@@ -158,7 +158,7 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
                 setEcomSettings(data.settings);
                 setStripeConnected(data.stripeConnected || false);
                 setPaypalConnected(data.paypalConnected || false);
-                setPaypalMerchantId(data.paypalMerchantId || null);
+                setPaypalClientId(data.paypalClientId || null);
                 setConvergeConnected(data.convergeConnected || false);
                 setConvergeDemoModeSite(data.convergeDemoMode || false);
                 setCloverConnected(data.cloverConnected || false);
@@ -1809,11 +1809,11 @@ export default function CartDrawer({ siteId, palette }: CartDrawerProps) {
 
                 {step === 'payment' && (
                     <div className="border-t border-slate-200 px-5 py-4 space-y-2">
-                        {selectedPayment === 'paypal' && paypalMerchantId ? (
+                        {selectedPayment === 'paypal' && paypalClientId ? (
                             <div>
                                 {canPlaceOrder && !(shippingRequired && (!!shippingError || noZonesConfigured)) ? (
                                     <PayPalButton
-                                        merchantId={paypalMerchantId}
+                                        clientId={paypalClientId}
                                         currency={currency}
                                         createOrder={handlePaypalCreateOrder}
                                         onApprove={handlePaypalApprove}

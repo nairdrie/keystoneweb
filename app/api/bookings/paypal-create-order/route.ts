@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/db/supabase-server';
-import { createAdminClient } from '@/lib/db/supabase-admin';
 import {
   createOrder,
-  isPaypalConfigured,
+  getSitePaypalCreds,
   type PaypalItem,
 } from '@/lib/paypal';
 
@@ -24,13 +23,6 @@ import {
  */
 export async function POST(request: NextRequest) {
   try {
-    if (!isPaypalConfigured()) {
-      return NextResponse.json(
-        { error: 'PayPal is not configured on this platform' },
-        { status: 500 }
-      );
-    }
-
     const supabase = await createClient();
     const body = await request.json();
     const {
@@ -58,16 +50,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: site } = await createAdminClient()
-      .from('sites')
-      .select('paypal_merchant_id, paypal_onboarding_status')
-      .eq('id', siteId)
-      .single();
-
-    if (
-      !site?.paypal_merchant_id ||
-      site.paypal_onboarding_status !== 'active'
-    ) {
+    const creds = await getSitePaypalCreds(siteId);
+    if (!creds) {
       return NextResponse.json(
         { error: 'PayPal is not connected for this site' },
         { status: 400 }
@@ -117,8 +101,7 @@ export async function POST(request: NextRequest) {
     // but we also stash them in pending_paypal_bookings if present.
     const pendingId = `pending_${siteId}_${Date.now()}`;
 
-    const pp = await createOrder({
-      merchantId: site.paypal_merchant_id,
+    const pp = await createOrder(creds, {
       currency,
       items,
       customId: pendingId,

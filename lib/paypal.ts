@@ -1,42 +1,81 @@
 /**
- * PayPal Commerce Platform (Partner) REST helper.
+ * PayPal REST helper — bring-your-own-credentials model.
  *
- * Platform (Keystone) = PayPal Partner. Each site owner connects their PayPal
- * business account via a Partner Referral; we then create checkout orders on
- * behalf of that owner using `payee.merchant_id` and the `PayPal-Auth-Assertion`
- * header so funds settle directly to the owner's PayPal account (owner is
- * merchant of record, owner pays PayPal fees, owner handles refunds).
+ * Each site stores its own PayPal REST app Client ID + Secret (see the
+ * `sites.paypal_client_id` / `paypal_secret` / `paypal_sandbox_mode` columns).
+ * Orders are created and captured with the site owner's own OAuth token, so the
+ * owner is the merchant of record, funds settle straight to their PayPal
+ * account, and they pay PayPal's fees / own refunds. No Partner approval or
+ * `payee` / `PayPal-Auth-Assertion` plumbing is required.
  *
- * Mirrors the role of the Stripe Connect integration in app/api/stripe/*.
+ * The platform-level env credentials below are used ONLY by the webhook
+ * signature verifier (an optional reconciliation safety net); they are not
+ * needed for the core checkout flow.
  */
 import { createAdminClient } from './db/supabase-admin';
 
-const PAYPAL_API_BASE =
-  process.env.PAYPAL_API_BASE || 'https://api-m.sandbox.paypal.com';
-const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID || '';
-const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET || '';
-const PAYPAL_PARTNER_MERCHANT_ID = process.env.PAYPAL_PARTNER_MERCHANT_ID || '';
-const PAYPAL_WEBHOOK_ID = process.env.PAYPAL_WEBHOOK_ID || '';
+const PLATFORM_CLIENT_ID = process.env.PAYPAL_CLIENT_ID || '';
+const PLATFORM_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET || '';
+const PLATFORM_WEBHOOK_ID = process.env.PAYPAL_WEBHOOK_ID || '';
+const PLATFORM_API_BASE =
+  process.env.PAYPAL_API_BASE || 'https://api-m.paypal.com';
 
-export function isPaypalConfigured() {
-  return Boolean(
-    PAYPAL_CLIENT_ID && PAYPAL_CLIENT_SECRET && PAYPAL_PARTNER_MERCHANT_ID
-  );
+const LIVE_API_BASE = 'https://api-m.paypal.com';
+const SANDBOX_API_BASE = 'https://api-m.sandbox.paypal.com';
+
+// ── Per-site credentials ──────────────────────────────────────────────────
+export type PaypalCreds = {
+  clientId: string;
+  secret: string;
+  sandbox: boolean;
+};
+
+export function apiBaseFor(sandbox: boolean): string {
+  return sandbox ? SANDBOX_API_BASE : LIVE_API_BASE;
 }
 
-// ── OAuth access-token (client-credentials) with in-memory cache ──────────
-let cachedToken: { access_token: string; expires_at: number } | null = null;
+/**
+ * Load a site's PayPal credentials (including the secret) via the admin client.
+ * Returns null if the site hasn't connected PayPal. NEVER expose the secret to
+ * the browser — call this only from server routes.
+ */
+export async function getSitePaypalCreds(
+  siteId: string
+): Promise<PaypalCreds | null> {
+  const db = createAdminClient();
+  const { data } = await db
+    .from('sites')
+    .select('paypal_client_id, paypal_secret, paypal_sandbox_mode')
+    .eq('id', siteId)
+    .single();
 
-export async function getAccessToken(): Promise<string> {
-  if (cachedToken && cachedToken.expires_at - 60_000 > Date.now()) {
-    return cachedToken.access_token;
+  if (!data?.paypal_client_id || !data?.paypal_secret) return null;
+  return {
+    clientId: data.paypal_client_id,
+    secret: data.paypal_secret,
+    sandbox: !!data.paypal_sandbox_mode,
+  };
+}
+
+// ── OAuth access-token (client-credentials) with per-credential cache ──────
+const tokenCache: Record<
+  string,
+  { access_token: string; expires_at: number }
+> = {};
+
+async function fetchAccessToken(
+  base: string,
+  clientId: string,
+  secret: string
+): Promise<string> {
+  const cacheKey = `${base}|${clientId}`;
+  const cached = tokenCache[cacheKey];
+  if (cached && cached.expires_at - 60_000 > Date.now()) {
+    return cached.access_token;
   }
 
-  const auth = Buffer.from(
-    `${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`
-  ).toString('base64');
-
-  const res = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
+  const auth = Buffer.from(`${clientId}:${secret}`).toString('base64');
+  const res = await fetch(`${base}/v1/oauth2/token`, {
     method: 'POST',
     headers: {
       Authorization: `Basic ${auth}`,
@@ -51,128 +90,18 @@ export async function getAccessToken(): Promise<string> {
   }
 
   const data = await res.json();
-  cachedToken = {
+  tokenCache[cacheKey] = {
     access_token: data.access_token,
     expires_at: Date.now() + data.expires_in * 1000,
   };
   return data.access_token;
 }
 
-// ── PayPal-Auth-Assertion (unsigned JWT; PayPal accepts alg:none here) ────
-export function buildAuthAssertion(merchantId: string): string {
-  const header = Buffer.from(
-    JSON.stringify({ alg: 'none', typ: 'JWT' })
-  ).toString('base64url');
-  const payload = Buffer.from(
-    JSON.stringify({ iss: PAYPAL_CLIENT_ID, payer_id: merchantId })
-  ).toString('base64url');
-  return `${header}.${payload}.`;
+export function getAccessToken(creds: PaypalCreds): Promise<string> {
+  return fetchAccessToken(apiBaseFor(creds.sandbox), creds.clientId, creds.secret);
 }
 
-// ── Partner Referrals: create a seller-onboarding link ────────────────────
-type PartnerReferralParams = {
-  siteId: string;
-  returnUrl: string;
-  email?: string;
-  advancedCard?: boolean;
-};
-
-export async function createPartnerReferral(
-  params: PartnerReferralParams
-): Promise<string> {
-  const token = await getAccessToken();
-
-  const features = ['PAYMENT', 'REFUND'];
-  const products: string[] = [];
-  if (params.advancedCard) {
-    features.push('ADVANCED_TRANSACTIONS_SEARCH', 'VAULT');
-    products.push('PPCP');
-  }
-
-  const body: any = {
-    tracking_id: params.siteId,
-    operations: [
-      {
-        operation: 'API_INTEGRATION',
-        api_integration_preference: {
-          rest_api_integration: {
-            integration_method: 'PAYPAL',
-            integration_type: 'THIRD_PARTY',
-            third_party_details: { features },
-          },
-        },
-      },
-    ],
-    ...(products.length ? { products } : {}),
-    legal_consents: [{ type: 'SHARE_DATA_CONSENT', granted: true }],
-    partner_config_override: {
-      return_url: params.returnUrl,
-      return_url_description:
-        'Return to your Keystone dashboard to finish connecting PayPal.',
-    },
-  };
-
-  if (params.email) {
-    body.email = params.email;
-  }
-
-  const res = await fetch(
-    `${PAYPAL_API_BASE}/v2/customer/partner-referrals`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    }
-  );
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`PayPal partner-referrals failed (${res.status}): ${text}`);
-  }
-
-  const data = await res.json();
-  const actionUrl = (data.links || []).find(
-    (l: any) => l.rel === 'action_url'
-  )?.href;
-  if (!actionUrl) {
-    throw new Error('PayPal partner-referrals returned no action_url');
-  }
-  return actionUrl as string;
-}
-
-// ── Merchant integration status ──────────────────────────────────────────
-export type MerchantIntegrationStatus = {
-  merchant_id: string;
-  primary_email_confirmed: boolean;
-  payments_receivable: boolean;
-  oauth_integrations?: Array<{
-    oauth_third_party?: Array<{ scopes?: string[] }>;
-  }>;
-  products?: Array<{ name: string; vetting_status?: string; capabilities?: string[] }>;
-};
-
-export async function getMerchantIntegrationStatus(
-  merchantId: string
-): Promise<MerchantIntegrationStatus> {
-  const token = await getAccessToken();
-  const res = await fetch(
-    `${PAYPAL_API_BASE}/v1/customer/partners/${PAYPAL_PARTNER_MERCHANT_ID}/merchant-integrations/${merchantId}`,
-    {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${token}` },
-    }
-  );
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`PayPal merchant-status failed (${res.status}): ${text}`);
-  }
-  return res.json();
-}
-
-// ── Orders: create ──────────────────────────────────────────────────────
+// ── Orders ────────────────────────────────────────────────────────────────
 export type PaypalMoney = { currency_code: string; value: string };
 
 export type PaypalItem = {
@@ -184,7 +113,6 @@ export type PaypalItem = {
 };
 
 type CreateOrderParams = {
-  merchantId: string;
   currency: string; // ISO 4217
   items: PaypalItem[];
   shippingCents?: number;
@@ -213,12 +141,11 @@ function sumItemsCents(items: PaypalItem[]): number {
   }, 0);
 }
 
-export async function createOrder(params: CreateOrderParams): Promise<{
-  id: string;
-  status: string;
-  raw: any;
-}> {
-  const token = await getAccessToken();
+export async function createOrder(
+  creds: PaypalCreds,
+  params: CreateOrderParams
+): Promise<{ id: string; status: string; raw: any }> {
+  const token = await getAccessToken(creds);
   const currency = (params.currency || 'USD').toUpperCase();
 
   const itemTotalCents = sumItemsCents(params.items);
@@ -256,7 +183,6 @@ export async function createOrder(params: CreateOrderParams): Promise<{
           breakdown,
         },
         items: params.items,
-        payee: { merchant_id: params.merchantId },
       },
     ],
     application_context: {
@@ -276,13 +202,11 @@ export async function createOrder(params: CreateOrderParams): Promise<{
     };
   }
 
-  const res = await fetch(`${PAYPAL_API_BASE}/v2/checkout/orders`, {
+  const res = await fetch(`${apiBaseFor(creds.sandbox)}/v2/checkout/orders`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
-      'PayPal-Auth-Assertion': buildAuthAssertion(params.merchantId),
-      'PayPal-Partner-Attribution-Id': 'Keystone_SP_PPCP',
     },
     body: JSON.stringify(body),
   });
@@ -295,22 +219,28 @@ export async function createOrder(params: CreateOrderParams): Promise<{
   return { id: data.id, status: data.status, raw: data };
 }
 
-// ── Orders: capture ─────────────────────────────────────────────────────
 export async function captureOrder(
-  paypalOrderId: string,
-  merchantId: string
-): Promise<{ id: string; status: string; captureId: string | null; amountCents: number; currency: string; raw: any }> {
-  const token = await getAccessToken();
+  creds: PaypalCreds,
+  paypalOrderId: string
+): Promise<{
+  id: string;
+  status: string;
+  captureId: string | null;
+  amountCents: number;
+  currency: string;
+  raw: any;
+}> {
+  const token = await getAccessToken(creds);
 
   const res = await fetch(
-    `${PAYPAL_API_BASE}/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}/capture`,
+    `${apiBaseFor(creds.sandbox)}/v2/checkout/orders/${encodeURIComponent(
+      paypalOrderId
+    )}/capture`,
     {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
-        'PayPal-Auth-Assertion': buildAuthAssertion(merchantId),
-        'PayPal-Partner-Attribution-Id': 'Keystone_SP_PPCP',
       },
       body: '{}',
     }
@@ -340,7 +270,7 @@ export async function captureOrder(
   };
 }
 
-// ── Webhook signature verification ──────────────────────────────────────
+// ── Webhook signature verification (optional reconciliation safety net) ────
 export async function verifyWebhookSignature(params: {
   authAlgo: string;
   certUrl: string;
@@ -349,11 +279,17 @@ export async function verifyWebhookSignature(params: {
   transmissionTime: string;
   rawBody: string;
 }): Promise<boolean> {
-  if (!PAYPAL_WEBHOOK_ID) return false;
+  if (!PLATFORM_WEBHOOK_ID || !PLATFORM_CLIENT_ID || !PLATFORM_CLIENT_SECRET) {
+    return false;
+  }
 
-  const token = await getAccessToken();
+  const token = await fetchAccessToken(
+    PLATFORM_API_BASE,
+    PLATFORM_CLIENT_ID,
+    PLATFORM_CLIENT_SECRET
+  );
   const res = await fetch(
-    `${PAYPAL_API_BASE}/v1/notifications/verify-webhook-signature`,
+    `${PLATFORM_API_BASE}/v1/notifications/verify-webhook-signature`,
     {
       method: 'POST',
       headers: {
@@ -366,7 +302,7 @@ export async function verifyWebhookSignature(params: {
         transmission_id: params.transmissionId,
         transmission_sig: params.transmissionSig,
         transmission_time: params.transmissionTime,
-        webhook_id: PAYPAL_WEBHOOK_ID,
+        webhook_id: PLATFORM_WEBHOOK_ID,
         webhook_event: JSON.parse(params.rawBody),
       }),
     }
