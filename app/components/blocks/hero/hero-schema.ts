@@ -86,6 +86,8 @@ export interface HeroBackground {
          * indices fall back to the slot's `defaultToken`.
          */
         colors?: string[];
+        /** 0.25 – 2; speed multiplier for the animation. Defaults to 1. */
+        speed?: number;
     };
     pattern?: {
         id: HeroBgPatternId;

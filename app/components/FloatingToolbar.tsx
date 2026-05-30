@@ -10,6 +10,7 @@ import { Change } from '@/lib/hooks/useChangeTracking';
 import AlertModal from './ui/AlertModal';
 import FontPickerModal from './FontPickerModal';
 import AIBuilderPanel from './AIBuilderPanel';
+import ArchieAIIcon from './ArchieAIIcon';
 import TranslationsPanel from './TranslationsPanel';
 import ImageEditorModal from './ImageEditorModal';
 import EditHistoryModal from './EditHistoryModal';
@@ -215,6 +216,7 @@ export default function FloatingToolbar({
 
   const [openSections, setOpenSections] = useState<string[]>([]);
   const openSectionsRef = useRef<string[]>([]);
+  const [railExpanded, setRailExpanded] = useState(false);
   const [fontPickerState, setFontPickerState] = useState<{ isOpen: boolean, type: 'title' | 'body' }>({ isOpen: false, type: 'title' });
   const aiBuilderSectionRef = useRef<HTMLDivElement>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -1500,7 +1502,7 @@ export default function FloatingToolbar({
               className="flex min-w-0 flex-1 items-center justify-between"
             >
               <span className="flex min-w-0 items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-violet-700">
-                <img src="/assets/archie.png" alt="" className="w-4 h-auto" aria-hidden="true" />
+                <ArchieAIIcon className="w-4 h-4" />
                 AI Builder
                 {!isProUser && !isBasicUser && !isFreeUser && <span className="ml-1 rounded-full bg-violet-600 px-1.5 py-0.5 text-[9px] font-bold text-white">PRO</span>}
                 {isFreeUser && freeAiPromptsLeft !== 0 && (
@@ -1870,110 +1872,241 @@ export default function FloatingToolbar({
   return (
     <>
       {/* ═══════════════════════════════════════════════════════════════
-          LARGE SCREEN: Left Sidebar
+          LARGE SCREEN: Hover-expanding rail + persistent panel
          ═══════════════════════════════════════════════════════════════ */}
-      {isLargeScreen && (
-        <>
-          {/* Sidebar Panel */}
-          <div
-            ref={drawerRef}
-            className={`fixed top-[var(--impersonation-height,0px)] left-0 bottom-0 z-[9999] bg-white shadow-2xl border-r border-slate-200 flex flex-col transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
-            style={{ width: '22rem' }}
-          >
-            {/* Sidebar Header */}
-            <div className="sticky top-0 bg-white border-b border-slate-200 px-3 h-12 flex items-center justify-between z-10 shrink-0">
-              <div className="flex items-center gap-2">
-                <div
-                  onClick={(e) => {
-                    if (changes.length > 0) {
-                      e.preventDefault();
-                      setAlertConfig({
-                        isOpen: true,
-                        title: 'Unsaved Changes',
-                        message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
-                        type: 'warning',
-                        onConfirm: () => router.push('/'),
-                        confirmLabel: 'Leave',
-                        cancelLabel: 'Stay'
-                      });
-                    } else {
-                      router.push('/');
-                    }
-                  }}
-                  className="cursor-pointer shrink-0"
-                >
-                  <KeystoneLogo href={undefined} size="md" showText={false} />
-                </div>
+      {isLargeScreen && (() => {
+        const RAIL_W = 56;
+        const RAIL_EXPANDED_W = 208;
 
-                {/* Design / Admin switcher */}
-                <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-full">
-                  <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white shadow-sm text-slate-800 select-none">
-                    <Paintbrush className="w-3 h-3" />
-                    Design
-                  </span>
-                  <a
-                    href={`/admin/analytics${currentSiteId ? `?siteId=${currentSiteId}` : ''}`}
-                    onClick={(e) => {
-                      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
-                      e.preventDefault();
-                      const dest = `/admin/analytics${currentSiteId ? `?siteId=${currentSiteId}` : ''}`;
+        const railTabs: Array<{ id: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+          { id: 'template',       label: 'Template',     icon: Layout },
+          { id: 'general',        label: 'Logo',         icon: ImageIcon },
+          { id: 'colors',         label: 'Colors',       icon: Paintbrush },
+          { id: 'typography',     label: 'Fonts',        icon: Type },
+          { id: 'animation',      label: 'Animation',    icon: Sparkles },
+          { id: 'translations',   label: 'Translations', icon: Languages },
+          { id: 'doctor',         label: 'Health',       icon: Stethoscope },
+          { id: 'other-settings', label: 'Settings',     icon: Settings },
+        ];
+
+        const activeTabId = openSections[0] ?? null;
+        const activeTab = activeTabId === 'ai-builder'
+          ? { id: 'ai-builder', label: 'AI Builder', icon: ArchieAIIcon as React.ComponentType<{ className?: string }> }
+          : railTabs.find(t => t.id === activeTabId) ?? null;
+
+        const openTabPanel = (id: string) => {
+          setOpenSections([id]);
+          onOpenChange(true);
+        };
+
+        const navigateAway = (dest: string) => {
+          if (changes.length > 0) {
+            setAlertConfig({
+              isOpen: true,
+              title: 'Unsaved Changes',
+              message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
+              type: 'warning',
+              onConfirm: () => router.push(dest),
+              confirmLabel: 'Leave',
+              cancelLabel: 'Stay',
+            });
+          } else {
+            router.push(dest);
+          }
+        };
+
+        const railShowLabels = railExpanded;
+
+        return (
+          <>
+            {/* ── Thin icon rail — always visible, hover-expands ── */}
+            <aside
+              onMouseEnter={() => setRailExpanded(true)}
+              onMouseLeave={() => setRailExpanded(false)}
+              className={`fixed top-[var(--impersonation-height,0px)] left-0 bottom-0 z-[10000] bg-white border-r border-slate-200 flex flex-col transition-[width,box-shadow] duration-200 ease-out ${railExpanded ? 'shadow-2xl' : ''}`}
+              style={{ width: railExpanded ? RAIL_EXPANDED_W : RAIL_W }}
+              aria-label="Design navigation"
+            >
+              {/* Header: logo + design/admin switcher (when expanded) */}
+              <div className="relative h-12 shrink-0 border-b border-slate-100">
+                {/* Expanded: logo + switcher */}
+                <div
+                  className={`absolute inset-y-0 left-3 flex items-center gap-2 transition-opacity duration-200 ${
+                    railShowLabels ? 'opacity-100 delay-75' : 'opacity-0 pointer-events-none'
+                  }`}
+                >
+                  <button
+                    onClick={() => navigateAway('/')}
+                    className="shrink-0"
+                    aria-label="Keystone home"
+                  >
+                    <KeystoneLogo href={undefined} size="md" showText={false} />
+                  </button>
+                  <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-full">
+                    <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-white shadow-sm text-slate-800 select-none whitespace-nowrap">
+                      <Paintbrush className="w-3 h-3" />
+                      Design
+                    </span>
+                    <a
+                      href={`/admin/analytics${currentSiteId ? `?siteId=${currentSiteId}` : ''}`}
+                      onClick={(e) => {
+                        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
+                        e.preventDefault();
+                        navigateAway(`/admin/analytics${currentSiteId ? `?siteId=${currentSiteId}` : ''}`);
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold text-slate-500 hover:text-slate-800 hover:bg-white/70 transition-colors whitespace-nowrap"
+                    >
+                      <LayoutDashboard className="w-3 h-3" />
+                      Admin
+                    </a>
+                  </div>
+                </div>
+                {/* Collapsed: centered logo */}
+                {!railShowLabels && (
+                  <button
+                    onClick={() => navigateAway('/')}
+                    className="absolute inset-0 flex items-center justify-center"
+                    aria-label="Keystone home"
+                  >
+                    <KeystoneLogo href={undefined} size="md" showText={false} />
+                  </button>
+                )}
+              </div>
+
+              {/* Tab list */}
+              <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-2 space-y-0.5">
+                {railTabs.map(tab => {
+                  const Icon = tab.icon;
+                  const isActive = isOpen && activeTabId === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => openTabPanel(tab.id)}
+                      title={railShowLabels ? undefined : tab.label}
+                      className={`group relative w-full flex items-center ${railShowLabels ? 'gap-2.5 px-2.5' : 'justify-center px-0'} py-2 rounded-lg text-xs font-bold transition-colors ${
+                        isActive
+                          ? 'bg-red-50 text-red-700'
+                          : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                      }`}
+                    >
+                      {isActive && (
+                        <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-red-600" />
+                      )}
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {railShowLabels && (
+                        <span className="truncate flex-1 text-left">{tab.label}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
+
+              {/* AI Builder — bottom, distinctive gradient */}
+              <div className="flex-none border-t border-slate-100 p-2">
+                <button
+                  data-tour="builder-ai-builder"
+                  onClick={() => openTabPanel('ai-builder')}
+                  title={railShowLabels ? undefined : 'AI Builder (Archie)'}
+                  className={`group relative w-full flex items-center overflow-hidden ${railShowLabels ? 'gap-2.5 px-2.5' : 'justify-center px-0'} py-2.5 rounded-xl text-xs font-black uppercase tracking-wide text-white shadow-lg transition-all hover:brightness-110 hover:shadow-violet-300/60 ${
+                    isOpen && activeTabId === 'ai-builder' ? 'ring-2 ring-violet-400 ring-offset-2 ring-offset-white' : ''
+                  }`}
+                  style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 45%, #ec4899 100%)' }}
+                >
+                  {/* shine accent */}
+                  <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.45)_0%,transparent_55%)]" />
+                  <ArchieAIIcon className="w-5 h-5 shrink-0 relative drop-shadow" />
+                  {railShowLabels && (
+                    <span className="relative truncate flex-1 text-left">AI Builder</span>
+                  )}
+                  {railShowLabels && !isProUser && !isBasicUser && !isFreeUser && (
+                    <span className="relative rounded-full bg-white/25 px-1.5 py-0.5 text-[9px] font-bold tracking-wide">PRO</span>
+                  )}
+                  {railShowLabels && isFreeUser && freeAiPromptsLeft !== 0 && (
+                    <span className="relative rounded-full bg-white/25 px-1.5 py-0.5 text-[9px] font-bold tracking-wide normal-case">
+                      {freeAiBadgeLabel}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {/* Footer: help + profile */}
+              <div className="flex-none border-t border-slate-100 p-2 space-y-0.5">
+                <button
+                  onClick={openWalkthrough}
+                  title={railShowLabels ? undefined : 'Help / walkthrough'}
+                  className={`w-full flex items-center ${railShowLabels ? 'gap-2.5 px-2.5' : 'justify-center px-0'} py-2 rounded-lg text-xs font-bold text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors`}
+                >
+                  <HelpCircle className="w-4 h-4 shrink-0" />
+                  {railShowLabels && <span className="truncate text-left">Help</span>}
+                </button>
+                <div className={`flex items-center ${railShowLabels ? 'gap-2.5 px-2.5' : 'justify-center px-0'} py-1`}>
+                  <ProfileDropdown
+                    buttonClassName="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-full transition-colors flex-shrink-0 overflow-hidden"
+                    onSettingsClick={(e) => {
                       if (changes.length > 0) {
+                        e.preventDefault();
                         setAlertConfig({
                           isOpen: true,
                           title: 'Unsaved Changes',
                           message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
                           type: 'warning',
-                          onConfirm: () => router.push(dest),
+                          onConfirm: () => router.push('/settings'),
                           confirmLabel: 'Leave',
                           cancelLabel: 'Stay',
                         });
-                      } else {
-                        router.push(dest);
                       }
                     }}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold text-slate-500 hover:text-slate-800 hover:bg-white/70 transition-colors"
-                  >
-                    <LayoutDashboard className="w-3 h-3" />
-                    Admin
-                  </a>
+                  />
+                  {railShowLabels && (
+                    <span className="text-[11px] font-bold text-slate-500 truncate">Account</span>
+                  )}
                 </div>
               </div>
+            </aside>
 
-              <div className="flex items-center gap-2">
+            {/* ── Persistent panel — slides in beside rail, has its own X close ── */}
+            <div
+              ref={drawerRef}
+              className={`fixed top-[var(--impersonation-height,0px)] bottom-0 z-[9999] bg-white shadow-2xl border-r border-slate-200 flex flex-col transition-transform duration-300 ease-out ${
+                isOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'
+              }`}
+              style={{ width: '22rem', left: RAIL_W }}
+            >
+              {/* Panel header with active tab + X close */}
+              <div className="sticky top-0 bg-white border-b border-slate-200 px-4 h-12 flex items-center justify-between z-10 shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  {activeTab ? (() => {
+                    const ActiveIcon = activeTab.icon;
+                    return (
+                      <>
+                        <ActiveIcon className="w-4 h-4 text-slate-600 shrink-0" />
+                        <span className="text-sm font-bold text-slate-900 truncate">
+                          {activeTab.label}
+                        </span>
+                      </>
+                    );
+                  })() : (
+                    <span className="text-sm font-bold text-slate-900 truncate">Design</span>
+                  )}
+                </div>
                 <button
-                  onClick={openWalkthrough}
+                  onClick={() => onOpenChange(false)}
                   className="w-7 h-7 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                  title="Show walkthrough"
-                  aria-label="Show walkthrough"
+                  title="Close panel"
+                  aria-label="Close panel"
                 >
-                  <HelpCircle className="w-4 h-4" />
+                  <X className="w-4 h-4" />
                 </button>
-                <ProfileDropdown
-                  buttonClassName="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-full transition-colors flex-shrink-0 overflow-hidden"
-                  onSettingsClick={(e) => {
-                  if (changes.length > 0) {
-                    e.preventDefault();
-                    setAlertConfig({
-                      isOpen: true,
-                      title: 'Unsaved Changes',
-                      message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
-                      type: 'warning',
-                      onConfirm: () => router.push('/settings'),
-                      confirmLabel: 'Leave',
-                      cancelLabel: 'Stay'
-                    });
-                  }
-                }} />
+              </div>
+
+              {/* Panel body — existing accordion content (active section auto-expanded by rail click) */}
+              <div className="flex-1 min-h-0">
+                {panelContent}
               </div>
             </div>
-
-            {/* Sidebar Body */}
-            <div className="flex-1 min-h-0">
-              {panelContent}
-            </div>
-          </div>
-        </>
-      )}
+          </>
+        );
+      })()}
 
       {/* ═══════════════════════════════════════════════════════════════
           SMALL SCREEN: Bottom Drawer (original behavior)

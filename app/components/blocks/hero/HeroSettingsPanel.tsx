@@ -1771,15 +1771,16 @@ function AnimationControls({
     const slots = activeMeta.colorSlots;
     const defaults = slots.map((s) => s.defaultToken);
     const overrides = bg.animation?.colors;
+    const animSpeed = bg.animation?.speed ?? 1;
     const resolvedActiveColors = resolveSlotColors(slots, overrides, palette, resolvePaletteColor);
 
     const setSlot = (index: number, next: string) => {
         const arr = setSlotColor(overrides, slots.length, defaults, index, next);
-        onChange({ animation: { id: activeId, colors: arr } });
+        onChange({ animation: { id: activeId, colors: arr, speed: animSpeed } });
     };
 
     const resetAllColors = () => {
-        onChange({ animation: { id: activeId, colors: undefined } });
+        onChange({ animation: { id: activeId, colors: undefined, speed: animSpeed } });
     };
 
     return (
@@ -1794,7 +1795,7 @@ function AnimationControls({
                         <button
                             key={anim.id}
                             type="button"
-                            onClick={() => onChange({ animation: { id: anim.id, colors: undefined } })}
+                            onClick={() => onChange({ animation: { id: anim.id, colors: undefined, speed: animSpeed } })}
                             aria-pressed={isActive}
                             className={`overflow-hidden rounded-xl border text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                                 isActive ? 'border-blue-600 ring-1 ring-blue-600' : 'border-slate-200 hover:border-slate-300'
@@ -1814,7 +1815,7 @@ function AnimationControls({
 
             {/* Live large preview of the selected animation */}
             <div className="relative h-32 overflow-hidden rounded-xl border border-slate-200">
-                <HeroBgAnimation id={activeId} colors={resolvedActiveColors} />
+                <HeroBgAnimation id={activeId} colors={resolvedActiveColors} speed={animSpeed} />
                 <div className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-black/50 px-2 py-0.5 text-[10px] font-bold text-white">
                     {activeMeta.label}
                 </div>
@@ -1849,6 +1850,27 @@ function AnimationControls({
                             />
                         );
                     })}
+                </div>
+            </div>
+
+            {/* Speed slider */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Speed</p>
+                    <span className="text-[10px] font-medium text-slate-500">{animSpeed.toFixed(2)}x</span>
+                </div>
+                <input
+                    type="range"
+                    min={0.25}
+                    max={2}
+                    step={0.05}
+                    value={animSpeed}
+                    onChange={(e) => onChange({ animation: { id: activeId, colors: overrides, speed: parseFloat(e.target.value) } })}
+                    className="w-full accent-blue-600"
+                />
+                <div className="mt-1 flex justify-between text-[10px] text-slate-400">
+                    <span>Slow</span>
+                    <span>Fast</span>
                 </div>
             </div>
 

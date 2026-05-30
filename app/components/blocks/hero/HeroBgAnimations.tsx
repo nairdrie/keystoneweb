@@ -15,7 +15,7 @@
  *   <Comp colors={resolvedColors} />
  */
 
-import { CSSProperties, useEffect, useId, useRef } from 'react';
+import { CSSProperties, useEffect, useId, useMemo, useRef } from 'react';
 import type { ColorSlot, HeroBgVariantMeta } from './hero-bg-shared';
 import { mix } from './hero-bg-shared';
 
@@ -43,6 +43,8 @@ export type HeroBgAnimationId =
     | 'diagonalStripes'
     | 'sunburstRays'
     | 'kaleidoscope'
+    // Weather
+    | 'snowfall'
     // Texture / interactive
     | 'noiseGrain'
     | 'cursorSpotlight';
@@ -51,6 +53,7 @@ export type HeroBgAnimationMeta = HeroBgVariantMeta<HeroBgAnimationId>;
 
 interface AnimComponentProps {
     colors: string[];
+    speed?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -252,6 +255,16 @@ export const HERO_BG_ANIMATION_LIST: HeroBgAnimationMeta[] = [
         ],
     },
     {
+        id: 'snowfall',
+        label: 'Snowfall',
+        description: 'Gentle snowflakes drifting down with parallax depth.',
+        colorSlots: [
+            { label: 'Background', defaultToken: '#0f172a' },
+            { label: 'Snowflake', defaultToken: '#ffffff' },
+            SLOT_GLOW('Glow'),
+        ],
+    },
+    {
         id: 'noiseGrain',
         label: 'Noise Grain',
         description: 'Animated film-grain over a colored gradient.',
@@ -314,6 +327,8 @@ const KEYFRAMES = `
 @keyframes ksSilkC { 0%,100% { transform: translate3d(-4%,8%,0) rotate(0); } 50% { transform: translate3d(6%,-4%,0) rotate(2deg); } }
 @keyframes ksKaleido { from { transform: rotate(0); } to { transform: rotate(360deg); } }
 @keyframes ksKaleidoCounter { from { transform: rotate(0); } to { transform: rotate(-360deg); } }
+@keyframes ksSnowfall { 0% { transform: translate3d(0,-10%,0); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translate3d(0,110vh,0); opacity: 0; } }
+@keyframes ksSnowSway { 0%,100% { margin-left: 0; } 25% { margin-left: 15px; } 75% { margin-left: -15px; } }
 `;
 
 function Keyframes() {
@@ -844,6 +859,53 @@ function Kaleidoscope({ colors }: AnimComponentProps) {
     );
 }
 
+function Snowfall({ colors, speed = 1 }: AnimComponentProps) {
+    const [bg, flake, glow] = colors;
+    const multiplier = 1 / Math.max(0.1, speed);
+    const flakes = useMemo(() =>
+        Array.from({ length: 60 }, (_, i) => {
+            const layer = i % 3;
+            const size = layer === 0 ? 2 + (i % 3) : layer === 1 ? 3 + (i % 3) : 5 + (i % 4);
+            const baseDuration = layer === 0 ? 18 + (i % 6) * 2 : layer === 1 ? 14 + (i % 5) * 2 : 10 + (i % 4) * 2;
+            const duration = baseDuration * multiplier;
+            const swayDuration = (6 + (i % 5) * 2) * multiplier;
+            return {
+                left: `${(i * 61 + 13) % 100}%`,
+                size,
+                opacity: layer === 0 ? 0.3 : layer === 1 ? 0.5 : 0.8,
+                blur: layer === 0 ? 2 : layer === 1 ? 1 : 0,
+                duration,
+                swayDuration,
+                // Negative delay starts each flake mid-cycle so nothing waits visibly at the top
+                fallDelay: -((i * 3.7) % duration),
+                swayDelay: -((i * 2.3) % swayDuration),
+            };
+        }),
+    [multiplier]);
+    return (
+        <div className="absolute inset-0 overflow-hidden" aria-hidden style={{ background: bg }}>
+            <Keyframes />
+            {flakes.map((f, i) => (
+                <span
+                    key={i}
+                    className="absolute top-0 motion-reduce:!animate-none"
+                    style={{
+                        left: f.left,
+                        width: f.size,
+                        height: f.size,
+                        borderRadius: '9999px',
+                        background: flake,
+                        boxShadow: `0 0 ${f.size + 2}px ${mix(glow, 40)}`,
+                        opacity: f.opacity,
+                        filter: f.blur ? `blur(${f.blur}px)` : undefined,
+                        animation: `ksSnowfall ${f.duration}s linear ${f.fallDelay}s infinite, ksSnowSway ${f.swayDuration}s ease-in-out ${f.swayDelay}s infinite`,
+                    }}
+                />
+            ))}
+        </div>
+    );
+}
+
 function NoiseGrain({ colors }: AnimComponentProps) {
     const [a, b] = colors;
     const noiseDataUri =
@@ -941,13 +1003,14 @@ export const HERO_BG_ANIMATIONS: Record<HeroBgAnimationId, { Component: React.Co
     diagonalStripes: { Component: DiagonalStripes },
     sunburstRays: { Component: SunburstRays },
     kaleidoscope: { Component: Kaleidoscope },
+    snowfall: { Component: Snowfall },
     noiseGrain: { Component: NoiseGrain },
     cursorSpotlight: { Component: CursorSpotlight },
 };
 
-export function HeroBgAnimation({ id, colors }: { id: HeroBgAnimationId; colors: string[] }) {
+export function HeroBgAnimation({ id, colors, speed }: { id: HeroBgAnimationId; colors: string[]; speed?: number }) {
     const entry = HERO_BG_ANIMATIONS[id];
     if (!entry) return null;
     const Comp = entry.Component;
-    return <Comp colors={colors} />;
+    return <Comp colors={colors} speed={speed} />;
 }
