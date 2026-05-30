@@ -8,6 +8,7 @@ import { AVAILABLE_BLOCKS } from '../block-registry';
 import {
     InspectorSection,
     InspectorToggle,
+    DeferredColorInput,
     PaletteTokenButtons,
     PretextControls,
     PRETEXT_BLOCKS,
@@ -18,6 +19,8 @@ import {
 } from '../panel-shared';
 import { LayoutTab, ResponsiveColumnsControl } from '../layout/LayoutTab';
 import type { BlockPanelProps } from '../block-panel-registry';
+import { CardSettingsControls } from '../CardSettingsControls';
+import LayoutOptionTiles, { hasLayoutOptionThumbnail } from '../LayoutOptionTiles';
 import KeyframeEditor, { inferFieldNames } from '../KeyframeEditor';
 import {
     areSectionSettingsEqual,
@@ -26,8 +29,13 @@ import {
     normalizeSectionSettings,
     type SectionSettings,
 } from '@/lib/builder/layout-settings';
+import {
+    buildCardSettingsForPreset,
+    readCardSettings,
+    type CardSettings,
+} from '@/lib/block-style-options';
 
-type SettingValue = string | number | boolean | string[];
+type SettingValue = string | number | boolean | string[] | Record<string, unknown> | undefined;
 type DraftSettings = Record<string, SettingValue>;
 
 const REPEATABLE_ITEMS_DRAFT_UPDATE_EVENT = 'ks:repeatable-items-draft-update';
@@ -49,6 +57,7 @@ type ChoiceField = {
     label: string;
     defaultValue: SettingValue;
     options: ChoiceOption[];
+    dependsOn?: ControlDependency | ControlDependency[];
 };
 
 type ControlDependency = { key: string; value: SettingValue };
@@ -103,15 +112,35 @@ type ColorField = {
 };
 
 const BLOCK_SUBTITLES: Record<string, string> = {
-    gallery: 'Tune gallery behavior, section styling, and custom CSS.',
+    gallery: 'Tune gallery behavior, image rhythm, and section styling.',
     team: 'Choose a team layout and control member details.',
-    carousel: 'Set the carousel layout, motion, and section styling.',
+    carousel: 'Set the carousel layout, card treatment, motion, and section styling.',
     blog: 'Control the blog feed layout and visible metadata.',
     events: 'Choose which events appear and how they are sorted.',
     pdf: 'Configure viewer actions and custom CSS.',
     socialFeed: 'Lay out social embeds and adjust the block styling.',
     tabBar: 'Adjust tabs, alignment, colors, and custom CSS.',
 };
+
+const MEDIA_ASPECT_CHOICES: ChoiceOption[] = [
+    { value: 'landscape', label: 'Landscape' },
+    { value: 'square', label: 'Square' },
+    { value: 'portrait', label: 'Portrait' },
+    { value: 'wide', label: 'Wide' },
+];
+
+const MEDIA_TREATMENT_CHOICES: ChoiceOption[] = [
+    { value: 'contained', label: 'Contained' },
+    { value: 'fullBleed', label: 'Full bleed' },
+    { value: 'framed', label: 'Framed' },
+    { value: 'soft', label: 'Soft radius' },
+    { value: 'circle', label: 'Circle' },
+];
+
+const TEXT_ALIGN_CHOICES: ChoiceOption[] = [
+    { value: 'left', label: 'Left' },
+    { value: 'center', label: 'Center' },
+];
 
 const LAYOUT_FIELDS: Record<string, ChoiceField[]> = {
     aboutImageText: [
@@ -153,7 +182,20 @@ const LAYOUT_FIELDS: Record<string, ChoiceField[]> = {
                 { value: 'text-first', label: 'Text first' },
             ],
         },
+        {
+            key: 'mediaTreatment',
+            label: 'Image frame',
+            defaultValue: 'contained',
+            options: MEDIA_TREATMENT_CHOICES,
+        },
+        {
+            key: 'textAlign',
+            label: 'Text alignment',
+            defaultValue: 'left',
+            options: TEXT_ALIGN_CHOICES,
+        },
     ],
+    servicesGrid: [],
     testimonials: [
         {
             key: 'variant',
@@ -315,6 +357,26 @@ const LAYOUT_FIELDS: Record<string, ChoiceField[]> = {
                 { value: 'right', label: 'Right' },
                 { value: 'stretch', label: 'Stretch' },
             ],
+        },
+    ],
+    gallery: [
+        {
+            key: 'frameStyle',
+            label: 'Image frame',
+            defaultValue: 'clean',
+            options: [
+                { value: 'clean', label: 'Clean' },
+                { value: 'rounded', label: 'Rounded' },
+                { value: 'gapless', label: 'Gapless' },
+                { value: 'editorial', label: 'Editorial' },
+                { value: 'poster', label: 'Poster' },
+            ],
+        },
+        {
+            key: 'mediaAspect',
+            label: 'Image aspect',
+            defaultValue: 'square',
+            options: MEDIA_ASPECT_CHOICES,
         },
     ],
 };
@@ -540,6 +602,13 @@ const FOREGROUND_COLOR_BLOCKS = new Set([
     'testimonials',
 ]);
 
+const CARD_SETTINGS_BLOCKS = new Set(['servicesGrid', 'stats', 'testimonials', 'carousel']);
+const BUILT_IN_STYLE_FIELD_KEYS = new Set([
+    'mediaAspect',
+    'mediaTreatment',
+    'textAlign',
+    'frameStyle',
+]);
 
 export default function GenericBlockSettingsPanel({
     blockId,
@@ -553,6 +622,8 @@ export default function GenericBlockSettingsPanel({
 }: BlockPanelProps) {
     const context = useEditorContext();
     const layoutFields = useMemo(() => LAYOUT_FIELDS[blockType] || EMPTY_LAYOUT_FIELDS, [blockType]);
+    const hasBuiltInStyleFields = layoutFields.some((field) => BUILT_IN_STYLE_FIELD_KEYS.has(field.key));
+    const hasCardSettingsControls = CARD_SETTINGS_BLOCKS.has(blockType);
     const displayControls = useMemo(() => DISPLAY_CONTROLS[blockType] || EMPTY_DISPLAY_CONTROLS, [blockType]);
     const visibleDisplayControls = useMemo(
         () => displayControls.filter((control) => control.key !== 'columns'),
@@ -568,8 +639,14 @@ export default function GenericBlockSettingsPanel({
         [blockType, blockData],
     );
     const initialDraft = useMemo(
-        () => buildInitialDraft(blockType, blockData || {}, customCss, layoutFields, displayControls, colorFields, supportsPretext),
-        [blockType, blockData, customCss, layoutFields, displayControls, colorFields, supportsPretext],
+        () => {
+            const draft = buildInitialDraft(blockType, blockData || {}, customCss, layoutFields, displayControls, colorFields, supportsPretext);
+            const cardSettings = hasCardSettingsControls ? readCardSettings(blockData?.cardSettings) : undefined;
+            if (hasCardSettingsControls) draft.cardStyle = readSetting(blockData || {}, 'cardStyle', 'soft');
+            if (cardSettings) draft.cardSettings = cardSettings as Record<string, unknown>;
+            return draft;
+        },
+        [blockType, blockData, customCss, layoutFields, displayControls, colorFields, supportsPretext, hasCardSettingsControls],
     );
     const persistedSectionSettings = useMemo(
         () => normalizeSectionSettings(blockData?.sectionSettings),
@@ -582,23 +659,28 @@ export default function GenericBlockSettingsPanel({
     const sectionIds = useMemo(() => {
         const ids: string[] = hasAboutItemsControl ? ['items', 'universal-layout'] : ['universal-layout'];
         if (layoutFields.length > 0 || hasColumnLayoutControl) ids.push('block-layout');
+        if (hasCardSettingsControls) ids.push('card-advanced');
         if (supportsPretext) ids.push('pretext');
         if (visibleDisplayControls.length > 0) ids.push('display');
         if (colorFields.length > 0) ids.push('style');
         ids.push('advanced');
         return ids;
-    }, [hasAboutItemsControl, layoutFields.length, hasColumnLayoutControl, supportsPretext, visibleDisplayControls.length, colorFields.length]);
+    }, [hasAboutItemsControl, layoutFields.length, hasColumnLayoutControl, hasCardSettingsControls, supportsPretext, visibleDisplayControls.length, colorFields.length]);
 
     const sectionState = useInspectorSectionState(sectionIds, true);
 
     useEffect(() => {
         if (!onDraftBlockDataChange) return;
-        onDraftBlockDataChange({
+        const nextDraftBlockData: Record<string, unknown> = {
             ...(blockData || {}),
             ...draft,
             sectionSettings,
-        });
-    }, [blockData, draft, sectionSettings, onDraftBlockDataChange]);
+        };
+        if (hasCardSettingsControls && !nextDraftBlockData.cardSettings) {
+            nextDraftBlockData.cardSettings = buildCardSettingsForPreset(nextDraftBlockData.cardStyle || 'soft');
+        }
+        onDraftBlockDataChange(nextDraftBlockData);
+    }, [blockData, draft, sectionSettings, hasCardSettingsControls, onDraftBlockDataChange]);
 
     useEffect(() => {
         if (!hasAboutItemsControl) return;
@@ -613,22 +695,43 @@ export default function GenericBlockSettingsPanel({
 
             setDraft((current) => ({
                 ...current,
-                items: normalizeAboutItems(detail.value),
+                items: normalizeAboutItems(detail.value, blockData || {}),
             }));
         };
 
         window.addEventListener(REPEATABLE_ITEMS_DRAFT_UPDATE_EVENT, handleCanvasDraftUpdate);
         return () => window.removeEventListener(REPEATABLE_ITEMS_DRAFT_UPDATE_EVENT, handleCanvasDraftUpdate);
-    }, [blockId, hasAboutItemsControl]);
+    }, [blockData, blockId, hasAboutItemsControl]);
 
     const updateDraft = (key: string, value: SettingValue) => {
         setDraft((current) => ({ ...current, [key]: value }));
     };
 
+    const updateLayoutField = (key: string, value: SettingValue) => {
+        setDraft((current) => ({ ...current, [key]: value }));
+    };
+
+    const updateCardSettings = (value: CardSettings) => {
+        setDraft((current) => {
+            const next: DraftSettings = {
+                ...current,
+                cardSettings: value as Record<string, unknown>,
+            };
+            if (value.presetId && value.presetId !== 'custom') {
+                next.cardStyle = value.presetId;
+            }
+            return next;
+        });
+    };
+
     const aboutItems = useMemo(() => normalizeAboutItems(draft.items), [draft.items]);
 
     const updateAboutItems = (nextItems: string[]) => {
-        updateDraft('items', nextItems);
+        setDraft((current) => ({
+            ...current,
+            items: nextItems,
+            ...getClearedAboutItemRemovedFlags(blockData || {}),
+        }));
     };
 
     const updateSectionLayout = (patch: Partial<SectionSettings['layout']>) => {
@@ -672,7 +775,7 @@ export default function GenericBlockSettingsPanel({
             {hasAboutItemsControl && (
                 <InspectorSection
                     id="items"
-                    title="Items"
+                    title="Content: Items"
                     isCollapsed={sectionState.isCollapsed('items')}
                     onToggle={() => sectionState.toggle('items')}
                 >
@@ -700,17 +803,20 @@ export default function GenericBlockSettingsPanel({
             {(layoutFields.length > 0 || hasColumnLayoutControl) && (
                 <InspectorSection
                     id="block-layout"
-                    title="Block Layout"
+                    title={hasBuiltInStyleFields ? 'Style: Block' : 'Layout: Block'}
                     isCollapsed={sectionState.isCollapsed('block-layout')}
                     onToggle={() => sectionState.toggle('block-layout')}
                 >
                     <div className="space-y-5">
-                        {layoutFields.map((field) => (
+                        {layoutFields
+                            .filter((field) => shouldShowChoiceField(field, draft))
+                            .map((field) => (
                             <ChoiceFieldControl
                                 key={field.key}
+                                blockType={blockType}
                                 field={field}
                                 value={draft[field.key]}
-                                onChange={(value) => updateDraft(field.key, value)}
+                                onChange={(value) => updateLayoutField(field.key, value)}
                             />
                         ))}
 
@@ -725,10 +831,30 @@ export default function GenericBlockSettingsPanel({
                 </InspectorSection>
             )}
 
+            {hasCardSettingsControls && (
+                <InspectorSection
+                    id="card-advanced"
+                    title="Style: Cards"
+                    isCollapsed={sectionState.isCollapsed('card-advanced')}
+                    onToggle={() => sectionState.toggle('card-advanced')}
+                >
+                    <CardSettingsControls
+                        value={readDraftCardSettings(draft.cardSettings) || buildCardSettingsForPreset(draft.cardStyle || 'soft')}
+                        currentPresetId={String(draft.cardStyle || 'soft')}
+                        palette={palette}
+                        supportsMedia={blockType === 'carousel'}
+                        supportsIcon={blockType === 'carousel'}
+                        supportsMarker={blockType === 'servicesGrid'}
+                        supportsTextAlign={blockType !== 'testimonials'}
+                        onChange={updateCardSettings}
+                    />
+                </InspectorSection>
+            )}
+
             {supportsPretext && (
                 <InspectorSection
                     id="pretext"
-                    title={blockType === 'aboutImageText' ? 'Eyebrow' : 'Label'}
+                    title={blockType === 'aboutImageText' ? 'Style: Eyebrow' : 'Style: Label'}
                     isCollapsed={sectionState.isCollapsed('pretext')}
                     onToggle={() => sectionState.toggle('pretext')}
                 >
@@ -849,7 +975,6 @@ function AboutItemsControl({
     };
 
     const deleteItem = (index: number) => {
-        if (items.length <= 1) return;
         onChange(items.filter((_, itemIndex) => itemIndex !== index));
     };
 
@@ -864,6 +989,23 @@ function AboutItemsControl({
 
     return (
         <div className="space-y-2">
+            {items.length > 0 && (
+                <div className="flex justify-end">
+                    <button
+                        type="button"
+                        onClick={() => onChange([])}
+                        className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-300"
+                    >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Remove All
+                    </button>
+                </div>
+            )}
+            {items.length === 0 && (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-sm text-slate-500">
+                    No list items. The about section will show only the title, description, and image.
+                </div>
+            )}
             {items.map((item, index) => {
                 const isDragOver = dragOverIndex === index && dragIndex !== index;
                 return (
@@ -915,8 +1057,7 @@ function AboutItemsControl({
                             <button
                                 type="button"
                                 onClick={() => deleteItem(index)}
-                                disabled={items.length <= 1}
-                                className="rounded-md border border-slate-200 p-2 text-red-500 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                className="rounded-md border border-slate-200 p-2 text-red-500 transition-colors hover:bg-red-50"
                                 title="Delete about item"
                                 aria-label="Delete about item"
                             >
@@ -939,24 +1080,75 @@ function AboutItemsControl({
 }
 
 function getBlockSettingsTitle(blockType: string): string {
+    return `${getBlockSettingsBaseTitle(blockType)} Settings`;
+}
+
+function getBlockSettingsBaseTitle(blockType: string): string {
     const label = AVAILABLE_BLOCKS.find(block => block.type === blockType)?.label || blockType;
     const cleanLabel = label
         .replace(/[^\x20-\x7E]/g, '')
         .replace(/^[^A-Za-z0-9]+/, '')
         .trim();
 
-    return `${cleanLabel || blockType} Settings`;
+    return cleanLabel || blockType;
 }
 
 function ChoiceFieldControl({
+    blockType,
     field,
     value,
     onChange,
 }: {
+    blockType?: string;
     field: ChoiceField;
     value: SettingValue | undefined;
     onChange: (value: SettingValue) => void;
 }) {
+    if (field.key === 'cardStyle') {
+        const currentValue = String(value ?? field.defaultValue);
+        const selected = field.options.find((option) => option.value === currentValue);
+        return (
+            <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500" htmlFor={`generic-${field.key}`}>
+                    {field.label}
+                </label>
+                <select
+                    id={`generic-${field.key}`}
+                    value={currentValue}
+                    onChange={(event) => onChange(event.target.value)}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                    {field.options.map((option) => (
+                        <option key={String(option.value)} value={String(option.value)}>{option.label}</option>
+                    ))}
+                </select>
+                {selected?.description && (
+                    <p className="mt-2 text-xs leading-5 text-slate-500">{selected.description}</p>
+                )}
+            </div>
+        );
+    }
+
+    const currentValue = String(value ?? field.defaultValue);
+    const tileOptions = field.options.map((option) => ({
+        id: String(option.value),
+        label: option.label,
+        description: option.description,
+    }));
+    const thumbnailBlockType = blockType || '';
+    const canRenderTiles = thumbnailBlockType.length > 0 && tileOptions.length > 1 && tileOptions.every((option) => hasLayoutOptionThumbnail(thumbnailBlockType, option.id));
+    if (canRenderTiles) {
+        return (
+            <LayoutOptionTiles
+                blockType={thumbnailBlockType}
+                value={currentValue}
+                options={tileOptions}
+                onChange={(next) => onChange(next)}
+                label={field.label}
+            />
+        );
+    }
+
     return (
         <div>
             <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{field.label}</p>
@@ -1076,11 +1268,10 @@ function ColorFieldControl({
             </label>
             {field.key === 'backgroundColor' && <SideBySideBackgroundOverrideNotice />}
             <div className="mt-2 flex flex-wrap items-center gap-2">
-                <input
+                <DeferredColorInput
                     id={`generic-${field.key}`}
-                    type="color"
                     value={inputValue}
-                    onChange={(e) => onChange(e.target.value)}
+                    onChange={onChange}
                     className="h-10 w-10 cursor-pointer rounded border border-slate-200 bg-white"
                 />
                 <PaletteTokenButtons
@@ -1182,6 +1373,10 @@ function readDraftString(draft: DraftSettings, key: string, fallback: string): s
     return typeof value === 'string' && value.trim() ? value : fallback;
 }
 
+function readDraftCardSettings(value: SettingValue): CardSettings | undefined {
+    return readCardSettings(value);
+}
+
 function buildInitialDraft(
     blockType: string,
     blockData: Record<string, unknown>,
@@ -1215,7 +1410,7 @@ function buildInitialDraft(
     }
 
     if (blockType === 'aboutImageText') {
-        draft.items = normalizeAboutItems(blockData.items);
+        draft.items = normalizeAboutItems(blockData.items, blockData);
     }
 
     if (blockType === 'socialFeed' && draft.variant === 'single') {
@@ -1225,10 +1420,26 @@ function buildInitialDraft(
     return draft;
 }
 
-function normalizeAboutItems(value: unknown): string[] {
-    if (!Array.isArray(value) || value.length === 0) return DEFAULT_ABOUT_ITEMS;
-    const items = value.map((item) => String(item)).filter(Boolean);
-    return items.length > 0 ? items : DEFAULT_ABOUT_ITEMS;
+function normalizeAboutItems(value: unknown, blockData?: Record<string, unknown>): string[] {
+    if (!Array.isArray(value)) return DEFAULT_ABOUT_ITEMS;
+    const items = value
+        .map((item) => String(item))
+        .filter((item, index) => item.trim() && !isAboutSettingsItemRemoved(blockData, index));
+    return items;
+}
+
+function isAboutSettingsItemRemoved(blockData: Record<string, unknown> | undefined, index: number): boolean {
+    return blockData?.[`about_item_${index}__removed`] === true;
+}
+
+function getClearedAboutItemRemovedFlags(blockData: Record<string, unknown>): DraftSettings {
+    const updates: DraftSettings = {};
+    Object.keys(blockData).forEach((key) => {
+        if (/^about_item_\d+__removed$/.test(key) && blockData[key] === true) {
+            updates[key] = false;
+        }
+    });
+    return updates;
 }
 
 function getNextAboutBenefitNumber(items: string[]): number {
@@ -1258,6 +1469,12 @@ function readSetting(blockData: Record<string, unknown>, key: string, defaultVal
 function shouldShowControl(control: DisplayControl, draft: DraftSettings): boolean {
     if (!control.dependsOn) return true;
     const dependencies = Array.isArray(control.dependsOn) ? control.dependsOn : [control.dependsOn];
+    return dependencies.every((dependency) => areValuesEqual(draft[dependency.key], dependency.value));
+}
+
+function shouldShowChoiceField(field: ChoiceField, draft: DraftSettings): boolean {
+    if (!field.dependsOn) return true;
+    const dependencies = Array.isArray(field.dependsOn) ? field.dependsOn : [field.dependsOn];
     return dependencies.every((dependency) => areValuesEqual(draft[dependency.key], dependency.value));
 }
 

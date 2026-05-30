@@ -507,6 +507,10 @@ function fallbackDataForBlock(blockType: string, siteTitle: string, pageSlug: st
       return {
         title: pageSlug === 'programs' ? 'Programs' : 'Services',
         subtitle: 'Edit these offerings to match the business.',
+        cardStyle: 'bordered',
+        surfaceStyle: 'white',
+        markerStyle: 'badge',
+        spacingDensity: 'standard',
         items: [
           { title: 'Primary offering', description: 'Describe the main service or program.' },
           { title: 'Second offering', description: 'Describe another important option.' },
@@ -516,9 +520,9 @@ function fallbackDataForBlock(blockType: string, siteTitle: string, pageSlug: st
     case 'featuresList':
       return { title: 'Why choose us', items: ['Clear communication', 'Reliable follow-through', 'Practical next steps'] };
     case 'stats':
-      return { title: 'At a glance', variant: 'cards', items: [{ value: '4.9/5', label: 'Average rating' }, { value: '500+', label: 'Customers helped' }, { value: '24 hr', label: 'Typical response' }] };
+      return { title: 'At a glance', variant: 'cards', cardStyle: 'accent', surfaceStyle: 'white', spacingDensity: 'compact', items: [{ value: '4.9/5', label: 'Average rating' }, { value: '500+', label: 'Customers helped' }, { value: '24 hr', label: 'Typical response' }] };
     case 'testimonials':
-      return { title: 'What people say', variant: 'cards', items: [{ name: 'Local customer', role: 'Customer', quote: 'The process was clear from the first message.', rating: 5 }] };
+      return { title: 'What people say', variant: 'cards', cardStyle: 'soft', surfaceStyle: 'white', spacingDensity: 'standard', items: [{ name: 'Local customer', role: 'Customer', quote: 'The process was clear from the first message.', rating: 5 }] };
     case 'estimateForm':
       return {
         title: 'Request a quote',
@@ -543,13 +547,13 @@ function fallbackDataForBlock(blockType: string, siteTitle: string, pageSlug: st
     case 'pricing':
       return { title: 'Pricing', variant: 'cards', tiers: [{ name: 'Starter', price: 'Custom', period: '', description: 'A focused first step.', features: ['Clear scope', 'Next steps'], highlighted: false, buttonText: 'Ask about pricing' }] };
     case 'aboutImageText':
-      return { title: `About ${siteTitle}`, description: 'Use this space to explain the story, approach, and people behind the business.', items: ['Thoughtful process', 'Customer-focused', 'Built locally'], imagePosition: 'right' };
+      return { title: `About ${siteTitle}`, description: 'Use this space to explain the story, approach, and people behind the business.', items: ['Thoughtful process', 'Customer-focused', 'Built locally'], imagePosition: 'right', mediaTreatment: 'contained' };
     case 'team':
       return { title: 'Meet the team', variant: 'grid', showBio: true, members: [{ name: 'Team member', role: 'Role', bio: 'Add a short bio here.' }] };
     case 'gallery':
-      return { title: pageSlug === 'portfolio' ? 'Selected work' : 'Gallery', subtitle: 'Add images that show the work, product, or space.', columns: 3 };
+      return { title: pageSlug === 'portfolio' ? 'Selected work' : 'Gallery', subtitle: 'Add images that show the work, product, or space.', columns: 3, frameStyle: pageSlug === 'portfolio' ? 'gapless' : 'rounded', mediaAspect: 'square' };
     case 'carousel':
-      return { title: 'Highlights', variant: 'cards', items: [{ mediaType: 'icon', icon: 'Star', title: 'Highlight one', text: 'Describe a featured offer, project, or benefit.' }] };
+      return { title: 'Highlights', variant: 'cards', cardStyle: 'accent', surfaceStyle: 'white', mediaAspect: 'landscape', iconStyle: 'badge', spacingDensity: 'standard', items: [{ mediaType: 'icon', icon: 'Star', title: 'Highlight one', text: 'Describe a featured offer, project, or benefit.' }] };
     case 'featuredQuote':
       return { variant: 'minimal', quote: 'Add a quote, testimonial, or short statement that builds confidence.', personName: siteTitle, personTitle: '' };
     case 'productGrid':

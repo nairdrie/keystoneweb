@@ -18,11 +18,12 @@ interface RevealProps {
   children: React.ReactNode;
   className?: string;
   delay?: number;
+  style?: React.CSSProperties;
   onDragOver?: React.DragEventHandler<HTMLDivElement>;
   onDrop?: React.DragEventHandler<HTMLDivElement>;
 }
 
-export default function Reveal({ children, className = '', delay, onDragOver, onDrop }: RevealProps) {
+export default function Reveal({ children, className = '', delay, style, onDragOver, onDrop }: RevealProps) {
   const context = useEditorContext();
   const isEditMode = context?.isEditMode || false;
   const prefersReducedMotion = useReducedMotion();
@@ -57,6 +58,7 @@ export default function Reveal({ children, className = '', delay, onDragOver, on
     <motion.div
       variants={variants}
       className={className}
+      style={style}
       {...animationProps}
       onDragOver={onDragOver}
       onDrop={onDrop}

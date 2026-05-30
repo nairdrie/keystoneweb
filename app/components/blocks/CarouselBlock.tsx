@@ -19,6 +19,35 @@ import type { ImageSettings } from '../ImageEditorModal';
 import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import InlineCardControls, { reorderItems } from './InlineCardControls';
+import {
+  ICON_STYLE_OPTIONS,
+  SPACING_DENSITY_OPTIONS,
+  getCardInlineStyle,
+  getCardPaddingClass,
+  getCardPresetShadowPaintBuffer,
+  getCardPresetShadowTopPaintBuffer,
+  getCardShadowPaintBuffer,
+  getCardShadowTopPaintBuffer,
+  getCardStyleClass,
+  getCardTextPaddingClass,
+  getMediaAspectClass,
+  getMediaRadiusPxForTreatment,
+  getMediaSizePercentForOption,
+  getMediaTreatmentClass,
+  getSurfaceStyle,
+  getSurfaceTextColor,
+  getTextAlignClass,
+  getUniversalCardClassName,
+  getUniversalCardInlineStyle,
+  getUniversalCardPaddingClass,
+  getUniversalCardTextColor,
+  getUniversalCardTextPaddingClass,
+  getUniversalCardTextPaddingStyle,
+  readStyleOption,
+  resolveCardPresetId,
+  resolveUniversalCardSettings,
+  shouldLockCardTextToSurface,
+} from '@/lib/block-style-options';
 
 // ── Icon registry ─────────────────────────────────────────────────────────────
 
@@ -99,6 +128,8 @@ const DEFAULT_ITEMS = [
   { mediaType: 'icon' as const, icon: 'Heart',  title: 'Customer First',  text: 'We go above and beyond to delight every customer.'        },
 ];
 
+const CAROUSEL_CARD_MIN_TOP_PAINT_BUFFER = 28;
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface SlideItem {
@@ -119,6 +150,14 @@ interface CarouselData {
   items?: SlideItem[];
   autoPlay?: boolean;
   interval?: number;
+  cardStyle?: string;
+  surfaceStyle?: string;
+  mediaAspect?: string;
+  mediaTreatment?: string;
+  mediaSize?: string;
+  iconStyle?: string;
+  spacingDensity?: string;
+  textAlign?: string;
   backgroundColor?: string;
   foregroundColor?: string;
   sectionSettings?: {
@@ -177,7 +216,104 @@ function getCarouselCardsPerPage(
   return Math.min(maxColumns, Math.max(1, Math.round(numeric)));
 }
 
+function getCarouselIconShellClass(iconStyle: string, sizeClass: string): string {
+  const base = `${sizeClass} relative flex items-center justify-center`;
+  if (iconStyle === 'plain') return base;
+  if (iconStyle === 'framed') return `${base} rounded-2xl border bg-white`;
+  if (iconStyle === 'badge') return `${base} rounded-full`;
+  return `${base} rounded-2xl`;
+}
+
+function getCarouselIconShellStyle(iconStyle: string, secondaryColor: string): React.CSSProperties {
+  if (iconStyle === 'plain') return {};
+  if (iconStyle === 'framed') return { borderColor: `${secondaryColor}55` };
+  return { backgroundColor: `${secondaryColor}20` };
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
+
+function getCarouselMediaShellStyle({
+  mediaSizePercent,
+  isSplitMediaCard,
+  isFullBleedMediaCard,
+  textAlignClass,
+}: {
+  mediaSizePercent: number;
+  isSplitMediaCard: boolean;
+  isFullBleedMediaCard: boolean;
+  textAlignClass: string;
+}): React.CSSProperties {
+  if (isFullBleedMediaCard) return {};
+
+  const widthPercent = Math.min(100, Math.max(35, mediaSizePercent));
+  const width = `${widthPercent}%`;
+
+  if (isSplitMediaCard) {
+    return { '--ks-carousel-media-width': width } as React.CSSProperties;
+  }
+
+  return {
+    width,
+    maxWidth: '100%',
+    marginLeft: textAlignClass === 'text-center' ? 'auto' : undefined,
+    marginRight: textAlignClass === 'text-center' ? 'auto' : undefined,
+  };
+}
+
+function getCarouselMediaBorderRadius(radiusPx: number, isFullBleedMediaCard: boolean): React.CSSProperties['borderRadius'] {
+  if (isFullBleedMediaCard) return 0;
+  return radiusPx >= 100 ? '50%' : radiusPx;
+}
+
+function hasCarouselCardDesignOverride(data: CarouselData): boolean {
+  if (typeof data.cardStyle === 'string' && data.cardStyle.trim()) return true;
+  if (!data.cardSettings || typeof data.cardSettings !== 'object' || Array.isArray(data.cardSettings)) return false;
+  return Object.keys(data.cardSettings as Record<string, unknown>).length > 0;
+}
+
+function getCarouselCardFallback(variant: string, hasDesignOverride: boolean): 'minimal' | 'soft' {
+  return variant === 'minimal' && !hasDesignOverride ? 'minimal' : 'soft';
+}
+
+function getSplitSlideMediaPanelStyle(mediaSizePercent: number, secondaryColor: string): React.CSSProperties {
+  const mediaWidth = mediaSizePercent >= 90 ? 50 : mediaSizePercent <= 66 ? 38 : 44;
+  return {
+    '--ks-carousel-slide-media-width': `${mediaWidth}%`,
+    minHeight: '280px',
+    backgroundColor: `${secondaryColor}10`,
+  } as React.CSSProperties;
+}
+
+function getMinimalMediaShellStyle(mediaSizePercent: number, textAlignClass: string): React.CSSProperties {
+  const widthPercent = Math.min(100, Math.max(35, mediaSizePercent));
+  return {
+    width: `${widthPercent}%`,
+    maxWidth: 260,
+    marginLeft: textAlignClass === 'text-center' ? 'auto' : undefined,
+    marginRight: textAlignClass === 'text-center' ? 'auto' : undefined,
+  };
+}
+
+function getCarouselShadowSafeStyle(
+  bufferPx: number,
+  overflow: React.CSSProperties['overflow'] = 'hidden',
+  options: { topBufferPx?: number; layoutNeutral?: boolean } = {},
+): React.CSSProperties {
+  const topBufferPx = Math.max(0, options.topBufferPx ?? bufferPx);
+  if (bufferPx <= 0 && topBufferPx <= 0) return { overflow };
+  const style: React.CSSProperties = {
+    padding: bufferPx,
+    paddingTop: topBufferPx,
+    overflow,
+  };
+
+  if (options.layoutNeutral) {
+    style.margin = -bufferPx;
+    style.marginTop = -topBufferPx;
+  }
+
+  return style;
+}
 
 export default function CarouselBlock({ id, data, isEditMode, palette, updateContent }: CarouselBlockProps) {
   const pPrimary   = palette.primary   || '#1f2937';
@@ -191,6 +327,8 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
   const items: SlideItem[] = Array.isArray(data.items) && data.items.length ? data.items : DEFAULT_ITEMS;
   const autoPlay   = data.autoPlay !== false;
   const intervalMs = (data.interval || 5) * 1000;
+  const hasCardDesignOverride = hasCarouselCardDesignOverride(data);
+  const fallbackCardStyle = getCarouselCardFallback(variant, hasCardDesignOverride);
 
   const [current, setCurrent] = useState(0);
   const [iconPickerIdx, setIconPickerIdx] = useState<number | null>(null);
@@ -198,6 +336,70 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const carouselBreakpoint = useResponsiveCarouselBreakpoint();
   const cardsPerPage = getCarouselCardsPerPage(data, items.length, carouselBreakpoint);
+  const universalCardSettings = resolveUniversalCardSettings(data, {
+    fallbackPreset: fallbackCardStyle,
+    fallbackIconStyle: 'badge',
+    fallbackTextAlign: variant === 'minimal' ? 'center' : 'left',
+  });
+  const cardStyle = resolveCardPresetId(data, fallbackCardStyle);
+  const surfaceStyle = getSurfaceStyle(data.surfaceStyle, cardStyle);
+  const spacingDensity = readStyleOption(data.spacingDensity, SPACING_DENSITY_OPTIONS, 'standard');
+  const iconStyle = universalCardSettings?.iconStyle || readStyleOption(data.iconStyle, ICON_STYLE_OPTIONS, 'badge');
+  const activeSurfaceStyle = universalCardSettings?.surface || surfaceStyle;
+  const surfaceCardTextColor = universalCardSettings ? getUniversalCardTextColor(universalCardSettings, palette) : getSurfaceTextColor(surfaceStyle, palette);
+  const lockCardTextToSurface = shouldLockCardTextToSurface(activeSurfaceStyle);
+  const cardTextColor = lockCardTextToSurface ? surfaceCardTextColor : fgOverride || surfaceCardTextColor;
+  const cardMutedTextColor = lockCardTextToSurface ? surfaceCardTextColor : cardTextColor;
+  const textAlignClass = universalCardSettings
+    ? getTextAlignClass(universalCardSettings.textAlign)
+    : getTextAlignClass(data.textAlign || (variant === 'minimal' ? 'center' : undefined));
+  const mediaAlignClass = textAlignClass === 'text-center' ? 'text-center' : '';
+  const mediaSizePercent = universalCardSettings?.mediaSizePercent ?? getMediaSizePercentForOption(data.mediaSize);
+  const mediaRadiusPx = universalCardSettings?.mediaRadiusPx ?? getMediaRadiusPxForTreatment(data.mediaTreatment, cardStyle === 'poster' ? 'fullBleed' : 'contained');
+  const mediaAspectClass = universalCardSettings ? getMediaAspectClass(universalCardSettings.mediaAspect) : getMediaAspectClass(data.mediaAspect);
+  const mediaTreatmentClass = universalCardSettings
+    ? ''
+    : getMediaTreatmentClass(data.mediaTreatment, cardStyle === 'poster' ? 'fullBleed' : 'contained');
+  const isCardMediaHidden = universalCardSettings?.mediaLayout === 'none';
+  const isSplitMediaCard = !isCardMediaHidden && Boolean(universalCardSettings && universalCardSettings.mediaLayout === 'split');
+  const isFullBleedMediaCard = !isCardMediaHidden && (universalCardSettings ? universalCardSettings.mediaLayout === 'fullBleed' : cardStyle === 'poster');
+  const cardPaddingClass = universalCardSettings ? getUniversalCardPaddingClass(universalCardSettings) : getCardPaddingClass(cardStyle, spacingDensity);
+  const cardBaseClass = universalCardSettings ? getUniversalCardClassName(universalCardSettings) : getCardStyleClass(cardStyle);
+  const cardShellClass = universalCardSettings
+    ? `${cardBaseClass} ${cardPaddingClass} ${textAlignClass} transition-[border-color,box-shadow,opacity,transform] flex h-full ${isSplitMediaCard ? 'flex-col md:flex-row' : 'flex-col'}`
+    : `${cardBaseClass} ${cardPaddingClass} ${textAlignClass} transition-[border-color,box-shadow,opacity,transform] flex h-full ${isSplitMediaCard ? 'flex-col md:flex-row' : 'flex-col'}`;
+  const cardInlineStyle = universalCardSettings
+    ? getUniversalCardInlineStyle(universalCardSettings, palette)
+    : getCardInlineStyle(cardStyle, surfaceStyle, palette);
+  const cardShadowBuffer = universalCardSettings
+    ? getCardShadowPaintBuffer(universalCardSettings)
+    : getCardPresetShadowPaintBuffer(cardStyle);
+  const cardShadowTopBuffer = universalCardSettings
+    ? getCardShadowTopPaintBuffer(universalCardSettings)
+    : getCardPresetShadowTopPaintBuffer(cardStyle);
+  const cardsTopPaintBuffer = Math.max(cardShadowTopBuffer + 16, CAROUSEL_CARD_MIN_TOP_PAINT_BUFFER);
+  const cardShadowSafeStyle = getCarouselShadowSafeStyle(cardShadowBuffer);
+  const cardsShadowSafeStyle = getCarouselShadowSafeStyle(cardShadowBuffer, 'hidden', {
+    topBufferPx: cardsTopPaintBuffer,
+    layoutNeutral: true,
+  });
+  const cardTextWrapClass = isFullBleedMediaCard || isSplitMediaCard
+    ? `flex flex-1 flex-col ${universalCardSettings ? getUniversalCardTextPaddingClass(universalCardSettings) : getCardTextPaddingClass(cardStyle, spacingDensity)}`
+    : 'flex flex-1 flex-col';
+  const cardTextWrapStyle = universalCardSettings ? getUniversalCardTextPaddingStyle(universalCardSettings) : undefined;
+  const mediaSpacingClass = isFullBleedMediaCard || isSplitMediaCard ? 'mb-0' : 'mb-5';
+  const cardMediaShellClass = isSplitMediaCard ? 'w-full md:shrink-0 md:basis-[var(--ks-carousel-media-width)] md:max-w-[var(--ks-carousel-media-width)]' : 'w-full';
+  const cardEditMediaToggleClass = isFullBleedMediaCard ? 'px-5 pt-5' : '';
+  const cardFullBleedIconInsetClass = isFullBleedMediaCard ? 'px-4' : '';
+  const isCircleMediaCard = !isFullBleedMediaCard && mediaRadiusPx >= 100;
+  const cardMediaShellStyle = getCarouselMediaShellStyle({
+    mediaSizePercent,
+    isSplitMediaCard,
+    isFullBleedMediaCard,
+    textAlignClass,
+  });
+  const cardMediaStyle: React.CSSProperties = { borderRadius: getCarouselMediaBorderRadius(mediaRadiusPx, isFullBleedMediaCard) };
+  const cardMediaClass = `w-full ${isCircleMediaCard ? 'aspect-square' : isSplitMediaCard ? 'h-full min-h-56 md:min-h-full' : mediaAspectClass} ${mediaTreatmentClass} object-cover`;
 
   // Reset on block change, clamp on items shrink
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -330,10 +532,20 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
       md: { c: 'w-16 h-16', i: 'w-8 h-8' },
       lg: { c: 'w-24 h-24', i: 'w-12 h-12' },
     }[size];
+    const iconShellClass = getCarouselIconShellClass(iconStyle, s.c);
+    const iconShellStyle = getCarouselIconShellStyle(iconStyle, pSecondary);
     return (
       <div className="relative group/icon inline-block">
-        <div className={`${s.c} rounded-2xl flex items-center justify-center`} style={{ backgroundColor: `${pSecondary}20` }}>
+        <div className={iconShellClass} style={iconShellStyle}>
           <Icon className={s.i} style={{ color: pSecondary }} />
+          {iconStyle === 'numbered' && (
+            <span
+              className="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full text-[11px] font-black text-white shadow-sm"
+              style={{ backgroundColor: pSecondary }}
+            >
+              {idx + 1}
+            </span>
+          )}
         </div>
         {isEditMode && (
           <button
@@ -348,8 +560,8 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
     );
   };
 
-  const renderMediaTypeToggle = (idx: number) => (
-    <div className="flex gap-1 mb-3">
+  const renderMediaTypeToggle = (idx: number, className = '') => (
+    <div className={`mb-3 flex gap-1 ${className}`}>
       {(['image', 'icon'] as const).map(t => (
         <button
           key={t} onClick={() => updateItem(idx, 'mediaType', t)}
@@ -403,31 +615,35 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
     const maxCurrent = Math.max(0, items.length - perPage);
     const showNav    = items.length > perPage;
     const renderViewCard = (item: SlideItem, idx: number) => (
-      <div className="bg-white rounded-2xl p-7 border border-slate-100 shadow-sm hover:shadow-md transition-shadow flex flex-col h-full">
-        <div className="mb-5 flex-shrink-0">
-          {item.mediaType === 'image' && item.image ? (
-            <img src={item.image} alt={item.title} className="w-full h-44 object-cover" />
-          ) : item.mediaType === 'image' ? (
-            <div className="w-full h-44 bg-slate-100 flex items-center justify-center">
-              <Camera className="w-10 h-10 text-slate-300" />
-            </div>
-          ) : (
-            renderIconDisplay(item, idx, 'md')
-          )}
+      <div className={cardShellClass} style={cardInlineStyle}>
+        {!isCardMediaHidden && (
+          <div className={`${mediaSpacingClass} ${mediaAlignClass} ${cardMediaShellClass} ${item.mediaType !== 'image' ? cardFullBleedIconInsetClass : ''} flex-shrink-0`} style={cardMediaShellStyle}>
+            {item.mediaType === 'image' && item.image ? (
+              <img src={item.image} alt={item.title} className={cardMediaClass} style={cardMediaStyle} />
+            ) : item.mediaType === 'image' ? (
+              <div className={`${cardMediaClass} bg-slate-100 flex items-center justify-center`} style={cardMediaStyle}>
+                <Camera className="w-10 h-10 text-slate-300" />
+              </div>
+            ) : (
+              renderIconDisplay(item, idx, 'md')
+            )}
+          </div>
+        )}
+        <div className={cardTextWrapClass} style={cardTextWrapStyle}>
+          <EditableText as="h3" contentKey={`carousel_${idx}_title`} content={item.title}
+            defaultValue={`Feature ${idx + 1}`} isEditMode={false}
+            onSave={() => {}}
+            className="text-xl font-bold mb-2" style={{ color: cardTextColor }} />
+          <EditableText as="p" contentKey={`carousel_${idx}_text`} content={item.text}
+            defaultValue="Add your description here." isEditMode={false}
+            onSave={() => {}}
+            className="text-sm leading-relaxed flex-1" style={{ color: cardMutedTextColor, opacity: 0.7 }} />
         </div>
-        <EditableText as="h3" contentKey={`carousel_${idx}_title`} content={item.title}
-          defaultValue={`Feature ${idx + 1}`} isEditMode={false}
-          onSave={() => {}}
-          className="text-xl font-bold mb-2" style={{ color: textColor }} />
-        <EditableText as="p" contentKey={`carousel_${idx}_text`} content={item.text}
-          defaultValue="Add your description here." isEditMode={false}
-          onSave={() => {}}
-          className="text-sm leading-relaxed flex-1" style={{ color: textColor, opacity: 0.7 }} />
       </div>
     );
 
     return (
-      <section className="py-24" style={{ backgroundColor: bgColor || '#ffffff' }}>
+      <section className="overflow-hidden py-24" style={{ backgroundColor: bgColor || '#ffffff' }}>
         <div className="max-w-7xl mx-auto px-4">
 
           {/* Section header */}
@@ -454,42 +670,50 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
           {/* Edit mode → grid; View mode → carousel */}
           {isEditMode ? (
             <>
-              <div className="ks-layout-grid grid md:grid-cols-3 gap-6">
+              <div className="ks-layout-grid grid md:grid-cols-3 gap-6" style={cardsShadowSafeStyle}>
                 {items.map((item, idx) => {
                   const isDragging = draggedIndex === idx;
                   const isDragTarget = dragOverIndex === idx && draggedIndex !== idx;
                   return (
                   <div
                     key={idx}
-                    className={`bg-white rounded-2xl p-7 border shadow-sm relative group/card flex flex-col transition-[border-color,box-shadow,opacity,transform] ${
+                    className={`${cardShellClass} relative group/card ${
                       isDragTarget ? 'border-blue-300 ring-2 ring-blue-100' : 'border-slate-100'
                     } ${isDragging ? 'scale-[0.99] opacity-60' : ''}`}
+                    style={cardInlineStyle}
                     {...getItemDragHandlers(idx)}
                   >
                     {renderCardControls(idx)}
-                    {renderMediaTypeToggle(idx)}
-                    <div className="mb-5">
-                      {item.mediaType === 'image' ? (
-                        <EditableImage
-                          contentKey={`carousel_${idx}_image`} imageUrl={item.image}
-                          initialSettings={getImageSettings(`carousel_${idx}_image__settings`)}
-                          isEditMode={isEditMode} onSave={(key, value) => handleCarouselImageSave(idx, key, value)}
-                          className="w-full h-44 object-cover"
-                          enableInlineCropControls
-                          editorPreviewFrameClassName="w-full h-44"
-                        />
-                      ) : (
-                        renderIconDisplay(item, idx, 'md')
-                      )}
+                    {!isCardMediaHidden && (
+                      <>
+                        {renderMediaTypeToggle(idx, cardEditMediaToggleClass)}
+                        <div className={`${mediaSpacingClass} ${mediaAlignClass} ${cardMediaShellClass} ${item.mediaType !== 'image' ? cardFullBleedIconInsetClass : ''}`} style={cardMediaShellStyle}>
+                          {item.mediaType === 'image' ? (
+                            <EditableImage
+                              contentKey={`carousel_${idx}_image`} imageUrl={item.image}
+                              initialSettings={getImageSettings(`carousel_${idx}_image__settings`)}
+                              isEditMode={isEditMode} onSave={(key, value) => handleCarouselImageSave(idx, key, value)}
+                              className={cardMediaClass}
+                              style={cardMediaStyle}
+                              enableInlineCropControls
+                              editorPreviewFrameClassName={`w-full ${isCircleMediaCard ? 'aspect-square' : isSplitMediaCard ? 'min-h-56 md:min-h-full' : mediaAspectClass}`}
+                            />
+                          ) : (
+                            renderIconDisplay(item, idx, 'md')
+                          )}
+                        </div>
+                      </>
+                    )}
+                    <div className={cardTextWrapClass} style={cardTextWrapStyle}>
+                      <EditableText as="h3" contentKey={`carousel_${idx}_title`} content={item.title}
+                        defaultValue={`Feature ${idx + 1}`} isEditMode={isEditMode}
+                        onSave={(_, v) => updateItem(idx, 'title', v)}
+                        className="text-xl font-bold mb-2" style={{ color: cardTextColor }} />
+                      <EditableText as="p" contentKey={`carousel_${idx}_text`} content={item.text}
+                        defaultValue="Add your description here." isEditMode={isEditMode}
+                        onSave={(_, v) => updateItem(idx, 'text', v)}
+                        className="text-sm leading-relaxed flex-1" style={{ color: cardMutedTextColor, opacity: 0.7 }} />
                     </div>
-                    <EditableText as="h3" contentKey={`carousel_${idx}_title`} content={item.title}
-                      defaultValue={`Feature ${idx + 1}`} isEditMode={isEditMode}
-                      onSave={(_, v) => updateItem(idx, 'title', v)}
-                      className="text-xl font-bold mb-2" style={{ color: textColor }} />
-                    <EditableText as="p" contentKey={`carousel_${idx}_text`} content={item.text}
-                      defaultValue="Add your description here." isEditMode={isEditMode}
-                      onSave={(_, v) => updateItem(idx, 'text', v)}
-                      className="text-sm leading-relaxed flex-1" style={{ color: textColor, opacity: 0.7 }} />
                   </div>
                   );
                 })}
@@ -505,7 +729,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
             </>
           ) : (
             <>
-              <div className="space-y-6 md:hidden">
+              <div className="space-y-6 md:hidden" style={cardsShadowSafeStyle}>
                 {items.map((item, idx) => (
                   <div key={idx}>
                     {renderViewCard(item, idx)}
@@ -513,7 +737,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
                 ))}
               </div>
 
-              <div className="-mx-3 hidden overflow-hidden px-3 py-3 md:block">
+              <div className="hidden md:block" style={cardsShadowSafeStyle}>
                 <div style={trackStyle(perPage)}>
                   {items.map((item, idx) => (
                     <div key={idx} style={itemWidthStyle()} className="px-3">
@@ -541,6 +765,24 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
   // ── VARIANT: slides ───────────────────────────────────────────────────────────
 
   if (variant === 'slides') {
+    const slideShellClass = `${cardBaseClass} ${textAlignClass} overflow-hidden transition-[border-color,box-shadow,opacity,transform] h-full`;
+    const slideContentClass = 'ks-carousel-slide-enter flex min-h-[420px] flex-col md:flex-row';
+    const slideShellStyle: React.CSSProperties = { ...cardInlineStyle, padding: 0, minHeight: '420px' };
+    const slideMediaPanelStyle = getSplitSlideMediaPanelStyle(mediaSizePercent, pSecondary);
+    const slideMediaPanelClass = 'flex items-center justify-center overflow-hidden md:shrink-0 md:basis-[var(--ks-carousel-slide-media-width)]';
+    const slideMediaWrapClass = isFullBleedMediaCard
+      ? 'h-full w-full'
+      : 'flex w-full max-w-lg items-center justify-center p-8 md:p-10';
+    const slideMediaClass = isFullBleedMediaCard
+      ? 'h-full min-h-[280px] w-full object-cover md:min-h-[420px]'
+      : `w-full object-cover ${isCircleMediaCard ? 'aspect-square' : mediaAspectClass} ${mediaTreatmentClass}`;
+    const slideTextPanelStyle = universalCardSettings
+      ? { padding: Math.max(32, universalCardSettings.paddingPx) }
+      : undefined;
+    const slideNavClass = textAlignClass === 'text-center' ? 'justify-center' : 'justify-start';
+    const item = items[current] || items[0];
+    const idx = current;
+
     return (
       <section className="py-24" style={{ backgroundColor: bgColor || pAccent }}>
         <div className="max-w-7xl mx-auto px-4">
@@ -555,75 +797,69 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
             </Reveal>
           )}
 
-          <div className="overflow-hidden shadow-lg">
-            <div style={trackStyle(1)}>
-              {items.map((item, idx) => (
-                <div key={idx} style={itemWidthStyle()}>
-                  <div className="bg-white flex flex-col md:flex-row" style={{ minHeight: '420px' }}>
-
-                    {/* Media panel */}
-                    <div
-                      className="md:w-5/12 flex items-center justify-center overflow-hidden"
-                      style={{ minHeight: '280px', backgroundColor: `${pSecondary}10` }}
-                    >
-                      {item.mediaType === 'image' ? (
-                        <EditableImage
-                          contentKey={`carousel_${idx}_image`} imageUrl={item.image}
-                          initialSettings={getImageSettings(`carousel_${idx}_image__settings`)}
-                          isEditMode={isEditMode && idx === current}
-                          onSave={(key, value) => handleCarouselImageSave(idx, key, value)}
-                          className="w-full h-80 object-cover"
-                          enableInlineCropControls
-                          editorPreviewFrameClassName="w-full h-80"
-                        />
-                      ) : (
-                        renderIconDisplay(item, idx, 'lg')
-                      )}
-                    </div>
-
-                    {/* Text panel */}
-                    <div className="md:w-7/12 p-8 md:p-12 flex flex-col justify-center">
-                      {isEditMode && idx === current && renderMediaTypeToggle(idx)}
-                      <p className="text-xs font-bold tracking-widest uppercase mb-5" style={{ color: pSecondary }}>
-                        {String(idx + 1).padStart(2, '0')} / {String(items.length).padStart(2, '0')}
-                      </p>
-                      <EditableText as="h3" contentKey={`carousel_${idx}_title`} content={item.title}
-                        defaultValue="Slide Title" isEditMode={isEditMode && idx === current}
-                        onSave={(_, v) => updateItem(idx, 'title', v)}
-                        className="text-3xl font-bold mb-4" style={{ color: textColor }} />
-                      <EditableText as="p" contentKey={`carousel_${idx}_text`} content={item.text}
-                        defaultValue="Add your description here." isEditMode={isEditMode && idx === current}
-                        onSave={(_, v) => updateItem(idx, 'text', v)}
-                        className="text-lg leading-relaxed" style={{ color: textColor, opacity: 0.7 }} />
-
-                      {/* Navigation */}
-                      <div className="flex items-center gap-3 mt-8 flex-wrap">
-                        {renderArrow('prev', () => setCurrent(c => (c - 1 + items.length) % items.length))}
-                        {renderArrow('next', () => setCurrent(c => (c + 1) % items.length))}
-                        {renderDots(items.length, i => setCurrent(i))}
-                        {isEditMode && (
-                          <div className="flex gap-2 ml-auto">
-                            <button
-                              onClick={addItem}
-                              className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg border border-dashed border-blue-300 transition-colors"
-                            >
-                              <Plus className="w-3.5 h-3.5" /> Add
-                            </button>
-                            {items.length > 1 && (
-                              <button
-                                onClick={() => removeItem(idx)}
-                                className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg border border-dashed border-red-300 transition-colors"
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+          <div style={cardShadowSafeStyle}>
+            <div className={slideShellClass} style={slideShellStyle}>
+              <div key={`carousel-slide-${idx}`} className={slideContentClass}>
+              {!isCardMediaHidden && (
+                <div className={slideMediaPanelClass} style={slideMediaPanelStyle}>
+                  <div className={slideMediaWrapClass}>
+                    {item.mediaType === 'image' ? (
+                      <EditableImage
+                        contentKey={`carousel_${idx}_image`} imageUrl={item.image}
+                        initialSettings={getImageSettings(`carousel_${idx}_image__settings`)}
+                        isEditMode={isEditMode}
+                        onSave={(key, value) => handleCarouselImageSave(idx, key, value)}
+                        className={slideMediaClass}
+                        style={cardMediaStyle}
+                        enableInlineCropControls
+                        editorPreviewFrameClassName={isFullBleedMediaCard ? 'h-full min-h-[280px] w-full md:min-h-[420px]' : `w-full ${isCircleMediaCard ? 'aspect-square' : mediaAspectClass}`}
+                      />
+                    ) : (
+                      renderIconDisplay(item, idx, 'lg')
+                    )}
                   </div>
                 </div>
-              ))}
+              )}
+
+              <div className="flex flex-1 flex-col justify-center p-8 md:p-12" style={slideTextPanelStyle}>
+                {isEditMode && !isCardMediaHidden && renderMediaTypeToggle(idx)}
+                <p className="mb-5 text-xs font-bold uppercase tracking-widest" style={{ color: pSecondary }}>
+                  {String(idx + 1).padStart(2, '0')} / {String(items.length).padStart(2, '0')}
+                </p>
+                <EditableText as="h3" contentKey={`carousel_${idx}_title`} content={item.title}
+                  defaultValue="Slide Title" isEditMode={isEditMode}
+                  onSave={(_, v) => updateItem(idx, 'title', v)}
+                  className="mb-4 text-3xl font-bold" style={{ color: cardTextColor }} />
+                <EditableText as="p" contentKey={`carousel_${idx}_text`} content={item.text}
+                  defaultValue="Add your description here." isEditMode={isEditMode}
+                  onSave={(_, v) => updateItem(idx, 'text', v)}
+                  className="text-lg leading-relaxed" style={{ color: cardMutedTextColor, opacity: 0.7 }} />
+
+                <div className={`mt-8 flex flex-wrap items-center gap-3 ${slideNavClass}`}>
+                  {renderArrow('prev', () => setCurrent(c => (c - 1 + items.length) % items.length))}
+                  {renderArrow('next', () => setCurrent(c => (c + 1) % items.length))}
+                  {renderDots(items.length, i => setCurrent(i))}
+                  {isEditMode && (
+                    <div className="ml-auto flex gap-2">
+                      <button
+                        onClick={addItem}
+                        className="flex items-center gap-1 rounded-lg border border-dashed border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add
+                      </button>
+                      {items.length > 1 && (
+                        <button
+                          onClick={() => removeItem(idx)}
+                          className="rounded-lg border border-dashed border-red-300 p-1.5 text-red-400 transition-colors hover:bg-red-50"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              </div>
             </div>
           </div>
         </div>
@@ -634,9 +870,22 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
 
   // ── VARIANT: minimal (default fallback) ───────────────────────────────────────
 
+  const minimalItemAlignClass = textAlignClass === 'text-center' ? 'items-center' : 'items-start';
+  const minimalShellClass = `${cardBaseClass} ${cardPaddingClass} ${textAlignClass} mx-auto flex w-full max-w-xl flex-col ${minimalItemAlignClass} transition-[border-color,box-shadow,opacity,transform]`;
+  const minimalMediaShellStyle = getMinimalMediaShellStyle(mediaSizePercent, textAlignClass);
+  const minimalMediaClass = `w-full object-cover ${isCircleMediaCard ? 'aspect-square' : mediaAspectClass} ${mediaTreatmentClass}`;
+  const minimalMediaFrameClass = `w-full ${isCircleMediaCard ? 'aspect-square' : mediaAspectClass}`;
+  const minimalMediaOuterClass = isFullBleedMediaCard ? 'mb-6 w-full' : 'mb-6 mt-2';
+  const minimalTextNeedsPadding = isFullBleedMediaCard || isSplitMediaCard;
+  const minimalTextWrapClass = `flex flex-col ${minimalTextNeedsPadding ? (universalCardSettings ? getUniversalCardTextPaddingClass(universalCardSettings) : getCardTextPaddingClass(cardStyle, spacingDensity)) : ''}`;
+  const minimalTextWrapStyle = minimalTextNeedsPadding ? cardTextWrapStyle : undefined;
+  const minimalDescriptionClass = `max-w-sm text-base leading-relaxed ${textAlignClass === 'text-center' ? 'mx-auto' : ''}`;
+  const minimalItem = items[current] || items[0];
+  const minimalIdx = current;
+
   return (
     <section className="py-24" style={{ backgroundColor: bgColor || '#ffffff' }}>
-      <div className="max-w-2xl mx-auto px-4 text-center">
+      <div className={`max-w-2xl mx-auto px-4 ${textAlignClass}`}>
 
         {(data.title || data.subtitle || isEditMode) && (
           <div className="mb-14">
@@ -658,42 +907,43 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
           </div>
         )}
 
-        <div className="overflow-hidden">
-          <div style={trackStyle(1)}>
-            {items.map((item, idx) => (
-              <div key={idx} style={itemWidthStyle()} className="px-4">
-                <div className="flex flex-col items-center">
-                  {isEditMode && idx === current && renderMediaTypeToggle(idx)}
-                  <div className="mb-6 mt-2">
-                    {item.mediaType === 'image' ? (
-                      isEditMode && idx === current ? (
-                        <EditableImage
-                          contentKey={`carousel_${idx}_image`} imageUrl={item.image}
-                          initialSettings={getImageSettings(`carousel_${idx}_image__settings`)}
-                          isEditMode={isEditMode} onSave={(key, value) => handleCarouselImageSave(idx, key, value)}
-                          className="w-48 h-48 object-cover mx-auto"
-                          enableInlineCropControls
-                          editorPreviewFrameClassName="w-48 h-48 mx-auto"
-                        />
-                      ) : item.image ? (
-                        <img src={item.image} alt={item.title} className="w-48 h-48 object-cover mx-auto" />
-                      ) : null
-                    ) : (
-                      renderIconDisplay(item, idx, 'lg')
-                    )}
-                  </div>
-                  <EditableText as="h3" contentKey={`carousel_${idx}_title`} content={item.title}
-                    defaultValue={`Feature ${idx + 1}`} isEditMode={isEditMode && idx === current}
-                    onSave={(_, v) => updateItem(idx, 'title', v)}
-                    className="text-2xl font-bold mb-2" style={{ color: textColor }} />
-                  <EditableText as="p" contentKey={`carousel_${idx}_text`} content={item.text}
-                    defaultValue="Describe this feature here." isEditMode={isEditMode && idx === current}
-                    onSave={(_, v) => updateItem(idx, 'text', v)}
-                    className="text-base leading-relaxed max-w-sm mx-auto" style={{ color: textColor, opacity: 0.7 }} />
-                  {isEditMode && idx === current && renderEditControls(idx)}
+        <div style={cardShadowSafeStyle}>
+          <div className={minimalShellClass} style={cardInlineStyle}>
+            {!isCardMediaHidden && (
+              <>
+                {isEditMode && renderMediaTypeToggle(minimalIdx)}
+                <div className={minimalMediaOuterClass} style={isFullBleedMediaCard ? undefined : minimalMediaShellStyle}>
+                  {minimalItem.mediaType === 'image' ? (
+                    isEditMode ? (
+                      <EditableImage
+                        contentKey={`carousel_${minimalIdx}_image`} imageUrl={minimalItem.image}
+                        initialSettings={getImageSettings(`carousel_${minimalIdx}_image__settings`)}
+                        isEditMode={isEditMode} onSave={(key, value) => handleCarouselImageSave(minimalIdx, key, value)}
+                        className={minimalMediaClass}
+                        style={cardMediaStyle}
+                        enableInlineCropControls
+                        editorPreviewFrameClassName={minimalMediaFrameClass}
+                      />
+                    ) : minimalItem.image ? (
+                      <img src={minimalItem.image} alt={minimalItem.title} className={minimalMediaClass} style={cardMediaStyle} />
+                    ) : null
+                  ) : (
+                    renderIconDisplay(minimalItem, minimalIdx, 'lg')
+                  )}
                 </div>
+              </>
+            )}
+            <div className={minimalTextWrapClass} style={minimalTextWrapStyle}>
+              <EditableText as="h3" contentKey={`carousel_${minimalIdx}_title`} content={minimalItem.title}
+                defaultValue={`Feature ${minimalIdx + 1}`} isEditMode={isEditMode}
+                onSave={(_, v) => updateItem(minimalIdx, 'title', v)}
+                className="mb-2 text-2xl font-bold" style={{ color: cardTextColor }} />
+              <EditableText as="p" contentKey={`carousel_${minimalIdx}_text`} content={minimalItem.text}
+                defaultValue="Describe this feature here." isEditMode={isEditMode}
+                onSave={(_, v) => updateItem(minimalIdx, 'text', v)}
+                className={minimalDescriptionClass} style={{ color: cardMutedTextColor, opacity: 0.7 }} />
+              {isEditMode && renderEditControls(minimalIdx)}
               </div>
-            ))}
           </div>
         </div>
 

@@ -23,6 +23,12 @@ import {
     normalizeSectionSettings,
     type SectionSettings,
 } from '@/lib/builder/layout-settings';
+import { CardSettingsControls } from '../CardSettingsControls';
+import {
+    buildCardSettingsForPreset,
+    readCardSettings,
+    type CardSettings,
+} from '@/lib/block-style-options';
 import {
     CONTACT_ICON_OPTIONS,
     ContactItem,
@@ -50,6 +56,8 @@ type ContactDraft = {
     backgroundColor: string;
     contactIconColor: string;
     socialIconColor: string;
+    cardStyle: string;
+    cardSettings?: CardSettings;
     sectionSettings: SectionSettings;
     pretextEnabled: boolean;
     pretextStyle: string;
@@ -67,6 +75,7 @@ const SECTION_IDS = [
     'display',
     ...(CONTACT_SUPPORTS_PRETEXT ? ['pretext'] : []),
     'style',
+    'card-advanced',
     'advanced',
 ];
 const CONTACT_DRAFT_UPDATE_EVENT = 'ks:contact-draft-update';
@@ -155,6 +164,8 @@ export default function ContactSettingsPanel({
             backgroundColor: draft.backgroundColor,
             contactIconColor: draft.contactIconColor,
             socialIconColor: draft.socialIconColor,
+            cardStyle: draft.cardStyle,
+            cardSettings: draft.cardSettings || buildCardSettingsForPreset(draft.cardStyle),
             pretextEnabled: draft.pretextEnabled,
             pretextStyle: draft.pretextStyle,
             pretextColor: draft.pretextColor,
@@ -167,6 +178,13 @@ export default function ContactSettingsPanel({
         }
         context.updateBlockDataBatch(blockId, updates);
     }, [draft, initialDraft, blockId, context]);
+
+    const updateCardSettings = (value: CardSettings) => {
+        updateDraft({
+            cardSettings: value,
+            ...(value.presetId && value.presetId !== 'custom' ? { cardStyle: value.presetId } : {}),
+        });
+    };
 
     return (
         <BlockSettingsPanel
@@ -182,7 +200,7 @@ export default function ContactSettingsPanel({
         >
             <InspectorSection
                 id="cards"
-                title="Contact Cards"
+                title="Content: Contact Cards"
                 isCollapsed={sectionState.isCollapsed('cards')}
                 onToggle={() => sectionState.toggle('cards')}
             >
@@ -230,7 +248,7 @@ export default function ContactSettingsPanel({
 
             <InspectorSection
                 id="social"
-                title="Social Icons"
+                title="Content: Social Icons"
                 isCollapsed={sectionState.isCollapsed('social')}
                 onToggle={() => sectionState.toggle('social')}
             >
@@ -360,7 +378,7 @@ export default function ContactSettingsPanel({
             {CONTACT_SUPPORTS_PRETEXT && (
                 <InspectorSection
                     id="pretext"
-                    title="Label"
+                    title="Style: Label"
                     isCollapsed={sectionState.isCollapsed('pretext')}
                     onToggle={() => sectionState.toggle('pretext')}
                 >
@@ -405,6 +423,22 @@ export default function ContactSettingsPanel({
                         onChange={(value) => updateDraft({ socialIconColor: value })}
                     />
                 </div>
+            </InspectorSection>
+
+            <InspectorSection
+                id="card-advanced"
+                title="Style: Contact Cards"
+                isCollapsed={sectionState.isCollapsed('card-advanced')}
+                onToggle={() => sectionState.toggle('card-advanced')}
+            >
+                <CardSettingsControls
+                    value={draft.cardSettings || buildCardSettingsForPreset(draft.cardStyle)}
+                    currentPresetId={draft.cardStyle}
+                    palette={palette}
+                    supportsIcon
+                    supportsTextAlign
+                    onChange={updateCardSettings}
+                />
             </InspectorSection>
 
             <InspectorSection
@@ -862,6 +896,8 @@ function buildInitialDraft(blockData: Record<string, unknown>, customCss: string
         backgroundColor: typeof blockData.backgroundColor === 'string' ? blockData.backgroundColor : '',
         contactIconColor: typeof blockData.contactIconColor === 'string' ? blockData.contactIconColor : '',
         socialIconColor: typeof blockData.socialIconColor === 'string' ? blockData.socialIconColor : '',
+        cardStyle: typeof blockData.cardStyle === 'string' && blockData.cardStyle ? blockData.cardStyle : 'soft',
+        cardSettings: readCardSettings(blockData.cardSettings),
         sectionSettings: normalizeSectionSettings(blockData.sectionSettings),
         pretextEnabled: blockData.pretextEnabled === undefined || blockData.pretextEnabled === null
             ? PRETEXT_DEFAULTS.pretextEnabled

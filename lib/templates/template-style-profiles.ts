@@ -11,14 +11,6 @@ export type TemplateStyleProfile = {
 };
 
 export const TEMPLATE_STYLE_PROFILE_IDS = [
-  'luxe',
-  'vivid',
-  'airy',
-  'edge',
-  'classic',
-  'organic',
-  'sleek',
-  'vibrant',
   'atlas',
   'editorial',
   'booked',
@@ -27,6 +19,14 @@ export const TEMPLATE_STYLE_PROFILE_IDS = [
   'retro',
   'proof',
   'gallery',
+  'builder',
+  'commerce',
+  'foundation',
+  'wellness',
+  'estate',
+  'studio',
+  'learn',
+  'occasion',
 ] as const;
 
 export type TemplateStyleProfileId = typeof TEMPLATE_STYLE_PROFILE_IDS[number];
@@ -41,7 +41,7 @@ export const TEMPLATE_STYLE_PROFILES: readonly TemplateStyleProfile[] = [
     header: 'centered or above-logo navigation, generous spacing, CTA on the right when conversion matters',
     hero: 'centered or split hero with short elegant copy and one clear CTA',
     blocks: 'hero, aboutImageText, servicesGrid, testimonials, gallery, cta',
-    css: 'hairline borders, wide spacing, subtle image radius, no loud shadows',
+    css: 'servicesGrid cardStyle:"luxe" or "editorial", testimonials cardStyle:"glass", carousel cardStyle:"luxe", wide spacing, subtle image radius, no loud shadows',
   },
   {
     id: 'vivid',
@@ -52,7 +52,7 @@ export const TEMPLATE_STYLE_PROFILES: readonly TemplateStyleProfile[] = [
     header: 'primary or gradient header, inline nav, bold CTA, product search only for shops',
     hero: 'split or centered hero with big direct headline and button-led action',
     blocks: 'hero, carousel, servicesGrid, stats, testimonials, pricing, cta',
-    css: 'large radius, sticker-like image/card accents, palette-token outlines, button settings left editable',
+    css: 'servicesGrid cardStyle:"gradient" or "glow", carousel cardStyle:"offset", testimonials cardStyle:"elevated", palette-token outlines, button settings left editable',
   },
   {
     id: 'airy',
@@ -63,7 +63,7 @@ export const TEMPLATE_STYLE_PROFILES: readonly TemplateStyleProfile[] = [
     header: 'white header, nav centered or right, simple CTA or social icons',
     hero: 'minimal or split hero with calm copy and comfortable whitespace',
     blocks: 'hero, aboutImageText, gallery, featuresList, testimonials, contact_form',
-    css: 'soft card radius, gentle shadows, pill buttons, spacious section rhythm',
+    css: 'servicesGrid cardStyle:"soft", testimonials cardStyle:"glass", stats cardStyle:"inset", gentle shadows, pill buttons, spacious section rhythm',
   },
   {
     id: 'edge',
@@ -74,7 +74,7 @@ export const TEMPLATE_STYLE_PROFILES: readonly TemplateStyleProfile[] = [
     header: 'dark primary or transparent overlay header, compact nav, CTA on right',
     hero: 'fullImage, gradient, or animation hero with concise high-contrast copy',
     blocks: 'hero, stats, tabBar, servicesGrid, pricing, faq, cta',
-    css: 'sharp borders, glow shadows using secondary, angular dividers, no text color overrides',
+    css: 'servicesGrid cardStyle:"glow" or "solid", stats cardStyle:"solid", carousel cardStyle:"gradient", angular dividers, no text color overrides',
   },
   {
     id: 'classic',
@@ -85,7 +85,7 @@ export const TEMPLATE_STYLE_PROFILES: readonly TemplateStyleProfile[] = [
     header: 'white or primary header, conventional logo left and nav right, clear CTA',
     hero: 'split or centered hero with trust-first headline and practical CTA',
     blocks: 'hero, servicesGrid, stats, testimonials, faq, estimateForm, contact',
-    css: 'structured borders, modest radius, clear section dividers, restrained shadows',
+    css: 'servicesGrid cardStyle:"bordered" or "slab", stats cardStyle:"utility", testimonials cardStyle:"editorial", clear section dividers, restrained shadows',
   },
   {
     id: 'organic',
@@ -96,7 +96,7 @@ export const TEMPLATE_STYLE_PROFILES: readonly TemplateStyleProfile[] = [
     header: 'white or transparent header, soft CTA, social icons when useful',
     hero: 'split or fullImage hero with welcoming local copy',
     blocks: 'hero, aboutImageText, featuredQuote, servicesGrid, gallery, contact',
-    css: 'organic image shapes, rounded cards, soft borders, warm spacing',
+    css: 'servicesGrid cardStyle:"inset" or "soft", carousel cardStyle:"soft" or "elevated", testimonials cardStyle:"soft", organic image shapes, soft borders, warm spacing',
   },
   {
     id: 'sleek',
@@ -107,7 +107,7 @@ export const TEMPLATE_STYLE_PROFILES: readonly TemplateStyleProfile[] = [
     header: 'minimal white or transparent header, sparse nav, CTA only when needed',
     hero: 'minimal, split, or fullImage hero with short architectural copy',
     blocks: 'hero, gallery, aboutImageText, stats, featuredQuote, contact_form',
-    css: 'thin rules, square or low-radius cards, image-first spacing, minimal shadows',
+    css: 'servicesGrid cardStyle:"outline" or "minimal", carousel cardStyle:"poster", testimonials cardStyle:"luxe", thin rules, image-first spacing, minimal shadows',
   },
   {
     id: 'vibrant',
@@ -118,7 +118,7 @@ export const TEMPLATE_STYLE_PROFILES: readonly TemplateStyleProfile[] = [
     header: 'gradient or white header with friendly CTA and centered nav when playful',
     hero: 'centered or split hero with upbeat copy and visible CTA',
     blocks: 'hero, carousel, featuresList, events, gallery, faq, cta',
-    css: 'rounded cards, playful shadows, rotated accents in moderation, pill controls',
+    css: 'servicesGrid cardStyle:"playful", carousel cardStyle:"gradient", testimonials cardStyle:"elevated", rounded cards, lively shadows, pill controls',
   },
   {
     id: 'atlas',
@@ -129,7 +129,7 @@ export const TEMPLATE_STYLE_PROFILES: readonly TemplateStyleProfile[] = [
     header: 'logo left, nav right, CTA on right, white or transparent overlay for hero',
     hero: 'split or minimal hero with operational clarity, proof, and a page-linked CTA',
     blocks: 'hero, stats, logoCloud, servicesGrid, pricing, featuredQuote, contact_form',
-    css: 'boardroom hairlines, metric bands, subtle grid lines, no demo-client content',
+    css: 'servicesGrid cardStyle:"bordered" or "utility", spacingDensity:"standard", stats cardStyle:"accent", carousel cardStyle:"outline", iconStyle:"framed", surfaceStyle:"white", gallery frameStyle:"editorial"',
   },
   {
     id: 'editorial',
@@ -140,7 +140,7 @@ export const TEMPLATE_STYLE_PROFILES: readonly TemplateStyleProfile[] = [
     header: 'centered or above-logo header, optional announcement banner, nav suited to articles',
     hero: 'minimal or centered hero with authored point of view and clear read/subscribe CTA',
     blocks: 'hero, blog, featuredQuote, aboutImageText, resources, logoCloud, cta',
-    css: 'magazine rules, narrow text measures, uppercase labels, careful type scale',
+    css: 'servicesGrid cardStyle:"minimal" or "editorial", spacingDensity:"compact", testimonials cardStyle:"editorial", gallery frameStyle:"editorial", aboutImageText mediaTreatment:"contained", textAlign:"left"',
   },
   {
     id: 'booked',
@@ -151,7 +151,7 @@ export const TEMPLATE_STYLE_PROFILES: readonly TemplateStyleProfile[] = [
     header: 'logo left, nav right, CTA on right that points to booking or contact',
     hero: 'split hero with appointment promise, booking CTA, and service reassurance',
     blocks: 'hero, booking, servicesGrid, pricing, testimonials, faq, contact',
-    css: 'soft cards, rounded form sections, clear booking emphasis, gentle shadows',
+    css: 'servicesGrid cardStyle:"elevated", surfaceStyle:"accent", spacingDensity:"spacious", testimonials cardStyle:"glass" or "soft", stats cardStyle:"inset", aboutImageText mediaTreatment:"soft"',
   },
   {
     id: 'menu',
@@ -162,7 +162,7 @@ export const TEMPLATE_STYLE_PROFILES: readonly TemplateStyleProfile[] = [
     header: 'transparent overlay or white header with CTA for reserve/order',
     hero: 'fullImage hero for atmosphere, with CTA linked to the menu page',
     blocks: 'hero, menu, gallery, deliveryLinks, contact, map',
-    css: 'menu cards, warm dividers, photo radius, button radius that matches the venue',
+    css: 'gallery frameStyle:"rounded", mediaAspect:"landscape", carousel cardStyle:"poster", mediaTreatment:"fullBleed", servicesGrid cardStyle:"accent" or "clipped", surfaceStyle:"accent"',
   },
   {
     id: 'craft',
@@ -173,7 +173,7 @@ export const TEMPLATE_STYLE_PROFILES: readonly TemplateStyleProfile[] = [
     header: 'white header, logo left, shop/contact CTA or product search when ecommerce is present',
     hero: 'split hero with maker story and CTA to shop or story',
     blocks: 'hero, productGrid, aboutImageText, gallery, featuredQuote, testimonials, cta',
-    css: 'handmade image radius, soft offset shadows, tactile card borders, palette-safe backgrounds',
+    css: 'aboutImageText mediaTreatment:"framed", servicesGrid cardStyle:"offset" or "playful", markerStyle:"framed", testimonials cardStyle:"inset", gallery frameStyle:"rounded", carousel cardStyle:"elevated"',
   },
   {
     id: 'retro',
@@ -184,7 +184,7 @@ export const TEMPLATE_STYLE_PROFILES: readonly TemplateStyleProfile[] = [
     header: 'primary, gradient, or white header with a punchy CTA and compact nav',
     hero: 'centered or split hero with short energetic copy and page-linked CTA',
     blocks: 'hero, productGrid, events, carousel, testimonials, gallery, cta',
-    css: 'chunky borders, offset image/card frames, low radius, playful section dividers',
+    css: 'servicesGrid cardStyle:"offset" or "playful", markerStyle:"plain", carousel cardStyle:"glow", iconStyle:"numbered", testimonials cardStyle:"offset", stats cardStyle:"solid", surfaceStyle:"secondary"',
   },
   {
     id: 'proof',
@@ -195,7 +195,7 @@ export const TEMPLATE_STYLE_PROFILES: readonly TemplateStyleProfile[] = [
     header: 'white or primary header with prominent quote/estimate CTA',
     hero: 'split hero with clear service promise, guarantee, and conversion CTA',
     blocks: 'hero, stats, testimonials, logoCloud, estimateForm, servicesGrid, faq, contact',
-    css: 'review cards, trust badges, practical borders, strong CTA contrast',
+    css: 'servicesGrid cardStyle:"slab" or "bordered", markerStyle:"badge", testimonials cardStyle:"accent", stats cardStyle:"solid", surfaceStyle:"primary", spacingDensity:"compact"',
   },
   {
     id: 'gallery',
@@ -206,19 +206,107 @@ export const TEMPLATE_STYLE_PROFILES: readonly TemplateStyleProfile[] = [
     header: 'transparent overlay for image heroes or very minimal white header',
     hero: 'fullImage or minimal hero with visual-first positioning and restrained copy',
     blocks: 'hero, gallery, featuredQuote, aboutImageText, contact_form, cta',
-    css: 'full-bleed image moments, tight gallery gaps, square image frames, minimal card chrome',
+    css: 'gallery frameStyle:"gapless", carousel cardStyle:"poster" or "clipped", mediaTreatment:"fullBleed", iconStyle:"plain", aboutImageText mediaTreatment:"fullBleed", servicesGrid cardStyle:"minimal"',
+  },
+  {
+    id: 'builder',
+    name: 'Builder',
+    bestFor: 'contractors, handyman, plumbing, electrical, HVAC, landscaping, cleaning, mechanics, field service teams',
+    palette: 'charcoal or blueprint primary, workwear amber or reliable green secondary, clean light accent',
+    fonts: 'Merriweather or Space Grotesk heading with Inter body',
+    header: 'white or primary header with phone/estimate CTA visible on the right',
+    hero: 'split hero with service area, proof, and estimate-first CTA',
+    blocks: 'hero, servicesGrid, stats, testimonials, estimateForm, faq, contact',
+    css: 'servicesGrid cardStyle:"bordered" or "slab", cardSettings presetId:"bordered", markerStyle:"badge", stats cardStyle:"utility", testimonials cardStyle:"bordered", compact practical spacing',
+  },
+  {
+    id: 'commerce',
+    name: 'Commerce',
+    bestFor: 'ecommerce, retail, subscriptions, dropshipping, digital products, product catalogs',
+    palette: 'high-clarity dark primary with conversion blue, orange, or teal secondary and light product accent',
+    fonts: 'Space Grotesk or Outfit heading with Inter body',
+    header: 'logo left, product search enabled for shops, nav right, shop CTA when needed',
+    hero: 'product-first split hero with offer, category promise, and shop CTA',
+    blocks: 'hero, productGrid, carousel, testimonials, pricing, cta',
+    css: 'carousel cardStyle:"elevated" or "poster", servicesGrid cardStyle:"gradient", productGrid variant:"grid", surfaceStyle:"white"',
+  },
+  {
+    id: 'foundation',
+    name: 'Foundation',
+    bestFor: 'nonprofits, charities, churches, associations, foundations, community groups',
+    palette: 'grounded green, navy, or warm ink primary with hopeful secondary and soft accent',
+    fonts: 'Fraunces or Libre Baskerville heading with Karla or Inter body',
+    header: 'clear nav with donate/get involved CTA and simple community-first spacing',
+    hero: 'mission-led hero with who is served, why it matters, and participation CTA',
+    blocks: 'hero, aboutImageText, stats, featuredQuote, events, resources, contact',
+    css: 'servicesGrid cardStyle:"inset" or "editorial", testimonials cardStyle:"soft", stats cardStyle:"accent", cardSettings accentSide:"top", warm accessible surfaces',
+  },
+  {
+    id: 'wellness',
+    name: 'Wellness',
+    bestFor: 'therapy, wellness, spa, yoga, health, coaching, calm fitness services',
+    palette: 'soft green, slate, rose, or clay primary with calming secondary and pale accent',
+    fonts: 'Nunito, Lato, or Inter with gentle weights',
+    header: 'white header, relaxed spacing, booking CTA on the right',
+    hero: 'split hero with care promise, reassuring copy, and booking CTA',
+    blocks: 'hero, booking, servicesGrid, aboutImageText, testimonials, faq, contact',
+    css: 'servicesGrid cardStyle:"soft" or "glass", cardSettings surfaceOpacity:0.72, testimonials cardStyle:"glass", stats cardStyle:"inset", spacious gentle rhythm',
+  },
+  {
+    id: 'estate',
+    name: 'Estate',
+    bestFor: 'real estate, property, interiors, home staging, architecture-adjacent services',
+    palette: 'black, slate, or stone primary with muted metallic/green secondary and gallery-white accent',
+    fonts: 'Sora or Inter heading with Inter body',
+    header: 'minimal header with listing/contact CTA and image-first navigation feel',
+    hero: 'fullImage or split hero with premium property positioning and clear inquiry CTA',
+    blocks: 'hero, gallery, carousel, stats, featuredQuote, contact_form, map',
+    css: 'gallery frameStyle:"poster" or "gapless", carousel cardStyle:"poster" or "luxe", cardSettings mediaLayout:"fullBleed", servicesGrid cardStyle:"luxe"',
+  },
+  {
+    id: 'studio',
+    name: 'Studio',
+    bestFor: 'agencies, freelancers, brand studios, design services, creative consultants',
+    palette: 'ink or monochrome primary with precise blue, pink, or neutral secondary and crisp accent',
+    fonts: 'Space Grotesk, Sora, or Inter with disciplined weights',
+    header: 'minimal nav, project/start CTA, sparse but confident spacing',
+    hero: 'visual or editorial hero with focused offer and portfolio/service CTA',
+    blocks: 'hero, gallery, servicesGrid, featuredQuote, carousel, contact_form',
+    css: 'servicesGrid cardStyle:"outline" or "offset", cardSettings borderStyle:"dashed", carousel cardStyle:"clipped", gallery frameStyle:"editorial", minimal shadows',
+  },
+  {
+    id: 'learn',
+    name: 'Learn',
+    bestFor: 'education, tutors, courses, workshops, coaching programs, schools',
+    palette: 'navy, ink, or campus green primary with blue/amber secondary and readable light accent',
+    fonts: 'Libre Baskerville or Space Grotesk heading with Source Sans or Inter body',
+    header: 'clear course navigation with enroll/contact CTA',
+    hero: 'structured hero with outcome, audience, and start/enroll CTA',
+    blocks: 'hero, servicesGrid, pricing, resources, testimonials, faq, contact',
+    css: 'servicesGrid cardStyle:"utility" or "editorial", cardSettings paddingDensity:"compact", resources variant:"grid", stats cardStyle:"bordered", textAlign:"left"',
+  },
+  {
+    id: 'occasion',
+    name: 'Occasion',
+    bestFor: 'events, weddings, venues, planners, florists, pop-ups, celebrations',
+    palette: 'celebratory primary with pink, orange, violet, or gold secondary and warm light accent',
+    fonts: 'Space Grotesk or Playfair Display heading with DM Sans or Inter body',
+    header: 'image-friendly header with plan/book CTA and compact event nav',
+    hero: 'image or colorful hero with event promise, date/venue context, and inquiry CTA',
+    blocks: 'hero, events, gallery, carousel, testimonials, contact_form, cta',
+    css: 'carousel cardStyle:"playful" or "poster", servicesGrid cardStyle:"gradient", cardSettings shadow:"glow", gallery frameStyle:"rounded", lively spacing without custom CSS',
   },
 ];
 
 const STYLE_CHIP_TO_PROFILES: Record<string, string[]> = {
-  bold: ['vivid', 'retro', 'edge'],
-  minimal: ['sleek', 'atlas', 'airy'],
-  warm: ['organic', 'craft', 'menu'],
-  luxury: ['luxe', 'editorial', 'sleek'],
-  playful: ['vibrant', 'retro'],
-  dark: ['edge', 'sleek'],
-  editorial: ['editorial', 'atlas', 'proof'],
-  earthy: ['organic', 'craft'],
+  bold: ['retro', 'proof', 'occasion'],
+  minimal: ['gallery', 'atlas', 'studio'],
+  warm: ['craft', 'menu', 'foundation'],
+  luxury: ['estate', 'editorial', 'gallery'],
+  playful: ['retro', 'occasion'],
+  dark: ['gallery', 'atlas', 'studio'],
+  editorial: ['editorial', 'learn', 'atlas'],
+  earthy: ['craft', 'foundation', 'wellness'],
 };
 
 export function renderTemplateStyleProfilesForAi(input?: {
@@ -227,7 +315,8 @@ export function renderTemplateStyleProfilesForAi(input?: {
   description?: string;
 }): string {
   const likelyIds = new Set(recommendTemplateStyleProfileIds(input));
-  const profileLines = TEMPLATE_STYLE_PROFILES.map((profile) => {
+  const publicProfiles = TEMPLATE_STYLE_PROFILES.filter((profile) => isTemplateStyleProfileId(profile.id));
+  const profileLines = publicProfiles.map((profile) => {
     const marker = likelyIds.has(profile.id) ? ' [likely relevant]' : '';
     return [
       `- ${profile.id} (${profile.name})${marker}: best for ${profile.bestFor}.`,
@@ -236,7 +325,7 @@ export function renderTemplateStyleProfilesForAi(input?: {
       `  Header: ${profile.header}.`,
       `  Hero: ${profile.hero}.`,
       `  Blocks/settings: ${profile.blocks}.`,
-      `  Visual treatment: ${profile.css}.`,
+      `  Editable style settings: ${profile.css}.`,
     ].join('\n');
   }).join('\n');
 
@@ -261,13 +350,21 @@ export function recommendTemplateStyleProfileIds(input?: {
   ].join(' ').toLowerCase();
 
   addIf(text, picked, ['restaurant', 'cafe', 'bakery', 'bar', 'food truck', 'menu', 'dining'], 'menu');
-  addIf(text, picked, ['shop', 'store', 'product', 'ecommerce', 'retail', 'handmade', 'pottery', 'ceramic', 'craft'], 'craft');
-  addIf(text, picked, ['appointment', 'booking', 'clinic', 'salon', 'therapist', 'tutor', 'coach'], 'booked');
-  addIf(text, picked, ['portfolio', 'photographer', 'gallery', 'artist', 'designer', 'architect', 'studio'], 'gallery');
+  addIf(text, picked, ['shop', 'store', 'product', 'ecommerce', 'retail', 'subscription', 'dropship', 'digital product'], 'commerce');
+  addIf(text, picked, ['handmade', 'pottery', 'ceramic', 'craft', 'artisan', 'maker'], 'craft');
+  addIf(text, picked, ['appointment', 'booking', 'clinic', 'salon', 'tutor', 'coach'], 'booked');
+  addIf(text, picked, ['therapy', 'therapist', 'wellness', 'spa', 'yoga', 'fitness', 'health'], 'wellness');
+  addIf(text, picked, ['portfolio', 'photographer', 'gallery', 'artist', 'designer', 'architect'], 'gallery');
+  addIf(text, picked, ['agency', 'freelance', 'studio', 'branding', 'creative'], 'studio');
   addIf(text, picked, ['consulting', 'b2b', 'saas', 'advisor', 'finance', 'operations'], 'atlas');
-  addIf(text, picked, ['contractor', 'plumber', 'electrician', 'law', 'legal', 'dentist', 'real estate', 'estimate'], 'proof');
+  addIf(text, picked, ['contractor', 'plumber', 'electrician', 'hvac', 'handyman', 'mechanic', 'cleaning', 'landscaping'], 'builder');
+  addIf(text, picked, ['law', 'legal', 'dentist', 'estimate', 'reviews', 'results', 'trust'], 'proof');
+  addIf(text, picked, ['real estate', 'realtor', 'property', 'interior', 'home staging'], 'estate');
+  addIf(text, picked, ['nonprofit', 'charity', 'association', 'community', 'foundation', 'church'], 'foundation');
+  addIf(text, picked, ['course', 'education', 'school', 'class', 'workshop', 'learn'], 'learn');
   addIf(text, picked, ['blog', 'publication', 'writer', 'newsletter', 'article'], 'editorial');
-  addIf(text, picked, ['event', 'festival', 'drop', 'creator', 'playful'], 'retro');
+  addIf(text, picked, ['event', 'wedding', 'venue', 'planner', 'festival'], 'occasion');
+  addIf(text, picked, ['drop', 'creator', 'playful', 'y2k'], 'retro');
 
   return [...picked];
 }

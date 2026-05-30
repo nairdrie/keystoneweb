@@ -32,6 +32,7 @@ interface EditableImageProps {
   inlineCropFrameClassName?: string;
   inlineCropImageClassName?: string;
   editorPreviewFrameClassName?: string;
+  style?: React.CSSProperties;
 }
 
 export default function EditableImage({
@@ -56,6 +57,7 @@ export default function EditableImage({
   inlineCropFrameClassName,
   inlineCropImageClassName = '',
   editorPreviewFrameClassName,
+  style,
 }: EditableImageProps) {
   const ksFieldClass = `ks-field ks-field--${contentKey.replace(/[^A-Za-z0-9_-]/g, '_')}`;
   const ksMarkerProps: Record<string, string> = { 'data-ks-field': contentKey };
@@ -131,6 +133,10 @@ export default function EditableImage({
   const editorFrameClassName = editorPreviewFrameClassName || className || undefined;
   const imageRadiusClassName = getImageRadiusClasses(className);
   const imageBorderRadius = imageSettings.borderRadius ? `${imageSettings.borderRadius}px` : undefined;
+  const frameStyle: React.CSSProperties = {
+    ...style,
+    borderRadius: imageBorderRadius || style?.borderRadius,
+  };
   const inlineEditButtonClassName = editOverlayStyle === 'icon'
     ? 'absolute left-1/2 top-1/2 z-30 inline-flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 text-slate-900 opacity-0 shadow-lg transition-opacity hover:bg-white focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 group-hover/editable-image:opacity-100 [@media(hover:none)]:opacity-100'
     : 'absolute left-1/2 top-1/2 z-30 inline-flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 text-slate-900 opacity-0 shadow-lg transition-opacity hover:bg-white focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 group-hover/editable-image:opacity-100 [@media(hover:none)]:opacity-100';
@@ -153,14 +159,14 @@ export default function EditableImage({
       if (fallback) return <>{fallback}</>;
 
       return (
-        <div className={`flex min-h-48 items-center justify-center ${emptyBackgroundClassName} text-slate-400 ${imageClassName} ${ksFieldClass}`} {...ksMarkerProps}>
+        <div className={`flex min-h-48 items-center justify-center ${emptyBackgroundClassName} text-slate-400 ${imageClassName} ${ksFieldClass}`} style={frameStyle} {...ksMarkerProps}>
           <ImageIcon className="w-8 h-8" />
         </div>
       );
     }
 
     return (
-      <div className={`relative w-full h-full overflow-hidden bg-gray-100 ${imageRadiusClassName} ${ksFieldClass}`} style={{ borderRadius: imageBorderRadius }} {...ksMarkerProps}>
+      <div className={`relative w-full h-full overflow-hidden bg-gray-100 ${imageRadiusClassName} ${ksFieldClass}`} style={frameStyle} {...ksMarkerProps}>
         <img
           ref={imgRef}
           src={previewUrl}
@@ -193,7 +199,7 @@ export default function EditableImage({
               onCommit={handleSettingsCommit}
               frameClassName={cropFrameClassName}
               imageClassName={inlineCropImageClassName}
-              frameStyle={{ borderRadius: imageBorderRadius }}
+              frameStyle={frameStyle}
               showZoomControl={showInlineCropZoomControl}
               onFrameSizeChange={handleFrameSizeChange}
             >
@@ -214,7 +220,7 @@ export default function EditableImage({
             </ImageCropFrame>
           ) : (
             <>
-              <div className={`relative w-full h-full overflow-hidden ${imageRadiusClassName}`} style={{ borderRadius: imageBorderRadius }}>
+              <div className={`relative w-full h-full overflow-hidden ${imageRadiusClassName}`} style={frameStyle}>
                 <img
                   src={previewUrl}
                   alt={imageSettings.altText || contentKey}
@@ -222,7 +228,7 @@ export default function EditableImage({
                   style={imgStyle}
                 />
               </div>
-              <div className={`absolute inset-0 z-20 bg-black/0 opacity-0 transition-all group-hover/editable-image:bg-black/30 group-hover/editable-image:opacity-100 flex items-center justify-center ${imageRadiusClassName}`} style={{ borderRadius: imageBorderRadius }}>
+              <div className={`absolute inset-0 z-20 bg-black/0 opacity-0 transition-all group-hover/editable-image:bg-black/30 group-hover/editable-image:opacity-100 flex items-center justify-center ${imageRadiusClassName}`} style={frameStyle}>
                 {editOverlayStyle === 'icon' ? (
                   <span className="p-2 bg-white text-red-600 rounded-full shadow-lg">
                     <Pencil className="w-4 h-4" />
@@ -268,7 +274,7 @@ export default function EditableImage({
           className="group/editable-image cursor-pointer relative block"
         >
           {fallback}
-          <div className={`absolute inset-0 bg-black/0 opacity-0 transition-all group-hover/editable-image:bg-black/30 group-hover/editable-image:opacity-100 flex items-center justify-center ${imageRadiusClassName}`} style={{ borderRadius: imageBorderRadius }}>
+          <div className={`absolute inset-0 bg-black/0 opacity-0 transition-all group-hover/editable-image:bg-black/30 group-hover/editable-image:opacity-100 flex items-center justify-center ${imageRadiusClassName}`} style={frameStyle}>
             {editOverlayStyle === 'icon' ? (
               <span className="p-1.5 bg-white text-red-600 rounded-full shadow-lg">
                 <Pencil className="w-3.5 h-3.5" />
@@ -285,6 +291,7 @@ export default function EditableImage({
         <div
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setModalOpen(true); }}
           className={`group/editable-image flex min-h-48 flex-col items-center justify-center ${emptyBackgroundClassName} border-2 border-dashed border-slate-300 hover:border-slate-400 p-8 text-center cursor-pointer transition-colors ${imageClassName}`}
+          style={frameStyle}
         >
           <ImageIcon className="w-8 h-8 mx-auto text-slate-400 group-hover/editable-image:text-slate-600 mb-2" />
           <p className="text-sm font-medium text-slate-700">{placeholder}</p>

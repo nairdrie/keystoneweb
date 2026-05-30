@@ -173,7 +173,7 @@ export default function MapSettingsPanel({
         >
             <InspectorSection
                 id="provider"
-                title="Map Provider"
+                title="Integrations: Map Provider"
                 isCollapsed={sectionState.isCollapsed('provider')}
                 onToggle={() => sectionState.toggle('provider')}
             >
@@ -199,7 +199,7 @@ export default function MapSettingsPanel({
 
             <InspectorSection
                 id="locations"
-                title="Locations"
+                title="Content: Locations"
                 isCollapsed={sectionState.isCollapsed('locations')}
                 onToggle={() => sectionState.toggle('locations')}
             >
@@ -227,7 +227,7 @@ export default function MapSettingsPanel({
 
             <InspectorSection
                 id="map-settings"
-                title="Map"
+                title="Display: Map"
                 isCollapsed={sectionState.isCollapsed('map-settings')}
                 onToggle={() => sectionState.toggle('map-settings')}
             >

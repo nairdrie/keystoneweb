@@ -369,7 +369,7 @@ export default function FooterSettingsPanel({
                 {/* ── CONTENT ELEMENTS ── */}
                 <InspectorSection
                     id="content"
-                    title="Content Elements"
+                    title="Content: Elements"
                     isCollapsed={sectionState.isCollapsed('content')}
                     onToggle={() => sectionState.toggle('content')}
                 >
@@ -424,7 +424,7 @@ export default function FooterSettingsPanel({
                 {/* ── LOGO ── */}
                 <InspectorSection
                     id="logo"
-                    title="Logo"
+                    title="Content: Logo"
                     isCollapsed={sectionState.isCollapsed('logo')}
                     onToggle={() => sectionState.toggle('logo')}
                 >
@@ -463,7 +463,7 @@ export default function FooterSettingsPanel({
                 {/* ── NAVIGATION ── */}
                 <InspectorSection
                     id="navigation"
-                    title="Navigation"
+                    title="Content: Navigation"
                     isCollapsed={sectionState.isCollapsed('navigation')}
                     onToggle={() => sectionState.toggle('navigation')}
                 >
@@ -544,7 +544,7 @@ export default function FooterSettingsPanel({
                 {showSocial && (
                     <InspectorSection
                         id="social"
-                        title="Social Links"
+                        title="Content: Social Links"
                         isCollapsed={sectionState.isCollapsed('social')}
                         onToggle={() => sectionState.toggle('social')}
                     >
@@ -591,7 +591,7 @@ export default function FooterSettingsPanel({
                 {showContact && (
                     <InspectorSection
                         id="contact"
-                        title="Contact Info"
+                        title="Content: Contact Info"
                         isCollapsed={sectionState.isCollapsed('contact')}
                         onToggle={() => sectionState.toggle('contact')}
                     >
@@ -633,7 +633,7 @@ export default function FooterSettingsPanel({
                 {/* ── COPYRIGHT & LEGAL ── */}
                 <InspectorSection
                     id="copyright"
-                    title="Copyright & Legal"
+                    title="Content: Legal"
                     isCollapsed={sectionState.isCollapsed('copyright')}
                     onToggle={() => sectionState.toggle('copyright')}
                 >
@@ -698,7 +698,7 @@ export default function FooterSettingsPanel({
                 {/* ── BACKGROUND ── */}
                 <InspectorSection
                     id="background"
-                    title="Background"
+                    title="Style: Background"
                     isCollapsed={sectionState.isCollapsed('background')}
                     onToggle={() => sectionState.toggle('background')}
                 >
@@ -766,7 +766,7 @@ export default function FooterSettingsPanel({
                 {/* ── TYPOGRAPHY ── */}
                 <InspectorSection
                     id="typography"
-                    title="Typography"
+                    title="Style: Typography"
                     isCollapsed={sectionState.isCollapsed('typography')}
                     onToggle={() => sectionState.toggle('typography')}
                 >

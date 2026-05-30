@@ -963,23 +963,27 @@ export const blockDocs: BlockDoc[] = [
   {
     name: 'Social Media Embeds',
     group: 'Media',
-    summary: 'Embeds social posts, videos, or timelines.',
+    summary: 'Embeds social posts, videos, profiles, or timelines.',
     bestUsedFor: [
       'Social proof sections',
       'Recent social content',
-      'Embedding public posts from supported platforms',
+      'Embedding public posts or profiles from supported platforms',
     ],
     features: [
       'Add an optional section title and subtitle.',
       'Add multiple social URLs.',
       'Automatically detects supported platforms from the URL.',
+      'Show Instagram profile URLs as a compact latest-posts grid or a full profile embed.',
+      'Adds Instagram attribution with the profile handle and link when showing a latest-posts grid.',
       'Choose grid or single embed layout.',
       'Choose the number of desktop columns for grid layout.',
     ],
     settings: [
       { label: 'Section title', description: 'Sets an optional heading above the embeds.' },
       { label: 'Subtitle', description: 'Adds optional supporting text.' },
-      { label: 'Social URL', description: 'Adds a public social post, video, or page URL.', notes: 'The editor mentions YouTube, Instagram, TikTok, X, and Facebook URLs.' },
+      { label: 'Social URL', description: 'Adds a public social post, video, profile, or page URL.', notes: 'The editor mentions YouTube, Instagram post/profile, TikTok, X, and Facebook URLs.' },
+      { label: 'Instagram view', description: 'Switches an Instagram profile URL between Latest posts and Full profile.' },
+      { label: 'Posts', description: 'Controls how many Instagram profile posts show in the compact latest-posts grid.', notes: 'Supports 1 through 6 posts; 5 is the default.' },
       { label: 'Add first embed', description: 'Adds the first social embed.' },
       { label: 'Add another', description: 'Adds another social embed.' },
       { label: 'Layout', description: 'Changes whether embeds appear as a grid or a single centered embed.' },
@@ -987,6 +991,7 @@ export const blockDocs: BlockDoc[] = [
     ],
     tips: [
       'Use public URLs that visitors can access.',
+      'Paste an Instagram profile URL to show the business profile/feed embed when Instagram allows embeds for that public account.',
       'Use Single layout for one important post or video.',
       'Keep the number of embeds modest so the page remains easy to browse.',
     ],

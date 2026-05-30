@@ -7,6 +7,23 @@ import BlockPretext from '../BlockPretext';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import InlineCardControls, { reorderItems } from './InlineCardControls';
 import Reveal, { useStaggerSec } from '@/app/components/Reveal';
+import {
+    SPACING_DENSITY_OPTIONS,
+    getCardInlineStyle,
+    getCardPaddingClass,
+    getCardStyleClass,
+    getSurfaceStyle,
+    getSurfaceTextColor,
+    getUniversalCardClassName,
+    getUniversalCardInlineStyle,
+    getUniversalCardPaddingClass,
+    getUniversalCardTextColor,
+    getUniversalCardTextPaddingStyle,
+    readStyleOption,
+    resolveCardPresetId,
+    resolveUniversalCardSettings,
+    shouldLockCardTextToSurface,
+} from '@/lib/block-style-options';
 
 interface TimelineItem {
     title: string;
@@ -57,6 +74,10 @@ const DEFAULT_TIMELINE_ITEMS: TimelineItem[] = [
     },
 ];
 
+const TIMELINE_CARD_PADDING_PX = 24;
+const TIMELINE_COMPACT_CARD_PADDING_PX = 16;
+const TIMELINE_CARD_MIN_HEIGHT_PX = 180;
+
 function normalizeTags(value: unknown): string[] {
     if (Array.isArray(value)) {
         return value.map((tag) => String(tag).trim()).filter(Boolean);
@@ -92,7 +113,38 @@ export default function TimelineBlock({ data, isEditMode, palette, updateContent
     const variant = typeof data.variant === 'string' ? data.variant : 'cards';
     const items = normalizeItems(data.items);
     const staggerSec = useStaggerSec();
-
+    const hasCardDesignOverride = hasTimelineCardDesignOverride(data);
+    const universalCardSettings = hasCardDesignOverride
+        ? resolveUniversalCardSettings(data, {
+            fallbackPreset: 'soft',
+            fallbackTextAlign: 'left',
+        })
+        : null;
+    const cardStyle = resolveCardPresetId(data, 'soft');
+    const surfaceStyle = getSurfaceStyle(data.surfaceStyle, cardStyle);
+    const spacingDensity = readStyleOption(data.spacingDensity, SPACING_DENSITY_OPTIONS, 'standard');
+    const activeSurfaceStyle = universalCardSettings?.surface || surfaceStyle;
+    const surfaceCardTextColor = universalCardSettings ? getUniversalCardTextColor(universalCardSettings, palette) : getSurfaceTextColor(surfaceStyle, palette);
+    const lockCardTextToSurface = shouldLockCardTextToSurface(activeSurfaceStyle);
+    const timelineTitleColor = hasCardDesignOverride
+        ? lockCardTextToSurface ? surfaceCardTextColor : fgOverride || surfaceCardTextColor
+        : fgColor;
+    const timelineBodyColor = hasCardDesignOverride
+        ? lockCardTextToSurface ? surfaceCardTextColor : fgOverride || pPrimary
+        : fgColor;
+    const cardClassName = hasCardDesignOverride
+        ? universalCardSettings
+            ? `${getUniversalCardClassName(universalCardSettings)} ${getUniversalCardPaddingClass(universalCardSettings)} relative group/card transition-[border-color,box-shadow,opacity,transform]`
+            : `${getCardStyleClass(cardStyle)} ${getCardPaddingClass(cardStyle, spacingDensity)} relative group/card transition-[border-color,box-shadow,opacity,transform]`
+        : '';
+    const cardInlineStyle = hasCardDesignOverride
+        ? universalCardSettings
+            ? {
+                ...getUniversalCardInlineStyle(universalCardSettings, palette),
+                ...(getUniversalCardTextPaddingStyle(universalCardSettings) || {}),
+            }
+            : getCardInlineStyle(cardStyle, surfaceStyle, palette)
+        : undefined;
     const [draggedIndex, setDraggedIndex] = React.useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
 
@@ -181,9 +233,17 @@ export default function TimelineBlock({ data, isEditMode, palette, updateContent
 
     const renderCard = (item: TimelineItem, index: number, options?: { compact?: boolean }) => {
         const compact = options?.compact === true;
+        const timelineCardStyle = hasCardDesignOverride
+            ? {
+                ...(cardInlineStyle || {}),
+                padding: compact ? TIMELINE_COMPACT_CARD_PADDING_PX : TIMELINE_CARD_PADDING_PX,
+                minHeight: compact ? undefined : TIMELINE_CARD_MIN_HEIGHT_PX,
+            }
+            : cardInlineStyle;
         return (
             <div
-                className={`relative rounded-2xl border bg-white ${compact ? 'border-transparent shadow-none p-4' : 'border-slate-200 shadow-sm p-6 md:p-7'} group/card transition-[border-color,box-shadow,opacity,transform] ${getCardStateClass(index)}`}
+                className={`${hasCardDesignOverride ? cardClassName : `relative rounded-2xl border bg-white ${compact ? 'border-transparent shadow-none p-4' : 'border-slate-200 shadow-sm p-6 md:p-7'} group/card transition-[border-color,box-shadow,opacity,transform]`} ${getCardStateClass(index)}`}
+                style={timelineCardStyle}
                 {...getDragHandlers(index)}
             >
                 {renderItemControls(index)}
@@ -197,11 +257,11 @@ export default function TimelineBlock({ data, isEditMode, palette, updateContent
                             isEditMode={isEditMode}
                             onSave={(_key, value) => updateItem(index, 'title', value)}
                             className="text-lg md:text-xl font-bold leading-tight"
-                            style={{ color: fgColor }}
+                            style={{ color: timelineTitleColor }}
                         />
                         <div
                             className="mt-1 flex items-center gap-1.5 text-sm"
-                            style={{ color: fgColor, opacity: 0.7 }}
+                            style={{ color: timelineBodyColor, opacity: 0.7 }}
                         >
                             <Building2 className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
                             <EditableText
@@ -218,7 +278,12 @@ export default function TimelineBlock({ data, isEditMode, palette, updateContent
                     <div className="md:flex-shrink-0">
                         <span
                             className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold"
-                            style={{ color: fgColor, opacity: 0.85 }}
+                            style={{
+                                color: timelineBodyColor,
+                                opacity: 0.85,
+                                backgroundColor: lockCardTextToSurface ? 'rgba(255,255,255,0.12)' : '#ffffff',
+                                borderColor: lockCardTextToSurface ? 'rgba(255,255,255,0.24)' : '#e2e8f0',
+                            }}
                         >
                             <Calendar className="w-3.5 h-3.5" aria-hidden="true" />
                             <EditableText
@@ -241,7 +306,7 @@ export default function TimelineBlock({ data, isEditMode, palette, updateContent
                     isEditMode={isEditMode}
                     onSave={(_key, value) => updateItem(index, 'description', value)}
                     className="mt-4 leading-relaxed"
-                    style={{ color: fgColor, opacity: 0.75 }}
+                    style={{ color: timelineBodyColor, opacity: 0.75 }}
                 />
 
                 {(item.tags.length > 0 || isEditMode) && (
@@ -430,6 +495,13 @@ export default function TimelineBlock({ data, isEditMode, palette, updateContent
             </div>
         </section>
     );
+}
+
+function hasTimelineCardDesignOverride(data: Record<string, unknown>): boolean {
+    if (data.cardSettings && typeof data.cardSettings === 'object' && !Array.isArray(data.cardSettings)) {
+        return Object.keys(data.cardSettings).length > 0;
+    }
+    return typeof data.cardStyle === 'string' && data.cardStyle.trim() !== '';
 }
 
 function TagChip({

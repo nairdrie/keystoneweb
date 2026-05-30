@@ -16,6 +16,13 @@ import ImageEditorModal from './ImageEditorModal';
 import EditHistoryModal from './EditHistoryModal';
 import DoctorPanel from './DoctorPanel';
 import SiteAnimationControls from './SiteAnimationControls';
+import {
+  DEFAULT_SITE_LAYOUT_CONTAINER_WIDTH,
+  SITE_LAYOUT_CONTAINER_WIDTH_KEY,
+  SITE_LAYOUT_CONTAINER_WIDTH_OPTIONS,
+  normalizeSiteLayoutContainerWidth,
+  type SiteLayoutContainerWidth,
+} from '@/lib/site-layout';
 import { AIMessage, UsageRemaining } from '@/lib/hooks/useAIBuilder';
 import { Type, User, Languages, Stethoscope } from 'lucide-react';
 import ProfileDropdown from './ProfileDropdown';
@@ -205,6 +212,7 @@ export default function FloatingToolbar({
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' | 'warning', onConfirm?: () => void, confirmLabel?: string, cancelLabel?: string }>({ isOpen: false, message: '' });
   const [isPublishingUpdates, setIsPublishingUpdates] = useState(false);
   const isFullyDeployed = isSynced && changes.length === 0;
+  const selectedContainerWidth = normalizeSiteLayoutContainerWidth(siteContent?.[SITE_LAYOUT_CONTAINER_WIDTH_KEY]);
 
   const [openSections, setOpenSections] = useState<string[]>([]);
   const openSectionsRef = useRef<string[]>([]);
@@ -1294,6 +1302,64 @@ export default function FloatingToolbar({
                   </>
                 )}
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Layout Section */}
+        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+          <button
+            onClick={() => toggleSection('layout')}
+            className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
+          >
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+              <Layout className="w-3.5 h-3.5" />
+              Layout
+            </span>
+            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('layout') ? 'rotate-180' : ''}`} />
+          </button>
+
+          {openSections.includes('layout') && (
+            <div className="p-4 border-t border-slate-200 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide">Container Width</h3>
+                <span className="text-[10px] font-mono font-semibold text-slate-500">
+                  {SITE_LAYOUT_CONTAINER_WIDTH_OPTIONS.find((option) => option.value === selectedContainerWidth)?.maxWidthPx}px
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {SITE_LAYOUT_CONTAINER_WIDTH_OPTIONS.map((option) => {
+                  const active = selectedContainerWidth === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => onUpdateSiteContent(SITE_LAYOUT_CONTAINER_WIDTH_KEY, option.value)}
+                      aria-pressed={active}
+                      className={`rounded-xl border p-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        active
+                          ? 'border-blue-600 bg-blue-50 text-blue-700 ring-1 ring-blue-600'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <ContainerWidthPreview value={option.value} active={active} />
+                      <span className="mt-2 flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold">{option.label}</span>
+                        <span className="text-[10px] font-mono font-semibold opacity-70">{option.maxWidthPx}px</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedContainerWidth !== DEFAULT_SITE_LAYOUT_CONTAINER_WIDTH && (
+                <button
+                  type="button"
+                  onClick={() => onUpdateSiteContent(SITE_LAYOUT_CONTAINER_WIDTH_KEY, DEFAULT_SITE_LAYOUT_CONTAINER_WIDTH)}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50"
+                >
+                  Reset to default
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -2411,6 +2477,36 @@ export default function FloatingToolbar({
         nextButtonLabel={walkthroughStep === 0 ? 'Start Tour' : undefined}
       />
     </>
+  );
+}
+
+function ContainerWidthPreview({
+  value,
+  active,
+}: {
+  value: SiteLayoutContainerWidth;
+  active: boolean;
+}) {
+  const widthByOption: Record<SiteLayoutContainerWidth, string> = {
+    small: '58%',
+    medium: '68%',
+    large: '78%',
+    wide: '90%',
+  };
+
+  return (
+    <span className={`block rounded-lg border px-2 py-2 ${active ? 'border-blue-200 bg-white' : 'border-slate-200 bg-slate-50'}`}>
+      <span className="block h-1.5 rounded-full bg-slate-200" />
+      <span
+        className={`mx-auto mt-2 block h-5 rounded-md ${active ? 'bg-blue-500' : 'bg-slate-400'}`}
+        style={{ width: widthByOption[value] }}
+      />
+      <span className="mt-2 grid grid-cols-3 gap-1">
+        <span className="h-1 rounded-full bg-slate-200" />
+        <span className="h-1 rounded-full bg-slate-200" />
+        <span className="h-1 rounded-full bg-slate-200" />
+      </span>
+    </span>
   );
 }
 

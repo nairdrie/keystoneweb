@@ -7,6 +7,7 @@ import { useEditorContext } from '@/lib/editor-context';
 import { getBlockSlug } from '@/lib/block-utils';
 import { buildStaggerContainer } from '@/lib/motion';
 import { buildLayoutCss, buildSectionStyleCss } from '@/lib/builder/layout-settings';
+import { buildSiteLayoutCss } from '@/lib/site-layout';
 import { resolveAnimation } from '@/lib/animations';
 import { compileScript, runKeyframe } from '@/lib/keyframe';
 
@@ -33,9 +34,10 @@ export default function BlockWrapper(props: BlockWrapperProps) {
     const slug = index !== -1 ? getBlockSlug(blocks[index], index, blocks) : id;
 
     const scopedCss = scopeCustomCss(id, customCss);
+    const siteLayoutCss = buildSiteLayoutCss(id, context?.siteContent);
     const layoutCss = buildLayoutCss(id, type, props.data?.sectionSettings, props.data);
     const sectionStyleCss = buildSectionStyleCss(id, props.data, palette || {});
-    const combinedCss = [scopedCss, layoutCss, sectionStyleCss].filter(Boolean).join('\n');
+    const combinedCss = [scopedCss, siteLayoutCss, layoutCss, sectionStyleCss].filter(Boolean).join('\n');
 
     const paletteVars = palette
         ? ({
@@ -46,7 +48,7 @@ export default function BlockWrapper(props: BlockWrapperProps) {
         : undefined;
 
     if (isEditMode) {
-        return <BlockWrapperEditor {...props} slug={slug} scopedCss={scopedCss} paletteVars={paletteVars} />;
+        return <BlockWrapperEditor {...props} slug={slug} scopedCss={scopedCss} siteLayoutCss={siteLayoutCss} paletteVars={paletteVars} />;
     }
 
     return (

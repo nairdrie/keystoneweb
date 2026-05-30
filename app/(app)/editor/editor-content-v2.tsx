@@ -108,6 +108,11 @@ type PendingCustomColorChange = {
   from: string;
 };
 
+function getSiteContentChangeLabel(key: string): string {
+  if (key === 'layoutContainerWidth') return 'Layout: Container width';
+  return `Header: ${key}`;
+}
+
 export default function EditorContent({ publicSiteData, isPublicView = false, isPreviewView = false, precomputedPalette, children }: EditorContentProps = {}) {
   // If in pure public viewer mode, render the pre-fetched template directly without hooks
   // This allows full SSR and instant load times, bypassing all Editor UI and loading screens
@@ -609,7 +614,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     if (JSON.stringify(oldValue) === JSON.stringify(value)) return;
 
     // Track change with specific field key to avoid overwriting other site content changes
-    addChange(`siteContent:${key}`, `Header: ${key}`, 
+    addChange(`siteContent:${key}`, getSiteContentChangeLabel(key),
       typeof oldValue === 'object' ? JSON.stringify(oldValue) : String(oldValue), 
       typeof value === 'object' ? JSON.stringify(value) : String(value)
     );

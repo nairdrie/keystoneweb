@@ -5,16 +5,31 @@ import { useEditorContext } from '@/lib/editor-context';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import { Send, Loader2, Settings, MessageSquare, Mail, User, Phone } from 'lucide-react';
 import Reveal from '@/app/components/Reveal';
+import {
+    getCardInlineStyle,
+    getCardPaddingClass,
+    getCardStyleClass,
+    getSurfaceStyle,
+    getSurfaceTextColor,
+    getUniversalCardClassName,
+    getUniversalCardInlineStyle,
+    getUniversalCardPaddingClass,
+    getUniversalCardTextColor,
+    resolveCardPresetId,
+    resolveUniversalCardSettings,
+    shouldLockCardTextToSurface,
+    type ResolvedCardSettings,
+} from '@/lib/block-style-options';
 
 interface ContactFormBlockProps {
     id: string;
-    data: any;
+    data: Record<string, unknown>;
     isEditMode: boolean;
     palette: Record<string, string>;
-    updateContent: (key: string, value: any) => void;
+    updateContent: (key: string, value: unknown) => void;
 }
 
-export default function ContactFormBlock({ id, data, isEditMode, palette, updateContent }: ContactFormBlockProps) {
+export default function ContactFormBlock({ data, isEditMode, palette, updateContent }: ContactFormBlockProps) {
     const context = useEditorContext();
     const siteId = context?.siteId;
 
@@ -23,16 +38,30 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const title = data.title || 'Get in Touch';
-    const description = data.description || 'We\'d love to hear from you. Please fill out the form below.';
-    const successMessage = data.successMessage || 'Thank you for your message! We will get back to you shortly.';
-    const submitText = data.submitText || 'Send Message';
+    const title = readString(data.title, 'Get in Touch');
+    const description = readString(data.description, 'We\'d love to hear from you. Please fill out the form below.');
+    const successMessage = readString(data.successMessage, 'Thank you for your message! We will get back to you shortly.');
+    const submitText = readString(data.submitText, 'Send Message');
 
     const pPrimary = palette.primary || '#1f2937';
     const pSecondary = palette.secondary || '#3b82f6';
-    const pAccent = palette.accent || '#e5e7eb';
     const bgColor = resolvePaletteColor(data.backgroundColor, palette, '#ffffff');
     const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
+    const formCard = resolveFormCardStyle(
+        data,
+        palette,
+        fgOverride || pPrimary,
+        'bg-white shadow-xl shadow-slate-200/50 border border-slate-100 rounded-2xl p-6 md:p-10',
+    );
+    const editFormCard = resolveFormCardStyle(
+        data,
+        palette,
+        fgOverride || pPrimary,
+        'bg-slate-50 border border-slate-200 rounded-2xl p-6 md:p-8',
+    );
+    const labelStyle = { color: formCard.textColor };
+    const editLabelStyle = { color: editFormCard.textColor };
+    const mutedStyle = { color: formCard.mutedTextColor };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -62,9 +91,9 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
 
             setSuccess(true);
             setForm({ name: '', email: '', phone: '', message: '', _hp: '' });
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Contact form error:', err);
-            setError(err.message || 'Something went wrong. Please try again.');
+            setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -93,10 +122,10 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                         />
                     </div>
 
-                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 md:p-8 space-y-6 pointer-events-none">
+                    <div className={`${editFormCard.className} space-y-6 pointer-events-none`} style={editFormCard.style}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700">Full Name</label>
+                                <label className="text-sm font-medium" style={editLabelStyle}>Full Name</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                                         <User className="h-5 w-5" />
@@ -105,7 +134,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700">Email Address</label>
+                                <label className="text-sm font-medium" style={editLabelStyle}>Email Address</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                                         <Mail className="h-5 w-5" />
@@ -116,7 +145,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700">Phone Number (Optional)</label>
+                            <label className="text-sm font-medium" style={editLabelStyle}>Phone Number (Optional)</label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                                     <Phone className="h-5 w-5" />
@@ -126,7 +155,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700">Message</label>
+                            <label className="text-sm font-medium" style={editLabelStyle}>Message</label>
                             <div className="relative">
                                 <div className="absolute top-3 left-3 pointer-events-none text-slate-400">
                                     <MessageSquare className="h-5 w-5" />
@@ -215,7 +244,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                         </button>
                     </div>
                 ) : (
-                    <form onSubmit={handleSubmit} className="bg-white shadow-xl shadow-slate-200/50 border border-slate-100 rounded-2xl p-6 md:p-10 space-y-6">
+                    <form onSubmit={handleSubmit} className={`${formCard.className} space-y-6`} style={formCard.style}>
                         {/* Honeypot: hidden from users, bots fill it in */}
                         <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }}>
                             <label htmlFor="_hp">Leave this field blank</label>
@@ -238,7 +267,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <label className="text-sm font-semibold text-slate-700 block">Full Name</label>
+                                <label className="text-sm font-semibold block" style={labelStyle}>Full Name</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                                         <User className="h-5 w-5" />
@@ -254,7 +283,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                                 </div>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-semibold text-slate-700 block">Email Address</label>
+                                <label className="text-sm font-semibold block" style={labelStyle}>Email Address</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                                         <Mail className="h-5 w-5" />
@@ -272,7 +301,7 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-semibold text-slate-700 block">Phone Number (Optional)</label>
+                            <label className="text-sm font-semibold block" style={labelStyle}>Phone Number (Optional)</label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                                     <Phone className="h-5 w-5" />
@@ -289,8 +318,8 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
 
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                                <label className="text-sm font-semibold text-slate-700 block">Message</label>
-                                <span className={`text-xs ${form.message.length > 1800 ? 'text-red-500' : 'text-slate-400'}`}>
+                                <label className="text-sm font-semibold block" style={labelStyle}>Message</label>
+                                <span className={`text-xs ${form.message.length > 1800 ? 'text-red-500' : ''}`} style={form.message.length > 1800 ? undefined : mutedStyle}>
                                     {form.message.length}/2000
                                 </span>
                             </div>
@@ -331,4 +360,61 @@ export default function ContactFormBlock({ id, data, isEditMode, palette, update
             </div>
         </section>
     );
+}
+
+function resolveFormCardStyle(
+    data: Record<string, unknown>,
+    palette: Record<string, string>,
+    fallbackTextColor: string,
+    defaultClassName: string,
+) {
+    const hasOverride = hasFormCardDesignOverride(data);
+    if (!hasOverride) {
+        return {
+            className: defaultClassName,
+            style: undefined,
+            textColor: fallbackTextColor,
+            mutedTextColor: fallbackTextColor,
+        };
+    }
+
+    const universalSettings = resolveUniversalCardSettings(data, { fallbackPreset: 'soft' });
+    if (universalSettings) {
+        const settings = normalizeFormCardSettings(universalSettings);
+        const textColor = getUniversalCardTextColor(settings, palette);
+        const mutedTextColor = shouldLockCardTextToSurface(settings.surface) ? textColor : fallbackTextColor;
+        return {
+            className: `${getUniversalCardClassName(settings)} ${getUniversalCardPaddingClass(settings)}`,
+            style: getUniversalCardInlineStyle(settings, palette),
+            textColor,
+            mutedTextColor,
+        };
+    }
+
+    const cardStyle = resolveCardPresetId(data, 'soft');
+    const surfaceStyle = getSurfaceStyle(data.surfaceStyle, cardStyle);
+    const textColor = getSurfaceTextColor(surfaceStyle, palette);
+    const mutedTextColor = shouldLockCardTextToSurface(surfaceStyle) ? textColor : fallbackTextColor;
+    return {
+        className: `${getCardStyleClass(cardStyle)} ${getCardPaddingClass(cardStyle)}`,
+        style: getCardInlineStyle(cardStyle, surfaceStyle, palette),
+        textColor,
+        mutedTextColor,
+    };
+}
+
+function normalizeFormCardSettings(settings: ResolvedCardSettings): ResolvedCardSettings {
+    if (settings.mediaLayout !== 'split' && settings.mediaLayout !== 'fullBleed') return settings;
+    return { ...settings, mediaLayout: 'stacked' };
+}
+
+function hasFormCardDesignOverride(data: Record<string, unknown>): boolean {
+    if (data.cardSettings && typeof data.cardSettings === 'object' && !Array.isArray(data.cardSettings)) {
+        return Object.keys(data.cardSettings).length > 0;
+    }
+    return typeof data.cardStyle === 'string' && data.cardStyle.trim() !== '';
+}
+
+function readString(value: unknown, fallback: string): string {
+    return typeof value === 'string' && value.trim() ? value : fallback;
 }

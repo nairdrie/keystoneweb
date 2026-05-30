@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import { CheckCircle2, XCircle, AlertTriangle, Loader2, RefreshCw, ChevronDown, ExternalLink } from 'lucide-react';
 import {
-  runAllChecks,
-  type DiagnosticData,
   type DiagnosticResult,
   type Severity,
 } from '@/lib/health-checks';
@@ -36,13 +34,22 @@ export default function HealthCheckPanel({ siteId }: HealthCheckPanelProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(
-        `/api/doctor?siteId=${encodeURIComponent(siteId)}&context=ops&includeReachability=true`,
-        { credentials: 'include' },
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: DiagnosticData = await res.json();
-      const diagnostics = runAllChecks(data, 'ops');
+      const res = await fetch('/api/doctor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          siteId,
+          context: 'ops',
+          includeReachability: true,
+        }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.details || errorData?.error || `HTTP ${res.status}`);
+      }
+      const data: { results?: DiagnosticResult[] } = await res.json();
+      const diagnostics = data.results ?? [];
       diagnostics.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
       setResults(diagnostics);
       const issues = new Set(diagnostics.filter((d) => d.severity !== 'pass').map((d) => d.category));
