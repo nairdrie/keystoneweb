@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, BookOpen, Eye, EyeOff, Image as ImageIcon, Tablet, Smartphone, Monitor, Layout, Lock } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, BookOpen, Eye, EyeOff, Image as ImageIcon, Tablet, Smartphone, Monitor, Layout, LayoutTemplate, Lock } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
@@ -118,6 +118,12 @@ function getFreeAiBadgeLabel(remaining: UsageRemaining | null | undefined) {
 const LG_BREAKPOINT = 1024;
 const WALKTHROUGH_RESET_EVENT = 'ks:walkthrough-reset-ui';
 
+// Rail measurement constants — mirrors the admin sidebar so the
+// design rail expands to fit logo + Design/Admin switcher + profile.
+const DESIGN_RAIL_WIDTH_PX = 56;
+const DESIGN_RAIL_EXPANDED_FALLBACK_PX = 280;
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
 function useIsLargeScreen() {
   const [isLarge, setIsLarge] = useState(false);
 
@@ -216,6 +222,19 @@ export default function FloatingToolbar({
   const [openSections, setOpenSections] = useState<string[]>([]);
   const openSectionsRef = useRef<string[]>([]);
   const [railExpanded, setRailExpanded] = useState(false);
+  const [railExpandedWidth, setRailExpandedWidth] = useState<number>(DESIGN_RAIL_EXPANDED_FALLBACK_PX);
+  const railHeaderMeasureRef = useRef<HTMLDivElement | null>(null);
+
+  // Measure the natural width of the rail header's left group (logo + Design/Admin
+  // switcher) and add the avatar + padding budget so the expanded rail can never
+  // truncate the switcher pill. Matches admin-sidebar.tsx's approach.
+  useIsoLayoutEffect(() => {
+    if (!railHeaderMeasureRef.current) return;
+    const leftGroup = Math.ceil(railHeaderMeasureRef.current.getBoundingClientRect().width);
+    // 12 (left pad) + leftGroup + 16 (min gap) + 32 (avatar w-8) + 12 (right pad)
+    const total = 12 + leftGroup + 16 + 32 + 12;
+    if (total > DESIGN_RAIL_WIDTH_PX) setRailExpandedWidth(total);
+  }, []);
   const [fontPickerState, setFontPickerState] = useState<{ isOpen: boolean, type: 'title' | 'body' }>({ isOpen: false, type: 'title' });
   const aiBuilderSectionRef = useRef<HTMLDivElement>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -1306,7 +1325,7 @@ export default function FloatingToolbar({
         </div>
 
         {/* Layout Section */}
-        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+        <div data-section-id="layout" className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
           <button
             onClick={() => toggleSection('layout')}
             className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
@@ -1850,16 +1869,39 @@ export default function FloatingToolbar({
 
   return (
     <>
+      {/* Off-screen mirror: measures the natural width of (logo + Design/Admin
+          switcher) so the rail expands wide enough to fit them next to the
+          profile avatar. Always rendered (invisible/-9999px) so the layout
+          effect can read its width on mount. Matches admin-sidebar's pattern. */}
+      <div
+        ref={railHeaderMeasureRef}
+        aria-hidden
+        className="invisible pointer-events-none fixed -left-[9999px] top-0 inline-flex items-center gap-2 whitespace-nowrap"
+      >
+        <KeystoneLogo href={undefined} size="md" showText={false} />
+        <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 rounded-full">
+          <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold">
+            <Paintbrush className="w-3 h-3" />
+            Design
+          </span>
+          <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold">
+            <LayoutDashboard className="w-3 h-3" />
+            Admin
+          </span>
+        </div>
+      </div>
+
       {/* ═══════════════════════════════════════════════════════════════
           LARGE SCREEN: Hover-expanding rail + persistent panel
          ═══════════════════════════════════════════════════════════════ */}
       {isLargeScreen && (() => {
-        const RAIL_W = 56;
-        const RAIL_EXPANDED_W = 208;
+        const RAIL_W = DESIGN_RAIL_WIDTH_PX;
+        const RAIL_EXPANDED_W = railExpandedWidth;
 
         const railTabs: Array<{ id: string; label: string; icon: React.ComponentType<{ className?: string }>; ai?: boolean }> = [
-          { id: 'template',       label: 'Template',     icon: Layout },
+          { id: 'template',       label: 'Template',     icon: LayoutTemplate },
           { id: 'general',        label: 'Logo',         icon: ImageIcon },
+          { id: 'layout',         label: 'Layout',       icon: Layout },
           { id: 'colors',         label: 'Colors',       icon: Paintbrush },
           { id: 'typography',     label: 'Fonts',        icon: Type },
           { id: 'animation',      label: 'Animation',    icon: Sparkles },
