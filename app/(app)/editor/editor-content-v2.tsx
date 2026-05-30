@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense, createElement, useRef, useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Save, Smartphone, Monitor, Play, Loader2, Undo, Redo } from 'lucide-react';
+import { Save, Smartphone, Monitor, Play, Loader2, Undo, Redo, ChevronDown, Plus } from 'lucide-react';
 import FloatingToolbar from '@/app/components/FloatingToolbar';
 import { EditorProvider, BlockData, NavItem } from '@/lib/editor-context';
 import { getTemplateComponent } from '@/app/templates/registry';
@@ -176,15 +176,27 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   const [viewAsMember, setViewAsMember] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
 
-  // Auto-expand sidebar on large screens when editor loads
-  const hasInitSidebarRef = useRef(false);
+  // Site switcher (lives in the red editor banner — used to swap between user's sites)
+  const [userSites, setUserSites] = useState<Array<{ id: string; siteSlug?: string; isPublished?: boolean }>>([]);
+  const [showSiteSwitcher, setShowSiteSwitcher] = useState(false);
+  const siteSwitcherRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!hasInitSidebarRef.current) {
-      if (window.innerWidth >= 1024) {
-        setSidebarOpen(true);
+    if (!showSiteSwitcher) return;
+    const onDoc = (e: MouseEvent) => {
+      if (siteSwitcherRef.current && !siteSwitcherRef.current.contains(e.target as Node)) {
+        setShowSiteSwitcher(false);
       }
-      hasInitSidebarRef.current = true;
-    }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [showSiteSwitcher]);
+  useEffect(() => {
+    fetch('/api/user/sites', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.sites) setUserSites(d.sites.map((s: any) => ({ ...s, isPublished: s.isPublished ?? false })));
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -1540,14 +1552,14 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
           className="safe-area-banner flex-none px-4 z-[1000] shadow flex items-center justify-between gap-6 border-b"
           style={{ backgroundColor: 'var(--brand-primary)' }}
         >
-          {/* Left: Logo + Page Selector */}
-          <div className="flex items-center gap-4">
-            {/* Hamburger Menu Button (Toggle settings panel on all screen sizes) */}
+          {/* Left: site name + switcher + page selector */}
+          <div className="flex items-center gap-4 min-w-0">
+            {/* Mobile-only menu trigger (rail handles desktop). */}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="relative flex-shrink-0 flex items-center hover:opacity-80 transition-opacity mr-4 text-white"
-              title={sidebarOpen ? "Close settings" : "Open settings"}
-              aria-label={sidebarOpen ? "Close settings" : "Open settings"}
+              className="lg:hidden relative flex-shrink-0 flex items-center hover:opacity-80 transition-opacity text-white"
+              title={sidebarOpen ? 'Close settings' : 'Open settings'}
+              aria-label={sidebarOpen ? 'Close settings' : 'Open settings'}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -1558,6 +1570,63 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
                 </span>
               )}
             </button>
+
+            {/* Site name + switcher dropdown */}
+            <div ref={siteSwitcherRef} className="relative min-w-0">
+              <button
+                onClick={() => setShowSiteSwitcher(v => !v)}
+                className="flex items-center gap-1.5 max-w-[200px] sm:max-w-[260px] px-2 py-1 rounded-md text-white hover:bg-white/10 transition-colors"
+                title="Switch site"
+              >
+                <span className="truncate text-sm font-bold">{siteTitle || 'Untitled Site'}</span>
+                <ChevronDown className={`w-3.5 h-3.5 shrink-0 opacity-80 transition-transform ${showSiteSwitcher ? 'rotate-180' : ''}`} />
+              </button>
+              {showSiteSwitcher && (
+                <div className="absolute left-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 z-[2000] animate-in fade-in slide-in-from-top-2 w-64">
+                  <div className="max-h-64 overflow-y-auto p-2 space-y-1">
+                    {userSites.length > 0 ? (
+                      <>
+                        <div className="px-3 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Your Sites</div>
+                        {userSites.map(s => {
+                          const isActive = siteId === s.id;
+                          const label = s.siteSlug || `Site ${s.id.slice(0, 8)}`;
+                          return (
+                            <button
+                              key={s.id}
+                              onClick={() => {
+                                setShowSiteSwitcher(false);
+                                if (!isActive) {
+                                  requestNavigation(() => router.push(`/editor?siteId=${s.id}`));
+                                }
+                              }}
+                              className={`w-full text-left px-3 py-2 rounded-lg transition-colors text-xs flex items-center gap-2 ${
+                                isActive ? 'bg-red-50 text-red-900 font-bold' : 'text-slate-700 hover:bg-slate-100'
+                              }`}
+                            >
+                              <span
+                                className={`shrink-0 w-1.5 h-1.5 rounded-full ${s.isPublished ? 'bg-green-500' : 'bg-slate-300'}`}
+                                title={s.isPublished ? 'Live' : 'Draft'}
+                              />
+                              <span className="truncate flex-1">{label}</span>
+                            </button>
+                          );
+                        })}
+                        <div className="h-px bg-slate-100 my-1 mx-1" />
+                      </>
+                    ) : (
+                      <div className="px-3 py-3 text-xs text-slate-500 text-center">No other sites</div>
+                    )}
+                    <button
+                      onClick={() => { setShowSiteSwitcher(false); router.push('/onboarding'); }}
+                      className="w-full text-left px-3 py-2 rounded-lg text-xs flex items-center gap-2 text-red-600 hover:bg-red-50 font-bold"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Create New Site
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Page Selector */}
             {pages.length > 0 && (

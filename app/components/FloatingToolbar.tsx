@@ -14,7 +14,6 @@ import ArchieAIIcon from './ArchieAIIcon';
 import TranslationsPanel from './TranslationsPanel';
 import ImageEditorModal from './ImageEditorModal';
 import EditHistoryModal from './EditHistoryModal';
-import DoctorPanel from './DoctorPanel';
 import SiteAnimationControls from './SiteAnimationControls';
 import {
   DEFAULT_SITE_LAYOUT_CONTAINER_WIDTH,
@@ -24,7 +23,7 @@ import {
   type SiteLayoutContainerWidth,
 } from '@/lib/site-layout';
 import { AIMessage, UsageRemaining } from '@/lib/hooks/useAIBuilder';
-import { Type, User, Languages, Stethoscope } from 'lucide-react';
+import { Type, User, Languages } from 'lucide-react';
 import ProfileDropdown from './ProfileDropdown';
 import WalkthroughModal, { WalkthroughStep } from './WalkthroughModal';
 import SiteLimitModal from './SiteLimitModal';
@@ -701,8 +700,8 @@ export default function FloatingToolbar({
   const panelContent = (
     <div className="flex flex-col h-full max-h-full">
 
-      {/* ── Site Info Header (non-scrollable) ── */}
-      <div className="shrink-0 px-4 py-3 border-b border-slate-200 bg-slate-50 space-y-3" style={{ overflow: 'visible' }}>
+      {/* ── Site Info Header (non-scrollable) — hidden in rail mode since the editor banner already owns site name + switcher. */}
+      <div data-rail-hide="true" className="shrink-0 px-4 py-3 border-b border-slate-200 bg-slate-50 space-y-3" style={{ overflow: 'visible' }}>
 
         {/* Currently Editing + Rename + Site Switcher */}
         <div style={{ overflow: 'visible' }}>
@@ -847,7 +846,7 @@ export default function FloatingToolbar({
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
 
         {/* Template Section */}
-        <div className="border border-slate-200 rounded-lg bg-white shadow-sm">
+        <div data-section-id="template" className="border border-slate-200 rounded-lg bg-white shadow-sm">
           <button
             onClick={() => toggleSection('template')}
             className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors rounded-t-lg"
@@ -923,7 +922,7 @@ export default function FloatingToolbar({
         </div>
 
         {/* Logos Section */}
-        <div className="border border-slate-200 rounded-lg bg-white shadow-sm" style={{ overflow: 'visible' }}>
+        <div data-section-id="general" className="border border-slate-200 rounded-lg bg-white shadow-sm" style={{ overflow: 'visible' }}>
           <button
             onClick={() => toggleSection('general')}
             className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors rounded-t-lg"
@@ -1367,7 +1366,7 @@ export default function FloatingToolbar({
         <div data-tour="builder-design-panel" className="space-y-3">
         {/* Colors Section */}
         {templatePalettes && templatePalettes.length > 0 && (
-          <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+          <div data-section-id="colors" className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
             <button
               onClick={() => toggleSection('colors')}
               className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
@@ -1431,7 +1430,7 @@ export default function FloatingToolbar({
         )}
 
         {/* Typography Section */}
-        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+        <div data-section-id="typography" className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
           <button
             onClick={() => toggleSection('typography')}
             className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
@@ -1470,7 +1469,7 @@ export default function FloatingToolbar({
         </div>
 
         {/* Animation Section */}
-        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+        <div data-section-id="animation" className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
           <button
             onClick={() => toggleSection('animation')}
             className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
@@ -1494,7 +1493,7 @@ export default function FloatingToolbar({
         </div>
 
         {/* AI Builder Section */}
-        <div ref={aiBuilderSectionRef} data-tour="builder-ai-builder" className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+        <div ref={aiBuilderSectionRef} data-section-id="ai-builder" className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
           <div className="flex items-center gap-2 bg-gradient-to-r from-violet-50 to-purple-50 px-4 py-3 transition-colors hover:from-violet-100 hover:to-purple-100">
             <button
               type="button"
@@ -1546,7 +1545,7 @@ export default function FloatingToolbar({
         </div>
 
         {/* Translations Section */}
-        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+        <div data-section-id="translations" className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
           <button
             onClick={() => toggleSection('translations')}
             className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 transition-colors"
@@ -1565,29 +1564,9 @@ export default function FloatingToolbar({
           )}
         </div>
 
-        {/* Health Check Section */}
-        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
-          <button
-            onClick={() => toggleSection('doctor')}
-            className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-rose-50 to-orange-50 hover:from-rose-100 hover:to-orange-100 transition-colors"
-          >
-            <span className="text-xs font-bold text-rose-700 uppercase tracking-wide flex items-center gap-1.5">
-              <Stethoscope className="w-3.5 h-3.5" />
-              Health Check
-            </span>
-            <ChevronDown className={`w-4 h-4 text-rose-500 transition-transform ${openSections.includes('doctor') ? 'rotate-180' : ''}`} />
-          </button>
-
-          {openSections.includes('doctor') && (
-            <div className="border-t border-slate-200">
-              <DoctorPanel siteId={currentSiteId} />
-            </div>
-          )}
-        </div>
-
         {/* Other Settings Section */}
         {user && currentSiteId && (
-          <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
+          <div data-section-id="other-settings" className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
             <button
               onClick={() => toggleSection('other-settings')}
               className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
@@ -1878,21 +1857,19 @@ export default function FloatingToolbar({
         const RAIL_W = 56;
         const RAIL_EXPANDED_W = 208;
 
-        const railTabs: Array<{ id: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+        const railTabs: Array<{ id: string; label: string; icon: React.ComponentType<{ className?: string }>; ai?: boolean }> = [
           { id: 'template',       label: 'Template',     icon: Layout },
           { id: 'general',        label: 'Logo',         icon: ImageIcon },
           { id: 'colors',         label: 'Colors',       icon: Paintbrush },
           { id: 'typography',     label: 'Fonts',        icon: Type },
           { id: 'animation',      label: 'Animation',    icon: Sparkles },
           { id: 'translations',   label: 'Translations', icon: Languages },
-          { id: 'doctor',         label: 'Health',       icon: Stethoscope },
           { id: 'other-settings', label: 'Settings',     icon: Settings },
+          { id: 'ai-builder',     label: 'AI Builder',   icon: ArchieAIIcon as React.ComponentType<{ className?: string }>, ai: true },
         ];
 
         const activeTabId = openSections[0] ?? null;
-        const activeTab = activeTabId === 'ai-builder'
-          ? { id: 'ai-builder', label: 'AI Builder', icon: ArchieAIIcon as React.ComponentType<{ className?: string }> }
-          : railTabs.find(t => t.id === activeTabId) ?? null;
+        const activeTab = railTabs.find(t => t.id === activeTabId) ?? null;
 
         const openTabPanel = (id: string) => {
           setOpenSections([id]);
@@ -1927,9 +1904,9 @@ export default function FloatingToolbar({
               style={{ width: railExpanded ? RAIL_EXPANDED_W : RAIL_W }}
               aria-label="Design navigation"
             >
-              {/* Header: logo + design/admin switcher (when expanded) */}
+              {/* Header (matches admin sidebar): logo + switcher (left, when expanded) + profile avatar pinned right */}
               <div className="relative h-12 shrink-0 border-b border-slate-100">
-                {/* Expanded: logo + switcher */}
+                {/* Expanded: logo + Design/Admin switcher */}
                 <div
                   className={`absolute inset-y-0 left-3 flex items-center gap-2 transition-opacity duration-200 ${
                     railShowLabels ? 'opacity-100 delay-75' : 'opacity-0 pointer-events-none'
@@ -1961,23 +1938,66 @@ export default function FloatingToolbar({
                     </a>
                   </div>
                 </div>
-                {/* Collapsed: centered logo */}
-                {!railShowLabels && (
-                  <button
-                    onClick={() => navigateAway('/')}
-                    className="absolute inset-0 flex items-center justify-center"
-                    aria-label="Keystone home"
-                  >
-                    <KeystoneLogo href={undefined} size="md" showText={false} />
-                  </button>
-                )}
+
+                {/* Profile avatar pinned to right edge — anchors at right:12px so the
+                    32px avatar is centered when the 56px rail is collapsed, and slides
+                    out to the right when the rail expands. Matches admin sidebar. */}
+                <div className="absolute top-1/2 -translate-y-1/2" style={{ right: 12 }}>
+                  <ProfileDropdown
+                    buttonClassName="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-full transition-colors flex-shrink-0 overflow-hidden ring-2 ring-white shadow-sm"
+                    onSettingsClick={(e) => {
+                      if (changes.length > 0) {
+                        e.preventDefault();
+                        setAlertConfig({
+                          isOpen: true,
+                          title: 'Unsaved Changes',
+                          message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
+                          type: 'warning',
+                          onConfirm: () => router.push('/settings'),
+                          confirmLabel: 'Leave',
+                          cancelLabel: 'Stay',
+                        });
+                      }
+                    }}
+                  />
+                </div>
               </div>
 
-              {/* Tab list */}
+              {/* Tab list — AI Builder is the last item (with gradient styling) */}
               <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-2 space-y-0.5">
                 {railTabs.map(tab => {
                   const Icon = tab.icon;
                   const isActive = isOpen && activeTabId === tab.id;
+
+                  if (tab.ai) {
+                    return (
+                      <button
+                        key={tab.id}
+                        data-tour="builder-ai-builder"
+                        onClick={() => openTabPanel(tab.id)}
+                        title={railShowLabels ? undefined : tab.label}
+                        className={`group relative w-full flex items-center overflow-hidden ${railShowLabels ? 'gap-2.5 px-2.5' : 'justify-center px-0'} py-2 rounded-lg text-xs font-bold text-white shadow-sm transition-all hover:brightness-110 ${
+                          isActive ? 'ring-2 ring-violet-400 ring-offset-1 ring-offset-white' : ''
+                        }`}
+                        style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #ec4899 100%)' }}
+                      >
+                        <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.35)_0%,transparent_55%)]" />
+                        <Icon className="w-4 h-4 shrink-0 relative" />
+                        {railShowLabels && (
+                          <span className="relative truncate flex-1 text-left">{tab.label}</span>
+                        )}
+                        {railShowLabels && !isProUser && !isBasicUser && !isFreeUser && (
+                          <span className="relative rounded-full bg-white/25 px-1.5 py-0.5 text-[9px] font-bold tracking-wide">PRO</span>
+                        )}
+                        {railShowLabels && isFreeUser && freeAiPromptsLeft !== 0 && (
+                          <span className="relative rounded-full bg-white/25 px-1.5 py-0.5 text-[9px] font-bold tracking-wide">
+                            {freeAiBadgeLabel}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  }
+
                   return (
                     <button
                       key={tab.id}
@@ -2001,36 +2021,8 @@ export default function FloatingToolbar({
                 })}
               </nav>
 
-              {/* AI Builder — bottom, distinctive gradient */}
+              {/* Footer: just Help (matches admin's bottom row) */}
               <div className="flex-none border-t border-slate-100 p-2">
-                <button
-                  data-tour="builder-ai-builder"
-                  onClick={() => openTabPanel('ai-builder')}
-                  title={railShowLabels ? undefined : 'AI Builder (Archie)'}
-                  className={`group relative w-full flex items-center overflow-hidden ${railShowLabels ? 'gap-2.5 px-2.5' : 'justify-center px-0'} py-2.5 rounded-xl text-xs font-black uppercase tracking-wide text-white shadow-lg transition-all hover:brightness-110 hover:shadow-violet-300/60 ${
-                    isOpen && activeTabId === 'ai-builder' ? 'ring-2 ring-violet-400 ring-offset-2 ring-offset-white' : ''
-                  }`}
-                  style={{ background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 45%, #ec4899 100%)' }}
-                >
-                  {/* shine accent */}
-                  <span className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.45)_0%,transparent_55%)]" />
-                  <ArchieAIIcon className="w-5 h-5 shrink-0 relative drop-shadow" />
-                  {railShowLabels && (
-                    <span className="relative truncate flex-1 text-left">AI Builder</span>
-                  )}
-                  {railShowLabels && !isProUser && !isBasicUser && !isFreeUser && (
-                    <span className="relative rounded-full bg-white/25 px-1.5 py-0.5 text-[9px] font-bold tracking-wide">PRO</span>
-                  )}
-                  {railShowLabels && isFreeUser && freeAiPromptsLeft !== 0 && (
-                    <span className="relative rounded-full bg-white/25 px-1.5 py-0.5 text-[9px] font-bold tracking-wide normal-case">
-                      {freeAiBadgeLabel}
-                    </span>
-                  )}
-                </button>
-              </div>
-
-              {/* Footer: help + profile */}
-              <div className="flex-none border-t border-slate-100 p-2 space-y-0.5">
                 <button
                   onClick={openWalkthrough}
                   title={railShowLabels ? undefined : 'Help / walkthrough'}
@@ -2039,28 +2031,6 @@ export default function FloatingToolbar({
                   <HelpCircle className="w-4 h-4 shrink-0" />
                   {railShowLabels && <span className="truncate text-left">Help</span>}
                 </button>
-                <div className={`flex items-center ${railShowLabels ? 'gap-2.5 px-2.5' : 'justify-center px-0'} py-1`}>
-                  <ProfileDropdown
-                    buttonClassName="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-full transition-colors flex-shrink-0 overflow-hidden"
-                    onSettingsClick={(e) => {
-                      if (changes.length > 0) {
-                        e.preventDefault();
-                        setAlertConfig({
-                          isOpen: true,
-                          title: 'Unsaved Changes',
-                          message: 'You have unsaved changes that will be lost if you leave. Are you sure?',
-                          type: 'warning',
-                          onConfirm: () => router.push('/settings'),
-                          confirmLabel: 'Leave',
-                          cancelLabel: 'Stay',
-                        });
-                      }
-                    }}
-                  />
-                  {railShowLabels && (
-                    <span className="text-[11px] font-bold text-slate-500 truncate">Account</span>
-                  )}
-                </div>
               </div>
             </aside>
 
@@ -2099,8 +2069,24 @@ export default function FloatingToolbar({
                 </button>
               </div>
 
-              {/* Panel body — existing accordion content (active section auto-expanded by rail click) */}
-              <div className="flex-1 min-h-0">
+              {/* Panel body — reuses shared panelContent but the wrapper below
+                  hides the site-info header, the non-active sections, and the
+                  accordion headers inside the active section so only its content
+                  shows. The rail itself is now the section selector. */}
+              <div
+                className="flex-1 min-h-0 rail-panel-body"
+                data-active-section={activeTabId ?? ''}
+              >
+                <style dangerouslySetInnerHTML={{
+                  __html: `
+                    .rail-panel-body [data-rail-hide="true"] { display: none !important; }
+                    .rail-panel-body [data-section-id] { display: none !important; }
+                    .rail-panel-body [data-section-id="${activeTabId ?? ''}"] { display: block !important; }
+                    .rail-panel-body [data-section-id="${activeTabId ?? ''}"] > *:first-child { display: none !important; }
+                    .rail-panel-body [data-section-id="${activeTabId ?? ''}"] { border: 0 !important; box-shadow: none !important; border-radius: 0 !important; background: transparent !important; }
+                    .rail-panel-body [data-section-id="${activeTabId ?? ''}"] > *:nth-child(2) { border-top: 0 !important; }
+                  `
+                }} />
                 {panelContent}
               </div>
             </div>

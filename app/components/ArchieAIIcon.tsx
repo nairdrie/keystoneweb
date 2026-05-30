@@ -2,17 +2,16 @@
 
 interface ArchieAIIconProps {
   className?: string;
-  /** Static (no animation) — used in tiny rail icons. */
-  static?: boolean;
 }
 
 /**
- * Stylized "Archie" mark — matches the Archie mascot identity (rounded head
- * silhouette + glowing antenna) but rendered as a flat, brand-tinted icon
- * suitable for sidebar use. Gradient + sparkle accents give it a flashy AI
- * feel without leaning on the heavy character art.
+ * Clean four-point AI sparkle mark — the iconography most readers
+ * already associate with generative AI tools — drawn with a violet→
+ * pink gradient so it sits inside the AI Builder's brand surface.
+ * A second small sparkle adds a flash of motion without leaning on
+ * mascot art.
  */
-export default function ArchieAIIcon({ className = 'w-4 h-4', static: isStatic = false }: ArchieAIIconProps) {
+export default function ArchieAIIcon({ className = 'w-4 h-4' }: ArchieAIIconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -22,57 +21,26 @@ export default function ArchieAIIcon({ className = 'w-4 h-4', static: isStatic =
       aria-hidden="true"
     >
       <defs>
-        <linearGradient id="archie-ai-body" x1="4" y1="6" x2="20" y2="22" gradientUnits="userSpaceOnUse">
+        <linearGradient id="archie-ai-grad" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor="#a855f7" />
           <stop offset="55%" stopColor="#6366f1" />
-          <stop offset="100%" stopColor="#2563eb" />
+          <stop offset="100%" stopColor="#ec4899" />
         </linearGradient>
-        <radialGradient id="archie-ai-dot" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0%" stopColor="#fecaca" />
-          <stop offset="60%" stopColor="#ef4444" />
-          <stop offset="100%" stopColor="#b91c1c" />
-        </radialGradient>
       </defs>
 
-      {/* antenna */}
-      <line x1="12" y1="3.2" x2="12" y2="6.4" stroke="url(#archie-ai-body)" strokeWidth="1.5" strokeLinecap="round" />
-      {/* antenna glow dot */}
-      <circle cx="12" cy="2.6" r="1.6" fill="url(#archie-ai-dot)">
-        {!isStatic && (
-          <animate attributeName="r" values="1.4;1.9;1.4" dur="1.8s" repeatCount="indefinite" />
-        )}
-      </circle>
+      {/* Primary four-point sparkle — concave sides for that polished AI mark feel. */}
+      <path
+        d="M13 2 C13 6.5 14 7.5 22 11 C14 14.5 13 15.5 13 22 C13 15.5 12 14.5 4 11 C12 7.5 13 6.5 13 2 Z"
+        fill="url(#archie-ai-grad)"
+        transform="translate(-1.5 0)"
+      />
 
-      {/* head/body capsule */}
-      <rect x="4.2" y="6.4" width="15.6" height="12.4" rx="5.2" fill="url(#archie-ai-body)" />
-
-      {/* eyes */}
-      <circle cx="9.4" cy="12.4" r="1.5" fill="white" />
-      <circle cx="14.6" cy="12.4" r="1.5" fill="white" />
-      <circle cx="9.4" cy="12.4" r="0.7" fill="#1e293b" />
-      <circle cx="14.6" cy="12.4" r="0.7" fill="#1e293b" />
-
-      {/* smile */}
-      <path d="M9.6 15.4 Q12 17.2 14.4 15.4" stroke="white" strokeWidth="1.2" strokeLinecap="round" fill="none" />
-
-      {/* sparkle accent — the "AI flash" */}
-      <g transform="translate(19 6.5)">
-        <path
-          d="M0 -2.2 L0.7 -0.7 L2.2 0 L0.7 0.7 L0 2.2 L-0.7 0.7 L-2.2 0 L-0.7 -0.7 Z"
-          fill="#fde047"
-        >
-          {!isStatic && (
-            <animateTransform
-              attributeName="transform"
-              type="scale"
-              values="1;1.25;1"
-              dur="1.6s"
-              repeatCount="indefinite"
-              additive="sum"
-            />
-          )}
-        </path>
-      </g>
+      {/* Accent sparkle (top-right) */}
+      <path
+        d="M20 3 C20 4.6 20.3 4.9 22 5.5 C20.3 6.1 20 6.4 20 8 C20 6.4 19.7 6.1 18 5.5 C19.7 4.9 20 4.6 20 3 Z"
+        fill="url(#archie-ai-grad)"
+        opacity="0.9"
+      />
     </svg>
   );
 }
