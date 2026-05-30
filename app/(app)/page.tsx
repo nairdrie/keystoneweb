@@ -3,18 +3,33 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { Fragment, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Hammer, Check, ArrowRight, Loader2, Utensils, Paintbrush, Leaf, Fish } from 'lucide-react';
 import Header from '../components/Header';
 import MarketingFooter from '../components/MarketingFooter';
 import mapleLeaf from '../../assets/maple-leaf.png';
 import { TEMPLATE_PREVIEW_IMAGES, TEMPLATE_PREVIEW_STYLES } from '@/lib/template-preview-assets';
+import { useAuth } from '@/lib/auth/context';
 
 const TEMPLATE_IMAGES = TEMPLATE_PREVIEW_STYLES.map((style) => TEMPLATE_PREVIEW_IMAGES[style]);
 
 const easeInOut = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 
 export default function HomePage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace('/admin');
+    }
+  }, [user, loading, router]);
+
+  if (loading || user) {
+    return null;
+  }
+
   return (
     <main className="min-h-screen bg-white">
       <Header />
