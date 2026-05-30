@@ -16,6 +16,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useAdminContext } from './admin-context';
+import { useAuth } from '@/lib/auth/context';
 
 type Subscription = {
   subscription_plan?: string | null;
@@ -99,6 +100,36 @@ function formatBytes(bytes: number) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function greetingForHour(hour: number) {
+  if (hour < 12) return 'Good Morning';
+  if (hour < 17) return 'Good Afternoon';
+  return 'Good Evening';
+}
+
+function firstNameFromUser(user: { user_metadata?: Record<string, unknown> | null; email?: string | null } | null) {
+  if (!user) return null;
+  const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const candidates = [
+    metadata.first_name,
+    metadata.given_name,
+    metadata.full_name,
+    metadata.name,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim().split(/\s+/)[0];
+    }
+  }
+  if (user.email) {
+    const local = user.email.split('@')[0];
+    if (local) {
+      const cleaned = local.split(/[._-]/)[0];
+      if (cleaned) return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+    }
+  }
+  return null;
 }
 
 function Skeleton({ className }: { className: string }) {
@@ -272,6 +303,18 @@ function HomeChecklist({
 
 export default function AdminHomePage() {
   const { siteId, site } = useAdminContext();
+  const { user } = useAuth();
+  const [greeting, setGreeting] = useState<string | null>(null);
+
+  useEffect(() => {
+    const update = () => setGreeting(greetingForHour(new Date().getHours()));
+    update();
+    const interval = setInterval(update, 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const firstName = useMemo(() => firstNameFromUser(user), [user]);
+  const welcomeText = greeting ? (firstName ? `${greeting}, ${firstName}` : greeting) : 'Home';
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [subscriptionReady, setSubscriptionReady] = useState(false);
   const [addressesResult, setAddressesResult] = useState<{ siteId: string; data: InboxAddress[] } | null>(null);
@@ -418,7 +461,7 @@ export default function AdminHomePage() {
             label="Current plan"
             value={planValue(subscription)}
             href="/pricing"
-            action="Compare Plans"
+            action="Compare"
             loading={!subscriptionReady}
           />
           <StatusRail
@@ -448,7 +491,7 @@ export default function AdminHomePage() {
         </div>
       </section>
 
-      <h2 className="text-base font-black text-slate-900">Home</h2>
+      <h2 className="text-xl font-black text-slate-900 sm:text-2xl">{welcomeText}</h2>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <SnapshotTile
