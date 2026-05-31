@@ -169,6 +169,13 @@ export async function createOrder(
     };
   }
 
+  const experienceContext: Record<string, unknown> = {
+    shipping_preference: 'NO_SHIPPING', // keep UX in our app; no PayPal collection
+    user_action: 'PAY_NOW',
+    ...(params.returnUrl ? { return_url: params.returnUrl } : {}),
+    ...(params.cancelUrl ? { cancel_url: params.cancelUrl } : {}),
+  };
+
   const body: any = {
     intent: 'CAPTURE',
     purchase_units: [
@@ -185,21 +192,21 @@ export async function createOrder(
         items: params.items,
       },
     ],
-    application_context: {
-      shipping_preference: 'NO_SHIPPING', // keep UX in our app; no PayPal collection
-      user_action: 'PAY_NOW',
-      ...(params.returnUrl ? { return_url: params.returnUrl } : {}),
-      ...(params.cancelUrl ? { cancel_url: params.cancelUrl } : {}),
-    },
   };
 
+  // PayPal Orders v2 rejects orders that set the experience context in BOTH
+  // `application_context` and `payment_source.*.experience_context`. Prefer
+  // the payment_source variant when we have a buyer email to attach; otherwise
+  // fall back to application_context (still supported for the no-source case).
   if (params.customerEmail) {
     body.payment_source = {
       paypal: {
-        experience_context: body.application_context,
+        experience_context: experienceContext,
         email_address: params.customerEmail,
       },
     };
+  } else {
+    body.application_context = experienceContext;
   }
 
   const res = await fetch(`${apiBaseFor(creds.sandbox)}/v2/checkout/orders`, {
