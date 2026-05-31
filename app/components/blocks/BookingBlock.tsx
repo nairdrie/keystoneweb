@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useEditorContext } from '@/lib/editor-context';
 import {
-    Calendar, Clock, Plus, Trash2, Settings, ChevronLeft, ChevronRight,
-    Check, Loader2, User, Mail, Phone, MessageSquare, DollarSign, LayoutTemplate,
+    Calendar, Clock, Plus, Trash2, ChevronLeft, ChevronRight,
+    Check, Loader2, User, Mail, Phone, MessageSquare, DollarSign,
     Edit2, Search, X, CreditCard, Package, Star, Send, GripVertical, Upload
 } from 'lucide-react';
 import CsvImportModal from '@/app/components/csv-import/CsvImportModal';
@@ -71,7 +71,7 @@ interface AvailabilityDay {
     is_active: boolean;
 }
 
-interface BookingSettings {
+export interface BookingSettings {
     timezone: string;
     buffer_minutes: number;
     max_advance_days: number;
@@ -82,7 +82,11 @@ interface BookingSettings {
     notification_email: string | null;
     cancellation_notice_hours: number;
     tax_enabled: boolean;
+    tax_rate_bps?: number;
+    tax_label?: string | null;
 }
+
+export type { Category, Service, AvailabilityDay };
 
 interface Slot {
     startTime: string;
@@ -142,145 +146,16 @@ export default function BookingBlock({ id, data, isEditMode, palette, updateCont
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// EDITOR: Booking Setup
+// EDITOR PANELS
+// Individual sub-editors used to live inside a single BookingSetup wrapper with
+// nested tabs. They are now exported and rendered as standalone top-level tabs
+// from the admin booking page, mirroring the flat tab structure used by the
+// ecommerce admin (Analytics / Products / Orders / Payments / Shipping / Emails).
 // ═══════════════════════════════════════════════════════════════════════════════
-
-export function BookingSetup({ siteId, palette }: { siteId: string; palette: Record<string, string> }) {
-    const [activeTab, setActiveTab] = useState<'categories' | 'services' | 'hours' | 'settings'>('services');
-    const [categories, setCategories] = useState<Category[]>([]);
-    const [services, setServices] = useState<Service[]>([]);
-    const [availability, setAvailability] = useState<AvailabilityDay[]>([]);
-    const [settings, setSettings] = useState<BookingSettings | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-
-    const pPrimary = palette.primary || '#1f2937';
-    const pSecondary = palette.secondary || '#dc2626';
-
-    // Initialize booking settings if they don't exist, then load data
-    useEffect(() => {
-        (async () => {
-            setLoading(true);
-            // Ensure settings exist (creates default availability via trigger)
-            const settingsRes = await fetch(`/api/bookings/settings?siteId=${siteId}`);
-            const settingsData = await settingsRes.json();
-
-            if (!settingsData.settings) {
-                await fetch('/api/bookings/settings', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ siteId }),
-                });
-            }
-
-            // Now fetch everything
-            const [catRes, svcRes, avRes, stRes] = await Promise.all([
-                fetch(`/api/bookings/categories?siteId=${siteId}`),
-                fetch(`/api/bookings/services?siteId=${siteId}`),
-                fetch(`/api/bookings/availability?siteId=${siteId}`),
-                fetch(`/api/bookings/settings?siteId=${siteId}`),
-            ]);
-
-            const catData = await catRes.json();
-            const svcData = await svcRes.json();
-            const avData = await avRes.json();
-            const stData = await stRes.json();
-
-            setCategories(catData.categories || []);
-            setServices(svcData.services || []);
-            setAvailability(avData.availability || []);
-            setSettings(stData.settings || null);
-            setLoading(false);
-        })();
-    }, [siteId]);
-
-    if (loading) {
-        return (
-            <section className="py-16 text-center">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-400" />
-                <p className="text-sm text-slate-500 mt-3">Loading booking setup...</p>
-            </section>
-        );
-    }
-
-    const tabs = [
-        { id: 'categories' as const, label: 'Categories', icon: <LayoutTemplate className="w-4 h-4" /> },
-        { id: 'services' as const, label: 'Services', icon: <DollarSign className="w-4 h-4" /> },
-        { id: 'hours' as const, label: 'Hours', icon: <Clock className="w-4 h-4" /> },
-        { id: 'settings' as const, label: 'Settings', icon: <Settings className="w-4 h-4" /> },
-    ];
-
-    return (
-        <section className="py-12 px-4">
-            <div className="max-w-2xl mx-auto">
-                <div className="bg-white border-2 border-blue-200 rounded-2xl shadow-sm overflow-hidden">
-                    {/* Header */}
-                    <div className="bg-blue-50 px-6 py-4 border-b border-blue-200">
-                        <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                            <Calendar className="w-5 h-5 text-blue-600" />
-                            Booking System Setup
-                        </h3>
-                        <p className="text-sm text-slate-500 mt-1">Configure your services, hours, and settings</p>
-                    </div>
-
-                    {/* Tabs */}
-                    <div className="flex border-b border-slate-200">
-                        {tabs.map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
-                                    ? 'border-blue-600 text-blue-600'
-                                    : 'border-transparent text-slate-500 hover:text-slate-700'
-                                    }`}
-                            >
-                                {tab.icon}
-                                {tab.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Content */}
-                    <div className="p-6">
-                        {activeTab === 'categories' && (
-                            <CategoriesEditor
-                                siteId={siteId}
-                                categories={categories}
-                                setCategories={setCategories}
-                            />
-                        )}
-                        {activeTab === 'services' && (
-                            <ServicesEditor
-                                siteId={siteId}
-                                services={services}
-                                setServices={setServices}
-                                categories={categories}
-                            />
-                        )}
-                        {activeTab === 'hours' && (
-                            <HoursEditor
-                                siteId={siteId}
-                                availability={availability}
-                                setAvailability={setAvailability}
-                            />
-                        )}
-                        {activeTab === 'settings' && settings && (
-                            <SettingsEditor
-                                siteId={siteId}
-                                settings={settings}
-                                setSettings={setSettings}
-                            />
-                        )}
-                    </div>
-                </div>
-            </div>
-        </section>
-    );
-}
 
 // ─── Categories Editor ──────────────────────────────────────────────────────────
 
-function CategoriesEditor({ siteId, categories, setCategories }: {
+export function CategoriesEditor({ siteId, categories, setCategories }: {
     siteId: string;
     categories: Category[];
     setCategories: (c: Category[]) => void;
@@ -559,7 +434,7 @@ function SortableServiceRow({ id, children }: {
 
 // ─── Services Editor ────────────────────────────────────────────────────────────
 
-function ServicesEditor({ siteId, services, setServices, categories }: {
+export function ServicesEditor({ siteId, services, setServices, categories }: {
     siteId: string;
     services: Service[];
     setServices: (s: Service[]) => void;
@@ -1024,7 +899,7 @@ function ServicesEditor({ siteId, services, setServices, categories }: {
 
 // ─── Hours Editor ───────────────────────────────────────────────────────────────
 
-function HoursEditor({ siteId, availability, setAvailability }: {
+export function HoursEditor({ siteId, availability, setAvailability }: {
     siteId: string;
     availability: AvailabilityDay[];
     setAvailability: (a: AvailabilityDay[]) => void;
@@ -1107,53 +982,35 @@ function HoursEditor({ siteId, availability, setAvailability }: {
 }
 
 // ─── Settings Editor ────────────────────────────────────────────────────────────
+// Booking preferences only. Payment method selection and processor credentials
+// live in BookingPaymentsPanel, mirroring the way ecommerce keeps the Store
+// Settings (payments) separate from store-wide preferences.
 
-function SettingsEditor({ siteId, settings, setSettings }: {
+export function SettingsEditor({ siteId, settings, setSettings }: {
     siteId: string;
     settings: BookingSettings;
     setSettings: (s: BookingSettings) => void;
 }) {
     const [saving, setSaving] = useState(false);
     const [local, setLocal] = useState(settings);
-    const [stripeConnected, setStripeConnected] = useState(false);
-    const [connectingStripe, setConnectingStripe] = useState(false);
-    const [paypalConnected, setPaypalConnected] = useState(false);
-
-    // Check if Stripe / PayPal is already connected for this site
-    useEffect(() => {
-        fetch(`/api/bookings/settings?siteId=${siteId}`)
-            .then(r => r.ok ? r.json() : null)
-            .then(d => setPaypalConnected(!!d?.paypalConnected))
-            .catch(() => setPaypalConnected(false));
-        fetch(`/api/stripe/connect-status?siteId=${siteId}`)
-            .then(r => r.ok ? r.json() : { connected: false })
-            .then(d => setStripeConnected(d.connected || false))
-            .catch(() => setStripeConnected(false));
-    }, [siteId]);
 
     const handleSave = async () => {
         setSaving(true);
         const res = await fetch('/api/bookings/settings', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ siteId, ...local }),
+            body: JSON.stringify({
+                siteId,
+                buffer_minutes: local.buffer_minutes,
+                max_advance_days: local.max_advance_days,
+                notification_email: local.notification_email,
+                confirmation_message: local.confirmation_message,
+                cancellation_notice_hours: local.cancellation_notice_hours,
+            }),
         });
         const data = await res.json();
         if (data.settings) setSettings(data.settings);
         setSaving(false);
-    };
-
-    const handleConnectStripe = async () => {
-        setConnectingStripe(true);
-        const returnUrl = window.location.href;
-        const res = await fetch('/api/stripe/connect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ siteId, returnUrl }),
-        });
-        const data = await res.json();
-        if (data.url) window.location.href = data.url;
-        else setConnectingStripe(false);
     };
 
     return (
@@ -1188,127 +1045,6 @@ function SettingsEditor({ siteId, settings, setSettings }: {
                     rows={2} placeholder="Your booking has been confirmed!" />
             </div>
 
-            {/* Payment Options */}
-            <div>
-                <label className="text-sm font-medium text-slate-700 block mb-2">Payment Options</label>
-                <div className="space-y-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={local.payment_methods?.none !== false}
-                            onChange={() => setLocal({ ...local, payment_methods: { ...local.payment_methods, none: !local.payment_methods?.none } })}
-                            className="rounded accent-blue-600" />
-                        <span className="text-sm text-slate-700">No payment required (pay in person)</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={local.payment_methods?.etransfer || false}
-                            onChange={() => setLocal({ ...local, payment_methods: { ...local.payment_methods, etransfer: !local.payment_methods?.etransfer } })}
-                            className="rounded accent-blue-600" />
-                        <span className="text-sm text-slate-700">Interac e-Transfer</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={local.payment_methods?.stripe || false}
-                            onChange={() => setLocal({ ...local, payment_methods: { ...local.payment_methods, stripe: !local.payment_methods?.stripe } })}
-                            className="rounded accent-blue-600" />
-                        <span className="text-sm text-slate-700">Stripe (card payments online)</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={local.payment_methods?.paypal || false}
-                            onChange={() => setLocal({ ...local, payment_methods: { ...local.payment_methods, paypal: !local.payment_methods?.paypal } })}
-                            className="rounded accent-blue-600" />
-                        <span className="text-sm text-slate-700">PayPal (PayPal wallet + card as guest)</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={local.payment_methods?.converge || false}
-                            onChange={() => setLocal({ ...local, payment_methods: { ...local.payment_methods, converge: !local.payment_methods?.converge } })}
-                            className="rounded accent-blue-600" />
-                        <span className="text-sm text-slate-700">Credit / Debit Card (Converge / Elavon)</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" checked={local.payment_methods?.clover || false}
-                            onChange={() => setLocal({ ...local, payment_methods: { ...local.payment_methods, clover: !local.payment_methods?.clover } })}
-                            className="rounded accent-blue-600" />
-                        <span className="text-sm text-slate-700">Credit / Debit Card (Clover)</span>
-                    </label>
-                </div>
-            </div>
-
-            {local.payment_methods?.etransfer && (
-                <div>
-                    <label className="text-sm font-medium text-slate-700 block mb-1">e-Transfer Email</label>
-                    <input type="email" placeholder="payments@business.ca" value={local.etransfer_email || ''}
-                        onChange={e => setLocal({ ...local, etransfer_email: e.target.value || null })}
-                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg" />
-                </div>
-            )}
-
-            {local.payment_methods?.stripe && (
-                <div className="p-3 rounded-lg border border-slate-200 bg-slate-50">
-                    <p className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
-                        <CreditCard className="w-4 h-4" /> Stripe Connect
-                    </p>
-                    {stripeConnected ? (
-                        <div className="flex items-center gap-2 text-sm text-green-700">
-                            <Check className="w-4 h-4" />
-                            <span className="font-medium">Connected</span>
-                            <span className="text-slate-500">— customers can pay by card at booking time</span>
-                        </div>
-                    ) : (
-                        <>
-                            <p className="text-xs text-slate-500 mb-2">Connect your Stripe account to accept card payments from customers.</p>
-                            <button onClick={handleConnectStripe} disabled={connectingStripe}
-                                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg disabled:opacity-50 transition-colors">
-                                {connectingStripe ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-                                Connect with Stripe
-                            </button>
-                        </>
-                    )}
-                </div>
-            )}
-
-            {local.payment_methods?.paypal && (
-                <div className="p-3 rounded-lg border border-slate-200 bg-slate-50">
-                    <p className="text-sm font-medium text-slate-700 mb-2 flex items-center gap-2">
-                        <CreditCard className="w-4 h-4" /> PayPal Connect
-                    </p>
-                    {paypalConnected ? (
-                        <div className="flex items-center gap-2 text-sm text-green-700">
-                            <Check className="w-4 h-4" />
-                            <span className="font-medium">Connected</span>
-                            <span className="text-slate-500">— customers can pay with PayPal or card at booking time</span>
-                        </div>
-                    ) : (
-                        <p className="text-xs text-slate-500">
-                            Add your PayPal API credentials under <strong>Dashboard → Ecommerce → Payments</strong> to accept PayPal and guest card payments. PayPal connects once per site and applies to both bookings and store orders.
-                        </p>
-                    )}
-                </div>
-            )}
-
-            {/* Tax Collection */}
-            {local.payment_methods?.stripe && stripeConnected && (
-                <div>
-                    <label className="text-sm font-medium text-slate-700 block mb-2">Tax Collection</label>
-                    <div className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-slate-50">
-                        <div>
-                            <span className="text-sm text-slate-700 font-medium">Collect tax automatically</span>
-                            <p className="text-xs text-slate-400 mt-0.5">Stripe calculates tax at checkout based on customer location</p>
-                        </div>
-                        <button
-                            onClick={() => setLocal({ ...local, tax_enabled: !local.tax_enabled })}
-                            className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ml-3 ${local.tax_enabled ? 'bg-green-500' : 'bg-slate-300'}`}
-                        >
-                            <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${local.tax_enabled ? 'translate-x-5' : ''}`} />
-                        </button>
-                    </div>
-                    {local.tax_enabled && (
-                        <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
-                            <DollarSign className="w-3 h-3" />
-                            Ensure tax registrations are set up in your Stripe Dashboard
-                        </p>
-                    )}
-                </div>
-            )}
-
-            {/* Cancellation Policy */}
             <div>
                 <label className="text-sm font-medium text-slate-700 block mb-1">Customer Self-Cancellation</label>
                 <select
