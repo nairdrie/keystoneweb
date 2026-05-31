@@ -816,7 +816,11 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
     //     Sticky pins to the nearest scroll container, which is the body in
     //     the published site and the preview canvas in the editor — the
     //     same code path works in both contexts.
-    const stickyClass = isSticky ? 'sticky top-0 z-50' : 'relative z-10';
+    // Non-sticky case still needs to outrank in-page block content. The
+    // hero block uses z-indices up to z-30 internally, and NavMenu submenus
+    // render at z-[60] inside the header's stacking context, so a too-low
+    // z-index on the header would clamp the submenu below hero content.
+    const stickyClass = isSticky ? 'sticky top-0 z-50' : 'relative z-40';
     const overlayWrapperClass = overlay ? 'h-0 overflow-visible' : '';
     const transparentBgClass = overlay && overlayStyle === 'dropShadow'
         ? 'bg-gradient-to-b from-black/45 via-black/15 to-transparent'
