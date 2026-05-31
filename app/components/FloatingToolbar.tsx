@@ -1977,11 +1977,11 @@ export default function FloatingToolbar({
                       Design
                     </span>
                     <a
-                      href={`/admin/analytics${currentSiteId ? `?siteId=${currentSiteId}` : ''}`}
+                      href={`/admin${currentSiteId ? `?siteId=${currentSiteId}` : ''}`}
                       onClick={(e) => {
                         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
                         e.preventDefault();
-                        navigateAway(`/admin/analytics${currentSiteId ? `?siteId=${currentSiteId}` : ''}`);
+                        navigateAway(`/admin${currentSiteId ? `?siteId=${currentSiteId}` : ''}`);
                       }}
                       className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold text-slate-500 hover:text-slate-800 hover:bg-white/70 transition-colors whitespace-nowrap"
                     >
@@ -2245,11 +2245,11 @@ export default function FloatingToolbar({
                       Design
                     </span>
                     <a
-                      href={`/admin/analytics${currentSiteId ? `?siteId=${currentSiteId}` : ''}`}
+                      href={`/admin${currentSiteId ? `?siteId=${currentSiteId}` : ''}`}
                       onClick={(e) => {
                         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
                         e.preventDefault();
-                        const dest = `/admin/analytics${currentSiteId ? `?siteId=${currentSiteId}` : ''}`;
+                        const dest = `/admin${currentSiteId ? `?siteId=${currentSiteId}` : ''}`;
                         if (changes.length > 0) {
                           setAlertConfig({
                             isOpen: true,
