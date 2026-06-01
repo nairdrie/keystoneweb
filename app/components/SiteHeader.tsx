@@ -4,6 +4,7 @@ import { useRef, useState, useCallback, useEffect } from 'react';
 import { Menu, X, Settings, Facebook, Instagram, Twitter, Linkedin, Youtube, Phone, User } from 'lucide-react';
 import { WhatsAppIcon, normalizeHref } from '@/app/components/blocks/contact/contact-config';
 import { useHeaderHeight } from '@/lib/hooks/useHeaderHeight';
+import { useHeaderCompactness } from '@/lib/hooks/useHeaderCompactness';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEditorContext, BlockDataProvider } from '@/lib/editor-context';
@@ -162,6 +163,24 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     // size themselves around the header.
     useHeaderHeight(headerRef, { overlay: overlay || isTransparent });
     const textIsLight   = getTextIsLight(effectiveBg, palette, bgCustom);
+
+    // Auto-compact the desktop header when the centered nav, search, cart,
+    // and CTA crowd each other. The hook observes the three zones in
+    // renderSingleRow and reports a tier 0..3 — tier 3 means we fall back
+    // to the hamburger button on desktop. Disabled when the user has
+    // explicitly chosen hamburger-on-desktop themselves.
+    const userPickedHamburger = desktopMenuStyle === 'hamburger';
+    const compact = useHeaderCompactness(!userPickedHamburger);
+    const forceHamburger = compact.tier === 3;
+
+    const navItemGapClass: string = compact.tier === 0
+        ? 'gap-6'
+        : compact.tier === 1 ? 'gap-4' : 'gap-3';
+    const utilsGapClass: string = navItemGapClass;
+    const zoneInnerGapClass: string = compact.tier === 0
+        ? 'gap-4'
+        : compact.tier === 1 ? 'gap-3' : 'gap-2';
+    const zoneOuterGapClass: string = compact.tier <= 1 ? 'gap-3' : 'gap-2';
 
     // ── Scroll-bg-change detection ──────────────────────────────────────────
     // hasScrolled is only consulted while `scrollBgChange` is enabled — when
@@ -581,7 +600,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
     const navLinksEl = (
         <div className="ks-nav-items">
             <NavMenu
-                className="flex items-center gap-6"
+                className={`flex items-center ${navItemGapClass}`}
                 itemClassName={resolvedNavItemClass}
                 submenuClassName={resolvedSubmenuClass}
                 bar={secondaryBarEnabled ? 'primary' : undefined}
@@ -663,7 +682,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         </button>
     );
 
-    const useDesktopHamburger = desktopMenuStyle === 'hamburger';
+    const useDesktopHamburger = userPickedHamburger || forceHamburger;
 
     const mobileBorderStyle = defaults.mobileBorderStyleFn ? defaults.mobileBorderStyleFn(palette) : {};
     // Drawer (mobile + desktop-hamburger). Always rendered on small screens; on desktop only when hamburger mode.
@@ -769,14 +788,14 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
             if (hamburgerPosition === 'left') left.push(ham);
             else right.unshift(ham);
         } else {
-            const navWrap = <div key="nav" className="hidden md:flex items-center gap-6">{navLinksEl}</div>;
+            const navWrap = <div key="nav" className={`hidden md:flex items-center ${navItemGapClass}`}>{navLinksEl}</div>;
             if (navPosition === 'left')   left.push(navWrap);
             if (navPosition === 'center') center.push(navWrap);
             if (navPosition === 'right')  right.push(navWrap);
         }
 
         right.push(
-            <div key="utils" className="hidden md:flex items-center gap-6">
+            <div key="utils" className={`hidden md:flex items-center ${utilsGapClass}`}>
                 {desktopUtilsEl}
             </div>
         );
@@ -785,15 +804,15 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         const mobileCluster = mobileToggleCluster(hamburgerPosition);
 
         return (
-            <div className={`flex items-center gap-3 ${heightClass}`}>
-                <div className="flex items-center justify-start gap-4 shrink-0">
+            <div ref={compact.containerRef} className={`flex items-center ${zoneOuterGapClass} ${heightClass}`}>
+                <div ref={compact.leftRef} className={`flex items-center justify-start ${zoneInnerGapClass} shrink-0`}>
                     {hamburgerPosition === 'left' ? mobileCluster : null}
                     {left}
                 </div>
-                <div className="flex-1 flex items-center justify-center gap-4 min-w-0">
+                <div ref={compact.centerRef} className={`flex-1 flex items-center justify-center ${zoneInnerGapClass} min-w-0`}>
                     {center}
                 </div>
-                <div className="flex items-center justify-end gap-4 shrink-0">
+                <div ref={compact.rightRef} className={`flex items-center justify-end ${zoneInnerGapClass} shrink-0`}>
                     {right}
                     {hamburgerPosition === 'right' ? mobileCluster : null}
                 </div>
