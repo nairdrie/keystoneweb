@@ -926,7 +926,7 @@ export function DomainManager({
 
       if (result.verified) {
         setSuccess(true);
-        setPublishedUrl(`https://${externalDomain.trim()}`);
+        setPublishedUrl(`https://${result.domain}`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to verify DNS');
