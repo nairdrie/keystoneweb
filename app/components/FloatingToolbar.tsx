@@ -1927,6 +1927,9 @@ export default function FloatingToolbar({
         const openTabPanel = (id: string) => {
           setOpenSections([id]);
           onOpenChange(true);
+          // Collapse the rail so the panel content that just opened is fully
+          // visible. It will re-expand on next mouseover (handled below).
+          setRailExpanded(false);
         };
 
         const navigateAway = (dest: string) => {
@@ -1952,7 +1955,7 @@ export default function FloatingToolbar({
           <>
             {/* ── Thin icon rail — always visible, hover-expands ── */}
             <aside
-              onMouseEnter={() => setRailExpanded(true)}
+              onMouseOver={() => setRailExpanded(true)}
               onMouseLeave={() => setRailExpanded(false)}
               className={`fixed top-[var(--impersonation-height,0px)] left-0 bottom-0 z-[10000] bg-white border-r border-slate-200 flex flex-col transition-[width,box-shadow] duration-200 ease-out ${railOpen ? 'shadow-2xl' : ''}`}
               style={{ width: railOpen ? RAIL_EXPANDED_W : RAIL_W }}
