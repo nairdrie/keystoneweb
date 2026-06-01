@@ -225,6 +225,10 @@ export default function FloatingToolbar({
   const [railProfileOpen, setRailProfileOpen] = useState(false);
   const [railExpandedWidth, setRailExpandedWidth] = useState<number>(DESIGN_RAIL_EXPANDED_FALLBACK_PX);
   const railHeaderMeasureRef = useRef<HTMLDivElement | null>(null);
+  // Tab element that was just clicked — used to suppress the
+  // collapse-on-click rail from immediately re-expanding while the cursor
+  // is still resting on that same button.
+  const railSuppressRef = useRef<HTMLElement | null>(null);
 
   // Measure the natural width of the rail header's left group (logo + Design/Admin
   // switcher) and add the avatar + padding budget so the expanded rail can never
@@ -1924,12 +1928,16 @@ export default function FloatingToolbar({
         const hasUnsaved = changes.length > 0;
         const activeTab = railTabs.find(t => t.id === activeTabId) ?? null;
 
-        const openTabPanel = (id: string) => {
+        const openTabPanel = (id: string, clickedEl?: HTMLElement | null) => {
           setOpenSections([id]);
           onOpenChange(true);
           // Collapse the rail so the panel content that just opened is fully
-          // visible. It will re-expand on next mouseover (handled below).
+          // visible. Mark the clicked button so the onMouseOver handler below
+          // doesn't immediately re-expand while the cursor still sits on it —
+          // the rail only re-expands once the cursor moves to a different
+          // rail element or leaves and re-enters.
           setRailExpanded(false);
+          railSuppressRef.current = clickedEl ?? null;
         };
 
         const navigateAway = (dest: string) => {
@@ -1955,8 +1963,18 @@ export default function FloatingToolbar({
           <>
             {/* ── Thin icon rail — always visible, hover-expands ── */}
             <aside
-              onMouseOver={() => setRailExpanded(true)}
-              onMouseLeave={() => setRailExpanded(false)}
+              onMouseOver={(e) => {
+                const suppressed = railSuppressRef.current;
+                if (suppressed && suppressed.contains(e.target as Node)) {
+                  return;
+                }
+                railSuppressRef.current = null;
+                setRailExpanded(true);
+              }}
+              onMouseLeave={() => {
+                railSuppressRef.current = null;
+                setRailExpanded(false);
+              }}
               className={`fixed top-[var(--impersonation-height,0px)] left-0 bottom-0 z-[10000] bg-white border-r border-slate-200 flex flex-col transition-[width,box-shadow] duration-200 ease-out ${railOpen ? 'shadow-2xl' : ''}`}
               style={{ width: railOpen ? RAIL_EXPANDED_W : RAIL_W }}
               aria-label="Design navigation"
@@ -2033,7 +2051,7 @@ export default function FloatingToolbar({
                       <button
                         key={tab.id}
                         data-tour="builder-ai-builder"
-                        onClick={() => openTabPanel(tab.id)}
+                        onClick={(e) => openTabPanel(tab.id, e.currentTarget)}
                         title={railShowLabels ? undefined : tab.label}
                         className={`group relative w-full flex items-center overflow-hidden ${railShowLabels ? 'gap-2.5 px-2.5' : 'justify-center px-0'} py-2 rounded-lg text-xs font-bold text-white shadow-sm transition-all hover:brightness-110 ${
                           isActive ? 'ring-2 ring-violet-400 ring-offset-1 ring-offset-white' : ''
@@ -2064,7 +2082,7 @@ export default function FloatingToolbar({
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => openTabPanel(tab.id)}
+                      onClick={(e) => openTabPanel(tab.id, e.currentTarget)}
                       title={railShowLabels ? undefined : tab.label}
                       className={`group relative w-full flex items-center ${railShowLabels ? 'gap-2.5 px-2.5' : 'justify-center px-0'} py-2 rounded-lg text-xs font-bold transition-colors ${
                         isActive
