@@ -1964,11 +1964,12 @@ export default function FloatingToolbar({
             {/* ── Thin icon rail — always visible, hover-expands ── */}
             <aside
               onMouseOver={(e) => {
-                const suppressed = railSuppressRef.current;
-                if (suppressed && suppressed.contains(e.target as Node)) {
-                  return;
+                if (railSuppressRef.current) {
+                  const tabEl = (e.target as HTMLElement | null)?.closest?.('[data-rail-tab]');
+                  if (!tabEl) return; // hovering padding / header / footer — stay collapsed
+                  if (tabEl === railSuppressRef.current) return; // still on clicked tab
+                  railSuppressRef.current = null; // moved to a different tab — release lock
                 }
-                railSuppressRef.current = null;
                 setRailExpanded(true);
               }}
               onMouseLeave={() => {
@@ -2051,6 +2052,7 @@ export default function FloatingToolbar({
                       <button
                         key={tab.id}
                         data-tour="builder-ai-builder"
+                        data-rail-tab={tab.id}
                         onClick={(e) => openTabPanel(tab.id, e.currentTarget)}
                         title={railShowLabels ? undefined : tab.label}
                         className={`group relative w-full flex items-center overflow-hidden ${railShowLabels ? 'gap-2.5 px-2.5' : 'justify-center px-0'} py-2 rounded-lg text-xs font-bold text-white shadow-sm transition-all hover:brightness-110 ${
@@ -2082,6 +2084,7 @@ export default function FloatingToolbar({
                   return (
                     <button
                       key={tab.id}
+                      data-rail-tab={tab.id}
                       onClick={(e) => openTabPanel(tab.id, e.currentTarget)}
                       title={railShowLabels ? undefined : tab.label}
                       className={`group relative w-full flex items-center ${railShowLabels ? 'gap-2.5 px-2.5' : 'justify-center px-0'} py-2 rounded-lg text-xs font-bold transition-colors ${
