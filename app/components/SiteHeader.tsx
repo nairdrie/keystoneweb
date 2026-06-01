@@ -181,6 +181,12 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
         ? 'gap-4'
         : compact.tier === 1 ? 'gap-3' : 'gap-2';
     const zoneOuterGapClass: string = compact.tier <= 1 ? 'gap-3' : 'gap-2';
+    // Logo-above nav row sits between nav and utils as siblings (instead of
+    // packed inside zones), so it starts wider — match the original `gap-8`
+    // at tier 0 and step down from there.
+    const wideRowGapClass: string = compact.tier === 0
+        ? 'gap-8'
+        : compact.tier === 1 ? 'gap-6' : 'gap-4';
 
     // ── Scroll-bg-change detection ──────────────────────────────────────────
     // hasScrolled is only consulted while `scrollBgChange` is enabled — when
@@ -905,24 +911,43 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
     // ── LOGO ABOVE NAV (Luxe-style two-row) ────────────────────────────────
     if (logoPosition === 'above') {
         const navContent = useDesktopHamburger ? desktopHamburgerBtn : navLinksEl;
-        const utilsCluster = <div className="flex items-center gap-6">{desktopUtilsEl}</div>;
+        const utilsCluster = <div className={`flex items-center ${utilsGapClass}`}>{desktopUtilsEl}</div>;
 
-        const navRow = navPosition === 'center' ? (
-            <div className="hidden md:flex items-center justify-center h-12 gap-8 relative">
-                {navContent}
-                <div className="absolute right-0">{utilsCluster}</div>
-            </div>
-        ) : navPosition === 'right' ? (
-            <div className="hidden md:flex items-center justify-end h-12 gap-8">
-                {navContent}
-                {utilsCluster}
-            </div>
-        ) : (
-            <div className="hidden md:flex items-center h-12 gap-8">
-                {navContent}
-                <div className="ml-auto">{utilsCluster}</div>
-            </div>
-        );
+        // 3-zone flex (mirrors renderSingleRow) so the centered nav and the
+        // utils cluster share flow — they can't overlap, and the same
+        // compactness hook can tighten / fall back to hamburger when crowded.
+        // The previous `position: absolute` utils could slip behind the nav
+        // when both grew wider than the container.
+        const renderNavRow = () => {
+            if (navPosition === 'center') {
+                return (
+                    <div ref={compact.containerRef} className={`hidden md:flex items-center h-12 ${wideRowGapClass}`}>
+                        <div className="flex-1 min-w-0" aria-hidden />
+                        <div ref={compact.centerRef} className="shrink-0 flex items-center">
+                            {navContent}
+                        </div>
+                        <div ref={compact.rightRef} className="flex-1 min-w-0 flex items-center justify-end">
+                            {utilsCluster}
+                        </div>
+                    </div>
+                );
+            }
+            if (navPosition === 'right') {
+                return (
+                    <div ref={compact.containerRef} className={`hidden md:flex items-center justify-end h-12 ${wideRowGapClass}`}>
+                        <div ref={compact.centerRef} className="flex items-center shrink-0">{navContent}</div>
+                        <div ref={compact.rightRef} className="flex items-center shrink-0">{utilsCluster}</div>
+                    </div>
+                );
+            }
+            return (
+                <div ref={compact.containerRef} className={`hidden md:flex items-center h-12 ${wideRowGapClass}`}>
+                    <div ref={compact.centerRef} className="flex items-center shrink-0">{navContent}</div>
+                    <div ref={compact.rightRef} className="flex items-center shrink-0 ml-auto">{utilsCluster}</div>
+                </div>
+            );
+        };
+        const navRow = renderNavRow();
 
         // Mirror the default-layout split: outer header holds position
         // (sticky/relative + h-0 when overlay), inner div holds the visible
