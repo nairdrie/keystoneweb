@@ -1,4 +1,10 @@
 'use client';
+// The compactness hook hands back ref objects that we attach to JSX via the
+// canonical `ref={...}` pattern. eslint-plugin-react-hooks@7's react-hooks/refs
+// rule mis-flags these as "ref access during render" because the refs live on
+// the returned object — disable it for this file rather than wrap every ref
+// attribute in inline disables.
+/* eslint-disable react-hooks/refs */
 
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { Menu, X, Settings, Facebook, Instagram, Twitter, Linkedin, Youtube, Phone, User } from 'lucide-react';
@@ -171,6 +177,13 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     // explicitly chosen hamburger-on-desktop themselves.
     const userPickedHamburger = desktopMenuStyle === 'hamburger';
     const compact = useHeaderCompactness(!userPickedHamburger);
+    // Destructure into local variables so ref={...} attributes look like
+    // bare-variable refs (the canonical useRef pattern). The flat shape
+    // also makes the dependency on each ref explicit at the call sites.
+    const compactContainerRef = compact.containerRef;
+    const compactLeftRef = compact.leftRef;
+    const compactCenterRef = compact.centerRef;
+    const compactRightRef = compact.rightRef;
     const forceHamburger = compact.tier === 3;
 
     const navItemGapClass: string = compact.tier === 0
@@ -603,8 +616,12 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         </Link>
     );
 
+    // The compactness hook measures this div's bounding rect to know the
+    // nav's actual rendered width. Keep the ref on the inner content (not
+    // the flex zone wrapper) — wrapper widths track flex allocation, not
+    // content size.
     const navLinksEl = (
-        <div className="ks-nav-items">
+        <div ref={compactCenterRef} className="ks-nav-items">
             <NavMenu
                 className={`flex items-center ${navItemGapClass}`}
                 itemClassName={resolvedNavItemClass}
@@ -786,7 +803,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         const center: React.ReactNode[] = [];
         const right: React.ReactNode[] = [];
 
-        if (logoPosition === 'left')   left.push(<div key="logo">{logoLink}</div>);
+        if (logoPosition === 'left')   left.push(<div ref={compactLeftRef} key="logo">{logoLink}</div>);
         if (logoPosition === 'center') center.push(<div key="logo">{logoLink}</div>);
 
         if (useDesktopHamburger) {
@@ -801,7 +818,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         }
 
         right.push(
-            <div key="utils" className={`hidden md:flex items-center ${utilsGapClass}`}>
+            <div ref={compactRightRef} key="utils" className={`hidden md:flex items-center ${utilsGapClass}`}>
                 {desktopUtilsEl}
             </div>
         );
@@ -810,15 +827,15 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         const mobileCluster = mobileToggleCluster(hamburgerPosition);
 
         return (
-            <div ref={compact.containerRef} className={`flex items-center ${zoneOuterGapClass} ${heightClass}`}>
-                <div ref={compact.leftRef} className={`flex items-center justify-start ${zoneInnerGapClass} shrink-0`}>
+            <div ref={compactContainerRef} className={`flex items-center ${zoneOuterGapClass} ${heightClass}`}>
+                <div className={`flex items-center justify-start ${zoneInnerGapClass} shrink-0`}>
                     {hamburgerPosition === 'left' ? mobileCluster : null}
                     {left}
                 </div>
-                <div ref={compact.centerRef} className={`flex-1 flex items-center justify-center ${zoneInnerGapClass} min-w-0`}>
+                <div className={`flex-1 flex items-center justify-center ${zoneInnerGapClass} min-w-0`}>
                     {center}
                 </div>
-                <div ref={compact.rightRef} className={`flex items-center justify-end ${zoneInnerGapClass} shrink-0`}>
+                <div className={`flex items-center justify-end ${zoneInnerGapClass} shrink-0`}>
                     {right}
                     {hamburgerPosition === 'right' ? mobileCluster : null}
                 </div>
@@ -911,39 +928,40 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
     // ── LOGO ABOVE NAV (Luxe-style two-row) ────────────────────────────────
     if (logoPosition === 'above') {
         const navContent = useDesktopHamburger ? desktopHamburgerBtn : navLinksEl;
-        const utilsCluster = <div className={`flex items-center ${utilsGapClass}`}>{desktopUtilsEl}</div>;
+        const utilsCluster = (
+            <div ref={compactRightRef} className={`flex items-center ${utilsGapClass}`}>
+                {desktopUtilsEl}
+            </div>
+        );
 
-        // 3-zone flex (mirrors renderSingleRow) so the centered nav and the
-        // utils cluster share flow — they can't overlap, and the same
-        // compactness hook can tighten / fall back to hamburger when crowded.
-        // The previous `position: absolute` utils could slip behind the nav
-        // when both grew wider than the container.
+        // navLinksEl already carries compact.centerRef (set further up). The
+        // hook measures the actual rendered bounding rect of the nav and the
+        // utils cluster — so the centered nav can stay truly centered with
+        // utils absolute-positioned on the right, and we still detect the
+        // gap closing well before they overlap. Same hook drives all three
+        // nav positions; for right- and left-aligned variants nav and utils
+        // are siblings and the gap is just the inter-element flex gap.
         const renderNavRow = () => {
             if (navPosition === 'center') {
                 return (
-                    <div ref={compact.containerRef} className={`hidden md:flex items-center h-12 ${wideRowGapClass}`}>
-                        <div className="flex-1 min-w-0" aria-hidden />
-                        <div ref={compact.centerRef} className="shrink-0 flex items-center">
-                            {navContent}
-                        </div>
-                        <div ref={compact.rightRef} className="flex-1 min-w-0 flex items-center justify-end">
-                            {utilsCluster}
-                        </div>
+                    <div ref={compactContainerRef} className={`hidden md:flex items-center justify-center h-12 ${wideRowGapClass} relative`}>
+                        {navContent}
+                        <div className="absolute right-0">{utilsCluster}</div>
                     </div>
                 );
             }
             if (navPosition === 'right') {
                 return (
-                    <div ref={compact.containerRef} className={`hidden md:flex items-center justify-end h-12 ${wideRowGapClass}`}>
-                        <div ref={compact.centerRef} className="flex items-center shrink-0">{navContent}</div>
-                        <div ref={compact.rightRef} className="flex items-center shrink-0">{utilsCluster}</div>
+                    <div ref={compactContainerRef} className={`hidden md:flex items-center justify-end h-12 ${wideRowGapClass}`}>
+                        {navContent}
+                        {utilsCluster}
                     </div>
                 );
             }
             return (
-                <div ref={compact.containerRef} className={`hidden md:flex items-center h-12 ${wideRowGapClass}`}>
-                    <div ref={compact.centerRef} className="flex items-center shrink-0">{navContent}</div>
-                    <div ref={compact.rightRef} className="flex items-center shrink-0 ml-auto">{utilsCluster}</div>
+                <div ref={compactContainerRef} className={`hidden md:flex items-center h-12 ${wideRowGapClass}`}>
+                    {navContent}
+                    <div className="ml-auto">{utilsCluster}</div>
                 </div>
             );
         };
