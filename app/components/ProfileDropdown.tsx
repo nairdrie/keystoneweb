@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { User, Settings, LogOut, Paintbrush, LayoutDashboard } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth/context';
@@ -9,27 +10,60 @@ import { useRouter } from 'next/navigation';
 interface ProfileDropdownProps {
   onSettingsClick?: (e: React.MouseEvent) => void;
   buttonClassName?: string;
+  showSwitcher?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export default function ProfileDropdown({ onSettingsClick, buttonClassName }: ProfileDropdownProps) {
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
+export default function ProfileDropdown({
+  onSettingsClick,
+  buttonClassName,
+  showSwitcher = true,
+  onOpenChange,
+}: ProfileDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [popupPos, setPopupPos] = useState<{ top: number; right: number } | null>(null);
+  const [avatarErrored, setAvatarErrored] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
   const { user, signOut } = useAuth();
   const router = useRouter();
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+  const setOpen = useCallback((next: boolean) => {
+    setIsOpen(next);
+    onOpenChange?.(next);
+  }, [onOpenChange]);
+
+  useIsoLayoutEffect(() => {
+    if (!isOpen) return;
+    const update = () => {
+      if (!buttonRef.current) return;
+      const r = buttonRef.current.getBoundingClientRect();
+      setPopupPos({ top: r.bottom + 8, right: window.innerWidth - r.right });
     };
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (buttonRef.current?.contains(target)) return;
+      if (popupRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen, setOpen]);
+
+  const handleAvatarError = useCallback(() => setAvatarErrored(true), []);
 
   if (!user) return null;
 
@@ -37,29 +71,28 @@ export default function ProfileDropdown({ onSettingsClick, buttonClassName }: Pr
     if (onSettingsClick) {
       onSettingsClick(e);
       if (e.defaultPrevented) {
-        setIsOpen(false);
+        setOpen(false);
         return;
       }
     }
-    setIsOpen(false);
+    setOpen(false);
     router.push('/settings');
   };
 
   const handleLogoutClick = async () => {
-    setIsOpen(false);
+    setOpen(false);
     await signOut();
     router.push('/');
   };
 
   const userDisplayName = (user.user_metadata?.full_name || user.user_metadata?.name || user.email) as string;
   const userAvatarUrl = user.user_metadata?.avatar_url as string | undefined;
-  const [avatarErrored, setAvatarErrored] = useState(false);
-  const handleAvatarError = useCallback(() => setAvatarErrored(true), []);
 
   return (
-    <div className="relative z-[9999]" ref={dropdownRef}>
+    <>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        ref={buttonRef}
+        onClick={() => setOpen(!isOpen)}
         className={buttonClassName ?? "w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-full transition-colors flex-shrink-0 overflow-hidden"}
         title={userDisplayName}
       >
@@ -76,8 +109,12 @@ export default function ProfileDropdown({ onSettingsClick, buttonClassName }: Pr
         )}
       </button>
 
-      {isOpen && (
-        <div className="absolute top-full right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl w-64 overflow-hidden animate-in fade-in slide-in-from-top-2">
+      {isOpen && popupPos && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={popupRef}
+          className="fixed bg-white border border-slate-200 rounded-xl shadow-xl w-64 overflow-hidden animate-in fade-in slide-in-from-top-2 z-[2147483000]"
+          style={{ top: popupPos.top, right: popupPos.right }}
+        >
           <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
             <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-slate-200 flex items-center justify-center">
               {userAvatarUrl && !avatarErrored ? (
@@ -99,25 +136,27 @@ export default function ProfileDropdown({ onSettingsClick, buttonClassName }: Pr
               )}
             </div>
           </div>
-          <div className="p-2 flex gap-2">
-            <Link
-              href="/design"
-              onClick={() => setIsOpen(false)}
-              className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 rounded-md transition-colors font-medium"
-            >
-              <Paintbrush className="w-3.5 h-3.5" />
-              Design
-            </Link>
-            <Link
-              href="/admin"
-              onClick={() => setIsOpen(false)}
-              className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 rounded-md transition-colors font-medium"
-            >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              Admin
-            </Link>
-          </div>
-          <div className="p-2 pt-0 space-y-1 border-t border-slate-100">
+          {showSwitcher && (
+            <div className="p-2 flex gap-2">
+              <Link
+                href="/design"
+                onClick={() => setOpen(false)}
+                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 rounded-md transition-colors font-medium"
+              >
+                <Paintbrush className="w-3.5 h-3.5" />
+                Design
+              </Link>
+              <Link
+                href="/admin"
+                onClick={() => setOpen(false)}
+                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs text-red-600 border border-red-200 hover:bg-red-50 hover:border-red-300 rounded-md transition-colors font-medium"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                Admin
+              </Link>
+            </div>
+          )}
+          <div className={`p-2 space-y-1 ${showSwitcher ? 'pt-0 border-t border-slate-100' : ''}`}>
             <button
               onClick={handleSettingsClick}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 rounded-lg transition-colors font-medium text-left mt-1"
@@ -133,8 +172,9 @@ export default function ProfileDropdown({ onSettingsClick, buttonClassName }: Pr
               Log out
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }

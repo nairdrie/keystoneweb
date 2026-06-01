@@ -222,6 +222,7 @@ export default function FloatingToolbar({
   const [openSections, setOpenSections] = useState<string[]>([]);
   const openSectionsRef = useRef<string[]>([]);
   const [railExpanded, setRailExpanded] = useState(false);
+  const [railProfileOpen, setRailProfileOpen] = useState(false);
   const [railExpandedWidth, setRailExpandedWidth] = useState<number>(DESIGN_RAIL_EXPANDED_FALLBACK_PX);
   const railHeaderMeasureRef = useRef<HTMLDivElement | null>(null);
 
@@ -1944,7 +1945,8 @@ export default function FloatingToolbar({
           }
         };
 
-        const railShowLabels = railExpanded;
+        const railOpen = railExpanded || railProfileOpen;
+        const railShowLabels = railOpen;
 
         return (
           <>
@@ -1952,8 +1954,8 @@ export default function FloatingToolbar({
             <aside
               onMouseEnter={() => setRailExpanded(true)}
               onMouseLeave={() => setRailExpanded(false)}
-              className={`fixed top-[var(--impersonation-height,0px)] left-0 bottom-0 z-[10000] bg-white border-r border-slate-200 flex flex-col transition-[width,box-shadow] duration-200 ease-out ${railExpanded ? 'shadow-2xl' : ''}`}
-              style={{ width: railExpanded ? RAIL_EXPANDED_W : RAIL_W }}
+              className={`fixed top-[var(--impersonation-height,0px)] left-0 bottom-0 z-[10000] bg-white border-r border-slate-200 flex flex-col transition-[width,box-shadow] duration-200 ease-out ${railOpen ? 'shadow-2xl' : ''}`}
+              style={{ width: railOpen ? RAIL_EXPANDED_W : RAIL_W }}
               aria-label="Design navigation"
             >
               {/* Header (matches admin sidebar): logo + switcher (left, when expanded) + profile avatar pinned right */}
@@ -1996,6 +1998,8 @@ export default function FloatingToolbar({
                     out to the right when the rail expands. Matches admin sidebar. */}
                 <div className="absolute top-1/2 -translate-y-1/2" style={{ right: 12 }}>
                   <ProfileDropdown
+                    showSwitcher={false}
+                    onOpenChange={setRailProfileOpen}
                     buttonClassName="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-full transition-colors flex-shrink-0 overflow-hidden ring-2 ring-white shadow-sm"
                     onSettingsClick={(e) => {
                       if (changes.length > 0) {
@@ -2116,17 +2120,6 @@ export default function FloatingToolbar({
                     </div>
                   </div>
                 )}
-
-                <div className="p-2">
-                  <button
-                    onClick={openWalkthrough}
-                    title={railShowLabels ? undefined : 'Help / walkthrough'}
-                    className={`w-full flex items-center ${railShowLabels ? 'gap-2.5 px-2.5' : 'justify-center px-0'} py-2 rounded-lg text-xs font-bold text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors`}
-                  >
-                    <HelpCircle className="w-4 h-4 shrink-0" />
-                    {railShowLabels && <span className="truncate text-left">Help</span>}
-                  </button>
-                </div>
               </div>
             </aside>
 
@@ -2280,7 +2273,7 @@ export default function FloatingToolbar({
                   >
                     <HelpCircle className="w-4 h-4" />
                   </button>
-                  <ProfileDropdown onSettingsClick={(e) => {
+                  <ProfileDropdown showSwitcher={false} onSettingsClick={(e) => {
                     if (changes.length > 0) {
                       e.preventDefault();
                       setAlertConfig({
