@@ -43,6 +43,7 @@ import {
     readCardSettings,
     type CardSettings,
 } from '@/lib/block-style-options';
+import ImageEditorModal, { type ImageSettings, type UnsplashAttribution } from '@/app/components/ImageEditorModal';
 
 type EditorMode = 'simple' | 'advanced';
 
@@ -55,7 +56,7 @@ type EstimateQuoteDraft = {
     __customScript: string;
 };
 
-const SECTION_IDS = ['mode', 'guided', 'fields', 'steps', 'display', 'advanced-pricing', 'integrations', 'preview', 'universal-layout', 'style', 'advanced'];
+const SECTION_IDS = ['mode', 'guided', 'fields', 'steps', 'presentation', 'display', 'advanced-pricing', 'integrations', 'preview', 'universal-layout', 'style', 'advanced'];
 
 const FIELD_TYPE_OPTIONS: Array<{ value: EstimateFieldType; label: string }> = [
     { value: 'text', label: 'Text' },
@@ -118,6 +119,10 @@ export default function EstimateQuoteSettingsPanel({
     const [draft, setDraft] = useState<EstimateQuoteDraft>(initialDraft);
     const [mode, setMode] = useState<EditorMode>('simple');
     const [testValues, setTestValues] = useState<Record<string, unknown>>({});
+    const [heroImagePickerOpen, setHeroImagePickerOpen] = useState(false);
+    const siteId = context?.siteId || '';
+    const siteCategory = context?.siteCategory;
+    const uploadImage = context?.uploadImage;
     const sectionState = useInspectorSectionState(SECTION_IDS, true);
     const warnings = useMemo(() => calculateQuote(draft.settings, testValues).warnings, [draft.settings, testValues]);
     const previewResult = useMemo(() => calculateQuote(draft.settings, testValues), [draft.settings, testValues]);
@@ -199,6 +204,24 @@ export default function EstimateQuoteSettingsPanel({
         setTestValues({});
     };
 
+    const heroDefaults = normalizeEstimateQuoteSettings({}).hero!;
+    const heroValue = draft.settings.hero || heroDefaults;
+    const updateHero = (updates: Partial<EstimateQuoteSettings['hero'] & object>) => {
+        updateNestedSettings('hero', { ...heroValue, ...updates } as EstimateQuoteSettings['hero']);
+    };
+    const updateHeroBackground = (updates: Partial<NonNullable<EstimateQuoteSettings['hero']>['background']>) => {
+        updateHero({ background: { ...heroValue.background, ...updates } });
+    };
+    const handleHeroImageSave = (url: string, settings: ImageSettings, attribution?: UnsplashAttribution) => {
+        updateHeroBackground({
+            type: 'image',
+            imageUrl: url,
+            imageSettings: settings,
+            imageAttribution: attribution,
+        });
+        setHeroImagePickerOpen(false);
+    };
+
     useEffect(() => {
         if (!context?.updateBlockDataBatch) return;
         if (JSON.stringify(draft) === JSON.stringify(initialDraft)) return;
@@ -207,6 +230,7 @@ export default function EstimateQuoteSettingsPanel({
     }, [draft, initialDraft, blockData, blockId, context]);
 
     return (
+        <>
         <BlockSettingsPanel
             isOpen
             title="Estimate / Quote Form Settings"
@@ -375,6 +399,103 @@ export default function EstimateQuoteSettingsPanel({
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    )}
+                </div>
+            </InspectorSection>
+
+            <InspectorSection
+                id="presentation"
+                title="Display: Presentation"
+                isCollapsed={sectionState.isCollapsed('presentation')}
+                onToggle={() => sectionState.toggle('presentation')}
+            >
+                <div className="space-y-4">
+                    <SelectField
+                        label="Variant"
+                        value={draft.settings.presentation}
+                        onChange={(presentation) => updateSettings({ presentation: presentation as EstimateQuoteSettings['presentation'] })}
+                        options={[
+                            { value: 'standard', label: 'Standard (centered title, form below)' },
+                            { value: 'hero', label: 'Hero (title left, form right)' },
+                        ]}
+                    />
+                    {draft.settings.presentation === 'hero' && (
+                        <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                            <SelectField
+                                label="Form side (desktop)"
+                                value={heroValue.formSide}
+                                onChange={(formSide) => updateHero({ formSide: formSide as 'left' | 'right' })}
+                                options={[
+                                    { value: 'right', label: 'Form right, text left' },
+                                    { value: 'left', label: 'Form left, text right' },
+                                ]}
+                            />
+                            <TextField
+                                label="Eyebrow text"
+                                value={heroValue.eyebrow || ''}
+                                placeholder="Quick estimate"
+                                onChange={(eyebrow) => updateHero({ eyebrow })}
+                            />
+                            <ColorField
+                                label="Text color"
+                                value={heroValue.textColor || '#ffffff'}
+                                onChange={(textColor) => updateHero({ textColor })}
+                            />
+                            <SelectField
+                                label="Background type"
+                                value={heroValue.background.type}
+                                onChange={(type) => updateHeroBackground({ type: type as 'color' | 'image' })}
+                                options={[
+                                    { value: 'color', label: 'Solid color' },
+                                    { value: 'image', label: 'Image' },
+                                ]}
+                            />
+                            <ColorField
+                                label="Background color"
+                                value={heroValue.background.color}
+                                onChange={(color) => updateHeroBackground({ color })}
+                            />
+                            {heroValue.background.type === 'image' && (
+                                <div className="space-y-2">
+                                    {heroValue.background.imageUrl ? (
+                                        <div className="overflow-hidden rounded-lg border border-slate-200">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img src={heroValue.background.imageUrl} alt="Hero background" className="h-32 w-full object-cover" />
+                                        </div>
+                                    ) : null}
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setHeroImagePickerOpen(true)}
+                                            className="flex-1 rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm font-bold text-blue-700 hover:bg-blue-50"
+                                        >
+                                            {heroValue.background.imageUrl ? 'Replace image' : 'Choose image'}
+                                        </button>
+                                        {heroValue.background.imageUrl && (
+                                            <button
+                                                type="button"
+                                                onClick={() => updateHeroBackground({ imageUrl: undefined, imageSettings: undefined, imageAttribution: undefined })}
+                                                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-500 hover:bg-slate-50"
+                                            >
+                                                Remove
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                            <div className="grid grid-cols-2 gap-2">
+                                <ColorField
+                                    label="Overlay color"
+                                    value={heroValue.background.overlayColor}
+                                    onChange={(overlayColor) => updateHeroBackground({ overlayColor })}
+                                />
+                                <NumberField
+                                    label="Overlay opacity (0–1)"
+                                    value={heroValue.background.overlayOpacity}
+                                    onChange={(overlayOpacity) => updateHeroBackground({ overlayOpacity: Math.max(0, Math.min(1, overlayOpacity)) })}
+                                />
+                            </div>
                         </div>
                     )}
                 </div>
@@ -656,6 +777,21 @@ export default function EstimateQuoteSettingsPanel({
                 )}
             </InspectorSection>
         </BlockSettingsPanel>
+        {heroImagePickerOpen && uploadImage && (
+            <ImageEditorModal
+                isOpen={heroImagePickerOpen}
+                onClose={() => setHeroImagePickerOpen(false)}
+                currentImageUrl={heroValue.background.imageUrl}
+                currentSettings={heroValue.background.imageSettings as ImageSettings | undefined}
+                siteId={siteId}
+                siteCategory={siteCategory}
+                onSave={handleHeroImageSave}
+                onUpload={uploadImage}
+                contentKey={`estimate-${blockId}-hero-background`}
+                previewFrameClassName="w-full min-h-[320px]"
+            />
+        )}
+        </>
     );
 }
 
@@ -890,6 +1026,29 @@ function MoneyField({ label, valueCents, onChange }: { label: string; valueCents
                 onChange={(event) => onChange(event.target.value === '' ? undefined : dollarsToCents(event.target.value))}
                 className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
             />
+        </div>
+    );
+}
+
+function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+    const isHex = /^#([0-9a-f]{6}|[0-9a-f]{3})$/i.test(value);
+    return (
+        <div>
+            <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">{label}</label>
+            <div className="flex items-center gap-2">
+                <input
+                    type="color"
+                    value={isHex ? value : '#000000'}
+                    onChange={(event) => onChange(event.target.value)}
+                    className="h-9 w-12 cursor-pointer rounded-md border border-slate-200 bg-white p-1"
+                />
+                <input
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                    placeholder="#000000"
+                    className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+            </div>
         </div>
     );
 }
