@@ -255,11 +255,6 @@ export default function FloatingToolbar({
   const [siteTitleDraft, setSiteTitleDraft] = useState('');
   const [showWalkthrough, setShowWalkthrough] = useState(false);
   const [walkthroughStep, setWalkthroughStep] = useState(0);
-  const [walkthroughStyleBaseline, setWalkthroughStyleBaseline] = useState<{
-    paletteName: string;
-    titleFont: string;
-    bodyFont: string;
-  } | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewLinkCopied, setPreviewLinkCopied] = useState(false);
   const walkthroughPanelStateRef = useRef<boolean | null>(null);
@@ -268,15 +263,6 @@ export default function FloatingToolbar({
 
   const DESIGNER_WALKTHROUGH_KEY = 'ks_seen_designer_walkthrough';
   const ALWAYS_SHOW_DESIGNER_WALKTHROUGH = false;
-  const COLORS_FONTS_CONTROLS_STEP_INDEX = 6;
-
-  const hasChangedColorsOrFonts = walkthroughStyleBaseline
-    ? (
-        (selectedPalette?.name || 'custom') !== walkthroughStyleBaseline.paletteName ||
-        (titleFont || '') !== walkthroughStyleBaseline.titleFont ||
-        (bodyFont || '') !== walkthroughStyleBaseline.bodyFont
-      )
-    : false;
 
   const designerSteps = useMemo<WalkthroughStep[]>(() => {
     const isViewingAnotherPage = currentPageSlug !== 'home';
@@ -294,7 +280,7 @@ export default function FloatingToolbar({
       description: 'Start here by switching from View to Edit. View shows the page like a visitor would see it, while Edit turns on the site-building tools.',
       spotlightPadding: 6,
       spotlightRadiusOffset: 8,
-      interactionHint: 'Try switching to Edit to unlock the next step.',
+      interactionHint: 'Switch to Edit whenever you want to start changing things, or continue the tour from here.',
     },
     {
       target: '[data-tour="builder-canvas"]',
@@ -330,7 +316,7 @@ export default function FloatingToolbar({
       autoMinimizeOnObstruction: false,
       interactionHint: isViewingAnotherPage
         ? 'Take a quick look around this page, then continue when you are ready.'
-        : 'Pick another page here, or create a new one, to continue the tour.',
+        : 'Open the page menu to switch pages or add a new one anytime, or just continue the tour.',
     },
     {
       target: ['[data-tour="page-selector-home-option"]', '[data-tour="page-selector-menu"]', '[data-tour="page-selector-trigger"]'],
@@ -338,7 +324,7 @@ export default function FloatingToolbar({
       description: 'Nice. Use this same page menu to jump back to Home before we move on to styling the main design.',
       placement: 'bottom',
       autoMinimizeOnObstruction: false,
-      interactionHint: 'Select Home in the page menu to unlock the next step.',
+      interactionHint: 'Use this same page menu to jump back to Home whenever you need to.',
       },
       {
         target: ['[data-tour="font-picker-modal"]', '[data-tour="builder-design-panel"]'],
@@ -348,7 +334,7 @@ export default function FloatingToolbar({
         autoMinimizeOnObstruction: false,
         requiresPanel: true,
         sectionKeys: ['colors', 'typography'],
-        interactionHint: 'Try choosing a new palette or font here to continue the tour.',
+        interactionHint: 'Browse palettes and fonts here whenever you want to restyle the site, or continue the tour.',
       },
       {
         target: '[data-tour="builder-canvas"]',
@@ -425,7 +411,6 @@ export default function FloatingToolbar({
       }
       setShowWalkthrough(false);
       setWalkthroughStep(0);
-      setWalkthroughStyleBaseline(null);
       if (walkthroughPanelStateRef.current !== null) {
         onOpenChange(walkthroughPanelStateRef.current);
         walkthroughPanelStateRef.current = null;
@@ -438,7 +423,6 @@ export default function FloatingToolbar({
 
   function openWalkthrough() {
     setWalkthroughStep(0);
-    setWalkthroughStyleBaseline(null);
     setShowWalkthrough(true);
   }
 
@@ -508,16 +492,6 @@ export default function FloatingToolbar({
       });
     }
   }, [designerSteps, isLargeScreen, isOpen, onOpenChange, showWalkthrough, walkthroughStep]);
-
-  useEffect(() => {
-    if (!showWalkthrough || walkthroughStep !== COLORS_FONTS_CONTROLS_STEP_INDEX || walkthroughStyleBaseline) return;
-
-    setWalkthroughStyleBaseline({
-      paletteName: selectedPalette?.name || 'custom',
-      titleFont: titleFont || '',
-      bodyFont: bodyFont || '',
-    });
-  }, [bodyFont, selectedPalette?.name, showWalkthrough, titleFont, walkthroughStep, walkthroughStyleBaseline]);
 
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -2566,12 +2540,6 @@ export default function FloatingToolbar({
         onNext={handleNextWalkthrough}
         onPrev={handlePrevWalkthrough}
         title="Design Studio Guide"
-        isNextDisabled={
-          (walkthroughStep === 1 && !isEditMode) ||
-          (walkthroughStep === 4 && currentPageSlug === 'home') ||
-          (walkthroughStep === 5 && currentPageSlug !== 'home') ||
-          (walkthroughStep === COLORS_FONTS_CONTROLS_STEP_INDEX && !hasChangedColorsOrFonts)
-        }
         nextButtonLabel={walkthroughStep === 0 ? 'Start Tour' : undefined}
       />
     </>
