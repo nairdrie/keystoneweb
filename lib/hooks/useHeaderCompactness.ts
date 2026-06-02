@@ -128,15 +128,11 @@ export function useHeaderCompactness(enabled: boolean): UseHeaderCompactnessResu
             // two zones — measure those directly too.
             if (!centerRect || centerRect.width === 0) pair(leftRect, rightRect);
 
-            // Also detect actual overflow past container edges (with a 1px
-            // tolerance for sub-pixel rounding). If any zone extends past
-            // the container, treat as a worse-than-zero gap so we tighten
-            // immediately.
-            const overflowsContainer = (r?: DOMRect) => {
-                if (!r || r.width === 0) return false;
-                return r.left < containerRect.left - 1 || r.right > containerRect.right + 1;
-            };
-            if (overflowsContainer(leftRect) || overflowsContainer(centerRect) || overflowsContainer(rightRect)) {
+            // Container-level overflow check: when content can't fit, the
+            // flex container's scrollWidth exceeds its clientWidth. Catches
+            // layouts where no single ref's rect crosses an edge but the
+            // collective content (e.g. nav + utils as siblings) overflows.
+            if (container.scrollWidth > containerRect.width + 1) {
                 worstGap = Math.min(worstGap, -1);
             }
 

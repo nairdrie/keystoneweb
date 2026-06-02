@@ -617,11 +617,13 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
     );
 
     // The compactness hook measures this div's bounding rect to know the
-    // nav's actual rendered width. Keep the ref on the inner content (not
-    // the flex zone wrapper) — wrapper widths track flex allocation, not
-    // content size.
+    // nav's actual rendered width — but only when the nav is its own
+    // cluster (navPosition === 'center'). When the nav lives inside the
+    // left or right zone alongside the logo/utils, attaching a ref here
+    // would make the hook measure the intra-zone gap (the intentional
+    // 8–16px space between sibling icons) and oscillate.
     const navLinksEl = (
-        <div ref={compactCenterRef} className="ks-nav-items">
+        <div ref={navPosition === 'center' ? compactCenterRef : null} className="ks-nav-items">
             <NavMenu
                 className={`flex items-center ${navItemGapClass}`}
                 itemClassName={resolvedNavItemClass}
@@ -803,7 +805,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         const center: React.ReactNode[] = [];
         const right: React.ReactNode[] = [];
 
-        if (logoPosition === 'left')   left.push(<div ref={compactLeftRef} key="logo">{logoLink}</div>);
+        if (logoPosition === 'left')   left.push(<div key="logo">{logoLink}</div>);
         if (logoPosition === 'center') center.push(<div key="logo">{logoLink}</div>);
 
         if (useDesktopHamburger) {
@@ -818,7 +820,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         }
 
         right.push(
-            <div ref={compactRightRef} key="utils" className={`hidden md:flex items-center ${utilsGapClass}`}>
+            <div key="utils" className={`hidden md:flex items-center ${utilsGapClass}`}>
                 {desktopUtilsEl}
             </div>
         );
@@ -826,16 +828,21 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         // Mobile cluster — show alongside the logo on mobile
         const mobileCluster = mobileToggleCluster(hamburgerPosition);
 
+        // Refs attach to the shrink-0 zone wrappers so each rect tracks the
+        // whole cluster (logo on the left, optional centered nav, nav+utils
+        // on the right). Measuring zone-wrapper boundaries — not individual
+        // children — keeps the hook from interpreting intra-zone gaps (like
+        // the 8–16px space between sibling utils icons) as crowding.
         return (
             <div ref={compactContainerRef} className={`flex items-center ${zoneOuterGapClass} ${heightClass}`}>
-                <div className={`flex items-center justify-start ${zoneInnerGapClass} shrink-0`}>
+                <div ref={compactLeftRef} className={`flex items-center justify-start ${zoneInnerGapClass} shrink-0`}>
                     {hamburgerPosition === 'left' ? mobileCluster : null}
                     {left}
                 </div>
                 <div className={`flex-1 flex items-center justify-center ${zoneInnerGapClass} min-w-0`}>
                     {center}
                 </div>
-                <div className={`flex items-center justify-end ${zoneInnerGapClass} shrink-0`}>
+                <div ref={compactRightRef} className={`flex items-center justify-end ${zoneInnerGapClass} shrink-0`}>
                     {right}
                     {hamburgerPosition === 'right' ? mobileCluster : null}
                 </div>
