@@ -3,6 +3,7 @@ import { createClient } from '@/lib/db/supabase-server';
 import dns from 'dns';
 import { promisify } from 'util';
 import { CUSTOM_DOMAIN_CNAME_TARGET } from '@/lib/env/domain';
+import { addDomainToProject } from '@/lib/domains/status';
 
 const resolveCname = promisify(dns.resolveCname);
 const resolveTxt = promisify(dns.resolveTxt);
@@ -82,6 +83,11 @@ export async function POST(request: NextRequest) {
     const verified = checks.cname && checks.txt;
 
     if (verified) {
+      // Register the domain on the Vercel project so it actually gets served.
+      // Idempotent (treats 409 "already added" as success), so safe to call on
+      // every successful verify — covers rows linked before this code existed.
+      await addDomainToProject(domain);
+
       // Mark DNS records as verified
       await supabase
         .from('dns_records')

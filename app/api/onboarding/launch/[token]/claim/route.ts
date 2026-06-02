@@ -117,10 +117,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     console.error('Failed to upsert user profile:', profileErr);
   }
 
-  // Transfer site ownership.
+  // Transfer site ownership. Also unpublish: the operator may have published
+  // the site to a kswd.ca subdomain to preview it during build, and that
+  // pre-publish should stop serving the moment the site becomes the client's
+  // (they haven't paid yet — we don't want a live URL out in the wild without
+  // an active subscription behind it). The onboarding preview iframe reads
+  // draft data via /preview?siteId=..., so unpublishing here doesn't break it.
+  // provisionLaunch re-publishes after payment.
   const { error: siteErr } = await db
     .from('sites')
-    .update({ user_id: newUserId })
+    .update({
+      user_id: newUserId,
+      is_published: false,
+      published_at: null,
+    })
     .eq('id', req.site_id);
   if (siteErr) {
     console.error('Failed to transfer site ownership:', siteErr);

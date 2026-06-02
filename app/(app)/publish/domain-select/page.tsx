@@ -926,7 +926,7 @@ export function DomainManager({
 
       if (result.verified) {
         setSuccess(true);
-        setPublishedUrl(`https://${externalDomain.trim()}`);
+        setPublishedUrl(`https://${result.domain}`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to verify DNS');
@@ -1331,14 +1331,21 @@ export function DomainManager({
                 <Loader2 className="w-4 h-4 text-amber-600" />
                 <h3 className="text-sm font-bold text-amber-900">Pending Domain</h3>
               </div>
-              <button
-                onClick={handleVerifyTransferStatus}
-                disabled={verifyingTransfer}
-                className="flex items-center gap-1 text-xs font-bold text-amber-700 hover:text-amber-900 transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3 h-3 ${verifyingTransfer ? 'animate-spin' : ''}`} />
-                {verifyingTransfer ? 'Checking...' : 'Refresh Status'}
-              </button>
+              {(() => {
+                const isTransfer =
+                  !!siteStatus.transferStatus && siteStatus.transferStatus !== 'completed';
+                const busy = isTransfer ? verifyingTransfer : verifying;
+                return (
+                  <button
+                    onClick={isTransfer ? handleVerifyTransferStatus : handleVerifyDns}
+                    disabled={busy}
+                    className="flex items-center gap-1 text-xs font-bold text-amber-700 hover:text-amber-900 transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${busy ? 'animate-spin' : ''}`} />
+                    {busy ? 'Checking...' : 'Refresh Status'}
+                  </button>
+                );
+              })()}
             </div>
             <div className="px-5 py-4 space-y-3">
               <span className="font-mono text-sm font-semibold text-slate-900">{siteStatus.pendingCustomDomain}</span>

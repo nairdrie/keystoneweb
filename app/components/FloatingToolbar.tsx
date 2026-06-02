@@ -146,10 +146,31 @@ const DESIGN_SECTION_IDS = [
   'ai-builder',
 ] as const;
 const DEFAULT_DESIGN_SECTION_ID = DESIGN_SECTION_IDS[0];
+type DesignSectionId = typeof DESIGN_SECTION_IDS[number];
+const LAST_DESIGN_SECTION_STORAGE_KEY = 'ks:last-design-section';
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
-function isDesignSectionId(section: string | null | undefined): section is typeof DESIGN_SECTION_IDS[number] {
+function isDesignSectionId(section: string | null | undefined): section is DesignSectionId {
   return typeof section === 'string' && (DESIGN_SECTION_IDS as readonly string[]).includes(section);
+}
+
+function getStoredDesignSectionId(): DesignSectionId | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = window.sessionStorage.getItem(LAST_DESIGN_SECTION_STORAGE_KEY);
+    return isDesignSectionId(stored) ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberDesignSectionId(section: DesignSectionId) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(LAST_DESIGN_SECTION_STORAGE_KEY, section);
+  } catch {
+    // Ignore storage failures; the in-memory ref still handles this session.
+  }
 }
 
 function useIsLargeScreen() {
@@ -255,13 +276,25 @@ export default function FloatingToolbar({
   const isFullyDeployed = isSynced && changes.length === 0;
   const selectedContainerWidth = normalizeSiteLayoutContainerWidth(siteContent?.[SITE_LAYOUT_CONTAINER_WIDTH_KEY]);
 
-  const [openSections, setOpenSections] = useState<string[]>(() => (isOpen ? [DEFAULT_DESIGN_SECTION_ID] : []));
+  const lastActiveDesignSectionRef = useRef<DesignSectionId | null>(getStoredDesignSectionId());
+  const [openSections, setOpenSections] = useState<string[]>(() => {
+    const storedSection = getStoredDesignSectionId();
+    return isOpen && storedSection ? [storedSection] : [];
+  });
   const openSectionsRef = useRef<string[]>([]);
-  const shouldUseTemplateFallback = isOpen && isLargeScreen && !isDesignSectionId(openSections[0]);
-  const templateSectionOpen = openSections.includes(DEFAULT_DESIGN_SECTION_ID) || shouldUseTemplateFallback;
+  const activeSectionFallback = isOpen && isLargeScreen && !isDesignSectionId(openSections[0])
+    ? lastActiveDesignSectionRef.current
+    : null;
+  const isSectionOpen = (section: DesignSectionId) => openSections.includes(section) || activeSectionFallback === section;
+  const templateSectionOpen = isSectionOpen(DEFAULT_DESIGN_SECTION_ID);
   const [railExpanded, setRailExpanded] = useState(false);
+  const [railProfileOpen, setRailProfileOpen] = useState(false);
   const [railExpandedWidth, setRailExpandedWidth] = useState<number>(DESIGN_RAIL_EXPANDED_FALLBACK_PX);
   const railHeaderMeasureRef = useRef<HTMLDivElement | null>(null);
+  // Tab element that was just clicked — used to suppress the
+  // collapse-on-click rail from immediately re-expanding while the cursor
+  // is still resting on that same button.
+  const railSuppressRef = useRef<HTMLElement | null>(null);
 
   // Measure the natural width of the rail header's left group (logo + Design/Admin
   // switcher) and add the avatar + padding budget so the expanded rail can never
@@ -288,11 +321,6 @@ export default function FloatingToolbar({
   const [siteTitleDraft, setSiteTitleDraft] = useState('');
   const [showWalkthrough, setShowWalkthrough] = useState(false);
   const [walkthroughStep, setWalkthroughStep] = useState(0);
-  const [walkthroughStyleBaseline, setWalkthroughStyleBaseline] = useState<{
-    paletteName: string;
-    titleFont: string;
-    bodyFont: string;
-  } | null>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewLinkCopied, setPreviewLinkCopied] = useState(false);
   const walkthroughPanelStateRef = useRef<boolean | null>(null);
@@ -301,15 +329,6 @@ export default function FloatingToolbar({
 
   const DESIGNER_WALKTHROUGH_KEY = 'ks_seen_designer_walkthrough';
   const ALWAYS_SHOW_DESIGNER_WALKTHROUGH = false;
-  const COLORS_FONTS_CONTROLS_STEP_INDEX = 6;
-
-  const hasChangedColorsOrFonts = walkthroughStyleBaseline
-    ? (
-        (selectedPalette?.name || 'custom') !== walkthroughStyleBaseline.paletteName ||
-        (titleFont || '') !== walkthroughStyleBaseline.titleFont ||
-        (bodyFont || '') !== walkthroughStyleBaseline.bodyFont
-      )
-    : false;
 
   const designerSteps = useMemo<WalkthroughStep[]>(() => {
     const isViewingAnotherPage = currentPageSlug !== 'home';
@@ -327,7 +346,7 @@ export default function FloatingToolbar({
       description: 'Start here by switching from View to Edit. View shows the page like a visitor would see it, while Edit turns on the site-building tools.',
       spotlightPadding: 6,
       spotlightRadiusOffset: 8,
-      interactionHint: 'Try switching to Edit to unlock the next step.',
+      interactionHint: 'Switch to Edit whenever you want to start changing things, or continue the tour from here.',
     },
     {
       target: '[data-tour="builder-canvas"]',
@@ -363,7 +382,7 @@ export default function FloatingToolbar({
       autoMinimizeOnObstruction: false,
       interactionHint: isViewingAnotherPage
         ? 'Take a quick look around this page, then continue when you are ready.'
-        : 'Pick another page here, or create a new one, to continue the tour.',
+        : 'Open the page menu to switch pages or add a new one anytime, or just continue the tour.',
     },
     {
       target: ['[data-tour="page-selector-home-option"]', '[data-tour="page-selector-menu"]', '[data-tour="page-selector-trigger"]'],
@@ -371,7 +390,7 @@ export default function FloatingToolbar({
       description: 'Nice. Use this same page menu to jump back to Home before we move on to styling the main design.',
       placement: 'bottom',
       autoMinimizeOnObstruction: false,
-      interactionHint: 'Select Home in the page menu to unlock the next step.',
+      interactionHint: 'Use this same page menu to jump back to Home whenever you need to.',
       },
       {
         target: ['[data-tour="font-picker-modal"]', '[data-tour="builder-design-panel"]'],
@@ -381,7 +400,7 @@ export default function FloatingToolbar({
         autoMinimizeOnObstruction: false,
         requiresPanel: true,
         sectionKeys: ['colors', 'typography'],
-        interactionHint: 'Try choosing a new palette or font here to continue the tour.',
+        interactionHint: 'Browse palettes and fonts here whenever you want to restyle the site, or continue the tour.',
       },
       {
         target: '[data-tour="builder-canvas"]',
@@ -418,6 +437,7 @@ export default function FloatingToolbar({
         description: 'Hit Save to keep your progress, then Publish when you\'re ready for the world to see your site.',
         placement: 'right',
         requiresPanel: true,
+        sectionKeys: ['other-settings'],
         interactionHint: 'When you are comfortable with your changes, these are the controls you will use to keep or launch them.',
         },
         {
@@ -458,7 +478,6 @@ export default function FloatingToolbar({
       }
       setShowWalkthrough(false);
       setWalkthroughStep(0);
-      setWalkthroughStyleBaseline(null);
       if (walkthroughPanelStateRef.current !== null) {
         onOpenChange(walkthroughPanelStateRef.current);
         walkthroughPanelStateRef.current = null;
@@ -471,7 +490,6 @@ export default function FloatingToolbar({
 
   function openWalkthrough() {
     setWalkthroughStep(0);
-    setWalkthroughStyleBaseline(null);
     setShowWalkthrough(true);
   }
 
@@ -495,17 +513,40 @@ export default function FloatingToolbar({
   }
 
   const toggleSection = (section: string) => {
-    setOpenSections(prev => prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]);
+    setOpenSections(prev => {
+      if (prev.includes(section)) {
+        return prev.filter(s => s !== section);
+      }
+      if (isDesignSectionId(section)) {
+        lastActiveDesignSectionRef.current = section;
+        rememberDesignSectionId(section);
+      }
+      return [...prev, section];
+    });
   };
 
   const activateTemplateSection = useCallback(() => {
+    lastActiveDesignSectionRef.current = DEFAULT_DESIGN_SECTION_ID;
+    rememberDesignSectionId(DEFAULT_DESIGN_SECTION_ID);
     setOpenSections([DEFAULT_DESIGN_SECTION_ID]);
     onOpenChange(true);
   }, [onOpenChange]);
 
   useEffect(() => {
     openSectionsRef.current = openSections;
+    const activeSection = openSections[0];
+    if (isDesignSectionId(activeSection)) {
+      lastActiveDesignSectionRef.current = activeSection;
+      rememberDesignSectionId(activeSection);
+    }
   }, [openSections]);
+
+  useEffect(() => {
+    if (!isOpen || !isLargeScreen || showWalkthrough || isDesignSectionId(openSections[0])) return;
+    if (!lastActiveDesignSectionRef.current) {
+      onOpenChange(false);
+    }
+  }, [isLargeScreen, isOpen, onOpenChange, openSections, showWalkthrough]);
 
   const loadTemplateChoices = useCallback(async (force = false) => {
     if (!siteBusinessType || !siteCategory) {
@@ -570,7 +611,6 @@ export default function FloatingToolbar({
       setSwitchingTemplateId(null);
     }
   };
-
   // When focusAiBuilder fires, collapse others, expand AI builder, and scroll to it
   useEffect(() => {
     if (!focusAiBuilder) return;
@@ -610,16 +650,6 @@ export default function FloatingToolbar({
       });
     }
   }, [designerSteps, isLargeScreen, isOpen, onOpenChange, showWalkthrough, walkthroughStep]);
-
-  useEffect(() => {
-    if (!showWalkthrough || walkthroughStep !== COLORS_FONTS_CONTROLS_STEP_INDEX || walkthroughStyleBaseline) return;
-
-    setWalkthroughStyleBaseline({
-      paletteName: selectedPalette?.name || 'custom',
-      titleFont: titleFont || '',
-      bodyFont: bodyFont || '',
-    });
-  }, [bodyFont, selectedPalette?.name, showWalkthrough, titleFont, walkthroughStep, walkthroughStyleBaseline]);
 
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -1096,7 +1126,7 @@ export default function FloatingToolbar({
               <Layout className="w-3.5 h-3.5" />
               Template
             </span>
-            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('template') ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${templateSectionOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {templateSectionOpen && (
@@ -1243,10 +1273,10 @@ export default function FloatingToolbar({
               <ImageIcon className="w-3.5 h-3.5" />
               Logo
             </span>
-            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('general') ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${isSectionOpen('general') ? 'rotate-180' : ''}`} />
           </button>
 
-          {openSections.includes('general') && (
+          {isSectionOpen('general') && (
             <div className="p-4 border-t border-slate-200 space-y-6" style={{ overflow: 'visible' }}>
 
               {/* Site Logo */}
@@ -1627,10 +1657,10 @@ export default function FloatingToolbar({
               <Layout className="w-3.5 h-3.5" />
               Layout
             </span>
-            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('layout') ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${isSectionOpen('layout') ? 'rotate-180' : ''}`} />
           </button>
 
-          {openSections.includes('layout') && (
+          {isSectionOpen('layout') && (
             <div className="p-4 border-t border-slate-200 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide">Container Width</h3>
@@ -1687,10 +1717,10 @@ export default function FloatingToolbar({
                 <Paintbrush className="w-3.5 h-3.5" />
                 Colors
               </span>
-              <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('colors') ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${isSectionOpen('colors') ? 'rotate-180' : ''}`} />
             </button>
 
-            {openSections.includes('colors') && (
+            {isSectionOpen('colors') && (
               <div className="p-4 border-t border-slate-200">
                 <div className="grid grid-cols-4 gap-3">
                   {templatePalettes.map((palette) => (
@@ -1751,10 +1781,10 @@ export default function FloatingToolbar({
               <Type className="w-3.5 h-3.5" />
               Typography
             </span>
-            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('typography') ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${isSectionOpen('typography') ? 'rotate-180' : ''}`} />
           </button>
 
-          {openSections.includes('typography') && (
+          {isSectionOpen('typography') && (
             <div className="p-4 border-t border-slate-200 space-y-4">
               <div>
                 <label className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2 block">Heading Font</label>
@@ -1790,9 +1820,9 @@ export default function FloatingToolbar({
               <Sparkles className="w-3.5 h-3.5" />
               Animation
             </span>
-            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('animation') ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${isSectionOpen('animation') ? 'rotate-180' : ''}`} />
           </button>
-          {openSections.includes('animation') && (
+          {isSectionOpen('animation') && (
             <div className="p-4 border-t border-slate-200 space-y-3">
               <p className="text-[11px] leading-snug text-slate-500">Default scroll-in animation for sections. Individual blocks can override this in their settings.</p>
               <SiteAnimationControls
@@ -1822,7 +1852,7 @@ export default function FloatingToolbar({
                   </span>
                 )}
               </span>
-              <ChevronDown className={`w-4 h-4 shrink-0 text-violet-500 transition-transform ${openSections.includes('ai-builder') ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-4 h-4 shrink-0 text-violet-500 transition-transform ${isSectionOpen('ai-builder') ? 'rotate-180' : ''}`} />
             </button>
             {isFreeUser && freeAiPromptsLeft === 0 && (
               <Link
@@ -1834,7 +1864,7 @@ export default function FloatingToolbar({
             )}
           </div>
 
-          {openSections.includes('ai-builder') && (
+          {isSectionOpen('ai-builder') && (
             <div className="border-t border-slate-200">
               <AIBuilderPanel
                 messages={aiMessages}
@@ -1866,10 +1896,10 @@ export default function FloatingToolbar({
               <Languages className="w-3.5 h-3.5" />
               Translations
             </span>
-            <ChevronDown className={`w-4 h-4 text-blue-500 transition-transform ${openSections.includes('translations') ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-4 h-4 text-blue-500 transition-transform ${isSectionOpen('translations') ? 'rotate-180' : ''}`} />
           </button>
 
-          {openSections.includes('translations') && (
+          {isSectionOpen('translations') && (
             <div className="border-t border-slate-200">
               <TranslationsPanel siteId={currentSiteId} />
             </div>
@@ -1887,10 +1917,10 @@ export default function FloatingToolbar({
                 <Settings className="w-3.5 h-3.5" />
                 Other Settings
               </span>
-              <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('other-settings') ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${isSectionOpen('other-settings') ? 'rotate-180' : ''}`} />
             </button>
 
-            {openSections.includes('other-settings') && (
+            {isSectionOpen('other-settings') && (
               <div className="p-4 border-t border-slate-200 space-y-4">
                 {/* Edit History */}
                 <div>
@@ -2099,13 +2129,24 @@ export default function FloatingToolbar({
 
         const activeTabId = isDesignSectionId(openSections[0])
           ? openSections[0]
-          : (isOpen ? DEFAULT_DESIGN_SECTION_ID : null);
+          : (isOpen ? lastActiveDesignSectionRef.current : null);
         const hasUnsaved = changes.length > 0;
         const activeTab = railTabs.find(t => t.id === activeTabId) ?? null;
 
-        const openTabPanel = (id: string) => {
+        const openTabPanel = (id: string, clickedEl?: HTMLElement | null) => {
+          if (isDesignSectionId(id)) {
+            lastActiveDesignSectionRef.current = id;
+            rememberDesignSectionId(id);
+          }
           setOpenSections([id]);
           onOpenChange(true);
+          // Collapse the rail so the panel content that just opened is fully
+          // visible. Mark the clicked button so the onMouseOver handler below
+          // doesn't immediately re-expand while the cursor still sits on it —
+          // the rail only re-expands once the cursor moves to a different
+          // rail element or leaves and re-enters.
+          setRailExpanded(false);
+          railSuppressRef.current = clickedEl ?? null;
         };
 
         const navigateAway = (dest: string) => {
@@ -2124,16 +2165,28 @@ export default function FloatingToolbar({
           }
         };
 
-        const railShowLabels = railExpanded;
+        const railOpen = railExpanded || railProfileOpen;
+        const railShowLabels = railOpen;
 
         return (
           <>
             {/* ── Thin icon rail — always visible, hover-expands ── */}
             <aside
-              onMouseEnter={() => setRailExpanded(true)}
-              onMouseLeave={() => setRailExpanded(false)}
-              className={`fixed top-[var(--impersonation-height,0px)] left-0 bottom-0 z-[10000] bg-white border-r border-slate-200 flex flex-col transition-[width,box-shadow] duration-200 ease-out ${railExpanded ? 'shadow-2xl' : ''}`}
-              style={{ width: railExpanded ? RAIL_EXPANDED_W : RAIL_W }}
+              onMouseOver={(e) => {
+                if (railSuppressRef.current) {
+                  const tabEl = (e.target as HTMLElement | null)?.closest?.('[data-rail-tab]');
+                  if (!tabEl) return; // hovering padding / header / footer — stay collapsed
+                  if (tabEl === railSuppressRef.current) return; // still on clicked tab
+                  railSuppressRef.current = null; // moved to a different tab — release lock
+                }
+                setRailExpanded(true);
+              }}
+              onMouseLeave={() => {
+                railSuppressRef.current = null;
+                setRailExpanded(false);
+              }}
+              className={`fixed top-[var(--impersonation-height,0px)] left-0 bottom-0 z-[10000] bg-white border-r border-slate-200 flex flex-col transition-[width,box-shadow] duration-200 ease-out ${railOpen ? 'shadow-2xl' : ''}`}
+              style={{ width: railOpen ? RAIL_EXPANDED_W : RAIL_W }}
               aria-label="Design navigation"
             >
               {/* Header (matches admin sidebar): logo + switcher (left, when expanded) + profile avatar pinned right */}
@@ -2176,6 +2229,8 @@ export default function FloatingToolbar({
                     out to the right when the rail expands. Matches admin sidebar. */}
                 <div className="absolute top-1/2 -translate-y-1/2" style={{ right: 12 }}>
                   <ProfileDropdown
+                    showSwitcher={false}
+                    onOpenChange={setRailProfileOpen}
                     buttonClassName="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 rounded-full transition-colors flex-shrink-0 overflow-hidden ring-2 ring-white shadow-sm"
                     onSettingsClick={(e) => {
                       if (changes.length > 0) {
@@ -2206,7 +2261,8 @@ export default function FloatingToolbar({
                       <button
                         key={tab.id}
                         data-tour="builder-ai-builder"
-                        onClick={() => openTabPanel(tab.id)}
+                        data-rail-tab={tab.id}
+                        onClick={(e) => openTabPanel(tab.id, e.currentTarget)}
                         title={railShowLabels ? undefined : tab.label}
                         className={`group relative w-full flex items-center overflow-hidden ${railShowLabels ? 'gap-2.5 px-2.5' : 'justify-center px-0'} py-2 rounded-lg text-xs font-bold text-white shadow-sm transition-all hover:brightness-110 ${
                           isActive ? 'ring-2 ring-violet-400 ring-offset-1 ring-offset-white' : ''
@@ -2237,7 +2293,8 @@ export default function FloatingToolbar({
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => openTabPanel(tab.id)}
+                      data-rail-tab={tab.id}
+                      onClick={(e) => openTabPanel(tab.id, e.currentTarget)}
                       title={railShowLabels ? undefined : tab.label}
                       className={`group relative w-full flex items-center ${railShowLabels ? 'gap-2.5 px-2.5' : 'justify-center px-0'} py-2 rounded-lg text-xs font-bold transition-colors ${
                         isActive
@@ -2296,17 +2353,6 @@ export default function FloatingToolbar({
                     </div>
                   </div>
                 )}
-
-                <div className="p-2">
-                  <button
-                    onClick={openWalkthrough}
-                    title={railShowLabels ? undefined : 'Help / walkthrough'}
-                    className={`w-full flex items-center ${railShowLabels ? 'gap-2.5 px-2.5' : 'justify-center px-0'} py-2 rounded-lg text-xs font-bold text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors`}
-                  >
-                    <HelpCircle className="w-4 h-4 shrink-0" />
-                    {railShowLabels && <span className="truncate text-left">Help</span>}
-                  </button>
-                </div>
               </div>
             </aside>
 
@@ -2460,7 +2506,7 @@ export default function FloatingToolbar({
                   >
                     <HelpCircle className="w-4 h-4" />
                   </button>
-                  <ProfileDropdown onSettingsClick={(e) => {
+                  <ProfileDropdown showSwitcher={false} onSettingsClick={(e) => {
                     if (changes.length > 0) {
                       e.preventDefault();
                       setAlertConfig({
@@ -2729,12 +2775,6 @@ export default function FloatingToolbar({
         onNext={handleNextWalkthrough}
         onPrev={handlePrevWalkthrough}
         title="Design Studio Guide"
-        isNextDisabled={
-          (walkthroughStep === 1 && !isEditMode) ||
-          (walkthroughStep === 4 && currentPageSlug === 'home') ||
-          (walkthroughStep === 5 && currentPageSlug !== 'home') ||
-          (walkthroughStep === COLORS_FONTS_CONTROLS_STEP_INDEX && !hasChangedColorsOrFonts)
-        }
         nextButtonLabel={walkthroughStep === 0 ? 'Start Tour' : undefined}
       />
     </>

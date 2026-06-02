@@ -1,9 +1,20 @@
 'use client';
+// We use ref objects from useHeaderBreakpoints to attach measurement
+// targets; eslint-plugin-react-hooks@7's react-hooks/refs rule flags
+// `ref={obj.X}` as ref-during-render. Disable the rule for this file
+// since the pattern is the canonical attach pattern.
+/* eslint-disable react-hooks/refs */
 
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { Menu, X, Settings, Facebook, Instagram, Twitter, Linkedin, Youtube, Phone, User } from 'lucide-react';
 import { WhatsAppIcon, normalizeHref } from '@/app/components/blocks/contact/contact-config';
 import { useHeaderHeight } from '@/lib/hooks/useHeaderHeight';
+import {
+    useHeaderBreakpoints,
+    buildHeaderBreakpointCss,
+    type HeaderCompactBreakpoints,
+    type HeaderLayoutKey,
+} from '@/lib/hooks/useHeaderBreakpoints';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEditorContext, BlockDataProvider } from '@/lib/editor-context';
@@ -162,6 +173,41 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     // size themselves around the header.
     useHeaderHeight(headerRef, { overlay: overlay || isTransparent });
     const textIsLight   = getTextIsLight(effectiveBg, palette, bgCustom);
+
+    const userPickedHamburger = desktopMenuStyle === 'hamburger';
+
+    // CSS-driven compactness: published pages ship static media queries
+    // based on the breakpoints saved in siteContent. The editor runs the
+    // measurement effect below to keep those breakpoints in sync with the
+    // header's actual content widths (nav items, utils icons, etc.).
+    const layoutKey: HeaderLayoutKey = (
+        logoPosition === 'above'
+            ? (navPosition === 'left' ? 'logoAbove-navLeft' : navPosition === 'right' ? 'logoAbove-navRight' : 'logoAbove-navCenter')
+        : logoPosition === 'center'
+            ? (navPosition === 'left' ? 'logoCenter-navLeft' : navPosition === 'right' ? 'logoCenter-navRight' : 'logoCenter-navCenter')
+            : (navPosition === 'left' ? 'logoLeft-navLeft' : navPosition === 'right' ? 'logoLeft-navRight' : 'logoLeft-navCenter')
+    );
+    const savedBreakpoints: HeaderCompactBreakpoints | undefined = siteContent.headerCompactBreakpoints;
+    const compactCss = buildHeaderBreakpointCss(savedBreakpoints);
+
+    // Measurement refs — only attached/observed in edit mode.
+    const measureContainerRef = useRef<HTMLDivElement | null>(null);
+    const measureLogoRef = useRef<HTMLDivElement | null>(null);
+    const measureNavRef = useRef<HTMLDivElement | null>(null);
+    const measureUtilsRef = useRef<HTMLDivElement | null>(null);
+
+    useHeaderBreakpoints({
+        enabled: isEditMode && !userPickedHamburger,
+        layout: layoutKey,
+        current: savedBreakpoints,
+        onCompute: (bp) => updateSiteContent('headerCompactBreakpoints', bp),
+        refs: {
+            container: measureContainerRef,
+            logo: measureLogoRef,
+            nav: measureNavRef,
+            utils: measureUtilsRef,
+        },
+    });
 
     // ── Scroll-bg-change detection ──────────────────────────────────────────
     // hasScrolled is only consulted while `scrollBgChange` is enabled — when
@@ -578,10 +624,14 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         </Link>
     );
 
+    // Editor measurement attaches the nav ref here; published pages don't
+    // observe it. The gap is driven by the CSS custom property emitted by
+    // buildHeaderBreakpointCss, so the same DOM responds to viewport-based
+    // media queries without any runtime JS.
     const navLinksEl = (
-        <div className="ks-nav-items">
+        <div ref={measureNavRef} className="ks-nav-items">
             <NavMenu
-                className="flex items-center gap-6"
+                className="flex items-center [gap:var(--ks-h-nav-gap)]"
                 itemClassName={resolvedNavItemClass}
                 submenuClassName={resolvedSubmenuClass}
                 bar={secondaryBarEnabled ? 'primary' : undefined}
@@ -663,13 +713,18 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         </button>
     );
 
-    const useDesktopHamburger = desktopMenuStyle === 'hamburger';
+    // Note: the dynamic-hamburger fallback for crowded headers is now
+    // driven entirely by the CSS media queries built from saved
+    // breakpoints (see buildHeaderBreakpointCss). The runtime JSX only
+    // branches on `userPickedHamburger` — when the user explicitly chose
+    // hamburger-on-desktop, we render the single hamburger button; else
+    // both the nav and the hamburger render and CSS picks one.
 
     const mobileBorderStyle = defaults.mobileBorderStyleFn ? defaults.mobileBorderStyleFn(palette) : {};
     // Drawer (mobile + desktop-hamburger). Always rendered on small screens; on desktop only when hamburger mode.
     const drawerMenu = menuMounted ? (
         <div
-            className={`${useDesktopHamburger ? '' : 'md:hidden'} overflow-hidden transition-[max-height,opacity] duration-[220ms] ease-out`}
+            className={`${userPickedHamburger ? '' : 'ks-h-drawer-host'} overflow-hidden transition-[max-height,opacity] duration-[220ms] ease-out`}
             style={{ maxHeight: mobileMenuOpen ? '800px' : '0', opacity: mobileMenuOpen ? 1 : 0 }}
         >
         <div
@@ -734,9 +789,11 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         </div>
     ) : null;
 
-    // Mobile-only top-right cluster: small utilities + hamburger
+    // Mobile-only top-right cluster: small utilities + hamburger. Display
+    // is controlled by the ks-h-mobile-cluster CSS class — hidden by
+    // default, set to `display: flex` by the mobile-viewport media query.
     const mobileToggleCluster = (position: 'left' | 'right') => (
-        <div className={`flex md:hidden items-center gap-1 ${position === 'left' ? 'order-first' : ''}`}>
+        <div className={`ks-h-mobile-cluster items-center gap-1 ${position === 'left' ? 'order-first' : ''}`}>
             {position === 'right' && (
                 <>
                     <HeaderProductSearch color={cartIconColor} />
@@ -761,22 +818,33 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         const center: React.ReactNode[] = [];
         const right: React.ReactNode[] = [];
 
-        if (logoPosition === 'left')   left.push(<div key="logo">{logoLink}</div>);
-        if (logoPosition === 'center') center.push(<div key="logo">{logoLink}</div>);
+        if (logoPosition === 'left')   left.push(<div ref={measureLogoRef} key="logo">{logoLink}</div>);
+        if (logoPosition === 'center') center.push(<div ref={measureLogoRef} key="logo">{logoLink}</div>);
 
-        if (useDesktopHamburger) {
+        if (userPickedHamburger) {
+            // User explicitly chose hamburger-on-desktop: only render the
+            // hamburger button (existing static `md:` behaviour).
             const ham = <div key="ham" className="hidden md:inline-flex">{desktopHamburgerBtn}</div>;
             if (hamburgerPosition === 'left') left.push(ham);
             else right.unshift(ham);
         } else {
-            const navWrap = <div key="nav" className="hidden md:flex items-center gap-6">{navLinksEl}</div>;
+            // Render both. CSS uses the hamburger media query to swap the
+            // visible one based on viewport width — no runtime JS picks.
+            const navWrap = (
+                <div key="nav" className="ks-h-desktop-nav flex items-center [gap:var(--ks-h-nav-gap)]">
+                    {navLinksEl}
+                </div>
+            );
+            const ham = <div key="ham" className="ks-h-desktop-hamburger items-center">{desktopHamburgerBtn}</div>;
             if (navPosition === 'left')   left.push(navWrap);
             if (navPosition === 'center') center.push(navWrap);
             if (navPosition === 'right')  right.push(navWrap);
+            if (hamburgerPosition === 'left') left.push(ham);
+            else right.unshift(ham);
         }
 
         right.push(
-            <div key="utils" className="hidden md:flex items-center gap-6">
+            <div ref={measureUtilsRef} key="utils" className="ks-h-desktop-utils flex items-center [gap:var(--ks-h-utils-gap)]">
                 {desktopUtilsEl}
             </div>
         );
@@ -785,15 +853,15 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         const mobileCluster = mobileToggleCluster(hamburgerPosition);
 
         return (
-            <div className={`flex items-center gap-3 ${heightClass}`}>
-                <div className="flex items-center justify-start gap-4 shrink-0">
+            <div ref={measureContainerRef} className={`flex items-center [gap:var(--ks-h-zone-outer)] ${heightClass}`}>
+                <div className="flex items-center justify-start [gap:var(--ks-h-zone-inner)] shrink-0">
                     {hamburgerPosition === 'left' ? mobileCluster : null}
                     {left}
                 </div>
-                <div className="flex-1 flex items-center justify-center gap-4 min-w-0">
+                <div className="flex-1 flex items-center justify-center [gap:var(--ks-h-zone-inner)] min-w-0">
                     {center}
                 </div>
-                <div className="flex items-center justify-end gap-4 shrink-0">
+                <div className="flex items-center justify-end [gap:var(--ks-h-zone-inner)] shrink-0">
                     {right}
                     {hamburgerPosition === 'right' ? mobileCluster : null}
                 </div>
@@ -848,7 +916,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
             <>
                 {bannerEl}
                 <header ref={headerRef} className={`${wrapperClass} ${isEditMode ? 'group relative' : ''}`}>
-                    {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
+                    <style dangerouslySetInnerHTML={{ __html: compactCss }} />{hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
                     <div className="pt-3 px-4">
                         <div
                             className={`ks-site-header ${containerClass} mx-auto ${pillBgClass} ${isTransparent ? '' : 'backdrop-blur-xl shadow-lg shadow-black/5 border border-white/50'} rounded-2xl px-5 relative ${scrollBgChange ? 'isolate' : ''}`}
@@ -885,25 +953,53 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
 
     // ── LOGO ABOVE NAV (Luxe-style two-row) ────────────────────────────────
     if (logoPosition === 'above') {
-        const navContent = useDesktopHamburger ? desktopHamburgerBtn : navLinksEl;
-        const utilsCluster = <div className="flex items-center gap-6">{desktopUtilsEl}</div>;
-
-        const navRow = navPosition === 'center' ? (
-            <div className="hidden md:flex items-center justify-center h-12 gap-8 relative">
-                {navContent}
-                <div className="absolute right-0">{utilsCluster}</div>
-            </div>
-        ) : navPosition === 'right' ? (
-            <div className="hidden md:flex items-center justify-end h-12 gap-8">
-                {navContent}
-                {utilsCluster}
-            </div>
-        ) : (
-            <div className="hidden md:flex items-center h-12 gap-8">
-                {navContent}
-                <div className="ml-auto">{utilsCluster}</div>
+        // For dynamic-hamburger mode, render both the nav and the hamburger
+        // button in the navRow — CSS picks the visible one via the
+        // hamburger media query. For user-picked-hamburger mode keep the
+        // existing single-element behaviour.
+        const desktopNavEl = userPickedHamburger
+            ? <div className="hidden md:inline-flex">{desktopHamburgerBtn}</div>
+            : (
+                <>
+                    <div className="ks-h-desktop-nav flex items-center [gap:var(--ks-h-nav-gap)]">
+                        {navLinksEl}
+                    </div>
+                    <div className="ks-h-desktop-hamburger items-center">
+                        {desktopHamburgerBtn}
+                    </div>
+                </>
+            );
+        const utilsCluster = (
+            <div ref={measureUtilsRef} className="ks-h-desktop-utils flex items-center [gap:var(--ks-h-utils-gap)]">
+                {desktopUtilsEl}
             </div>
         );
+
+        const renderNavRow = () => {
+            if (navPosition === 'center') {
+                return (
+                    <div ref={measureContainerRef} className="hidden md:flex items-center justify-center h-12 [gap:var(--ks-h-row-gap)] relative">
+                        {desktopNavEl}
+                        <div className="absolute right-0">{utilsCluster}</div>
+                    </div>
+                );
+            }
+            if (navPosition === 'right') {
+                return (
+                    <div ref={measureContainerRef} className="hidden md:flex items-center justify-end h-12 [gap:var(--ks-h-row-gap)]">
+                        {desktopNavEl}
+                        {utilsCluster}
+                    </div>
+                );
+            }
+            return (
+                <div ref={measureContainerRef} className="hidden md:flex items-center h-12 [gap:var(--ks-h-row-gap)]">
+                    {desktopNavEl}
+                    <div className="ml-auto">{utilsCluster}</div>
+                </div>
+            );
+        };
+        const navRow = renderNavRow();
 
         // Mirror the default-layout split: outer header holds position
         // (sticky/relative + h-0 when overlay), inner div holds the visible
@@ -962,7 +1058,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
                     className={aboveOuterClass}
                     style={overlay ? {} : headerInlineStyle}
                 >
-                    {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
+                    <style dangerouslySetInnerHTML={{ __html: compactCss }} />{hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
                     <div
                         className={aboveInnerDivClass}
                         style={overlay ? headerInlineStyle : undefined}
@@ -1023,7 +1119,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
                 className={outerClassName}
                 style={overlay ? {} : innerStyle}
             >
-                {hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
+                <style dangerouslySetInnerHTML={{ __html: compactCss }} />{hasHeaderStyle && <style dangerouslySetInnerHTML={{ __html: headerStyleSheet }} />}
                 <div
                     className={innerDivClassName}
                     style={overlay ? innerStyle : undefined}

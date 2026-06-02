@@ -10,7 +10,7 @@ const VERCEL_API_BASE = 'https://api.vercel.com';
  * Links a domain to the Vercel project so it can be served.
  * This is required for Vercel to manage DNS and SSL for the domain.
  */
-async function addDomainToProject(domain: string): Promise<{ success: boolean; error?: string }> {
+export async function addDomainToProject(domain: string): Promise<{ success: boolean; error?: string }> {
   console.log("ADD DOMAIN TO PROJECT");
   if (!VERCEL_PROJECT_ID) {
     console.error('addDomainToProject: VERCEL_PROJECT_ID is missing');
