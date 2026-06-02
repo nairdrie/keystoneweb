@@ -164,6 +164,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     mode: 'subscription',
     customer: customer.id,
     billing_address_collection: 'required',
+    customer_update: { address: 'auto', name: 'auto' },
     automatic_tax: { enabled: true },
     allow_promotion_codes: true,
     subscription_data: {
