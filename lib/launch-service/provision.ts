@@ -5,6 +5,9 @@
  */
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { completeDomainPurchase } from '@/app/api/domains/purchase/route';
+import { getTemplateMetadata } from '@/lib/db/template-queries';
+import { migratePaletteTokensInDesignData } from '@/lib/template-palette-migration';
+import { ensureKswdInboxAddress } from '@/lib/email/inbox-addresses';
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
@@ -155,9 +158,33 @@ async function failLaunch(db: SupabaseAdmin, launchRequestId: string, error: str
 }
 
 /**
- * Minimal publish: marks the site published, copies each page's draft
- * design_data into published_data, sets the resolved domain fields.
+ * Publishes the site: copies design_data → published_data for the site and
+ * every page, with the same palette-migration + block-flag precomputation
+ * the regular /api/sites/publish endpoint runs (otherwise the public
+ * renderer can't resolve palette tokens, and product/membership pages
+ * silently render empty).
  */
+function asDesignData(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function getSelectedPalette(designData: Record<string, unknown>): string | undefined {
+  return typeof designData.__selectedPalette === 'string'
+    ? (designData.__selectedPalette as string)
+    : undefined;
+}
+
+function pageHasBlockType(designData: Record<string, unknown>, blockType: string): boolean {
+  const blocks = designData.blocks;
+  if (!Array.isArray(blocks)) return false;
+  return blocks.some(
+    (block) =>
+      block && typeof block === 'object' && 'type' in block && (block as { type: unknown }).type === blockType,
+  );
+}
+
 async function publishSite(
   db: SupabaseAdmin,
   siteId: string,
@@ -168,15 +195,36 @@ async function publishSite(
 
   const { data: site } = await db
     .from('sites')
-    .select('design_data')
+    .select('design_data, selected_template_id')
     .eq('id', siteId)
     .single();
+
+  let siteDesignDataForPublish = asDesignData(site?.design_data);
+
+  let templatePalettes: Record<string, Record<string, string>> | null = null;
+  try {
+    const metadata = await getTemplateMetadata(site?.selected_template_id);
+    templatePalettes = metadata?.palettes || null;
+    if (templatePalettes) {
+      const migration = migratePaletteTokensInDesignData(
+        siteDesignDataForPublish,
+        templatePalettes,
+        getSelectedPalette(siteDesignDataForPublish),
+      );
+      siteDesignDataForPublish = migration.data;
+      if (migration.changed) {
+        await db.from('sites').update({ design_data: siteDesignDataForPublish }).eq('id', siteId);
+      }
+    }
+  } catch (migrationErr) {
+    console.error('[launch-service] palette migration failed (continuing):', migrationErr);
+  }
 
   const update: Record<string, unknown> = {
     is_published: true,
     published_domain: publishedDomain,
     published_at: now,
-    published_data: site?.design_data ?? null,
+    published_data: siteDesignDataForPublish,
   };
   if (customDomain) update.custom_domain = customDomain;
 
@@ -186,17 +234,54 @@ async function publishSite(
     return { ok: false, error: 'Site publish update failed' };
   }
 
-  // Copy each page's draft → published.
+  // Copy each page's draft → published, migrating palette tokens en route.
   const { data: pages } = await db.from('pages').select('id, design_data').eq('site_id', siteId);
+  const pagesForFlags: Record<string, unknown>[] = [];
   if (pages && pages.length > 0) {
-    await Promise.all(
-      pages.map((p) =>
-        db
-          .from('pages')
-          .update({ published_data: p.design_data, published_at: now })
-          .eq('id', p.id),
-      ),
-    );
+    for (const page of pages) {
+      let pageDesignDataForPublish = asDesignData(page.design_data);
+      if (templatePalettes) {
+        const migration = migratePaletteTokensInDesignData(
+          pageDesignDataForPublish,
+          templatePalettes,
+          getSelectedPalette(siteDesignDataForPublish),
+        );
+        pageDesignDataForPublish = migration.data;
+        if (migration.changed) {
+          await db.from('pages').update({ design_data: pageDesignDataForPublish }).eq('id', page.id);
+        }
+      }
+      pagesForFlags.push(pageDesignDataForPublish);
+      await db
+        .from('pages')
+        .update({ published_data: pageDesignDataForPublish, published_at: now })
+        .eq('id', page.id);
+    }
+  }
+
+  // Precompute site-wide block flags so the public renderer doesn't have to
+  // scan every page on each request.
+  const hasProductBlock = pagesForFlags.some((p) => pageHasBlockType(p, 'productGrid'));
+  const hasMembershipBlock = pagesForFlags.some((p) => pageHasBlockType(p, 'membershipGate'));
+  if (hasProductBlock || hasMembershipBlock) {
+    await db
+      .from('sites')
+      .update({
+        published_data: {
+          ...siteDesignDataForPublish,
+          __hasProductBlock: hasProductBlock,
+          __hasMembershipBlock: hasMembershipBlock,
+        },
+      })
+      .eq('id', siteId);
+  }
+
+  // Provision the free <slug>@kswd.ca inbox address so contact form
+  // submissions and inbound mail have a primary inbox to land on.
+  try {
+    await ensureKswdInboxAddress(db, siteId, publishedDomain);
+  } catch (err) {
+    console.error('[launch-service] failed to provision kswd inbox address:', err);
   }
 
   return { ok: true };

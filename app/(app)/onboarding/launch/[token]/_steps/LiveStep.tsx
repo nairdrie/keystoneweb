@@ -1,6 +1,7 @@
 'use client';
 
-import { CheckCircle2 } from 'lucide-react';
+import { useState } from 'react';
+import { CheckCircle2, Copy, Check, ExternalLink } from 'lucide-react';
 import type { OnboardingState } from '../page';
 
 interface Props {
@@ -13,6 +14,18 @@ export default function LiveStep({ state }: Props) {
     (state.site?.published_domain ? `${state.site.published_domain}.kswd.ca` : null);
   const liveUrl = domain ? `https://${domain}` : null;
   const siteId = state.site?.id;
+  const [copied, setCopied] = useState(false);
+
+  async function copyUrl() {
+    if (!liveUrl) return;
+    try {
+      await navigator.clipboard.writeText(liveUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard blocked — fall back to selecting the text.
+    }
+  }
 
   return (
     <div className="max-w-md mx-auto text-center mt-12">
@@ -29,13 +42,42 @@ export default function LiveStep({ state }: Props) {
       </p>
 
       {liveUrl && (
+        <div className="mt-8 rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex items-center">
+            <div className="flex-1 px-4 py-3 text-left text-sm font-mono text-slate-800 truncate">
+              {liveUrl}
+            </div>
+            <button
+              type="button"
+              onClick={copyUrl}
+              className="flex-shrink-0 h-full px-3 py-3 border-l border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors"
+              aria-label="Copy link"
+            >
+              {copied ? (
+                <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+                  <Check className="w-4 h-4" />
+                  Copied
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 text-xs font-semibold">
+                  <Copy className="w-4 h-4" />
+                  Copy
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {liveUrl && (
         <a
           href={liveUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-block mt-8 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-8 py-3.5 text-base font-semibold text-white transition-colors shadow-md shadow-emerald-200"
+          className="inline-flex items-center gap-2 mt-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-8 py-3.5 text-base font-semibold text-white transition-colors shadow-md shadow-emerald-200"
         >
-          View my site →
+          View my site
+          <ExternalLink className="w-4 h-4" />
         </a>
       )}
 
