@@ -121,11 +121,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://keystoneweb.ca';
 
+  // Match the plan's currency for the one-time items — Stripe Checkout
+  // requires every line item to share a currency, and the plan prices may
+  // be CAD (or anything else) depending on how they were configured.
+  const planPrice = await stripe.prices.retrieve(priceId);
+  const currency = planPrice.currency;
+
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
     { price: priceId, quantity: 1 },
     {
       price_data: {
-        currency: 'usd',
+        currency,
         unit_amount: launchServiceCents,
         product_data: {
           name: 'Launch Service',
@@ -140,7 +146,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (domainCents > 0 && cfg.domain?.domainName) {
     lineItems.push({
       price_data: {
-        currency: 'usd',
+        currency,
         unit_amount: domainCents,
         product_data: {
           name: `Custom domain: ${cfg.domain.domainName}`,
