@@ -911,7 +911,7 @@ function TemplateSection() {
                   className="relative w-72 flex-none overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 transition-transform hover:scale-[1.04]"
                   style={{ aspectRatio: '16 / 10' }}
                 >
-                  <Image src={img} alt="" fill className="object-cover object-top" sizes="288px" />
+                  <Image src={img} alt="" fill className="object-cover object-top" sizes="288px" unoptimized={img.endsWith('.svg')} />
                 </div>
               ))}
             </div>

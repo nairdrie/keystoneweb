@@ -64,6 +64,22 @@ type Lead = {
     business_name: string | null;
     created_at: string;
   }>;
+  prospect_audit: {
+    id: string;
+    audit_status: string;
+    audit_completed_at: string | null;
+    perf_score: number | null;
+    seo_score: number | null;
+    best_practices_score: number | null;
+    accessibility_score: number | null;
+    mobile_load_seconds: number | null;
+    uses_https: boolean | null;
+    failed_audits: string[] | null;
+    cms: string | null;
+    cms_confidence: string | null;
+    pitch_angles: string[] | null;
+    pitch_strength: number | null;
+  } | null;
   contact_events: Array<{
     id: string;
     kind: ContactEventKind;
@@ -104,12 +120,14 @@ const INPUT =
 
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const [opsBasePath, setOpsBasePath] = useState('');
   const [lead, setLead] = useState<Lead | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
   const [emailSenders, setEmailSenders] = useState<{ from_emails: string[]; senderName: string } | null>(null);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
 
   // Locally-edited buffers for free-form text fields
   const [notesDraft, setNotesDraft] = useState('');
@@ -139,6 +157,11 @@ export default function LeadDetailPage() {
     refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    const path = window.location.pathname;
+    setOpsBasePath(path === '/ops' || path.startsWith('/ops/') ? '/ops' : '');
+  }, []);
+
   async function update(patch: Record<string, unknown>) {
     if (!lead) return;
     setSaving(true);
@@ -167,7 +190,7 @@ export default function LeadDetailPage() {
     if (!confirm('Delete this lead and all its contact events? This cannot be undone.')) return;
     const res = await fetch(`/api/ops/leads/${lead.id}`, { method: 'DELETE' });
     if (res.ok) {
-      window.location.href = '/leads';
+      window.location.href = `${opsBasePath}/leads`;
     } else {
       alert('Delete failed');
     }
@@ -186,12 +209,24 @@ export default function LeadDetailPage() {
     setShowEmail(true);
   }
 
+  async function copyForAdvancedAiModel() {
+    if (!lead) return;
+    try {
+      await copyTextToClipboard(buildAdvancedAiModelPrompt(lead));
+      setCopyStatus('copied');
+      window.setTimeout(() => setCopyStatus('idle'), 2500);
+    } catch {
+      setCopyStatus('error');
+      window.setTimeout(() => setCopyStatus('idle'), 3500);
+    }
+  }
+
   if (loading) return <div className="text-gray-400 text-sm">Loading…</div>;
 
   if (!lead) {
     return (
       <div className="space-y-4">
-        <Link href="/leads" className="text-sm text-gray-400 hover:text-white">&larr; Back</Link>
+        <Link href={`${opsBasePath}/leads`} className="text-sm text-gray-400 hover:text-white">&larr; Back</Link>
         <p className="text-sm text-red-400">{error ?? 'Not found.'}</p>
       </div>
     );
@@ -204,7 +239,7 @@ export default function LeadDetailPage() {
   return (
     <div className="space-y-6 max-w-6xl">
       <div>
-        <Link href="/leads" className="text-sm text-gray-400 hover:text-white">&larr; Back to leads</Link>
+        <Link href={`${opsBasePath}/leads`} className="text-sm text-gray-400 hover:text-white">&larr; Back to leads</Link>
       </div>
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -377,6 +412,23 @@ export default function LeadDetailPage() {
 
         {/* Right column — pipeline */}
         <div className="space-y-4">
+          <Card title="Advanced AI build">
+            <p className="text-xs leading-5 text-gray-500">
+              Copy a lead-to-site prompt for the internal advanced AI model workflow.
+            </p>
+            <button
+              onClick={copyForAdvancedAiModel}
+              className="mt-2 w-full rounded-md bg-violet-600 hover:bg-violet-500 px-3 py-2 text-xs font-medium text-white transition-colors"
+            >
+              {copyStatus === 'copied' ? 'Copied' : 'Copy for Advanced AI Model'}
+            </button>
+            {copyStatus === 'error' && (
+              <p className="text-[11px] text-red-400">
+                Copy failed. Try again or copy the lead fields manually.
+              </p>
+            )}
+          </Card>
+
           <Card title="Status">
             <select
               value={lead.status}
@@ -645,6 +697,148 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </div>
   );
+}
+
+async function copyTextToClipboard(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', 'true');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  textarea.style.top = '0';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  const copied = document.execCommand('copy');
+  document.body.removeChild(textarea);
+  if (!copied) throw new Error('Copy failed');
+}
+
+function buildAdvancedAiModelPrompt(lead: Lead): string {
+  const auditWeaknesses = buildAuditWeaknesses(lead);
+  const recentTouches = lead.contact_events.slice(0, 5).map((event) => {
+    const outcome = event.outcome ? ` (${formatLabel(event.outcome)})` : '';
+    const notes = event.notes ? ` - ${event.notes}` : '';
+    return `${CONTACT_EVENT_KIND_LABELS[event.kind]}${outcome}${notes}`;
+  });
+  const recentMessages = lead.messages.slice(0, 5).map((message) => {
+    if (message.direction === 'outbound') {
+      return `Outbound email: ${message.subject || '(no subject)'}`;
+    }
+    return `Inbound reply from ${message.from_name || message.from_email}: ${message.subject || '(no subject)'}`;
+  });
+
+  return `Use the advanced AI model workflow. Do not use Keystone's in-product AI Builder or /api/ai/builder.
+
+Goal:
+Build a draft Keystone website for this lead that we can preview and later attach to the launch pipeline.
+
+Lead:
+- Business name: ${blankable(lead.business_name)}
+- Contact name / role: ${joinParts([lead.contact_name, lead.person_role], ' / ')}
+- Email / phone: ${joinParts([lead.email, lead.phone], ' / ')}
+- Website: ${blankable(lead.website)}
+- Existing website: ${formatExistingWebsite(lead)}
+- Business type: ${blankable(lead.business_type)}
+- Subcategory: ${blankable(lead.business_subcategory)}
+- City / region: ${joinParts([lead.city, lead.region], ' / ')}
+- Address: ${joinParts([lead.address, lead.postal_code, lead.country], ', ')}
+- Source: ${LEAD_SOURCE_LABELS[lead.source] ?? formatLabel(lead.source)}
+- Source detail: ${blankable(lead.source_detail)}
+- Status: ${formatLabel(lead.status)}
+- Tags: ${formatArray(lead.tags)}
+- Notes: ${blankable(lead.notes)}
+- Pitch angles: ${formatArray(lead.prospect_audit?.pitch_angles)}
+- Existing site weaknesses: ${formatArray(auditWeaknesses)}
+- Source image: ${lead.image_storage_path ? 'Uploaded in Ops lead record (private storage path not copied)' : ''}
+- Recent contact context: ${formatArray([...recentTouches, ...recentMessages])}
+
+Website/audit context:
+- Audit status: ${blankable(lead.prospect_audit?.audit_status)}
+- Performance score: ${blankable(lead.prospect_audit?.perf_score)}
+- SEO score: ${blankable(lead.prospect_audit?.seo_score)}
+- Best practices score: ${blankable(lead.prospect_audit?.best_practices_score)}
+- Accessibility score: ${blankable(lead.prospect_audit?.accessibility_score)}
+- Mobile load seconds: ${blankable(lead.prospect_audit?.mobile_load_seconds)}
+- Uses HTTPS: ${formatBoolean(lead.prospect_audit?.uses_https)}
+- CMS: ${formatCms(lead)}
+
+Site requirements:
+- Primary CTA:
+- Pages wanted:
+- Features needed:
+- Visual style:
+- Tone:
+- Must include:
+- Avoid:
+
+Output:
+1. Create a concise site build brief.
+2. Choose the Keystone page/block structure.
+3. Draft tailored copy.
+4. If implementation is enabled, create/update the draft site in Keystone's repo/data model and return the preview path or site ID.`;
+}
+
+function buildAuditWeaknesses(lead: Lead): string[] {
+  const weaknesses: string[] = [];
+  if (lead.has_existing_website === false) weaknesses.push('No existing website recorded');
+  if (lead.prospect_audit?.uses_https === false) weaknesses.push('Website does not use HTTPS');
+  if (typeof lead.prospect_audit?.mobile_load_seconds === 'number') {
+    weaknesses.push(`Mobile load time ${lead.prospect_audit.mobile_load_seconds}s`);
+  }
+  if (typeof lead.prospect_audit?.perf_score === 'number' && lead.prospect_audit.perf_score < 70) {
+    weaknesses.push(`Low performance score (${lead.prospect_audit.perf_score}/100)`);
+  }
+  if (typeof lead.prospect_audit?.seo_score === 'number' && lead.prospect_audit.seo_score < 80) {
+    weaknesses.push(`SEO score needs work (${lead.prospect_audit.seo_score}/100)`);
+  }
+  if (typeof lead.prospect_audit?.accessibility_score === 'number' && lead.prospect_audit.accessibility_score < 80) {
+    weaknesses.push(`Accessibility score needs work (${lead.prospect_audit.accessibility_score}/100)`);
+  }
+  if (Array.isArray(lead.prospect_audit?.failed_audits)) {
+    weaknesses.push(...lead.prospect_audit.failed_audits);
+  }
+  return Array.from(new Set(weaknesses.filter(Boolean)));
+}
+
+function blankable(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : '';
+  return String(value);
+}
+
+function joinParts(values: Array<string | null | undefined>, separator: string): string {
+  return values.map((value) => value?.trim()).filter(Boolean).join(separator);
+}
+
+function formatArray(values: string[] | null | undefined): string {
+  if (!values || values.length === 0) return '';
+  return values.filter(Boolean).join('; ');
+}
+
+function formatBoolean(value: boolean | null | undefined): string {
+  if (value === true) return 'Yes';
+  if (value === false) return 'No';
+  return '';
+}
+
+function formatExistingWebsite(lead: Lead): string {
+  if (lead.has_existing_website === true) return 'Yes';
+  if (lead.has_existing_website === false) return 'No';
+  return lead.website ? 'Likely yes (website field present)' : '';
+}
+
+function formatCms(lead: Lead): string {
+  if (!lead.prospect_audit?.cms) return '';
+  return lead.prospect_audit.cms_confidence
+    ? `${lead.prospect_audit.cms} (${lead.prospect_audit.cms_confidence} confidence)`
+    : lead.prospect_audit.cms;
 }
 
 function EditableField({

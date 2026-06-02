@@ -20,6 +20,7 @@ import { getLayoutColumnLimit, normalizeSectionSettings } from '@/lib/builder/la
 import {
     CARD_MEDIA_LAYOUT_OPTIONS,
     buildCardSettingsForPreset,
+    normalizeCardSettingsOverride,
     readCardSettings,
     type CardMediaLayout,
     type CardSettings,
@@ -604,8 +605,8 @@ function CardStyleControl({
     const presetField = control.presetField || 'cardStyle';
     const settingsField = control.settingsField || 'cardSettings';
     const currentPreset = String(draft[presetField] || control.fallbackPreset || 'soft');
-    const settings = readCardSettings(draft[settingsField]) || buildCardSettingsForPreset(currentPreset);
-    const mediaControls = getEffectiveMediaControls(control, settings);
+    const settings = readCardSettings(draft[settingsField]);
+    const mediaControls = getEffectiveMediaControls(control, settings || buildCardSettingsForPreset(currentPreset));
 
     return (
         <CardSettingsControls
@@ -618,9 +619,15 @@ function CardStyleControl({
             supportsTextAlign={control.supportsTextAlign}
             mediaControlVisibility={mediaControls}
             onChange={(next) => {
-                updateDraft(settingsField, next as Record<string, SettingsValue>);
+                const nextPreset = next.presetId && next.presetId !== 'custom' ? next.presetId : currentPreset;
+                updateDraft(settingsField, normalizeCardSettingsOverride(next, nextPreset) as Record<string, SettingsValue> | undefined);
                 if (next.presetId && next.presetId !== 'custom') updateDraft(presetField, next.presetId);
             }}
+            onPresetChange={(nextPreset) => {
+                updateDraft(presetField, nextPreset);
+                updateDraft(settingsField, undefined);
+            }}
+            onReset={() => updateDraft(settingsField, undefined)}
         />
     );
 }

@@ -130,6 +130,18 @@ function humanizeKey(key: string): string {
     .trim();
 }
 
+function humanizeTemplateId(templateId: string): string {
+  if (!templateId) return '(empty)';
+  const style = templateId
+    .replace(/-/g, '_')
+    .split('_')
+    .filter(Boolean)[0] || templateId;
+  return style
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/\b\w/g, c => c.toUpperCase())
+    .trim();
+}
+
 // Format a value for display, catching stray JSON, HTML, URLs
 function formatDisplayValue(val: string): string {
   if (!val || val === '') return '(empty)';
@@ -539,6 +551,12 @@ export function useChangeTracking() {
         finalLabel = humanizeKey(key);
         finalFrom = formatDisplayValue(from);
         finalTo = formatDisplayValue(to);
+      }
+      // === TEMPLATE ===
+      else if (field === 'template') {
+        finalLabel = label.includes('AI:') ? label : 'Template';
+        finalFrom = humanizeTemplateId(from);
+        finalTo = humanizeTemplateId(to);
       }
 
       const timestamp = Date.now();

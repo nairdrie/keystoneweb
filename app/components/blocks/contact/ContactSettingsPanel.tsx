@@ -25,7 +25,7 @@ import {
 } from '@/lib/builder/layout-settings';
 import { CardSettingsControls } from '../CardSettingsControls';
 import {
-    buildCardSettingsForPreset,
+    normalizeCardSettingsOverride,
     readCardSettings,
     type CardSettings,
 } from '@/lib/block-style-options';
@@ -151,6 +151,7 @@ export default function ContactSettingsPanel({
 
     useEffect(() => {
         if (!context?.updateBlockDataBatch) return;
+        const cardSettings = normalizeCardSettingsOverride(draft.cardSettings, draft.cardStyle);
         const updates: Record<string, unknown> = {
             contactItems: draft.contactItems,
             socialLinks: draft.socialLinks,
@@ -165,7 +166,7 @@ export default function ContactSettingsPanel({
             contactIconColor: draft.contactIconColor,
             socialIconColor: draft.socialIconColor,
             cardStyle: draft.cardStyle,
-            cardSettings: draft.cardSettings || buildCardSettingsForPreset(draft.cardStyle),
+            cardSettings,
             pretextEnabled: draft.pretextEnabled,
             pretextStyle: draft.pretextStyle,
             pretextColor: draft.pretextColor,
@@ -180,8 +181,9 @@ export default function ContactSettingsPanel({
     }, [draft, initialDraft, blockId, context]);
 
     const updateCardSettings = (value: CardSettings) => {
+        const nextPreset = value.presetId && value.presetId !== 'custom' ? value.presetId : draft.cardStyle;
         updateDraft({
-            cardSettings: value,
+            cardSettings: normalizeCardSettingsOverride(value, nextPreset),
             ...(value.presetId && value.presetId !== 'custom' ? { cardStyle: value.presetId } : {}),
         });
     };
@@ -432,12 +434,14 @@ export default function ContactSettingsPanel({
                 onToggle={() => sectionState.toggle('card-advanced')}
             >
                 <CardSettingsControls
-                    value={draft.cardSettings || buildCardSettingsForPreset(draft.cardStyle)}
+                    value={draft.cardSettings}
                     currentPresetId={draft.cardStyle}
                     palette={palette}
                     supportsIcon
                     supportsTextAlign
                     onChange={updateCardSettings}
+                    onPresetChange={(presetId) => updateDraft({ cardStyle: presetId, cardSettings: undefined })}
+                    onReset={() => updateDraft({ cardSettings: undefined })}
                 />
             </InspectorSection>
 
@@ -897,7 +901,10 @@ function buildInitialDraft(blockData: Record<string, unknown>, customCss: string
         contactIconColor: typeof blockData.contactIconColor === 'string' ? blockData.contactIconColor : '',
         socialIconColor: typeof blockData.socialIconColor === 'string' ? blockData.socialIconColor : '',
         cardStyle: typeof blockData.cardStyle === 'string' && blockData.cardStyle ? blockData.cardStyle : 'soft',
-        cardSettings: readCardSettings(blockData.cardSettings),
+        cardSettings: normalizeCardSettingsOverride(
+            readCardSettings(blockData.cardSettings),
+            typeof blockData.cardStyle === 'string' && blockData.cardStyle ? blockData.cardStyle : 'soft',
+        ),
         sectionSettings: normalizeSectionSettings(blockData.sectionSettings),
         pretextEnabled: blockData.pretextEnabled === undefined || blockData.pretextEnabled === null
             ? PRETEXT_DEFAULTS.pretextEnabled

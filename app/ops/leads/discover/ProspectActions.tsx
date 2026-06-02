@@ -8,11 +8,13 @@ export default function ProspectActions({
   dismissed,
   promoted,
   promotedLeadId,
+  opsBasePath = '',
 }: {
   prospectId: string;
   dismissed: boolean;
   promoted: boolean;
   promotedLeadId: string | null;
+  opsBasePath?: string;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -40,7 +42,7 @@ export default function ProspectActions({
   if (promoted && promotedLeadId) {
     return (
       <a
-        href={`/leads/${promotedLeadId}`}
+        href={`${opsBasePath}/leads/${promotedLeadId}`}
         className="rounded bg-violet-600 hover:bg-violet-500 px-3 py-1.5 text-xs font-medium text-white transition-colors"
       >
         Open lead
@@ -56,7 +58,7 @@ export default function ProspectActions({
             onClick={async () => {
               if (!confirm('Promote this prospect to a lead in the pipeline?')) return;
               const r = await call('promote');
-              if (r?.lead_id) router.push(`/leads/${r.lead_id}`);
+              if (r?.lead_id) router.push(`${opsBasePath}/leads/${r.lead_id}`);
             }}
             disabled={busy}
             className="rounded bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-50"

@@ -33,6 +33,9 @@ export interface TemplateMetadata {
 export async function getTemplateMetadata(
   templateId: string
 ): Promise<TemplateMetadata | null> {
+  const structuralTemplate = getStructuralTemplateMetadata(templateId);
+  if (structuralTemplate) return structuralTemplate as TemplateMetadata;
+
   // First try exact match
   let { data, error } = await supabase
     .from('template_metadata')
@@ -52,11 +55,6 @@ export async function getTemplateMetadata(
       
     data = fallbackData;
     error = fallbackError;
-  }
-
-  if (!data) {
-    const structuralTemplate = getStructuralTemplateMetadata(templateId);
-    if (structuralTemplate) return structuralTemplate as TemplateMetadata;
   }
 
   if (error) {

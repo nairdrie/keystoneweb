@@ -6,175 +6,61 @@ import Link from 'next/link';
 import Header from '../../components/Header';
 import MarketingFooter from '../../components/MarketingFooter';
 import { getTemplatePreviewImage } from '@/lib/template-preview-assets';
+import { PRESET_TEMPLATE_DISPLAYS, type PresetTemplateStyle } from '@/lib/templates/preset-template-display';
 
 type TemplateCard = {
   id: string;
   name: string;
   tagline: string;
   description: string;
-  bestFor: string[];
+  bestFor: readonly string[];
   accent: string;
   badge: string;
 };
 
-const TEMPLATES: TemplateCard[] = [
-  {
-    id: 'builder',
-    name: 'Builder',
-    tagline: 'Practical. Sturdy. Estimate-ready.',
-    description: 'Field-service structure for trades, service areas, quote requests, reviews, and proof.',
-    bestFor: ['Contractors', 'Plumbers', 'HVAC', 'Cleaning'],
-    accent: '#f59e0b',
-    badge: 'bg-amber-100 text-amber-800',
-  },
-  {
-    id: 'commerce',
-    name: 'Commerce',
-    tagline: 'Product-first. Clean. Conversion-led.',
-    description: 'A shop-ready structure for products, featured collections, subscriptions, and offer cards.',
-    bestFor: ['E-Commerce', 'Digital Products', 'Subscriptions', 'Retail'],
-    accent: '#2563eb',
-    badge: 'bg-blue-100 text-blue-800',
-  },
-  {
-    id: 'foundation',
-    name: 'Foundation',
-    tagline: 'Mission-led. Human. Community-first.',
-    description: 'Built for groups that need to explain a cause, show impact, and move people to participate.',
-    bestFor: ['Nonprofits', 'Churches', 'Associations', 'Charities'],
-    accent: '#0f766e',
-    badge: 'bg-teal-100 text-teal-800',
-  },
-  {
-    id: 'wellness',
-    name: 'Wellness',
-    tagline: 'Calm. Caring. Appointment-ready.',
-    description: 'Soft service flow for care, booking, reassurance, testimonials, and clear next steps.',
-    bestFor: ['Therapists', 'Spas', 'Yoga', 'Health Coaches'],
-    accent: '#16a34a',
-    badge: 'bg-green-100 text-green-800',
-  },
-  {
-    id: 'estate',
-    name: 'Estate',
-    tagline: 'Premium. Visual. Property-led.',
-    description: 'Image-forward structure for spaces, listings, interiors, property proof, and inquiries.',
-    bestFor: ['Real Estate', 'Interiors', 'Staging', 'Property'],
-    accent: '#a16207',
-    badge: 'bg-stone-100 text-stone-800',
-  },
-  {
-    id: 'studio',
-    name: 'Studio',
-    tagline: 'Creative. Precise. Portfolio-aware.',
-    description: 'A service-plus-portfolio structure for agencies, freelancers, designers, and brand teams.',
-    bestFor: ['Agencies', 'Freelancers', 'Designers', 'Brand Studios'],
-    accent: '#db2777',
-    badge: 'bg-pink-100 text-pink-800',
-  },
-  {
-    id: 'learn',
-    name: 'Learn',
-    tagline: 'Structured. Clear. Education-ready.',
-    description: 'Course and tutoring structure with outcomes, resources, pricing, FAQs, and trust sections.',
-    bestFor: ['Courses', 'Tutors', 'Workshops', 'Schools'],
-    accent: '#2563eb',
-    badge: 'bg-indigo-100 text-indigo-800',
-  },
-  {
-    id: 'occasion',
-    name: 'Occasion',
-    tagline: 'Celebratory. Visual. Event-ready.',
-    description: 'A lively structure for events, weddings, venues, planners, galleries, and booking inquiries.',
-    bestFor: ['Events', 'Weddings', 'Venues', 'Planners'],
-    accent: '#ec4899',
-    badge: 'bg-rose-100 text-rose-800',
-  },
-  {
-    id: 'atlas',
-    name: 'Atlas',
-    tagline: 'Structured. Metric-led. Professional.',
-    description: 'A B2B layout built around split hero, metrics, advisory lanes, process, and a strong consultation CTA.',
-    bestFor: ['Consultants', 'SaaS', 'Finance', 'Agencies'],
-    accent: '#2f6f73',
-    badge: 'bg-teal-100 text-teal-800',
-  },
-  {
-    id: 'editorial',
-    name: 'Editorial',
-    tagline: 'Magazine. Author-led. Content-first.',
-    description: 'A publication-style structure with masthead hero, featured resources, pull quote, author area, and newsletter CTA.',
-    bestFor: ['Blogs', 'Experts', 'Publications', 'Thought Leadership'],
-    accent: '#b91c1c',
-    badge: 'bg-red-100 text-red-800',
-  },
-  {
-    id: 'booked',
-    name: 'Booked',
-    tagline: 'Appointment-first. Calm. Direct.',
-    description: 'Designed around scheduling, with booking, services, process, testimonial, and repeated booking CTA.',
-    bestFor: ['Clinics', 'Therapists', 'Salons', 'Tutors'],
-    accent: '#0f9f8f',
-    badge: 'bg-emerald-100 text-emerald-800',
-  },
-  {
-    id: 'menu',
-    name: 'Menu',
-    tagline: 'Food-first. Order-ready. Local.',
-    description: 'A restaurant structure centered on menu highlights, category tabs, gallery, delivery links, hours, and location.',
-    bestFor: ['Restaurants', 'Cafes', 'Bakeries', 'Food Trucks'],
-    accent: '#d97706',
-    badge: 'bg-orange-100 text-orange-800',
-  },
-  {
-    id: 'craft',
-    name: 'Craft',
-    tagline: 'Handmade. Warm. Story-rich.',
-    description: 'A maker-focused layout with organic hero treatment, showcase slides, founder story, gallery, and community proof.',
-    bestFor: ['Artisans', 'Makers', 'Local Shops', 'Boutique Products'],
-    accent: '#c46a3a',
-    badge: 'bg-amber-100 text-amber-800',
-  },
-  {
-    id: 'retro',
-    name: 'Retro',
-    tagline: 'Playful. Chunky. Nostalgic.',
-    description: 'A high-personality layout with bold section breaks, tab buttons, sticker-like proof, events, and loud CTAs.',
-    bestFor: ['Creators', 'Pop-ups', 'Events', 'Youth Brands'],
-    accent: '#ff4fd8',
-    badge: 'bg-pink-100 text-pink-800',
-  },
-  {
-    id: 'proof',
-    name: 'Proof',
-    tagline: 'Credibility. Results. Trust.',
-    description: 'A trust-heavy structure with certifications, stats, reviews, guarantees, estimate intake, FAQ, and CTA.',
-    bestFor: ['Contractors', 'Clinics', 'Legal', 'Real Estate'],
-    accent: '#15803d',
-    badge: 'bg-green-100 text-green-800',
-  },
-  {
-    id: 'gallery',
-    name: 'Gallery',
-    tagline: 'Image-heavy. Minimal. Portfolio-led.',
-    description: 'A visual-first portfolio structure with carousel hero, full-width image, dense gallery, project spotlights, and inquiry CTA.',
-    bestFor: ['Photographers', 'Designers', 'Artists', 'Studios'],
-    accent: '#111111',
-    badge: 'bg-zinc-100 text-zinc-800',
-  },
+const TEMPLATE_IDS: readonly PresetTemplateStyle[] = [
+  'atlas',
+  'editorial',
+  'booked',
+  'menu',
+  'craft',
+  'retro',
+  'proof',
+  'gallery',
+  'builder',
+  'commerce',
+  'foundation',
+  'wellness',
+  'estate',
+  'studio',
+  'learn',
+  'occasion',
 ];
+
+const TEMPLATES: TemplateCard[] = TEMPLATE_IDS.map((id) => ({
+  id,
+  name: PRESET_TEMPLATE_DISPLAYS[id].name,
+  tagline: PRESET_TEMPLATE_DISPLAYS[id].tagline,
+  description: PRESET_TEMPLATE_DISPLAYS[id].description,
+  bestFor: PRESET_TEMPLATE_DISPLAYS[id].bestFor,
+  accent: PRESET_TEMPLATE_DISPLAYS[id].accent,
+  badge: PRESET_TEMPLATE_DISPLAYS[id].badge,
+}));
 
 const SORTED_TEMPLATES = [...TEMPLATES].sort((a, b) => a.name.localeCompare(b.name));
 
 function TemplateVisual({ template }: { template: TemplateCard }) {
+  const previewImage = getTemplatePreviewImage(template.id) || '/templates/luxe.png';
+
   return (
     <Image
-      src={getTemplatePreviewImage(template.id) || '/templates/luxe.png'}
+      src={previewImage}
       alt={`${template.name} template preview`}
       fill
       className="object-cover object-top"
       sizes="(max-width: 768px) 100vw, 50vw"
       priority={template.id === 'atlas' || template.id === 'builder'}
+      unoptimized={previewImage.endsWith('.svg')}
     />
   );
 }
@@ -193,7 +79,7 @@ export default function TemplatesPage() {
             transition={{ duration: 0.5 }}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 text-slate-700 font-bold text-sm mb-6 border border-slate-200"
           >
-            16 Premium Designs
+            16 Card Preset Templates
           </motion.div>
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
@@ -201,8 +87,8 @@ export default function TemplatesPage() {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="text-5xl md:text-6xl font-black text-slate-900 mb-6 tracking-tight"
           >
-            A Template for Every<br />
-            <span className="text-red-600">Kind of Business</span>
+            A Preset for Every<br />
+            <span className="text-red-600">Site Style</span>
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -210,8 +96,8 @@ export default function TemplatesPage() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-lg text-slate-600 max-w-2xl mx-auto"
           >
-            Sixteen distinct starting points. Each one fully customizable with your colors, content,
-            and brand. Pick your starting point - the AI handles the rest.
+            Sixteen card-preset-led starting points. Each one is fully customizable with your colors,
+            content, and brand. Pick your starting point - the AI handles the rest.
           </motion.p>
         </div>
       </section>

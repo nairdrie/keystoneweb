@@ -1,3 +1,16 @@
+import {
+  CARD_STYLE_DEFINITIONS,
+  CARD_STYLE_OPTIONS,
+  GALLERY_FRAME_OPTIONS,
+  ICON_STYLE_OPTIONS,
+  MARKER_STYLE_OPTIONS,
+  MEDIA_ASPECT_OPTIONS,
+  MEDIA_TREATMENT_OPTIONS,
+  SPACING_DENSITY_OPTIONS,
+  TEXT_ALIGN_OPTIONS,
+  readCardSettings,
+} from '@/lib/block-style-options';
+
 type FieldCapability = {
   name: string;
   type: string;
@@ -110,31 +123,15 @@ const SAFE_PRIMARY_COLOR = '#111827';
 const SAFE_ACCENT_COLOR = '#f8fafc';
 const AI_DISALLOWED_CUSTOM_CSS_KEYS = new Set(['__customCss', 'headerCustomCss']);
 const UNIVERSAL_ALLOWED_TOP_LEVEL_KEYS = ['sectionSettings', 'backgroundColor'] as const;
-const CARD_STYLE_VALUE_SET = [
-  'soft',
-  'bordered',
-  'elevated',
-  'splitMedia',
-  'accent',
-  'poster',
-  'offset',
-  'minimal',
-  'solid',
-  'glass',
-  'editorial',
-  'inset',
-  'slab',
-  'outline',
-  'glow',
-  'gradient',
-  'luxe',
-  'utility',
-  'playful',
-  'clipped',
-] as const;
+const CARD_STYLE_VALUE_SET = CARD_STYLE_OPTIONS;
+const AI_SURFACE_STYLE_VALUE_SET = ['white', 'accent', 'transparent', 'primary', 'secondary'] as const;
+const CARD_PRESET_AI_GUIDE = CARD_STYLE_DEFINITIONS
+  .map((style) => `- "${style.id}" (${style.label}): ${style.description} Good fit for ${style.recommendedTemplates.join(', ')} style cues.`)
+  .join('\n');
 
 export function sanitizeAiBlockData(blockType: string, rawData: unknown): Record<string, unknown> {
   const data = filterAiBlockDataToAllowedSettings(blockType, clonePlainObject(rawData));
+  normalizeAiPresetFields(blockType, data);
   normalizeSectionBackground(blockType, data);
   normalizeHeroBackgrounds(data);
   sanitizeCustomCssFields(data);
@@ -153,6 +150,48 @@ function filterAiBlockDataToAllowedSettings(blockType: string, data: Record<stri
     }
   }
   return filtered;
+}
+
+function normalizeAiPresetFields(blockType: string, data: Record<string, unknown>) {
+  normalizeAiStringOption(blockType, data, 'cardStyle', CARD_STYLE_VALUE_SET, 'soft');
+  normalizeAiStringOption(blockType, data, 'surfaceStyle', AI_SURFACE_STYLE_VALUE_SET, 'white');
+  normalizeAiStringOption(blockType, data, 'spacingDensity', SPACING_DENSITY_OPTIONS, 'standard');
+  normalizeAiStringOption(blockType, data, 'markerStyle', MARKER_STYLE_OPTIONS, 'numbered');
+  normalizeAiStringOption(blockType, data, 'iconStyle', ICON_STYLE_OPTIONS, 'badge');
+  normalizeAiStringOption(blockType, data, 'mediaAspect', MEDIA_ASPECT_OPTIONS, 'landscape');
+  normalizeAiStringOption(blockType, data, 'mediaTreatment', MEDIA_TREATMENT_OPTIONS, 'contained');
+  normalizeAiStringOption(blockType, data, 'textAlign', TEXT_ALIGN_OPTIONS, 'left');
+  normalizeAiStringOption(blockType, data, 'frameStyle', GALLERY_FRAME_OPTIONS, 'clean');
+
+  if ('cardSettings' in data) {
+    const settings = readCardSettings(data.cardSettings);
+    if (settings && Object.keys(settings).length > 0) {
+      data.cardSettings = settings as Record<string, unknown>;
+    } else {
+      delete data.cardSettings;
+    }
+  }
+}
+
+function normalizeAiStringOption(
+  blockType: string,
+  data: Record<string, unknown>,
+  key: string,
+  options: readonly string[],
+  fallback: string,
+) {
+  if (!(key in data)) return;
+  const value = typeof data[key] === 'string' ? data[key].trim() : '';
+  data[key] = options.includes(value)
+    ? value
+    : getCapabilityFieldDefault(blockType, key, fallback);
+}
+
+function getCapabilityFieldDefault(blockType: string, fieldName: string, fallback: string): string {
+  const field = AI_BLOCK_CAPABILITIES
+    .find((block) => block.type === blockType)
+    ?.fields.find((candidate) => candidate.name === fieldName);
+  return typeof field?.defaultValue === 'string' ? field.defaultValue : fallback;
 }
 
 export function sanitizeAiCustomColors(raw: Record<string, unknown>): Record<string, string> {
@@ -401,7 +440,7 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'ctaTextLink', type: 'Link' },
       { name: 'cardStyle', type: 'string', options: CARD_STYLE_VALUE_SET, defaultValue: 'soft' },
       { name: 'cardSettings', type: 'object', notes: 'Optional universal card settings. Use only for intentional advanced card customization; otherwise prefer cardStyle/surfaceStyle so legacy rendering stays stable. Fields include presetId, surface, surfaceOpacity, gradientFrom, gradientTo, gradientVia, gradientAngle, radiusPx, borderWidthPx, borderStyle, borderColor, borderSides, shadow, shadowEnabled, shadowX, shadowY, shadowBlur, shadowInset, shadowColor, shadowOpacity, paddingPx, paddingDensity, textAlign, accentSide, accentWidthPx, accentColor, mediaLayout, mediaAspect, mediaTreatment, mediaSize, mediaSizePercent, mediaRadiusPx, markerStyle, iconStyle, cornerEffect.' },
-      { name: 'surfaceStyle', type: 'string', options: ['white', 'accent', 'transparent', 'primary', 'secondary'], defaultValue: 'white' },
+      { name: 'surfaceStyle', type: 'string', options: AI_SURFACE_STYLE_VALUE_SET, defaultValue: 'white' },
       { name: 'markerStyle', type: 'string', options: ['plain', 'numbered', 'badge', 'framed', 'accentLine', 'none'], defaultValue: 'numbered' },
       { name: 'spacingDensity', type: 'string', options: ['compact', 'standard', 'spacious'], defaultValue: 'standard' },
       { name: 'textAlign', type: 'string', options: ['left', 'center'], defaultValue: 'left' },
@@ -419,7 +458,7 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'items', type: 'string[]', notes: 'Keep each feature concise and specific.' },
       { name: 'cardStyle', type: 'string', options: CARD_STYLE_VALUE_SET, defaultValue: 'soft' },
       { name: 'cardSettings', type: 'object', notes: 'Optional universal card settings. Use only for intentional advanced card customization; otherwise prefer cardStyle/surfaceStyle. Fields include presetId, surface, surfaceOpacity, gradientFrom, gradientTo, gradientVia, gradientAngle, radiusPx, borderWidthPx, borderStyle, borderColor, borderSides, shadow, shadowEnabled, shadowX, shadowY, shadowBlur, shadowInset, shadowColor, shadowOpacity, paddingPx, paddingDensity, textAlign, accentSide, accentWidthPx, accentColor, markerStyle, cornerEffect.' },
-      { name: 'surfaceStyle', type: 'string', options: ['white', 'accent', 'transparent', 'primary', 'secondary'], defaultValue: 'white' },
+      { name: 'surfaceStyle', type: 'string', options: AI_SURFACE_STYLE_VALUE_SET, defaultValue: 'white' },
       { name: 'markerStyle', type: 'string', options: ['plain', 'numbered', 'badge', 'framed', 'accentLine', 'none'], defaultValue: 'framed' },
       { name: 'spacingDensity', type: 'string', options: ['compact', 'standard', 'spacious'], defaultValue: 'standard' },
       { name: 'textAlign', type: 'string', options: ['left', 'center'], defaultValue: 'left' },
@@ -469,7 +508,7 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'variant', type: 'string', options: ['cards', 'scroll', 'single'] },
       { name: 'cardStyle', type: 'string', options: CARD_STYLE_VALUE_SET, defaultValue: 'soft' },
       { name: 'cardSettings', type: 'object', notes: 'Optional universal card settings. Use only for intentional advanced card customization; otherwise prefer cardStyle/surfaceStyle so legacy rendering stays stable.' },
-      { name: 'surfaceStyle', type: 'string', options: ['white', 'accent', 'transparent', 'primary', 'secondary'], defaultValue: 'white' },
+      { name: 'surfaceStyle', type: 'string', options: AI_SURFACE_STYLE_VALUE_SET, defaultValue: 'white' },
       { name: 'spacingDensity', type: 'string', options: ['compact', 'standard', 'spacious'], defaultValue: 'standard' },
       { name: 'items', type: 'Array<{ name:string, role:string, quote:string, rating:number }>', notes: 'Use plausible but not fake-specific claims. Rating should be 1-5.' },
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
@@ -486,7 +525,7 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'variant', type: 'string', options: ['banner', 'cards', 'progress'] },
       { name: 'cardStyle', type: 'string', options: CARD_STYLE_VALUE_SET, defaultValue: 'soft' },
       { name: 'cardSettings', type: 'object', notes: 'Optional universal card settings. Use only for intentional advanced card customization; otherwise prefer cardStyle/surfaceStyle so legacy rendering stays stable.' },
-      { name: 'surfaceStyle', type: 'string', options: ['white', 'accent', 'transparent', 'primary', 'secondary'], defaultValue: 'white' },
+      { name: 'surfaceStyle', type: 'string', options: AI_SURFACE_STYLE_VALUE_SET, defaultValue: 'white' },
       { name: 'spacingDensity', type: 'string', options: ['compact', 'standard', 'spacious'], defaultValue: 'standard' },
       { name: 'textAlign', type: 'string', options: ['left', 'center'], defaultValue: 'center' },
       { name: 'items', type: 'Array<{ value:string, label:string }>', notes: 'For variant "progress", value should include a percentage (e.g. "95%") that drives bar width; label is the skill or metric name.' },
@@ -533,7 +572,7 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'hours', type: 'string' },
       { name: 'cardStyle', type: 'string', options: CARD_STYLE_VALUE_SET, defaultValue: 'soft' },
       { name: 'cardSettings', type: 'object', notes: 'Optional universal card settings for contact cards. Prefer cardStyle/surfaceStyle unless intentionally customizing radius, border, shadow, padding, textAlign, iconStyle, or surface.' },
-      { name: 'surfaceStyle', type: 'string', options: ['white', 'accent', 'transparent', 'primary', 'secondary'], defaultValue: 'white' },
+      { name: 'surfaceStyle', type: 'string', options: AI_SURFACE_STYLE_VALUE_SET, defaultValue: 'white' },
       { name: 'spacingDensity', type: 'string', options: ['compact', 'standard', 'spacious'], defaultValue: 'standard' },
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: '__customCss', type: 'string' },
@@ -549,7 +588,7 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'items', type: 'Array<{ question:string, answer:string }>', notes: 'Use 2-8 common questions tailored to the prompt.' },
       { name: 'cardStyle', type: 'string', options: CARD_STYLE_VALUE_SET, defaultValue: 'soft' },
       { name: 'cardSettings', type: 'object', notes: 'Optional universal card settings for FAQ accordion items. Prefer cardStyle/surfaceStyle unless intentionally customizing radius, border, shadow, padding, or surface.' },
-      { name: 'surfaceStyle', type: 'string', options: ['white', 'accent', 'transparent', 'primary', 'secondary'], defaultValue: 'white' },
+      { name: 'surfaceStyle', type: 'string', options: AI_SURFACE_STYLE_VALUE_SET, defaultValue: 'white' },
       { name: 'spacingDensity', type: 'string', options: ['compact', 'standard', 'spacious'], defaultValue: 'standard' },
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: '__customCss', type: 'string' },
@@ -579,6 +618,9 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'description', type: 'string' },
       { name: 'submitText', type: 'string' },
       { name: 'successMessage', type: 'string' },
+      { name: 'cardStyle', type: 'string', options: CARD_STYLE_VALUE_SET, defaultValue: 'soft' },
+      { name: 'cardSettings', type: 'object', notes: 'Optional universal card settings for the contact form shell. Prefer cardStyle/surfaceStyle unless intentionally customizing radius, border, shadow, padding, or surface. Media-supporting fields are ignored by form shells.' },
+      { name: 'surfaceStyle', type: 'string', options: AI_SURFACE_STYLE_VALUE_SET, defaultValue: 'white' },
       { name: '__customCss', type: 'string' },
     ],
   },
@@ -616,7 +658,7 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'tiers', type: 'Array<{ name:string, price:string, period:string, description:string, features:string[], highlighted:boolean, buttonText?:string, buttonTextLink?:Link }>' },
       { name: 'cardStyle', type: 'string', options: CARD_STYLE_VALUE_SET, defaultValue: 'soft' },
       { name: 'cardSettings', type: 'object', notes: 'Optional universal card settings for pricing tier cards. Prefer cardStyle/surfaceStyle unless intentionally customizing radius, border, shadow, padding, textAlign, or surface.' },
-      { name: 'surfaceStyle', type: 'string', options: ['white', 'accent', 'transparent', 'primary', 'secondary'], defaultValue: 'white' },
+      { name: 'surfaceStyle', type: 'string', options: AI_SURFACE_STYLE_VALUE_SET, defaultValue: 'white' },
       { name: 'spacingDensity', type: 'string', options: ['compact', 'standard', 'spacious'], defaultValue: 'standard' },
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: '__customCss', type: 'string' },
@@ -663,7 +705,7 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'items', type: 'Array<{ title:string, organization:string, dateRange:string, description:string, tags:string[] }>' },
       { name: 'cardStyle', type: 'string', options: CARD_STYLE_VALUE_SET, defaultValue: 'soft' },
       { name: 'cardSettings', type: 'object', notes: 'Optional universal card settings for timeline entry cards. Prefer cardStyle/surfaceStyle unless intentionally customizing radius, border, shadow, padding, or surface.' },
-      { name: 'surfaceStyle', type: 'string', options: ['white', 'accent', 'transparent', 'primary', 'secondary'], defaultValue: 'white' },
+      { name: 'surfaceStyle', type: 'string', options: AI_SURFACE_STYLE_VALUE_SET, defaultValue: 'white' },
       { name: 'spacingDensity', type: 'string', options: ['compact', 'standard', 'spacious'], defaultValue: 'standard' },
       { name: 'backgroundColor', type: 'string', notes: 'Hex or palette token.' },
       { name: 'foregroundColor', type: 'string', notes: 'Hex or palette token.' },
@@ -748,7 +790,7 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'interval', type: 'number', notes: 'Seconds between slides.' },
       { name: 'cardStyle', type: 'string', options: CARD_STYLE_VALUE_SET, defaultValue: 'soft' },
       { name: 'cardSettings', type: 'object', notes: 'Optional universal card settings. Use only for intentional advanced card customization; otherwise prefer cardStyle/surfaceStyle so legacy rendering stays stable. Media-supporting fields apply here.' },
-      { name: 'surfaceStyle', type: 'string', options: ['white', 'accent', 'transparent', 'primary', 'secondary'], defaultValue: 'white' },
+      { name: 'surfaceStyle', type: 'string', options: AI_SURFACE_STYLE_VALUE_SET, defaultValue: 'white' },
       { name: 'mediaAspect', type: 'string', options: ['landscape', 'square', 'portrait', 'wide'], defaultValue: 'landscape' },
       { name: 'mediaTreatment', type: 'string', options: ['contained', 'fullBleed', 'framed', 'soft', 'circle'], defaultValue: 'contained' },
       { name: 'iconStyle', type: 'string', options: ['plain', 'badge', 'numbered', 'framed'], defaultValue: 'badge' },
@@ -891,6 +933,9 @@ export const AI_BLOCK_CAPABILITIES: readonly BlockCapability[] = [
       { name: 'showAddress', type: 'boolean' },
       { name: 'showPreferredDate', type: 'boolean' },
       { name: 'showMessage', type: 'boolean' },
+      { name: 'cardStyle', type: 'string', options: CARD_STYLE_VALUE_SET, defaultValue: 'soft' },
+      { name: 'cardSettings', type: 'object', notes: 'Optional universal card settings for the estimate form shell. Prefer cardStyle/surfaceStyle unless intentionally customizing radius, border, shadow, padding, or surface. Media-supporting fields are ignored by form shells.' },
+      { name: 'surfaceStyle', type: 'string', options: AI_SURFACE_STYLE_VALUE_SET, defaultValue: 'white' },
       { name: '__customCss', type: 'string' },
     ],
   },
@@ -958,6 +1003,10 @@ General rules:
 - Admin-backed blocks such as menu, products, booking, events, blog, and PDF may require later user setup. Still configure their visible titles/layout/settings. Initial onboarding sample products, menu items, and booking services are seeded separately through admin-editable data, not hidden block fields.
 - Do not invent image URLs. For onboarding/new-site builds, image-capable blocks can receive prompt-aware sample media after generation when their image fields are intentionally left empty.
 - Button appearance is controlled by editable Button Settings and supported block/header fields.
+- Use cardStyle for preset-level card design, and cardSettings only when intentionally overriding preset details. Avoid custom text colors to fix card contrast; the preset renderer handles readable text.
+
+Card style preset guide:
+${CARD_PRESET_AI_GUIDE}
 
 ${blocks}
 

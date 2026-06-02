@@ -9,6 +9,7 @@ import Reveal from '@/app/components/Reveal';
 import { resolvePaletteColor } from '@/lib/palette-colors';
 import InlineCardControls, { reorderItems } from './InlineCardControls';
 import {
+    CARD_PRESET_RECIPES,
     MARKER_STYLE_OPTIONS,
     SPACING_DENSITY_OPTIONS,
     type MarkerStyle,
@@ -57,10 +58,11 @@ export default function ServicesGridBlock({ data, isEditMode, palette, updateCon
         fallbackTextAlign: 'left',
     });
     const cardStyle = resolveCardPresetId(data, 'soft');
+    const presetRecipe = CARD_PRESET_RECIPES[cardStyle];
     const surfaceStyle = getSurfaceStyle(data.surfaceStyle, cardStyle);
-    const markerStyle = universalCardSettings?.markerStyle || readStyleOption(data.markerStyle, MARKER_STYLE_OPTIONS, 'numbered');
-    const spacingDensity = readStyleOption(data.spacingDensity, SPACING_DENSITY_OPTIONS, 'standard');
-    const textAlignClass = universalCardSettings ? getTextAlignClass(universalCardSettings.textAlign) : getTextAlignClass(data.textAlign);
+    const markerStyle = universalCardSettings?.markerStyle || readStyleOption(data.markerStyle, MARKER_STYLE_OPTIONS, presetRecipe.markerStyle);
+    const spacingDensity = readStyleOption(data.spacingDensity, SPACING_DENSITY_OPTIONS, presetRecipe.paddingDensity === 'none' ? 'standard' : presetRecipe.paddingDensity);
+    const textAlignClass = universalCardSettings ? getTextAlignClass(universalCardSettings.textAlign) : getTextAlignClass(data.textAlign || presetRecipe.textAlign);
     const activeSurfaceStyle = universalCardSettings?.surface || surfaceStyle;
     const cardTextColor = universalCardSettings ? getUniversalCardTextColor(universalCardSettings, palette) : getSurfaceTextColor(surfaceStyle, palette);
     const lockCardTextToSurface = shouldLockCardTextToSurface(activeSurfaceStyle);
@@ -201,7 +203,7 @@ export default function ServicesGridBlock({ data, isEditMode, palette, updateCon
 
                             <div
                                 className={`${cardClassName} w-full ${
-                                    isDragTarget ? 'border-blue-300 ring-2 ring-blue-100' : 'border-gray-100'
+                                    isDragTarget ? 'ring-2 ring-blue-100' : ''
                                 } ${isDragging ? 'scale-[0.99] opacity-60' : ''}`}
                                 style={cardInlineStyle}
                             >

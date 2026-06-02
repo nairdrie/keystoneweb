@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/db/supabase-admin';
+import { parseHost } from '@/lib/env/domain';
 import { requireOpsAccess } from '@/lib/ops/access';
 import ProspectActions from './ProspectActions';
 
@@ -55,6 +57,10 @@ export default async function DiscoverPage({
 }) {
   const access = await requireOpsAccess();
   if (!access) redirect('/');
+
+  const requestHeaders = await headers();
+  const host = requestHeaders.get('host') || '';
+  const opsBasePath = parseHost(host).kind === 'ops' ? '' : '/ops';
 
   const sp = await searchParams;
   const tab = (sp.tab ?? 'ready') as (typeof STATUS_TABS)[number]['value'];
@@ -155,7 +161,7 @@ export default async function DiscoverPage({
       p.set(k, v);
     }
     const qs = p.toString();
-    return `/leads/discover${qs ? `?${qs}` : ''}`;
+    return `${opsBasePath}/leads/discover${qs ? `?${qs}` : ''}`;
   }
 
   const counts: Record<string, number> = {
@@ -171,7 +177,7 @@ export default async function DiscoverPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <Link href="/leads" className="text-sm text-gray-400 hover:text-white">
+          <Link href={`${opsBasePath}/leads`} className="text-sm text-gray-400 hover:text-white">
             &larr; Back to leads
           </Link>
           <h1 className="text-2xl font-bold text-white mt-2">Discover prospects</h1>
@@ -224,7 +230,7 @@ export default async function DiscoverPage({
       {/* List */}
       <div className="space-y-2">
         {prospects.map((p) => (
-          <ProspectCard key={p.id} prospect={p} />
+          <ProspectCard key={p.id} prospect={p} opsBasePath={opsBasePath} />
         ))}
 
         {prospects.length === 0 && (
@@ -277,7 +283,7 @@ function RegionPill({ href, active, label }: { href: string; active: boolean; la
   );
 }
 
-function ProspectCard({ prospect }: { prospect: Prospect }) {
+function ProspectCard({ prospect, opsBasePath }: { prospect: Prospect; opsBasePath: string }) {
   const isPromoted = Boolean(prospect.promoted_lead_id);
   const isDismissed = Boolean(prospect.dismissed_at);
   const noWebsite = prospect.audit_status === 'no_website';
@@ -339,6 +345,7 @@ function ProspectCard({ prospect }: { prospect: Prospect }) {
           dismissed={isDismissed}
           promoted={isPromoted}
           promotedLeadId={prospect.promoted_lead_id}
+          opsBasePath={opsBasePath}
         />
       </div>
 

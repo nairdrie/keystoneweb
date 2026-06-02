@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/db/supabase-server';
+import { createAdminClient } from '@/lib/db/supabase-admin';
 import EditorContent from '@/app/(app)/editor/editor-content-v2';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
@@ -7,6 +7,37 @@ import Image from 'next/image';
 import KeystoneLogoImage from '@/assets/logo/keystone-logo.png';
 
 export const dynamic = 'force-dynamic';
+
+type JsonRecord = Record<string, unknown>;
+
+type PreviewPageRow = {
+  id: string;
+  slug: string;
+  title: string;
+  design_data: unknown;
+};
+
+type PreviewSiteRow = {
+  id: string;
+  selected_template_id: string;
+  design_data: unknown;
+  translations_config: unknown;
+};
+
+type PreviewBlock = {
+  type?: unknown;
+};
+
+function asRecord(value: unknown): JsonRecord {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as JsonRecord
+    : {};
+}
+
+function getBlocks(page: PreviewPageRow): PreviewBlock[] {
+  const blocks = asRecord(page.design_data).blocks;
+  return Array.isArray(blocks) ? blocks.filter((block): block is PreviewBlock => typeof block === 'object' && block !== null) : [];
+}
 
 export default async function PreviewPage({
   searchParams,
@@ -28,15 +59,16 @@ export default async function PreviewPage({
   }
 
   try {
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     // Fetch the site by ID — no auth check, no is_published check (publicly accessible draft preview)
-    const { data: site, error } = await supabase
+    const { data: siteResult, error } = await supabase
       .from('sites')
       .select('id, selected_template_id, design_data, translations_config')
       .eq('id', siteId)
       .is('deleted_at', null)
       .single();
+    const site = siteResult as PreviewSiteRow | null;
 
     if (error || !site) {
       return (
@@ -50,44 +82,48 @@ export default async function PreviewPage({
     }
 
     // Fetch all pages for navigation
-    const { data: allPages } = await supabase
+    const { data: allPagesResult } = await supabase
       .from('pages')
       .select('id, slug, title, design_data')
       .eq('site_id', site.id);
+    const allPages = (allPagesResult || []) as PreviewPageRow[];
 
     // Determine which page to show: use pageId param if provided, else fall back to home
-    let currentPageData: Record<string, any> = {};
+    let currentPageData: JsonRecord = {};
     let currentPageIdForContext: string | undefined;
-    if (pageId && allPages) {
-      const targetPage = allPages.find((p: any) => p.id === pageId);
-      currentPageData = targetPage?.design_data || {};
+    if (pageId) {
+      const targetPage = allPages.find((p) => p.id === pageId);
+      currentPageData = asRecord(targetPage?.design_data);
       currentPageIdForContext = targetPage?.id;
-    } else if (allPages) {
-      const homePage = allPages.find((p: any) => p.slug === 'home');
-      currentPageData = homePage?.design_data || {};
+    } else {
+      const homePage = allPages.find((p) => p.slug === 'home');
+      currentPageData = asRecord(homePage?.design_data);
       currentPageIdForContext = homePage?.id;
     }
 
-    const siteDesignData = site.design_data || {};
+    const siteDesignData = asRecord(site.design_data);
 
-    const hasProductBlock = (allPages || []).some((p: any) =>
-      (p.design_data?.blocks || []).some((b: any) => b.type === 'productGrid')
+    const hasProductBlock = allPages.some((p) =>
+      getBlocks(p).some((b) => b.type === 'productGrid')
     );
-    const hasMembershipBlock = (allPages || []).some((p: any) =>
-      (p.design_data?.blocks || []).some((b: any) => b.type === 'membershipGate')
+    const hasMembershipBlock = allPages.some((p) =>
+      getBlocks(p).some((b) => b.type === 'membershipGate')
     );
-    const hasChatSupportBlock = (allPages || []).some((p: any) =>
-      (p.design_data?.blocks || []).some((b: any) => b.type === 'chatSupport')
+    const hasChatSupportBlock = allPages.some((p) =>
+      getBlocks(p).some((b) => b.type === 'chatSupport')
     );
 
-    const translationsConfig = site.translations_config as any;
+    const translationsConfig = asRecord(site.translations_config);
+    const defaultLanguage = typeof translationsConfig.defaultLanguage === 'string'
+      ? translationsConfig.defaultLanguage
+      : 'en';
     const mergedDesignData = {
       ...siteDesignData,
       ...currentPageData,
-      __pages: (allPages || []).map(({ id, slug, title }: any) => ({ id, slug, title })),
+      __pages: allPages.map(({ id, slug, title }) => ({ id, slug, title })),
       __currentPageId: currentPageIdForContext,
-      __currentLanguage: translationsConfig?.defaultLanguage || 'en',
-      __translationsConfig: translationsConfig || null,
+      __currentLanguage: defaultLanguage,
+      __translationsConfig: translationsConfig,
       __hasProductBlock: hasProductBlock,
       __hasMembershipBlock: hasMembershipBlock,
       __hasChatSupportBlock: hasChatSupportBlock,
@@ -98,14 +134,16 @@ export default async function PreviewPage({
 
     let paletteData: Record<string, string> = {};
     if (metadata) {
-      const palettesObj = metadata.palettes || {};
-      const requestedPalette = siteDesignData.__selectedPalette || 'default';
+      const palettesObj = (metadata.palettes || {}) as Record<string, Record<string, string>>;
+      const requestedPalette = typeof siteDesignData.__selectedPalette === 'string'
+        ? siteDesignData.__selectedPalette
+        : 'default';
       if (requestedPalette === 'custom') {
         const defaultPalette = palettesObj['default'] || {};
         paletteData = {
-          primary: siteDesignData.__customPalette_primary || defaultPalette.primary || '',
-          secondary: siteDesignData.__customPalette_secondary || defaultPalette.secondary || '',
-          accent: siteDesignData.__customPalette_accent || defaultPalette.accent || '',
+          primary: typeof siteDesignData.__customPalette_primary === 'string' ? siteDesignData.__customPalette_primary : defaultPalette.primary || '',
+          secondary: typeof siteDesignData.__customPalette_secondary === 'string' ? siteDesignData.__customPalette_secondary : defaultPalette.secondary || '',
+          accent: typeof siteDesignData.__customPalette_accent === 'string' ? siteDesignData.__customPalette_accent : defaultPalette.accent || '',
         };
       } else {
         paletteData = palettesObj[requestedPalette] || palettesObj['default'] || {};

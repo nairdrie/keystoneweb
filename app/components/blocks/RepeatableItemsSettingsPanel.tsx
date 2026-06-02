@@ -27,9 +27,12 @@ import {
     type SectionSettings,
 } from '@/lib/builder/layout-settings';
 import {
+    CARD_PRESET_RECIPES,
     CARD_STYLE_DEFINITIONS,
-    buildCardSettingsForPreset,
+    getSurfaceStyle,
+    normalizeCardSettingsOverride,
     readCardSettings,
+    readCardPresetId,
     type CardSettings,
 } from '@/lib/block-style-options';
 
@@ -48,6 +51,7 @@ const STATS_SEPARATOR_OPTIONS: ReadonlyArray<{ id: StatsSeparator; label: string
 
 type BuiltInStyleKey = 'cardStyle' | 'surfaceStyle' | 'markerStyle' | 'textAlign' | 'spacingDensity';
 type BuiltInStyleSettings = Record<BuiltInStyleKey, string>;
+const BUILT_IN_STYLE_KEYS: BuiltInStyleKey[] = ['cardStyle', 'surfaceStyle', 'markerStyle', 'textAlign', 'spacingDensity'];
 type StyleChoiceOption = {
     id: string;
     label: string;
@@ -117,9 +121,11 @@ function readBuiltInStyleSettings(
     blockData: Record<string, unknown> | undefined,
     blockType: ManagedBlockType,
 ): BuiltInStyleSettings {
-    const defaults = getDefaultBuiltInStyleSettings(blockType);
+    const fallbackDefaults = getDefaultBuiltInStyleSettings(blockType);
+    const cardStyle = readStringOption(blockData?.cardStyle, CARD_STYLE_CHOICES, fallbackDefaults.cardStyle);
+    const defaults = getDefaultBuiltInStyleSettings(blockType, cardStyle);
     return {
-        cardStyle: readStringOption(blockData?.cardStyle, CARD_STYLE_CHOICES, defaults.cardStyle),
+        cardStyle,
         surfaceStyle: readStringOption(blockData?.surfaceStyle, SURFACE_STYLE_CHOICES, defaults.surfaceStyle),
         markerStyle: readStringOption(blockData?.markerStyle, MARKER_STYLE_CHOICES, defaults.markerStyle),
         textAlign: readStringOption(blockData?.textAlign, TEXT_ALIGN_CHOICES, defaults.textAlign),
@@ -127,13 +133,15 @@ function readBuiltInStyleSettings(
     };
 }
 
-function getDefaultBuiltInStyleSettings(blockType: ManagedBlockType): BuiltInStyleSettings {
+function getDefaultBuiltInStyleSettings(blockType: ManagedBlockType, cardStyle: unknown = 'soft'): BuiltInStyleSettings {
+    const presetId = readCardPresetId(cardStyle, 'soft');
+    const recipe = CARD_PRESET_RECIPES[presetId];
     return {
-        cardStyle: 'soft',
-        surfaceStyle: 'white',
-        markerStyle: 'numbered',
-        textAlign: blockType === 'stats' ? 'center' : 'left',
-        spacingDensity: 'standard',
+        cardStyle: presetId,
+        surfaceStyle: getSurfaceStyle(undefined, presetId),
+        markerStyle: readStringOption(recipe.markerStyle, MARKER_STYLE_CHOICES, 'numbered'),
+        textAlign: blockType === 'stats' ? 'center' : readStringOption(recipe.textAlign, TEXT_ALIGN_CHOICES, 'left'),
+        spacingDensity: readStringOption(recipe.paddingDensity, SPACING_DENSITY_CHOICES, 'standard'),
     };
 }
 
@@ -141,21 +149,33 @@ function getBuiltInStylePayload(
     blockType: ManagedBlockType,
     settings: BuiltInStyleSettings,
 ): Record<string, string> {
+    const defaults = getDefaultBuiltInStyleSettings(blockType, settings.cardStyle);
     const payload: Record<string, string> = {
         cardStyle: settings.cardStyle,
-        surfaceStyle: settings.surfaceStyle,
-        spacingDensity: settings.spacingDensity,
     };
 
+    if (settings.surfaceStyle !== defaults.surfaceStyle) payload.surfaceStyle = settings.surfaceStyle;
+    if (settings.spacingDensity !== defaults.spacingDensity) payload.spacingDensity = settings.spacingDensity;
     if (blockType === 'servicesGrid') {
-        payload.markerStyle = settings.markerStyle;
-        payload.textAlign = settings.textAlign;
+        if (settings.markerStyle !== defaults.markerStyle) payload.markerStyle = settings.markerStyle;
+        if (settings.textAlign !== defaults.textAlign) payload.textAlign = settings.textAlign;
     }
     if (blockType === 'stats') {
-        payload.textAlign = settings.textAlign;
+        if (settings.textAlign !== defaults.textAlign) payload.textAlign = settings.textAlign;
     }
 
     return payload;
+}
+
+function applyBuiltInStylePayload(
+    target: Record<string, unknown>,
+    blockType: ManagedBlockType,
+    settings: BuiltInStyleSettings,
+) {
+    for (const key of BUILT_IN_STYLE_KEYS) {
+        delete target[key];
+    }
+    Object.assign(target, getBuiltInStylePayload(blockType, settings));
 }
 
 function readStringOption(value: unknown, options: StyleChoiceOption[], fallback: string): string {
@@ -487,8 +507,10 @@ export default function RepeatableItemsSettingsPanel({
         [blockData, managedType],
     );
     const persistedCardSettings = useMemo(
-        () => supportsBuiltInStyleControls ? readCardSettings(blockData?.cardSettings) : undefined,
-        [blockData?.cardSettings, supportsBuiltInStyleControls],
+        () => supportsBuiltInStyleControls
+            ? normalizeCardSettingsOverride(readCardSettings(blockData?.cardSettings), persistedBuiltInStyles.cardStyle)
+            : undefined,
+        [blockData?.cardSettings, persistedBuiltInStyles.cardStyle, supportsBuiltInStyleControls],
     );
 
     const supportsPretext = PRETEXT_BLOCKS.has(config.blockType);
@@ -572,21 +594,29 @@ export default function RepeatableItemsSettingsPanel({
 
     useEffect(() => {
         if (!onDraftBlockDataChange) return;
-        onDraftBlockDataChange({
+        const normalizedCardSettings = normalizeCardSettingsOverride(cardSettings, builtInStyles.cardStyle);
+        const nextDraftBlockData: Record<string, unknown> = {
             ...(blockData || {}),
             items,
             ...(config.variants ? { variant } : {}),
             ...(supportsSeparator ? { separator } : {}),
             ...(hasTestimonialDisplayControls ? displaySettings : {}),
-            ...(supportsBuiltInStyleControls ? getBuiltInStylePayload(managedType, builtInStyles) : {}),
-            ...(supportsBuiltInStyleControls ? { cardSettings: cardSettings || buildCardSettingsForPreset(builtInStyles.cardStyle) } : {}),
             ...(supportsPretext ? pretext : {}),
             backgroundColor,
             foregroundColor,
             sectionSettings,
             __customCss: localCss,
             __customScript: localScript,
-        });
+        };
+        if (supportsBuiltInStyleControls) {
+            applyBuiltInStylePayload(nextDraftBlockData, managedType, builtInStyles);
+        }
+        if (supportsBuiltInStyleControls && normalizedCardSettings) {
+            nextDraftBlockData.cardSettings = normalizedCardSettings;
+        } else {
+            delete nextDraftBlockData.cardSettings;
+        }
+        onDraftBlockDataChange(nextDraftBlockData);
     }, [blockData, items, variant, separator, supportsSeparator, displaySettings, builtInStyles, cardSettings, supportsBuiltInStyleControls, managedType, pretext, supportsPretext, backgroundColor, foregroundColor, sectionSettings, localCss, localScript, config.variants, hasTestimonialDisplayControls, onDraftBlockDataChange]);
 
     const backgroundFallback = getRepeatableBackgroundFallback(managedType, variant, config.backgroundFallback);
@@ -603,8 +633,9 @@ export default function RepeatableItemsSettingsPanel({
     };
 
     const updateCardSettings = (value: CardSettings) => {
-        setCardSettings(value);
         const presetId = value.presetId;
+        const nextPresetId = presetId && presetId !== 'custom' ? presetId : builtInStyles.cardStyle;
+        setCardSettings(normalizeCardSettingsOverride(value, nextPresetId));
         if (presetId && presetId !== 'custom') {
             setBuiltInStyles((current) => ({ ...current, cardStyle: presetId }));
         }
@@ -641,12 +672,23 @@ export default function RepeatableItemsSettingsPanel({
         }
         if (supportsBuiltInStyleControls) {
             const nextStylePayload = getBuiltInStylePayload(managedType, builtInStyles);
-            const persistedStylePayload = getBuiltInStylePayload(managedType, persistedBuiltInStyles);
-            for (const [key, value] of Object.entries(nextStylePayload)) {
-                if (value !== persistedStylePayload[key]) updates[key] = value;
+            const normalizedCardSettings = normalizeCardSettingsOverride(cardSettings, builtInStyles.cardStyle);
+            const hasRawPersistedCardSettings = Boolean(blockData?.cardSettings && typeof blockData.cardSettings === 'object' && !Array.isArray(blockData.cardSettings));
+            for (const key of BUILT_IN_STYLE_KEYS) {
+                const nextHasKey = Object.prototype.hasOwnProperty.call(nextStylePayload, key);
+                const persistedHasKey = Boolean(blockData && Object.prototype.hasOwnProperty.call(blockData, key));
+                if (nextHasKey) {
+                    const value = nextStylePayload[key];
+                    if (value !== blockData?.[key]) updates[key] = value;
+                } else if (persistedHasKey) {
+                    updates[key] = undefined;
+                }
             }
-            if (JSON.stringify(cardSettings) !== JSON.stringify(persistedCardSettings)) {
-                updates.cardSettings = cardSettings || buildCardSettingsForPreset(builtInStyles.cardStyle);
+            if (
+                JSON.stringify(normalizedCardSettings) !== JSON.stringify(persistedCardSettings)
+                || (hasRawPersistedCardSettings && !normalizedCardSettings)
+            ) {
+                updates.cardSettings = normalizedCardSettings;
             }
         }
         if (localCss !== customCss) updates.__customCss = localCss;
@@ -990,12 +1032,17 @@ export default function RepeatableItemsSettingsPanel({
                     onToggle={() => sectionState.toggle('card-advanced')}
                 >
                     <CardSettingsControls
-                        value={cardSettings || buildCardSettingsForPreset(builtInStyles.cardStyle)}
+                        value={cardSettings}
                         currentPresetId={builtInStyles.cardStyle}
                         palette={palette}
                         supportsMarker={managedType === 'servicesGrid'}
                         supportsTextAlign={managedType === 'servicesGrid' || managedType === 'stats'}
                         onChange={updateCardSettings}
+                        onPresetChange={(presetId) => {
+                            setBuiltInStyles(getDefaultBuiltInStyleSettings(managedType, presetId));
+                            setCardSettings(undefined);
+                        }}
+                        onReset={() => setCardSettings(undefined)}
                     />
                 </InspectorSection>
             )}

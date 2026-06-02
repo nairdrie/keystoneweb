@@ -8,7 +8,7 @@ import FloatingToolbar from '@/app/components/FloatingToolbar';
 import { EditorProvider, BlockData, NavItem } from '@/lib/editor-context';
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata } from '@/lib/db/template-queries';
-import { isStructuralTemplateId } from '@/lib/templates/structural-templates';
+import { applyStructuralTemplatePresetPlanToContent, applyStructuralTemplatePresetPlanToNewBlockData, isStructuralTemplateId } from '@/lib/templates/structural-templates';
 import { formatTemplateNameForCategory } from '@/lib/templates/template-category-labels';
 import { useAuth } from '@/lib/auth/context';
 import { useImageUpload } from '@/lib/hooks/useImageUpload';
@@ -111,6 +111,22 @@ type PendingCustomColorChange = {
 function getSiteContentChangeLabel(key: string): string {
   if (key === 'layoutContainerWidth') return 'Layout: Container width';
   return `Header: ${key}`;
+}
+
+function getTemplateLoadKey(templateId: string, category?: string | null): string {
+  return `${templateId}:${category || ''}`;
+}
+
+function cloneDesignData<T extends Record<string, any>>(value: T): T {
+  return JSON.parse(JSON.stringify(value || {})) as T;
+}
+
+function applyTemplatePresetPlanToDesignData(
+  designData: Record<string, any>,
+  templateId: string,
+): Record<string, any> {
+  const nextDesignData = cloneDesignData(designData);
+  return applyStructuralTemplatePresetPlanToContent(nextDesignData, templateId) as Record<string, any>;
 }
 
 export default function EditorContent({ publicSiteData, isPublicView = false, isPreviewView = false, precomputedPalette, children }: EditorContentProps = {}) {
@@ -224,7 +240,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   // Multi-page support
   const pageIdFromUrl = searchParams.get('pageId');
   const pagesHook = usePages(site?.id || "", pageIdFromUrl);
-  const { pages, currentPageId, setCurrentPageId, fetchPages, currentPage, updatePage, createPage, deletePage, loading: pagesLoading } = pagesHook;
+  const { pages, currentPageId, setCurrentPageId, fetchPages, currentPage, updatePage, updatePagesLocally, createPage, deletePage, loading: pagesLoading } = pagesHook;
 
   // Computed once — does any page have a membershipGate block?
   const hasMembershipGate = pages.some(p =>
@@ -274,7 +290,11 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
 
   const initialTitleRef = useRef<string>('My Website');
   const initialPaletteRef = useRef<string>('default');
+  const initialTemplateIdRef = useRef<string>('');
   const initialContentRef = useRef<Record<string, any>>({});
+  const lastLoadedTemplateKeyRef = useRef<string | null>(null);
+  const pendingTemplatePageDesignsRef = useRef<Record<string, Record<string, any>>>({});
+  const pendingTemplatePageBaselinesRef = useRef<Record<string, Record<string, any>>>({});
 
   const siteId = searchParams.get('siteId');
   const { uploadImage } = useImageUpload(siteId || '');
@@ -364,6 +384,9 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     setError(null);
     hasFetchedSiteRef.current = null;
     hasFetchedPagesRef.current = null;
+    lastLoadedTemplateKeyRef.current = null;
+    pendingTemplatePageDesignsRef.current = {};
+    pendingTemplatePageBaselinesRef.current = {};
   }
 
   useEffect(() => {
@@ -391,8 +414,14 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   // Load template component and metadata when site changes
   useEffect(() => {
     if (!site?.selectedTemplateId) return;
+    const loadKey = getTemplateLoadKey(site.selectedTemplateId, site.category);
+    if (lastLoadedTemplateKeyRef.current === loadKey) return;
 
-    loadTemplateComponent(site.selectedTemplateId, site.designData?.__selectedPalette, site.category);
+    loadTemplateComponent(
+      site.selectedTemplateId,
+      selectedPaletteKeyRef.current || site.designData?.__selectedPalette,
+      site.category
+    );
   }, [site?.selectedTemplateId, site?.category]);
   // Fetch pages when site loads (guard prevents re-fetch when fetchPages identity
   // changes due to pageIdFromUrl updating after URL is written with the page id)
@@ -525,9 +554,15 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
       // Store initial values for change detection
       initialTitleRef.current = title;
       initialPaletteRef.current = selectedPalette;
+      initialTemplateIdRef.current = data.selectedTemplateId || '';
       initialContentRef.current = {};
+      pendingTemplatePageDesignsRef.current = {};
+      pendingTemplatePageBaselinesRef.current = {};
 
       // Initialize site-level content (header fields)
+      siteRef.current = data;
+      siteContentRef.current = siteDesign;
+      selectedPaletteKeyRef.current = selectedPalette;
       setSiteContent(siteDesign);
       initialSiteContentRef.current = { ...siteDesign };
 
@@ -541,7 +576,12 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     }
   };
 
-  const loadTemplateComponent = async (templateId: string, savedPaletteKey?: string, categoryForName?: string) => {
+  const loadTemplateComponent = async (
+    templateId: string,
+    savedPaletteKey?: string,
+    categoryForName?: string,
+    options: { preserveInitialPalette?: boolean } = {},
+  ): Promise<boolean> => {
     try {
       // Fetch both component and metadata concurrently for speed
       const [component, metadata] = await Promise.all([
@@ -552,7 +592,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
       if (!component) {
         console.error(`Template component not found: ${templateId}`);
         setError(`Template not found: ${templateId}`);
-        return;
+        return false;
       }
 
       // Process and apply metadata (palettes, customizables) FIRST
@@ -574,8 +614,11 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
           ? savedPaletteKey
           : (paletteKeys[0] || 'default');
 
+        selectedPaletteKeyRef.current = activeKey;
         setSelectedPaletteKey(activeKey);
-        initialPaletteRef.current = activeKey;
+        if (!options.preserveInitialPalette) {
+          initialPaletteRef.current = activeKey;
+        }
         
         if (activeKey === 'custom') {
           // If custom, we'll rely on the colors already in state or loaded from designData
@@ -587,9 +630,12 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
 
       // NOW we set the component, so when it initially renders, it instantly has the correct palette loaded!
       setTemplateComponent(() => component);
+      lastLoadedTemplateKeyRef.current = getTemplateLoadKey(templateId, categoryForName);
+      return true;
     } catch (err) {
       console.error('Error loading template:', err);
       setError('Failed to load template');
+      return false;
     }
   };
 
@@ -691,7 +737,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     const newBlock: BlockData = {
       id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type,
-      data: {}
+      data: applyStructuralTemplatePresetPlanToNewBlockData(type, {}, siteRef.current?.selectedTemplateId || site?.selectedTemplateId)
     };
 
     const newBlocks = [...currentBlocks];
@@ -742,7 +788,13 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     const oldValue = oldBlock.data[key] || '';
     if (JSON.stringify(oldValue) === JSON.stringify(value)) return;
 
-    const newBlock = { ...oldBlock, data: { ...oldBlock.data, [key]: value } };
+    const nextData = { ...oldBlock.data };
+    if (value === undefined) {
+      delete nextData[key];
+    } else {
+      nextData[key] = value;
+    }
+    const newBlock = { ...oldBlock, data: nextData };
     const newBlocks = [...currentBlocks];
     newBlocks[index] = newBlock;
 
@@ -766,7 +818,11 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
 
     for (const [key, value] of Object.entries(updates)) {
       if (JSON.stringify(newData[key]) !== JSON.stringify(value)) {
-        newData[key] = value;
+        if (value === undefined) {
+          delete newData[key];
+        } else {
+          newData[key] = value;
+        }
         hasChanges = true;
       }
     }
@@ -792,6 +848,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     // We reconstruct state from scratch using standard refs to ensure absolute accuracy
     let restoredTitle = initialTitleRef.current;
     let restoredPalette = initialPaletteRef.current;
+    let restoredTemplateId = initialTemplateIdRef.current;
     let restoredContent = { ...initialContentRef.current };
     let restoredSiteContent = { ...initialSiteContentRef.current };
 
@@ -803,6 +860,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
         restoredSiteContent.siteTitle = change.to;
       } else if (change.field === 'palette') {
         restoredPalette = change.to;
+      } else if (change.field === 'template') {
+        restoredTemplateId = change.rawTo || change.to;
       } else if (change.field.startsWith('content:')) {
         const key = change.field.replace('content:', '');
         restoredContent[key] = change.to;
@@ -838,10 +897,52 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     }
 
     // Apply the restored state completely!
+    selectedPaletteKeyRef.current = restoredPalette;
+    editableContentRef.current = restoredContent;
+    siteContentRef.current = restoredSiteContent;
     setSiteTitle(restoredTitle);
     setSelectedPaletteKey(restoredPalette);
     setEditableContent(restoredContent);
     setSiteContent(restoredSiteContent);
+    if (siteRef.current && restoredTemplateId && siteRef.current.selectedTemplateId !== restoredTemplateId) {
+      lastLoadedTemplateKeyRef.current = null;
+      setTemplateComponent(null);
+      siteRef.current = { ...siteRef.current, selectedTemplateId: restoredTemplateId };
+      setSite((prev) => prev ? { ...prev, selectedTemplateId: restoredTemplateId } : prev);
+    }
+    if (restoredTemplateId && restoredTemplateId !== initialTemplateIdRef.current) {
+      const pendingPageDesigns: Record<string, Record<string, any>> = {};
+      const pendingPageBaselines: Record<string, Record<string, any>> = {};
+      for (const page of pages) {
+        if (!page.id || page.id === currentPageId) continue;
+        const nextPageDesignData = applyTemplatePresetPlanToDesignData(page.design_data || {}, restoredTemplateId);
+        if (JSON.stringify(page.design_data || {}) !== JSON.stringify(nextPageDesignData)) {
+          pendingPageDesigns[page.id] = nextPageDesignData;
+          pendingPageBaselines[page.id] =
+            pendingTemplatePageBaselinesRef.current[page.id] || cloneDesignData(page.design_data || {});
+        }
+      }
+      pendingTemplatePageDesignsRef.current = pendingPageDesigns;
+      pendingTemplatePageBaselinesRef.current = pendingPageBaselines;
+      if (Object.keys(pendingPageDesigns).length > 0) {
+        updatePagesLocally((currentPages) => currentPages.map((page) => (
+          page.id && pendingPageDesigns[page.id]
+            ? { ...page, design_data: pendingPageDesigns[page.id] }
+            : page
+        )));
+      }
+    } else {
+      const pageBaselines = pendingTemplatePageBaselinesRef.current;
+      if (Object.keys(pageBaselines).length > 0) {
+        updatePagesLocally((currentPages) => currentPages.map((page) => (
+          page.id && pageBaselines[page.id]
+            ? { ...page, design_data: pageBaselines[page.id] }
+            : page
+        )));
+      }
+      pendingTemplatePageDesignsRef.current = {};
+      pendingTemplatePageBaselinesRef.current = {};
+    }
 
     const palette = restoredPalette === 'custom'
       ? {
@@ -854,7 +955,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
     if (palette) {
       setPaletteData(palette);
     }
-  }, [changesHook.lastAction, availablePalettes]);
+  }, [changesHook.lastAction, availablePalettes, currentPageId, pages, updatePagesLocally]);
 
   const handleSiteTitleChange = (newTitle: string) => {
     if (siteTitle === newTitle) return;
@@ -908,6 +1009,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
       const pageDesignData = {
         ...editableContentRef.current,
       };
+      const pendingTemplatePageDesigns = pendingTemplatePageDesignsRef.current;
 
       const res = await fetch('/api/sites', {
         credentials: 'include',
@@ -929,12 +1031,27 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
 
       // Update local site state
       const updated = await res.json();
-      setSite(updated.site || updated);
+      const updatedSite = updated.site || updated;
+      setSite(updatedSite);
+      siteRef.current = updatedSite;
       initialSiteContentRef.current = { ...siteDesignData };
+      initialPaletteRef.current = selectedPaletteKeyRef.current;
+      initialTemplateIdRef.current = updatedSite.selectedTemplateId || currentSite.selectedTemplateId;
 
       // Save page-level design data
       if (currentPageId) {
         await updatePage(currentPageId, { design_data: pageDesignData });
+      }
+
+      const pendingPageEntries = Object.entries(pendingTemplatePageDesigns)
+        .filter(([pageId]) => pageId !== currentPageId);
+      for (const [pageId, designData] of pendingPageEntries) {
+        await updatePage(pageId, { design_data: designData });
+      }
+      pendingTemplatePageDesignsRef.current = {};
+      pendingTemplatePageBaselinesRef.current = {};
+      if (pendingPageEntries.length > 0) {
+        await fetchPages();
       }
 
       setError(null);
@@ -994,6 +1111,69 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
       commitCustomColorChange(colorType);
     }
   };
+
+  const applyTemplateChange = useCallback(async (templateId: string, changeLabel = 'Changed Template') => {
+    const currentSite = siteRef.current;
+    if (!currentSite?.id) return;
+
+    const prevTemplateId = currentSite.selectedTemplateId;
+    if (prevTemplateId === templateId) return;
+
+    setError(null);
+    setTemplateComponent(null);
+
+    const loaded = await loadTemplateComponent(
+      templateId,
+      selectedPaletteKeyRef.current || currentSite.designData?.__selectedPalette,
+      currentSite.category,
+      { preserveInitialPalette: true },
+    );
+
+    if (!loaded) {
+      throw new Error(`Template not found: ${templateId}`);
+    }
+
+    const currentDesignData = editableContentRef.current || {};
+    const nextCurrentDesignData = applyTemplatePresetPlanToDesignData(currentDesignData, templateId);
+    const currentBlocks = Array.isArray(currentDesignData.blocks) ? currentDesignData.blocks : [];
+    const nextBlocks = Array.isArray(nextCurrentDesignData.blocks) ? nextCurrentDesignData.blocks : [];
+    if (JSON.stringify(currentBlocks) !== JSON.stringify(nextBlocks)) {
+      editableContentRef.current = nextCurrentDesignData;
+      setEditableContent(nextCurrentDesignData);
+      addChange(
+        'blocks',
+        `${changeLabel}: Card Presets`,
+        JSON.stringify(currentBlocks),
+        JSON.stringify(nextBlocks),
+      );
+    }
+
+    const pendingPageDesigns: Record<string, Record<string, any>> = {};
+    const pendingPageBaselines: Record<string, Record<string, any>> = {};
+    for (const page of pages) {
+      if (!page.id || page.id === currentPageId) continue;
+      const nextPageDesignData = applyTemplatePresetPlanToDesignData(page.design_data || {}, templateId);
+      if (JSON.stringify(page.design_data || {}) !== JSON.stringify(nextPageDesignData)) {
+        pendingPageDesigns[page.id] = nextPageDesignData;
+        pendingPageBaselines[page.id] =
+          pendingTemplatePageBaselinesRef.current[page.id] || cloneDesignData(page.design_data || {});
+      }
+    }
+    pendingTemplatePageDesignsRef.current = pendingPageDesigns;
+    pendingTemplatePageBaselinesRef.current = pendingPageBaselines;
+    if (Object.keys(pendingPageDesigns).length > 0) {
+      updatePagesLocally((currentPages) => currentPages.map((page) => (
+        page.id && pendingPageDesigns[page.id]
+          ? { ...page, design_data: pendingPageDesigns[page.id] }
+          : page
+      )));
+    }
+
+    const nextSite = { ...currentSite, selectedTemplateId: templateId };
+    siteRef.current = nextSite;
+    setSite((prev) => prev ? { ...prev, selectedTemplateId: templateId } : prev);
+    addChange('template', changeLabel, prevTemplateId, templateId);
+  }, [addChange, currentPageId, pages, updatePagesLocally]);
 
   // AI Builder callbacks (stable references via useCallback)
   const aiAddBlock = useCallback((type: string, data: Record<string, any>, index?: number) => {
@@ -1136,20 +1316,8 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
   }, [handleUpdateSiteContent]);
 
   const aiSetTemplate = useCallback((templateId: string) => {
-    const currentSite = siteRef.current;
-    if (!currentSite?.id) return;
-    const prevTemplateId = currentSite.selectedTemplateId;
-
-    siteRef.current = { ...currentSite, selectedTemplateId: templateId };
-    setSite(prev => prev ? { ...prev, selectedTemplateId: templateId } : prev);
-    setTemplateComponent(null); // Show loading
-    getTemplateComponent(templateId).then(comp => {
-      if (comp) {
-        setTemplateComponent(() => comp);
-        addChange('template', 'AI: Changed Template', prevTemplateId, templateId);
-      }
-    });
-  }, [addChange]);
+    void applyTemplateChange(templateId, 'AI: Changed Template');
+  }, [applyTemplateChange]);
 
   // Walk a blocks tree and replace any buttonTextLink:{linkType:'page',pageSlug}
   // with the actual pageId/href for that slug. Mutates a deep copy and returns it.
@@ -1493,12 +1661,15 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
             }
             fetchPages();
           }}
+          currentTemplateId={site.selectedTemplateId}
           templateName={templateInfo?.name}
           templateThumbnailUrl={templateInfo?.thumbnailUrl}
           templateDescription={templateInfo?.description}
+          siteBusinessType={site.businessType}
           templatePalettes={paletteArray}
           selectedPalette={currentPalette}
           onSelectPalette={(palette) => handlePaletteChange(palette.name)}
+          onTemplateChange={applyTemplateChange}
           onCustomColorChange={handleCustomColorChange}
           titleFont={siteContent.titleFont}
           onTitleFontChange={(font) => handleUpdateSiteContent('titleFont', font)}
@@ -1726,6 +1897,7 @@ export default function EditorContent({ publicSiteData, isPublicView = false, is
               updateNavItems: handleUpdateNavItems,
               pages: pages.map(p => ({ id: p.id, slug: p.slug, title: p.title })),
               currentPageId: currentPageId || undefined,
+              currentTemplateId: site.selectedTemplateId,
               isEditMode: editMode,
               updateContent: handleUpdateContent,
               palette: paletteData,

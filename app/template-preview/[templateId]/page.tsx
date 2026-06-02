@@ -2,6 +2,7 @@ import EditorContent, { type SiteData } from '@/app/(app)/editor/editor-content-
 import { getTemplateComponent } from '@/app/templates/registry';
 import { getTemplateMetadata, type TemplateMetadata } from '@/lib/db/template-queries';
 import { getStructuralTemplateMetadata } from '@/lib/templates/structural-templates';
+import { getPresetTemplateDisplay } from '@/lib/templates/preset-template-display';
 import type { BlockData, NavItem } from '@/lib/editor-context';
 
 export const dynamic = 'force-dynamic';
@@ -21,14 +22,22 @@ const FALLBACK_NAMES: Record<string, string> = {
   organic: 'Maple & Root',
   sleek: 'Northline Studio',
   vibrant: 'Bright Market',
-  atlas: 'Atlas Advisory',
-  editorial: 'Northstar Journal',
-  booked: 'Booked Wellness',
-  menu: 'Juniper Table',
-  craft: 'Oak & Thread',
-  retro: 'Neon House',
-  proof: 'Proof Partners',
-  gallery: 'Northlight Studio',
+  atlas: 'Utility',
+  editorial: 'Editorial Rule',
+  booked: 'Raised',
+  menu: 'Poster',
+  craft: 'Showcase',
+  retro: 'Retro',
+  proof: 'Ledger',
+  gallery: 'Clipped',
+  builder: 'Bordered',
+  commerce: 'Gradient Wash',
+  foundation: 'Inset',
+  wellness: 'Soft',
+  estate: 'Luxe Hairline',
+  studio: 'Outline',
+  learn: 'Accent Rail',
+  occasion: 'Playful',
 };
 
 const PREVIEW_WIDTH = 1440;
@@ -60,7 +69,7 @@ export default async function TemplatePreviewPage({ params }: PageProps) {
   const navItems = normalizeNavItems(rawContent.__navItems, blocks);
   const designData = {
     ...rawContent,
-    siteTitle: getString(rawContent.siteTitle) || FALLBACK_NAMES[cleanTemplateId] || metadata?.name || 'Template Preview',
+    siteTitle: getString(rawContent.siteTitle) || getPresetTemplateDisplay(cleanTemplateId)?.siteTitle || FALLBACK_NAMES[cleanTemplateId] || metadata?.name || 'Template Preview',
     navButtonText: getString(rawContent.navButtonText) || 'Start',
     __selectedPalette: selectedPalette,
     __navItems: navItems,
@@ -243,7 +252,7 @@ function normalizeNavItem(value: unknown, index: number): NavItem | null {
 }
 
 function getFallbackContent(templateId: string): Record<string, unknown> {
-  const siteTitle = FALLBACK_NAMES[templateId] || 'Template Preview';
+  const siteTitle = getPresetTemplateDisplay(templateId)?.siteTitle || FALLBACK_NAMES[templateId] || 'Template Preview';
   return {
     siteTitle,
     navButtonText: 'Start',
@@ -269,6 +278,9 @@ function getFallbackContent(templateId: string): Record<string, unknown> {
 }
 
 function getFallbackAccent(templateId: string): string {
+  const presetDisplay = getPresetTemplateDisplay(templateId);
+  if (presetDisplay) return presetDisplay.accent;
+
   const accents: Record<string, string> = {
     luxe: '#c9a96e',
     vivid: '#f97316',

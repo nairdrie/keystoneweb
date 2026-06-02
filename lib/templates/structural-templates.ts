@@ -1,5 +1,7 @@
 import { getTemplatePreviewImage } from '@/lib/template-preview-assets';
 import { AI_ONBOARDING_TEMPLATE_ID } from '@/lib/templates/ai-template';
+import { PRESET_TEMPLATE_DISPLAYS } from '@/lib/templates/preset-template-display';
+import type { CardStyle } from '@/lib/block-style-options';
 
 export interface StructuralTemplateMetadata {
   id: string;
@@ -162,6 +164,88 @@ export const STRUCTURAL_TEMPLATE_STYLES = [
   'occasion',
 ] as const;
 
+type StructuralTemplateStyle = typeof STRUCTURAL_TEMPLATE_STYLES[number];
+
+type TemplatePresetPlan = {
+  primary: CardStyle;
+};
+
+export const TEMPLATE_CARD_PRESET_PLANS: Record<StructuralTemplateStyle, TemplatePresetPlan> = {
+  atlas: { primary: 'utility' },
+  editorial: { primary: 'editorial' },
+  booked: { primary: 'elevated' },
+  menu: { primary: 'poster' },
+  craft: { primary: 'splitMedia' },
+  retro: { primary: 'offset' },
+  proof: { primary: 'slab' },
+  gallery: { primary: 'clipped' },
+  builder: { primary: 'bordered' },
+  commerce: { primary: 'gradient' },
+  foundation: { primary: 'inset' },
+  wellness: { primary: 'soft' },
+  estate: { primary: 'luxe' },
+  studio: { primary: 'outline' },
+  learn: { primary: 'accent' },
+  occasion: { primary: 'playful' },
+};
+
+const TEMPLATE_STYLE_ALIASES: Record<string, StructuralTemplateStyle> = {
+  utility: 'atlas',
+  editorial_rule: 'editorial',
+  editorial: 'editorial',
+  raised: 'booked',
+  elevated: 'booked',
+  poster: 'menu',
+  showcase: 'craft',
+  split_media: 'craft',
+  splitmedia: 'craft',
+  retro: 'retro',
+  offset: 'retro',
+  ledger: 'proof',
+  slab: 'proof',
+  clipped: 'gallery',
+  bordered: 'builder',
+  gradient_wash: 'commerce',
+  gradient: 'commerce',
+  inset: 'foundation',
+  soft: 'wellness',
+  luxe_hairline: 'estate',
+  luxe: 'estate',
+  outline: 'studio',
+  accent_rail: 'learn',
+  accent: 'learn',
+  playful: 'occasion',
+};
+
+const CARD_PRESET_AWARE_BLOCK_TYPES = new Set([
+  'carousel',
+  'contact',
+  'contact_form',
+  'contactForm',
+  'estimateForm',
+  'faq',
+  'featuresList',
+  'pricing',
+  'productGrid',
+  'servicesGrid',
+  'stats',
+  'testimonials',
+  'timeline',
+]);
+const CARD_PRESET_LEGACY_OVERRIDE_FIELDS = [
+  'cardSettings',
+  'surfaceStyle',
+  'markerStyle',
+  'spacingDensity',
+  'textAlign',
+  'iconStyle',
+  'mediaAspect',
+  'mediaTreatment',
+  'mediaSize',
+  'mediaSizePercent',
+  'mediaRadiusPx',
+] as const;
+
 export const PUBLIC_TEMPLATE_STYLES = STRUCTURAL_TEMPLATE_STYLES;
 
 export const ALL_TEMPLATE_STYLES = [
@@ -180,7 +264,7 @@ const BASE_STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
   {
     id: 'structural-atlas-general',
     template_id: 'atlas_general',
-    name: 'Atlas',
+    name: 'Utility',
     description: 'A structured B2B layout with metrics, proof, process, and a boardroom-grade CTA.',
     category: 'general',
     business_type: 'both',
@@ -197,7 +281,7 @@ const BASE_STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
     created_at: CREATED_AT,
     updated_at: CREATED_AT,
     default_content: {
-      siteTitle: 'Atlas Advisory',
+      siteTitle: 'Utility',
       titleFont: 'Space Grotesk',
       bodyFont: 'Inter',
       navButtonText: 'Book Strategy Call',
@@ -342,7 +426,7 @@ const BASE_STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
   {
     id: 'structural-editorial-general',
     template_id: 'editorial_general',
-    name: 'Editorial',
+    name: 'Editorial Rule',
     description: 'A magazine-style, content-first template for experts, publications, and thought leaders.',
     category: 'general',
     business_type: 'both',
@@ -359,7 +443,7 @@ const BASE_STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
     created_at: CREATED_AT,
     updated_at: CREATED_AT,
     default_content: {
-      siteTitle: 'The Keystone Review',
+      siteTitle: 'Editorial Rule',
       titleFont: 'Libre Baskerville',
       bodyFont: 'Source Sans 3',
       navButtonText: 'Subscribe',
@@ -388,6 +472,18 @@ const BASE_STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
           ),
         ], {
         })),
+        block('servicesGrid', {
+          title: 'Sections readers can follow',
+          subtitle: 'Turn a content brand into repeatable paths instead of a loose pile of posts.',
+          backgroundColor: '#ffffff',
+          markerStyle: 'plain',
+          spacingDensity: 'compact',
+          items: [
+            { title: 'Essays', description: 'Longer opinion pieces with a clear editorial point of view.' },
+            { title: 'Interviews', description: 'Conversations that bring expert perspective into the archive.' },
+            { title: 'Field Notes', description: 'Short practical observations for readers who want signal fast.' },
+          ],
+        }),
         block('resources', {
           title: 'Featured desk',
           subtitle: 'Start with the current issue.',
@@ -466,7 +562,7 @@ const BASE_STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
   {
     id: 'structural-booked-general',
     template_id: 'booked_general',
-    name: 'Booked',
+    name: 'Raised',
     description: 'An appointment-first layout for clinics, salons, tutors, therapists, and consultants.',
     category: 'general',
     business_type: 'services',
@@ -483,7 +579,7 @@ const BASE_STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
     created_at: CREATED_AT,
     updated_at: CREATED_AT,
     default_content: {
-      siteTitle: 'Booked Studio',
+      siteTitle: 'Raised',
       titleFont: 'Nunito',
       bodyFont: 'Nunito',
       navButtonText: 'Book Now',
@@ -593,7 +689,7 @@ const BASE_STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
   {
     id: 'structural-menu-general',
     template_id: 'menu_general',
-    name: 'Menu',
+    name: 'Poster',
     description: 'A restaurant and cafe layout where menu, ordering, hours, and location carry the page.',
     category: 'general',
     business_type: 'services',
@@ -610,7 +706,7 @@ const BASE_STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
     created_at: CREATED_AT,
     updated_at: CREATED_AT,
     default_content: {
-      siteTitle: 'Corner Table',
+      siteTitle: 'Poster',
       titleFont: 'Playfair Display',
       bodyFont: 'Lato',
       navButtonText: 'Reserve',
@@ -637,6 +733,19 @@ const BASE_STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
         ], {
           height: 'fitScreen',
         })),
+        block('carousel', {
+          title: "Tonight's highlights",
+          subtitle: 'Use poster-style cards for signature dishes, chef picks, catering packages, or seasonal specials.',
+          variant: 'cards',
+          mediaTreatment: 'fullBleed',
+          mediaAspect: 'landscape',
+          backgroundColor: '#ffffff',
+          items: [
+            { mediaType: 'image', image: image('photo-1504674900247-0877df9cc836'), title: 'Seasonal plate', text: 'Lead with one dish that carries the menu mood.' },
+            { mediaType: 'image', image: image('photo-1473093295043-cdd812d0e601'), title: 'House pasta', text: 'Show a signature item with a short appetite-building note.' },
+            { mediaType: 'image', image: image('photo-1488477181946-6428a0291777'), title: 'Weekend table', text: 'Point visitors toward reservations, brunch, or private dining.' },
+          ],
+        }),
         block('menu', {
           menuTitle: 'Menu highlights',
           menuSubtitle: 'Browse brunch, dinner, and drinks by section.',
@@ -752,7 +861,7 @@ const BASE_STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
   {
     id: 'structural-craft-general',
     template_id: 'craft_general',
-    name: 'Craft',
+    name: 'Showcase',
     description: 'A warm handmade/local template with story, product showcase, soft cards, and community trust.',
     category: 'general',
     business_type: 'both',
@@ -769,7 +878,7 @@ const BASE_STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
     created_at: CREATED_AT,
     updated_at: CREATED_AT,
     default_content: {
-      siteTitle: 'Marlow Made',
+      siteTitle: 'Showcase',
       titleFont: 'Fraunces',
       bodyFont: 'Karla',
       navButtonText: 'Shop Local',
@@ -915,7 +1024,7 @@ const BASE_STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
     created_at: CREATED_AT,
     updated_at: CREATED_AT,
     default_content: {
-      siteTitle: 'Pixel Pop',
+      siteTitle: 'Retro',
       titleFont: 'Space Grotesk',
       bodyFont: 'DM Sans',
       navButtonText: 'Start Something',
@@ -1040,7 +1149,7 @@ const BASE_STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
   {
     id: 'structural-proof-general',
     template_id: 'proof_general',
-    name: 'Proof',
+    name: 'Ledger',
     description: 'A credibility-first template for trust-heavy services, with reviews, stats, guarantees, and intake.',
     category: 'general',
     business_type: 'services',
@@ -1057,7 +1166,7 @@ const BASE_STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
     created_at: CREATED_AT,
     updated_at: CREATED_AT,
     default_content: {
-      siteTitle: 'Proof Partners',
+      siteTitle: 'Ledger',
       titleFont: 'Merriweather',
       bodyFont: 'Source Sans 3',
       navButtonText: 'Request Review',
@@ -1213,7 +1322,7 @@ const BASE_STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
   {
     id: 'structural-gallery-general',
     template_id: 'gallery_general',
-    name: 'Gallery',
+    name: 'Clipped',
     description: 'An image-first portfolio template with large visuals, project spotlights, and minimal text.',
     category: 'general',
     business_type: 'portfolio',
@@ -1230,7 +1339,7 @@ const BASE_STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
     created_at: CREATED_AT,
     updated_at: CREATED_AT,
     default_content: {
-      siteTitle: 'Northlight Studio',
+      siteTitle: 'Clipped',
       titleFont: 'Sora',
       bodyFont: 'Inter',
       navButtonText: 'Inquire',
@@ -1383,10 +1492,10 @@ const DERIVED_STRUCTURAL_TEMPLATE_SOURCES: Array<{
   {
     style: 'builder',
     sourceStyle: 'proof',
-    name: 'Builder',
+    name: 'Bordered',
     description: 'A sturdy field-service layout for trades, contractors, service areas, proof, and estimates.',
     businessType: 'services',
-    siteTitle: 'Builder Services',
+    siteTitle: 'Bordered',
     titleFont: 'Merriweather',
     bodyFont: 'Inter',
     navButtonText: 'Request Estimate',
@@ -1399,10 +1508,10 @@ const DERIVED_STRUCTURAL_TEMPLATE_SOURCES: Array<{
   {
     style: 'commerce',
     sourceStyle: 'craft',
-    name: 'Commerce',
+    name: 'Gradient Wash',
     description: 'A product-first shop layout for catalogs, featured items, subscriptions, and conversion sections.',
     businessType: 'products',
-    siteTitle: 'Commerce Shop',
+    siteTitle: 'Gradient Wash',
     titleFont: 'Space Grotesk',
     bodyFont: 'Inter',
     navButtonText: 'Shop Now',
@@ -1415,10 +1524,10 @@ const DERIVED_STRUCTURAL_TEMPLATE_SOURCES: Array<{
   {
     style: 'foundation',
     sourceStyle: 'craft',
-    name: 'Foundation',
+    name: 'Inset',
     description: 'A community-minded layout for nonprofits, churches, charities, associations, and missions.',
     businessType: 'both',
-    siteTitle: 'Foundation Community',
+    siteTitle: 'Inset',
     titleFont: 'Fraunces',
     bodyFont: 'Karla',
     navButtonText: 'Get Involved',
@@ -1431,10 +1540,10 @@ const DERIVED_STRUCTURAL_TEMPLATE_SOURCES: Array<{
   {
     style: 'wellness',
     sourceStyle: 'booked',
-    name: 'Wellness',
+    name: 'Soft',
     description: 'A calm care-centered layout for health, therapy, spa, fitness, and coaching businesses.',
     businessType: 'services',
-    siteTitle: 'Wellness Studio',
+    siteTitle: 'Soft',
     titleFont: 'Nunito',
     bodyFont: 'Inter',
     navButtonText: 'Book Visit',
@@ -1447,10 +1556,10 @@ const DERIVED_STRUCTURAL_TEMPLATE_SOURCES: Array<{
   {
     style: 'estate',
     sourceStyle: 'gallery',
-    name: 'Estate',
+    name: 'Luxe Hairline',
     description: 'A visual, premium layout for real estate, properties, interiors, and spaces.',
     businessType: 'both',
-    siteTitle: 'Estate Group',
+    siteTitle: 'Luxe Hairline',
     titleFont: 'Sora',
     bodyFont: 'Inter',
     navButtonText: 'View Listings',
@@ -1463,10 +1572,10 @@ const DERIVED_STRUCTURAL_TEMPLATE_SOURCES: Array<{
   {
     style: 'studio',
     sourceStyle: 'gallery',
-    name: 'Studio',
+    name: 'Outline',
     description: 'A portfolio-meets-services layout for agencies, studios, freelancers, and brand teams.',
     businessType: 'both',
-    siteTitle: 'Studio Collective',
+    siteTitle: 'Outline',
     titleFont: 'Space Grotesk',
     bodyFont: 'Inter',
     navButtonText: 'Start Project',
@@ -1479,10 +1588,10 @@ const DERIVED_STRUCTURAL_TEMPLATE_SOURCES: Array<{
   {
     style: 'learn',
     sourceStyle: 'editorial',
-    name: 'Learn',
+    name: 'Accent Rail',
     description: 'A structured education layout for courses, tutoring, workshops, and learning programs.',
     businessType: 'both',
-    siteTitle: 'Learn Program',
+    siteTitle: 'Accent Rail',
     titleFont: 'Libre Baskerville',
     bodyFont: 'Source Sans 3',
     navButtonText: 'Start Learning',
@@ -1495,10 +1604,10 @@ const DERIVED_STRUCTURAL_TEMPLATE_SOURCES: Array<{
   {
     style: 'occasion',
     sourceStyle: 'retro',
-    name: 'Occasion',
+    name: 'Playful',
     description: 'A celebratory layout for events, weddings, venues, pop-ups, planners, and special moments.',
     businessType: 'both',
-    siteTitle: 'Occasion Studio',
+    siteTitle: 'Playful',
     titleFont: 'Space Grotesk',
     bodyFont: 'DM Sans',
     navButtonText: 'Plan Event',
@@ -1516,7 +1625,7 @@ function deriveStructuralTemplate(definition: typeof DERIVED_STRUCTURAL_TEMPLATE
   if (!source) {
     throw new Error(`Missing source structural template for ${definition.style}`);
   }
-  const defaultContent = cloneRecord(source.default_content);
+  const defaultContent = customizeDerivedStructuralContent(definition.style, cloneRecord(source.default_content));
   return {
     ...source,
     id: `structural-${definition.style}-general`,
@@ -1526,7 +1635,7 @@ function deriveStructuralTemplate(definition: typeof DERIVED_STRUCTURAL_TEMPLATE
     category: definition.category || 'general',
     business_type: definition.businessType,
     palettes: definition.palettes,
-    thumbnail_url: source.thumbnail_url,
+    thumbnail_url: thumb(definition.style),
     default_content: {
       ...defaultContent,
       siteTitle: definition.siteTitle,
@@ -1537,14 +1646,631 @@ function deriveStructuralTemplate(definition: typeof DERIVED_STRUCTURAL_TEMPLATE
   };
 }
 
+function customizeDerivedStructuralContent(style: StructuralTemplateStyle, content: Record<string, unknown>): Record<string, unknown> {
+  switch (style) {
+    case 'builder':
+      setNav(content, [
+        navItem('Home', 'home'),
+        navItem('Projects', 'results'),
+        navItem('Estimate', 'estimate'),
+      ]);
+      setHero(content, 'builder-hero-1', 'Built for the jobs people need priced fast', 'A sturdy field-service layout for service areas, proof, warranties, and estimate intake.', 'Request Estimate', 'left', hBgGradient('palette:accent', '#ffffff', 180, 0), {
+        ctaLink,
+        image: { url: image('photo-1504307651254-35680f356dfd'), side: 'right' },
+      });
+      mergeBlockData(content, 'stats', {
+        title: 'Field-ready proof',
+        items: [
+          { value: '18 mi', label: 'Service radius' },
+          { value: '24 hr', label: 'Estimate window' },
+          { value: '1,200+', label: 'Jobs completed' },
+          { value: '5 yr', label: 'Workmanship warranty' },
+        ],
+      });
+      mergeBlockData(content, 'featuredQuote', {
+        title: 'Show the crew, the work, and the follow-through',
+        people: [
+          { name: 'Homeowner', title: 'Kitchen repair', quote: 'The scope was clear, the schedule was honest, and the finish matched the estimate.' },
+          { name: 'Facility Manager', title: 'Recurring service', quote: 'They make maintenance easy to approve because every step is documented.' },
+          { name: 'Builder Client', title: 'Renovation support', quote: 'The proof sections make the team feel credible before anyone fills out the form.' },
+        ],
+      });
+      mergeBlockData(content, 'aboutImageText', {
+        title: 'Local work needs local confidence',
+        description: 'Use this section for service areas, licensing, insurance, before-and-after proof, and what customers can expect on site.',
+        items: ['Service-area coverage', 'Licensed and insured', 'Photo-documented jobs', 'Clear estimate follow-up'],
+      });
+      mergeBlockData(content, 'estimateForm', {
+        title: 'Request a scoped estimate',
+        description: 'Collect project type, location, urgency, photos, and the details a field team needs before calling back.',
+        submitText: 'Request Estimate',
+        fields: [
+          { id: 'builder-field-service', label: 'Project type', type: 'select', required: true, options: ['Repair', 'Installation', 'Maintenance', 'Inspection'] },
+          { id: 'builder-field-property', label: 'Property type', type: 'select', required: true, options: ['Home', 'Business', 'Multi-unit', 'Other'] },
+          { id: 'builder-field-timeline', label: 'Timeline', type: 'select', required: false, options: ['Flexible', 'This month', 'This week', 'Emergency'] },
+        ],
+      });
+      mergeBlockData(content, 'cta', {
+        title: 'Turn the next job into a clear estimate',
+        subtitle: 'Invite visitors to share scope, timing, and photos before the first call.',
+        buttonText: 'Request Estimate',
+      });
+      break;
+
+    case 'commerce':
+      setNav(content, [
+        navItem('Home', 'home'),
+        navItem('Shop', 'shop'),
+        navItem('Offers', 'offers'),
+      ]);
+      setHero(content, 'commerce-hero-1', 'A storefront built around the product', 'Feature collections, explain the offer, and move shoppers from story to checkout without extra friction.', 'Shop Now', 'left', hBgGradient('palette:accent', '#ffffff', 135, 0), {
+        ctaLink,
+        image: { url: image('photo-1441986300917-64674bd600d8'), side: 'right' },
+      });
+      mergeBlockData(content, 'carousel', {
+        title: 'Featured collections',
+        subtitle: 'Use image-led cards for best sellers, drops, bundles, and subscription offers.',
+        items: [
+          { mediaType: 'image', image: image('photo-1523275335684-37898b6baf30'), title: 'Best sellers', text: 'Lead with the products customers already understand.' },
+          { mediaType: 'image', image: image('photo-1515886657613-9f3515b0c78f'), title: 'Seasonal drop', text: 'Create urgency around a focused batch or launch.' },
+          { mediaType: 'image', image: image('photo-1472851294608-062f824d29cc'), title: 'Bundles', text: 'Group products into easier buying decisions.' },
+        ],
+      });
+      mergeBlockData(content, 'aboutImageText', {
+        title: 'Merchandising with enough story to sell',
+        description: 'Commerce keeps the shop path visible while giving products room for benefits, details, and trust.',
+        items: ['Featured collections', 'Offer-led sections', 'Flexible product grid', 'Conversion-focused CTA'],
+      });
+      mergeBlockData(content, 'featuredQuote', {
+        eyebrow: 'Shop Note',
+        title: 'A clean path from browsing to buying',
+        quote: 'The best product pages do not make shoppers decode the catalog. They show the offer, explain the fit, and make the next action obvious.',
+        personName: 'Commerce Shop',
+        personTitle: 'Merchandising system',
+      });
+      mergeBlockData(content, 'testimonials', {
+        title: 'Buyer confidence',
+        subtitle: 'Use reviews to answer quality, fit, shipping, and support questions.',
+      });
+      mergeBlockData(content, 'cta', {
+        title: 'Make the product path obvious',
+        subtitle: 'Push the collection, subscription, or offer that matters most.',
+        buttonText: 'Shop Now',
+      });
+      content.extra_pages = [
+        {
+          slug: 'shop',
+          title: 'Shop',
+          display_name: 'Shop',
+          is_visible_in_nav: true,
+          blocks: [block('productGrid', { variant: 'gridWithSidebar' })],
+        },
+        {
+          slug: 'offers',
+          title: 'Offers',
+          display_name: 'Offers',
+          is_visible_in_nav: true,
+          blocks: [
+            block('pricing', {
+              title: 'Featured offers',
+              subtitle: 'Use pricing cards for bundles, subscriptions, service packages, or launch offers.',
+              variant: 'cards',
+              tiers: [
+                { name: 'Starter Bundle', price: '$49', period: '', description: 'A simple first purchase.', features: ['Core item', 'Care guide', 'Fast shipping'], highlighted: false, buttonText: 'Shop Bundle' },
+                { name: 'Monthly Box', price: '$29', period: '/mo', description: 'Recurring value for loyal buyers.', features: ['Curated items', 'Member pricing', 'Cancel anytime'], highlighted: true, buttonText: 'Subscribe' },
+              ],
+            }),
+          ],
+        },
+      ];
+      break;
+
+    case 'foundation':
+      setNav(content, [
+        navItem('Home', 'home'),
+        navItem('Mission', 'mission'),
+        navItem('Get Involved', 'involved'),
+      ]);
+      content.blocks = [
+        block('hero', heroBlockData([
+          hCard('foundation-hero-1', 'Move people from belief to action', 'A community-first structure for missions, programs, impact stories, events, and participation.', 'Get Involved', 'left', hBgGradient('palette:accent', '#ffffff', 160, 0), {
+            ctaLink,
+            image: { url: image('photo-1529333166437-7750a6dd5a70'), side: 'right' },
+          }),
+        ])),
+        block('stats', {
+          title: 'Impact at a glance',
+          variant: 'cards',
+          backgroundColor: 'palette:accent',
+          items: [
+            { value: '12k', label: 'Neighbors reached' },
+            { value: '48', label: 'Community partners' },
+            { value: '320', label: 'Volunteer hours monthly' },
+            { value: '92%', label: 'Funds toward programs' },
+          ],
+        }),
+        block('servicesGrid', {
+          title: 'Ways to participate',
+          subtitle: 'Give visitors clear paths based on how they want to help.',
+          backgroundColor: '#ffffff',
+          markerStyle: 'framed',
+          items: [
+            { title: 'Volunteer', description: 'Make the next event, pantry, class, or outreach program easier to run.' },
+            { title: 'Donate', description: 'Connect contributions to visible outcomes and ongoing community needs.' },
+            { title: 'Partner', description: 'Invite local organizations, sponsors, and teams into shared programs.' },
+          ],
+        }),
+        block('featuredQuote', {
+          variant: 'essay',
+          eyebrow: 'Mission Story',
+          title: 'The mission is clearer when the people stay visible',
+          quote: 'Foundation is designed to put impact, participation, and human stories close together so visitors understand both the need and the next step.',
+          personName: 'Foundation Community',
+          personTitle: 'Program team',
+          backgroundColor: 'palette:primary',
+        }),
+        block('events', {
+          title: 'Upcoming community moments',
+          subtitle: 'Use events for fundraisers, volunteer days, classes, services, and meetings.',
+          backgroundColor: 'palette:accent',
+        }),
+        block('cta', {
+          title: 'Invite people into the work',
+          subtitle: 'Use one clear next step for volunteers, donors, partners, or members.',
+          buttonText: 'Get Involved',
+          backgroundColor: 'palette:secondary',
+          showPattern: true,
+        }),
+      ];
+      content.extra_pages = [
+        {
+          slug: 'mission',
+          title: 'Mission',
+          display_name: 'Mission',
+          is_visible_in_nav: true,
+          blocks: [
+            block('aboutImageText', {
+              title: 'Why this work matters',
+              description: 'Explain who you serve, what is changing, and how your programs are accountable to the community.',
+              imagePosition: 'right',
+              variant: 'tall',
+              image: image('photo-1488521787991-ed7bbaae773c'),
+              items: ['Clear mission', 'Program transparency', 'Community partnerships', 'Impact reporting'],
+            }),
+            block('resources', {
+              title: 'Reports and resources',
+              subtitle: 'Share annual reports, program notes, partner links, and volunteer guides.',
+              variant: 'grid',
+              items: [
+                { id: 'foundation-r1', type: 'text', title: 'Impact Report', description: 'A short summary of current programs.', body: 'Use this resource to explain outcomes, needs, and how contributions are used.' },
+                { id: 'foundation-r2', type: 'link', title: 'Volunteer Guide', description: 'A practical starting point for new helpers.', url: 'https://example.com', openInNewTab: true },
+              ],
+            }),
+          ],
+        },
+        {
+          slug: 'involved',
+          title: 'Get Involved',
+          display_name: 'Get Involved',
+          is_visible_in_nav: true,
+          blocks: [
+            block('contact_form', {
+              title: 'Raise your hand',
+              description: 'Tell us how you would like to participate.',
+              submitText: 'Get Involved',
+              successMessage: 'Thanks. We will follow up with next steps.',
+            }),
+          ],
+        },
+      ];
+      break;
+
+    case 'wellness':
+      setHero(content, 'wellness-hero-1', 'Care that feels calm before the first visit', 'A gentle appointment-ready structure for therapy, spa, health, coaching, and wellness services.', 'Book Visit', 'left', hBgGradient('palette:accent', '#ffffff', 180, 0), {
+        ctaLink: bookingLink,
+        image: { url: image('photo-1544161515-4ab6ce6db874'), side: 'right' },
+      });
+      mergeBlockData(content, 'servicesGrid', {
+        title: 'Support paths',
+        subtitle: 'Help visitors choose the kind of care, pace, or session that fits them.',
+        textAlign: 'left',
+        items: [
+          { title: 'First Visit', description: 'A welcoming intake to understand goals, comfort, and next steps.' },
+          { title: 'Ongoing Care', description: 'Consistent sessions with a clear plan and flexible pacing.' },
+          { title: 'Restorative Session', description: 'Focused support for reset, recovery, or a specific wellness goal.' },
+        ],
+      });
+      mergeBlockData(content, 'carousel', {
+        title: 'A softer process',
+        items: [
+          { mediaType: 'icon', icon: 'Heart', title: 'Feel oriented', text: 'Visitors understand what happens before they book.' },
+          { mediaType: 'icon', icon: 'Calendar', title: 'Choose a time', text: 'Booking stays close to service details and reassurance.' },
+          { mediaType: 'icon', icon: 'Sparkles', title: 'Arrive supported', text: 'Use FAQs and notes to reduce uncertainty before the visit.' },
+        ],
+      });
+      mergeBlockData(content, 'testimonials', {
+        title: 'Clients feel grounded',
+        items: [
+          { name: 'Maya L.', role: 'Client', quote: 'The experience felt calm, organized, and personal from the first booking.', rating: 5 },
+        ],
+      });
+      mergeBlockData(content, 'cta', {
+        title: 'Make the next visit feel simple',
+        subtitle: 'Invite visitors to book with clarity and confidence.',
+        buttonText: 'Book Visit',
+      });
+      break;
+
+    case 'estate':
+      setNav(content, [
+        navItem('Home', 'home'),
+        navItem('Listings', 'portfolio'),
+        navItem('Inquire', 'inquire'),
+      ]);
+      setHero(content, 'estate-hero-1', 'Spaces that sell the feeling first', 'A premium visual structure for listings, interiors, staging, property tours, and qualified inquiries.', 'View Listings', 'left', hBgImage(image('photo-1600607687939-ce8a6c25118c'), 0.45));
+      insertBlockAfter(content, 'gallery', block('stats', {
+        title: 'Market-ready presentation',
+        variant: 'cards',
+        backgroundColor: '#ffffff',
+        items: [
+          { value: '42', label: 'Active listings styled' },
+          { value: '18%', label: 'Avg. faster inquiry rate' },
+          { value: '$86M', label: 'Properties represented' },
+          { value: '4.9/5', label: 'Client confidence' },
+        ],
+      }));
+      mergeBlockData(content, 'gallery', {
+        title: 'Featured spaces',
+        subtitle: 'Lead with rooms, views, textures, and details that make inquiry feel natural.',
+        frameStyle: 'poster',
+      });
+      mergeBlockData(content, 'carousel', {
+        title: 'Listing spotlights',
+        items: [
+          { mediaType: 'image', image: image('photo-1600607687939-ce8a6c25118c'), title: 'Light-filled residence', text: 'A visual path for premium homes, rentals, and interiors.' },
+          { mediaType: 'image', image: image('photo-1600566753190-17f0baa2a6c3'), title: 'Staged living spaces', text: 'Show layout, lifestyle, and buyer-ready details.' },
+          { mediaType: 'image', image: image('photo-1600585154340-be6161a56a0c'), title: 'Exterior presence', text: 'Balance curb appeal with property facts and inquiry flow.' },
+        ],
+      });
+      mergeBlockData(content, 'cta', {
+        title: 'Ready to present a property beautifully?',
+        subtitle: 'Send a listing, space, or project brief and get a polished inquiry path.',
+        buttonText: 'View Listings',
+      });
+      break;
+
+    case 'studio':
+      setHero(content, 'studio-hero-1', 'Creative work with a sharper project path', 'A portfolio-meets-services template for agencies, freelancers, designers, and brand teams.', 'Start Project', 'left', hBgImage(image('photo-1497366754035-f200968a6e72'), 0.42), { ctaLink });
+      insertBlockAfter(content, 'image', block('servicesGrid', {
+        title: 'Studio lanes',
+        subtitle: 'Make capabilities scannable before visitors dive into the work.',
+        backgroundColor: '#ffffff',
+        markerStyle: 'plain',
+        items: [
+          { title: 'Brand Systems', description: 'Identity, messaging, and reusable design language.' },
+          { title: 'Campaign Sites', description: 'Fast launch pages, conversion sections, and visual storytelling.' },
+          { title: 'Creative Direction', description: 'A sharper point of view for launches, teams, and content systems.' },
+        ],
+      }));
+      mergeBlockData(content, 'gallery', {
+        title: 'Selected studio work',
+        subtitle: 'Show the range without burying the offer.',
+        frameStyle: 'editorial',
+      });
+      mergeBlockData(content, 'carousel', {
+        title: 'Project notes',
+        items: [
+          { mediaType: 'image', image: image('photo-1497366754035-f200968a6e72'), title: 'Identity refresh', text: 'A crisp system for a service brand with several audiences.' },
+          { mediaType: 'image', image: image('photo-1518005020951-eccb494ad742'), title: 'Launch campaign', text: 'A visual path for a short-run product release.' },
+          { mediaType: 'image', image: image('photo-1519389950473-47ba0277781c'), title: 'Team toolkit', text: 'Reusable components, editorial rules, and handoff assets.' },
+        ],
+      });
+      mergeBlockData(content, 'cta', {
+        title: 'Have a project that needs shape?',
+        subtitle: 'Send the brief and start with a clear creative direction.',
+        buttonText: 'Start Project',
+      });
+      break;
+
+    case 'learn':
+      setNav(content, [
+        navItem('Home', 'home'),
+        navItem('Courses', 'courses'),
+        navItem('Contact', 'contact'),
+      ]);
+      content.headerBannerText = 'New cohorts open monthly';
+      content.blocks = [
+        block('hero', heroBlockData([
+          hCard('learn-hero-1', 'Learning paths with structure and momentum', 'A course-ready layout for outcomes, modules, resources, pricing, testimonials, and enrollment.', 'Start Learning', 'left', hBgGradient('palette:accent', '#ffffff', 180, 0), {
+            ctaLink,
+            image: { url: image('photo-1522202176988-66273c2fd55f'), side: 'right' },
+          }),
+        ])),
+        block('servicesGrid', {
+          title: 'What students work through',
+          subtitle: 'Use module cards to make the program feel concrete before enrollment.',
+          backgroundColor: '#ffffff',
+          markerStyle: 'badge',
+          items: [
+            { title: 'Foundations', description: 'The core concepts, tools, and vocabulary students need first.' },
+            { title: 'Guided Practice', description: 'Exercises, workshops, and assignments that build real confidence.' },
+            { title: 'Launch Review', description: 'Feedback, next steps, and resources for applying the work.' },
+          ],
+        }),
+        block('pricing', {
+          title: 'Program options',
+          subtitle: 'Clear choices for courses, tutoring, workshops, or cohort access.',
+          variant: 'cards',
+          tiers: [
+            { name: 'Workshop', price: '$149', period: '', description: 'A focused live session.', features: ['2 hours', 'Workbook', 'Replay'], highlighted: false, buttonText: 'Join Workshop' },
+            { name: 'Cohort', price: '$799', period: '', description: 'A complete guided program.', features: ['6 weeks', 'Assignments', 'Office hours'], highlighted: true, buttonText: 'Enroll' },
+            { name: 'Private Coaching', price: 'Custom', period: '', description: 'One-to-one support.', features: ['Custom plan', 'Live feedback', 'Flexible schedule'], highlighted: false, buttonText: 'Ask About Coaching' },
+          ],
+        }),
+        block('resources', {
+          title: 'Learning resources',
+          subtitle: 'Share guides, reading lists, prep notes, or downloadable materials.',
+          variant: 'grid',
+          backgroundColor: 'palette:accent',
+          items: [
+            { id: 'learn-r1', type: 'text', title: 'Course Roadmap', description: 'A simple view of the path from first lesson to final review.', body: 'Use this space to preview lessons, milestones, assignments, and expected outcomes.' },
+            { id: 'learn-r2', type: 'link', title: 'Student FAQ', description: 'Help students decide whether the program fits.', url: 'https://example.com', openInNewTab: true },
+          ],
+        }),
+        block('faq', {
+          title: 'Before you enroll',
+          items: [
+            { question: 'Who is this for?', answer: 'Explain the ideal student, skill level, or team.' },
+            { question: 'How much time is required?', answer: 'Share the weekly commitment and format.' },
+            { question: 'Are recordings available?', answer: 'Clarify live, replay, and resource access.' },
+          ],
+        }),
+        block('cta', {
+          title: 'Give learners a clear next step',
+          subtitle: 'Use the template to explain the outcome and make enrollment feel simple.',
+          buttonText: 'Start Learning',
+          backgroundColor: 'palette:secondary',
+        }),
+      ];
+      content.extra_pages = [
+        {
+          slug: 'courses',
+          title: 'Courses',
+          display_name: 'Courses',
+          is_visible_in_nav: true,
+          blocks: [
+            block('pricing', {
+              title: 'All learning paths',
+              subtitle: 'List courses, tutoring packages, workshops, or cohorts.',
+              variant: 'simple',
+              tiers: [
+                { name: 'Starter Course', price: '$99', period: '', description: 'Self-paced intro.', features: ['Lessons', 'Resources', 'Checklist'], highlighted: false, buttonText: 'Start' },
+                { name: 'Live Cohort', price: '$799', period: '', description: 'Guided group learning.', features: ['Live sessions', 'Feedback', 'Community'], highlighted: true, buttonText: 'Enroll' },
+              ],
+            }),
+          ],
+        },
+        {
+          slug: 'contact',
+          title: 'Contact',
+          display_name: 'Contact',
+          is_visible_in_nav: true,
+          blocks: [
+            block('contact_form', {
+              title: 'Ask about the program',
+              description: 'Tell us what you want to learn and what format fits.',
+              submitText: 'Ask a Question',
+              successMessage: 'Thanks. We will reply with program details.',
+            }),
+          ],
+        },
+      ];
+      break;
+
+    case 'occasion':
+      setNav(content, [
+        navItem('Home', 'home'),
+        navItem('Events', 'drops'),
+        navItem('Plan', 'contact'),
+      ]);
+      content.headerBannerText = 'Dates, venues, and moments worth remembering.';
+      setHero(content, 'occasion-hero-1', 'Plan the moment people will talk about', 'A celebratory layout for events, weddings, venues, planners, pop-ups, and special gatherings.', 'Plan Event', 'center', hBgImage(image('photo-1519225421980-715cb0215aed'), 0.45), { ctaLink });
+      mergeBlockData(content, 'tabBar', {
+        items: [
+          { id: 'occasion-tab-1', label: 'Weddings', linkType: 'section', href: '#weddings' },
+          { id: 'occasion-tab-2', label: 'Venues', linkType: 'section', href: '#venues' },
+          { id: 'occasion-tab-3', label: 'Pop-ups', linkType: 'section', href: '#popups' },
+        ],
+      });
+      mergeBlockData(content, 'carousel', {
+        title: 'Event formats',
+        subtitle: 'Use lively cards for packages, spaces, vendors, timelines, or celebration ideas.',
+        items: [
+          { mediaType: 'icon', icon: 'Sparkles', title: 'Weddings', text: 'A polished path for couples, planners, venues, and vendors.' },
+          { mediaType: 'icon', icon: 'Calendar', title: 'Pop-ups', text: 'Promote date, location, RSVP, and limited-time offers.' },
+          { mediaType: 'icon', icon: 'Music', title: 'Venue nights', text: 'Show recurring events, packages, and booking inquiries.' },
+        ],
+      });
+      mergeBlockData(content, 'featuredQuote', {
+        title: 'Guest-list proof',
+        people: [
+          { name: 'Ari', title: 'Planner', quote: 'The page made the event feel coordinated before the first call.' },
+          { name: 'Lena', title: 'Venue manager', quote: 'Photos, dates, and inquiry paths finally lived in one place.' },
+          { name: 'Theo', title: 'Pop-up host', quote: 'It felt festive without getting hard to navigate.' },
+        ],
+      });
+      mergeBlockData(content, 'cta', {
+        title: 'Turn the date into an invitation',
+        subtitle: 'Use one bright CTA for bookings, RSVPs, inquiries, or vendor conversations.',
+        buttonText: 'Plan Event',
+      });
+      break;
+
+    default:
+      break;
+  }
+
+  return content;
+}
+
+function applyTemplatePresetPlan(template: StructuralTemplateMetadata): StructuralTemplateMetadata {
+  const style = getStructuralStyleFromTemplateId(template.template_id);
+  if (!style) return template;
+
+  const defaultContent = cloneRecord(template.default_content);
+  applyStructuralTemplatePresetPlanToContent(defaultContent, template.template_id);
+
+  return {
+    ...template,
+    name: PRESET_TEMPLATE_DISPLAYS[style].name,
+    description: PRESET_TEMPLATE_DISPLAYS[style].description,
+    thumbnail_url: thumb(style),
+    default_content: {
+      ...defaultContent,
+      siteTitle: PRESET_TEMPLATE_DISPLAYS[style].siteTitle,
+    },
+  };
+}
+
+export function applyStructuralTemplatePresetPlanToContent(
+  content: Record<string, unknown>,
+  templateId: string | null | undefined,
+): Record<string, unknown> {
+  if (!templateId) return content;
+  const style = getStructuralStyleFromTemplateId(templateId);
+  if (!style) return content;
+  applyPresetPlanToContent(content, TEMPLATE_CARD_PRESET_PLANS[style]);
+  return content;
+}
+
+export function applyStructuralTemplatePresetPlanToNewBlockData(
+  blockType: string,
+  data: Record<string, unknown>,
+  templateId: string | null | undefined,
+): Record<string, unknown> {
+  if (!templateId) return { ...data };
+  const style = getStructuralStyleFromTemplateId(templateId);
+  if (!style) return { ...data };
+
+  const nextData = { ...data };
+  const entry: MutableBlock = { type: blockType, data: nextData };
+  if (!shouldApplyCardPresetToBlock(entry)) return nextData;
+
+  nextData.cardStyle = TEMPLATE_CARD_PRESET_PLANS[style].primary;
+  for (const field of CARD_PRESET_LEGACY_OVERRIDE_FIELDS) {
+    delete nextData[field];
+  }
+  return nextData;
+}
+
 function cloneRecord(value: Record<string, unknown>): Record<string, unknown> {
   return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
 }
 
-export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
+function getStructuralStyleFromTemplateId(templateId: string): StructuralTemplateStyle | null {
+  const normalized = templateId.toLowerCase().replace(/[\s-]+/g, '_');
+  const directStyle = STRUCTURAL_TEMPLATE_STYLES.find((style) => normalized === style || normalized.startsWith(`${style}_`));
+  if (directStyle) return directStyle;
+
+  const alias = Object.entries(TEMPLATE_STYLE_ALIASES).find(([key]) => normalized === key || normalized.startsWith(`${key}_`));
+  return alias ? alias[1] : null;
+}
+
+function setNav(content: Record<string, unknown>, items: Array<ReturnType<typeof navItem>>) {
+  content.__navItems = items;
+}
+
+function setHero(
+  content: Record<string, unknown>,
+  id: string,
+  title: string,
+  subtitle: string,
+  ctaLabel: string,
+  align: HAlign,
+  background: Record<string, unknown>,
+  opts: { ctaEnabled?: boolean; ctaLink?: unknown; image?: { url: string; side?: HSide } } = {},
+) {
+  const hero = firstBlock(content, 'hero');
+  if (!hero) return;
+  hero.data = heroBlockData([
+    hCard(id, title, subtitle, ctaLabel, align, background, opts),
+  ], {
+    height: background.type === 'image' ? 'fitScreen' : 'fitContent',
+    intervalSec: 6,
+  });
+}
+
+function firstBlock(content: Record<string, unknown>, type: string): MutableBlock | null {
+  return mutableBlocks(content.blocks).find((candidate) => candidate.type === type) || null;
+}
+
+function mergeBlockData(content: Record<string, unknown>, type: string, patch: Record<string, unknown>) {
+  const target = firstBlock(content, type);
+  if (!target) return;
+  target.data = { ...target.data, ...patch };
+}
+
+function insertBlockAfter(content: Record<string, unknown>, afterType: string, nextBlock: ReturnType<typeof block>) {
+  const blocks = mutableBlocks(content.blocks);
+  if (blocks.some((candidate) => candidate.type === nextBlock.type && candidate.data?.title === nextBlock.data?.title)) return;
+  const index = blocks.findIndex((candidate) => candidate.type === afterType);
+  if (index < 0) {
+    content.blocks = [...blocks, nextBlock];
+    return;
+  }
+  blocks.splice(index + 1, 0, nextBlock);
+}
+
+type MutableBlock = { type: string; data: Record<string, unknown> };
+
+function mutableBlocks(value: unknown): MutableBlock[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((candidate): candidate is MutableBlock => (
+    Boolean(candidate)
+    && typeof candidate === 'object'
+    && typeof (candidate as MutableBlock).type === 'string'
+    && Boolean((candidate as MutableBlock).data)
+    && typeof (candidate as MutableBlock).data === 'object'
+    && !Array.isArray((candidate as MutableBlock).data)
+  ));
+}
+
+function applyPresetPlanToContent(content: Record<string, unknown>, plan: TemplatePresetPlan) {
+  for (const entry of allContentBlocks(content)) {
+    if (!shouldApplyCardPresetToBlock(entry)) continue;
+    entry.data.cardStyle = plan.primary;
+    for (const field of CARD_PRESET_LEGACY_OVERRIDE_FIELDS) {
+      delete entry.data[field];
+    }
+  }
+}
+
+function shouldApplyCardPresetToBlock(entry: MutableBlock): boolean {
+  return (
+    CARD_PRESET_AWARE_BLOCK_TYPES.has(entry.type)
+    || Object.prototype.hasOwnProperty.call(entry.data, 'cardStyle')
+    || Object.prototype.hasOwnProperty.call(entry.data, 'cardSettings')
+  );
+}
+
+function allContentBlocks(content: Record<string, unknown>): MutableBlock[] {
+  const blocks = [...mutableBlocks(content.blocks)];
+  if (Array.isArray(content.extra_pages)) {
+    for (const page of content.extra_pages) {
+      if (page && typeof page === 'object') {
+        blocks.push(...mutableBlocks((page as Record<string, unknown>).blocks));
+      }
+    }
+  }
+  return blocks;
+}
+
+const RAW_STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = [
   ...BASE_STRUCTURAL_TEMPLATE_METADATA,
   ...DERIVED_STRUCTURAL_TEMPLATE_SOURCES.map(deriveStructuralTemplate),
 ];
+
+export const STRUCTURAL_TEMPLATE_METADATA: StructuralTemplateMetadata[] = RAW_STRUCTURAL_TEMPLATE_METADATA.map(applyTemplatePresetPlan);
 
 export function isStructuralTemplateId(templateId: string): boolean {
   const id = templateId.toLowerCase().replace(/-/g, '_');
@@ -1568,6 +2294,9 @@ export function getStructuralTemplatesForSelection(): StructuralTemplateMetadata
 
 export function getTemplateStyleTag(templateId: string): string {
   const id = templateId.toLowerCase().replace(/-/g, '_');
+  const structuralStyle = getStructuralStyleFromTemplateId(id);
+  if (structuralStyle) return PRESET_TEMPLATE_DISPLAYS[structuralStyle].name;
+
   for (const style of ALL_TEMPLATE_STYLES) {
     if (id.includes(style)) return style.charAt(0).toUpperCase() + style.slice(1);
   }

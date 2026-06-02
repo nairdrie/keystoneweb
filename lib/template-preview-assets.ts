@@ -1,4 +1,6 @@
-export const TEMPLATE_PREVIEW_STYLES = [
+import { PRESET_TEMPLATE_DISPLAYS, type PresetTemplateStyle } from '@/lib/templates/preset-template-display';
+
+const LEGACY_TEMPLATE_PREVIEW_STYLES = [
   'luxe',
   'vivid',
   'airy',
@@ -7,57 +9,26 @@ export const TEMPLATE_PREVIEW_STYLES = [
   'organic',
   'sleek',
   'vibrant',
-  'atlas',
-  'editorial',
-  'booked',
-  'menu',
-  'craft',
-  'retro',
-  'proof',
-  'gallery',
-  'builder',
-  'commerce',
-  'foundation',
-  'wellness',
-  'estate',
-  'studio',
-  'learn',
-  'occasion',
+] as const;
+
+export const PRESET_TEMPLATE_PREVIEW_STYLES = Object.keys(PRESET_TEMPLATE_DISPLAYS) as PresetTemplateStyle[];
+
+export const TEMPLATE_PREVIEW_STYLES = [
+  ...LEGACY_TEMPLATE_PREVIEW_STYLES,
+  ...PRESET_TEMPLATE_PREVIEW_STYLES,
 ] as const;
 
 export type TemplatePreviewStyle = typeof TEMPLATE_PREVIEW_STYLES[number];
 
-export const TEMPLATE_PREVIEW_VERSION = '20260502-cdp-v2';
-
-const VERSIONED_TEMPLATE_PREVIEWS = new Set<TemplatePreviewStyle>([
-  'atlas',
-  'editorial',
-  'booked',
-  'menu',
-  'craft',
-  'retro',
-  'proof',
-  'gallery',
-]);
+function isPresetTemplatePreviewStyle(style: TemplatePreviewStyle): style is PresetTemplateStyle {
+  return style in PRESET_TEMPLATE_DISPLAYS;
+}
 
 export const TEMPLATE_PREVIEW_IMAGES: Record<TemplatePreviewStyle, string> =
   Object.fromEntries(TEMPLATE_PREVIEW_STYLES.map((style) => [
     style,
-    VERSIONED_TEMPLATE_PREVIEWS.has(style)
-      ? `/templates/${style}-${TEMPLATE_PREVIEW_VERSION}.png`
-      : `/templates/${style}.png`,
+    isPresetTemplatePreviewStyle(style) ? `/templates/${style}.svg` : `/templates/${style}.png`,
   ])) as Record<TemplatePreviewStyle, string>;
-
-const TEMPLATE_PREVIEW_ALIASES: Partial<Record<TemplatePreviewStyle, TemplatePreviewStyle>> = {
-  builder: 'proof',
-  commerce: 'craft',
-  foundation: 'craft',
-  wellness: 'booked',
-  estate: 'gallery',
-  studio: 'gallery',
-  learn: 'editorial',
-  occasion: 'retro',
-};
 
 export function getTemplatePreviewStyle(templateId: string): TemplatePreviewStyle | undefined {
   const normalized = templateId.toLowerCase().replace(/-/g, '_');
@@ -66,6 +37,5 @@ export function getTemplatePreviewStyle(templateId: string): TemplatePreviewStyl
 
 export function getTemplatePreviewImage(templateId: string): string | undefined {
   const style = getTemplatePreviewStyle(templateId);
-  const resolvedStyle = style ? TEMPLATE_PREVIEW_ALIASES[style] || style : undefined;
-  return resolvedStyle ? TEMPLATE_PREVIEW_IMAGES[resolvedStyle] : undefined;
+  return style ? TEMPLATE_PREVIEW_IMAGES[style] : undefined;
 }

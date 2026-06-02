@@ -30,7 +30,7 @@ import {
     type SectionSettings,
 } from '@/lib/builder/layout-settings';
 import {
-    buildCardSettingsForPreset,
+    normalizeCardSettingsOverride,
     readCardSettings,
     type CardSettings,
 } from '@/lib/block-style-options';
@@ -641,8 +641,10 @@ export default function GenericBlockSettingsPanel({
     const initialDraft = useMemo(
         () => {
             const draft = buildInitialDraft(blockType, blockData || {}, customCss, layoutFields, displayControls, colorFields, supportsPretext);
-            const cardSettings = hasCardSettingsControls ? readCardSettings(blockData?.cardSettings) : undefined;
             if (hasCardSettingsControls) draft.cardStyle = readSetting(blockData || {}, 'cardStyle', 'soft');
+            const cardSettings = hasCardSettingsControls
+                ? normalizeCardSettingsOverride(readCardSettings(blockData?.cardSettings), draft.cardStyle || 'soft')
+                : undefined;
             if (cardSettings) draft.cardSettings = cardSettings as Record<string, unknown>;
             return draft;
         },
@@ -676,8 +678,16 @@ export default function GenericBlockSettingsPanel({
             ...draft,
             sectionSettings,
         };
-        if (hasCardSettingsControls && !nextDraftBlockData.cardSettings) {
-            nextDraftBlockData.cardSettings = buildCardSettingsForPreset(nextDraftBlockData.cardStyle || 'soft');
+        if (hasCardSettingsControls) {
+            const cardSettings = normalizeCardSettingsOverride(
+                readCardSettings(nextDraftBlockData.cardSettings),
+                nextDraftBlockData.cardStyle || 'soft',
+            );
+            if (cardSettings) {
+                nextDraftBlockData.cardSettings = cardSettings;
+            } else {
+                delete nextDraftBlockData.cardSettings;
+            }
         }
         onDraftBlockDataChange(nextDraftBlockData);
     }, [blockData, draft, sectionSettings, hasCardSettingsControls, onDraftBlockDataChange]);
@@ -713,9 +723,13 @@ export default function GenericBlockSettingsPanel({
 
     const updateCardSettings = (value: CardSettings) => {
         setDraft((current) => {
+            const nextPreset = value.presetId && value.presetId !== 'custom'
+                ? value.presetId
+                : String(current.cardStyle || 'soft');
+            const cardSettings = normalizeCardSettingsOverride(value, nextPreset);
             const next: DraftSettings = {
                 ...current,
-                cardSettings: value as Record<string, unknown>,
+                cardSettings: cardSettings as Record<string, unknown> | undefined,
             };
             if (value.presetId && value.presetId !== 'custom') {
                 next.cardStyle = value.presetId;
@@ -839,7 +853,7 @@ export default function GenericBlockSettingsPanel({
                     onToggle={() => sectionState.toggle('card-advanced')}
                 >
                     <CardSettingsControls
-                        value={readDraftCardSettings(draft.cardSettings) || buildCardSettingsForPreset(draft.cardStyle || 'soft')}
+                        value={readDraftCardSettings(draft.cardSettings)}
                         currentPresetId={String(draft.cardStyle || 'soft')}
                         palette={palette}
                         supportsMedia={blockType === 'carousel'}
@@ -847,6 +861,11 @@ export default function GenericBlockSettingsPanel({
                         supportsMarker={blockType === 'servicesGrid'}
                         supportsTextAlign={blockType !== 'testimonials'}
                         onChange={updateCardSettings}
+                        onPresetChange={(presetId) => {
+                            updateDraft('cardStyle', presetId);
+                            updateDraft('cardSettings', undefined);
+                        }}
+                        onReset={() => updateDraft('cardSettings', undefined)}
                     />
                 </InspectorSection>
             )}
