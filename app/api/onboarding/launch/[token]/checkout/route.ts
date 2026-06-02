@@ -16,12 +16,16 @@ function getStripeClient(): Stripe {
  *
  * Creates a Stripe checkout session for the launch-service client.
  *
- * Stripe Checkout in subscription mode only accepts recurring line items, so
- * one-time charges (launch service + optional domain) are pre-created as
- * invoice items on the Stripe customer. Stripe automatically attaches any
- * pending invoice items to the first invoice of the new subscription.
+ * Stripe Checkout subscription mode allows mixing the recurring plan price
+ * with additional one-time line items (launch service + optional domain),
+ * so they appear in the hosted checkout UI and are charged on the first
+ * invoice alongside the subscription.
+ *
+ * Body (optional): { billingInterval?: 'monthly' | 'yearly' }
+ *  - Overrides the operator-set interval so the client can flip from
+ *    yearly (default) to monthly at checkout time.
  */
-export async function POST(_request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
 
   const supabase = await createClient();
@@ -59,8 +63,18 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
     billDomainCents?: number;
   };
 
+  let bodyInterval: 'monthly' | 'yearly' | undefined;
+  try {
+    const body = await request.json();
+    if (body?.billingInterval === 'monthly' || body?.billingInterval === 'yearly') {
+      bodyInterval = body.billingInterval;
+    }
+  } catch {
+    // No body — fall back to config.
+  }
+
   const planTier = cfg.planTier ?? (cfg.domain?.mode === 'subdomain' ? 'basic' : 'pro');
-  const billingInterval = cfg.billingInterval ?? 'yearly';
+  const billingInterval = bodyInterval ?? cfg.billingInterval ?? 'yearly';
   const plan = PLANS[planTier];
   if (!plan) return NextResponse.json({ error: 'Invalid plan tier' }, { status: 500 });
   const priceId = billingInterval === 'monthly' ? plan.stripe.monthly : plan.stripe.yearly;
@@ -105,34 +119,47 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       },
     }));
 
-  // Pre-create one-time invoice items so they roll into the first subscription invoice.
-  await stripe.invoiceItems.create({
-    customer: customer.id,
-    amount: launchServiceCents,
-    currency: 'usd',
-    description: 'Launch Service',
-    metadata: { launch_request_id: req.id, type: 'launch_service_fee' },
-  });
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://keystoneweb.ca';
+
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
+    { price: priceId, quantity: 1 },
+    {
+      price_data: {
+        currency: 'usd',
+        unit_amount: launchServiceCents,
+        product_data: {
+          name: 'Launch Service',
+          description: 'One-time setup, design, and launch assistance.',
+        },
+        tax_behavior: 'exclusive',
+      },
+      quantity: 1,
+    },
+  ];
 
   if (domainCents > 0 && cfg.domain?.domainName) {
-    await stripe.invoiceItems.create({
-      customer: customer.id,
-      amount: domainCents,
-      currency: 'usd',
-      description: `Custom domain: ${cfg.domain.domainName}`,
-      metadata: { launch_request_id: req.id, type: 'launch_service_domain', domain: cfg.domain.domainName },
+    lineItems.push({
+      price_data: {
+        currency: 'usd',
+        unit_amount: domainCents,
+        product_data: {
+          name: `Custom domain: ${cfg.domain.domainName}`,
+          description: 'First-year custom domain registration.',
+        },
+        tax_behavior: 'exclusive',
+      },
+      quantity: 1,
     });
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://keystoneweb.ca';
-
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
-    line_items: [{ price: priceId, quantity: 1 }],
+    line_items: lineItems,
     mode: 'subscription',
     customer: customer.id,
     billing_address_collection: 'required',
     automatic_tax: { enabled: true },
+    allow_promotion_codes: true,
     subscription_data: {
       billing_mode: { type: 'flexible' },
       metadata: {
@@ -149,6 +176,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       onboarding_token: token,
       userId: user.id,
       planName: plan.name,
+      planBillingInterval: billingInterval,
       siteId: req.site_id,
       siteName: req.business_name ?? '',
     },

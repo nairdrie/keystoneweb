@@ -14,16 +14,18 @@ function formatCents(cents: number): string {
 }
 
 export default function PaymentStep({ state, token }: Props) {
+  const cfg = state.launchConfig ?? {};
+  const planTier = cfg.planTier ?? (cfg.domain?.mode === 'subdomain' ? 'basic' : 'pro');
+  const launchServiceCents = state.launchServicePriceCents ?? cfg.launchServicePriceCents ?? 39900;
+  const domainCents = cfg.billDomainCents ?? 0;
+
   const [submitting, setSubmitting] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dnsBlocked, setDnsBlocked] = useState(false);
-
-  const cfg = state.launchConfig ?? {};
-  const planTier = cfg.planTier ?? (cfg.domain?.mode === 'subdomain' ? 'basic' : 'pro');
-  const billingInterval = cfg.billingInterval ?? 'yearly';
-  const launchServiceCents = state.launchServicePriceCents ?? cfg.launchServicePriceCents ?? 39900;
-  const domainCents = cfg.billDomainCents ?? 0;
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>(
+    cfg.billingInterval ?? 'yearly',
+  );
 
   // Display-only plan pricing — Stripe is the source of truth at checkout.
   const planMonthly = planTier === 'pro' ? 5000 : 2500;
@@ -48,7 +50,11 @@ export default function PaymentStep({ state, token }: Props) {
     setDnsBlocked(false);
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/onboarding/launch/${token}/checkout`, { method: 'POST' });
+      const res = await fetch(`/api/onboarding/launch/${token}/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ billingInterval }),
+      });
       const data = await res.json();
       if (res.status === 409 && data.retryable) {
         setDnsBlocked(true);
@@ -75,6 +81,44 @@ export default function PaymentStep({ state, token }: Props) {
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8">
+        <div className="flex items-center justify-center gap-3 mb-6">
+          <span
+            className={`text-xs font-semibold ${
+              billingInterval === 'monthly' ? 'text-slate-900' : 'text-slate-400'
+            }`}
+          >
+            Monthly
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              setBillingInterval((prev) => (prev === 'yearly' ? 'monthly' : 'yearly'))
+            }
+            aria-label="Toggle billing interval"
+            className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${
+              billingInterval === 'yearly' ? 'bg-emerald-600' : 'bg-slate-300'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                billingInterval === 'yearly' ? 'translate-x-6' : 'translate-x-0'
+              }`}
+            />
+          </button>
+          <span
+            className={`text-xs font-semibold ${
+              billingInterval === 'yearly' ? 'text-slate-900' : 'text-slate-400'
+            }`}
+          >
+            Yearly
+          </span>
+          {billingInterval === 'yearly' && (
+            <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+              Save 40%
+            </span>
+          )}
+        </div>
+
         <div className="text-center">
           <div className="text-4xl font-bold text-slate-900">{formatCents(totalCents)}</div>
           <div className="text-sm text-slate-500 mt-1">today</div>
@@ -139,7 +183,7 @@ export default function PaymentStep({ state, token }: Props) {
       </div>
 
       <p className="text-center mt-6 text-[11px] text-slate-500">
-        Powered by Stripe. Cancel anytime from your Keystone account.
+        Powered by Stripe. Have a promo code? You can add it at checkout. Cancel anytime from your Keystone account.
       </p>
     </div>
   );
