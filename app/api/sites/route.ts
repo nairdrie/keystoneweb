@@ -90,12 +90,12 @@ export async function POST(request: NextRequest) {
       .single();
 
     const structuralTemplate = getStructuralTemplateMetadata(selectedTemplateId);
-    const baseDefaultContent = templateMeta?.default_content || structuralTemplate?.default_content || {};
+    const baseDefaultContent = structuralTemplate?.default_content || templateMeta?.default_content || {};
     const shouldApplyTemplateArchitecture = selectedTemplateId !== 'custom_ai';
     const defaultContent = shouldApplyTemplateArchitecture
       ? personalizeTemplateContentForCategory(baseDefaultContent, { category, businessType, templateId: selectedTemplateId })
       : baseDefaultContent;
-    const palettes = templateMeta?.palettes || structuralTemplate?.palettes || {};
+    const palettes = structuralTemplate?.palettes || templateMeta?.palettes || {};
 
     // Extract site-level fields from default_content
     const { blocks, extra_pages, __navItems: templateNavItems, ...siteHeaderFields } = defaultContent as any;

@@ -8,19 +8,19 @@ export const CARD_STYLE_DEFINITIONS = [
   { id: 'splitMedia', label: 'Showcase', description: 'Media-forward cards with a soft frame and subtle accent.', recommendedTemplates: ['commerce', 'estate', 'gallery'] },
   { id: 'accent', label: 'Accent Rail', description: 'Clean cards with a palette accent rule.', recommendedTemplates: ['atlas', 'menu', 'proof'] },
   { id: 'poster', label: 'Poster', description: 'Image-led, edge-to-edge cards with minimal chrome.', recommendedTemplates: ['gallery', 'menu', 'occasion'] },
-  { id: 'offset', label: 'Offset', description: 'Bold border with an offset accent shadow.', recommendedTemplates: ['craft', 'retro', 'studio'] },
+  { id: 'offset', label: 'Retro', description: 'Throwback cards with a bold border and hard color shadow.', recommendedTemplates: ['craft', 'retro', 'studio'] },
   { id: 'minimal', label: 'Minimal', description: 'No visible card shell; lets content breathe.', recommendedTemplates: ['editorial', 'gallery', 'studio'] },
-  { id: 'solid', label: 'Solid Brand', description: 'Filled brand-color cards with high contrast.', recommendedTemplates: ['proof', 'retro', 'occasion'] },
+  { id: 'solid', label: 'Solid Brand', description: 'Filled brand-color cards with high contrast.', recommendedTemplates: ['proof', 'occasion'] },
   { id: 'glass', label: 'Glass', description: 'Light translucent surface with a softened edge.', recommendedTemplates: ['booked', 'wellness', 'estate'] },
   { id: 'editorial', label: 'Editorial Rule', description: 'Square paper cards with strong horizontal rules.', recommendedTemplates: ['editorial', 'learn', 'foundation'] },
   { id: 'inset', label: 'Inset', description: 'Pressed-in surface for calm service details.', recommendedTemplates: ['craft', 'foundation', 'wellness'] },
-  { id: 'slab', label: 'Slab', description: 'Heavy structural border and sturdy shadow.', recommendedTemplates: ['builder', 'proof', 'atlas'] },
+  { id: 'slab', label: 'Ledger', description: 'Document-like cards with a bold side rail and quiet depth.', recommendedTemplates: ['builder', 'proof', 'atlas'] },
   { id: 'outline', label: 'Outline', description: 'Dashed outline for light, modular sections.', recommendedTemplates: ['atlas', 'studio', 'learn'] },
-  { id: 'glow', label: 'Glow', description: 'Soft colored shadow for high-energy brands.', recommendedTemplates: ['retro', 'occasion', 'studio'] },
-  { id: 'gradient', label: 'Gradient Wash', description: 'Subtle palette wash across the card surface.', recommendedTemplates: ['commerce', 'retro', 'occasion'] },
+  { id: 'glow', label: 'Glow', description: 'Soft colored shadow for high-energy brands.', recommendedTemplates: ['occasion', 'studio'] },
+  { id: 'gradient', label: 'Gradient Wash', description: 'Subtle palette wash across the card surface.', recommendedTemplates: ['commerce', 'occasion'] },
   { id: 'luxe', label: 'Luxe Hairline', description: 'Fine rules and restrained depth for refined brands.', recommendedTemplates: ['estate', 'editorial', 'gallery'] },
   { id: 'utility', label: 'Utility', description: 'Compact dashboard-like cards for dense information.', recommendedTemplates: ['atlas', 'builder', 'learn'] },
-  { id: 'playful', label: 'Playful', description: 'Chunky border and lifted color shadow.', recommendedTemplates: ['retro', 'occasion', 'craft'] },
+  { id: 'playful', label: 'Playful', description: 'Chunky border and lifted color shadow.', recommendedTemplates: ['occasion', 'craft'] },
   { id: 'clipped', label: 'Clipped', description: 'Crisp clipped corner for portfolio and hospitality blocks.', recommendedTemplates: ['gallery', 'menu', 'studio'] },
 ] as const;
 
@@ -422,18 +422,21 @@ export const CARD_PRESET_RECIPES: Record<CardPresetId, CompleteCardPresetRecipe>
   slab: {
     surface: 'white',
     surfaceOpacity: 1,
-    radiusPx: 6,
-    borderWidthPx: 2,
+    radiusPx: 3,
+    borderWidthPx: 1,
     borderStyle: 'solid',
-    borderColor: 'primary',
+    borderColor: 'neutral',
     borderSides: 'all',
-    shadow: 'chunky',
+    shadow: 'medium',
+    shadowX: 0,
+    shadowY: 10,
+    shadowBlur: 28,
     shadowColor: 'primary',
-    shadowOpacity: 0.95,
+    shadowOpacity: 0.1,
     paddingDensity: 'standard',
     textAlign: 'left',
-    accentSide: 'none',
-    accentWidthPx: 0,
+    accentSide: 'left',
+    accentWidthPx: 6,
     accentColor: 'secondary',
     mediaLayout: 'stacked',
     mediaAspect: 'landscape',
@@ -671,6 +674,73 @@ export function readCardPresetId(value: unknown, fallback: CardPresetId = 'soft'
   return readStyleOption(value, CARD_STYLE_OPTIONS, fallback);
 }
 
+export function normalizeCardSettingsForPresetRecipes(settings: CardSettings | undefined): CardSettings | undefined {
+  if (!settings || !isLegacySlabPresetSettings(settings)) return settings;
+  return { presetId: 'slab' };
+}
+
+export function isCardSettingsPresetDefault(settings: CardSettings | undefined, presetId: unknown): boolean {
+  const normalized = normalizeCardSettingsForPresetRecipes(settings);
+  if (!normalized) return true;
+
+  const currentPresetId = readCardPresetId(presetId, 'soft');
+  if (normalized.presetId && normalized.presetId !== 'custom' && normalized.presetId !== currentPresetId) return false;
+
+  const recipe = CARD_PRESET_RECIPES[currentPresetId];
+  return Object.entries(normalized).every(([key, value]) => {
+    if (key === 'presetId') return true;
+    return isCardPresetSettingValueEqual(key, value, recipe[key as keyof typeof recipe]);
+  });
+}
+
+export function normalizeCardSettingsOverride(settings: CardSettings | undefined, presetId: unknown): CardSettings | undefined {
+  const normalized = normalizeCardSettingsForPresetRecipes(settings);
+  if (!normalized) return undefined;
+  return isCardSettingsPresetDefault(normalized, presetId) ? undefined : normalized;
+}
+
+function isLegacySlabPresetSettings(settings: CardSettings): boolean {
+  if (settings.presetId !== 'slab') return false;
+
+  return settings.radiusPx === 6
+    && settings.borderWidthPx === 2
+    && settings.borderColor === 'primary'
+    && settings.borderSides === 'all'
+    && settings.shadow === 'chunky'
+    && settings.shadowX === 6
+    && settings.shadowY === 6
+    && settings.shadowBlur === 0
+    && settings.shadowColor === 'primary'
+    && settings.shadowOpacity === 0.95
+    && settings.accentSide === 'none'
+    && settings.accentWidthPx === 0;
+}
+
+function isCardPresetSettingValueEqual(key: string, value: unknown, recipeValue: unknown): boolean {
+  if (isCardColorSettingKey(key) && typeof value === 'string' && typeof recipeValue === 'string') {
+    return getComparableCardColorValue(value) === getComparableCardColorValue(recipeValue);
+  }
+  return recipeValue === value;
+}
+
+function isCardColorSettingKey(key: string): boolean {
+  return key === 'surface'
+    || key === 'gradientFrom'
+    || key === 'gradientTo'
+    || key === 'gradientVia'
+    || key === 'borderColor'
+    || key === 'shadowColor'
+    || key === 'accentColor';
+}
+
+function getComparableCardColorValue(value: string): string {
+  const normalized = value.trim().toLowerCase();
+  if (normalized.startsWith('palette:')) {
+    return normalized.slice('palette:'.length);
+  }
+  return normalized;
+}
+
 export function resolveCardPresetId(data: Record<string, unknown>, fallback: CardPresetId = 'soft'): CardPresetId {
   const settings = readCardSettings(data.cardSettings);
   if (settings?.presetId && settings.presetId !== 'custom') return settings.presetId;
@@ -680,8 +750,12 @@ export function resolveCardPresetId(data: Record<string, unknown>, fallback: Car
 export function hasUniversalCardSettings(data: Record<string, unknown>): boolean {
   const value = data.cardSettings;
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  return Boolean(readCardSettings(value)?.presetId)
-    || Object.keys(value as Record<string, unknown>).some((key) => key !== 'presetId');
+  const settings = readCardSettings(value);
+  if (!settings) return false;
+  const presetId = settings.presetId && settings.presetId !== 'custom'
+    ? settings.presetId
+    : readCardPresetId(data.cardStyle, 'soft');
+  return Boolean(normalizeCardSettingsOverride(settings, presetId));
 }
 
 export function resolveUniversalCardSettings(
@@ -695,7 +769,7 @@ export function resolveUniversalCardSettings(
 ): ResolvedCardSettings | null {
   if (!hasUniversalCardSettings(data)) return null;
 
-  const storedSettings = readCardSettings(data.cardSettings) || {};
+  const storedSettings = normalizeCardSettingsForPresetRecipes(readCardSettings(data.cardSettings)) || {};
   const basePresetId = storedSettings.presetId && storedSettings.presetId !== 'custom'
     ? storedSettings.presetId
     : readCardPresetId(data.cardStyle, options.fallbackPreset || 'soft');
@@ -1000,7 +1074,7 @@ export function getCardStyleClass(style: CardStyle): string {
     case 'inset':
       return 'rounded-2xl border border-slate-200 bg-white shadow-inner';
     case 'slab':
-      return 'rounded-md border-2 bg-white shadow-none';
+      return 'rounded-sm border bg-white shadow-md';
     case 'outline':
       return 'rounded-2xl border-2 border-dashed bg-transparent shadow-none';
     case 'glow':
@@ -1099,8 +1173,9 @@ export function getCardInlineStyle(style: CardStyle, surface: SurfaceStyle, pale
     inline.boxShadow = `inset 0 1px 8px ${colorWithAlpha(primary, 0.08)}`;
   }
   if (style === 'slab') {
-    inline.borderColor = primary;
-    inline.boxShadow = `6px 6px 0 ${colorWithAlpha(primary, 0.95)}`;
+    inline.borderColor = colorWithAlpha(primary, 0.14);
+    inline.borderLeft = `6px solid ${secondary}`;
+    inline.boxShadow = `0 10px 28px ${colorWithAlpha(primary, 0.1)}`;
   }
   if (style === 'outline') {
     inline.borderColor = secondary;

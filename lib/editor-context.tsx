@@ -61,6 +61,9 @@ export interface EditorContextType {
   /** Current page id, used to resolve "Current page" section links */
   currentPageId?: string;
 
+  /** Current template id, used for template-scoped defaults such as card presets */
+  currentTemplateId?: string;
+
   /** Ordered array of modular blocks for the page **/
   blocks?: BlockData[];
 

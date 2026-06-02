@@ -13,6 +13,7 @@ import { Plus, Crown } from 'lucide-react';
 import { BLOCK_COMPONENTS, AVAILABLE_BLOCKS } from './block-registry';
 import { getBlockDisplayLabel, getBlockIcon } from './block-icons';
 import BlockWrapper from './BlockWrapper';
+import { applyStructuralTemplatePresetPlanToNewBlockData } from '@/lib/templates/structural-templates';
 
 type ColumnRatio = '50-50' | '60-40' | '40-60' | '33-67' | '67-33';
 type VerticalAlign = 'start' | 'center' | 'end' | 'stretch';
@@ -296,7 +297,7 @@ function ScopedEditMode({
                 const newBlock: BlockData = {
                     id: `block-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
                     type,
-                    data: {},
+                    data: applyStructuralTemplatePresetPlanToNewBlockData(type, {}, base.currentTemplateId),
                 };
                 const next = [...blocks];
                 const insertAt = typeof index === 'number' && index >= 0 && index <= next.length ? index : next.length;

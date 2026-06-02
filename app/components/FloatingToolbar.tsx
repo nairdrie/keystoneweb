@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, BookOpen, Eye, EyeOff, Image as ImageIcon, Tablet, Smartphone, Monitor, Layout, LayoutTemplate, Lock, Rocket } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, BookOpen, Eye, EyeOff, Image as ImageIcon, Tablet, Smartphone, Monitor, Layout, LayoutTemplate, Loader2, Rocket } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
@@ -35,6 +35,15 @@ interface Palette {
   accent: string;
 }
 
+interface TemplateChoice {
+  id: string;
+  name: string;
+  category: string;
+  imageUrl?: string;
+  tags: string[];
+  description?: string;
+}
+
 type PaletteColorType = 'primary' | 'secondary' | 'accent';
 
 type CustomColorChangeOptions = {
@@ -58,6 +67,7 @@ interface FloatingToolbarProps {
   siteContent?: any;
   onUpdateSiteContent?: (key: string, value: any) => void;
   currentSiteId?: string;
+  currentTemplateId?: string;
   templateName?: string;
   templateThumbnailUrl?: string;
   templateDescription?: string;
@@ -68,7 +78,9 @@ interface FloatingToolbarProps {
   logoUrl?: string;
   onLogoChange?: (url: string) => void;
   uploadImage?: (file: File, contentKey: string) => Promise<string>;
+  siteBusinessType?: string;
   siteCategory?: string;
+  onTemplateChange?: (templateId: string) => Promise<void> | void;
   titleFont?: string;
   onTitleFontChange?: (font: string) => void;
   bodyFont?: string;
@@ -122,7 +134,44 @@ const WALKTHROUGH_RESET_EVENT = 'ks:walkthrough-reset-ui';
 // design rail expands to fit logo + Design/Admin switcher + profile.
 const DESIGN_RAIL_WIDTH_PX = 56;
 const DESIGN_RAIL_EXPANDED_FALLBACK_PX = 280;
+const DESIGN_SECTION_IDS = [
+  'template',
+  'general',
+  'layout',
+  'colors',
+  'typography',
+  'animation',
+  'translations',
+  'other-settings',
+  'ai-builder',
+] as const;
+const DEFAULT_DESIGN_SECTION_ID = DESIGN_SECTION_IDS[0];
+type DesignSectionId = typeof DESIGN_SECTION_IDS[number];
+const LAST_DESIGN_SECTION_STORAGE_KEY = 'ks:last-design-section';
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
+function isDesignSectionId(section: string | null | undefined): section is DesignSectionId {
+  return typeof section === 'string' && (DESIGN_SECTION_IDS as readonly string[]).includes(section);
+}
+
+function getStoredDesignSectionId(): DesignSectionId | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = window.sessionStorage.getItem(LAST_DESIGN_SECTION_STORAGE_KEY);
+    return isDesignSectionId(stored) ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberDesignSectionId(section: DesignSectionId) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(LAST_DESIGN_SECTION_STORAGE_KEY, section);
+  } catch {
+    // Ignore storage failures; the in-memory ref still handles this session.
+  }
+}
 
 function useIsLargeScreen() {
   const [isLarge, setIsLarge] = useState(false);
@@ -193,6 +242,9 @@ export default function FloatingToolbar({
   focusAiBuilder = false,
   onHistoryRevert,
   currentPageSlug = '',
+  currentTemplateId,
+  siteBusinessType,
+  onTemplateChange,
 }: FloatingToolbarProps) {
   const router = useRouter();
   const { user } = useAuth();
@@ -213,14 +265,28 @@ export default function FloatingToolbar({
   const dragStartY = useRef<number>(0);
   const dragStartHeight = useRef<number>(0);
   const isDragging = useRef<boolean>(false);
+  const loadedTemplateCatalogKeyRef = useRef<string | null>(null);
   const [showSiteSwitcher, setShowSiteSwitcher] = useState(false);
+  const [templateChoices, setTemplateChoices] = useState<TemplateChoice[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+  const [switchingTemplateId, setSwitchingTemplateId] = useState<string | null>(null);
   const [alertConfig, setAlertConfig] = useState<{ isOpen: boolean; title?: string; message: string; type?: 'success' | 'error' | 'info' | 'warning', onConfirm?: () => void, confirmLabel?: string, cancelLabel?: string }>({ isOpen: false, message: '' });
   const [isPublishingUpdates, setIsPublishingUpdates] = useState(false);
   const isFullyDeployed = isSynced && changes.length === 0;
   const selectedContainerWidth = normalizeSiteLayoutContainerWidth(siteContent?.[SITE_LAYOUT_CONTAINER_WIDTH_KEY]);
 
-  const [openSections, setOpenSections] = useState<string[]>([]);
+  const lastActiveDesignSectionRef = useRef<DesignSectionId | null>(getStoredDesignSectionId());
+  const [openSections, setOpenSections] = useState<string[]>(() => {
+    const storedSection = getStoredDesignSectionId();
+    return isOpen && storedSection ? [storedSection] : [];
+  });
   const openSectionsRef = useRef<string[]>([]);
+  const activeSectionFallback = isOpen && isLargeScreen && !isDesignSectionId(openSections[0])
+    ? lastActiveDesignSectionRef.current
+    : null;
+  const isSectionOpen = (section: DesignSectionId) => openSections.includes(section) || activeSectionFallback === section;
+  const templateSectionOpen = isSectionOpen(DEFAULT_DESIGN_SECTION_ID);
   const [railExpanded, setRailExpanded] = useState(false);
   const [railProfileOpen, setRailProfileOpen] = useState(false);
   const [railExpandedWidth, setRailExpandedWidth] = useState<number>(DESIGN_RAIL_EXPANDED_FALLBACK_PX);
@@ -447,24 +513,104 @@ export default function FloatingToolbar({
   }
 
   const toggleSection = (section: string) => {
-    setOpenSections(prev => prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]);
+    setOpenSections(prev => {
+      if (prev.includes(section)) {
+        return prev.filter(s => s !== section);
+      }
+      if (isDesignSectionId(section)) {
+        lastActiveDesignSectionRef.current = section;
+        rememberDesignSectionId(section);
+      }
+      return [...prev, section];
+    });
   };
+
+  const activateTemplateSection = useCallback(() => {
+    lastActiveDesignSectionRef.current = DEFAULT_DESIGN_SECTION_ID;
+    rememberDesignSectionId(DEFAULT_DESIGN_SECTION_ID);
+    setOpenSections([DEFAULT_DESIGN_SECTION_ID]);
+    onOpenChange(true);
+  }, [onOpenChange]);
 
   useEffect(() => {
     openSectionsRef.current = openSections;
+    const activeSection = openSections[0];
+    if (isDesignSectionId(activeSection)) {
+      lastActiveDesignSectionRef.current = activeSection;
+      rememberDesignSectionId(activeSection);
+    }
   }, [openSections]);
 
-  // Defensive: the panel has no useful content when no section is selected —
-  // header falls back to "Design" and the body CSS hides every section. If a
-  // caller opens the panel without picking a tab, close it. Skipped while the
-  // walkthrough is driving the panel so we don't fight its requiresPanel flag.
   useEffect(() => {
-    if (showWalkthrough) return;
-    if (isOpen && openSections.length === 0) {
+    if (!isOpen || !isLargeScreen || showWalkthrough || isDesignSectionId(openSections[0])) return;
+    if (!lastActiveDesignSectionRef.current) {
       onOpenChange(false);
     }
-  }, [isOpen, openSections, onOpenChange, showWalkthrough]);
+  }, [isLargeScreen, isOpen, onOpenChange, openSections, showWalkthrough]);
 
+  const loadTemplateChoices = useCallback(async (force = false) => {
+    if (!siteBusinessType || !siteCategory) {
+      setTemplateError('Template catalog is unavailable for this site.');
+      return;
+    }
+    const catalogKey = `${siteBusinessType}:${siteCategory}`;
+    if (!force && (loadedTemplateCatalogKeyRef.current === catalogKey || loadingTemplates)) return;
+
+    try {
+      setLoadingTemplates(true);
+      setTemplateError(null);
+      if (loadedTemplateCatalogKeyRef.current !== catalogKey) {
+        setTemplateChoices([]);
+      }
+      const params = new URLSearchParams({
+        businessType: siteBusinessType,
+        category: siteCategory,
+        page: '1',
+        limit: '64',
+      });
+      const res = await fetch(`/api/templates?${params.toString()}`, { credentials: 'include' });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to load templates');
+      }
+
+      loadedTemplateCatalogKeyRef.current = catalogKey;
+      setTemplateChoices(Array.isArray(data?.templates) ? data.templates : []);
+    } catch (error) {
+      console.error('Failed to load template choices:', error);
+      setTemplateError(error instanceof Error ? error.message : 'Failed to load templates');
+    } finally {
+      setLoadingTemplates(false);
+    }
+  }, [loadingTemplates, siteBusinessType, siteCategory]);
+
+  useEffect(() => {
+    if (!isOpen || !templateSectionOpen) return;
+    loadTemplateChoices();
+  }, [isOpen, loadTemplateChoices, templateSectionOpen]);
+
+  const handleChooseTemplate = async (templateId: string) => {
+    if (!onTemplateChange || templateId === currentTemplateId) return;
+    activateTemplateSection();
+
+    try {
+      setSwitchingTemplateId(templateId);
+      await onTemplateChange(templateId);
+      activateTemplateSection();
+    } catch (error) {
+      console.error('Failed to switch template:', error);
+      setAlertConfig({
+        isOpen: true,
+        title: 'Template Switch Failed',
+        message: error instanceof Error ? error.message : 'We could not switch templates. Please try again.',
+        type: 'error',
+      });
+      activateTemplateSection();
+    } finally {
+      setSwitchingTemplateId(null);
+    }
+  };
   // When focusAiBuilder fires, collapse others, expand AI builder, and scroll to it
   useEffect(() => {
     if (!focusAiBuilder) return;
@@ -980,10 +1126,10 @@ export default function FloatingToolbar({
               <Layout className="w-3.5 h-3.5" />
               Template
             </span>
-            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('template') ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${templateSectionOpen ? 'rotate-180' : ''}`} />
           </button>
 
-          {openSections.includes('template') && (
+          {templateSectionOpen && (
             <div className="p-4 border-t border-slate-200 space-y-4">
               {/* Currently selected template */}
               <div>
@@ -1015,30 +1161,101 @@ export default function FloatingToolbar({
                 </div>
               </div>
 
-              {/* Change template — coming soon */}
+              {/* Change template */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide">Change Template</h3>
-                  <span className="text-[9px] font-bold uppercase tracking-wide text-violet-600 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded">
-                    Coming Soon
-                  </span>
+                  {loadingTemplates && <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />}
                 </div>
-                <div className="relative rounded-lg border border-dashed border-slate-300 bg-gradient-to-br from-slate-50 to-white p-3">
-                  <div className="grid grid-cols-3 gap-2 opacity-50 pointer-events-none">
-                    {[0, 1, 2].map((i) => (
-                      <div
-                        key={i}
-                        className="aspect-[4/3] rounded-md bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200 flex items-center justify-center"
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                  {templateError ? (
+                    <div className="space-y-2 rounded-md bg-white p-3 text-center">
+                      <p className="text-[11px] font-semibold text-slate-600">{templateError}</p>
+                      <button
+                        type="button"
+                        onClick={() => loadTemplateChoices(true)}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700"
                       >
-                        <Layout className="w-4 h-4 text-slate-400" />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-3 flex items-start gap-2">
-                    <Lock className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
-                    <p className="text-[11px] text-slate-500 leading-snug">
-                      Browse and switch between templates without losing your content. Coming soon.
-                    </p>
+                        <RotateCw className="h-3 w-3" />
+                        Retry
+                      </button>
+                    </div>
+                  ) : loadingTemplates && templateChoices.length === 0 ? (
+                    <div className="grid grid-cols-1 gap-2">
+                      {[0, 1, 2, 3].map((i) => (
+                        <div key={i} className="overflow-hidden rounded-md border border-slate-200 bg-white">
+                          <div className="aspect-[16/9] animate-pulse bg-slate-200" />
+                          <div className="space-y-1.5 p-2">
+                            <div className="h-2.5 w-3/4 animate-pulse rounded bg-slate-200" />
+                            <div className="h-2 w-1/2 animate-pulse rounded bg-slate-100" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : templateChoices.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-2">
+                      {templateChoices.map((template) => {
+                        const isActiveTemplate = template.id === currentTemplateId;
+                        const isSwitching = switchingTemplateId === template.id;
+                        return (
+                          <button
+                            key={template.id}
+                            type="button"
+                            onClick={() => handleChooseTemplate(template.id)}
+                            disabled={!onTemplateChange || isActiveTemplate || Boolean(switchingTemplateId)}
+                            className={`group overflow-hidden rounded-md border bg-white text-left transition-all ${
+                              isActiveTemplate
+                                ? 'border-red-400 ring-2 ring-red-100'
+                                : 'border-slate-200 hover:border-red-300 hover:shadow-sm'
+                            } disabled:cursor-default disabled:opacity-80`}
+                          >
+                            <div className="relative aspect-[16/9] overflow-hidden bg-slate-100">
+                              {template.imageUrl ? (
+                                <img
+                                  src={template.imageUrl}
+                                  alt={`${template.name} template preview`}
+                                  className="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.03]"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center bg-slate-100">
+                                  <LayoutTemplate className="h-5 w-5 text-slate-400" />
+                                </div>
+                              )}
+                              <div className="absolute right-1.5 top-1.5">
+                                {isSwitching ? (
+                                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white shadow">
+                                    <Loader2 className="h-3 w-3 animate-spin text-red-600" />
+                                  </span>
+                                ) : isActiveTemplate ? (
+                                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-white shadow">
+                                    <CheckIcon className="h-3 w-3" />
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                            <div className="space-y-1.5 p-2">
+                              <p className="truncate text-xs font-black text-slate-900">{template.name}</p>
+                              <div className="flex flex-wrap gap-1">
+                                {template.tags.slice(0, 2).map((tag) => (
+                                  <span key={tag} className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-500">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="rounded-md bg-white p-3 text-center">
+                      <LayoutTemplate className="mx-auto h-5 w-5 text-slate-300" />
+                      <p className="mt-2 text-[11px] font-semibold text-slate-500">No templates are available for this site yet.</p>
+                    </div>
+                  )}
+
+                  <div className="mt-2 rounded-md bg-white px-2.5 py-2 text-[10px] font-semibold leading-snug text-slate-500">
+                    Switching templates keeps your existing pages and content. Save the draft to keep the new template.
                   </div>
                 </div>
               </div>
@@ -1056,10 +1273,10 @@ export default function FloatingToolbar({
               <ImageIcon className="w-3.5 h-3.5" />
               Logo
             </span>
-            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('general') ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${isSectionOpen('general') ? 'rotate-180' : ''}`} />
           </button>
 
-          {openSections.includes('general') && (
+          {isSectionOpen('general') && (
             <div className="p-4 border-t border-slate-200 space-y-6" style={{ overflow: 'visible' }}>
 
               {/* Site Logo */}
@@ -1440,10 +1657,10 @@ export default function FloatingToolbar({
               <Layout className="w-3.5 h-3.5" />
               Layout
             </span>
-            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('layout') ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${isSectionOpen('layout') ? 'rotate-180' : ''}`} />
           </button>
 
-          {openSections.includes('layout') && (
+          {isSectionOpen('layout') && (
             <div className="p-4 border-t border-slate-200 space-y-3">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide">Container Width</h3>
@@ -1500,10 +1717,10 @@ export default function FloatingToolbar({
                 <Paintbrush className="w-3.5 h-3.5" />
                 Colors
               </span>
-              <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('colors') ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${isSectionOpen('colors') ? 'rotate-180' : ''}`} />
             </button>
 
-            {openSections.includes('colors') && (
+            {isSectionOpen('colors') && (
               <div className="p-4 border-t border-slate-200">
                 <div className="grid grid-cols-4 gap-3">
                   {templatePalettes.map((palette) => (
@@ -1564,10 +1781,10 @@ export default function FloatingToolbar({
               <Type className="w-3.5 h-3.5" />
               Typography
             </span>
-            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('typography') ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${isSectionOpen('typography') ? 'rotate-180' : ''}`} />
           </button>
 
-          {openSections.includes('typography') && (
+          {isSectionOpen('typography') && (
             <div className="p-4 border-t border-slate-200 space-y-4">
               <div>
                 <label className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2 block">Heading Font</label>
@@ -1603,9 +1820,9 @@ export default function FloatingToolbar({
               <Sparkles className="w-3.5 h-3.5" />
               Animation
             </span>
-            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('animation') ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${isSectionOpen('animation') ? 'rotate-180' : ''}`} />
           </button>
-          {openSections.includes('animation') && (
+          {isSectionOpen('animation') && (
             <div className="p-4 border-t border-slate-200 space-y-3">
               <p className="text-[11px] leading-snug text-slate-500">Default scroll-in animation for sections. Individual blocks can override this in their settings.</p>
               <SiteAnimationControls
@@ -1635,7 +1852,7 @@ export default function FloatingToolbar({
                   </span>
                 )}
               </span>
-              <ChevronDown className={`w-4 h-4 shrink-0 text-violet-500 transition-transform ${openSections.includes('ai-builder') ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-4 h-4 shrink-0 text-violet-500 transition-transform ${isSectionOpen('ai-builder') ? 'rotate-180' : ''}`} />
             </button>
             {isFreeUser && freeAiPromptsLeft === 0 && (
               <Link
@@ -1647,7 +1864,7 @@ export default function FloatingToolbar({
             )}
           </div>
 
-          {openSections.includes('ai-builder') && (
+          {isSectionOpen('ai-builder') && (
             <div className="border-t border-slate-200">
               <AIBuilderPanel
                 messages={aiMessages}
@@ -1679,10 +1896,10 @@ export default function FloatingToolbar({
               <Languages className="w-3.5 h-3.5" />
               Translations
             </span>
-            <ChevronDown className={`w-4 h-4 text-blue-500 transition-transform ${openSections.includes('translations') ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-4 h-4 text-blue-500 transition-transform ${isSectionOpen('translations') ? 'rotate-180' : ''}`} />
           </button>
 
-          {openSections.includes('translations') && (
+          {isSectionOpen('translations') && (
             <div className="border-t border-slate-200">
               <TranslationsPanel siteId={currentSiteId} />
             </div>
@@ -1700,10 +1917,10 @@ export default function FloatingToolbar({
                 <Settings className="w-3.5 h-3.5" />
                 Other Settings
               </span>
-              <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${openSections.includes('other-settings') ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${isSectionOpen('other-settings') ? 'rotate-180' : ''}`} />
             </button>
 
-            {openSections.includes('other-settings') && (
+            {isSectionOpen('other-settings') && (
               <div className="p-4 border-t border-slate-200 space-y-4">
                 {/* Edit History */}
                 <div>
@@ -1910,11 +2127,17 @@ export default function FloatingToolbar({
           { id: 'ai-builder',     label: 'AI Builder',   icon: ArchieAIIcon as React.ComponentType<{ className?: string }>, ai: true },
         ];
 
-        const activeTabId = openSections[0] ?? null;
+        const activeTabId = isDesignSectionId(openSections[0])
+          ? openSections[0]
+          : (isOpen ? lastActiveDesignSectionRef.current : null);
         const hasUnsaved = changes.length > 0;
         const activeTab = railTabs.find(t => t.id === activeTabId) ?? null;
 
         const openTabPanel = (id: string, clickedEl?: HTMLElement | null) => {
+          if (isDesignSectionId(id)) {
+            lastActiveDesignSectionRef.current = id;
+            rememberDesignSectionId(id);
+          }
           setOpenSections([id]);
           onOpenChange(true);
           // Collapse the rail so the panel content that just opened is fully

@@ -12,7 +12,8 @@ const UPDATABLE = new Set<string>(LEAD_UPDATABLE_FIELDS);
 // GET /api/ops/leads/[id]
 // Returns the lead plus all the related data the detail page needs:
 //   assignee, referred_by, converted_user (+ subscription),
-//   email_match_candidates, assignee_options, contact_events, messages.
+//   email_match_candidates, assignee_options, contact_events, messages,
+//   prospect audit context for advanced AI model handoff prompts.
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const access = await requireOpsAccess();
   if (!access) {
@@ -39,6 +40,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     sentEmailsResult,
     supportRequestsResult,
     emailMatchResult,
+    prospectAuditResult,
     assigneeOptions,
   ] = await Promise.all([
     userIdsToFetch.size > 0
@@ -79,6 +81,15 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
           .select('id, email, business_name, created_at')
           .ilike('email', lead.email)
       : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+    db
+      .from('lead_prospects')
+      .select(
+        'id, audit_status, audit_completed_at, perf_score, seo_score, best_practices_score, accessibility_score, mobile_load_seconds, uses_https, failed_audits, cms, cms_confidence, pitch_angles, pitch_strength',
+      )
+      .eq('promoted_lead_id', id)
+      .order('promoted_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
     fetchAssigneeOptions(db),
   ]);
 
@@ -174,6 +185,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     converted_user,
     converted_subscription: convertedSubResult.data ?? null,
     email_match_candidates: emailMatchResult.data ?? [],
+    prospect_audit: prospectAuditResult.data ?? null,
     contact_events,
     messages,
     assignee_options: assigneeOptions,

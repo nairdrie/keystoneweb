@@ -15,6 +15,7 @@ import {
   resolveUniversalCardSettings,
   type CardStyle,
 } from '@/lib/block-style-options';
+import { PRESET_TEMPLATE_DISPLAYS } from '@/lib/templates/preset-template-display';
 
 const LAB_PALETTE = {
   primary: '#172033',
@@ -32,22 +33,22 @@ type TemplateStyleSuggestion = {
 };
 
 const TEMPLATE_STYLE_SUGGESTIONS: TemplateStyleSuggestion[] = [
-  { template: 'Atlas', primary: 'utility', alternates: ['bordered', 'outline'], blocks: 'B2B services, stats, process cards' },
-  { template: 'Editorial', primary: 'editorial', alternates: ['minimal', 'luxe'], blocks: 'resources, testimonials, author notes' },
-  { template: 'Booked', primary: 'elevated', alternates: ['glass', 'soft'], blocks: 'services, appointment proof, testimonials' },
-  { template: 'Menu', primary: 'poster', alternates: ['accent', 'clipped'], blocks: 'menu highlights, delivery links, gallery cards' },
-  { template: 'Craft', primary: 'offset', alternates: ['splitMedia', 'playful'], blocks: 'product stories, services, maker proof' },
-  { template: 'Retro', primary: 'playful', alternates: ['offset', 'glow'], blocks: 'drops, events, carousel cards' },
-  { template: 'Proof', primary: 'slab', alternates: ['accent', 'solid'], blocks: 'trust cards, stats, testimonials' },
-  { template: 'Gallery', primary: 'clipped', alternates: ['poster', 'minimal'], blocks: 'project cards, image-led carousel, services' },
-  { template: 'Builder', primary: 'bordered', alternates: ['slab', 'utility'], blocks: 'trades, estimates, service cards, credibility stats' },
-  { template: 'Commerce', primary: 'splitMedia', alternates: ['elevated', 'gradient'], blocks: 'product stories, offers, carousel cards' },
-  { template: 'Foundation', primary: 'inset', alternates: ['editorial', 'soft'], blocks: 'mission cards, community proof, resources' },
-  { template: 'Wellness', primary: 'soft', alternates: ['glass', 'inset'], blocks: 'care services, testimonials, calm stats' },
-  { template: 'Estate', primary: 'luxe', alternates: ['poster', 'splitMedia'], blocks: 'property cards, interiors, image-led proof' },
-  { template: 'Studio', primary: 'outline', alternates: ['offset', 'clipped'], blocks: 'services, project cards, agency proof' },
-  { template: 'Learn', primary: 'utility', alternates: ['editorial', 'bordered'], blocks: 'course modules, resources, stats' },
-  { template: 'Occasion', primary: 'playful', alternates: ['poster', 'glow'], blocks: 'events, weddings, venue highlights' },
+  { template: PRESET_TEMPLATE_DISPLAYS.atlas.name, primary: 'utility', alternates: ['outline'], blocks: 'B2B services, stats, process cards' },
+  { template: PRESET_TEMPLATE_DISPLAYS.editorial.name, primary: 'editorial', alternates: ['minimal'], blocks: 'resources, testimonials, author notes' },
+  { template: PRESET_TEMPLATE_DISPLAYS.booked.name, primary: 'elevated', alternates: ['glass'], blocks: 'services, appointment proof, testimonials' },
+  { template: PRESET_TEMPLATE_DISPLAYS.menu.name, primary: 'poster', alternates: ['accent'], blocks: 'menu highlights, delivery links, gallery cards' },
+  { template: PRESET_TEMPLATE_DISPLAYS.craft.name, primary: 'splitMedia', alternates: ['inset'], blocks: 'product stories, services, maker proof' },
+  { template: PRESET_TEMPLATE_DISPLAYS.retro.name, primary: 'offset', alternates: [], blocks: 'drops, events, carousel cards' },
+  { template: PRESET_TEMPLATE_DISPLAYS.proof.name, primary: 'slab', alternates: ['solid'], blocks: 'trust cards, stats, testimonials' },
+  { template: PRESET_TEMPLATE_DISPLAYS.gallery.name, primary: 'clipped', alternates: ['minimal'], blocks: 'project cards, image-led carousel, services' },
+  { template: PRESET_TEMPLATE_DISPLAYS.builder.name, primary: 'bordered', alternates: ['slab'], blocks: 'trades, estimates, service cards, credibility stats' },
+  { template: PRESET_TEMPLATE_DISPLAYS.commerce.name, primary: 'gradient', alternates: ['splitMedia'], blocks: 'product stories, offers, carousel cards' },
+  { template: PRESET_TEMPLATE_DISPLAYS.foundation.name, primary: 'inset', alternates: ['editorial'], blocks: 'mission cards, community proof, resources' },
+  { template: PRESET_TEMPLATE_DISPLAYS.wellness.name, primary: 'soft', alternates: ['glass'], blocks: 'care services, testimonials, calm stats' },
+  { template: PRESET_TEMPLATE_DISPLAYS.estate.name, primary: 'luxe', alternates: ['poster'], blocks: 'property cards, interiors, image-led proof' },
+  { template: PRESET_TEMPLATE_DISPLAYS.studio.name, primary: 'outline', alternates: ['clipped'], blocks: 'services, project cards, agency proof' },
+  { template: PRESET_TEMPLATE_DISPLAYS.learn.name, primary: 'accent', alternates: ['utility'], blocks: 'course modules, resources, stats' },
+  { template: PRESET_TEMPLATE_DISPLAYS.occasion.name, primary: 'playful', alternates: ['glow'], blocks: 'events, weddings, venue highlights' },
 ];
 
 export default function CardStyleLabPage() {

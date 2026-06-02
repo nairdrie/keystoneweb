@@ -16,6 +16,7 @@ function extractStringArray(source, name) {
 }
 
 const capabilitySource = read('lib/ai/block-capabilities.ts');
+const blockStyleOptionsSource = read('lib/block-style-options.ts');
 const sampleDataSource = read('lib/ai/sample-data.ts');
 const templateProfileSource = read('lib/templates/template-style-profiles.ts');
 const structuralTemplateSource = read('lib/templates/structural-templates.ts');
@@ -42,6 +43,10 @@ const missingCoverage = registered.filter((type) => !covered.has(type));
 const unknownSupported = supported.filter((type) => !registeredSet.has(type));
 const supportedWithoutCapabilities = supported.filter((type) => !capabilityTypes.includes(type));
 const capabilitiesNotSupported = capabilityTypes.filter((type) => !supported.includes(type));
+const cardStyleDefinitionMatch = blockStyleOptionsSource.match(/export const CARD_STYLE_DEFINITIONS = \[([\s\S]*?)\] as const;/);
+const cardPresetIds = cardStyleDefinitionMatch
+  ? Array.from(cardStyleDefinitionMatch[1].matchAll(/id:\s*'([^']+)'/g)).map((m) => m[1])
+  : [];
 
 const requiredCapabilitySnippets = [
   'menuTitle',
@@ -60,18 +65,25 @@ const requiredCapabilitySnippets = [
   'showPreferredDate',
   'sanitizeAiBlockData',
   'filterAiBlockDataToAllowedSettings',
+  'normalizeAiPresetFields',
   'sanitizeAiCustomColors',
   'SAFE_LIGHT_SECTION_BACKGROUND',
   'AI_DISALLOWED_CUSTOM_CSS_KEYS',
+  'AI_SURFACE_STYLE_VALUE_SET',
   'AI-generated block/header Custom CSS is disabled',
   'cardStyle',
+  'CARD_STYLE_OPTIONS',
+  'CARD_STYLE_DEFINITIONS',
+  'CARD_PRESET_AI_GUIDE',
+  'readCardSettings(data.cardSettings)',
   'surfaceStyle',
   'spacingDensity',
   'iconStyle',
-  'splitMedia',
   'mediaAspect',
   'mediaTreatment',
   'frameStyle',
+  'Optional universal card settings for the contact form shell',
+  'Optional universal card settings for the estimate form shell',
   'stripAiHtmlCss',
   'delete obj[key]',
   'return !key || !AI_DISALLOWED_CUSTOM_CSS_KEYS.has(key)',
@@ -80,6 +92,14 @@ const requiredCapabilitySnippets = [
 ];
 
 const missingSnippets = requiredCapabilitySnippets.filter((snippet) => !capabilitySource.includes(snippet));
+const requiredBlockStylePresetSnippets = [
+  'splitMedia',
+  'clipped',
+  'utility',
+  'gradient',
+  'playful',
+];
+const missingBlockStylePresetSnippets = requiredBlockStylePresetSnippets.filter((snippet) => !blockStyleOptionsSource.includes(snippet));
 const requiredSampleDataSnippets = [
   'sanitizeAiSampleDataPayload',
   'productSamplesFor',
@@ -94,6 +114,8 @@ const requiredTemplateProfileSnippets = [
   'TEMPLATE_STYLE_PROFILE_IDS',
   'renderTemplateStyleProfilesForAi',
   'recommendTemplateStyleProfileIds',
+  'preferredCardStyles',
+  'Preferred card presets',
   'STYLE-ONLY',
   'setCustomColors',
   'setHeaderConfig',
@@ -113,6 +135,10 @@ const requiredTemplateProfileSnippets = [
   'retro',
   'proof',
   'gallery',
+  'contact_form cardStyle',
+  'estimateForm cardStyle',
+  'pricing cardStyle',
+  'faq cardStyle',
 ];
 const missingTemplateProfileSnippets = requiredTemplateProfileSnippets.filter((snippet) => !templateProfileSource.includes(snippet));
 const requiredStructuralTemplateSnippets = [
@@ -146,6 +172,9 @@ const requiredArchitectureSnippets = [
   'TRADE_CATEGORIES',
   'compactArchitecturePage',
   'architectureBlockFamily',
+  "case 'timeline':",
+  "cardStyle: 'elevated'",
+  "cardStyle: 'bordered'",
 ];
 const missingArchitectureSnippets = requiredArchitectureSnippets.filter((snippet) => !siteArchitectureSource.includes(snippet));
 const requiredBuilderPromptSnippets = [
@@ -214,6 +243,18 @@ if (capabilitiesNotSupported.length > 0) {
 }
 if (missingSnippets.length > 0) {
   failures.push(`Critical AI capability snippets missing: ${missingSnippets.join(', ')}`);
+}
+if (cardPresetIds.length === 0) {
+  failures.push('Could not read CARD_STYLE_DEFINITIONS preset ids from lib/block-style-options.ts');
+}
+if (!capabilitySource.includes('const CARD_STYLE_VALUE_SET = CARD_STYLE_OPTIONS;')) {
+  failures.push('AI card style value set must reference CARD_STYLE_OPTIONS instead of duplicating preset ids');
+}
+if (!capabilitySource.includes('CARD_PRESET_AI_GUIDE')) {
+  failures.push('AI prompt must include generated card preset guidance from CARD_STYLE_DEFINITIONS');
+}
+if (missingBlockStylePresetSnippets.length > 0) {
+  failures.push(`Critical card preset snippets missing from block style options: ${missingBlockStylePresetSnippets.join(', ')}`);
 }
 if (missingSampleDataSnippets.length > 0) {
   failures.push(`Critical AI sample data snippets missing: ${missingSampleDataSnippets.join(', ')}`);

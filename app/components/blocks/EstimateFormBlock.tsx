@@ -703,6 +703,14 @@ function resolveFormCardStyle(
     const surfaceStyle = getSurfaceStyle(data.surfaceStyle, cardStyle);
     const textColor = getSurfaceTextColor(surfaceStyle, palette);
     const mutedTextColor = shouldLockCardTextToSurface(surfaceStyle) ? textColor : '#64748b';
+    if (cardStyle === 'poster') {
+        return {
+            className: 'bg-transparent shadow-none',
+            style: getOpenPosterFormShellStyle(),
+            textColor,
+            mutedTextColor,
+        };
+    }
     return {
         className: `${getCardStyleClass(cardStyle)} ${getCardPaddingClass(cardStyle)}`,
         style: getCardInlineStyle(cardStyle, surfaceStyle, palette),
@@ -712,8 +720,31 @@ function resolveFormCardStyle(
 }
 
 function normalizeFormCardSettings(settings: ResolvedCardSettings): ResolvedCardSettings {
-    if (settings.mediaLayout !== 'split' && settings.mediaLayout !== 'fullBleed') return settings;
-    return { ...settings, mediaLayout: 'stacked' };
+    const normalized = settings.mediaLayout === 'split' || settings.mediaLayout === 'fullBleed'
+        ? { ...settings, mediaLayout: 'stacked' as const }
+        : settings;
+    if (normalized.basePresetId !== 'poster' || normalized.isCustom) return normalized;
+
+    return {
+        ...normalized,
+        surface: 'transparent',
+        surfaceOpacity: 1,
+        radiusPx: 0,
+        borderWidthPx: 0,
+        borderStyle: 'none',
+        borderSides: 'none',
+        shadow: 'none',
+        shadowEnabled: false,
+        shadowX: 0,
+        shadowY: 0,
+        shadowBlur: 0,
+        shadowInset: false,
+        shadowOpacity: 0,
+        paddingPx: 0,
+        paddingDensity: 'none',
+        accentSide: 'none',
+        accentWidthPx: 0,
+    };
 }
 
 function hasFormCardDesignOverride(data: Record<string, unknown>): boolean {
@@ -721,6 +752,16 @@ function hasFormCardDesignOverride(data: Record<string, unknown>): boolean {
         return Object.keys(data.cardSettings).length > 0;
     }
     return typeof data.cardStyle === 'string' && data.cardStyle.trim() !== '';
+}
+
+function getOpenPosterFormShellStyle() {
+    return {
+        backgroundColor: 'transparent',
+        border: '0 solid transparent',
+        borderRadius: 0,
+        boxShadow: 'none',
+        padding: 0,
+    };
 }
 
 function buildInitialValues(settings: EstimateQuoteSettings): Record<string, unknown> {

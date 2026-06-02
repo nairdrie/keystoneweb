@@ -5,6 +5,7 @@ import {
   type ArchitectureBlock,
   type ArchitecturePage,
 } from '@/lib/ai/site-architecture';
+import { applyStructuralTemplatePresetPlanToContent } from '@/lib/templates/structural-templates';
 
 // Template payloads are intentionally loose JSON objects from DB/code metadata.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -488,7 +489,7 @@ export function personalizeTemplateContentForCategory(
     })),
   ];
 
-  return content;
+  return applyStructuralTemplatePresetPlanToContent(content, input.templateId);
 }
 
 export const personalizeStructuralTemplateContent = personalizeTemplateContentForCategory;

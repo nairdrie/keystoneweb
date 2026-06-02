@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/db/supabase-admin';
+import { parseHost } from '@/lib/env/domain';
 import { requireOpsAccess } from '@/lib/ops/access';
 import {
   LEAD_SOURCES,
@@ -49,6 +51,10 @@ export default async function OpsLeadsPage({
 }) {
   const access = await requireOpsAccess();
   if (!access) redirect('/');
+
+  const requestHeaders = await headers();
+  const host = requestHeaders.get('host') || '';
+  const opsBasePath = parseHost(host).kind === 'ops' ? '' : '/ops';
 
   const sp = await searchParams;
   const status = sp.status ?? 'all';
@@ -141,7 +147,7 @@ export default async function OpsLeadsPage({
       p.set(k, v);
     }
     const qs = p.toString();
-    return `/leads${qs ? `?${qs}` : ''}`;
+    return `${opsBasePath}/leads${qs ? `?${qs}` : ''}`;
   }
 
   return (
@@ -155,12 +161,12 @@ export default async function OpsLeadsPage({
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href="/leads/discover"
+            href={`${opsBasePath}/leads/discover`}
             className="rounded-md bg-gray-800 hover:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition-colors"
           >
             Discover prospects
           </Link>
-          <NewLeadButton />
+          <NewLeadButton opsBasePath={opsBasePath} />
         </div>
       </div>
 
@@ -181,7 +187,7 @@ export default async function OpsLeadsPage({
       </div>
 
       {/* Search + filter form */}
-      <form action="/leads" method="GET" className="flex gap-3 flex-wrap">
+      <form action={`${opsBasePath}/leads`} method="GET" className="flex gap-3 flex-wrap">
         {status !== 'all' && <input type="hidden" name="status" value={status} />}
         <input
           type="text"
@@ -251,7 +257,7 @@ export default async function OpsLeadsPage({
           return (
             <Link
               key={lead.id}
-              href={`/leads/${lead.id}`}
+              href={`${opsBasePath}/leads/${lead.id}`}
               className="block rounded-lg border border-gray-800 bg-gray-900 p-4 hover:border-gray-600 transition-colors"
             >
               <div className="flex items-start justify-between gap-4">

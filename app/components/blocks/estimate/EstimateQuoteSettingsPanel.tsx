@@ -39,7 +39,7 @@ import {
     type PricingRule,
 } from '@/lib/estimate-quote';
 import {
-    buildCardSettingsForPreset,
+    normalizeCardSettingsOverride,
     readCardSettings,
     type CardSettings,
 } from '@/lib/block-style-options';
@@ -136,9 +136,10 @@ export default function EstimateQuoteSettingsPanel({
     };
 
     const updateCardSettings = (value: CardSettings) => {
+        const nextPreset = value.presetId && value.presetId !== 'custom' ? value.presetId : draft.cardStyle;
         setDraft((current) => ({
             ...current,
-            cardSettings: value,
+            cardSettings: normalizeCardSettingsOverride(value, nextPreset),
             cardStyle: value.presetId && value.presetId !== 'custom' ? value.presetId : current.cardStyle,
         }));
     };
@@ -607,11 +608,13 @@ export default function EstimateQuoteSettingsPanel({
                 onToggle={() => sectionState.toggle('style')}
             >
                 <CardSettingsControls
-                    value={draft.cardSettings || buildCardSettingsForPreset(draft.cardStyle)}
+                    value={draft.cardSettings}
                     currentPresetId={draft.cardStyle}
                     palette={palette}
                     supportsTextAlign={false}
                     onChange={updateCardSettings}
+                    onPresetChange={(presetId) => setDraft((current) => ({ ...current, cardStyle: presetId, cardSettings: undefined }))}
+                    onReset={() => setDraft((current) => ({ ...current, cardSettings: undefined }))}
                 />
             </InspectorSection>
 
@@ -903,12 +906,13 @@ function SelectField({ label, value, options, onChange }: { label: string; value
 }
 
 function buildInitialDraft(blockData: Record<string, unknown>, customCss: string): EstimateQuoteDraft {
-    const cardSettings = readCardSettings(blockData.cardSettings);
+    const rawCardSettings = readCardSettings(blockData.cardSettings);
     const cardStyle = typeof blockData.cardStyle === 'string' && blockData.cardStyle.trim()
         ? blockData.cardStyle
-        : cardSettings?.presetId && cardSettings.presetId !== 'custom'
-            ? cardSettings.presetId
+        : rawCardSettings?.presetId && rawCardSettings.presetId !== 'custom'
+            ? rawCardSettings.presetId
             : 'soft';
+    const cardSettings = normalizeCardSettingsOverride(rawCardSettings, cardStyle);
 
     return {
         settings: normalizeEstimateQuoteSettings(blockData),
@@ -921,16 +925,22 @@ function buildInitialDraft(blockData: Record<string, unknown>, customCss: string
 }
 
 function buildPreviewBlockData(blockData: Record<string, unknown>, draft: EstimateQuoteDraft): Record<string, unknown> {
-    return {
+    const cardSettings = normalizeCardSettingsOverride(draft.cardSettings, draft.cardStyle);
+    const previewData: Record<string, unknown> = {
         ...blockData,
         ...legacyMirror(draft.settings),
         estimateQuoteSettings: draft.settings,
         sectionSettings: draft.sectionSettings,
         cardStyle: draft.cardStyle,
-        cardSettings: draft.cardSettings || buildCardSettingsForPreset(draft.cardStyle),
         __customCss: draft.__customCss,
         __customScript: draft.__customScript,
     };
+    if (cardSettings) {
+        previewData.cardSettings = cardSettings;
+    } else {
+        delete previewData.cardSettings;
+    }
+    return previewData;
 }
 
 function buildSaveUpdates(blockData: Record<string, unknown>, draft: EstimateQuoteDraft): Record<string, unknown> {
@@ -942,9 +952,10 @@ function buildSaveUpdates(blockData: Record<string, unknown>, draft: EstimateQuo
     };
     const hasExistingCardSettings = Boolean(blockData.cardSettings && typeof blockData.cardSettings === 'object' && !Array.isArray(blockData.cardSettings));
     const persistedCardStyle = typeof blockData.cardStyle === 'string' && blockData.cardStyle.trim() ? blockData.cardStyle : 'soft';
+    const cardSettings = normalizeCardSettingsOverride(draft.cardSettings, draft.cardStyle);
     if (draft.cardSettings || hasExistingCardSettings || draft.cardStyle !== persistedCardStyle) {
         updates.cardStyle = draft.cardStyle;
-        updates.cardSettings = draft.cardSettings || buildCardSettingsForPreset(draft.cardStyle);
+        updates.cardSettings = cardSettings;
     }
     const initialSectionSettings = normalizeSectionSettings(blockData.sectionSettings);
     if (!areSectionSettingsEqual(draft.sectionSettings, initialSectionSettings)) {

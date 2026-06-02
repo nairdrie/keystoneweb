@@ -134,7 +134,7 @@ function architectureForKind(
     return blogArchitecture(categoryLabel, requested);
   }
   if (APPOINTMENT_CATEGORIES.has(category) || requested.has('booking')) {
-    return appointmentServiceArchitecture(categoryLabel, requested);
+    return appointmentServiceArchitecture(categoryLabel);
   }
   return serviceArchitecture(categoryLabel, requested, TRADE_CATEGORIES.has(category));
 }
@@ -175,7 +175,7 @@ function serviceArchitecture(categoryLabel: string, requested: Set<string>, isTr
   });
 }
 
-function appointmentServiceArchitecture(categoryLabel: string, requested: Set<string>): SiteArchitecture {
+function appointmentServiceArchitecture(categoryLabel: string): SiteArchitecture {
   return site('services', categoryLabel, {
     home: page('home', 'Home', 'Home', 'home', `Introduce the ${categoryLabel.toLowerCase()} business, services, booking flow, and trust signals.`, [
       block('Hero Section', 'State the appointment-led offer.'),
@@ -518,7 +518,7 @@ function fallbackDataForBlock(blockType: string, siteTitle: string, pageSlug: st
         ],
       };
     case 'featuresList':
-      return { title: 'Why choose us', items: ['Clear communication', 'Reliable follow-through', 'Practical next steps'] };
+      return { title: 'Why choose us', cardStyle: 'soft', surfaceStyle: 'white', markerStyle: 'framed', spacingDensity: 'standard', items: ['Clear communication', 'Reliable follow-through', 'Practical next steps'] };
     case 'stats':
       return { title: 'At a glance', variant: 'cards', cardStyle: 'accent', surfaceStyle: 'white', spacingDensity: 'compact', items: [{ value: '4.9/5', label: 'Average rating' }, { value: '500+', label: 'Customers helped' }, { value: '24 hr', label: 'Typical response' }] };
     case 'testimonials':
@@ -529,23 +529,25 @@ function fallbackDataForBlock(blockType: string, siteTitle: string, pageSlug: st
         description: 'Tell us what you need and we will follow up.',
         submitText: 'Request quote',
         successMessage: 'Thanks. We will follow up shortly.',
+        cardStyle: 'bordered',
+        surfaceStyle: 'white',
         fields: [
           { id: 'service-needed', label: 'Service needed', type: 'text', required: true },
           { id: 'timeline', label: 'Timeline', type: 'select', required: true, options: ['As soon as possible', 'This week', 'Flexible'] },
         ],
       };
     case 'contact_form':
-      return { title: 'Send a message', description: 'Tell us how we can help.', submitText: 'Send message', successMessage: 'Thanks. We will be in touch shortly.' };
+      return { title: 'Send a message', description: 'Tell us how we can help.', submitText: 'Send message', successMessage: 'Thanks. We will be in touch shortly.', cardStyle: 'soft', surfaceStyle: 'white' };
     case 'contact':
-      return { title: 'Contact us', phone: '', email: '', address: '', hours: '' };
+      return { title: 'Contact us', phone: '', email: '', address: '', hours: '', cardStyle: 'soft', surfaceStyle: 'white', spacingDensity: 'standard' };
     case 'map':
       return { title: 'Find us', address: '' };
     case 'faq':
-      return { title: 'Common questions', items: [{ question: 'How do I get started?', answer: 'Send a request and we will reply with next steps.' }, { question: 'Can I ask a custom question?', answer: 'Yes. Use the contact form and include the details.' }] };
+      return { title: 'Common questions', cardStyle: 'bordered', surfaceStyle: 'white', spacingDensity: 'standard', items: [{ question: 'How do I get started?', answer: 'Send a request and we will reply with next steps.' }, { question: 'Can I ask a custom question?', answer: 'Yes. Use the contact form and include the details.' }] };
     case 'cta':
       return { title: `Ready to work with ${siteTitle}?`, subtitle: 'Reach out and we will help with the next step.', buttonText: 'Contact us', buttonTextLink: { linkType: 'page', pageSlug: 'contact' } };
     case 'pricing':
-      return { title: 'Pricing', variant: 'cards', tiers: [{ name: 'Starter', price: 'Custom', period: '', description: 'A focused first step.', features: ['Clear scope', 'Next steps'], highlighted: false, buttonText: 'Ask about pricing' }] };
+      return { title: 'Pricing', variant: 'cards', cardStyle: 'elevated', surfaceStyle: 'white', spacingDensity: 'standard', tiers: [{ name: 'Starter', price: 'Custom', period: '', description: 'A focused first step.', features: ['Clear scope', 'Next steps'], highlighted: false, buttonText: 'Ask about pricing' }] };
     case 'aboutImageText':
       return { title: `About ${siteTitle}`, description: 'Use this space to explain the story, approach, and people behind the business.', items: ['Thoughtful process', 'Customer-focused', 'Built locally'], imagePosition: 'right', mediaTreatment: 'contained' };
     case 'team':
@@ -554,6 +556,8 @@ function fallbackDataForBlock(blockType: string, siteTitle: string, pageSlug: st
       return { title: pageSlug === 'portfolio' ? 'Selected work' : 'Gallery', subtitle: 'Add images that show the work, product, or space.', columns: 3, frameStyle: pageSlug === 'portfolio' ? 'gapless' : 'rounded', mediaAspect: 'square' };
     case 'carousel':
       return { title: 'Highlights', variant: 'cards', cardStyle: 'accent', surfaceStyle: 'white', mediaAspect: 'landscape', iconStyle: 'badge', spacingDensity: 'standard', items: [{ mediaType: 'icon', icon: 'Star', title: 'Highlight one', text: 'Describe a featured offer, project, or benefit.' }] };
+    case 'timeline':
+      return { title: 'Milestones', subtitle: 'Add important moments, experience, or process steps.', variant: 'cards', cardStyle: 'bordered', surfaceStyle: 'white', spacingDensity: 'standard', items: [{ title: 'First milestone', organization: siteTitle, dateRange: 'Year', description: 'Describe what happened and why it matters.', tags: ['Tag'] }] };
     case 'featuredQuote':
       return { variant: 'minimal', quote: 'Add a quote, testimonial, or short statement that builds confidence.', personName: siteTitle, personTitle: '' };
     case 'productGrid':

@@ -258,8 +258,8 @@ const STYLE_TREATMENTS = [
   'Asymmetric - prefer split heroes, mixed image positions, carousel/gallery moments, and varied block order',
   'Quiet luxury - use minimal variants, generous whitespace, serif headings, and subtle palette contrast',
   'Editorial column - use text, featuredQuote, blog/resources, and concise headings with a publication feel',
-  'High-contrast launch - use retro palette direction, stats/tabBar/pricing, and bold cardStyle choices without code-based styling overrides',
-  'Cut-paper - use playful copy, gallery/carousel/cards, offset cardStyle, and vibrant palettes without code-based rotated effects',
+  'High-contrast launch - use retro palette direction, stats/tabBar/pricing, and Retro cardStyle:"offset" choices without code-based styling overrides',
+  'Cut-paper - use playful copy, gallery/carousel/cards, Retro cardStyle:"offset", and vibrant palettes without code-based rotated effects',
   'Heavy borders - imply structure through block order, compact variants, tabBar, stats, and strong primary/secondary contrast',
 ];
 

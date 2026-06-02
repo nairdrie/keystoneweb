@@ -137,15 +137,19 @@ export function usePages(siteId: string, initialPageId?: string | null) {
         }
 
         const data = await res.json();
-        setPages(pages.map(p => p.id === pageId ? data.page : p));
+        setPages(prev => prev.map(p => p.id === pageId ? data.page : p));
         return data.page;
       } catch (err) {
         console.error('Error updating page:', err);
         throw err;
       }
     },
-    [siteId, pages]
+    [siteId]
   );
+
+  const updatePagesLocally = useCallback((updater: (pages: Page[]) => Page[]) => {
+    setPages(prev => updater(prev));
+  }, []);
 
   // Delete page
   const deletePage = useCallback(
@@ -184,6 +188,7 @@ export function usePages(siteId: string, initialPageId?: string | null) {
     fetchPages,
     createPage,
     updatePage,
+    updatePagesLocally,
     deletePage,
     currentPage: currentPageId ? pages.find(p => p.id === currentPageId) : null,
   };

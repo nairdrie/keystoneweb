@@ -1,0 +1,102 @@
+{
+  "description": "Representative AI output for card preset fields, including invalid values that must normalize before persistence.",
+  "blocks": [
+    {
+      "blockType": "servicesGrid",
+      "data": {
+        "title": "Services",
+        "items": [{ "title": "Service", "description": "A useful service." }],
+        "cardStyle": "madeUpPreset",
+        "surfaceStyle": "lava",
+        "spacingDensity": "dense",
+        "markerStyle": "sparkle",
+        "textAlign": "justify",
+        "cardSettings": "not-an-object"
+      },
+      "expectedSanitized": {
+        "cardStyle": "soft",
+        "surfaceStyle": "white",
+        "spacingDensity": "standard",
+        "markerStyle": "numbered",
+        "textAlign": "left"
+      },
+      "expectCardSettingsRemoved": true
+    },
+    {
+      "blockType": "featuresList",
+      "data": {
+        "title": "Why us",
+        "items": ["Clear communication"],
+        "cardStyle": "notReal",
+        "markerStyle": "giant",
+        "surfaceStyle": "mist"
+      },
+      "expectedSanitized": {
+        "cardStyle": "soft",
+        "markerStyle": "framed",
+        "surfaceStyle": "white"
+      }
+    },
+    {
+      "blockType": "gallery",
+      "data": {
+        "title": "Work",
+        "frameStyle": "floating",
+        "mediaAspect": "cinematic"
+      },
+      "expectedSanitized": {
+        "frameStyle": "clean",
+        "mediaAspect": "square"
+      }
+    },
+    {
+      "blockType": "carousel",
+      "data": {
+        "title": "Highlights",
+        "items": [{ "mediaType": "icon", "title": "One", "text": "A highlight." }],
+        "cardStyle": "gradient",
+        "surfaceStyle": "white",
+        "mediaAspect": "ultrawide",
+        "mediaTreatment": "floating",
+        "iconStyle": "emoji",
+        "spacingDensity": "roomy",
+        "textAlign": "right"
+      },
+      "expectedSanitized": {
+        "cardStyle": "gradient",
+        "surfaceStyle": "white",
+        "mediaAspect": "landscape",
+        "mediaTreatment": "contained",
+        "iconStyle": "badge",
+        "spacingDensity": "standard",
+        "textAlign": "left"
+      }
+    },
+    {
+      "blockType": "contact_form",
+      "data": {
+        "title": "Send a message",
+        "submitText": "Send",
+        "cardStyle": "unknown",
+        "surfaceStyle": "primary"
+      },
+      "expectedSanitized": {
+        "cardStyle": "soft",
+        "surfaceStyle": "primary"
+      }
+    },
+    {
+      "blockType": "estimateForm",
+      "data": {
+        "title": "Request a quote",
+        "submitText": "Request estimate",
+        "cardStyle": "utility",
+        "surfaceStyle": "noise"
+      },
+      "expectedSanitized": {
+        "cardStyle": "utility",
+        "surfaceStyle": "white"
+      }
+    }
+  ]
+}

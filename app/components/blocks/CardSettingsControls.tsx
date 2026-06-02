@@ -18,6 +18,8 @@ import {
   getMediaSizePercentForOption,
   getCardPresetLabel,
   getCardShadowDefaults,
+  normalizeCardSettingsOverride,
+  normalizeCardSettingsForPresetRecipes,
   readCardPresetId,
   type CardShadowControlSettings,
   type CardSettings,
@@ -49,6 +51,8 @@ export function CardSettingsControls({
   supportsTextAlign = true,
   mediaControlVisibility,
   onChange,
+  onPresetChange,
+  onReset,
   palette,
 }: {
   value?: CardSettings;
@@ -65,21 +69,25 @@ export function CardSettingsControls({
     radius?: boolean;
   };
   onChange: (value: CardSettings) => void;
+  onPresetChange?: (presetId: string) => void;
+  onReset?: () => void;
 }) {
-  const presetId = readCardPresetId(value?.presetId === 'custom' ? currentPresetId : value?.presetId, readCardPresetId(currentPresetId, 'soft'));
-  const settings = { ...CARD_PRESET_RECIPES[presetId], ...(value || {}) };
+  const normalizedValue = normalizeCardSettingsForPresetRecipes(value);
+  const presetId = readCardPresetId(normalizedValue?.presetId === 'custom' ? currentPresetId : normalizedValue?.presetId, readCardPresetId(currentPresetId, 'soft'));
+  const settings = { ...CARD_PRESET_RECIPES[presetId], ...(normalizedValue || {}) };
   const shadowSettings = getMergedShadowSettings(settings);
-  const mediaSizePercent = typeof value?.mediaSizePercent === 'number'
+  const mediaSizePercent = typeof normalizedValue?.mediaSizePercent === 'number'
     ? settings.mediaSizePercent
-    : value?.mediaSize
-      ? getMediaSizePercentForOption(value.mediaSize)
+    : normalizedValue?.mediaSize
+      ? getMediaSizePercentForOption(normalizedValue.mediaSize)
       : settings.mediaSizePercent;
-  const mediaRadiusPx = typeof value?.mediaRadiusPx === 'number'
+  const mediaRadiusPx = typeof normalizedValue?.mediaRadiusPx === 'number'
     ? settings.mediaRadiusPx
-    : value?.mediaTreatment
-      ? getMediaRadiusPxForTreatment(value.mediaTreatment)
+    : normalizedValue?.mediaTreatment
+      ? getMediaRadiusPxForTreatment(normalizedValue.mediaTreatment)
       : settings.mediaRadiusPx;
-  const displayPreset = value?.presetId === 'custom' || hasCustomSettings(value)
+  const customOverride = normalizeCardSettingsOverride(normalizedValue, presetId);
+  const displayPreset = customOverride
     ? 'Custom'
     : getCardPresetLabel(presetId);
   const mediaVisibility = {
@@ -113,15 +121,29 @@ export function CardSettingsControls({
           </div>
           <button
             type="button"
-            onClick={() => onChange(buildCardSettingsForPreset(presetId))}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={!customOverride}
+            onClick={() => {
+              if (!customOverride) return;
+              if (onReset) {
+                onReset();
+                return;
+              }
+              onChange(buildCardSettingsForPreset(presetId));
+            }}
+            className={getResetButtonClassName('xs', Boolean(customOverride))}
           >
             Reset
           </button>
         </div>
         <select
           value={presetId}
-          onChange={(event) => onChange(buildCardSettingsForPreset(event.target.value))}
+          onChange={(event) => {
+            if (onPresetChange) {
+              onPresetChange(event.target.value);
+              return;
+            }
+            onChange(buildCardSettingsForPreset(event.target.value));
+          }}
           className="mt-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
         >
           {CARD_STYLE_DEFINITIONS.map((preset) => (
@@ -276,7 +298,13 @@ function CardColorControl({
   onChange: (value: string) => void;
 }) {
   const inputValue = getCardColorInputValue(value, palette, fallback);
-  const gradientActive = value.trim() === 'gradient';
+  const comparableValue = getComparableCardColorValue(value);
+  const hasResetValue = comparableValue !== getComparableCardColorValue(fallback);
+  const gradientActive = comparableValue === 'gradient';
+  const commit = (next: string) => {
+    if (getComparableCardColorValue(next) === comparableValue) return;
+    onChange(next);
+  };
 
   return (
     <div>
@@ -286,18 +314,18 @@ function CardColorControl({
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <DeferredColorInput
           value={inputValue}
-          onChange={onChange}
+          onChange={commit}
           className="h-10 w-10 cursor-pointer rounded border border-slate-200 bg-white"
         />
         <PaletteTokenButtons
           selected={getPaletteButtonSelection(value)}
           palette={palette}
-          onSelect={onChange}
+          onSelect={commit}
         />
         {allowGradient && (
           <button
             type="button"
-            onClick={() => onChange('gradient')}
+            onClick={() => commit('gradient')}
             title="Use palette gradient wash"
             aria-pressed={gradientActive}
             className={`h-8 w-8 rounded-full border text-[10px] font-bold text-slate-900 shadow-sm transition-transform ${gradientActive ? 'scale-105 border-slate-900' : 'border-white'}`}
@@ -311,14 +339,17 @@ function CardColorControl({
         <input
           type="text"
           value={value}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event) => commit(event.target.value)}
           placeholder="Default"
           className="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
           type="button"
-          onClick={() => onChange(fallback)}
-          className="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={!hasResetValue}
+          onClick={() => {
+            if (hasResetValue) commit(fallback);
+          }}
+          className={getResetButtonClassName('sm', hasResetValue)}
         >
           Reset
         </button>
@@ -402,8 +433,13 @@ function CardGradientControls({
 }) {
   const from = settings.gradientFrom || CARD_PRESET_RECIPES.gradient.gradientFrom;
   const to = settings.gradientTo || CARD_PRESET_RECIPES.gradient.gradientTo;
-  const via = typeof settings.gradientVia === 'string' ? settings.gradientVia : CARD_PRESET_RECIPES.gradient.gradientVia;
+  const viaFallback = CARD_PRESET_RECIPES.gradient.gradientVia;
+  const via = typeof settings.gradientVia === 'string' ? settings.gradientVia : viaFallback;
   const angle = typeof settings.gradientAngle === 'number' ? settings.gradientAngle : CARD_PRESET_RECIPES.gradient.gradientAngle;
+  const updateVia = (next: string) => {
+    if (getComparableCardColorValue(next) === getComparableCardColorValue(via)) return;
+    onChange({ gradientVia: next });
+  };
 
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -427,8 +463,8 @@ function CardGradientControls({
           <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Mid stop (optional)</p>
           <div className="flex items-center gap-2">
             <DeferredColorInput
-              value={getCardColorInputValue(via || CARD_PRESET_RECIPES.gradient.gradientVia, palette, '#ffffff')}
-              onChange={(next) => onChange({ gradientVia: next })}
+              value={getCardColorInputValue(via || viaFallback, palette, '#ffffff')}
+              onChange={updateVia}
               className="h-9 w-9 cursor-pointer rounded border border-slate-200 bg-white disabled:cursor-not-allowed disabled:opacity-50"
               disabled={!via}
             />
@@ -436,7 +472,7 @@ function CardGradientControls({
               <PaletteTokenButtons
                 selected={getPaletteButtonSelection(via)}
                 palette={palette}
-                onSelect={(token) => onChange({ gradientVia: token })}
+                onSelect={updateVia}
               />
             )}
             <button
@@ -467,19 +503,25 @@ function GradientColorStopControl({
   palette: Record<string, string>;
   onChange: (value: string) => void;
 }) {
+  const comparableValue = getComparableCardColorValue(value);
+  const commit = (next: string) => {
+    if (getComparableCardColorValue(next) === comparableValue) return;
+    onChange(next);
+  };
+
   return (
     <div>
       <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
       <div className="flex items-center gap-2">
         <DeferredColorInput
           value={getCardColorInputValue(value, palette, fallback)}
-          onChange={onChange}
+          onChange={commit}
           className="h-9 w-9 cursor-pointer rounded border border-slate-200 bg-white"
         />
         <PaletteTokenButtons
           selected={getPaletteButtonSelection(value)}
           palette={palette}
-          onSelect={onChange}
+          onSelect={commit}
         />
       </div>
     </div>
@@ -628,6 +670,22 @@ function getPaletteButtonSelection(value: string): string {
   return normalized;
 }
 
+function getResetButtonClassName(size: 'xs' | 'sm', enabled: boolean): string {
+  const sizeClass = size === 'xs' ? 'text-xs' : 'text-sm';
+  const stateClass = enabled
+    ? 'text-slate-600 hover:bg-slate-50 focus:ring-blue-500'
+    : 'cursor-not-allowed text-slate-300 opacity-70';
+  return `rounded-lg border border-slate-200 bg-white px-3 py-2 ${sizeClass} font-semibold transition-colors focus:outline-none focus:ring-2 ${stateClass}`;
+}
+
+function getComparableCardColorValue(value: string | undefined): string {
+  const normalized = (value || '').trim().toLowerCase();
+  if (normalized.startsWith('palette:')) {
+    return normalized.slice('palette:'.length);
+  }
+  return normalized;
+}
+
 function getMergedShadowSettings(settings: CardSettings): CardShadowControlSettings {
   const defaults = getCardShadowDefaults(settings.shadow);
   return {
@@ -680,15 +738,3 @@ function normalizeInputHexColor(value: string): string | null {
   return full ? `#${full[1].toLowerCase()}` : null;
 }
 
-function hasCustomSettings(value: CardSettings | undefined): boolean {
-  if (!value) return false;
-  if (!value.presetId || value.presetId === 'custom') {
-    return Object.keys(value).some((key) => key !== 'presetId');
-  }
-
-  const recipe = CARD_PRESET_RECIPES[value.presetId];
-  return Object.entries(value).some(([key, settingValue]) => {
-    if (key === 'presetId') return false;
-    return recipe[key as keyof typeof recipe] !== settingValue;
-  });
-}

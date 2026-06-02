@@ -9,7 +9,7 @@ import { LEAD_SOURCES, LEAD_SOURCE_LABELS, type LeadSource } from '@/lib/ops/lea
 const INPUT_CLASSES =
   'w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-500';
 
-export default function NewLeadButton() {
+export default function NewLeadButton({ opsBasePath = '' }: { opsBasePath?: string }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -176,7 +176,7 @@ export default function NewLeadButton() {
       const lead = await res.json();
       reset();
       setOpen(false);
-      router.push(`/leads/${lead.id}`);
+      router.push(`${opsBasePath}/leads/${lead.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Create failed');
     } finally {
