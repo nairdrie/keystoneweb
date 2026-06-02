@@ -371,6 +371,7 @@ export default function FloatingToolbar({
         description: 'Hit Save to keep your progress, then Publish when you\'re ready for the world to see your site.',
         placement: 'right',
         requiresPanel: true,
+        sectionKeys: ['other-settings'],
         interactionHint: 'When you are comfortable with your changes, these are the controls you will use to keep or launch them.',
         },
         {
@@ -452,6 +453,17 @@ export default function FloatingToolbar({
   useEffect(() => {
     openSectionsRef.current = openSections;
   }, [openSections]);
+
+  // Defensive: the panel has no useful content when no section is selected —
+  // header falls back to "Design" and the body CSS hides every section. If a
+  // caller opens the panel without picking a tab, close it. Skipped while the
+  // walkthrough is driving the panel so we don't fight its requiresPanel flag.
+  useEffect(() => {
+    if (showWalkthrough) return;
+    if (isOpen && openSections.length === 0) {
+      onOpenChange(false);
+    }
+  }, [isOpen, openSections, onOpenChange, showWalkthrough]);
 
   // When focusAiBuilder fires, collapse others, expand AI builder, and scroll to it
   useEffect(() => {
