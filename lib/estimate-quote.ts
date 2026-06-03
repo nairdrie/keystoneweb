@@ -1,6 +1,24 @@
 export type QuoteMode = 'instant' | 'request-only' | 'hybrid';
 export type LayoutMode = 'single-page' | 'multi-step';
+export type PresentationMode = 'standard' | 'hero';
+export type HeroFormSide = 'left' | 'right';
+export type HeroBackgroundType = 'color' | 'image';
 export type PriceDisplayMode = 'exact' | 'range' | 'starting-at' | 'hidden';
+
+export interface HeroPresentationConfig {
+  formSide: HeroFormSide;
+  background: {
+    type: HeroBackgroundType;
+    color: string;
+    imageUrl?: string;
+    imageSettings?: unknown;
+    imageAttribution?: unknown;
+    overlayColor: string;
+    overlayOpacity: number;
+  };
+  textColor?: string;
+  eyebrow?: string;
+}
 export type EstimateFieldType =
   | 'text'
   | 'textarea'
@@ -129,6 +147,8 @@ export interface EstimateQuoteSettings {
   currency: string;
   quoteMode: QuoteMode;
   layoutMode: LayoutMode;
+  presentation: PresentationMode;
+  hero?: HeroPresentationConfig;
   display: {
     showEstimateBeforeSubmit: boolean;
     showEstimateAfterSubmit: boolean;
@@ -306,6 +326,18 @@ export const DEFAULT_ESTIMATE_QUOTE_SETTINGS: EstimateQuoteSettings = {
   currency: 'CAD',
   quoteMode: 'hybrid',
   layoutMode: 'single-page',
+  presentation: 'standard',
+  hero: {
+    formSide: 'right',
+    background: {
+      type: 'color',
+      color: '#0f172a',
+      overlayColor: '#000000',
+      overlayOpacity: 0.4,
+    },
+    textColor: '#ffffff',
+    eyebrow: '',
+  },
   display: {
     showEstimateBeforeSubmit: true,
     showEstimateAfterSubmit: true,
@@ -379,6 +411,8 @@ export function normalizeEstimateQuoteSettings(blockData: Record<string, unknown
     currency: readString(merged.currency, fallback.currency || 'CAD').toUpperCase(),
     quoteMode: readChoice<QuoteMode>(merged.quoteMode, ['instant', 'request-only', 'hybrid'], fallback.quoteMode),
     layoutMode: readChoice<LayoutMode>(merged.layoutMode, ['single-page', 'multi-step'], 'single-page'),
+    presentation: readChoice<PresentationMode>(merged.presentation, ['standard', 'hero'], 'standard'),
+    hero: normalizeHero(merged.hero),
     display: {
       ...DEFAULT_ESTIMATE_QUOTE_SETTINGS.display,
       ...(isRecord(merged.display) ? merged.display : {}),
@@ -991,6 +1025,27 @@ function normalizeAction(action: unknown): PricingAction | null {
     multiplier: readOptionalNumber(action.multiplier),
     fieldId: readString(action.fieldId, ''),
     label: readString(action.label, ''),
+  };
+}
+
+function normalizeHero(value: unknown): HeroPresentationConfig {
+  const defaults = DEFAULT_ESTIMATE_QUOTE_SETTINGS.hero as HeroPresentationConfig;
+  if (!isRecord(value)) return { ...defaults, background: { ...defaults.background } };
+  const rawBg = isRecord(value.background) ? value.background : {};
+  const opacity = readNumber(rawBg.overlayOpacity, defaults.background.overlayOpacity);
+  return {
+    formSide: readChoice<HeroFormSide>(value.formSide, ['left', 'right'], defaults.formSide),
+    background: {
+      type: readChoice<HeroBackgroundType>(rawBg.type, ['color', 'image'], defaults.background.type),
+      color: readString(rawBg.color, defaults.background.color),
+      imageUrl: readString(rawBg.imageUrl, '') || undefined,
+      imageSettings: rawBg.imageSettings,
+      imageAttribution: rawBg.imageAttribution,
+      overlayColor: readString(rawBg.overlayColor, defaults.background.overlayColor),
+      overlayOpacity: Math.max(0, Math.min(1, opacity)),
+    },
+    textColor: readString(value.textColor, defaults.textColor || '#ffffff'),
+    eyebrow: readString(value.eyebrow, ''),
   };
 }
 

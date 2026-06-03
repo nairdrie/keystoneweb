@@ -252,6 +252,170 @@ export default function EstimateFormBlock({ id, data, isEditMode, palette }: Est
         );
     }
 
+    const isHero = settings.presentation === 'hero';
+    const hero = settings.hero;
+    const heroSectionStyle: React.CSSProperties | undefined = isHero && hero
+        ? {
+            backgroundColor: hero.background.color,
+            backgroundImage: hero.background.type === 'image' && hero.background.imageUrl
+                ? `url("${hero.background.imageUrl}")`
+                : undefined,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+        }
+        : undefined;
+    const heroTextColor = hero?.textColor || '#ffffff';
+    const heroMutedTextColor = withAlpha(heroTextColor, 0.78);
+    const heroFormSide: 'left' | 'right' = hero?.formSide === 'left' ? 'left' : 'right';
+
+    const formMarkup = (
+        <Reveal>
+            <form onSubmit={handleSubmit} className={formCard.className} style={formCard.style}>
+                <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }}>
+                    <label htmlFor={`_hp_${id}`}>Leave this field blank</label>
+                    <input
+                        id={`_hp_${id}`}
+                        type="text"
+                        name="_hp"
+                        tabIndex={-1}
+                        autoComplete="off"
+                        value={contactInfo._hp}
+                        onChange={(event) => setContactInfo((current) => ({ ...current, _hp: event.target.value }))}
+                    />
+                </div>
+
+                {isMultiStep && (
+                    <StepHeader
+                        steps={steps}
+                        activeIndex={stepIndex}
+                        textColor={formCard.textColor}
+                        mutedTextColor={formCard.mutedTextColor}
+                    />
+                )}
+
+                {error && (
+                    <div className="mb-5 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span>{error}</span>
+                    </div>
+                )}
+
+                {stepErrors.length > 0 && (
+                    <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                        {stepErrors[0]}
+                    </div>
+                )}
+
+                {isReviewStep || isSubmitStep ? (
+                    <ReviewPanel settings={settings} values={quoteValues} result={quoteResult} />
+                ) : (
+                    <div className="grid gap-4">
+                        {visibleFields.map((field) => (
+                            <FieldControl
+                                key={field.id}
+                                field={field}
+                                value={quoteValues[field.id] ?? ''}
+                                labelColor={formCard.textColor}
+                                mutedTextColor={formCard.mutedTextColor}
+                                onChange={(value) => updateFieldValue(field, value)}
+                            />
+                        ))}
+                    </div>
+                )}
+
+                {isMultiStep ? (
+                    <div className="mt-6 flex items-center justify-between gap-3 border-t border-slate-100 pt-5">
+                        <button
+                            type="button"
+                            onClick={goBack}
+                            disabled={stepIndex === 0}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                            Back
+                        </button>
+                        {stepIndex < steps.length - 1 ? (
+                            <button
+                                type="button"
+                                onClick={goNext}
+                                className="inline-flex items-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90"
+                                style={{ backgroundColor: pSecondary }}
+                            >
+                                Next
+                                <ChevronRight className="h-4 w-4" />
+                            </button>
+                        ) : (
+                            <SubmitButton loading={loading} label={settings.submitButtonLabel} color={pSecondary} />
+                        )}
+                    </div>
+                ) : (
+                    <div className="mt-6">
+                        <SubmitButton loading={loading} label={settings.submitButtonLabel} color={pSecondary} />
+                    </div>
+                )}
+
+                {isEditMode && (
+                    <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-blue-800">
+                        Use the block settings panel to edit fields, pricing rules, steps, notifications, and the live quote preview.
+                    </div>
+                )}
+            </form>
+        </Reveal>
+    );
+
+    const quotePreviewMarkup = showLiveEstimate ? (
+        <Reveal>
+            <aside className="lg:sticky lg:top-8 lg:self-start">
+                <QuotePreview result={quoteResult} settings={settings} />
+            </aside>
+        </Reveal>
+    ) : null;
+
+    if (isHero && hero) {
+        const overlayStyle: React.CSSProperties = {
+            backgroundColor: hero.background.overlayColor,
+            opacity: hero.background.overlayOpacity,
+        };
+        const textColumn = (
+            <div className={`flex flex-col justify-center ${heroFormSide === 'right' ? 'lg:pr-8' : 'lg:pl-8'}`}>
+                <Reveal>
+                    {hero.eyebrow && (
+                        <p className="mb-3 text-xs font-black uppercase tracking-[0.2em]" style={{ color: heroMutedTextColor }}>
+                            {hero.eyebrow}
+                        </p>
+                    )}
+                    <h2 className="text-4xl font-bold tracking-tight md:text-5xl lg:text-6xl" style={{ color: heroTextColor }}>
+                        {settings.title}
+                    </h2>
+                    {settings.description && (
+                        <p className="mt-5 text-base leading-7 md:text-lg" style={{ color: heroMutedTextColor }}>
+                            {settings.description}
+                        </p>
+                    )}
+                    {showLiveEstimate && (
+                        <div className="mt-8 hidden lg:block">
+                            <QuotePreview result={quoteResult} settings={settings} />
+                        </div>
+                    )}
+                </Reveal>
+            </div>
+        );
+        return (
+            <section className="relative overflow-hidden px-4 py-16 md:py-24 lg:py-28" style={heroSectionStyle}>
+                <div className="pointer-events-none absolute inset-0" style={overlayStyle} aria-hidden="true" />
+                <div className="relative mx-auto grid max-w-7xl gap-10 lg:grid-cols-2 lg:items-center lg:gap-12">
+                    {heroFormSide === 'right' ? textColumn : formMarkup}
+                    {heroFormSide === 'right' ? formMarkup : textColumn}
+                    {showLiveEstimate && (
+                        <div className="lg:hidden">
+                            <QuotePreview result={quoteResult} settings={settings} />
+                        </div>
+                    )}
+                </div>
+            </section>
+        );
+    }
+
     return (
         <section className="px-4 py-16 md:py-20" style={{ backgroundColor: '#ffffff' }}>
             <div className="mx-auto max-w-6xl">
@@ -267,106 +431,8 @@ export default function EstimateFormBlock({ id, data, isEditMode, palette }: Est
                 </Reveal>
 
                 <div className={`mt-10 grid gap-6 ${showLiveEstimate ? 'lg:grid-cols-[minmax(0,1fr)_360px]' : 'mx-auto max-w-3xl'}`}>
-                    <Reveal>
-                    <form onSubmit={handleSubmit} className={formCard.className} style={formCard.style}>
-                        <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }}>
-                            <label htmlFor={`_hp_${id}`}>Leave this field blank</label>
-                            <input
-                                id={`_hp_${id}`}
-                                type="text"
-                                name="_hp"
-                                tabIndex={-1}
-                                autoComplete="off"
-                                value={contactInfo._hp}
-                                onChange={(event) => setContactInfo((current) => ({ ...current, _hp: event.target.value }))}
-                            />
-                        </div>
-
-                        {isMultiStep && (
-                            <StepHeader
-                                steps={steps}
-                                activeIndex={stepIndex}
-                                textColor={formCard.textColor}
-                                mutedTextColor={formCard.mutedTextColor}
-                            />
-                        )}
-
-                        {error && (
-                            <div className="mb-5 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
-                                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                                <span>{error}</span>
-                            </div>
-                        )}
-
-                        {stepErrors.length > 0 && (
-                            <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                                {stepErrors[0]}
-                            </div>
-                        )}
-
-                        {isReviewStep || isSubmitStep ? (
-                            <ReviewPanel settings={settings} values={quoteValues} result={quoteResult} />
-                        ) : (
-                            <div className="grid gap-4">
-                                {visibleFields.map((field) => (
-                                    <FieldControl
-                                        key={field.id}
-                                        field={field}
-                                        value={quoteValues[field.id] ?? ''}
-                                        labelColor={formCard.textColor}
-                                        mutedTextColor={formCard.mutedTextColor}
-                                        onChange={(value) => updateFieldValue(field, value)}
-                                    />
-                                ))}
-                            </div>
-                        )}
-
-                        {isMultiStep ? (
-                            <div className="mt-6 flex items-center justify-between gap-3 border-t border-slate-100 pt-5">
-                                <button
-                                    type="button"
-                                    onClick={goBack}
-                                    disabled={stepIndex === 0}
-                                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                >
-                                    <ChevronLeft className="h-4 w-4" />
-                                    Back
-                                </button>
-                                {stepIndex < steps.length - 1 ? (
-                                    <button
-                                        type="button"
-                                        onClick={goNext}
-                                        className="inline-flex items-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90"
-                                        style={{ backgroundColor: pSecondary }}
-                                    >
-                                        Next
-                                        <ChevronRight className="h-4 w-4" />
-                                    </button>
-                                ) : (
-                                    <SubmitButton loading={loading} label={settings.submitButtonLabel} color={pSecondary} />
-                                )}
-                            </div>
-                        ) : (
-                            <div className="mt-6">
-                                <SubmitButton loading={loading} label={settings.submitButtonLabel} color={pSecondary} />
-                            </div>
-                        )}
-
-                        {isEditMode && (
-                            <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-blue-800">
-                                Use the block settings panel to edit fields, pricing rules, steps, notifications, and the live quote preview.
-                            </div>
-                        )}
-                    </form>
-                    </Reveal>
-
-                    {showLiveEstimate && (
-                        <Reveal>
-                        <aside className="lg:sticky lg:top-8 lg:self-start">
-                            <QuotePreview result={quoteResult} settings={settings} />
-                        </aside>
-                        </Reveal>
-                    )}
+                    {formMarkup}
+                    {quotePreviewMarkup}
                 </div>
             </div>
         </section>
@@ -762,6 +828,20 @@ function getOpenPosterFormShellStyle() {
         boxShadow: 'none',
         padding: 0,
     };
+}
+
+function withAlpha(color: string, alpha: number): string {
+    const hex = color.trim();
+    if (/^#([0-9a-f]{6}|[0-9a-f]{3})$/i.test(hex)) {
+        const full = hex.length === 4
+            ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
+            : hex;
+        const r = parseInt(full.slice(1, 3), 16);
+        const g = parseInt(full.slice(3, 5), 16);
+        const b = parseInt(full.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+    return color;
 }
 
 function buildInitialValues(settings: EstimateQuoteSettings): Record<string, unknown> {
