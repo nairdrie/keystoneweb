@@ -1,7 +1,20 @@
 'use client';
 /* eslint-disable react-hooks/refs */
 
-import { RefObject, useEffect, useRef } from 'react';
+import { RefObject, useEffect, useLayoutEffect, useRef } from 'react';
+
+const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
+function shouldDebug(): boolean {
+    if (typeof window === 'undefined') return false;
+    return window.location?.search?.includes('debugHeaderBp') ?? false;
+}
+
+function debugLog(...args: unknown[]) {
+    if (!shouldDebug()) return;
+    // eslint-disable-next-line no-console
+    console.log('[useHeaderBreakpoints]', ...args);
+}
 
 export interface HeaderCompactBreakpoints {
     /** Max viewport (px) at which the header switches to tier 1 (tighter nav/utils gaps). */
@@ -62,13 +75,26 @@ const ROW_GAPS = [32, 24, 16] as const;   // logo-above wide-row gap
  */
 export function useHeaderBreakpoints(opts: UseHeaderBreakpointsOpts): void {
     const optsRef = useRef(opts);
-    optsRef.current = opts;
+    // Sync the latest opts into the ref before any effect reads them. Using
+    // useIsoLayoutEffect (rather than assigning during render) keeps React
+    // 19's reactivity rules happy and still runs before any RO callback
+    // schedules off the same commit.
+    useIsoLayoutEffect(() => {
+        optsRef.current = opts;
+    });
 
     useEffect(() => {
-        if (!opts.enabled) return;
+        if (!opts.enabled) {
+            debugLog('disabled (isEditMode=false or user picked hamburger)');
+            return;
+        }
 
         const container = opts.refs.container.current;
-        if (!container) return;
+        if (!container) {
+            debugLog('skip: container ref not attached yet');
+            return;
+        }
+        debugLog('subscribed', { layout: opts.layout });
 
         let saveTimer: ReturnType<typeof setTimeout> | null = null;
         let measureFrame = 0;
@@ -99,9 +125,19 @@ export function useHeaderBreakpoints(opts: UseHeaderBreakpointsOpts): void {
             const utilsRenderedWidth = utilsEl?.scrollWidth ?? 0;
             const logoWidth = logoEl?.scrollWidth ?? 0;
 
-            // Skip if elements haven't laid out yet (zero-width).
-            if (navItemCount > 0 && navRenderedWidth === 0) return;
-            if (utilsItemCount > 0 && utilsRenderedWidth === 0) return;
+            // Skip if elements haven't laid out yet (zero-width). When the
+            // editor preview is at a narrow viewport that already hides
+            // the desktop nav/utils via the hamburger media query, those
+            // elements have display:none and report 0 width — we can't
+            // produce accurate breakpoints from that state.
+            if (navItemCount > 0 && navRenderedWidth === 0) {
+                debugLog('skip: nav not measurable (display:none?)', { navItemCount });
+                return;
+            }
+            if (utilsItemCount > 0 && utilsRenderedWidth === 0) {
+                debugLog('skip: utils not measurable (display:none?)', { utilsItemCount });
+                return;
+            }
 
             const navItemsTotal = navRenderedWidth - Math.max(0, navItemCount - 1) * navRenderedGap;
             const utilsItemsTotal = utilsRenderedWidth - Math.max(0, utilsItemCount - 1) * utilsRenderedGap;
@@ -158,11 +194,25 @@ export function useHeaderBreakpoints(opts: UseHeaderBreakpointsOpts): void {
                 && current.tier1Max === nextBp.tier1Max
                 && current.tier2Max === nextBp.tier2Max
                 && current.hamburgerMax === nextBp.hamburgerMax;
+            debugLog('measured', {
+                layout,
+                logoWidth,
+                navRenderedWidth,
+                navItemCount,
+                navRenderedGap,
+                utilsRenderedWidth,
+                utilsItemCount,
+                utilsRenderedGap,
+                nextBp,
+                current,
+                unchanged,
+            });
             if (unchanged) return;
 
             if (saveTimer) clearTimeout(saveTimer);
             saveTimer = setTimeout(() => {
                 saveTimer = null;
+                debugLog('saving breakpoints', nextBp);
                 onCompute(nextBp);
             }, 300);
         };
@@ -208,35 +258,23 @@ export function buildHeaderBreakpointCss(bp: HeaderCompactBreakpoints | undefine
     const tier2Max = Math.max(hamburgerMax, bp?.tier2Max ?? hamburgerMax);
     const tier1Max = Math.max(tier2Max, bp?.tier1Max ?? tier2Max);
 
+    const gapRules = (tier: 0 | 1 | 2) => `
+    .ks-site-header .ks-h-gap-nav { gap: ${NAV_GAPS[tier]}px; }
+    .ks-site-header .ks-h-gap-utils { gap: ${UTILS_GAPS[tier]}px; }
+    .ks-site-header .ks-h-gap-zone-inner { gap: ${ZONE_INNER_GAPS[tier]}px; }
+    .ks-site-header .ks-h-gap-zone-outer { gap: ${ZONE_OUTER_GAPS[tier]}px; }
+    .ks-site-header .ks-h-gap-row { gap: ${ROW_GAPS[tier]}px; }`;
+
     return `
-.ks-site-header {
-    --ks-h-nav-gap: ${NAV_GAPS[0]}px;
-    --ks-h-utils-gap: ${UTILS_GAPS[0]}px;
-    --ks-h-zone-inner: ${ZONE_INNER_GAPS[0]}px;
-    --ks-h-zone-outer: ${ZONE_OUTER_GAPS[0]}px;
-    --ks-h-row-gap: ${ROW_GAPS[0]}px;
-}
+/* keystone:header-breakpoints */
+${gapRules(0)}
 .ks-site-header .ks-h-desktop-hamburger { display: none; }
 .ks-site-header .ks-h-mobile-cluster { display: none; }
 .ks-site-header .ks-h-drawer-host { display: none; }
 
-@media (max-width: ${tier1Max}px) {
-    .ks-site-header {
-        --ks-h-nav-gap: ${NAV_GAPS[1]}px;
-        --ks-h-utils-gap: ${UTILS_GAPS[1]}px;
-        --ks-h-zone-inner: ${ZONE_INNER_GAPS[1]}px;
-        --ks-h-zone-outer: ${ZONE_OUTER_GAPS[1]}px;
-        --ks-h-row-gap: ${ROW_GAPS[1]}px;
-    }
+@media (max-width: ${tier1Max}px) {${gapRules(1)}
 }
-@media (max-width: ${tier2Max}px) {
-    .ks-site-header {
-        --ks-h-nav-gap: ${NAV_GAPS[2]}px;
-        --ks-h-utils-gap: ${UTILS_GAPS[2]}px;
-        --ks-h-zone-inner: ${ZONE_INNER_GAPS[2]}px;
-        --ks-h-zone-outer: ${ZONE_OUTER_GAPS[2]}px;
-        --ks-h-row-gap: ${ROW_GAPS[2]}px;
-    }
+@media (max-width: ${tier2Max}px) {${gapRules(2)}
 }
 @media (max-width: ${hamburgerMax}px) {
     .ks-site-header .ks-h-desktop-nav { display: none !important; }

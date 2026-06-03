@@ -631,7 +631,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
     const navLinksEl = (
         <div ref={measureNavRef} className="ks-nav-items">
             <NavMenu
-                className="flex items-center [gap:var(--ks-h-nav-gap)]"
+                className="flex items-center ks-h-gap-nav"
                 itemClassName={resolvedNavItemClass}
                 submenuClassName={resolvedSubmenuClass}
                 bar={secondaryBarEnabled ? 'primary' : undefined}
@@ -831,7 +831,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
             // Render both. CSS uses the hamburger media query to swap the
             // visible one based on viewport width — no runtime JS picks.
             const navWrap = (
-                <div key="nav" className="ks-h-desktop-nav flex items-center [gap:var(--ks-h-nav-gap)]">
+                <div key="nav" className="ks-h-desktop-nav flex items-center ks-h-gap-nav">
                     {navLinksEl}
                 </div>
             );
@@ -844,7 +844,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         }
 
         right.push(
-            <div ref={measureUtilsRef} key="utils" className="ks-h-desktop-utils flex items-center [gap:var(--ks-h-utils-gap)]">
+            <div ref={measureUtilsRef} key="utils" className="ks-h-desktop-utils flex items-center ks-h-gap-utils">
                 {desktopUtilsEl}
             </div>
         );
@@ -853,15 +853,15 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         const mobileCluster = mobileToggleCluster(hamburgerPosition);
 
         return (
-            <div ref={measureContainerRef} className={`flex items-center [gap:var(--ks-h-zone-outer)] ${heightClass}`}>
-                <div className="flex items-center justify-start [gap:var(--ks-h-zone-inner)] shrink-0">
+            <div ref={measureContainerRef} className={`flex items-center ks-h-gap-zone-outer ${heightClass}`}>
+                <div className="flex items-center justify-start ks-h-gap-zone-inner shrink-0">
                     {hamburgerPosition === 'left' ? mobileCluster : null}
                     {left}
                 </div>
-                <div className="flex-1 flex items-center justify-center [gap:var(--ks-h-zone-inner)] min-w-0">
+                <div className="flex-1 flex items-center justify-center ks-h-gap-zone-inner min-w-0">
                     {center}
                 </div>
-                <div className="flex items-center justify-end [gap:var(--ks-h-zone-inner)] shrink-0">
+                <div className="flex items-center justify-end ks-h-gap-zone-inner shrink-0">
                     {right}
                     {hamburgerPosition === 'right' ? mobileCluster : null}
                 </div>
@@ -961,7 +961,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
             ? <div className="hidden md:inline-flex">{desktopHamburgerBtn}</div>
             : (
                 <>
-                    <div className="ks-h-desktop-nav flex items-center [gap:var(--ks-h-nav-gap)]">
+                    <div className="ks-h-desktop-nav flex items-center ks-h-gap-nav">
                         {navLinksEl}
                     </div>
                     <div className="ks-h-desktop-hamburger items-center">
@@ -970,7 +970,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
                 </>
             );
         const utilsCluster = (
-            <div ref={measureUtilsRef} className="ks-h-desktop-utils flex items-center [gap:var(--ks-h-utils-gap)]">
+            <div ref={measureUtilsRef} className="ks-h-desktop-utils flex items-center ks-h-gap-utils">
                 {desktopUtilsEl}
             </div>
         );
@@ -978,7 +978,7 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
         const renderNavRow = () => {
             if (navPosition === 'center') {
                 return (
-                    <div ref={measureContainerRef} className="hidden md:flex items-center justify-center h-12 [gap:var(--ks-h-row-gap)] relative">
+                    <div ref={measureContainerRef} className="hidden md:flex items-center justify-center h-12 ks-h-gap-row relative">
                         {desktopNavEl}
                         <div className="absolute right-0">{utilsCluster}</div>
                     </div>
@@ -986,14 +986,14 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
             }
             if (navPosition === 'right') {
                 return (
-                    <div ref={measureContainerRef} className="hidden md:flex items-center justify-end h-12 [gap:var(--ks-h-row-gap)]">
+                    <div ref={measureContainerRef} className="hidden md:flex items-center justify-end h-12 ks-h-gap-row">
                         {desktopNavEl}
                         {utilsCluster}
                     </div>
                 );
             }
             return (
-                <div ref={measureContainerRef} className="hidden md:flex items-center h-12 [gap:var(--ks-h-row-gap)]">
+                <div ref={measureContainerRef} className="hidden md:flex items-center h-12 ks-h-gap-row">
                     {desktopNavEl}
                     <div className="ml-auto">{utilsCluster}</div>
                 </div>
