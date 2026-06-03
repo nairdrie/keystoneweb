@@ -102,12 +102,9 @@ export function useHeaderBreakpoints(opts: UseHeaderBreakpointsOpts): void {
         const measure = () => {
             measureFrame = 0;
             const { layout, refs, current, onCompute } = optsRef.current;
-            const navEl = refs.nav.current;
-            const utilsEl = refs.utils.current;
+            const navOuter = refs.nav.current;
+            const utilsOuter = refs.utils.current;
             const logoEl = refs.logo.current;
-
-            const navItemCount = navEl ? navEl.children.length : 0;
-            const utilsItemCount = utilsEl ? utilsEl.children.length : 0;
 
             // Read the rendered gap (in px) to back out the natural per-item
             // width sum independently of which tier is currently active.
@@ -118,29 +115,62 @@ export function useHeaderBreakpoints(opts: UseHeaderBreakpointsOpts): void {
                 return parseFloat(cs.columnGap || cs.gap || '0') || 0;
             };
 
-            const navRenderedGap = readGap(navEl);
-            const utilsRenderedGap = readGap(utilsEl);
+            // The nav ref points at the .ks-nav-items wrapper, but the gap
+            // and the actual nav-item children live one level down on the
+            // <nav class="ks-h-gap-nav"> rendered by NavMenu. Descend to
+            // that element for the measurement. The utils ref already
+            // points at the gap container itself.
+            const navGapEl = (navOuter?.querySelector('.ks-h-gap-nav') as HTMLElement | null) ?? navOuter;
+            const utilsGapEl = utilsOuter;
 
-            const navRenderedWidth = navEl?.scrollWidth ?? 0;
-            const utilsRenderedWidth = utilsEl?.scrollWidth ?? 0;
-            const logoWidth = logoEl?.scrollWidth ?? 0;
+            // Exclude any edit-mode-only children (the "+ add menu item"
+            // button NavMenuEditor inserts). Their widths bias the
+            // measurement up so the saved breakpoints don't match what
+            // view mode actually renders.
+            const measurableChildren = (el: HTMLElement | null): HTMLElement[] => {
+                if (!el) return [];
+                const out: HTMLElement[] = [];
+                for (let i = 0; i < el.children.length; i++) {
+                    const c = el.children[i] as HTMLElement;
+                    if (c.classList && c.classList.contains('ks-h-editor-only')) continue;
+                    out.push(c);
+                }
+                return out;
+            };
+
+            const navChildren = measurableChildren(navGapEl);
+            const utilsChildren = measurableChildren(utilsGapEl);
+            const navItemCount = navChildren.length;
+            const utilsItemCount = utilsChildren.length;
+
+            const navRenderedGap = readGap(navGapEl);
+            const utilsRenderedGap = readGap(utilsGapEl);
+
+            // Sum just the measurable children's offset widths, then add
+            // back the gaps between them — this excludes the + button's
+            // width AND the gap it would otherwise contribute.
+            const sumChildWidths = (els: HTMLElement[]) =>
+                els.reduce((acc, el) => acc + el.offsetWidth, 0);
+            const navItemsTotal = sumChildWidths(navChildren);
+            const utilsItemsTotal = sumChildWidths(utilsChildren);
+
+            const navRenderedWidth = navItemsTotal + Math.max(0, navItemCount - 1) * navRenderedGap;
+            const utilsRenderedWidth = utilsItemsTotal + Math.max(0, utilsItemCount - 1) * utilsRenderedGap;
+            const logoWidth = logoEl?.offsetWidth ?? 0;
 
             // Skip if elements haven't laid out yet (zero-width). When the
             // editor preview is at a narrow viewport that already hides
             // the desktop nav/utils via the hamburger media query, those
             // elements have display:none and report 0 width — we can't
             // produce accurate breakpoints from that state.
-            if (navItemCount > 0 && navRenderedWidth === 0) {
+            if (navItemCount > 0 && navItemsTotal === 0) {
                 debugLog('skip: nav not measurable (display:none?)', { navItemCount });
                 return;
             }
-            if (utilsItemCount > 0 && utilsRenderedWidth === 0) {
+            if (utilsItemCount > 0 && utilsItemsTotal === 0) {
                 debugLog('skip: utils not measurable (display:none?)', { utilsItemCount });
                 return;
             }
-
-            const navItemsTotal = navRenderedWidth - Math.max(0, navItemCount - 1) * navRenderedGap;
-            const utilsItemsTotal = utilsRenderedWidth - Math.max(0, utilsItemCount - 1) * utilsRenderedGap;
 
             // Width of each cluster at each tier.
             const navWidthAt = (tier: 0 | 1 | 2) =>
