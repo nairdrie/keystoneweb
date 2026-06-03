@@ -326,7 +326,7 @@ export default function NavMenuEditor({ className = '', itemClassName = '', subm
                         {isEditMode && (
                             <button
                                 onClick={handleAddItem}
-                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-md transition-colors border border-dashed border-blue-300 relative z-[60] ml-2"
+                                className="ks-h-editor-only inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-md transition-colors border border-dashed border-blue-300 relative z-[60] ml-2"
                                 title="Add menu item"
                             >
                                 <Plus className="w-3 h-3" />
