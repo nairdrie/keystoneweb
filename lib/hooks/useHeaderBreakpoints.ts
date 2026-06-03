@@ -55,9 +55,13 @@ interface UseHeaderBreakpointsOpts {
 const MIN_GAP_PX = 32;
 
 // Gap values (px) for nav / utils item spacing at each tier. Mirrors the
-// Tailwind classes the inline <style> block will set.
-const NAV_GAPS = [24, 16, 12] as const;   // tier 0 / 1 / 2
-const UTILS_GAPS = [24, 16, 12] as const;
+// Tailwind classes the inline <style> block will set. Utils tightens
+// MORE aggressively than nav at tier 1 — search/cart/CTA can sit close
+// without looking bad, and shrinking utils width gives a 1:1 boost to
+// the nav↔utils gap in centered layouts (each px off utils' width adds a
+// px of breathing on each side of the centered nav).
+const NAV_GAPS = [24, 20, 14] as const;   // tier 0 / 1 / 2 — subtle nav reduction
+const UTILS_GAPS = [24, 12, 6] as const;  // tier 1 cuts utils gap in half
 const ZONE_INNER_GAPS = [16, 12, 8] as const;
 const ZONE_OUTER_GAPS = [12, 12, 8] as const;
 const ROW_GAPS = [32, 24, 16] as const;   // logo-above wide-row gap
@@ -210,10 +214,28 @@ export function useHeaderBreakpoints(opts: UseHeaderBreakpointsOpts): void {
                 }
             };
 
+            // The neededAt() formula returns the INNER content width at which
+            // gap = MIN_GAP. The CSS media query operates on the VIEWPORT
+            // width, which differs by the parent container's padding (e.g.
+            // `px-6` adds 48px of inset). Read that padding off the
+            // navRow's parent so the breakpoint converts to the right
+            // viewport target. (At viewports wide enough that max-w-7xl
+            // caps the container, the auto-margin absorbs the extra space
+            // and the layout stays comfortable anyway — so we just need
+            // the padding portion, not the full margin.)
+            const win = container.ownerDocument?.defaultView ?? null;
+            const insetParent = container.parentElement;
+            let insetPx = 0;
+            if (insetParent && win) {
+                const cs = win.getComputedStyle(insetParent);
+                insetPx = (parseFloat(cs.paddingLeft || '0') || 0)
+                    + (parseFloat(cs.paddingRight || '0') || 0);
+            }
+
             const nextBp: HeaderCompactBreakpoints = {
-                tier1Max: Math.ceil(neededAt(0)),
-                tier2Max: Math.ceil(neededAt(1)),
-                hamburgerMax: Math.ceil(neededAt(2)),
+                tier1Max: Math.ceil(neededAt(0) + insetPx),
+                tier2Max: Math.ceil(neededAt(1) + insetPx),
+                hamburgerMax: Math.ceil(neededAt(2) + insetPx),
             };
 
             // Sanity: keep breakpoints monotonically decreasing.
@@ -233,6 +255,7 @@ export function useHeaderBreakpoints(opts: UseHeaderBreakpointsOpts): void {
                 utilsRenderedWidth,
                 utilsItemCount,
                 utilsRenderedGap,
+                insetPx,
                 nextBp,
                 current,
                 unchanged,
