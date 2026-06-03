@@ -216,26 +216,58 @@ export function useHeaderBreakpoints(opts: UseHeaderBreakpointsOpts): void {
 
             // The neededAt() formula returns the INNER content width at which
             // gap = MIN_GAP. The CSS media query operates on the VIEWPORT
-            // width, which differs by the parent container's padding (e.g.
-            // `px-6` adds 48px of inset). Read that padding off the
-            // navRow's parent so the breakpoint converts to the right
-            // viewport target. (At viewports wide enough that max-w-7xl
-            // caps the container, the auto-margin absorbs the extra space
-            // and the layout stays comfortable anyway — so we just need
-            // the padding portion, not the full margin.)
+            // width, which differs by the parent container's padding. We
+            // also need to know the parent's MAX-WIDTH cap: if needed_inner
+            // exceeds (maxWidth − padding) for a tier, that tier can never
+            // produce a comfortable gap no matter how wide the viewport
+            // gets, and we have to skip straight to the next tier as the
+            // default — otherwise the browser sits at tier 0 forever past
+            // the cap, with the nav and utils overlapping.
             const win = container.ownerDocument?.defaultView ?? null;
-            const insetParent = container.parentElement;
             let insetPx = 0;
-            if (insetParent && win) {
-                const cs = win.getComputedStyle(insetParent);
-                insetPx = (parseFloat(cs.paddingLeft || '0') || 0)
-                    + (parseFloat(cs.paddingRight || '0') || 0);
+            let maxInner = Number.POSITIVE_INFINITY;
+            {
+                // Walk up from the navRow looking for an ancestor with an
+                // explicit max-width (Tailwind's max-w-* utilities). Use
+                // that ancestor's padding too so we measure the correct
+                // inset for the layout's content box.
+                let node: HTMLElement | null = container.parentElement;
+                let fallbackPad = 0;
+                if (node && win) {
+                    const cs = win.getComputedStyle(node);
+                    fallbackPad = (parseFloat(cs.paddingLeft || '0') || 0)
+                        + (parseFloat(cs.paddingRight || '0') || 0);
+                }
+                while (node && win && node !== node.ownerDocument.documentElement) {
+                    const cs = win.getComputedStyle(node);
+                    const mw = parseFloat(cs.maxWidth || 'none');
+                    if (Number.isFinite(mw) && mw > 0) {
+                        const p = (parseFloat(cs.paddingLeft || '0') || 0)
+                            + (parseFloat(cs.paddingRight || '0') || 0);
+                        insetPx = p;
+                        maxInner = mw - p;
+                        break;
+                    }
+                    node = node.parentElement;
+                }
+                if (!Number.isFinite(maxInner)) insetPx = fallbackPad;
             }
 
+            // For each tier: if the tier's needed_inner fits within
+            // maxInner, the breakpoint viewport is `needed_inner + inset`
+            // (where the container fills the viewport). If it doesn't fit,
+            // the tier is permanently crowded — emit a huge max-width so
+            // the next-tighter tier always applies via the CSS cascade.
+            const STILL_CROWDED = 99999;
+            const breakpointFor = (neededInner: number): number => {
+                if (neededInner > maxInner) return STILL_CROWDED;
+                return Math.ceil(neededInner + insetPx);
+            };
+
             const nextBp: HeaderCompactBreakpoints = {
-                tier1Max: Math.ceil(neededAt(0) + insetPx),
-                tier2Max: Math.ceil(neededAt(1) + insetPx),
-                hamburgerMax: Math.ceil(neededAt(2) + insetPx),
+                tier1Max: breakpointFor(neededAt(0)),
+                tier2Max: breakpointFor(neededAt(1)),
+                hamburgerMax: breakpointFor(neededAt(2)),
             };
 
             // Sanity: keep breakpoints monotonically decreasing.
@@ -256,6 +288,10 @@ export function useHeaderBreakpoints(opts: UseHeaderBreakpointsOpts): void {
                 utilsItemCount,
                 utilsRenderedGap,
                 insetPx,
+                maxInner,
+                neededT0: neededAt(0),
+                neededT1: neededAt(1),
+                neededT2: neededAt(2),
                 nextBp,
                 current,
                 unchanged,
