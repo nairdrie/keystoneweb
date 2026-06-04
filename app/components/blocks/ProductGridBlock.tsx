@@ -1951,6 +1951,23 @@ function MembershipPricingModal({
 // CUSTOMER: Product Grid (links to product pages)
 // ═══════════════════════════════════════════════════════════════════════════════
 
+const GRID_COLS = 4;
+
+function ProductThumbnail({ src, alt, className }: { src: string; alt: string; className?: string }) {
+    const [loaded, setLoaded] = useState(false);
+    return (
+        <img
+            src={src}
+            alt={alt}
+            loading="lazy"
+            decoding="async"
+            onLoad={() => setLoaded(true)}
+            className={className}
+            style={{ opacity: loaded ? 1 : 0, transition: 'opacity 500ms ease' }}
+        />
+    );
+}
+
 type SortKey = 'featured' | 'popular' | 'az' | 'za';
 
 function ProductGrid({
@@ -2214,7 +2231,7 @@ function ProductGrid({
             && product.public_price_cents > effectivePriceCents;
 
         return (
-            <Reveal key={product.id} delay={index * staggerSec}>
+            <Reveal key={product.id} delay={(index % GRID_COLS) * staggerSec}>
             <a
                 href={productHref(product)}
                 onClick={(e) => handleProductNav(e, product)}
@@ -2224,7 +2241,7 @@ function ProductGrid({
             >
                 <div className="aspect-square bg-slate-50 relative overflow-hidden">
                     {product.images?.[0] ? (
-                        <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        <ProductThumbnail src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     ) : (
                         <div className="w-full h-full flex items-center justify-center">
                             <Package className="w-12 h-12 text-slate-200" />
@@ -2297,7 +2314,7 @@ function ProductGrid({
         const outOfStock = product.inventory_count === 0;
         const external = isExternal(product);
         return (
-            <Reveal key={product.id} delay={index * staggerSec}>
+            <Reveal key={product.id} delay={0}>
             <a
                 href={productHref(product)}
                 onClick={(e) => handleProductNav(e, product)}
@@ -2307,7 +2324,7 @@ function ProductGrid({
             >
                 <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-lg bg-slate-50 relative overflow-hidden flex-shrink-0">
                     {product.images?.[0] ? (
-                        <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        <ProductThumbnail src={product.images[0]} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                     ) : (
                         <div className="w-full h-full flex items-center justify-center">
                             <Package className="w-8 h-8 text-slate-200" />
