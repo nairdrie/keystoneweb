@@ -753,7 +753,7 @@ export function checkImageAltText(data: DiagnosticData): DiagnosticResult[] {
               category: 'Accessibility',
               label: `Missing alt text: ${block.type} image`,
               severity: 'warning',
-              message: `Image in "${block.type}" block on "${pageName}" has no alt text. Screen readers cannot describe this image to visually impaired users. Edit the image and add descriptive alt text.`,
+              message: `Image in "${block.type}" block on "${pageName}" has no alt text. Screen readers cannot describe this image to visually impaired users. To fix: open the page in the editor, click the image, and fill in the "Alt Text (Accessibility)" field in the image editor.`,
               page: page.slug,
               blockType: block.type,
             });
@@ -783,7 +783,7 @@ export function checkImageAltText(data: DiagnosticData): DiagnosticResult[] {
               category: 'Accessibility',
               label: `Missing alt text: ${block.type} image`,
               severity: 'warning',
-              message: `Image (${key}) in "${block.type}" block on "${pageName}" has no alt text. Add alt text for accessibility compliance.`,
+              message: `Image (${key}) in "${block.type}" block on "${pageName}" has no alt text. To fix: open the page in the editor, click the image, and fill in the "Alt Text (Accessibility)" field in the image editor.`,
               page: page.slug,
               blockType: block.type,
             });
@@ -870,9 +870,9 @@ export function checkColorContrast(data: DiagnosticData): DiagnosticResult[] {
   const pairings: { fg: string; bg: string; label: string; usage: string }[] = [
     { fg: primary, bg: WHITE, label: 'Primary on White', usage: 'Headings and body text on white sections' },
     { fg: WHITE, bg: primary, label: 'White on Primary', usage: 'Text on primary-coloured hero banners and sections' },
-    { fg: WHITE, bg: secondary, label: 'White on Secondary', usage: 'Button text and CTA labels' },
+    { fg: WHITE, bg: secondary, label: 'White on Secondary', usage: 'Text on secondary-coloured accents (pricing badges, highlighted tier buttons, active tabs, "Featured" badges)' },
     { fg: primary, bg: accent, label: 'Primary on Accent', usage: 'Text on accent-coloured background sections' },
-    { fg: secondary, bg: WHITE, label: 'Secondary on White', usage: 'Links, highlights, and emphasis text' },
+    { fg: secondary, bg: WHITE, label: 'Secondary on White', usage: 'Outline button text/borders, checkmark icons, and accent glyphs on white backgrounds' },
   ];
 
   let allPass = true;
@@ -1037,9 +1037,10 @@ export function checkPerPageSeo(data: DiagnosticData): DiagnosticResult[] {
 
   let missingCount = 0;
   for (const page of data.pages) {
-    const meta = page.design_data?.meta || page.design_data?.__meta || {};
-    const seoTitle = meta.seoTitle || meta.title || page.title;
-    const seoDescription = meta.seoDescription || meta.description;
+    const dd = page.design_data || {};
+    const meta = dd.meta || dd.__meta || {};
+    const seoTitle = dd.seoTitle || meta.seoTitle || meta.title || page.title;
+    const seoDescription = dd.seoDescription || meta.seoDescription || meta.description;
 
     if (!seoTitle || !seoDescription) {
       missingCount++;
@@ -1129,7 +1130,14 @@ export function checkImageReachability(data: DiagnosticData): DiagnosticResult[]
 
 export function checkFavicon(data: DiagnosticData): DiagnosticResult[] {
   const dd = data.site.design_data || {};
-  const favicon = data.site.favicon_url || dd.favicon || dd.__favicon;
+  const favicon =
+    dd.faviconLogo ||
+    dd.siteLogo ||
+    dd.__siteLogo ||
+    dd.logo ||
+    data.site.favicon_url ||
+    dd.favicon ||
+    dd.__favicon;
   if (!favicon) {
     return [
       {
@@ -1160,8 +1168,9 @@ export function checkOgImage(data: DiagnosticData): DiagnosticResult[] {
 
   const missing: any[] = [];
   for (const page of data.pages) {
-    const meta = page.design_data?.meta || page.design_data?.__meta || {};
-    const pageOg = meta.ogImage || meta.seoImage;
+    const pdd = page.design_data || {};
+    const meta = pdd.meta || pdd.__meta || {};
+    const pageOg = pdd.ogImage || pdd.seoImage || meta.ogImage || meta.seoImage;
     if (!pageOg && !siteOg) missing.push(page);
   }
 
@@ -1189,31 +1198,26 @@ export function checkOgImage(data: DiagnosticData): DiagnosticResult[] {
 }
 
 export function checkAnalytics(data: DiagnosticData): DiagnosticResult[] {
-  const provider = data.site.analytics_provider;
-  const analyticsId = data.site.analytics_id;
-  const dd = data.site.design_data || {};
-  const fallbackId = dd.googleAnalyticsId || dd.gaId || dd.plausibleDomain;
-
-  if (provider || analyticsId || fallbackId) {
+  if (!data.site.is_published) {
     return [
       {
-        id: 'analytics-ok',
+        id: 'analytics-unpublished',
         category: 'Site Setup',
         label: 'Analytics',
         severity: 'pass',
-        message: 'Analytics is configured.',
+        message:
+          "Built-in analytics will start collecting visitor data automatically once your site is published. View it under the Analytics tab.",
       },
     ];
   }
 
   return [
     {
-      id: 'analytics-missing',
+      id: 'analytics-ok',
       category: 'Site Setup',
       label: 'Analytics',
-      severity: 'warning',
-      message:
-        "No analytics configured. You won't know how many people visit your site or where they come from. Set up Google Analytics or Plausible in site settings.",
+      severity: 'pass',
+      message: 'Built-in analytics is collecting visitor data. View it under the Analytics tab.',
     },
   ];
 }
