@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useEditorContext } from '@/lib/editor-context';
 import {
@@ -1477,23 +1478,29 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
     return (
         <section className="py-16 px-4" style={{ backgroundColor: pAccent }}>
             <Reveal className="max-w-xl mx-auto">
-                {/* Progress */}
-                <div className="flex items-center justify-center gap-1 mb-8">
-                    {['service', 'date', 'time', 'form'].map((s, i) => (
-                        <div key={s} className="flex items-center gap-1">
-                            <div
-                                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${step === s ? 'text-white' :
-                                    ['service', 'date', 'time', 'form'].indexOf(step) > i ? 'bg-green-100 text-green-700' :
-                                        'bg-slate-100 text-slate-400'
-                                    }`}
-                                style={step === s ? { backgroundColor: pSecondary } : {}}
-                            >
-                                {['service', 'date', 'time', 'form'].indexOf(step) > i ? <Check className="w-4 h-4" /> : i + 1}
-                            </div>
-                            {i < 3 && <div className={`w-6 h-0.5 ${['service', 'date', 'time', 'form'].indexOf(step) > i ? 'bg-green-200' : 'bg-slate-200'}`} />}
-                        </div>
-                    ))}
-                </div>
+                {/* Progress — steps 1-3 shown inline; form/confirmation open in drawer */}
+                {step !== 'form' && step !== 'confirmation' && (
+                    <div className="flex items-center justify-center gap-1 mb-8">
+                        {['service', 'date', 'time'].map((s, i) => {
+                            const allSteps = ['service', 'option', 'date', 'time', 'form', 'confirmation'];
+                            const curIdx = allSteps.indexOf(step);
+                            const sIdx = allSteps.indexOf(s);
+                            const completed = curIdx > sIdx;
+                            const active = step === s || (s === 'service' && step === 'option');
+                            return (
+                                <div key={s} className="flex items-center gap-1">
+                                    <div
+                                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${active ? 'text-white' : completed ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'}`}
+                                        style={active ? { backgroundColor: pSecondary } : {}}
+                                    >
+                                        {completed ? <Check className="w-4 h-4" /> : i + 1}
+                                    </div>
+                                    {i < 2 && <div className={`w-6 h-0.5 ${completed ? 'bg-green-200' : 'bg-slate-200'}`} />}
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
 
                 {/* Step 1: Service Selection */}
                 {step === 'service' && (() => {
@@ -1720,220 +1727,311 @@ function BookingFlow({ siteId, palette }: { siteId: string; palette: Record<stri
                     </div>
                 )}
 
-                {/* Step 4: Contact Form */}
-                {step === 'form' && (
-                    <div>
-                        <button onClick={() => setStep('time')} className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 mb-4">
-                            <ChevronLeft className="w-4 h-4" /> Back
-                        </button>
-                        <h2 className="text-2xl font-bold text-slate-900 mb-6 text-center">Your Details</h2>
+            </Reveal>
 
-                        {/* Summary */}
-                        <div className="bg-slate-50 rounded-xl p-4 mb-6 text-sm">
-                            <div className="flex justify-between"><span className="text-slate-500">Service</span><span className="font-medium text-slate-900">{selectedService?.name}</span></div>
-                            {selectedOption && <div className="flex justify-between mt-1"><span className="text-slate-500">Option</span><span className="font-medium text-slate-900">{selectedOption.name}</span></div>}
-                            <div className="flex justify-between mt-1"><span className="text-slate-500">Date</span><span className="font-medium text-slate-900">{selectedDate && new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span></div>
-                            <div className="flex justify-between mt-1"><span className="text-slate-500">Time</span><span className="font-medium text-slate-900">{selectedSlot?.display}</span></div>
-                            {effectivePriceCents > 0 && (
-                                <div className="flex justify-between mt-1 pt-1 border-t border-slate-200"><span className="text-slate-500">Price</span><span className="font-bold" style={{ color: pSecondary }}>${(effectivePriceCents / 100).toFixed(2)}</span></div>
+            {/* ── Checkout Drawer (form + confirmation) ── */}
+            {(step === 'form' || step === 'confirmation') && typeof document !== 'undefined' && createPortal(
+                <div
+                    className="fixed inset-0 z-[9999] flex justify-end"
+                    onClick={e => {
+                        if (e.target === e.currentTarget && step !== 'confirmation') {
+                            setStep('time');
+                        }
+                    }}
+                >
+                    <div className="absolute inset-0 bg-black/30" />
+
+                    <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+                            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                <Calendar className="w-5 h-5" />
+                                {step === 'confirmation' ? 'Booking Confirmed' : 'Review & Book'}
+                            </h2>
+                            <button
+                                onClick={() => {
+                                    if (step === 'confirmation') {
+                                        setStep('service');
+                                        setSelectedService(null);
+                                        setSelectedOption(null);
+                                        setSelectedDate(null);
+                                        setSelectedSlot(null);
+                                        setForm({ name: '', email: '', phone: '', notes: '' });
+                                        setConfirmation(null);
+                                    } else {
+                                        setStep('time');
+                                    }
+                                }}
+                                className="p-1 hover:bg-slate-100 rounded-lg"
+                            >
+                                <X className="w-5 h-5 text-slate-500" />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 overflow-y-auto">
+                            {step === 'form' && (
+                                <div className="p-5 space-y-4">
+                                    {/* Booking summary */}
+                                    <div className="bg-slate-50 rounded-xl p-3 text-sm">
+                                        <div className="flex justify-between py-1">
+                                            <span className="text-slate-600">Service</span>
+                                            <span className="font-medium text-slate-900">{selectedService?.name}</span>
+                                        </div>
+                                        {selectedOption && (
+                                            <div className="flex justify-between py-1">
+                                                <span className="text-slate-600">Option</span>
+                                                <span className="font-medium text-slate-900">{selectedOption.name}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex justify-between py-1">
+                                            <span className="text-slate-600">Date</span>
+                                            <span className="font-medium text-slate-900">
+                                                {selectedDate && new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between py-1">
+                                            <span className="text-slate-600">Time</span>
+                                            <span className="font-medium text-slate-900">{selectedSlot?.display}</span>
+                                        </div>
+                                        {effectivePriceCents > 0 && (
+                                            <div className="flex justify-between pt-2 mt-1 border-t border-slate-200">
+                                                <span className="font-bold text-slate-900">Total</span>
+                                                <span className="font-bold" style={{ color: pSecondary }}>${(effectivePriceCents / 100).toFixed(2)}</span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Contact info */}
+                                    <div>
+                                        <label className="text-sm font-medium text-slate-700 block mb-1">Full Name *</label>
+                                        <div className="relative">
+                                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                            <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full pl-10 pr-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="John Smith" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium text-slate-700 block mb-1">Email *</label>
+                                        <div className="relative">
+                                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                            <input
+                                                type="email"
+                                                value={form.email}
+                                                onChange={e => { setForm({ ...form, email: e.target.value }); setEmailError(''); }}
+                                                onBlur={e => { if (e.target.value && !validateEmail(e.target.value)) setEmailError('Please enter a valid email address'); }}
+                                                className={`w-full pl-10 pr-3 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${emailError ? 'border-red-400' : 'border-slate-300'}`}
+                                                placeholder="john@email.com"
+                                            />
+                                        </div>
+                                        {emailError && <p className="text-xs text-red-500 mt-1">{emailError}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="text-sm font-medium text-slate-700 block mb-1">Phone</label>
+                                        <div className="relative">
+                                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                            <input type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="w-full pl-10 pr-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="(555) 123-4567" />
+                                        </div>
+                                    </div>
+
+                                    {/* Notes */}
+                                    <div>
+                                        <label className="text-sm font-medium text-slate-700 block mb-1">Notes (optional)</label>
+                                        <textarea
+                                            value={form.notes}
+                                            onChange={e => setForm({ ...form, notes: e.target.value })}
+                                            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                            rows={2}
+                                            placeholder="Any special requests?"
+                                        />
+                                    </div>
+
+                                    {/* Payment method selector */}
+                                    {effectivePriceCents > 0 && (() => {
+                                        const pm = settings?.payment_methods;
+                                        const methods: { key: typeof chosenPaymentMethod; label: string }[] = [];
+                                        if (pm?.none !== false) methods.push({ key: 'none', label: 'Pay Later' });
+                                        if (pm?.etransfer) methods.push({ key: 'etransfer', label: 'Interac e-Transfer' });
+                                        if (pm?.stripe) methods.push({ key: 'stripe', label: 'Credit Card (Stripe)' });
+                                        if (pm?.paypal && paypalClientId) methods.push({ key: 'paypal', label: 'PayPal' });
+                                        if (pm?.converge && convergeConnected) methods.push({ key: 'converge', label: 'Credit Card (Converge)' });
+                                        if (pm?.clover && cloverConnected) methods.push({ key: 'clover', label: 'Credit Card (Clover)' });
+                                        if (methods.length <= 1) return null;
+                                        return (
+                                            <div>
+                                                <label className="text-sm font-medium text-slate-700 block mb-2">Payment Method</label>
+                                                <div className="space-y-2">
+                                                    {methods.map(m => (
+                                                        <label key={m.key} className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${chosenPaymentMethod === m.key ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-slate-300'}`}>
+                                                            <input
+                                                                type="radio"
+                                                                name="bookingPaymentMethod"
+                                                                value={m.key}
+                                                                checked={chosenPaymentMethod === m.key}
+                                                                onChange={() => setChosenPaymentMethod(m.key)}
+                                                                className="accent-blue-600"
+                                                            />
+                                                            <span className="text-sm font-medium text-slate-700">{m.label}</span>
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* Clover iframe */}
+                                    {chosenPaymentMethod === 'clover' && cloverIframeData ? (
+                                        <div>
+                                            <p className="text-sm text-slate-500 mb-3 text-center">Complete your payment below</p>
+                                            <CloverIframe
+                                                {...cloverIframeData}
+                                                currency={selectedService?.currency || 'USD'}
+                                                onSuccess={() => {
+                                                    setCloverIframeData(null);
+                                                    setConfirmation({
+                                                        booking: {
+                                                            booking_date: selectedDate,
+                                                            start_time: selectedSlot?.startTime,
+                                                        },
+                                                        service: selectedService,
+                                                        confirmationMessage: settings?.confirmation_message || 'Your booking is confirmed.',
+                                                    });
+                                                    setStep('confirmation');
+                                                }}
+                                                onError={(msg) => {
+                                                    setCloverIframeData(null);
+                                                    setPaypalError(msg);
+                                                }}
+                                                palette={palette}
+                                            />
+                                            <button
+                                                onClick={() => setCloverIframeData(null)}
+                                                className="w-full mt-2 py-2 text-xs text-slate-400 hover:text-slate-600"
+                                            >
+                                                Back
+                                            </button>
+                                        </div>
+                                    ) : chosenPaymentMethod === 'paypal' && paypalClientId ? (
+                                        <div>
+                                            {form.name.trim() && validateEmail(form.email) ? (
+                                                <PayPalButton
+                                                    clientId={paypalClientId}
+                                                    currency={selectedService?.currency || 'USD'}
+                                                    createOrder={handlePaypalCreateOrder}
+                                                    onApprove={handlePaypalApprove}
+                                                    onError={err => setPaypalError(err?.message || 'PayPal error')}
+                                                    onCancel={() => setPaypalError(null)}
+                                                />
+                                            ) : (
+                                                <p className="text-sm text-slate-400 text-center py-3">
+                                                    Enter your name and email above to continue to PayPal.
+                                                </p>
+                                            )}
+                                            {paypalError && (
+                                                <p className="text-xs text-red-600 mt-2 text-center">{paypalError}</p>
+                                            )}
+                                        </div>
+                                    ) : null}
+
+                                    {paypalError && chosenPaymentMethod !== 'paypal' && !cloverIframeData && (
+                                        <p className="text-xs text-red-600 mt-2 text-center">{paypalError}</p>
+                                    )}
+
+                                    {convergeToken && (
+                                        <ConvergeLightbox
+                                            token={convergeToken}
+                                            demoMode={convergeDemoMode}
+                                            onApproval={handleConvergeApproval}
+                                            onDeclined={(r) => {
+                                                setConvergeToken(null);
+                                                setPaypalError(r.ssl_result_message || 'Card declined');
+                                            }}
+                                            onError={(e) => {
+                                                setConvergeToken(null);
+                                                setPaypalError(typeof e === 'string' ? e : 'Payment error');
+                                            }}
+                                            onCancelled={() => setConvergeToken(null)}
+                                        />
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Confirmation */}
+                            {step === 'confirmation' && confirmation && (
+                                <div className="p-5">
+                                    <div className="text-center py-4">
+                                        <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: pSecondary + '20' }}>
+                                            <Check className="w-8 h-8" style={{ color: pSecondary }} />
+                                        </div>
+                                        <h2 className="text-2xl font-bold text-slate-900 mb-2">Booking Confirmed!</h2>
+                                        <p className="text-slate-600 mb-6">{confirmation.confirmationMessage}</p>
+                                    </div>
+
+                                    <div className="bg-slate-50 rounded-xl p-4 text-sm">
+                                        <div className="flex justify-between py-1"><span className="text-slate-500">Service</span><span className="font-medium text-slate-900">{confirmation.service?.name}</span></div>
+                                        {selectedOption && <div className="flex justify-between py-1"><span className="text-slate-500">Option</span><span className="font-medium text-slate-900">{selectedOption.name}</span></div>}
+                                        <div className="flex justify-between py-1"><span className="text-slate-500">Date</span><span className="font-medium text-slate-900">{selectedDate && new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span></div>
+                                        <div className="flex justify-between py-1"><span className="text-slate-500">Time</span><span className="font-medium text-slate-900">{selectedSlot?.display}</span></div>
+                                        {effectivePriceCents > 0 && <div className="flex justify-between py-1"><span className="text-slate-500">Price</span><span className="font-medium text-slate-900">${(effectivePriceCents / 100).toFixed(2)} {confirmation.service?.currency}</span></div>}
+                                        <div className="flex justify-between py-1"><span className="text-slate-500">Ref #</span><span className="font-mono font-medium text-slate-900">{confirmation.booking?.id?.slice(0, 8).toUpperCase()}</span></div>
+                                    </div>
+
+                                    {confirmation.paymentInstructions?.type === 'etransfer' && (
+                                        <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4 text-left">
+                                            <h3 className="font-bold text-amber-800 text-sm mb-2">Payment via Interac e-Transfer</h3>
+                                            <p className="text-sm text-amber-700">
+                                                Send <strong>${confirmation.paymentInstructions.amount} {confirmation.paymentInstructions.currency}</strong> to:
+                                            </p>
+                                            <p className="text-sm font-mono font-bold text-amber-900 my-1">{confirmation.paymentInstructions.email}</p>
+                                            <p className="text-xs text-amber-600">
+                                                Reference: <strong>{confirmation.paymentInstructions.reference}</strong>
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
                             )}
                         </div>
 
-                        <div className="space-y-3">
-                            <div>
-                                <label className="text-sm font-medium text-slate-700 block mb-1">Full Name *</label>
-                                <div className="relative">
-                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <input type="text" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full pl-10 pr-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="John Smith" />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-sm font-medium text-slate-700 block mb-1">Email *</label>
-                                <div className="relative">
-                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <input
-                                        type="email"
-                                        value={form.email}
-                                        onChange={e => { setForm({ ...form, email: e.target.value }); setEmailError(''); }}
-                                        onBlur={e => { if (e.target.value && !validateEmail(e.target.value)) setEmailError('Please enter a valid email address'); }}
-                                        className={`w-full pl-10 pr-3 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${emailError ? 'border-red-400' : 'border-slate-300'}`}
-                                        placeholder="john@email.com"
-                                    />
-                                </div>
-                                {emailError && <p className="text-xs text-red-500 mt-1">{emailError}</p>}
-                            </div>
-                            <div>
-                                <label className="text-sm font-medium text-slate-700 block mb-1">Phone</label>
-                                <div className="relative">
-                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <input type="tel" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="w-full pl-10 pr-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="(555) 123-4567" />
-                                </div>
-                            </div>
-                            <div>
-                                <label className="text-sm font-medium text-slate-700 block mb-1">Notes</label>
-                                <div className="relative">
-                                    <MessageSquare className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
-                                    <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} className="w-full pl-10 pr-3 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" rows={2} placeholder="Any special requests?" />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Payment method selector */}
-                        {effectivePriceCents > 0 && (() => {
-                            const pm = settings?.payment_methods;
-                            const methods: { key: typeof chosenPaymentMethod; label: string }[] = [];
-                            if (pm?.none !== false) methods.push({ key: 'none', label: 'Pay Later' });
-                            if (pm?.etransfer) methods.push({ key: 'etransfer', label: 'Interac e-Transfer' });
-                            if (pm?.stripe) methods.push({ key: 'stripe', label: 'Credit Card (Stripe)' });
-                            if (pm?.paypal && paypalClientId) methods.push({ key: 'paypal', label: 'PayPal' });
-                            if (pm?.converge && convergeConnected) methods.push({ key: 'converge', label: 'Credit Card (Converge)' });
-                            if (pm?.clover && cloverConnected) methods.push({ key: 'clover', label: 'Credit Card (Clover)' });
-                            if (methods.length <= 1) return null;
-                            return (
-                                <div className="mt-4">
-                                    <label className="text-sm font-medium text-slate-700 block mb-2">Payment Method</label>
-                                    <div className="space-y-2">
-                                        {methods.map(m => (
-                                            <label key={m.key} className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${chosenPaymentMethod === m.key ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-slate-300'}`}>
-                                                <input
-                                                    type="radio"
-                                                    name="bookingPaymentMethod"
-                                                    value={m.key}
-                                                    checked={chosenPaymentMethod === m.key}
-                                                    onChange={() => setChosenPaymentMethod(m.key)}
-                                                    className="accent-blue-600"
-                                                />
-                                                <span className="text-sm font-medium text-slate-700">{m.label}</span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </div>
-                            );
-                        })()}
-
-                        {chosenPaymentMethod === 'clover' && cloverIframeData ? (
-                            <div className="mt-6">
-                                <p className="text-sm text-slate-500 mb-3 text-center">Complete your payment below</p>
-                                <CloverIframe
-                                    {...cloverIframeData}
-                                    currency={selectedService?.currency || 'USD'}
-                                    onSuccess={() => {
-                                        setCloverIframeData(null);
-                                        setConfirmation({
-                                            booking: {
-                                                booking_date: selectedDate,
-                                                start_time: selectedSlot?.startTime,
-                                            },
-                                            service: selectedService,
-                                            confirmationMessage: settings?.confirmation_message || 'Your booking is confirmed.',
-                                        });
-                                        setStep('confirmation');
-                                    }}
-                                    onError={(msg) => {
-                                        setCloverIframeData(null);
-                                        setPaypalError(msg);
-                                    }}
-                                    palette={palette}
-                                />
+                        {/* Footer — submit button (only on form step, not for PayPal/Clover inline) */}
+                        {step === 'form' && chosenPaymentMethod !== 'paypal' && !cloverIframeData && (
+                            <div className="px-5 py-4 border-t border-slate-200">
                                 <button
-                                    onClick={() => setCloverIframeData(null)}
-                                    className="w-full mt-2 py-2 text-xs text-slate-400 hover:text-slate-600"
+                                    onClick={handleSubmit}
+                                    disabled={submitting || !form.name.trim() || !validateEmail(form.email)}
+                                    className="w-full py-3 text-white font-bold rounded-xl shadow-lg hover:opacity-90 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                                    style={{ backgroundColor: pSecondary }}
                                 >
-                                    ← Back
+                                    {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+                                    {chosenPaymentMethod === 'converge' ? 'Pay with Converge' :
+                                     chosenPaymentMethod === 'clover' ? 'Pay with Clover' :
+                                     chosenPaymentMethod === 'stripe' ? 'Pay with Card' :
+                                     effectivePriceCents > 0 ? 'Confirm & Pay' : 'Confirm Booking'}
                                 </button>
                             </div>
-                        ) : chosenPaymentMethod === 'paypal' && paypalClientId ? (
-                            <div className="mt-6">
-                                {form.name.trim() && validateEmail(form.email) ? (
-                                    <PayPalButton
-                                        clientId={paypalClientId}
-                                        currency={selectedService?.currency || 'USD'}
-                                        createOrder={handlePaypalCreateOrder}
-                                        onApprove={handlePaypalApprove}
-                                        onError={err => setPaypalError(err?.message || 'PayPal error')}
-                                        onCancel={() => setPaypalError(null)}
-                                    />
-                                ) : (
-                                    <p className="text-sm text-slate-400 text-center py-3">
-                                        Enter your name and email above to continue to PayPal.
-                                    </p>
-                                )}
-                                {paypalError && (
-                                    <p className="text-xs text-red-600 mt-2 text-center">{paypalError}</p>
-                                )}
-                            </div>
-                        ) : (
-                            <button
-                                onClick={handleSubmit}
-                                disabled={submitting || !form.name.trim() || !validateEmail(form.email)}
-                                className="w-full mt-6 py-3 text-white font-bold rounded-xl shadow-lg hover:opacity-90 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
-                                style={{ backgroundColor: pSecondary }}
-                            >
-                                {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
-                                {chosenPaymentMethod === 'converge' ? 'Pay with Converge' :
-                                 chosenPaymentMethod === 'clover' ? 'Pay with Clover' :
-                                 chosenPaymentMethod === 'stripe' ? 'Pay with Card' :
-                                 'Confirm Booking'}
-                            </button>
                         )}
 
-                        {paypalError && chosenPaymentMethod !== 'paypal' && !cloverIframeData && (
-                            <p className="text-xs text-red-600 mt-2 text-center">{paypalError}</p>
-                        )}
-
-                        {convergeToken && (
-                            <ConvergeLightbox
-                                token={convergeToken}
-                                demoMode={convergeDemoMode}
-                                onApproval={handleConvergeApproval}
-                                onDeclined={(r) => {
-                                    setConvergeToken(null);
-                                    setPaypalError(r.ssl_result_message || 'Card declined');
-                                }}
-                                onError={(e) => {
-                                    setConvergeToken(null);
-                                    setPaypalError(typeof e === 'string' ? e : 'Payment error');
-                                }}
-                                onCancelled={() => setConvergeToken(null)}
-                            />
-                        )}
-                    </div>
-                )}
-
-                {/* Step 5: Confirmation */}
-                {step === 'confirmation' && confirmation && (
-                    <div className="text-center py-8">
-                        <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: pSecondary + '20' }}>
-                            <Check className="w-8 h-8" style={{ color: pSecondary }} />
-                        </div>
-                        <h2 className="text-2xl font-bold text-slate-900 mb-2">Booking Confirmed!</h2>
-                        <p className="text-slate-600 mb-6">{confirmation.confirmationMessage}</p>
-
-                        <div className="bg-slate-50 rounded-xl p-4 text-sm text-left max-w-sm mx-auto">
-                            <div className="flex justify-between"><span className="text-slate-500">Service</span><span className="font-medium text-slate-900">{confirmation.service?.name}</span></div>
-                            {selectedOption && <div className="flex justify-between mt-1"><span className="text-slate-500">Option</span><span className="font-medium text-slate-900">{selectedOption.name}</span></div>}
-                            <div className="flex justify-between mt-1"><span className="text-slate-500">Date</span><span className="font-medium text-slate-900">{selectedDate && new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span></div>
-                            <div className="flex justify-between mt-1"><span className="text-slate-500">Time</span><span className="font-medium text-slate-900">{selectedSlot?.display}</span></div>
-                            {effectivePriceCents > 0 && <div className="flex justify-between mt-1"><span className="text-slate-500">Price</span><span className="font-medium text-slate-900">${(effectivePriceCents / 100).toFixed(2)} {confirmation.service?.currency}</span></div>}
-                            <div className="flex justify-between mt-1"><span className="text-slate-500">Ref #</span><span className="font-mono font-medium text-slate-900">{confirmation.booking?.id?.slice(0, 8).toUpperCase()}</span></div>
-                        </div>
-
-                        {/* E-Transfer instructions */}
-                        {confirmation.paymentInstructions?.type === 'etransfer' && (
-                            <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4 text-left max-w-sm mx-auto">
-                                <h3 className="font-bold text-amber-800 text-sm mb-2">💸 Payment via Interac e-Transfer</h3>
-                                <p className="text-sm text-amber-700">
-                                    Send <strong>${confirmation.paymentInstructions.amount} {confirmation.paymentInstructions.currency}</strong> to:
-                                </p>
-                                <p className="text-sm font-mono font-bold text-amber-900 my-1">{confirmation.paymentInstructions.email}</p>
-                                <p className="text-xs text-amber-600">
-                                    Reference: <strong>{confirmation.paymentInstructions.reference}</strong>
-                                </p>
+                        {/* Footer — close button on confirmation */}
+                        {step === 'confirmation' && (
+                            <div className="px-5 py-4 border-t border-slate-200">
+                                <button
+                                    onClick={() => {
+                                        setStep('service');
+                                        setSelectedService(null);
+                                        setSelectedOption(null);
+                                        setSelectedDate(null);
+                                        setSelectedSlot(null);
+                                        setForm({ name: '', email: '', phone: '', notes: '' });
+                                        setConfirmation(null);
+                                    }}
+                                    className="w-full py-3 font-bold rounded-xl border-2 border-slate-200 text-slate-700 hover:bg-slate-50 transition-all"
+                                >
+                                    Book Another
+                                </button>
                             </div>
                         )}
                     </div>
-                )}
-            </Reveal>
+                </div>,
+                document.body
+            )}
         </section>
     );
 }
