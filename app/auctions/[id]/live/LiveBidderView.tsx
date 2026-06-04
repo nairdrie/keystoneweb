@@ -35,7 +35,7 @@ export default function LiveBidderView({ auctionId, myRegistration }: { auctionI
   const [snapshot, setSnapshot] = useState<StateSnapshot | null>(null);
   const [bidding, setBidding] = useState(false);
   const [bidError, setBidError] = useState<string | null>(null);
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
   const tickedRef = useRef<string | null>(null);
 
   const fetchState = useCallback(async () => {
@@ -44,9 +44,10 @@ export default function LiveBidderView({ auctionId, myRegistration }: { auctionI
   }, [auctionId]);
 
   // Initial load
-  useEffect(() => { fetchState(); }, [fetchState]);
+  useEffect(() => { void fetchState(); }, [fetchState]);
 
-  // 1Hz tick for the countdown
+  // 1Hz tick for the countdown. First update lands after ~1s; the timer
+  // displays "—" until then to avoid impure render reads of Date.now().
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);

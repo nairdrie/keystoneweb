@@ -16,7 +16,7 @@ export default function AuctionsListPage() {
   useEffect(() => {
     if (!siteId) return;
     let cancelled = false;
-    fetch(`/api/admin/auctions?siteId=${siteId}`, { credentials: 'include' })
+    void fetch(`/api/admin/auctions?siteId=${siteId}`, { credentials: 'include' })
       .then(r => r.ok ? r.json() : { auctions: [] })
       .then(j => {
         if (cancelled) return;

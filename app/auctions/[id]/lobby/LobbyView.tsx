@@ -28,9 +28,13 @@ function fmtDelta(ms: number): { d: number; h: number; m: number; s: number } {
 export default function LobbyView({ auction, lots, alias, registrationStatus }: Props) {
   const router = useRouter();
   const startMs = new Date(auction.scheduledStart).getTime();
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => startMs); // placeholder so timer reads 0 pre-hydration
 
   useEffect(() => {
+    // First tick fires after 1s; before that `now` equals startMs so the
+    // countdown reads "0" until the real clock is synced. Avoids the
+    // hydration-mismatch + extra-render pitfalls of reading Date.now() in
+    // render or synchronously in an effect.
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);

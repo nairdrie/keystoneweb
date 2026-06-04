@@ -36,7 +36,8 @@ export default function AuctionDetailPage({ params }: { params: Promise<{ id: st
     setLoading(false);
   }, [id, siteId]);
 
-  useEffect(() => { reload(); }, [reload]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void reload(); }, [reload]);
 
   if (loading) return <div className="px-4 py-8 text-sm text-slate-500">Loading…</div>;
   if (error || !auction) return <div className="px-4 py-8 text-sm text-red-700">{error || 'Not found'}</div>;
