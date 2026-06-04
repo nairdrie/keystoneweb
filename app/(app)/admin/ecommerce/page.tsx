@@ -8,10 +8,11 @@ import OrdersPanel from '@/app/components/ecommerce/OrdersPanel';
 import LowStockPanel from '@/app/components/ecommerce/LowStockPanel';
 import SalesAnalyticsPanel from '@/app/components/ecommerce/SalesAnalyticsPanel';
 import AutomatedEmailsPanel from '@/app/components/ecommerce/AutomatedEmailsPanel';
+import CouponCodesPanel from '@/app/components/ecommerce/CouponCodesPanel';
 import { ProductManager } from '@/app/components/blocks/ProductGridBlock';
-import { ShoppingBag, Package, ClipboardList, CreditCard, Truck, BarChart3, Mail } from 'lucide-react';
+import { ShoppingBag, Package, ClipboardList, CreditCard, Truck, BarChart3, Mail, Tag } from 'lucide-react';
 
-type TabId = 'analytics' | 'products' | 'orders' | 'payments' | 'shipping' | 'emails';
+type TabId = 'analytics' | 'products' | 'orders' | 'payments' | 'shipping' | 'emails' | 'coupons';
 
 export default function AdminEcommercePage() {
   const { siteId, palette, siteBlockTypes, confirmNavigation } = useAdminContext();
@@ -86,6 +87,7 @@ export default function AdminEcommercePage() {
     { id: 'payments', label: 'Payments', icon: CreditCard },
     { id: 'shipping', label: 'Shipping', icon: Truck },
     { id: 'emails', label: 'Emails', icon: Mail },
+    { id: 'coupons', label: 'Coupon Codes', icon: Tag },
   ];
 
   return (
@@ -139,6 +141,9 @@ export default function AdminEcommercePage() {
         )}
         {activeTab === 'emails' && (
           <AutomatedEmailsPanel siteId={siteId} logoUrl={siteLogoUrl} />
+        )}
+        {activeTab === 'coupons' && (
+          <CouponCodesPanel siteId={siteId} />
         )}
       </div>
     </div>
