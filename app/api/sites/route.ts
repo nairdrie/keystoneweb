@@ -33,6 +33,7 @@ interface SiteData {
   inboxCustomEmail?: string;
   marketingEnabled?: boolean;
   googleAdsCustomerId?: string | null;
+  auctionsEnabled?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -55,6 +56,7 @@ function mapSupabaseToSiteData(row: any): SiteData {
     inboxCustomEmail: row.inbox_custom_email,
     marketingEnabled: row.marketing_enabled || false,
     googleAdsCustomerId: row.google_ads_customer_id || null,
+    auctionsEnabled: row.auctions_enabled || false,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
