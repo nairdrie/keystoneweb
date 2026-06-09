@@ -10,6 +10,7 @@ import {
     Trash2,
     GripVertical,
     ChevronDown,
+    ChevronUp,
 } from 'lucide-react';
 import {
     DndContext,
@@ -38,6 +39,16 @@ import {
     dispatchBlockInspectorState,
 } from '../panel-shared';
 import NavItemEditModal from '../../NavItemEditModal';
+import {
+    resolveBannerItems,
+    createBannerItem,
+    BANNER_ITEM_META,
+    BANNER_ITEM_TYPES,
+    BANNER_SLOTS,
+    BANNER_SLOT_LABELS,
+    type BannerItem,
+    type BannerItemType,
+} from './banner-config';
 import type {
     SiteHeaderDefaults,
     HeaderBgType,
@@ -145,6 +156,7 @@ export default function HeaderSettingsPanel({
             headerLayout: siteContent.headerLayout,
             headerRightSide: siteContent.headerRightSide,
             headerShowBanner: siteContent.headerShowBanner,
+            headerBannerItems: siteContent.headerBannerItems,
             headerBannerText: siteContent.headerBannerText,
             headerBannerBgType: siteContent.headerBannerBgType,
             headerBannerBgColor: siteContent.headerBannerBgColor,
@@ -205,7 +217,6 @@ export default function HeaderSettingsPanel({
     const showBanner: boolean = siteContent.headerShowBanner != null
         ? Boolean(siteContent.headerShowBanner)
         : (defaults.showBanner ?? false);
-    const bannerText: string = siteContent.headerBannerText || '';
     const bannerBgType: 'primary' | 'secondary' | 'custom' = siteContent.headerBannerBgType || 'primary';
     const bannerBgColor: string = siteContent.headerBannerBgColor || '';
     const bgType: HeaderBgType = siteContent.headerBgType || defaults.bgType || 'white';
@@ -232,6 +243,30 @@ export default function HeaderSettingsPanel({
 
     const pPrimary = palette.primary || '#374151';
     const pSecondary = palette.secondary || '#10b981';
+
+    // ── Banner items (structured, with legacy fallback) ───────────────────────
+    const bannerItems: BannerItem[] = resolveBannerItems(siteContent, { isBannerClassic: defaults.isBannerClassic });
+
+    const commitBannerItems = (next: BannerItem[]) => updateSiteContent('headerBannerItems', next);
+
+    const addBannerItem = (type: BannerItemType) => {
+        commitBannerItems([...bannerItems, createBannerItem(type, 'left')]);
+    };
+    const updateBannerItem = (id: string, patch: Partial<BannerItem>) => {
+        commitBannerItems(bannerItems.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+    };
+    const removeBannerItem = (id: string) => {
+        commitBannerItems(bannerItems.filter((it) => it.id !== id));
+    };
+    const moveBannerItem = (id: string, dir: -1 | 1) => {
+        const idx = bannerItems.findIndex((it) => it.id === id);
+        if (idx < 0) return;
+        const target = idx + dir;
+        if (target < 0 || target >= bannerItems.length) return;
+        const next = [...bannerItems];
+        [next[idx], next[target]] = [next[target], next[idx]];
+        commitBannerItems(next);
+    };
 
     // Detection: are these auth/membership/product features available?
     const hasMembershipBlock = !!siteContent.__hasMembershipBlock;
@@ -849,14 +884,121 @@ export default function HeaderSettingsPanel({
                             checked={showBanner}
                             onChange={() => updateSiteContent('headerShowBanner', !showBanner)}
                         />
-                        {showBanner && !defaults.isBannerClassic && (
-                            <input
-                                type="text"
-                                value={bannerText}
-                                onChange={(e) => updateSiteContent('headerBannerText', e.target.value)}
-                                placeholder="🎉 Special offer — Limited time only!"
-                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                            />
+                        {showBanner && (
+                            <div className="space-y-2">
+                                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Banner content</p>
+                                {bannerItems.length === 0 && (
+                                    <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                                        No items yet — add one below.
+                                    </p>
+                                )}
+                                {bannerItems.map((item, idx) => {
+                                    const meta = BANNER_ITEM_META[item.type];
+                                    const ItemIcon = meta.icon;
+                                    return (
+                                        <div key={item.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                {ItemIcon && <ItemIcon className="h-4 w-4 text-slate-500" />}
+                                                <span className="text-sm font-bold text-slate-700">{meta.label}</span>
+                                                <div className="ml-auto flex items-center gap-0.5">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => moveBannerItem(item.id, -1)}
+                                                        disabled={idx === 0}
+                                                        aria-label="Move up"
+                                                        className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-30"
+                                                    >
+                                                        <ChevronUp className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => moveBannerItem(item.id, 1)}
+                                                        disabled={idx === bannerItems.length - 1}
+                                                        aria-label="Move down"
+                                                        className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-30"
+                                                    >
+                                                        <ChevronDown className="h-3.5 w-3.5" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeBannerItem(item.id)}
+                                                        aria-label="Remove item"
+                                                        className="rounded p-1 text-slate-400 hover:bg-red-100 hover:text-red-600"
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {meta.hasText && (
+                                                <input
+                                                    type={meta.inputType || 'text'}
+                                                    value={item.text ?? ''}
+                                                    onChange={(e) => updateBannerItem(item.id, { text: e.target.value })}
+                                                    placeholder={meta.placeholder}
+                                                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            )}
+                                            {item.type === 'social' && (
+                                                <p className="text-xs text-slate-500">
+                                                    Uses the social URLs set in <strong>Right-Side Element → Social</strong>.
+                                                </p>
+                                            )}
+
+                                            <div className="flex items-center justify-between gap-2">
+                                                {/* Slot (alignment) selector */}
+                                                <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5">
+                                                    {BANNER_SLOTS.map((slot) => (
+                                                        <button
+                                                            key={slot}
+                                                            type="button"
+                                                            onClick={() => updateBannerItem(item.id, { slot })}
+                                                            className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+                                                                item.slot === slot ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-100'
+                                                            }`}
+                                                        >
+                                                            {BANNER_SLOT_LABELS[slot]}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                {/* Icon toggle */}
+                                                {meta.hasIcon && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateBannerItem(item.id, { showIcon: item.showIcon === false })}
+                                                        className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                                                            item.showIcon !== false
+                                                                ? 'border-blue-600 bg-blue-50 text-blue-700'
+                                                                : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                                                        }`}
+                                                    >
+                                                        {ItemIcon && <ItemIcon className="h-3.5 w-3.5" />}
+                                                        Icon
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                    {BANNER_ITEM_TYPES.map((type) => {
+                                        const meta = BANNER_ITEM_META[type];
+                                        const AddIcon = meta.icon;
+                                        return (
+                                            <button
+                                                key={type}
+                                                type="button"
+                                                onClick={() => addBannerItem(type)}
+                                                className="flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700"
+                                            >
+                                                {AddIcon ? <AddIcon className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                                                {meta.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         )}
                         {showBanner && (
                             <div>
