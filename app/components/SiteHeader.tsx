@@ -6,8 +6,16 @@
 /* eslint-disable react-hooks/refs */
 
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { Menu, X, Settings, Facebook, Instagram, Twitter, Linkedin, Youtube, Phone, User } from 'lucide-react';
-import { WhatsAppIcon, normalizeHref } from '@/app/components/blocks/contact/contact-config';
+import { Menu, X, Settings, User } from 'lucide-react';
+import { normalizeHref } from '@/app/components/blocks/contact/contact-config';
+import {
+    resolveBannerItems,
+    getHeaderSocialLinks,
+    BANNER_ITEM_META,
+    BANNER_SLOTS,
+    type BannerItem,
+    type BannerSlot,
+} from '@/app/components/blocks/header/banner-config';
 import { useHeaderHeight } from '@/lib/hooks/useHeaderHeight';
 import {
     useHeaderBreakpoints,
@@ -151,14 +159,7 @@ export default function SiteHeader({ palette, isEditMode, defaults = {} }: SiteH
     const isProUser        = context?.isProUser ?? false;
 
     // Social links
-    const socialLinks = [
-        { key: 'facebook',  url: siteContent.headerSocialFacebook  || '', Icon: Facebook },
-        { key: 'instagram', url: siteContent.headerSocialInstagram || '', Icon: Instagram },
-        { key: 'x',         url: siteContent.headerSocialX         || '', Icon: Twitter },
-        { key: 'linkedin',  url: siteContent.headerSocialLinkedin  || '', Icon: Linkedin },
-        { key: 'youtube',   url: siteContent.headerSocialYoutube   || '', Icon: Youtube },
-        { key: 'whatsapp',  url: siteContent.headerSocialWhatsapp  || '', Icon: WhatsAppIcon },
-    ].filter(s => s.url);
+    const socialLinks = getHeaderSocialLinks(siteContent);
 
     const pPrimary   = palette.primary   || '#374151';
     const pSecondary = palette.secondary || '#10b981';
@@ -441,45 +442,87 @@ ${smLogoHeight != null ? `@media (max-width: 767px) { .ks-site-header .ks-header
 
     const containerClass = defaults.containerClass || 'max-w-6xl';
 
-    const bannerEl = showBanner ? (
+    const bannerItems = resolveBannerItems(siteContent, { isBannerClassic: defaults.isBannerClassic });
+
+    const renderBannerItem = (item: BannerItem): React.ReactNode => {
+        const meta = BANNER_ITEM_META[item.type];
+
+        if (item.type === 'social') {
+            if (socialLinks.length === 0) {
+                return isEditMode
+                    ? <span key={item.id} className="text-xs opacity-40 italic">Add social links in Settings</span>
+                    : null;
+            }
+            return (
+                <span key={item.id} className="flex items-center gap-1">
+                    {socialLinks.map(({ key, url, Icon }) => (
+                        <a
+                            key={key}
+                            href={isEditMode ? undefined : normalizeHref(url)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => isEditMode && e.preventDefault()}
+                            className="rounded-full p-1 transition-opacity hover:opacity-100 opacity-80"
+                        >
+                            <Icon className="w-3.5 h-3.5" />
+                        </a>
+                    ))}
+                </span>
+            );
+        }
+
+        const text = (item.text ?? '').trim() || meta.defaultText;
+        const Icon = meta.icon;
+        const showIcon = meta.hasIcon && item.showIcon !== false && Icon != null;
+
+        const inner = (
+            <>
+                {showIcon && Icon && <Icon className="w-3 h-3 shrink-0" />}
+                <span>{text}</span>
+            </>
+        );
+
+        const href = item.type === 'phone'
+            ? `tel:${text.replace(/[^0-9+]/g, '')}`
+            : item.type === 'email'
+                ? `mailto:${text}`
+                : null;
+
+        if (href && !isEditMode) {
+            return (
+                <a key={item.id} href={href} className="flex items-center gap-1.5 opacity-90 transition-opacity hover:opacity-100">
+                    {inner}
+                </a>
+            );
+        }
+        return (
+            <span key={item.id} className="flex items-center gap-1.5 opacity-90">
+                {inner}
+            </span>
+        );
+    };
+
+    const slotJustify: Record<BannerSlot, string> = {
+        left: 'justify-start',
+        center: 'justify-center',
+        right: 'justify-end',
+    };
+
+    const bannerHasItems = bannerItems.length > 0;
+    const bannerEl = showBanner && (bannerHasItems || isEditMode) ? (
         <div className="text-white text-xs py-2" style={bannerBgStyle}>
-            <div className={`${containerClass} mx-auto px-4 flex items-center ${defaults.isBannerClassic ? 'justify-between' : 'justify-center'}`}>
-                {defaults.isBannerClassic ? (
-                    <>
-                        <span className="flex items-center gap-1.5 opacity-80">
-                            <Phone className="w-3 h-3" />
-                            <EditableText
-                                as="span"
-                                contentKey="bannerPhone"
-                                styleData={siteContent['bannerPhone__styles']}
-                                content={siteContent.bannerPhone}
-                                defaultValue="Call us: (555) 123-4567"
-                                isEditMode={isEditMode}
-                                onSave={updateSiteContent}
-                            />
-                        </span>
-                        <EditableText
-                            as="span"
-                            contentKey="bannerHours"
-                            styleData={siteContent['bannerHours__styles']}
-                            content={siteContent.bannerHours}
-                            defaultValue="Mon-Fri 8am - 6pm"
-                            isEditMode={isEditMode}
-                            onSave={updateSiteContent}
-                            className="opacity-60 hidden sm:block"
-                        />
-                    </>
-                ) : (
-                    <EditableText
-                        as="span"
-                        contentKey="headerBannerText"
-                        content={siteContent.headerBannerText}
-                        defaultValue="🎉 Special offer — Limited time only!"
-                        isEditMode={isEditMode}
-                        onSave={updateSiteContent}
-                        className="text-center"
-                    />
-                )}
+            <div className={`${containerClass} mx-auto px-4 grid grid-cols-3 items-center gap-x-4 gap-y-1`}>
+                {BANNER_SLOTS.map((slot) => {
+                    const items = bannerItems.filter((it) => it.slot === slot);
+                    return (
+                        <div key={slot} className={`flex flex-wrap items-center gap-x-4 gap-y-1 ${slotJustify[slot]}`}>
+                            {items.map(renderBannerItem)}
+                            {isEditMode && items.length === 0 && (
+                                <span className="text-[10px] uppercase tracking-wide opacity-30">{slot}</span>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
         </div>
     ) : null;
