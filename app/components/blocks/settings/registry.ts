@@ -449,6 +449,25 @@ export const carouselSettingsSchema: BlockSettingsSchema = {
             controls: [
                 ...getColorControls('carousel'),
                 {
+                    id: 'background-gradient',
+                    kind: 'gradient',
+                    field: 'backgroundGradient',
+                    label: 'Background gradient',
+                    description: 'Overrides the section background with a gradient.',
+                    defaultValue: null,
+                    fromFallback: '#f3f4f6',
+                    toFallback: '#1f2937',
+                },
+                {
+                    id: 'icon-color',
+                    kind: 'color',
+                    field: 'iconColor',
+                    label: 'Icon color',
+                    defaultValue: '',
+                    fallback: '#dc2626',
+                    placeholder: 'palette:secondary',
+                },
+                {
                     id: 'label',
                     kind: 'pretext',
                     labelName: 'label',

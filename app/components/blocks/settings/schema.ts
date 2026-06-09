@@ -103,6 +103,12 @@ export type ColorSettingsControl = FieldSettingsControl & {
     placeholder?: string;
 };
 
+export type GradientSettingsControl = FieldSettingsControl & {
+    kind: 'gradient';
+    fromFallback?: string;
+    toFallback?: string;
+};
+
 export type LayoutSettingsControl = BaseSettingsControl & {
     kind: 'layout';
 };
@@ -166,6 +172,7 @@ export type SettingsControl =
     | NumberSettingsControl
     | TextSettingsControl
     | ColorSettingsControl
+    | GradientSettingsControl
     | LayoutSettingsControl
     | ResponsiveColumnsSettingsControl
     | PretextSettingsControl

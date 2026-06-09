@@ -17,7 +17,7 @@ import BlockPretext from '../BlockPretext';
 import EditableImage from '../EditableImage';
 import type { ImageSettings } from '../ImageEditorModal';
 import Reveal from '@/app/components/Reveal';
-import { resolvePaletteColor } from '@/lib/palette-colors';
+import { resolveGradientCss, resolvePaletteColor } from '@/lib/palette-colors';
 import InlineCardControls, { reorderItems } from './InlineCardControls';
 import {
   ICON_STYLE_OPTIONS,
@@ -159,7 +159,9 @@ interface CarouselData {
   spacingDensity?: string;
   textAlign?: string;
   backgroundColor?: string;
+  backgroundGradient?: { from: string; to: string; via?: string; angle: number } | null;
   foregroundColor?: string;
+  iconColor?: string;
   sectionSettings?: {
     layout?: {
       columns?: CarouselColumnSettings;
@@ -320,8 +322,12 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
   const pSecondary = palette.secondary || '#dc2626';
   const pAccent    = palette.accent    || '#f3f4f6';
   const bgColor = resolvePaletteColor(data.backgroundColor, palette, '');
+  const bgGradient = resolveGradientCss(data.backgroundGradient, palette);
   const fgOverride = resolvePaletteColor(data.foregroundColor, palette);
   const textColor = fgOverride || pPrimary;
+  const iconColor = resolvePaletteColor(data.iconColor, palette, '') || pSecondary;
+  const sectionBgStyle = (fallback: string): React.CSSProperties =>
+    bgGradient ? { background: bgGradient } : { backgroundColor: bgColor || fallback };
 
   const variant    = data.variant  || 'cards';
   const items: SlideItem[] = Array.isArray(data.items) && data.items.length ? data.items : DEFAULT_ITEMS;
@@ -533,15 +539,15 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
       lg: { c: 'w-24 h-24', i: 'w-12 h-12' },
     }[size];
     const iconShellClass = getCarouselIconShellClass(iconStyle, s.c);
-    const iconShellStyle = getCarouselIconShellStyle(iconStyle, pSecondary);
+    const iconShellStyle = getCarouselIconShellStyle(iconStyle, iconColor);
     return (
       <div className="relative group/icon inline-block">
         <div className={iconShellClass} style={iconShellStyle}>
-          <Icon className={s.i} style={{ color: pSecondary }} />
+          <Icon className={s.i} style={{ color: iconColor }} />
           {iconStyle === 'numbered' && (
             <span
               className="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full text-[11px] font-black text-white shadow-sm"
-              style={{ backgroundColor: pSecondary }}
+              style={{ backgroundColor: iconColor }}
             >
               {idx + 1}
             </span>
@@ -643,7 +649,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
     );
 
     return (
-      <section className="overflow-hidden py-24" style={{ backgroundColor: bgColor || '#ffffff' }}>
+      <section className="overflow-hidden py-24" style={sectionBgStyle('#ffffff')}>
         <div className="max-w-7xl mx-auto px-4">
 
           {/* Section header */}
@@ -768,7 +774,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
     const slideShellClass = `${cardBaseClass} ${textAlignClass} overflow-hidden transition-[border-color,box-shadow,opacity,transform] h-full`;
     const slideContentClass = 'ks-carousel-slide-enter flex min-h-[420px] flex-col md:flex-row';
     const slideShellStyle: React.CSSProperties = { ...cardInlineStyle, padding: 0, minHeight: '420px' };
-    const slideMediaPanelStyle = getSplitSlideMediaPanelStyle(mediaSizePercent, pSecondary);
+    const slideMediaPanelStyle = getSplitSlideMediaPanelStyle(mediaSizePercent, iconColor);
     const slideMediaPanelClass = 'flex items-center justify-center overflow-hidden md:shrink-0 md:basis-[var(--ks-carousel-slide-media-width)]';
     const slideMediaWrapClass = isFullBleedMediaCard
       ? 'h-full w-full'
@@ -784,7 +790,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
     const idx = current;
 
     return (
-      <section className="py-24" style={{ backgroundColor: bgColor || pAccent }}>
+      <section className="py-24" style={sectionBgStyle(pAccent)}>
         <div className="max-w-7xl mx-auto px-4">
 
           {(data.title || isEditMode) && (
@@ -884,7 +890,7 @@ export default function CarouselBlock({ id, data, isEditMode, palette, updateCon
   const minimalIdx = current;
 
   return (
-    <section className="py-24" style={{ backgroundColor: bgColor || '#ffffff' }}>
+    <section className="py-24" style={sectionBgStyle('#ffffff')}>
       <div className={`max-w-2xl mx-auto px-4 ${textAlignClass}`}>
 
         {(data.title || data.subtitle || isEditMode) && (
