@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { requireOpsAccess } from '@/lib/ops/access';
-import { isLeadSource, isLeadStatus } from '@/lib/ops/leads';
+import { isLeadIndustry, isLeadSource, isLeadStatus } from '@/lib/ops/leads';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -55,6 +55,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
   }
 
+  // Industry is optional; empty string / absent → null.
+  const industry =
+    typeof fields.industry === 'string' && fields.industry.trim() ? fields.industry.trim() : null;
+  if (industry !== null && !isLeadIndustry(industry)) {
+    return NextResponse.json({ error: 'Invalid industry' }, { status: 400 });
+  }
+
   const email =
     typeof fields.email === 'string' && fields.email.trim()
       ? fields.email.trim().toLowerCase()
@@ -103,6 +110,7 @@ export async function POST(request: NextRequest) {
     phone: trimOrNull(fields.phone),
     website: trimOrNull(fields.website),
     business_type: trimOrNull(fields.business_type),
+    industry,
     address: trimOrNull(fields.address),
     city: trimOrNull(fields.city),
     source,

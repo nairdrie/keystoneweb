@@ -9,12 +9,15 @@ import {
   CONTACT_EVENT_KIND_LABELS,
   CONTACT_EVENT_KINDS,
   CONTACT_EVENT_OUTCOMES,
+  LEAD_INDUSTRIES,
+  LEAD_INDUSTRY_LABELS,
   LEAD_SOURCES,
   LEAD_SOURCE_LABELS,
   LEAD_STATUSES,
   LEAD_STATUS_STYLES,
   formatLabel,
   type ContactEventKind,
+  type LeadIndustry,
   type LeadSource,
   type LeadStatus,
 } from '@/lib/ops/leads';
@@ -32,6 +35,7 @@ type Lead = {
   has_existing_website: boolean | null;
   business_type: string | null;
   business_subcategory: string | null;
+  industry: LeadIndustry | null;
   address: string | null;
   city: string | null;
   region: string | null;
@@ -341,6 +345,21 @@ export default function LeadDetailPage() {
               value={lead.business_subcategory}
               onSave={(v) => update({ business_subcategory: v })}
             />
+            <Field label="Industry">
+              <select
+                value={lead.industry ?? ''}
+                onChange={(e) => update({ industry: e.target.value || null })}
+                disabled={saving}
+                className={INPUT}
+              >
+                <option value="">— unset —</option>
+                {LEAD_INDUSTRIES.map((i) => (
+                  <option key={i} value={i}>
+                    {LEAD_INDUSTRY_LABELS[i]}
+                  </option>
+                ))}
+              </select>
+            </Field>
             <Field label="Existing site">
               <select
                 value={lead.has_existing_website === null ? '' : String(lead.has_existing_website)}
@@ -745,6 +764,7 @@ Lead:
 - Website: ${blankable(lead.website)}
 - Existing website: ${formatExistingWebsite(lead)}
 - Business type: ${blankable(lead.business_type)}
+- Industry: ${lead.industry ? LEAD_INDUSTRY_LABELS[lead.industry] ?? formatLabel(lead.industry) : ''}
 - Subcategory: ${blankable(lead.business_subcategory)}
 - City / region: ${joinParts([lead.city, lead.region], ' / ')}
 - Address: ${joinParts([lead.address, lead.postal_code, lead.country], ', ')}

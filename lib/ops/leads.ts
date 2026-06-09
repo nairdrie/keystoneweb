@@ -16,6 +16,36 @@ export const LEAD_STATUSES = [
 ] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
+// Industry / vertical the lead operates in. Used for tagging + filtering the
+// pipeline. Kept as an app-level list (no DB CHECK constraint) so we can add
+// verticals without a migration. 'other' is the catch-all.
+export const LEAD_INDUSTRIES = [
+  'automotive',
+  'landscaping',
+  'accounting',
+  'handyman',
+  'roofing',
+  'real_estate',
+  'dental',
+  'spa',
+  'plumbing',
+  'electrical',
+  'hvac',
+  'cleaning',
+  'salon',
+  'fitness',
+  'restaurant',
+  'legal',
+  'medical',
+  'construction',
+  'painting',
+  'pest_control',
+  'photography',
+  'retail',
+  'other',
+] as const;
+export type LeadIndustry = (typeof LEAD_INDUSTRIES)[number];
+
 export const LEAD_SOURCES = [
   'cold_call',
   'cold_email',
@@ -71,6 +101,32 @@ export const LEAD_STATUS_STYLES: Record<LeadStatus, string> = {
   do_not_contact: 'text-red-400 bg-red-400/10 border-red-400/30',
 };
 
+export const LEAD_INDUSTRY_LABELS: Record<LeadIndustry, string> = {
+  automotive: 'Automotive',
+  landscaping: 'Landscaping',
+  accounting: 'Accounting',
+  handyman: 'Handyman',
+  roofing: 'Roofer',
+  real_estate: 'Real Estate',
+  dental: 'Dental',
+  spa: 'Spa',
+  plumbing: 'Plumbing',
+  electrical: 'Electrical',
+  hvac: 'HVAC',
+  cleaning: 'Cleaning',
+  salon: 'Salon / Barber',
+  fitness: 'Fitness / Gym',
+  restaurant: 'Restaurant / Food',
+  legal: 'Legal',
+  medical: 'Medical / Health',
+  construction: 'Construction',
+  painting: 'Painting',
+  pest_control: 'Pest Control',
+  photography: 'Photography',
+  retail: 'Retail',
+  other: 'Other',
+};
+
 export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
   cold_call: 'Cold call',
   cold_email: 'Cold email',
@@ -110,6 +166,10 @@ export function isLeadSource(value: unknown): value is LeadSource {
   return typeof value === 'string' && (LEAD_SOURCES as readonly string[]).includes(value);
 }
 
+export function isLeadIndustry(value: unknown): value is LeadIndustry {
+  return typeof value === 'string' && (LEAD_INDUSTRIES as readonly string[]).includes(value);
+}
+
 export function isContactEventKind(value: unknown): value is ContactEventKind {
   return typeof value === 'string' && (CONTACT_EVENT_KINDS as readonly string[]).includes(value);
 }
@@ -125,6 +185,7 @@ export const LEAD_UPDATABLE_FIELDS = [
   'has_existing_website',
   'business_type',
   'business_subcategory',
+  'industry',
   'address',
   'city',
   'region',

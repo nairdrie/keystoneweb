@@ -4,7 +4,14 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { Sparkles, Upload, X } from 'lucide-react';
-import { LEAD_SOURCES, LEAD_SOURCE_LABELS, type LeadSource } from '@/lib/ops/leads';
+import {
+  LEAD_INDUSTRIES,
+  LEAD_INDUSTRY_LABELS,
+  LEAD_SOURCES,
+  LEAD_SOURCE_LABELS,
+  type LeadIndustry,
+  type LeadSource,
+} from '@/lib/ops/leads';
 
 const INPUT_CLASSES =
   'w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-500';
@@ -27,6 +34,7 @@ export default function NewLeadButton({ opsBasePath = '' }: { opsBasePath?: stri
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [businessType, setBusinessType] = useState('');
+  const [industry, setIndustry] = useState<LeadIndustry | ''>('');
   const [notes, setNotes] = useState('');
   const [source, setSource] = useState<LeadSource>('cold_call');
   const [sourceDetail, setSourceDetail] = useState('');
@@ -43,6 +51,7 @@ export default function NewLeadButton({ opsBasePath = '' }: { opsBasePath?: stri
     setAddress('');
     setCity('');
     setBusinessType('');
+    setIndustry('');
     setNotes('');
     setSource('cold_call');
     setSourceDetail('');
@@ -146,6 +155,7 @@ export default function NewLeadButton({ opsBasePath = '' }: { opsBasePath?: stri
         fd.append('address', address.trim());
         fd.append('city', city.trim());
         fd.append('business_type', businessType.trim());
+        if (industry) fd.append('industry', industry);
         fd.append('notes', notes.trim());
         fd.append('source', source);
         fd.append('source_detail', sourceDetail.trim());
@@ -163,6 +173,7 @@ export default function NewLeadButton({ opsBasePath = '' }: { opsBasePath?: stri
             address: address.trim() || null,
             city: city.trim() || null,
             business_type: businessType.trim() || null,
+            industry: industry || null,
             notes: notes.trim() || null,
             source,
             source_detail: sourceDetail.trim() || null,
@@ -334,6 +345,21 @@ export default function NewLeadButton({ opsBasePath = '' }: { opsBasePath?: stri
                     />
                   </Field>
                 </div>
+
+                <Field label="Industry">
+                  <select
+                    value={industry}
+                    onChange={(e) => setIndustry(e.target.value as LeadIndustry | '')}
+                    className={INPUT_CLASSES}
+                  >
+                    <option value="">— select industry —</option>
+                    {LEAD_INDUSTRIES.map((i) => (
+                      <option key={i} value={i}>
+                        {LEAD_INDUSTRY_LABELS[i]}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
 
                 <div className="grid grid-cols-[2fr_1fr] gap-3">
                   <Field label="Address">

@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/db/supabase-admin';
 import { requireOpsAccess } from '@/lib/ops/access';
 import {
   LEAD_UPDATABLE_FIELDS,
+  isLeadIndustry,
   isLeadSource,
   isLeadStatus,
 } from '@/lib/ops/leads';
@@ -216,6 +217,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
   if (typeof update.source === 'string' && !isLeadSource(update.source)) {
     return NextResponse.json({ error: 'Invalid source' }, { status: 400 });
+  }
+  if (typeof update.industry === 'string' && !isLeadIndustry(update.industry)) {
+    return NextResponse.json({ error: 'Invalid industry' }, { status: 400 });
   }
   if (typeof update.email === 'string') {
     update.email = update.email.toLowerCase().trim() || null;
