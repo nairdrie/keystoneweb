@@ -37,6 +37,7 @@ import {
     type CardMediaLayoutSettingsControl,
     type CardStyleSettingsControl,
     type ColorSettingsControl,
+    type GradientSettingsControl,
     type CustomSettingsRenderers,
     type MediaStyleSettingsControl,
     type NumberSettingsControl,
@@ -188,6 +189,8 @@ function SettingsControlRenderer({
             return <TextControl control={control} draft={draft} updateDraft={updateDraft} />;
         case 'color':
             return <ColorControl control={control} draft={draft} updateDraft={updateDraft} palette={props.palette} />;
+        case 'gradient':
+            return <GradientControl control={control} draft={draft} updateDraft={updateDraft} palette={props.palette} />;
         case 'layout':
             return (
                 <LayoutTab
@@ -547,6 +550,116 @@ function ColorControl({
                     Reset
                 </button>
             </div>
+        </div>
+    );
+}
+
+type GradientDraftValue = { from: string; to: string; via?: string; angle: number };
+
+function readGradientValue(value: SettingsValue): GradientDraftValue | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    const record = value as Record<string, SettingsValue>;
+    return {
+        from: typeof record.from === 'string' ? record.from : 'palette:accent',
+        to: typeof record.to === 'string' ? record.to : 'palette:primary',
+        via: typeof record.via === 'string' ? record.via : undefined,
+        angle: typeof record.angle === 'number' ? record.angle : 135,
+    };
+}
+
+function GradientControl({
+    control,
+    draft,
+    updateDraft,
+    palette,
+}: {
+    control: GradientSettingsControl;
+    draft: Record<string, SettingsValue>;
+    updateDraft: (field: string, value: SettingsValue) => void;
+    palette: Record<string, string>;
+}) {
+    const grad = readGradientValue(draft[control.field]);
+    const enabled = Boolean(grad);
+    const current: GradientDraftValue = grad || { from: 'palette:accent', to: 'palette:primary', angle: 135 };
+    const fromInput = getColorInputValue(current.from, palette, control.fromFallback || '#1f2937');
+    const toInput = getColorInputValue(current.to, palette, control.toFallback || '#ef4444');
+    const viaInput = current.via ? getColorInputValue(current.via, palette, '#ffffff') : '';
+    const update = (patch: Partial<GradientDraftValue>) =>
+        updateDraft(control.field, { ...current, ...patch } as Record<string, SettingsValue>);
+
+    return (
+        <div>
+            <InspectorToggle
+                label={control.label || 'Background gradient'}
+                description={control.description}
+                checked={enabled}
+                onChange={() => updateDraft(control.field, enabled ? null : (current as Record<string, SettingsValue>))}
+            />
+            {enabled && (
+                <div className="mt-3 space-y-3">
+                    <div>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">From</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <DeferredColorInput
+                                value={fromInput}
+                                onChange={(next) => update({ from: next })}
+                                className="h-9 w-9 cursor-pointer rounded border border-slate-200 bg-white"
+                            />
+                            <PaletteTokenButtons
+                                selected={getPaletteButtonSelection(current.from)}
+                                palette={palette}
+                                onSelect={(token) => update({ from: token })}
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">To</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <DeferredColorInput
+                                value={toInput}
+                                onChange={(next) => update({ to: next })}
+                                className="h-9 w-9 cursor-pointer rounded border border-slate-200 bg-white"
+                            />
+                            <PaletteTokenButtons
+                                selected={getPaletteButtonSelection(current.to)}
+                                palette={palette}
+                                onSelect={(token) => update({ to: token })}
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Mid stop (optional)</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <DeferredColorInput
+                                value={viaInput || '#ffffff'}
+                                onChange={(next) => update({ via: next })}
+                                className="h-9 w-9 cursor-pointer rounded border border-slate-200 bg-white disabled:opacity-40"
+                                disabled={!current.via}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => update({ via: current.via ? undefined : 'palette:secondary' })}
+                                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50"
+                            >
+                                {current.via ? 'Remove' : 'Add'}
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                            Angle: {current.angle}°
+                        </label>
+                        <input
+                            type="range"
+                            min={0}
+                            max={360}
+                            value={current.angle}
+                            onChange={(event) => update({ angle: parseInt(event.target.value, 10) || 0 })}
+                            className="w-full accent-blue-600"
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

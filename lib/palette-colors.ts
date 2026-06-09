@@ -21,6 +21,24 @@ export function isPaletteColorToken(value: unknown): value is `palette:${string}
   return typeof value === 'string' && value.startsWith(PALETTE_TOKEN_PREFIX);
 }
 
+export type GradientConfig = { from: string; to: string; via?: string; angle: number };
+
+export function resolveGradientCss(
+  gradient: unknown,
+  palette: PaletteColors,
+  fallbackFrom = '#1f2937',
+  fallbackTo = '#ef4444',
+): string {
+  if (!gradient || typeof gradient !== 'object' || Array.isArray(gradient)) return '';
+  const grad = gradient as Partial<GradientConfig>;
+  const from = resolvePaletteColor(grad.from, palette, fallbackFrom);
+  const to = resolvePaletteColor(grad.to, palette, fallbackTo);
+  const via = grad.via ? resolvePaletteColor(grad.via, palette, '#ffffff') : null;
+  const stops = via ? `${from}, ${via}, ${to}` : `${from}, ${to}`;
+  const angle = Number.isFinite(grad.angle) ? Number(grad.angle) : 135;
+  return `linear-gradient(${angle}deg, ${stops})`;
+}
+
 export function readableTextColorForBackground(
   backgroundColor: string,
   preferredTextColor = '#111827',
