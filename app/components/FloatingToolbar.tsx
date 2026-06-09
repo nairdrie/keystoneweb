@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, BookOpen, Eye, EyeOff, Image as ImageIcon, Tablet, Smartphone, Monitor, Layout, LayoutTemplate, Loader2, Rocket } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Plus, RotateCcw, RotateCw, Pencil, Sparkles, Settings, Trash2, Share2, Copy, Check as CheckIcon, History, Paintbrush, LayoutDashboard, X, HelpCircle, BookOpen, Eye, EyeOff, Image as ImageIcon, Tablet, Smartphone, Monitor, Layout, LayoutTemplate, Loader2, Rocket } from 'lucide-react';
 import { useAuth } from '@/lib/auth/context';
 import KeystoneLogo from './KeystoneLogo';
 import { Change } from '@/lib/hooks/useChangeTracking';
@@ -309,6 +309,7 @@ export default function FloatingToolbar({
   const [fontPickerState, setFontPickerState] = useState<{ isOpen: boolean, type: 'title' | 'body' }>({ isOpen: false, type: 'title' });
   const aiBuilderSectionRef = useRef<HTMLDivElement>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -799,6 +800,31 @@ export default function FloatingToolbar({
       setAlertConfig({ isOpen: true, title: 'Delete Failed', message: 'An unexpected error occurred.', type: 'error' });
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleDuplicateSite = async () => {
+    if (!currentSiteId) return;
+    setIsDuplicating(true);
+    try {
+      const res = await fetch('/api/sites/duplicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ siteId: currentSiteId }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.siteId) {
+        router.push(`/editor?siteId=${data.siteId}`);
+      } else if (data?.siteLimitReached) {
+        setPublishLimitInfo({ plan: data.plan, limit: data.limit });
+      } else {
+        setAlertConfig({ isOpen: true, title: 'Duplicate Failed', message: data?.error || 'Failed to duplicate site.', type: 'error' });
+      }
+    } catch {
+      setAlertConfig({ isOpen: true, title: 'Duplicate Failed', message: 'An unexpected error occurred.', type: 'error' });
+    } finally {
+      setIsDuplicating(false);
     }
   };
 
@@ -1989,6 +2015,23 @@ export default function FloatingToolbar({
                       </button>
                     </div>
                   )}
+                </div>
+
+                {/* Divider */}
+                <div className="h-px bg-slate-200" />
+
+                {/* Duplicate Site */}
+                <div>
+                  <h3 className="text-[10px] font-bold uppercase text-slate-500 tracking-wide mb-2">Duplicate Site</h3>
+                  <p className="text-xs text-slate-500 mb-3">Create a copy of this site as a new draft, including its pages and content. Domains and published status are not copied.</p>
+                  <button
+                    onClick={handleDuplicateSite}
+                    disabled={isDuplicating}
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {isDuplicating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5" />}
+                    {isDuplicating ? 'Duplicating...' : 'Duplicate Site'}
+                  </button>
                 </div>
 
                 {/* Divider */}
