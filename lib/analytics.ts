@@ -4,6 +4,7 @@ export type AnalyticsEventType =
   | 'user_signup'
   | 'user_signin'
   | 'site_create'
+  | 'site_duplicate'
   | 'site_edit'
   | 'site_publish'
   | 'subscription_upgrade'
