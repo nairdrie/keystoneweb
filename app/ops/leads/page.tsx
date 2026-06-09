@@ -5,10 +5,13 @@ import { createAdminClient } from '@/lib/db/supabase-admin';
 import { parseHost } from '@/lib/env/domain';
 import { requireOpsAccess } from '@/lib/ops/access';
 import {
+  LEAD_INDUSTRIES,
+  LEAD_INDUSTRY_LABELS,
   LEAD_SOURCES,
   LEAD_SOURCE_LABELS,
   LEAD_STATUS_STYLES,
   formatLabel,
+  type LeadIndustry,
   type LeadSource,
   type LeadStatus,
 } from '@/lib/ops/leads';
@@ -36,6 +39,7 @@ type LeadRow = {
   email: string | null;
   phone: string | null;
   website: string | null;
+  industry: LeadIndustry | null;
   source: LeadSource;
   source_detail: string | null;
   status: LeadStatus;
@@ -47,7 +51,7 @@ type LeadRow = {
 export default async function OpsLeadsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; source?: string; q?: string; page?: string }>;
+  searchParams: Promise<{ status?: string; source?: string; industry?: string; q?: string; page?: string }>;
 }) {
   const access = await requireOpsAccess();
   if (!access) redirect('/');
@@ -59,6 +63,7 @@ export default async function OpsLeadsPage({
   const sp = await searchParams;
   const status = sp.status ?? 'all';
   const source = sp.source ?? 'all';
+  const industry = sp.industry ?? 'all';
   const q = sp.q ?? '';
   const page = Math.max(parseInt(sp.page ?? '1', 10) || 1, 1);
   const limit = 50;
@@ -69,7 +74,7 @@ export default async function OpsLeadsPage({
   let query = db
     .from('leads')
     .select(
-      'id, created_at, contact_name, business_name, email, phone, website, source, source_detail, status, assignee_user_id, converted_user_id, onboarding_amount_cents',
+      'id, created_at, contact_name, business_name, email, phone, website, industry, source, source_detail, status, assignee_user_id, converted_user_id, onboarding_amount_cents',
       { count: 'exact' },
     )
     .order('created_at', { ascending: false })
@@ -77,6 +82,7 @@ export default async function OpsLeadsPage({
 
   if (status !== 'all') query = query.eq('status', status);
   if (source !== 'all') query = query.eq('source', source);
+  if (industry !== 'all') query = query.eq('industry', industry);
 
   if (q) {
     const pattern = `%${q}%`;
@@ -139,11 +145,11 @@ export default async function OpsLeadsPage({
 
   function buildUrl(overrides: Record<string, string>) {
     const p = new URLSearchParams();
-    const merged = { status, source, q, page: String(page), ...overrides };
+    const merged = { status, source, industry, q, page: String(page), ...overrides };
     for (const [k, v] of Object.entries(merged)) {
       if (!v) continue;
       if (k === 'page' && v === '1') continue;
-      if ((k === 'status' || k === 'source') && v === 'all') continue;
+      if ((k === 'status' || k === 'source' || k === 'industry') && v === 'all') continue;
       p.set(k, v);
     }
     const qs = p.toString();
@@ -156,7 +162,7 @@ export default async function OpsLeadsPage({
         <div>
           <h1 className="text-2xl font-bold text-white">Leads</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Outbound prospecting pipeline. {count ?? 0} matching{q || status !== 'all' || source !== 'all' ? ` of ${summary.totalLeads} total` : ' total'}.
+            Outbound prospecting pipeline. {count ?? 0} matching{q || status !== 'all' || source !== 'all' || industry !== 'all' ? ` of ${summary.totalLeads} total` : ' total'}.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -197,6 +203,18 @@ export default async function OpsLeadsPage({
           className="flex-1 min-w-[240px] rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-500"
         />
         <select
+          name="industry"
+          defaultValue={industry}
+          className="rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white focus:outline-none focus:border-gray-500"
+        >
+          <option value="all">All industries</option>
+          {LEAD_INDUSTRIES.map((i) => (
+            <option key={i} value={i}>
+              {LEAD_INDUSTRY_LABELS[i]}
+            </option>
+          ))}
+        </select>
+        <select
           name="source"
           defaultValue={source}
           className="rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white focus:outline-none focus:border-gray-500"
@@ -214,9 +232,9 @@ export default async function OpsLeadsPage({
         >
           Search
         </button>
-        {(q || source !== 'all') && (
+        {(q || source !== 'all' || industry !== 'all') && (
           <Link
-            href={buildUrl({ q: '', source: 'all', page: '1' })}
+            href={buildUrl({ q: '', source: 'all', industry: 'all', page: '1' })}
             className="rounded-md bg-gray-800 px-3 py-2 text-sm text-gray-400 hover:text-white transition-colors"
           >
             Clear
@@ -271,6 +289,11 @@ export default async function OpsLeadsPage({
                       {formatLabel(lead.status)}
                     </span>
                     <span className="text-sm font-medium text-white truncate">{headline}</span>
+                    {lead.industry && (
+                      <span className="text-[11px] text-teal-400 bg-teal-400/10 px-1.5 py-0.5 rounded">
+                        {LEAD_INDUSTRY_LABELS[lead.industry] ?? formatLabel(lead.industry)}
+                      </span>
+                    )}
                     <span className="text-[11px] text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded">
                       {LEAD_SOURCE_LABELS[lead.source]}
                     </span>
