@@ -39,8 +39,10 @@ type LaunchRequest = {
   onboarding_status: string | null;
   changes_requested_text: string | null;
   launched_at: string | null;
+  lead_id: string | null;
   assignee?: { id: string; email: string | null; business_name: string | null } | null;
   site?: { id: string; site_slug: string | null } | null;
+  lead?: { id: string; business_name: string | null } | null;
   assignee_options?: Array<{ id: string; email: string; business_name: string | null; is_admin: boolean }>;
 };
 
@@ -172,6 +174,13 @@ export default function LaunchRequestDetailPage() {
             <Field label="Email"><a href={`mailto:${req.email}`} className="text-sky-400 hover:underline">{req.email}</a></Field>
             <Field label="Phone">{req.phone ? <a href={`tel:${req.phone}`} className="text-sky-400 hover:underline">{req.phone}</a> : '—'}</Field>
             <Field label="Business">{req.business_name ?? '—'}</Field>
+            {req.lead && (
+              <Field label="From lead">
+                <Link href={`/leads/${req.lead.id}`} className="text-sky-400 hover:underline">
+                  {req.lead.business_name || 'View lead'}
+                </Link>
+              </Field>
+            )}
           </Card>
 
           <Card title="Project">

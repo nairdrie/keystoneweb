@@ -67,6 +67,16 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     site = s ?? null;
   }
 
+  let lead: { id: string; business_name: string | null } | null = null;
+  if (data.lead_id) {
+    const { data: l } = await db
+      .from('leads')
+      .select('id, business_name')
+      .eq('id', data.lead_id)
+      .single();
+    lead = l ?? null;
+  }
+
   // Assignee options: admins (via is_admin flag) + agents
   const [agentsResult, adminsResult] = await Promise.all([
     db.from('users').select('id, email, business_name, is_agent, is_admin').eq('is_agent', true),
@@ -89,7 +99,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     .sort((a, b) => (a.is_admin === b.is_admin ? a.email.localeCompare(b.email) : a.is_admin ? -1 : 1))
     .map(({ id, email, business_name, is_admin }) => ({ id, email, business_name, is_admin }));
 
-  return NextResponse.json({ ...data, assignee, site, assignee_options });
+  return NextResponse.json({ ...data, assignee, site, lead, assignee_options });
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
