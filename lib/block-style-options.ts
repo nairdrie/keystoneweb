@@ -633,7 +633,7 @@ export function readCardSettings(value: unknown): CardSettings | undefined {
   if (presetId) settings.presetId = presetId;
 
   if (hasOwn(source, 'surface')) settings.surface = readCardColorValue(source.surface, CARD_PRESET_RECIPES.soft.surface);
-  if (hasOwn(source, 'surfaceOpacity')) settings.surfaceOpacity = clampNumber(source.surfaceOpacity, CARD_PRESET_RECIPES.soft.surfaceOpacity, 0.1, 1);
+  if (hasOwn(source, 'surfaceOpacity')) settings.surfaceOpacity = clampNumber(source.surfaceOpacity, CARD_PRESET_RECIPES.soft.surfaceOpacity, 0, 1);
   if (hasOwn(source, 'gradientFrom')) settings.gradientFrom = readCardColorValue(source.gradientFrom, CARD_PRESET_RECIPES.soft.gradientFrom);
   if (hasOwn(source, 'gradientTo')) settings.gradientTo = readCardColorValue(source.gradientTo, CARD_PRESET_RECIPES.soft.gradientTo);
   if (hasOwn(source, 'gradientVia')) settings.gradientVia = readOptionalCardColorValue(source.gradientVia);
@@ -813,7 +813,7 @@ export function resolveUniversalCardSettings(
     basePresetId,
     isCustom: storedSettings.presetId === 'custom',
     surface: readCardColorValue(settings.surface, recipe.surface),
-    surfaceOpacity: clampNumber(settings.surfaceOpacity, recipe.surfaceOpacity, 0.1, 1),
+    surfaceOpacity: clampNumber(settings.surfaceOpacity, recipe.surfaceOpacity, 0, 1),
     gradientFrom: readCardColorValue(settings.gradientFrom, recipe.gradientFrom),
     gradientTo: readCardColorValue(settings.gradientTo, recipe.gradientTo),
     gradientVia: typeof settings.gradientVia === 'string' ? readOptionalCardColorValue(settings.gradientVia) : recipe.gradientVia,
@@ -945,7 +945,7 @@ export function getUniversalCardClassName(settings: ResolvedCardSettings): strin
   const base = settings.cornerEffect === 'clipped'
     ? 'overflow-hidden bg-white'
     : 'bg-white';
-  return `${base}${settings.surfaceOpacity < 1 ? ' backdrop-blur' : ''}`;
+  return `${base}${settings.surfaceOpacity > 0 && settings.surfaceOpacity < 1 ? ' backdrop-blur' : ''}`;
 }
 
 export function getUniversalCardPaddingClass(settings: ResolvedCardSettings): string {
@@ -991,7 +991,7 @@ export function getUniversalCardInlineStyle(settings: ResolvedCardSettings, pale
     }, palette, settings.surfaceOpacity);
   }
 
-  if (settings.surfaceOpacity < 1) {
+  if (settings.surfaceOpacity > 0 && settings.surfaceOpacity < 1) {
     inline.backdropFilter = 'blur(8px)';
   }
 
