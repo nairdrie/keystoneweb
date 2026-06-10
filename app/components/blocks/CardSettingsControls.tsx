@@ -154,7 +154,7 @@ export function CardSettingsControls({
 
       <div className="grid grid-cols-1 gap-4">
         <CardColorControl label="Surface color" value={settings.surface} fallback={CARD_PRESET_RECIPES[presetId].surface} palette={palette} allowGradient onChange={(next) => update('surface', next)} />
-        <RangeControl label="Surface opacity" value={settings.surfaceOpacity} min={0.1} max={1} step={0.05} format={(next) => `${Math.round(next * 100)}%`} onChange={(next) => update('surfaceOpacity', next)} />
+        <RangeControl label="Surface opacity" value={settings.surfaceOpacity} min={0} max={1} step={0.05} format={(next) => `${Math.round(next * 100)}%`} onChange={(next) => update('surfaceOpacity', next)} />
         {settings.surface === 'gradient' && (
           <CardGradientControls
             settings={settings}
