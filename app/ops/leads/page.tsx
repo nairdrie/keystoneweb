@@ -25,6 +25,7 @@ const STATUS_TABS: Array<{ label: string; value: 'all' | LeadStatus }> = [
   { label: 'Qualified', value: 'qualified' },
   { label: 'Proposal sent', value: 'proposal_sent' },
   { label: 'Negotiating', value: 'negotiating' },
+  { label: 'Building', value: 'building' },
   { label: 'Converted', value: 'converted' },
   { label: 'Lost', value: 'lost' },
   { label: 'Unresponsive', value: 'unresponsive' },

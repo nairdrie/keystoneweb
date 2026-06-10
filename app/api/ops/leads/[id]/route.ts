@@ -43,6 +43,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     emailMatchResult,
     prospectAuditResult,
     assigneeOptions,
+    templateSitesResult,
+    launchRequestResult,
   ] = await Promise.all([
     userIdsToFetch.size > 0
       ? db
@@ -92,6 +94,21 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       .limit(1)
       .maybeSingle(),
     fetchAssigneeOptions(db),
+    // The operator's own sites, offered as templates to build from.
+    db
+      .from('sites')
+      .select('id, site_slug, business_type, is_published')
+      .eq('user_id', access.userId)
+      .is('deleted_at', null)
+      .order('updated_at', { ascending: false }),
+    // The launch service request opened from this lead, if any.
+    db
+      .from('launch_requests')
+      .select('id, status, site_id, created_at')
+      .eq('lead_id', id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   const usersById = new Map<string, { id: string; email: string | null; business_name: string | null }>();
@@ -190,6 +207,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     contact_events,
     messages,
     assignee_options: assigneeOptions,
+    template_sites: templateSitesResult.data ?? [],
+    launch_request: launchRequestResult.data ?? null,
   });
 }
 

@@ -117,10 +117,37 @@ type Lead = {
       }
   >;
   assignee_options: Array<{ id: string; email: string; business_name: string | null; is_admin: boolean }>;
+  template_sites: Array<{
+    id: string;
+    site_slug: string | null;
+    business_type: string | null;
+    is_published: boolean | null;
+  }>;
+  launch_request: {
+    id: string;
+    status: string;
+    site_id: string | null;
+    created_at: string;
+  } | null;
 };
 
 const INPUT =
   'w-full rounded-md border border-gray-700 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-500';
+
+// Mirrors the launch pipeline status colors in app/ops/launch/[id]/page.tsx.
+const LAUNCH_STATUS_STYLES: Record<string, string> = {
+  new: 'text-amber-400 bg-amber-400/10 border-amber-400/30',
+  contacted: 'text-sky-400 bg-sky-400/10 border-sky-400/30',
+  scheduled: 'text-sky-400 bg-sky-400/10 border-sky-400/30',
+  building: 'text-violet-400 bg-violet-400/10 border-violet-400/30',
+  preview_sent: 'text-violet-400 bg-violet-400/10 border-violet-400/30',
+  approved: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30',
+  paid: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30',
+  launched: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30',
+  post_launch: 'text-gray-300 bg-gray-800 border-gray-700',
+  closed_won: 'text-gray-500 bg-gray-800 border-gray-700',
+  closed_lost: 'text-gray-500 bg-gray-800 border-gray-700',
+};
 
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -138,6 +165,8 @@ export default function LeadDetailPage() {
   const [lostReasonDraft, setLostReasonDraft] = useState('');
   const [onboardingDollars, setOnboardingDollars] = useState('');
   const [manualUserId, setManualUserId] = useState('');
+  const [templateSiteId, setTemplateSiteId] = useState('');
+  const [building, setBuilding] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -222,6 +251,29 @@ export default function LeadDetailPage() {
     } catch {
       setCopyStatus('error');
       window.setTimeout(() => setCopyStatus('idle'), 3500);
+    }
+  }
+
+  async function buildFromTemplate() {
+    if (!lead || !templateSiteId) return;
+    setBuilding(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/ops/leads/${lead.id}/build-from-template`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteId: templateSiteId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? 'Build failed');
+      setTemplateSiteId('');
+      // Refetch so the lead moves to "building" and the linked launch request
+      // (with the new site) shows up in place of the build form.
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Build failed');
+    } finally {
+      setBuilding(false);
     }
   }
 
@@ -431,6 +483,89 @@ export default function LeadDetailPage() {
 
         {/* Right column — pipeline */}
         <div className="space-y-4">
+          {lead.launch_request ? (
+            <Card title="Launch service request">
+              <p className="text-xs leading-5 text-gray-500">
+                This lead is in the launch pipeline.
+              </p>
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
+                <span
+                  className={`rounded border px-2 py-0.5 text-[11px] font-medium ${
+                    LAUNCH_STATUS_STYLES[lead.launch_request.status] ?? LAUNCH_STATUS_STYLES.new
+                  }`}
+                >
+                  {formatLabel(lead.launch_request.status)}
+                </span>
+                <span className="text-[11px] text-gray-500">
+                  opened {new Date(lead.launch_request.created_at).toLocaleDateString('en-CA')}
+                </span>
+              </div>
+              {lead.launch_request.site_id && (
+                <a
+                  href={`https://keystoneweb.ca/preview?siteId=${lead.launch_request.site_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 block text-xs text-sky-400 hover:underline break-all"
+                >
+                  Preview site in progress
+                </a>
+              )}
+              <Link
+                href={`${opsBasePath}/launch/${lead.launch_request.id}`}
+                className="mt-3 block w-full rounded-md bg-violet-600 hover:bg-violet-500 px-3 py-2 text-center text-xs font-medium text-white transition-colors"
+              >
+                View launch request
+              </Link>
+            </Card>
+          ) : (
+            <Card title="Build from template">
+              <p className="text-xs leading-5 text-gray-500">
+                Duplicate one of your sites as a starting point. The copy is renamed to the
+                lead&apos;s business name (in the site header/footer and slug) and added to the
+                launch pipeline.
+              </p>
+              <select
+                value={templateSiteId}
+                onChange={(e) => setTemplateSiteId(e.target.value)}
+                disabled={building}
+                className={`${INPUT} mt-2`}
+              >
+                <option value="">— choose a site —</option>
+                {lead.template_sites.map((s) => {
+                  const label = [
+                    s.site_slug || '(untitled)',
+                    s.business_type ? `· ${s.business_type}` : '',
+                    s.is_published ? '· published' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ');
+                  return (
+                    <option key={s.id} value={s.id}>
+                      {label}
+                    </option>
+                  );
+                })}
+              </select>
+              {lead.template_sites.length === 0 && (
+                <p className="mt-2 text-[11px] text-gray-600">
+                  You have no sites to use as a template yet.
+                </p>
+              )}
+              {!lead.business_name && (
+                <p className="mt-2 text-[11px] text-amber-400">
+                  Add a business name above before building.
+                </p>
+              )}
+              <button
+                onClick={buildFromTemplate}
+                disabled={building || !templateSiteId || !lead.business_name}
+                className="mt-2 w-full rounded-md bg-violet-600 hover:bg-violet-500 disabled:opacity-50 px-3 py-2 text-xs font-medium text-white transition-colors"
+              >
+                {building ? 'Building…' : 'Build from template'}
+              </button>
+            </Card>
+          )}
+
           <Card title="Advanced AI build">
             <p className="text-xs leading-5 text-gray-500">
               Copy a lead-to-site prompt for the internal advanced AI model workflow.
