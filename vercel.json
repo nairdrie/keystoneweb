@@ -34,6 +34,10 @@
     {
       "path": "/api/cron/leads/audit",
       "schedule": "30 14 * * 1-5"
+    },
+    {
+      "path": "/api/cron/leads/autopilot",
+      "schedule": "0 14,16,18,20 * * 1-5"
     }
   ]
 }
