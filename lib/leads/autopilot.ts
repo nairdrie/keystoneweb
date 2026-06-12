@@ -19,6 +19,7 @@
 
 import { createAdminClient } from '@/lib/db/supabase-admin';
 import { resend } from '@/lib/email/resend';
+import { buildSignatureHtml, buildSignatureText, nameFromEmail } from '@/lib/email/signature';
 import { getOpsAdminEmailList } from '@/lib/ops/access';
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
@@ -48,6 +49,7 @@ interface AutopilotRow {
   touches_sent: number;
   next_action_at: string | null;
   last_action_at: string | null;
+  enrolled_by_user_id: string | null;
   created_at: string;
 }
 
@@ -61,7 +63,17 @@ interface LeadRow {
   industry: string | null;
   business_type: string | null;
   status: string;
+  assignee_user_id: string | null;
   notes: string | null;
+}
+
+// The rep the outreach is sent as: their @keystoneweb.ca handle and display
+// name (same identity the ops Email tab uses), plus their user id so the
+// send is logged to their inbox.
+interface AutopilotSender {
+  fromEmail: string;
+  senderName: string;
+  userId: string | null;
 }
 
 interface Decision {
@@ -126,7 +138,7 @@ export async function runAutopilotTick(db: SupabaseAdmin, options: { limit?: num
 async function processEnrollment(db: SupabaseAdmin, enrollment: AutopilotRow, result: AutopilotTickResult) {
   const { data: lead } = await db
     .from('leads')
-    .select('id, business_name, contact_name, email, phone, city, industry, business_type, status, notes')
+    .select('id, business_name, contact_name, email, phone, city, industry, business_type, status, assignee_user_id, notes')
     .eq('id', enrollment.lead_id)
     .single();
 
@@ -158,7 +170,8 @@ async function processEnrollment(db: SupabaseAdmin, enrollment: AutopilotRow, re
     return;
   }
 
-  const context = await buildDecisionContext(db, enrollment, lead, { canEmail, canSms });
+  const sender = await resolveSender(db, enrollment, lead);
+  const context = await buildDecisionContext(db, enrollment, lead, { canEmail, canSms, sender });
   const decision = await decideNextAction(context);
 
   await db.from('lead_autopilot').update({ last_decision: { action: decision.action, reason: decision.reason } }).eq('id', enrollment.id);
@@ -171,7 +184,7 @@ async function processEnrollment(db: SupabaseAdmin, enrollment: AutopilotRow, re
         result.waited++;
         return;
       }
-      await sendAutopilotEmail(db, enrollment, lead, decision.subject, decision.body);
+      await sendAutopilotEmail(db, enrollment, lead, sender, decision.subject, decision.body);
       await scheduleNext(db, enrollment, Math.max(decision.wait_hours ?? enrollment.min_hours_between_touches, enrollment.min_hours_between_touches), true);
       result.emailsSent++;
       return;
@@ -273,6 +286,44 @@ async function notifyAdminsOfHook(db: SupabaseAdmin, enrollment: AutopilotRow, r
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Sender resolution — outreach goes out as a real rep, not a generic inbox
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Prefer the lead's assignee, then whoever enrolled the lead. A rep qualifies
+// when they have an agent_contact_email (their @keystoneweb.ca handle — the
+// same identity the ops Email tab sends from). Falls back to the configured
+// autopilot address when no rep handle is available.
+async function resolveSender(db: SupabaseAdmin, enrollment: AutopilotRow, lead: LeadRow): Promise<AutopilotSender> {
+  const candidateIds = [lead.assignee_user_id, enrollment.enrolled_by_user_id]
+    .filter((id): id is string => Boolean(id));
+
+  if (candidateIds.length > 0) {
+    const { data: users } = await db
+      .from('users')
+      .select('id, email, agent_contact_email')
+      .in('id', candidateIds);
+
+    for (const candidateId of candidateIds) {
+      const user = (users ?? []).find((u) => u.id === candidateId);
+      const contactEmail = user?.agent_contact_email?.toLowerCase().trim();
+      if (user && contactEmail) {
+        return {
+          fromEmail: contactEmail,
+          senderName: nameFromEmail(user.email ?? contactEmail),
+          userId: user.id,
+        };
+      }
+    }
+  }
+
+  return {
+    fromEmail: AUTOPILOT_FROM_EMAIL,
+    senderName: nameFromEmail(AUTOPILOT_FROM_EMAIL),
+    userId: null,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Decision call
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -281,6 +332,7 @@ interface DecisionContext {
   enrollment: AutopilotRow;
   canEmail: boolean;
   canSms: boolean;
+  sender: AutopilotSender;
   previewUrl: string | null;
   history: string;
   daysSinceEnrollment: number;
@@ -290,7 +342,7 @@ async function buildDecisionContext(
   db: SupabaseAdmin,
   enrollment: AutopilotRow,
   lead: LeadRow,
-  channels: { canEmail: boolean; canSms: boolean },
+  channels: { canEmail: boolean; canSms: boolean; sender: AutopilotSender },
 ): Promise<DecisionContext> {
   const { data: generation } = await db
     .from('lead_site_generations')
@@ -332,6 +384,7 @@ async function buildDecisionContext(
     enrollment,
     canEmail: channels.canEmail,
     canSms: channels.canSms,
+    sender: channels.sender,
     previewUrl,
     history: historyLines.join('\n') || '(no prior outreach logged)',
     daysSinceEnrollment: Math.floor((Date.now() - new Date(enrollment.created_at).getTime()) / 86_400_000),
@@ -359,6 +412,11 @@ OUTREACH STATE:
 
 FULL TOUCH HISTORY (newest first):
 ${context.history}
+
+YOUR IDENTITY:
+- You write as ${context.sender.senderName} (${context.sender.fromEmail}), a real rep at Keystone Web. The email is sent from their address.
+- Write in first person ("I built…", "I noticed…"), in a voice a real person named ${context.sender.senderName} would use.
+- Do NOT add a sign-off, name, or signature at the end of the body — ${context.sender.senderName}'s signature block is appended automatically.
 
 RULES:
 - Always identify as Keystone Web. Never pretend to be a customer or use deceptive subject lines.
@@ -434,25 +492,33 @@ async function decideNextAction(context: DecisionContext): Promise<Decision> {
 // Channel sends
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function sendAutopilotEmail(db: SupabaseAdmin, enrollment: AutopilotRow, lead: LeadRow, subject: string, body: string) {
+async function sendAutopilotEmail(db: SupabaseAdmin, enrollment: AutopilotRow, lead: LeadRow, sender: AutopilotSender, subject: string, body: string) {
   if (!lead.email) throw new Error('Lead has no email');
 
+  // Same format as the manual ops Email tab: rep identity, body, and the
+  // standard Keystone signature block.
   const { data, error } = await resend.emails.send({
-    from: `Keystone Web <${AUTOPILOT_FROM_EMAIL}>`,
+    from: `${sender.senderName} <${sender.fromEmail}>`,
     to: [lead.email],
     subject,
-    replyTo: AUTOPILOT_FROM_EMAIL,
-    html: `<div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f2937;">${escapeHtml(body).replace(/\n/g, '<br/>')}</div>`,
-    text: body,
+    replyTo: sender.fromEmail,
+    html: `
+      <div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #1f2937;">
+        <div style="margin: 0 0 24px 0;">${escapeHtml(body).replace(/\n/g, '<br/>')}</div>
+        ${buildSignatureHtml({ senderName: sender.senderName, fromEmail: sender.fromEmail })}
+      </div>
+    `,
+    text: `${body}\n\n${buildSignatureText({ senderName: sender.senderName, fromEmail: sender.fromEmail })}`,
   });
   if (error) throw new Error(`Resend: ${error.message}`);
 
-  // Mirror the manual ops email flow so replies and timelines stay in sync.
+  // Mirror the manual ops email flow so replies and timelines stay in sync,
+  // attributed to the rep so the thread shows up in their ops inbox.
   const { data: sentRow } = await db
     .from('ops_sent_emails')
     .insert({
-      sent_by_user_id: null,
-      from_email: AUTOPILOT_FROM_EMAIL,
+      sent_by_user_id: sender.userId,
+      from_email: sender.fromEmail,
       to_email: lead.email.toLowerCase(),
       subject,
       resend_id: data?.id ?? null,
@@ -465,10 +531,11 @@ async function sendAutopilotEmail(db: SupabaseAdmin, enrollment: AutopilotRow, l
     kind: 'email_sent',
     occurred_at: new Date().toISOString(),
     notes: `[autopilot] ${subject}`,
+    created_by_user_id: sender.userId,
     ops_sent_email_id: sentRow?.id ?? null,
   });
 
-  await logEvent(db, enrollment, 'email_sent', subject, { subject, body });
+  await logEvent(db, enrollment, 'email_sent', subject, { subject, body, from: sender.fromEmail });
 }
 
 function twilioConfigured(): boolean {
